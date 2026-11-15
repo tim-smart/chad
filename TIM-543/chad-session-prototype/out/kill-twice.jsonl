@@ -1,0 +1,30 @@
+{"t":1794653130136,"pid":3464693,"ev":"scenario.start","name":"kill-twice","phase":"1","variant":""}
+{"t":1794653130138,"pid":3464693,"ev":"user.posted","text":"sleep:20000 first","key":"message/test:c1/m2"}
+{"t":1794653130150,"pid":3464693,"ev":"gateway.saved","key":"message/test:c1/m2","ms":11}
+{"t":1794653130252,"pid":3464693,"ev":"session.activated","thread":"c1","session":"9553689a-5f29-412e-b659-dedd3b463b6a","activation":1}
+{"t":1794653130255,"pid":3464693,"ev":"message.delivered","key":"message/test:c1/m2","ms":116,"text":"sleep:20000 first"}
+{"t":1794653130278,"pid":3464693,"ev":"turn.start","key":"message/test:c1/m2","turn":"15511611-41b9-412c-9b3e-f968b61c5b09","starts":1,"cuts":0,"kills":0,"resumed":false}
+{"t":1794653130278,"pid":3464693,"ev":"hook.beforeTurn","plugin":"probe","turn":"15511611-41b9-412c-9b3e-f968b61c5b09","origin":{"_tag":"Message","text":"sleep:20000 first","userId":"owner-1"},"resumed":false,"prompt":"sleep:20000 first"}
+{"t":1794653130280,"pid":3464693,"ev":"status.posted","id":"m4"}
+{"t":1794653130826,"pid":3464693,"ev":"process.exit","code":null,"signal":"SIGKILL"}
+{"t":1794653131765,"pid":3464911,"ev":"scenario.start","name":"kill-twice","phase":"2","variant":""}
+{"t":1794653131826,"pid":3464911,"ev":"session.activated","thread":"c1","session":"9553689a-5f29-412e-b659-dedd3b463b6a","activation":1}
+{"t":1794653131828,"pid":3464911,"ev":"message.delivered","key":"message/test:c1/m2","ms":1689,"text":"sleep:20000 first"}
+{"t":1794653131835,"pid":3464911,"ev":"turn.start","key":"message/test:c1/m2","turn":"15511611-41b9-412c-9b3e-f968b61c5b09","starts":2,"cuts":0,"kills":1,"resumed":true}
+{"t":1794653131835,"pid":3464911,"ev":"hook.beforeTurn","plugin":"probe","turn":"15511611-41b9-412c-9b3e-f968b61c5b09","origin":{"_tag":"Message","text":"sleep:20000 first","userId":"owner-1"},"resumed":true,"prompt":"[chad restarted while this turn was runn"}
+{"t":1794653131836,"pid":3464911,"ev":"status.posted","id":"m2"}
+{"t":1794653132395,"pid":3464911,"ev":"process.exit","code":null,"signal":"SIGKILL"}
+{"t":1794653133330,"pid":3465125,"ev":"scenario.start","name":"kill-twice","phase":"3","variant":""}
+{"t":1794653133409,"pid":3465125,"ev":"session.activated","thread":"c1","session":"9553689a-5f29-412e-b659-dedd3b463b6a","activation":1}
+{"t":1794653133411,"pid":3465125,"ev":"message.delivered","key":"message/test:c1/m2","ms":3272,"text":"sleep:20000 first"}
+{"t":1794653133422,"pid":3465125,"ev":"turn.start","key":"message/test:c1/m2","turn":"15511611-41b9-412c-9b3e-f968b61c5b09","starts":3,"cuts":0,"kills":2,"resumed":true}
+{"t":1794653133430,"pid":3465125,"ev":"turn.end","key":"message/test:c1/m2","turn":"15511611-41b9-412c-9b3e-f968b61c5b09","outcome":"Failed","compacted":false}
+{"t":1794653133446,"pid":3465125,"ev":"hook.afterTurn","plugin":"probe","turn":"15511611-41b9-412c-9b3e-f968b61c5b09","origin":{"_tag":"Message","text":"sleep:20000 first","userId":"owner-1"},"resumed":true,"outcome":"Failed","reason":"Interrupted"}
+{"t":1794653133446,"pid":3465125,"ev":"hook.done","plugin":"probe","label":"afterTurn","result":"ok","ms":0}
+{"t":1794653133447,"pid":3465125,"ev":"bot.messages","messages":["-# The last turn was cut off twice by a restart, so I stopped. Send it again if you still want it."]}
+{"t":1794653133447,"pid":3465125,"ev":"scenario.end","name":"kill-twice","phase":"3"}
+{"t":1794653133455,"pid":3465125,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794653137645,"pid":3465125,"ev":"hooks.draining","pending":0}
+{"t":1794653137645,"pid":3465125,"ev":"hooks.drained"}
+{"t":1794653137645,"pid":3465125,"ev":"plugins.closed"}
+{"t":1794653137687,"pid":3465125,"ev":"process.exit","code":0,"signal":null}

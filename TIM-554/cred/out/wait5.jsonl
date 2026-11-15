@@ -1,0 +1,54 @@
+{"t":1794687651414,"pid":2589092,"ev":"scenario.start","name":"wait5","phase":"1"}
+{"t":1794687651419,"pid":2589092,"ev":"user.posted","who":"A","key":"message/test:c1/m4","length":302}
+{"t":1794687651452,"pid":2589092,"ev":"user.posted","who":"B","key":"message/test:c2/m6","length":295}
+{"t":1794687651470,"pid":2589092,"ev":"user.posted","who":"C","key":"message/test:c3/m8","length":187}
+{"t":1794687651621,"pid":2589092,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687651629,"pid":2589092,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687651647,"pid":2589092,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"c7b6733f-74b5-4874-9b5c-672e37c23a05","origin":"Message"}
+{"t":1794687651671,"pid":2589092,"ev":"session.activated","thread":"c2","session":"s-c2"}
+{"t":1794687651672,"pid":2589092,"ev":"message.delivered","key":"message/test:c2/m6","session":"s-c2"}
+{"t":1794687651693,"pid":2589092,"ev":"turn.start","key":"message/test:c2/m6","session":"s-c2","turn":"b254714c-dfe2-4d59-bced-c58e096f2107","origin":"Message"}
+{"t":1794687651706,"pid":2589092,"ev":"session.activated","thread":"c3","session":"s-c3"}
+{"t":1794687651707,"pid":2589092,"ev":"message.delivered","key":"message/test:c3/m8","session":"s-c3"}
+{"t":1794687651727,"pid":2589092,"ev":"turn.start","key":"message/test:c3/m8","session":"s-c3","turn":"0c235675-e7b2-4f87-a015-d27f841f8704","origin":"Message"}
+{"t":1794687651750,"pid":2589092,"ev":"agent.built","session":"s-c1","wrap":false,"mcp":false}
+{"t":1794687651754,"pid":2589092,"ev":"agent.built","session":"s-c2","wrap":false,"mcp":false}
+{"t":1794687651783,"pid":2589092,"ev":"agent.built","session":"s-c3","wrap":false,"mcp":false}
+{"t":1794687651798,"pid":2589092,"ev":"model.call","call":1,"messages":2,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687651802,"pid":2589092,"ev":"model.call","call":2,"messages":2,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687651827,"pid":2589092,"ev":"model.call","call":3,"messages":2,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687651839,"pid":2589092,"ev":"chat.edited","thread":"c1","messageId":"m10","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request SLOW_STORED -m 'nobody will answer'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687651848,"pid":2589092,"ev":"chat.edited","thread":"c2","messageId":"m11","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request --code -m 'nobody will answer'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687651852,"pid":2589092,"ev":"chat.edited","thread":"c3","messageId":"m12","markdown":"-# running\ntry {\nconsole.log('RUN ' + await run(\"chad secret request RUN_FORM -m 'through run'\"))\n} catch (e) {\nconsole.log('RUNERR ' + e.message)\n}","why":"status","ok":true}
+{"t":1794687651934,"pid":2589092,"ev":"spawner.spawn","session":"s-c3","command":"bash","args":["-c","chad secret request RUN_FORM -m 'through run'"]}
+{"t":1794687651964,"pid":2589092,"ev":"spawner.spawn","session":"s-c1","command":"bash","args":["-c","chad secret request SLOW_STORED -m 'nobody will answer'"]}
+{"t":1794687651965,"pid":2589092,"ev":"spawner.spawn","session":"s-c2","command":"bash","args":["-c","chad secret request --code -m 'nobody will answer'"]}
+{"t":1794687652752,"pid":2589092,"ev":"request.received","session":"s-c3","name":"RUN_FORM","kind":"plain","noWait":false,"ownerPresent":true}
+{"t":1794687652755,"pid":2589092,"ev":"request.posted","thread":"c3","name":"RUN_FORM","kind":"plain","messageId":"m13","ping":false}
+{"t":1794687652860,"pid":2589092,"ev":"request.received","session":"s-c1","name":"SLOW_STORED","kind":"plain","noWait":false,"ownerPresent":true}
+{"t":1794687652861,"pid":2589092,"ev":"request.posted","thread":"c1","name":"SLOW_STORED","kind":"plain","messageId":"m14","ping":false}
+{"t":1794687652879,"pid":2589092,"ev":"request.received","session":"s-c2","kind":"code","noWait":false,"ownerPresent":true}
+{"t":1794687652880,"pid":2589092,"ev":"request.posted","thread":"c2","code":"c1","messageId":"m15"}
+{"t":1794687771941,"pid":2589092,"ev":"brain.scriptOutput","session":"s-c3","output":"[20:20:51.932] INFO (#131): Calling \"bash\" { command: \"chad secret request RUN_FORM -m 'through run'\", timeoutMs: 120000 }\nRUN Task \"bash_1\" is still running in the background\n"}
+{"t":1794687771963,"pid":2589092,"ev":"model.call","call":4,"messages":4,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result"]}
+{"t":1794687771967,"pid":2589092,"ev":"chat.edited","thread":"c3","messageId":"m12","markdown":"-# running\nconsole.log('AFTER-C')","why":"status","ok":true}
+{"t":1794687771997,"pid":2589092,"ev":"brain.scriptOutput","session":"s-c3","output":"AFTER-C\n"}
+{"t":1794687772017,"pid":2589092,"ev":"model.call","call":5,"messages":6,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result","assistant:call","tool:result"]}
+{"t":1794687772040,"pid":2589092,"ev":"turn.end","key":"message/test:c3/m8","session":"s-c3","turn":"0c235675-e7b2-4f87-a015-d27f841f8704","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:51.932] INFO (#131): Calling \\\"bash\\\" { command: \\\"chad secret request RUN_FORM -m 'through run'\\\", timeoutMs: 120000 }\\nRUN Task \\\"bash_1\\\" is still running in the background\\n\",\"AFTER-C\\n\"]"}}
+{"t":1794687952756,"pid":2589092,"ev":"request.timeout","name":"RUN_FORM","thread":"c3"}
+{"t":1794687952862,"pid":2589092,"ev":"request.timeout","name":"SLOW_STORED","thread":"c1"}
+{"t":1794687952881,"pid":2589092,"ev":"brain.scriptOutput","session":"s-c1","output":"[20:20:51.963] INFO (#137): Calling \"bash\" { command: \"chad secret request SLOW_STORED -m 'nobody will answer'\", timeoutMs: 330000 }\nERR Command failed with exit code 1: chad secret request: timed out after 300 s. The button is still there, so SLOW_STORED can still be saved.\n\n"}
+{"t":1794687952882,"pid":2589092,"ev":"chat.edited","thread":"c2","messageId":"m15","markdown":"Timed out","why":"timeout","ok":true}
+{"t":1794687952901,"pid":2589092,"ev":"model.call","call":6,"messages":4,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result"]}
+{"t":1794687952903,"pid":2589092,"ev":"chat.edited","thread":"c1","messageId":"m10","markdown":"-# running\nconsole.log('AFTER-A')","why":"status","ok":true}
+{"t":1794687952904,"pid":2589092,"ev":"brain.scriptOutput","session":"s-c2","output":"[20:20:51.965] INFO (#141): Calling \"bash\" { command: \"chad secret request --code -m 'nobody will answer'\", timeoutMs: 330000 }\nERR Command failed with exit code 1: chad secret request: timed out after 300 s\n\n"}
+{"t":1794687952923,"pid":2589092,"ev":"model.call","call":7,"messages":4,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result"]}
+{"t":1794687952924,"pid":2589092,"ev":"chat.edited","thread":"c2","messageId":"m11","markdown":"-# running\nconsole.log('AFTER-B')","why":"status","ok":true}
+{"t":1794687952931,"pid":2589092,"ev":"brain.scriptOutput","session":"s-c1","output":"AFTER-A\n"}
+{"t":1794687952947,"pid":2589092,"ev":"model.call","call":8,"messages":6,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result","assistant:call","tool:result"]}
+{"t":1794687952971,"pid":2589092,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"c7b6733f-74b5-4874-9b5c-672e37c23a05","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:51.963] INFO (#137): Calling \\\"bash\\\" { command: \\\"chad secret request SLOW_STORED -m 'nobody will answer'\\\", timeoutMs: 330000 }\\nERR Command failed with exit code 1: chad secret request: timed out after 300 s. The button is still there, so SLOW_STORED can still be saved.\\n\\n\",\"AFTER-A\\n\"]"}}
+{"t":1794687953004,"pid":2589092,"ev":"brain.scriptOutput","session":"s-c2","output":"AFTER-B\n"}
+{"t":1794687953021,"pid":2589092,"ev":"model.call","call":9,"messages":6,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result","assistant:call","tool:result"]}
+{"t":1794687953042,"pid":2589092,"ev":"turn.end","key":"message/test:c2/m6","session":"s-c2","turn":"b254714c-dfe2-4d59-bced-c58e096f2107","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:51.965] INFO (#141): Calling \\\"bash\\\" { command: \\\"chad secret request --code -m 'nobody will answer'\\\", timeoutMs: 330000 }\\nERR Command failed with exit code 1: chad secret request: timed out after 300 s\\n\\n\",\"AFTER-B\\n\"]"}}
+{"t":1794687953071,"pid":2589092,"ev":"wait5.after","messages":[{"name":"RUN_FORM","button":true,"text":"The agent in session s-c3 asks for a secret named "},{"name":"SLOW_STORED","button":true,"text":"The agent in session s-c1 asks for a secret named "},{"name":"--code","button":false,"text":"Timed out"}]}
+{"t":1794687953071,"pid":2589092,"ev":"scenario.end","name":"wait5","phase":"1"}

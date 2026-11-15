@@ -1,0 +1,22 @@
+{"t":1794652396646,"pid":3372071,"ev":"scenario.start","name":"timer-cancel","phase":"1","variant":""}
+{"t":1794652396648,"pid":3372071,"ev":"user.posted","text":"sleep:5000 busy","key":"message/test:c1/m2"}
+{"t":1794652396672,"pid":3372071,"ev":"gateway.saved","key":"message/test:c1/m2","ms":24}
+{"t":1794652396737,"pid":3372071,"ev":"turns.scheduled","timer":"cron/gone","next":1794652398686}
+{"t":1794652396866,"pid":3372071,"ev":"session.activated","thread":"c1","session":"7aae33c2-1e4e-4a7d-ac7a-b1cd131685a5","activation":1}
+{"t":1794652396868,"pid":3372071,"ev":"message.delivered","key":"message/test:c1/m2","ms":220,"text":"sleep:5000 busy"}
+{"t":1794652396891,"pid":3372071,"ev":"turn.start","key":"message/test:c1/m2","turn":"f43dbe5f-bb00-4c55-9977-4868c1750622","starts":1,"resumed":false}
+{"t":1794652396892,"pid":3372071,"ev":"status.posted","id":"m4"}
+{"t":1794652396893,"pid":3372071,"ev":"pluginTurn.delivered","key":"start/3da9a017-e71f-4989-9984-8541e2fb1fdb","ms":221}
+{"t":1794652397238,"pid":3372071,"ev":"rows.beforeCancel","session":2,"timer":1}
+{"t":1794652397267,"pid":3372071,"ev":"turns.cancelled","timer":"cron/gone"}
+{"t":1794652397267,"pid":3372071,"ev":"rows.afterCancel","session":2,"timer":0}
+{"t":1794652402005,"pid":3372071,"ev":"turn.end","key":"message/test:c1/m2","turn":"f43dbe5f-bb00-4c55-9977-4868c1750622","outcome":"Answered","compacted":false}
+{"t":1794652402021,"pid":3372071,"ev":"turn.start","key":"start/3da9a017-e71f-4989-9984-8541e2fb1fdb","turn":"e6876c1b-66f0-4737-a206-cdd16a22adc0","starts":1,"resumed":false}
+{"t":1794652402021,"pid":3372071,"ev":"status.posted","id":"m6"}
+{"t":1794652402274,"pid":3372071,"ev":"turn.end","key":"start/3da9a017-e71f-4989-9984-8541e2fb1fdb","turn":"e6876c1b-66f0-4737-a206-cdd16a22adc0","outcome":"Answered","compacted":false}
+{"t":1794652403283,"pid":3372071,"ev":"scenario.end","name":"timer-cancel","phase":"1"}
+{"t":1794652403294,"pid":3372071,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652407208,"pid":3372071,"ev":"hooks.draining","pending":0}
+{"t":1794652407208,"pid":3372071,"ev":"hooks.drained"}
+{"t":1794652407208,"pid":3372071,"ev":"plugins.closed"}
+{"t":1794652407258,"pid":3372071,"ev":"process.exit","code":0,"signal":null}

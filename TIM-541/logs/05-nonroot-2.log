@@ -1,0 +1,15 @@
+### F. volume first WRITTEN by a root container, then used by --user node (podman)
+drwxr-xr-x 3 0 0 4096 Nov 14 10:42 /data
+drwxr-xr-x 2 0 0 4096 Nov 14 10:42 /data/state
+1000
+drwxr-xr-x 3 0 0 4096 Nov 14 10:42 /data
+drwxr-xr-x 2 0 0 4096 Nov 14 10:42 /data/state
+touch: cannot touch '/data/x': Permission denied
+WRITE-FAILED
+touch: cannot touch '/data/state/y': Permission denied
+WRITE-FAILED-state
+### F2. repair as root: chown -R 1000:1000 /data, then --user node
+WRITE-OK
+### G. tmpfs named volume: does content outlive the last container using it?
+state
+second container sees: []

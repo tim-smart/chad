@@ -1,0 +1,149 @@
+loader: esm   node v26.8.2
+
+=== 1. first apply
+  APPLIED
+  reloaded [dice, ticker]  kept []
+  ms {"snapshot":13,"tsc":172.4,"load+build":279.4,"commit+swap":17.7}
+  live   -> versions/940d99122dab170467db620ce771503f74fc11e4   commit cec4142
+  plugin dice     version 940d991  tools [rollDice, whichEffect]
+  plugin ticker   version 940d991  tools []
+  rollDice({ sides: 6 }) = "v1: a 6-sided die shows 3"
+  plugin's Effect.gen is the host's: true
+  work/ git status: clean
+
+=== 2. edit a file that dice.ts imports, apply
+  APPLIED
+  reloaded [dice, ticker]  kept []
+  ms {"snapshot":12.7,"tsc":172.2,"load+build":10.6,"commit+swap":18.6}
+  live   -> versions/7b5005f17fffc9f971a9febfbe41a511bb7e7a76   commit bde8285
+  plugin dice     version 7b5005f  tools [rollDice, whichEffect]
+  plugin ticker   version 7b5005f  tools []
+  rollDice({ sides: 6 }) = "v2: a 6-sided die shows 3"
+  plugin's Effect.gen is the host's: true
+  work/ git status: clean
+
+=== 3. an edit that is not applied is a draft
+  live   -> versions/7b5005f17fffc9f971a9febfbe41a511bb7e7a76   commit bde8285
+  plugin dice     version 7b5005f  tools [rollDice, whichEffect]
+  plugin ticker   version 7b5005f  tools []
+  rollDice({ sides: 6 }) = "v2: a 6-sided die shows 3"
+  plugin's Effect.gen is the host's: true
+  work/ git status: M plugins/lib/faces.ts
+
+=== 4. a type error blocks the apply
+  REFUSED, nothing changed
+  ms {"snapshot":12.8,"tsc":164.7}
+  | work/plugins/dice.ts(23,30): error TS2322: Type 'Effect<number, never, never>' is not assignable to type 'Effect<string, AiError | AiErrorReason, never>'.
+  |   Type 'number' is not assignable to type 'string'.
+  live   -> versions/7b5005f17fffc9f971a9febfbe41a511bb7e7a76   commit bde8285
+  plugin dice     version 7b5005f  tools [rollDice, whichEffect]
+  plugin ticker   version 7b5005f  tools []
+  rollDice({ sides: 6 }) = "v2: a 6-sided die shows 3"
+  plugin's Effect.gen is the host's: true
+  work/ git status: M plugins/dice.ts,  M plugins/lib/faces.ts
+
+=== 5. a bare Layer without Plugin.make type-checks but is refused
+  REFUSED, nothing changed
+  ms {"snapshot":13.1,"tsc":160.9,"load+build":5.2}
+  | bare: the default export is not a Plugin. Wrap it in Plugin.make(...)
+  live   -> versions/7b5005f17fffc9f971a9febfbe41a511bb7e7a76   commit bde8285
+  plugin dice     version 7b5005f  tools [rollDice, whichEffect]
+  plugin ticker   version 7b5005f  tools []
+  rollDice({ sides: 6 }) = "v2: a 6-sided die shows 3"
+  plugin's Effect.gen is the host's: true
+  work/ git status: M plugins/lib/faces.ts, ?? plugins/bare.ts
+
+=== 6. a Layer that fails while building is refused, with a stack that names work/
+  REFUSED, nothing changed
+  ms {"snapshot":12.5,"tsc":158.3,"load+build":6.3}
+  | broken: the Layer failed to build
+  | Error: sidecar refused the connection
+  |     at connect (file://work/plugins/broken.ts:6:9)
+  live   -> versions/7b5005f17fffc9f971a9febfbe41a511bb7e7a76   commit bde8285
+  plugin dice     version 7b5005f  tools [rollDice, whichEffect]
+  plugin ticker   version 7b5005f  tools []
+  rollDice({ sides: 6 }) = "v2: a 6-sided die shows 3"
+  plugin's Effect.gen is the host's: true
+  work/ git status: M plugins/lib/faces.ts, ?? plugins/broken.ts
+
+=== 7. a module that throws at import time is refused
+  REFUSED, nothing changed
+  ms {"snapshot":12.2,"tsc":171.2,"load+build":5.4}
+  | broken: could not be loaded
+  | Expected property name or '}' in JSON at position 1 (line 1 column 2)
+  live   -> versions/7b5005f17fffc9f971a9febfbe41a511bb7e7a76   commit bde8285
+  plugin dice     version 7b5005f  tools [rollDice, whichEffect]
+  plugin ticker   version 7b5005f  tools []
+  rollDice({ sides: 6 }) = "v2: a 6-sided die shows 3"
+  plugin's Effect.gen is the host's: true
+  work/ git status: M plugins/lib/faces.ts, ?? plugins/broken.ts
+
+=== 8. a tool name that chad already uses is refused
+  REFUSED, nothing changed
+  ms {"snapshot":12.7,"tsc":165.5,"load+build":6.2}
+  | clash: tool "bash" is already defined by chad
+  live   -> versions/7b5005f17fffc9f971a9febfbe41a511bb7e7a76   commit bde8285
+  plugin dice     version 7b5005f  tools [rollDice, whichEffect]
+  plugin ticker   version 7b5005f  tools []
+  rollDice({ sides: 6 }) = "v2: a 6-sided die shows 3"
+  plugin's Effect.gen is the host's: true
+  work/ git status: M plugins/lib/faces.ts, ?? plugins/clash.ts
+
+=== 9. a package that is not in the image fails the type-check
+  REFUSED, nothing changed
+  ms {"snapshot":16.1,"tsc":168.4}
+  | work/plugins/extra.ts(2,25): error TS2307: Cannot find module 'lodash' or its corresponding type declarations.
+  live   -> versions/7b5005f17fffc9f971a9febfbe41a511bb7e7a76   commit bde8285
+  plugin dice     version 7b5005f  tools [rollDice, whichEffect]
+  plugin ticker   version 7b5005f  tools []
+  rollDice({ sides: 6 }) = "v2: a 6-sided die shows 3"
+  plugin's Effect.gen is the host's: true
+  work/ git status: M plugins/lib/faces.ts, ?? plugins/extra.ts
+
+=== 10. apply the v3 edit: only the plugin whose code changed is reloaded
+  APPLIED
+  reloaded [dice, ticker]  kept []
+  ms {"snapshot":12.3,"tsc":170.3,"load+build":5.4,"commit+swap":17.1}
+  live   -> versions/c1d95eb0e579aad96e4ea8ff652220cebc1ca68d   commit b589949
+  plugin dice     version c1d95eb  tools [rollDice, whichEffect]
+  plugin ticker   version c1d95eb  tools []
+  rollDice({ sides: 6 }) = "v3: a 6-sided die shows 3"
+  plugin's Effect.gen is the host's: true
+  work/ git status: clean
+
+=== 11. what the old and new copies of a plugin do during a swap (held open for 150ms)
+  reloaded [dice, ticker]  kept []
+   2349ms  ticker@c29ab28  naive tick B
+   2349ms  ticker@c1d95eb  naive tick A
+   2349ms  ticker@c1d95eb  background tick A
+   2389ms  ticker@c29ab28  naive tick B
+   2389ms  ticker@c1d95eb  naive tick A
+   2389ms  ticker@c1d95eb  background tick A
+   2429ms  ticker@c29ab28  naive tick B
+   2429ms  ticker@c1d95eb  naive tick A
+   2429ms  ticker@c1d95eb  background tick A
+   2469ms  ticker@c29ab28  naive tick B
+   2469ms  ticker@c1d95eb  naive tick A
+   2469ms  ticker@c1d95eb  background tick A
+   2515ms  dice@c1d95eb  -- closed --
+   2516ms  ticker@c1d95eb  -- closed --
+   2516ms  dice@c29ab28  -- activated --
+   2516ms  ticker@c29ab28  -- activated --
+   2516ms  ticker@c29ab28  background tick B
+   2516ms  ticker@c29ab28  naive tick B
+   2556ms  ticker@c29ab28  background tick B
+   2556ms  ticker@c29ab28  naive tick B
+   2596ms  ticker@c29ab28  background tick B
+   2596ms  ticker@c29ab28  naive tick B
+
+=== 12. a plugin that uses top-level await and import.meta
+  APPLIED
+  reloaded [dice, ticker, tla]  kept []
+  ms {"snapshot":13,"tsc":180.5,"load+build":5.9,"commit+swap":17.4}
+  live   -> versions/1623dcb5e792491f60c23ae2f6c492005a96c506   commit c127444
+  plugin dice     version 1623dcb  tools [rollDice, whichEffect]
+  plugin ticker   version 1623dcb  tools []
+  plugin tla      version 1623dcb  tools [whereAmI]
+  rollDice({ sides: 6 }) = "v3: a 6-sided die shows 3"
+  plugin's Effect.gen is the host's: true
+  work/ git status: clean

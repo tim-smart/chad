@@ -1,0 +1,7 @@
+- generic [active] [ref=f2e1]:
+  - heading "Two-step verification" [level=1] [ref=f2e2]
+  - generic [ref=f2e3]:
+    - generic [ref=f2e4]:
+      - text: Code
+      - textbox "Code" [ref=f2e5]
+    - button "Verify" [ref=f2e6]

@@ -1,0 +1,12 @@
+{
+  "name": "chad-codex-login-prototype",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "clanka": "0.27.0",
+    "effect": "4.1.3",
+    "@effect/ai-openai": "4.1.3",
+    "@effect/ai-openai-compat": "4.1.3",
+    "@effect/platform-node": "4.1.3"
+  }
+}

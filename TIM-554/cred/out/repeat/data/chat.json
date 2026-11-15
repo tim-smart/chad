@@ -1,0 +1,286 @@
+{
+  "A": [
+    {
+      "id": "m4",
+      "author": "owner-1",
+      "text": "ask twice PLAN:{\"steps\":[\"try { const r = await bash({\\\"command\\\":\\\"chad secret request DUP --no-wait -m 'again'\\\",\\\"timeoutMs\\\":330000}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"try { const r = await bash({\\\"command\\\":\\\"chad secret request DUP --no-wait -m 'again'\\\",\\\"timeoutMs\\\":330000}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\"]}"
+    },
+    {
+      "id": "m6",
+      "author": "bot",
+      "text": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request DUP --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "id": "m7",
+      "author": "bot",
+      "text": "Saved DUP"
+    },
+    {
+      "id": "m8",
+      "author": "bot",
+      "text": "RESULTS [\"[20:20:51.703] INFO (#96): Calling \\\"bash\\\" { command: \\\"chad secret request DUP --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for DUP\\n\\n\",\"[20:20:52.616] INFO (#117): Calling \\\"bash\\\" { command: \\\"chad secret request DUP --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Already asked for DUP at 20:20:52 UTC\\n\\n\"]"
+    },
+    {
+      "id": "m14",
+      "author": "owner-1",
+      "text": "ask and wait PLAN:{\"steps\":[\"try { const r = await bash({\\\"command\\\":\\\"chad secret request DUP -m 'again'\\\",\\\"timeoutMs\\\":330000}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"console.log('STEP2 RAN')\"]}"
+    },
+    {
+      "id": "m16",
+      "author": "bot",
+      "text": "-# running\nconsole.log('STEP2 RAN')"
+    },
+    {
+      "id": "m17",
+      "author": "bot",
+      "text": "RESULTS [\"[20:20:54.261] INFO (#195): Calling \\\"bash\\\" { command: \\\"chad secret request DUP -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Saved DUP\\n\\n\",\"STEP2 RAN\\n\"]"
+    },
+    {
+      "id": "m18",
+      "author": "owner-1",
+      "text": "ask PLAN:{\"steps\":[\"try { const r = await bash({\\\"command\\\":\\\"chad secret request MEM --no-wait -m 'again'\\\",\\\"timeoutMs\\\":330000}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\"]}"
+    },
+    {
+      "id": "m20",
+      "author": "bot",
+      "text": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request MEM --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "id": "m21",
+      "author": "bot",
+      "text": "Saved MEM"
+    },
+    {
+      "id": "m22",
+      "author": "bot",
+      "text": "RESULTS [\"[20:20:55.976] INFO (#245): Calling \\\"bash\\\" { command: \\\"chad secret request MEM --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for MEM\\n\\n\"]"
+    },
+    {
+      "id": "m28",
+      "author": "owner-1",
+      "text": "ask again PLAN:{\"steps\":[\"try { const r = await bash({\\\"command\\\":\\\"chad secret request MEM --no-wait -m 'again'\\\",\\\"timeoutMs\\\":330000}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\"]}"
+    },
+    {
+      "id": "m30",
+      "author": "bot",
+      "text": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request MEM --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "id": "m31",
+      "author": "bot",
+      "text": "Saved MEM"
+    },
+    {
+      "id": "m32",
+      "author": "bot",
+      "text": "RESULTS [\"[20:20:57.367] INFO (#315): Calling \\\"bash\\\" { command: \\\"chad secret request MEM --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for MEM\\n\\n\"]"
+    }
+  ],
+  "B": [
+    {
+      "id": "m9",
+      "author": "owner-1",
+      "text": "ask elsewhere PLAN:{\"steps\":[\"try { const r = await bash({\\\"command\\\":\\\"chad secret request DUP --no-wait -m 'again'\\\",\\\"timeoutMs\\\":330000}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\"]}"
+    },
+    {
+      "id": "m11",
+      "author": "bot",
+      "text": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request DUP --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "id": "m12",
+      "author": "bot",
+      "text": "Saved DUP"
+    },
+    {
+      "id": "m13",
+      "author": "bot",
+      "text": "RESULTS [\"[20:20:53.472] INFO (#159): Calling \\\"bash\\\" { command: \\\"chad secret request DUP --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for DUP\\n\\n\"]"
+    },
+    {
+      "id": "m23",
+      "author": "owner-1",
+      "text": "ask PLAN:{\"steps\":[\"try { const r = await bash({\\\"command\\\":\\\"chad secret request MEM --no-wait -m 'again'\\\",\\\"timeoutMs\\\":330000}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\"]}"
+    },
+    {
+      "id": "m25",
+      "author": "bot",
+      "text": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request MEM --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "id": "m26",
+      "author": "bot",
+      "text": "The agent in session s-c2 asks for a secret named MEM.\nIt says: \"again\"\nPress Enter to type it."
+    },
+    {
+      "id": "m27",
+      "author": "bot",
+      "text": "RESULTS [\"[20:20:56.660] INFO (#280): Calling \\\"bash\\\" { command: \\\"chad secret request MEM --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for MEM\\n\\n\"]"
+    }
+  ],
+  "C": [],
+  "calls": [
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "-# working"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request DUP --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "The agent in session s-c1 asks for a secret named DUP.\nIt says: \"again\"\nPress Enter to type it."
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request DUP --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "RESULTS [\"[20:20:51.703] INFO (#96): Calling \\\"bash\\\" { command: \\\"chad secret request DUP --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for DUP\\n\\n\",\"[20:20:52.616] INFO (#117): Calling \\\"bash\\\" { command: \\\"chad secret request DUP --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Already asked for DUP at 20:20:52 UTC\\n\\n\"]"
+    },
+    {
+      "op": "post",
+      "thread": "c2",
+      "markdown": "-# working"
+    },
+    {
+      "op": "edit",
+      "thread": "c2",
+      "messageId": "m11",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request DUP --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "post",
+      "thread": "c2",
+      "markdown": "The agent in session s-c2 asks for a secret named DUP.\nIt says: \"again\"\nPress Enter to type it."
+    },
+    {
+      "op": "post",
+      "thread": "c2",
+      "markdown": "RESULTS [\"[20:20:53.472] INFO (#159): Calling \\\"bash\\\" { command: \\\"chad secret request DUP --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for DUP\\n\\n\"]"
+    },
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "-# working"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m16",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request DUP -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m7",
+      "markdown": "Saved DUP"
+    },
+    {
+      "op": "edit",
+      "thread": "c2",
+      "messageId": "m12",
+      "markdown": "Saved DUP"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m16",
+      "markdown": "-# running\nconsole.log('STEP2 RAN')"
+    },
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "RESULTS [\"[20:20:54.261] INFO (#195): Calling \\\"bash\\\" { command: \\\"chad secret request DUP -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Saved DUP\\n\\n\",\"STEP2 RAN\\n\"]"
+    },
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "-# working"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m20",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request MEM --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "The agent in session s-c1 asks for a secret named MEM.\nIt says: \"again\"\nPress Enter to type it."
+    },
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "RESULTS [\"[20:20:55.976] INFO (#245): Calling \\\"bash\\\" { command: \\\"chad secret request MEM --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for MEM\\n\\n\"]"
+    },
+    {
+      "op": "post",
+      "thread": "c2",
+      "markdown": "-# working"
+    },
+    {
+      "op": "edit",
+      "thread": "c2",
+      "messageId": "m25",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request MEM --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "post",
+      "thread": "c2",
+      "markdown": "The agent in session s-c2 asks for a secret named MEM.\nIt says: \"again\"\nPress Enter to type it."
+    },
+    {
+      "op": "post",
+      "thread": "c2",
+      "markdown": "RESULTS [\"[20:20:56.660] INFO (#280): Calling \\\"bash\\\" { command: \\\"chad secret request MEM --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for MEM\\n\\n\"]"
+    },
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "-# working"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m30",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request MEM --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "The agent in session s-c1 asks for a secret named MEM.\nIt says: \"again\"\nPress Enter to type it."
+    },
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "RESULTS [\"[20:20:57.367] INFO (#315): Calling \\\"bash\\\" { command: \\\"chad secret request MEM --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for MEM\\n\\n\"]"
+    },
+    {
+      "op": "openModal",
+      "thread": "c1",
+      "messageId": "m21"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m31",
+      "markdown": "Saved MEM"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m21",
+      "markdown": "Saved MEM"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "playwrightVersion": "1.66.0-alpha-2026-11-09",
+  "playwrightLib": "/data/home/.local/lib/node_modules/@playwright/mcp/node_modules/playwright-core",
+  "title": "clanka",
+  "browser": {
+    "guid": "browser@55a21d94d0e5eb5b9a89a98d48eab837",
+    "browserName": "chromium",
+    "launchOptions": {}
+  },
+  "endpoint": "/tmp/pw-7505d64a/browser/browser-55a21d.sock",
+  "workspaceDir": "/home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-ae2721dc3022/workdir/cred"
+}

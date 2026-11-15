@@ -1,0 +1,102 @@
+{"t":1794687651590,"pid":2589069,"ev":"mcp.built","ms":438,"names":["API_KEY"],"status":{"echo":{"connected":true,"tools":1}}}
+{"t":1794687651683,"pid":2589069,"ev":"scenario.start","name":"button","phase":"1"}
+{"t":1794687651688,"pid":2589069,"ev":"user.posted","who":"A","key":"message/test:c1/m4","length":466}
+{"t":1794687651825,"pid":2589069,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687651827,"pid":2589069,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687651845,"pid":2589069,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"f06e4e91-df8f-41be-a91f-3398a966b999","origin":"Message"}
+{"t":1794687651874,"pid":2589069,"ev":"agent.built","session":"s-c1","wrap":false,"mcp":true}
+{"t":1794687651907,"pid":2589069,"ev":"model.call","call":1,"messages":2,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687651923,"pid":2589069,"ev":"chat.edited","thread":"c1","messageId":"m6","markdown":"-# running\nconsole.log('BEFORE ' + JSON.stringify(await mcp.echo.whoami({})))","why":"status","ok":true}
+{"t":1794687652036,"pid":2589069,"ev":"brain.scriptOutput","session":"s-c1","output":"BEFORE \"pid=2589487 keyLength=0 keySha=e3b0c44298fc1c14\"\n"}
+{"t":1794687652069,"pid":2589069,"ev":"model.call","call":2,"messages":4,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result"]}
+{"t":1794687652081,"pid":2589069,"ev":"chat.edited","thread":"c1","messageId":"m6","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request API_KEY --note 'fake API, user tim' -m 'I need the key for the fake API you named'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687652232,"pid":2589069,"ev":"spawner.spawn","session":"s-c1","command":"bash","args":["-c","chad secret request API_KEY --note 'fake API, user tim' -m 'I need the key for the fake API you named'"]}
+{"t":1794687652967,"pid":2589069,"ev":"request.received","session":"s-c1","name":"API_KEY","kind":"plain","noWait":false,"ownerPresent":true}
+{"t":1794687652969,"pid":2589069,"ev":"request.posted","thread":"c1","name":"API_KEY","kind":"plain","messageId":"m7","ping":false}
+{"t":1794687652978,"pid":2589069,"ev":"asked.message","text":"The agent in session s-c1 asks for a secret named API_KEY (fake API, user tim).\nIt says: \"I need the key for the fake API you named\"\nPress Enter to type it.","button":true}
+{"t":1794687652979,"pid":2589069,"ev":"expect","keySha":"7fa1c112f3644601"}
+{"t":1794687652983,"pid":2589069,"ev":"click.ignored","by":"intruder-9","name":"API_KEY"}
+{"t":1794687652984,"pid":2589069,"ev":"interact.click","messageId":"m7","userId":"intruder-9","reply":"Ack","ms":2,"buttonData":32}
+{"t":1794687652986,"pid":2589069,"ev":"after.intruder","stored":false,"button":true}
+{"t":1794687652987,"pid":2589069,"ev":"click.opened","by":"owner-1","name":"API_KEY","kind":"plain"}
+{"t":1794687652989,"pid":2589069,"ev":"interact.click","messageId":"m7","userId":"owner-1","reply":"OpenModal","ms":2,"buttonData":32,"modal":{"title":"Enter a secret","labels":["API_KEY"],"fields":1,"metadataLength":38}}
+{"t":1794687652991,"pid":2589069,"ev":"submit.ignored","by":"intruder-9","name":"API_KEY"}
+{"t":1794687652993,"pid":2589069,"ev":"interact.submit","userId":"intruder-9","reply":"Close","ms":3}
+{"t":1794687652994,"pid":2589069,"ev":"after.intruderSubmit","stored":false}
+{"t":1794687652995,"pid":2589069,"ev":"secret.saved","name":"API_KEY","via":"modal","kind":"plain","replaced":false,"short":false}
+{"t":1794687652997,"pid":2589069,"ev":"mcp.restarting","because":"API_KEY"}
+{"t":1794687653367,"pid":2589069,"ev":"mcp.built","ms":352,"names":["API_KEY"],"status":{"echo":{"connected":true,"tools":1}}}
+{"t":1794687653367,"pid":2589069,"ev":"mcp.restarted","because":"API_KEY","closeMs":18,"buildMs":352}
+{"t":1794687653368,"pid":2589069,"ev":"chat.edited","thread":"c1","messageId":"m7","markdown":"Saved API_KEY","why":"saved","ok":true}
+{"t":1794687653372,"pid":2589069,"ev":"submit.saved","name":"API_KEY","ok":true}
+{"t":1794687653375,"pid":2589069,"ev":"interact.submit","userId":"owner-1","reply":"Close","ms":381}
+{"t":1794687653408,"pid":2589069,"ev":"brain.scriptOutput","session":"s-c1","output":"[20:20:52.230] INFO (#112): Calling \"bash\" { command: \"chad secret request API_KEY --note 'fake API, user tim' -m 'I need the key for the fake API you named'\", timeoutMs: 330000 }\nOUT[completed] Saved API_KEY\n\n"}
+{"t":1794687653434,"pid":2589069,"ev":"model.call","call":3,"messages":6,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result","assistant:call","tool:result"]}
+{"t":1794687653436,"pid":2589069,"ev":"chat.edited","thread":"c1","messageId":"m6","markdown":"-# running\nconsole.log('AFTER ' + JSON.stringify(await mcp.echo.whoami({})))","why":"status","ok":true}
+{"t":1794687653489,"pid":2589069,"ev":"brain.scriptOutput","session":"s-c1","output":"AFTER \"pid=2590126 keyLength=22 keySha=7fa1c112f3644601\"\n"}
+{"t":1794687653514,"pid":2589069,"ev":"model.call","call":4,"messages":8,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result","assistant:call","tool:result","assistant:call","tool:result"]}
+{"t":1794687653548,"pid":2589069,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"f06e4e91-df8f-41be-a91f-3398a966b999","outcome":{"_tag":"Answered","text":"RESULTS [\"BEFORE \\\"pid=2589487 keyLength=0 keySha=e3b0c44298fc1c14\\\"\\n\",\"[20:20:52.230] INFO (#112): Calling \\\"bash\\\" { command: \\\"chad secret request API_KEY --note 'fake API, user tim' -m 'I need the key for the fake API you named'\\\", timeoutMs: 330000 }\\nOUT[completed] Saved API_KEY\\n\\n\",\"AFTER \\\"pid=2590126 keyLength=22 keySha=7fa1c112f3644601\\\"\\n\"]"}}
+{"t":1794687653583,"pid":2589069,"ev":"after.submit","text":"Saved API_KEY","button":false,"kind":"plain","valueOk":true}
+{"t":1794687653584,"pid":2589069,"ev":"user.posted","who":"A","key":"message/test:c1/m15","length":20}
+{"t":1794687653585,"pid":2589069,"ev":"request.posted","thread":"c1","name":"OTP_ONE","kind":"totp","messageId":"m17","ping":false}
+{"t":1794687653587,"pid":2589069,"ev":"gateway.secretCommand","thread":"c1","name":"OTP_ONE"}
+{"t":1794687653588,"pid":2589069,"ev":"click.opened","by":"owner-1","name":"OTP_ONE","kind":"totp"}
+{"t":1794687653588,"pid":2589069,"ev":"interact.click","messageId":"m17","userId":"owner-1","reply":"OpenModal","ms":0,"buttonData":31,"modal":{"title":"Enter a secret","labels":["OTP_ONE (TOTP seed or otpauth:// URI)"],"fields":1,"metadataLength":37}}
+{"t":1794687653590,"pid":2589069,"ev":"interact.submit","userId":"owner-1","reply":"Errors","errors":{"value":"the seed is not base32"},"ms":1}
+{"t":1794687653590,"pid":2589069,"ev":"after.badSeed","stored":false,"button":true}
+{"t":1794687653592,"pid":2589069,"ev":"secret.saved","name":"OTP_ONE","via":"modal","kind":"totp","replaced":false,"short":false}
+{"t":1794687653595,"pid":2589069,"ev":"chat.edited","thread":"c1","messageId":"m17","markdown":"Saved OTP_ONE","why":"saved","ok":true}
+{"t":1794687653595,"pid":2589069,"ev":"submit.saved","name":"OTP_ONE","ok":true}
+{"t":1794687653596,"pid":2589069,"ev":"interact.submit","userId":"owner-1","reply":"Close","ms":5}
+{"t":1794687653782,"pid":2589069,"ev":"cli","label":"code OTP_ONE","args":["secret","code","OTP_ONE"],"code":0,"stdout":"283725\n","stderr":"7s left\n","ms":185}
+{"t":1794687653785,"pid":2589069,"ev":"after.otp","kind":"totp","text":"Saved OTP_ONE"}
+{"t":1794687654293,"pid":2589069,"ev":"cli","label":"totp/mcp-name","args":["secret","set","API_KEY","--totp"],"code":1,"stdout":"","stderr":"chad secret set: mcp.json names API_KEY, so it cannot become a TOTP secret\n","ms":508}
+{"t":1794687654294,"pid":2589069,"ev":"after.totpRefused","kind":"plain"}
+{"t":1794687654294,"pid":2589069,"ev":"user.posted","who":"A","key":"message/test:c1/m22","length":16}
+{"t":1794687654295,"pid":2589069,"ev":"request.posted","thread":"c1","name":"HELD_ONE","kind":"plain","messageId":"m24","ping":false}
+{"t":1794687654295,"pid":2589069,"ev":"gateway.secretCommand","thread":"c1","name":"HELD_ONE"}
+{"t":1794687654296,"pid":2589069,"ev":"click.opened","by":"owner-1","name":"HELD_ONE","kind":"plain"}
+{"t":1794687654298,"pid":2589069,"ev":"interact.click","messageId":"m24","userId":"owner-1","reply":"OpenModal","ms":2,"buttonData":33,"modal":{"title":"Enter a secret","labels":["HELD_ONE"],"fields":1,"metadataLength":39}}
+{"t":1794687654301,"pid":2589069,"ev":"test.queueHeld","ms":5000}
+{"t":1794687657337,"pid":2589069,"ev":"interact.submit","userId":"owner-1","reply":"Late","ms":3001}
+{"t":1794687657337,"pid":2589069,"ev":"after.heldSubmit","storedAtReply":false}
+{"t":1794687665338,"pid":2589069,"ev":"after.heldWait","stored":false,"text":"Press Enter to save a secret named HELD_ONE."}
+{"t":1794687665646,"pid":2589069,"ev":"request.received","session":"s-c1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain","noWait":true,"ownerPresent":false}
+{"t":1794687665647,"pid":2589069,"ev":"request.posted","thread":"c1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain","messageId":"m27","ping":true}
+{"t":1794687665665,"pid":2589069,"ev":"cli","label":"len/68","args":["secret","request","NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","--no-wait"],"code":1,"stdout":"","stderr":"chad secret request: asked for NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN, not waiting: no owner is present in this turn\n","ms":327}
+{"t":1794687665665,"pid":2589069,"ev":"click.opened","by":"owner-1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain"}
+{"t":1794687665665,"pid":2589069,"ev":"interact.click","messageId":"m27","userId":"owner-1","reply":"OpenModal","ms":0,"buttonData":93,"modal":{"title":"Enter a secret","labels":["NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"],"fields":1,"metadataLength":99}}
+{"t":1794687665666,"pid":2589069,"ev":"len","n":68,"posted":true,"modal":"OpenModal","modalIdPlusMetadata":99}
+{"t":1794687665982,"pid":2589069,"ev":"request.received","session":"s-c1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain","noWait":true,"ownerPresent":false}
+{"t":1794687665982,"pid":2589069,"ev":"request.posted","thread":"c1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain","messageId":"m29","ping":true}
+{"t":1794687666003,"pid":2589069,"ev":"cli","label":"len/69","args":["secret","request","NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","--no-wait"],"code":1,"stdout":"","stderr":"chad secret request: asked for NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN, not waiting: no owner is present in this turn\n","ms":337}
+{"t":1794687666003,"pid":2589069,"ev":"click.opened","by":"owner-1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain"}
+{"t":1794687666004,"pid":2589069,"ev":"interact.click","messageId":"m29","userId":"owner-1","reply":"OpenModal","ms":1,"buttonData":94,"modal":{"title":"Enter a secret","labels":["NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"],"fields":1,"metadataLength":100}}
+{"t":1794687666004,"pid":2589069,"ev":"len","n":69,"posted":true,"modal":"OpenModal","modalIdPlusMetadata":100}
+{"t":1794687666317,"pid":2589069,"ev":"request.received","session":"s-c1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain","noWait":true,"ownerPresent":false}
+{"t":1794687666318,"pid":2589069,"ev":"request.posted","thread":"c1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain","messageId":"m31","ping":true}
+{"t":1794687666338,"pid":2589069,"ev":"cli","label":"len/70","args":["secret","request","NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","--no-wait"],"code":1,"stdout":"","stderr":"chad secret request: asked for NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN, not waiting: no owner is present in this turn\n","ms":334}
+{"t":1794687666339,"pid":2589069,"ev":"click.opened","by":"owner-1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain"}
+{"t":1794687666340,"pid":2589069,"ev":"interact.click","messageId":"m31","userId":"owner-1","reply":"OpenModal","ms":2,"buttonData":95,"modal":{"title":"Enter a secret","labels":["NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"],"fields":1,"metadataLength":101}}
+{"t":1794687666386,"pid":2589069,"ev":"len","n":70,"posted":true,"modal":"OpenModal","modalIdPlusMetadata":101}
+{"t":1794687666713,"pid":2589069,"ev":"request.received","session":"s-c1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain","noWait":true,"ownerPresent":false}
+{"t":1794687666713,"pid":2589069,"ev":"request.posted","thread":"c1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain","messageId":"m33","ping":true}
+{"t":1794687666734,"pid":2589069,"ev":"cli","label":"len/74","args":["secret","request","NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","--no-wait"],"code":1,"stdout":"","stderr":"chad secret request: asked for NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN, not waiting: no owner is present in this turn\n","ms":348}
+{"t":1794687666735,"pid":2589069,"ev":"click.opened","by":"owner-1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain"}
+{"t":1794687666738,"pid":2589069,"ev":"interact.click","messageId":"m33","userId":"owner-1","reply":"OpenModal","ms":4,"buttonData":99,"modal":{"title":"Enter a secret","labels":["NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"],"fields":1,"metadataLength":105}}
+{"t":1794687666738,"pid":2589069,"ev":"len","n":74,"posted":true,"modal":"OpenModal","modalIdPlusMetadata":105}
+{"t":1794687667063,"pid":2589069,"ev":"request.received","session":"s-c1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain","noWait":true,"ownerPresent":false}
+{"t":1794687667063,"pid":2589069,"ev":"request.posted","thread":"c1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain","messageId":"m35","ping":true}
+{"t":1794687667081,"pid":2589069,"ev":"cli","label":"len/75","args":["secret","request","NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","--no-wait"],"code":1,"stdout":"","stderr":"chad secret request: asked for NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN, not waiting: no owner is present in this turn\n","ms":343}
+{"t":1794687667082,"pid":2589069,"ev":"click.opened","by":"owner-1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain"}
+{"t":1794687667082,"pid":2589069,"ev":"interact.click","messageId":"m35","userId":"owner-1","reply":"OpenModal","ms":0,"buttonData":100,"modal":{"title":"Enter a secret","labels":["NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"],"fields":1,"metadataLength":106}}
+{"t":1794687667083,"pid":2589069,"ev":"len","n":75,"posted":true,"modal":"OpenModal","modalIdPlusMetadata":106}
+{"t":1794687667414,"pid":2589069,"ev":"request.received","session":"s-c1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain","noWait":true,"ownerPresent":false}
+{"t":1794687667415,"pid":2589069,"ev":"request.postFailed","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","reason":"TooLarge"}
+{"t":1794687667435,"pid":2589069,"ev":"cli","label":"len/76","args":["secret","request","NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","--no-wait"],"code":1,"stdout":"","stderr":"chad secret request: the message could not be posted (TooLarge)\n","ms":352}
+{"t":1794687667435,"pid":2589069,"ev":"len","n":76,"posted":false,"stderr":"chad secret request: the message could not be posted (TooLarge)\n"}
+{"t":1794687667757,"pid":2589069,"ev":"request.received","session":"s-c1","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","kind":"plain","noWait":true,"ownerPresent":false}
+{"t":1794687667758,"pid":2589069,"ev":"request.postFailed","name":"NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","reason":"TooLarge"}
+{"t":1794687667778,"pid":2589069,"ev":"cli","label":"len/77","args":["secret","request","NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN","--no-wait"],"code":1,"stdout":"","stderr":"chad secret request: the message could not be posted (TooLarge)\n","ms":343}
+{"t":1794687667778,"pid":2589069,"ev":"len","n":77,"posted":false,"stderr":"chad secret request: the message could not be posted (TooLarge)\n"}
+{"t":1794687667779,"pid":2589069,"ev":"scenario.end","name":"button","phase":"1"}

@@ -1,0 +1,14 @@
+
+### D6: kill -9 the daemon, then does the cli's lock test (BEGIN IMMEDIATE; ROLLBACK) change files?
+--- before cli:
+srw------- 1 tim users    0 2026-11-14 10:45:51.426587303 +0000 chad.sock
+-rw-r--r-- 1 tim users    0 2026-11-14 10:45:51.424587305 +0000 daemon.lock
+-rw-r--r-- 1 tim users  512 2026-11-14 10:45:51.425423169 +0000 daemon.lock-journal
+d41d8cd98f00b204e9800998ecf8427e  state/daemon.lock
+0088a583abf406283b7b2bf6f9ffb482  state/daemon.lock-journal
+chad status: no daemon (lock /home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/state/daemon.lock is free)
+exit=4
+--- after cli:
+srw------- 1 tim users    0 2026-11-14 10:45:51.426587303 +0000 chad.sock
+-rw-r--r-- 1 tim users    0 2026-11-14 10:45:51.424587305 +0000 daemon.lock
+d41d8cd98f00b204e9800998ecf8427e  state/daemon.lock

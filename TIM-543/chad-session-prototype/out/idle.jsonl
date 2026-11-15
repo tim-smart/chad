@@ -1,0 +1,16 @@
+{"t":1794652369937,"pid":3368864,"ev":"scenario.start","name":"idle","phase":"1","variant":""}
+{"t":1794652369938,"pid":3368864,"ev":"user.posted","text":"sleep:7000 longer than the idle time","key":"message/test:c1/m2"}
+{"t":1794652369949,"pid":3368864,"ev":"gateway.saved","key":"message/test:c1/m2","ms":10}
+{"t":1794652370010,"pid":3368864,"ev":"session.activated","thread":"c1","session":"f4dbc4ef-a723-44b1-a12e-5ed94970afb6","activation":1}
+{"t":1794652370012,"pid":3368864,"ev":"message.delivered","key":"message/test:c1/m2","ms":73,"text":"sleep:7000 longer than the idle time"}
+{"t":1794652370025,"pid":3368864,"ev":"turn.start","key":"message/test:c1/m2","turn":"85360abf-fd12-4286-9805-d52144e92693","starts":1,"resumed":false}
+{"t":1794652370027,"pid":3368864,"ev":"status.posted","id":"m4"}
+{"t":1794652377103,"pid":3368864,"ev":"turn.end","key":"message/test:c1/m2","turn":"85360abf-fd12-4286-9805-d52144e92693","outcome":"Answered","compacted":false}
+{"t":1794652377153,"pid":3368864,"ev":"keepAlive.on","thread":"c1"}
+{"t":1794652386163,"pid":3368864,"ev":"keepAlive.off","thread":"c1"}
+{"t":1794652389995,"pid":3368864,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652389999,"pid":3368864,"ev":"scenario.end","name":"idle","phase":"1"}
+{"t":1794652392641,"pid":3368864,"ev":"hooks.draining","pending":0}
+{"t":1794652392641,"pid":3368864,"ev":"hooks.drained"}
+{"t":1794652392641,"pid":3368864,"ev":"plugins.closed"}
+{"t":1794652392718,"pid":3368864,"ev":"process.exit","code":0,"signal":null}

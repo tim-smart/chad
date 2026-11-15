@@ -1,0 +1,19 @@
+PASS  [kill-twice, fake brain]  chad counts the starts of one request in its own turns row  (["phase 1 start 1","phase 2 start 2","phase 3 start 3"])
+PASS  [kill-twice, fake brain]  the second redelivery is not resumed: the turn ends as Failed and chad says it was cut off  (["-# The last turn was cut off twice by a restart, so I stopped. Send it again if you still want it."])
+PASS  [kill-twice, fake brain]  beforeTurn ran for the first start and the resume, not for the give-up
+PASS  [kill-twice, fake brain]  afterTurn runs once, with Failed, the first attempt's id and resumed true  ([{"outcome":"Failed","reason":"Interrupted","resumed":true}])
+PASS  [term-short, fake brain]  a graceful stop lets a turn that ends inside cluster's 15s termination timeout finish  ({"sigtermAtMs":1000,"turnEndedAtMs":6832,"exitedAtMs":6899})
+PASS  [term-short, fake brain]  that turn is not redelivered on the next start
+PASS  [idle-cost-poll1s, fake brain]  an idle chad with a 1s storage poll uses little CPU  ({"cpuMsOver30s":84,"percentOfOneCore":0.3})
+PASS  [idle-cost-poll10s, fake brain]  an idle chad with a 10s storage poll uses little CPU  ({"cpuMsOver30s":20,"percentOfOneCore":0.1})
+PASS  [term-mid-turn, fake brain]  a graceful stop mid-turn leaves the request unprocessed  ({"t":1794653146406,"pid":3464694,"ev":"process.exit","code":130,"signal":null,"phase":1})
+PASS  [term-mid-turn, fake brain]  the next start redelivers it, and it counts as the one resume  ([2])
+PASS  [term-then-kill, fake brain]  a graceful stop that cuts a turn records the cut in the turns row before the process exits  ([{"phase":1,"saved":true},{"phase":2,"saved":true}])
+PASS  [term-then-kill, fake brain]  two graceful stops do not spend the resume: the turn is still resumed after them, and again after the first kill  (["phase 1: start 1, 0 kills","phase 2: start 2, 0 kills","phase 3: start 3, 0 kills","phase 4: start 4, 1 kills","phase 5: start 5, 2 kills"])
+PASS  [term-then-kill, fake brain]  every resumed start gets the restart note and resumed true
+PASS  [term-then-kill, fake brain]  the second kill still makes chad give up, with afterTurn once as Failed  (["-# The last turn was cut off twice by a restart, so I stopped. Send it again if you still want it."])
+PASS  [chain-mid, fake brain]  killed mid-turn: the same scheduled time is resumed once, not started as a second turn  (["phase 1 start 1","phase 2 start 2"])
+PASS  [chain-mid, fake brain]  the chain went on after the restart  (["phase 2","phase 2"])
+PASS  [chain-mid, fake brain]  every later scheduled time started exactly one turn  ([2,1])
+
+17 checks, 0 failed

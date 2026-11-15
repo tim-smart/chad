@@ -1,0 +1,32 @@
+{"t":1794652424258,"pid":3374997,"ev":"scenario.start","name":"compact-gate","phase":"1","variant":""}
+{"t":1794652424262,"pid":3374997,"ev":"user.posted","text":"sleep:200 compact","key":"message/test:c1/m2"}
+{"t":1794652424275,"pid":3374997,"ev":"gateway.saved","key":"message/test:c1/m2","ms":13}
+{"t":1794652424348,"pid":3374997,"ev":"session.activated","thread":"c1","session":"74ca5bf7-5ef3-4c05-836e-86aca217ee0e","activation":1}
+{"t":1794652424349,"pid":3374997,"ev":"message.delivered","key":"message/test:c1/m2","ms":87,"text":"sleep:200 compact"}
+{"t":1794652424366,"pid":3374997,"ev":"turn.start","key":"message/test:c1/m2","turn":"04345989-2f33-4ee9-94db-d343148b97af","starts":1,"resumed":false}
+{"t":1794652424367,"pid":3374997,"ev":"hook.beforeTurn","plugin":"quick","turn":"04345989-2f33-4ee9-94db-d343148b97af","origin":{"_tag":"Message","text":"sleep:200 compact","userId":"owner-1"},"resumed":false,"prompt":"sleep:200 compact"}
+{"t":1794652424368,"pid":3374997,"ev":"status.posted","id":"m4"}
+{"t":1794652424596,"pid":3374997,"ev":"turn.end","key":"message/test:c1/m2","turn":"04345989-2f33-4ee9-94db-d343148b97af","outcome":"Answered","compacted":true}
+{"t":1794652424608,"pid":3374997,"ev":"hook.afterTurn","plugin":"quick","turn":"04345989-2f33-4ee9-94db-d343148b97af","origin":{"_tag":"Message","text":"sleep:200 compact","userId":"owner-1"},"resumed":false,"outcome":"Answered"}
+{"t":1794652424608,"pid":3374997,"ev":"hook.done","plugin":"quick","label":"afterTurn","result":"ok","ms":0}
+{"t":1794652424609,"pid":3374997,"ev":"user.posted","text":"sleep:200 the message that arrived in the meantime","key":"message/test:c1/m6"}
+{"t":1794652424616,"pid":3374997,"ev":"gateway.saved","key":"message/test:c1/m6","ms":7}
+{"t":1794652424624,"pid":3374997,"ev":"message.delivered","key":"message/test:c1/m6","ms":15,"text":"sleep:200 the message that arrived in the meantime"}
+{"t":1794652424640,"pid":3374997,"ev":"turn.start","key":"message/test:c1/m6","turn":"6e843280-5828-46bd-8ea5-dfc689c3917a","starts":1,"resumed":false}
+{"t":1794652424909,"pid":3374997,"ev":"hook.done","plugin":"quick","label":"Compacted","result":"ok","ms":301}
+{"t":1794652454608,"pid":3374997,"ev":"hook.done","plugin":"slow","label":"afterTurn","result":"timeout","ms":30000}
+{"t":1794652464608,"pid":3374997,"ev":"hook.done","plugin":"slow","label":"Compacted","result":"timeout","ms":10000}
+{"t":1794652464609,"pid":3374997,"ev":"turn.waitedForHooks","key":"message/test:c1/m6","ms":39969}
+{"t":1794652464609,"pid":3374997,"ev":"hook.beforeTurn","plugin":"quick","turn":"6e843280-5828-46bd-8ea5-dfc689c3917a","origin":{"_tag":"Message","text":"sleep:200 the message that arrived in the meantime","userId":"owner-1"},"resumed":false,"prompt":"sleep:200 the message that arrived in th"}
+{"t":1794652464609,"pid":3374997,"ev":"status.posted","id":"m8"}
+{"t":1794652464834,"pid":3374997,"ev":"turn.end","key":"message/test:c1/m6","turn":"6e843280-5828-46bd-8ea5-dfc689c3917a","outcome":"Answered","compacted":false}
+{"t":1794652464841,"pid":3374997,"ev":"hook.afterTurn","plugin":"quick","turn":"6e843280-5828-46bd-8ea5-dfc689c3917a","origin":{"_tag":"Message","text":"sleep:200 the message that arrived in the meantime","userId":"owner-1"},"resumed":false,"outcome":"Answered"}
+{"t":1794652464841,"pid":3374997,"ev":"hook.done","plugin":"quick","label":"afterTurn","result":"ok","ms":0}
+{"t":1794652464841,"pid":3374997,"ev":"bot.messages","messages":["done: sleep:200 compact","done: sleep:200 the message that arrived in the meantime"]}
+{"t":1794652464841,"pid":3374997,"ev":"scenario.end","name":"compact-gate","phase":"1"}
+{"t":1794652464850,"pid":3374997,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652466911,"pid":3374997,"ev":"hooks.draining","pending":1}
+{"t":1794652494841,"pid":3374997,"ev":"hook.done","plugin":"slow","label":"afterTurn","result":"timeout","ms":30000}
+{"t":1794652494857,"pid":3374997,"ev":"hooks.drained"}
+{"t":1794652494858,"pid":3374997,"ev":"plugins.closed"}
+{"t":1794652494899,"pid":3374997,"ev":"process.exit","code":0,"signal":null}

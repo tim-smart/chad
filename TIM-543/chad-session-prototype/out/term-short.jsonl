@@ -1,0 +1,22 @@
+{"t":1794653138686,"pid":3465606,"ev":"scenario.start","name":"term-mid-turn","phase":"1","variant":"short"}
+{"t":1794653138688,"pid":3465606,"ev":"user.posted","text":"sleep:5000 short","key":"message/test:c1/m2"}
+{"t":1794653138699,"pid":3465606,"ev":"gateway.saved","key":"message/test:c1/m2","ms":11}
+{"t":1794653138764,"pid":3465606,"ev":"session.activated","thread":"c1","session":"e7774008-48a8-4cbe-bdd7-aa79bf3b9934","activation":1}
+{"t":1794653138766,"pid":3465606,"ev":"message.delivered","key":"message/test:c1/m2","ms":78,"text":"sleep:5000 short"}
+{"t":1794653138779,"pid":3465606,"ev":"turn.start","key":"message/test:c1/m2","turn":"ca16bcf9-f71c-4a05-85e3-5c4d375a08dd","starts":1,"cuts":0,"kills":0,"resumed":false}
+{"t":1794653138780,"pid":3465606,"ev":"hook.beforeTurn","plugin":"probe","turn":"ca16bcf9-f71c-4a05-85e3-5c4d375a08dd","origin":{"_tag":"Message","text":"sleep:5000 short","userId":"owner-1"},"resumed":false,"prompt":"sleep:5000 short"}
+{"t":1794653138781,"pid":3465606,"ev":"status.posted","id":"m4"}
+{"t":1794653145611,"pid":3465606,"ev":"turn.end","key":"message/test:c1/m2","turn":"ca16bcf9-f71c-4a05-85e3-5c4d375a08dd","outcome":"Answered","compacted":false}
+{"t":1794653145631,"pid":3465606,"ev":"hook.afterTurn","plugin":"probe","turn":"ca16bcf9-f71c-4a05-85e3-5c4d375a08dd","origin":{"_tag":"Message","text":"sleep:5000 short","userId":"owner-1"},"resumed":false,"outcome":"Answered"}
+{"t":1794653145631,"pid":3465606,"ev":"hook.done","plugin":"probe","label":"afterTurn","result":"ok","ms":0}
+{"t":1794653145632,"pid":3465606,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794653145641,"pid":3465606,"ev":"hooks.draining","pending":0}
+{"t":1794653145641,"pid":3465606,"ev":"hooks.drained"}
+{"t":1794653145641,"pid":3465606,"ev":"plugins.closed"}
+{"t":1794653145678,"pid":3465606,"ev":"process.exit","code":130,"signal":null}
+{"t":1794653146615,"pid":3466394,"ev":"scenario.start","name":"term-mid-turn","phase":"2","variant":"short"}
+{"t":1794653159617,"pid":3466394,"ev":"scenario.end","name":"term-mid-turn","phase":"2"}
+{"t":1794653161589,"pid":3466394,"ev":"hooks.draining","pending":0}
+{"t":1794653161589,"pid":3466394,"ev":"hooks.drained"}
+{"t":1794653161589,"pid":3466394,"ev":"plugins.closed"}
+{"t":1794653161629,"pid":3466394,"ev":"process.exit","code":0,"signal":null}

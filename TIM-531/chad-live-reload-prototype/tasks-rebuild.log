@@ -1,0 +1,24 @@
+mode rebuild
+
+> Start two background bash tasks with bash({ command, background: true }): 'sleep 4; echo quick-done' and 'sleep 40; echo slow-done'. Reply with the two task ids only. Do not wait for them.
+  output  bash_1
+          bash_2
+  answer  bash_1
+          bash_2
+  pushed  none
+
+-- 9s later: the quick task has ended, the slow one is running
+-- Agent rebuilt
+
+> In one script, print JSON.stringify(await listTasks()), then for each of the two task ids you started print the result of taskOutput(id), catching and printing any error message. Then tell me in one sentence what state the two tasks are in.
+  output  []
+          No task with id "bash_1". You can only address tasks you started; call listTasks() to see them.
+          No task with id "bash_2". You can only address tasks you started; call listTasks() to see them.
+  answer  Both tasks are no longer present in the task registry, so their current states cannot be determined.
+  pushed  none
+
+-- 38s later: the slow task has ended
+
+> Without running anything: has the slow task finished, as far as you know? One sentence.
+  answer  As far as I know, the slow task’s completion status is unknown.
+  pushed  none

@@ -1,0 +1,63 @@
+
+### J1: secret from stdin with the flag
+got secret: length 7, sha256 f52fbd32b2b3
+exit=0
+expected sha256 prefix: f52fbd32b2b3
+
+### J2: no terminal, no flag (stdin = /dev/null)
+chad secret-set: no terminal to prompt on; pipe the secret and pass --secret-stdin
+exit=2
+
+### J3: no terminal, no flag (stdin = pipe with data)
+chad secret-set: no terminal to prompt on; pipe the secret and pass --secret-stdin
+exit=2
+
+### J4: hidden prompt on a pty (script(1)); typed 'hunter2' + Enter after 2s
+^[[96m?^[[0m ^[[1msecret^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[96m?^[[0m ^[[1msecret^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[96m?^[[0m ^[[1msecret^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[96m?^[[0m ^[[1msecret^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[96m?^[[0m ^[[1msecret^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[96m?^[[0m ^[[1msecret^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[96m?^[[0m ^[[1msecret^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[96m?^[[0m ^[[1msecret^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[32mM-bM-^\M-^T^[[0m ^[[1msecret^[[0m ^[[90mM-bM-^@M-&^[[0m ^M
+^[[?25hgot secret: length 7, sha256 f52fbd32b2b3^M
+exit=0
+
+### J5: effect/cli alone (Flag.Redacted + withFallbackPrompt(Prompt.Hidden)), flag given
+got secret: length 7, sha256 f52fbd32b2b3
+exit=0
+
+### J6: effect/cli alone, no flag, stdin = /dev/null (timeout 5s)
+USAGE
+  chad secret-raw [flags]
+
+FLAGS
+  --token string    
+
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|powershell|sh|pwsh>                    Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
+
+ERROR
+  Missing required flag: --token
+exit=2
+
+### J7: effect/cli alone, no flag, stdin = pipe with 'hunter2\n' (timeout 5s)
+USAGE
+  chad secret-raw [flags]
+
+FLAGS
+  --token string    
+
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|powershell|sh|pwsh>                    Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
+
+ERROR
+  Missing required flag: --token
+exit=2
+
+### J8: effect/cli alone on a pty
+^[[96m?^[[0m ^[[1mtoken^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[96m?^[[0m ^[[1mtoken^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[96m?^[[0m ^[[1mtoken^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[96m?^[[0m ^[[1mtoken^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[96m?^[[0m ^[[1mtoken^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[96m?^[[0m ^[[1mtoken^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[96m?^[[0m ^[[1mtoken^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[96m?^[[0m ^[[1mtoken^[[0m ^[[90mM-bM-^@M-:^[[0m ^[[2K^[[1G^[[2K^[[G^[[32mM-bM-^\M-^T^[[0m ^[[1mtoken^[[0m ^[[90mM-bM-^@M-&^[[0m ^M
+^[[?25hgot secret: length 7, sha256 f52fbd32b2b3^M
+exit=0

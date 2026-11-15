@@ -1,0 +1,30 @@
+10:45:02.566 [daemon 3461829] lock taken
+10:45:02.572 [daemon 3461829] listening on state/chad.sock mode 600
+10:45:03.009 [daemon 3461829] apply#1 "c1" (client 0) received
+10:45:03.009 [daemon 3461829] apply#1 "c1" (client 0) step snapshot
+10:45:03.110 [daemon 3461829] apply#1 "c1" (client 0) step check
+10:45:03.211 [daemon 3461829] apply#1 "c1" (client 0) step load
+10:45:03.665 [daemon 3461829] apply#2 "c2" (client 1) received
+10:45:03.666 [daemon 3461829] apply#2 "c2" (client 1) queued behind apply#1 "c1" (client 0)
+10:45:06.214 [daemon 3461829] apply#1 "c1" (client 0) step commit
+10:45:06.215 [daemon 3461829] apply#1 "c1" (client 0) step swap
+10:45:06.215 [daemon 3461829] apply#1 "c1" (client 0) handler exit: success
+10:45:06.216 [daemon 3461829] apply#2 "c2" (client 1) step snapshot
+10:45:06.316 [daemon 3461829] apply#2 "c2" (client 1) step check
+10:45:06.416 [daemon 3461829] apply#2 "c2" (client 1) step load
+10:45:06.717 [daemon 3461829] apply#2 "c2" (client 1) step commit
+10:45:06.718 [daemon 3461829] apply#2 "c2" (client 1) step swap
+10:45:06.718 [daemon 3461829] apply#2 "c2" (client 1) handler exit: success
+10:45:07.153 [daemon 3461829] apply#3 "c3" (client 2) received
+10:45:07.153 [daemon 3461829] apply#3 "c3" (client 2) step snapshot
+10:45:07.253 [daemon 3461829] apply#3 "c3" (client 2) step check
+10:45:07.353 [daemon 3461829] apply#3 "c3" (client 2) step load
+10:45:07.814 [daemon 3461829] apply#4 "c4" (client 3) received
+10:45:07.814 [daemon 3461829] apply#4 "c4" (client 3) queued behind apply#3 "c3" (client 2)
+10:45:08.374 [daemon 3461829] apply#3 "c3" (client 2) handler exit: INTERRUPTED
+10:45:08.374 [daemon 3461829] apply#4 "c4" (client 3) step snapshot
+10:45:08.474 [daemon 3461829] apply#4 "c4" (client 3) step check
+10:45:08.574 [daemon 3461829] apply#4 "c4" (client 3) step load
+10:45:08.874 [daemon 3461829] apply#4 "c4" (client 3) step commit
+10:45:08.875 [daemon 3461829] apply#4 "c4" (client 3) step swap
+10:45:08.875 [daemon 3461829] apply#4 "c4" (client 3) handler exit: success

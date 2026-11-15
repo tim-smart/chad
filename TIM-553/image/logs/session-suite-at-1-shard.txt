@@ -1,0 +1,98 @@
+PASS  [latency, fake brain]  a persisted message reaches the local entity straight after the save, not on the 10s poll  ({"coldMs":132,"warmMs":[15,16],"pluginTurnMs":15})
+PASS  [kill-twice, fake brain]  chad counts the starts of one request in its own turns row  (["phase 1 start 1","phase 2 start 2","phase 3 start 3"])
+PASS  [kill-twice, fake brain]  the second redelivery is not resumed: the turn ends as Failed and chad says it was cut off  (["-# The last turn was cut off twice by a restart, so I stopped. Send it again if you still want it."])
+PASS  [kill-twice, fake brain]  beforeTurn ran for the first start and the resume, not for the give-up
+PASS  [kill-twice, fake brain]  afterTurn runs once, with Failed, the first attempt's id and resumed true  ([{"outcome":"Failed","reason":"Interrupted","resumed":true}])
+PASS  [idle-cost-poll10s, fake brain]  an idle chad with a 10s storage poll uses little CPU  ({"cpuMsOver30s":15,"percentOfOneCore":0})
+PASS  [kill-resume, real brain]  after a kill mid-turn the message is redelivered with no new post  ({"msAfterStart":71})
+PASS  [kill-resume, real brain]  the turn resumes once, as the second start of the same request
+PASS  [kill-resume, real brain]  beforeTurn runs again for the resumed turn, with the first attempt's id and origin, resumed true and the restart note as the prompt  ([{"phase":1,"resumed":false,"prompt":"Run the bash command `sleep 25; echo fin"},{"phase":2,"resumed":true,"prompt":"[chad restarted while this turn was runn"}])
+PASS  [kill-resume, real brain]  afterTurn runs once, for the attempt that finished  ([{"phase":2,"outcome":"Answered","resumed":true}])
+PASS  [kill-resume, real brain]  the history stored up to the kill loads into a new Agent and the model answers  ({"restored":1,"answer":"OMEGA"})
+PASS  [term-then-kill, fake brain]  a graceful stop that cuts a turn records the cut in the turns row before the process exits  ([{"phase":1,"saved":true},{"phase":2,"saved":true}])
+PASS  [term-then-kill, fake brain]  two graceful stops do not spend the resume: the turn is still resumed after them, and again after the first kill  (["phase 1: start 1, 0 kills","phase 2: start 2, 0 kills","phase 3: start 3, 0 kills","phase 4: start 4, 1 kills","phase 5: start 5, 2 kills"])
+PASS  [term-then-kill, fake brain]  every resumed start gets the restart note and resumed true
+PASS  [term-then-kill, fake brain]  the second kill still makes chad give up, with afterTurn once as Failed  (["-# The last turn was cut off twice by a restart, so I stopped. Send it again if you still want it."])
+PASS  [term-mid-turn, fake brain]  a graceful stop mid-turn leaves the request unprocessed  ({"t":1794693518117,"pid":3162868,"ev":"process.exit","code":130,"signal":null,"phase":1})
+PASS  [term-mid-turn, fake brain]  the next start redelivers it, and it counts as the one resume  ([2])
+PASS  [steer, real brain]  a message sent during a turn steers it  (ALPHA BRAVO)
+PASS  [steer, real brain]  a message that lands near the end of a turn either joins it or becomes the next turn  ([{"afterScriptOutputMs":150,"fate":"steered"},{"afterScriptOutputMs":500,"fate":"steered"},{"afterScriptOutputMs":900,"fate":"steered"},{"afterScriptOutputMs":1400,"fate":"next turn"},{"afterScriptOutputMs":2000,"fate":"next turn"}])
+PASS  [steer, real brain]  each of those messages is in the stored history exactly once  ([1,1,1,1,1])
+PASS  [steer, real brain]  never two sends at once, and one send per turn  ({"t":1794693555232,"pid":3162865,"ev":"steer.stats","sends":8,"maxActiveSends":1,"turnsEnded":8,"phase":1})
+PASS  [steer, real brain]  no turn failed
+PASS  [compact-real-short, real brain]  short turns on the agent's own model: every summarizer call ends in the turn that started it, applied if it beat the turn's end and cancelled if not  ({"startedInTurn":[2,3],"ended":["turn 2 4581>4581","turn 3 4706>2445"],"historyReplacedInTurn":[3],"turnsChadSawCompact":[3],"historyRows":8,"summarizerCallsStarted":2,"cancelledAtTurnEnd":1,"applied":1})
+PASS  [compact-real-short, real brain]  no turn failed and the last answer came  (["OK","PING","PONG","LAST"])
+PASS  [term-short, fake brain]  a graceful stop lets a turn that ends inside cluster's 15s termination timeout finish  ({"sigtermAtMs":1000,"turnEndedAtMs":5171,"exitedAtMs":5240})
+PASS  [term-short, fake brain]  that turn is not redelivered on the next start
+PASS  [idle-cost-poll1s, fake brain]  an idle chad with a 1s storage poll uses little CPU  ({"cpuMsOver30s":44,"percentOfOneCore":0.1})
+PASS  [passivate, real brain]  the session passivates when idle and the next message restores it from SQLite  ({"activations":[1,2],"restoredMessages":6})
+PASS  [passivate, real brain]  the restored session remembers the conversation  (["OK","4","6","HERON-42","8"])
+PASS  [passivate, real brain]  the restored session sends the same frozen system prompt  (["fb3e321464 7869 chars","fb3e321464 7869 chars"])
+PASS  [passivate, real brain]  the first call after the restore reads the cache like a call inside one activation does  ({"turnsBeforePassivation":["1849 in / 1664 cached","1873 in / 1664 cached","1897 in / 1792 cached"],"turnsAfterRestore":["1921 in / 1792 cached","1948 in / 1792 cached"]})
+PASS  [button, fake brain]  the Stop button's click reaches the entity and is acknowledged  ({"ms":21})
+PASS  [compact-real-own, real brain]  a summarizer on its own model: it outlives the turn that started it and HistoryReplaced arrives on a later turn's stream  ({"startedInTurn":[2],"ended":["turn 3 4634>2373"],"historyReplacedInTurn":[3],"turnsChadSawCompact":[3],"historyRows":8})
+PASS  [compact-real-own, real brain]  the turn after the one that saw HistoryReplaced waited for the Compacted hook  (["1265ms"])
+PASS  [compact-real-own, real brain]  no turn failed and the last answer came  (["OK","PING","PONG","LAST"])
+PASS  [compact-real-inturn, real brain]  a summarizer that finishes inside a long turn: HistoryReplaced arrives on that turn's stream  ({"startedInTurn":[1,4],"ended":["turn 1 4789>2688","turn 4 3136>3136"],"historyReplacedInTurn":[1],"turnsChadSawCompact":[1],"historyRows":12})
+PASS  [compact-real-inturn, real brain]  the turn after the one that saw HistoryReplaced waited for the Compacted hook  (["1476ms"])
+PASS  [compact-real-inturn, real brain]  no turn failed and the last answer came  (["OK","PING","PONG","LAST"])
+PASS  [dedupe, fake brain]  the same chat event delivered again is dropped by its primary key while cluster still has the request
+PASS  [dedupe, fake brain]  once MessageRetention has pruned the request, cluster delivers the same event again
+PASS  [dedupe, fake brain]  chad's own turns row stops that from starting a second turn  ({"turnStarts":1})
+PASS  [idle, fake brain]  a 7s turn is not passivated by a 3s idle time  ([12865])
+PASS  [idle, fake brain]  keepAlive holds the entity for 9s past a 3s idle time
+PASS  [idle, fake brain]  it passivates once keepAlive is off  ([{"msAfterKeepAliveOff":3826}])
+PASS  [stop, real brain]  /stop interrupts the running turn, which ends as Stopped  ({"msToTurnEnd":16})
+PASS  [stop, real brain]  a message waiting to steer the stopped turn is dropped
+PASS  [stop, real brain]  the history of the stopped turn loads into a new Agent, which answers  ({"restoredMessages":1,"answer":"You asked me to run `sleep 40` and then reply with “DONE.”"})
+PASS  [stop, real brain]  a click on the Stop button is acknowledged inside the 3s interaction deadline  ({"reply":"Ack","ms":2,"entityCallMs":1})
+PASS  [stop, real brain]  the click stops the turn the same way
+PASS  [stop, real brain]  the same Agent takes the next turn after an interrupted one
+PASS  [stop, real brain]  /stop with nothing running says so  (["-# stopped","You asked me to run `sleep 40` and then reply with “DONE.”","-# stopped","ALIVE","-# Nothing is running."])
+PASS  [defect, fake brain]  a handler defect fails that one request  ({"_id":"Exit","_tag":"Failure","cause":{"_id":"Cause","reasons":[{"_tag":"Die","defect":{}}]}})
+PASS  [defect, fake brain]  the entity is not restarted: same activation, next message handled
+PASS  [defect, fake brain]  the failed request is not redelivered after a restart  (["phase 1 message/test:c1/m2","phase 1 defect-1","phase 1 message/test:c1/m6"])
+PASS  [timer-cancel, fake brain]  clearAddress on the timer's address cancels the pending run  ({"before":{"t":1794693594221,"pid":3171672,"ev":"rows.beforeCancel","session":2,"timer":1,"phase":1},"after":{"t":1794693594235,"pid":3171672,"ev":"rows.afterCancel","session":2,"timer":0,"phase":1}})
+PASS  [timer-cancel, fake brain]  the Session entity's messages are left alone, and its queued plugin turn still runs
+PASS  [timer-basic-poll1s, fake brain]  a persisted message with DeliverAt is delivered within one storage poll (1s) of its time  ({"lateMs":536})
+PASS  [timer-basic-poll1s, fake brain]  a run that is overdue when the process starts is delivered once  ({"lateMs":4259,"deliveries":1,"msAfterProcessStart":53})
+PASS  [timer-held-term, fake brain]  a graceful stop with a timer on hold waits out cluster's 15s termination timeout before the process exits  ({"msFromSigtermToExit":15085})
+PASS  [timer-held-term, fake brain]  the held timer still fires once after the restart
+PASS  [timer-basic-poll10s, fake brain]  a persisted message with DeliverAt is delivered within one storage poll (10s) of its time  ({"lateMs":7553})
+PASS  [timer-basic-poll10s, fake brain]  a run that is overdue when the process starts is delivered once  ({"lateMs":4274,"deliveries":1,"msAfterProcessStart":55})
+PASS  [timer-cancel-run, fake brain]  a cancel that lands during a run stays cancelled: the handler saves no next run  ({"deliveries":1,"turns":1})
+PASS  [timer-cancel-run, fake brain]  the run that had started still finished
+PASS  [chain-mid, fake brain]  killed mid-turn: the same scheduled time is resumed once, not started as a second turn  (["phase 1 start 1","phase 2 start 2"])
+PASS  [chain-mid, fake brain]  the chain went on after the restart  (["phase 2","phase 2"])
+PASS  [chain-mid, fake brain]  every later scheduled time started exactly one turn  ([2,1])
+PASS  [shards-guard, fake brain]  a daemon started at 1 shard on a database made at 300 refuses to start, exits 1 and names both numbers  ({"message":"chad serve: this database was made with 300 shards and this chad uses 1. Messages stored under the old count would never be delivered, so chad will not start.","exit":1})
+PASS  [shards-guard, fake brain]  it started nothing: no session, no timer, no turn  (["boot.refused","process.exit"])
+PASS  [shards-guard, fake brain]  started at 300 again, both timers are delivered and the one not cancelled fires once  ({"held":2,"starts":1})
+PASS  [chain-after, fake brain]  killed between the turn ending and the next run being saved: no second turn for that time  (["phase 1 start 1"])
+PASS  [chain-after, fake brain]  the redelivered timer got the stored outcome and saved the next run
+PASS  [chain-after, fake brain]  the chain went on after the restart  (["phase 2","phase 2"])
+PASS  [chain-after, fake brain]  every later scheduled time started exactly one turn  ([1,1])
+PASS  [chain-before, fake brain]  killed while the timer's turn waited behind the owner's turn: the turn then starts once  (["phase 2 start 1"])
+PASS  [chain-before, fake brain]  the chain went on after the restart  (["phase 2","phase 2"])
+PASS  [chain-before, fake brain]  every later scheduled time started exactly one turn  ([1,1])
+PASS  [tool-queue, real brain]  a tool that starts a turn for its own thread returns without waiting  ({"toolReturnedMs":8})
+PASS  [tool-queue, real brain]  the queued turn runs after the calling turn ends  (["queued","QUEUED-RAN"])
+PASS  [compact-gate-fast, fake brain]  with hooks that return, the wait is the hooks' own time  ({"waitedMs":273})
+PASS  [graceful-term, fake brain]  on a graceful stop a queued afterTurn finishes before the plugins' scopes close  (["hooks.draining","hook.afterTurn.finished","hook.done","hooks.drained","plugins.closed"])
+PASS  [timer-held, fake brain]  a timer whose plugin is not loaded is held: delivered, no turn
+PASS  [timer-held, fake brain]  the hold survives a kill: the request is redelivered and held again
+PASS  [timer-held, fake brain]  it fires once when the plugin comes back  ({"msAfterLoad":62})
+PASS  [timer-held, fake brain]  a held timer that was cancelled meanwhile does not fire
+PASS  [graceful-kill, fake brain]  on a kill the queued hook is lost
+PASS  [chunks, fake brain]  a chunk whose render fails keeps the text the session last saw
+PASS  [chunks, fake brain]  no update message is sent for the failed render or for the unchanged text after it  (["memory block v2","memory block v3"])
+PASS  [timer-prune, fake brain]  with MessageRetention on the Timer entity the chain keeps running, one turn per scheduled time  ({"runs":6,"turnStarts":6})
+PASS  [timer-prune, fake brain]  completed timer requests are pruned  (["0 done/1 pending","1 done/1 pending","2 done/1 pending","1 done/1 pending","1 done/1 pending","1 done/1 pending","1 done/1 pending","2 done/1 pending","1 done/1 pending"])
+PASS  [shards-changed, fake brain]  stored at 300 shards, both timers are delivered and held
+PASS  [shards-changed, fake brain]  restarted at 1 shard on the same file, neither is delivered in 60 seconds  ({"held":0,"errors":[]})
+PASS  [shards-changed, fake brain]  restarted at 300 again, both are delivered and the one not cancelled fires once  ({"held":2,"starts":1})
+PASS  [compact-gate-slow, fake brain]  after a turn that compacted, the next turn waits for that turn's afterTurn and Compacted hooks  ({"waitedMs":39970,"hooks":["quick afterTurn ok 0ms","quick Compacted ok 300ms","slow afterTurn timeout 29999ms","slow Compacted timeout 10002ms","quick afterTurn ok 0ms","slow afterTurn timeout 30000ms"]})
+PASS  [compact-gate-slow, fake brain]  with one plugin whose calls hang, the wait is the two budgets added up (30s + 10s)  ({"waitedMs":39970})
+PASS  [compact-gate-slow, fake brain]  the message that arrived in the meantime is not lost
+
+96 checks, 0 failed

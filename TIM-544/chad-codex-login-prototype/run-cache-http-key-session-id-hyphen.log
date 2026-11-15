@@ -1,0 +1,31 @@
+scenario cache, model gpt-6-astra/low, node v26.8.2, clanka 0.27.0
+
+=== transport http, prompt_cache_key session-43dabacb, pause between turns 3s, headers sent: session-id
+[   0.1s] session-43dabacb turn starts: Remember this codeword: PLATYPUS-43dabacb. Reply ok.
+[   2.3s] session-43dabacb answer: ok
+[   2.3s] session-43dabacb tokens: input 1802, cached 1664; per model call: 1802 in / 1664 cached
+[   2.3s] session-43dabacb turn starts: Run exactly this script, then tell me how many coffees note 200 has: console.log(await readFile({ path: 'notes.txt' }))
+[   6.3s] session-43dabacb answer: Note 200 has 7 coffees.
+[   6.3s] session-43dabacb tokens: input 10509, cached 3328; per model call: 1842 in / 1664 cached, 8667 in / 1664 cached
+[   9.3s] session-43dabacb turn starts: From the notes you already printed, how many km did note 10 log? Answer from memory, run no script.
+[  12.0s] session-43dabacb answer: Note 10 logged 60 km.
+[  12.0s] session-43dabacb tokens: input 8709, cached 8576; per model call: 8709 in / 8576 cached
+[  15.0s] session-43dabacb turn starts: From the notes you already printed, how many km did note 20 log? Answer from memory, run no script.
+[  16.6s] session-43dabacb answer: Note 20 logged 66 km.
+[  16.6s] session-43dabacb tokens: input 8751, cached 8576; per model call: 8751 in / 8576 cached
+[  16.6s] session-43dabacb system prompt e2a1e9dd
+
+=== no rebuild (control)
+[  19.7s] session-43dabacb turn starts: From the notes you already printed, how many km did note 30 log? Answer from memory, run no script.
+[  24.4s] session-43dabacb answer: Note 30 logged 72 km.
+[  24.4s] session-43dabacb tokens: input 8793, cached 8576; per model call: 8793 in / 8576 cached
+[  24.4s] session-43dabacb system prompt e2a1e9dd (frozen)
+[  27.4s] session-43dabacb turn starts: From the notes you already printed, how many km did note 40 log? Answer from memory, run no script.
+[  30.2s] session-43dabacb answer: Note 40 logged 78 km.
+[  30.2s] session-43dabacb tokens: input 8835, cached 8704; per model call: 8835 in / 8704 cached
+
+=== sub-agents on the main model, one after the other
+[  30.2s] session-43dabacb turn starts: Run exactly this script and tell me what it printed: const a = await subagent({ prompt: 'Reply with the single word pong.' }); const b = await subagent({ prompt: 'Reply with the single word ping.' }); console.log(a.output, b.output)
+[  39.3s] session-43dabacb answer: It printed `pong ping`.
+[  39.3s] session-43dabacb tokens: input 21581, cached 19200; per model call: sub-agent 1823 in / 0 cached, sub-agent 1823 in / 1664 cached, 8908 in / 8704 cached, 9027 in / 8832 cached
+[  39.3s] summary   device codes issued: 0; auth.openai.com requests: none

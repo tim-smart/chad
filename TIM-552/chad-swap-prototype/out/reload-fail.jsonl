@@ -1,0 +1,73 @@
+{"t":1794683949047,"pid":2199041,"ev":"boot.nothingApplied"}
+{"t":1794683949213,"pid":2199041,"ev":"scenario.start","name":"reload-fail","phase":"1","drainMs":30000,"closeMs":10000}
+{"t":1794683949215,"pid":2199041,"ev":"apply.start","dir":"out/repo-reload-fail/versions/1794683949214-2199041-1"}
+{"t":1794683949318,"pid":2199041,"ev":"build.ok","version":"echo#1@dd2b18cb","tools":["slow","echo"],"hooks":[]}
+{"t":1794683949326,"pid":2199041,"ev":"build.ok","version":"picky#2@234200e5","tools":["pick"],"hooks":[]}
+{"t":1794683949326,"pid":2199041,"ev":"live.moved","live":"versions/1794683949214-2199041-1"}
+{"t":1794683949327,"pid":2199041,"ev":"swap.gateClosed","label":"apply","plugins":["echo: nothing -> echo#1@dd2b18cb","picky: nothing -> picky#2@234200e5"]}
+{"t":1794683949327,"pid":2199041,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794683949327,"pid":2199041,"ev":"swap.drained","label":"apply","ms":1,"interrupted":[]}
+{"t":1794683949327,"pid":2199041,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":1,"drainedMs":1,"closeMs":0,"interrupted":[],"affected":[],"now":["echo: echo#1@dd2b18cb","picky: picky#2@234200e5"]}
+{"t":1794683949327,"pid":2199041,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":["echo","picky"],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":1,"drainedMs":1,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794683949328,"pid":2199041,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"before PLAN:{\"steps\":[\"try { console.log('OK ' + JSON.string"}
+{"t":1794683949412,"pid":2199041,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794683949414,"pid":2199041,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794683949486,"pid":2199041,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"84c3aaf7-298f-4925-940b-60f619c29ee5","starts":1,"cuts":0,"resumed":false}
+{"t":1794683949494,"pid":2199041,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"on":{"echo":"dd2b18cb","picky":"234200e5"},"tools":["slow","echo","pick"]}
+{"t":1794683949605,"pid":2199041,"ev":"call.routed","session":"s-c1","tool":"echo","built":"dd2b18cb","to":"echo#1@dd2b18cb","recoded":false}
+{"t":1794683949609,"pid":2199041,"ev":"call.routed","session":"s-c1","tool":"pick","built":"234200e5","to":"picky#2@234200e5","recoded":false}
+{"t":1794683949613,"pid":2199041,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v1 hi Pacific/Auckland #1: x\"\nOK \"picky Pacific/Auckland owners=owner-1+owner-2 #2\"\n"}
+{"t":1794683949791,"pid":2199041,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"84c3aaf7-298f-4925-940b-60f619c29ee5","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: x\\\"\\nOK \\\"picky Pacific/Auckland owners=owner-1+owner-2 #2\\\"\\n\"]"}
+{"t":1794683949851,"pid":2199041,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: x\\\"\\nOK \\\"picky Pacific/Auckland owners=owner-1+owner-2 #2\\\"\\n\"]"}
+{"t":1794683949851,"pid":2199041,"ev":"reload.start","reason":"timezone","names":["echo","picky"]}
+{"t":1794683949853,"pid":2199041,"ev":"build.ok","version":"echo#3@dd2b18cb","tools":["slow","echo"],"hooks":[]}
+{"t":1794683949857,"pid":2199041,"ev":"build.failed","plugin":"picky","hash":"234200e5","error":"Error: unknown time zone Mars/Olympus"}
+{"t":1794683949857,"pid":2199041,"ev":"swap.gateClosed","label":"reload: timezone","plugins":["echo: echo#1@dd2b18cb -> echo#3@dd2b18cb"]}
+{"t":1794683949857,"pid":2199041,"ev":"swap.draining","label":"reload: timezone","inflight":[]}
+{"t":1794683949858,"pid":2199041,"ev":"swap.drained","label":"reload: timezone","ms":1,"interrupted":[]}
+{"t":1794683949858,"pid":2199041,"ev":"plugin.closing","plugin":"echo","instance":1,"hash":"dd2b18cb"}
+{"t":1794683949863,"pid":2199041,"ev":"close.done","version":"echo#1@dd2b18cb","why":"reload: timezone","ms":5}
+{"t":1794683949863,"pid":2199041,"ev":"swap.activated","label":"reload: timezone","generation":2,"waitedMs":6,"drainedMs":1,"closeMs":5,"interrupted":[],"affected":[],"now":["echo: echo#3@dd2b18cb"]}
+{"t":1794683949864,"pid":2199041,"ev":"reload.done","reason":"timezone","exit":1,"errors":["picky: Error: unknown time zone Mars/Olympus"],"reloaded":["echo"]}
+{"t":1794683949864,"pid":2199041,"ev":"cli.reload","ok":false,"exit":1,"errors":["picky: Error: unknown time zone Mars/Olympus"],"reloaded":["echo"],"kept":[],"swap":{"label":"reload: timezone","generation":2,"waitedMs":6,"drainedMs":1,"closeMs":5,"interrupted":[],"affected":[]},"reason":"timezone"}
+{"t":1794683949864,"pid":2199041,"ev":"status","after":"timezone","status":["echo: echo#3@dd2b18cb","picky: picky#2@234200e5 (running with the previous timezone: Error: unknown time zone Mars/Olympus)"]}
+{"t":1794683949864,"pid":2199041,"ev":"user.posted","who":"A","key":"message/test:c1/m7","text":"after the timezone change PLAN:{\"steps\":[\"try { console.log("}
+{"t":1794683949945,"pid":2199041,"ev":"message.delivered","key":"message/test:c1/m7","session":"s-c1"}
+{"t":1794683950002,"pid":2199041,"ev":"turn.start","key":"message/test:c1/m7","session":"s-c1","turn":"47f8c058-c7d0-4a30-9988-3c5fc0b911a5","starts":1,"cuts":0,"resumed":false}
+{"t":1794683950007,"pid":2199041,"ev":"agent.built","session":"s-c1","rebuild":1,"generation":2,"on":{"echo":"dd2b18cb","picky":"234200e5"},"tools":["slow","echo","pick"]}
+{"t":1794683950073,"pid":2199041,"ev":"call.routed","session":"s-c1","tool":"echo","built":"dd2b18cb","to":"echo#3@dd2b18cb","recoded":false}
+{"t":1794683950074,"pid":2199041,"ev":"call.routed","session":"s-c1","tool":"pick","built":"234200e5","to":"picky#2@234200e5","recoded":false}
+{"t":1794683950077,"pid":2199041,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v1 hi Mars/Olympus #3: x\"\nOK \"picky Pacific/Auckland owners=owner-1+owner-2 #2\"\n"}
+{"t":1794683950199,"pid":2199041,"ev":"turn.end","key":"message/test:c1/m7","session":"s-c1","turn":"47f8c058-c7d0-4a30-9988-3c5fc0b911a5","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 hi Mars/Olympus #3: x\\\"\\nOK \\\"picky Pacific/Auckland owners=owner-1+owner-2 #2\\\"\\n\"]"}
+{"t":1794683950254,"pid":2199041,"ev":"answer","who":"A","key":"message/test:c1/m7","text":"RESULTS [\"OK \\\"v1 hi Mars/Olympus #3: x\\\"\\nOK \\\"picky Pacific/Auckland owners=owner-1+owner-2 #2\\\"\\n\"]"}
+{"t":1794683950254,"pid":2199041,"ev":"reload.start","reason":"owner","names":["echo","picky"]}
+{"t":1794683950256,"pid":2199041,"ev":"build.ok","version":"echo#5@dd2b18cb","tools":["slow","echo"],"hooks":[]}
+{"t":1794683950257,"pid":2199041,"ev":"build.failed","plugin":"picky","hash":"234200e5","error":"Error: unknown time zone Mars/Olympus"}
+{"t":1794683950258,"pid":2199041,"ev":"swap.gateClosed","label":"reload: owner","plugins":["echo: echo#3@dd2b18cb -> echo#5@dd2b18cb","picky: picky#2@234200e5 -> removed"]}
+{"t":1794683950258,"pid":2199041,"ev":"swap.draining","label":"reload: owner","inflight":[]}
+{"t":1794683950258,"pid":2199041,"ev":"swap.drained","label":"reload: owner","ms":1,"interrupted":[]}
+{"t":1794683950258,"pid":2199041,"ev":"plugin.closing","plugin":"echo","instance":3,"hash":"dd2b18cb"}
+{"t":1794683950258,"pid":2199041,"ev":"close.done","version":"echo#3@dd2b18cb","why":"reload: owner","ms":0}
+{"t":1794683950258,"pid":2199041,"ev":"close.done","version":"picky#2@234200e5","why":"reload: owner","ms":0}
+{"t":1794683950258,"pid":2199041,"ev":"swap.activated","label":"reload: owner","generation":3,"waitedMs":1,"drainedMs":1,"closeMs":0,"interrupted":[],"affected":[],"now":["echo: echo#5@dd2b18cb","picky: removed"]}
+{"t":1794683950258,"pid":2199041,"ev":"reload.done","reason":"owner","exit":1,"errors":["picky: Error: unknown time zone Mars/Olympus"],"reloaded":["echo"]}
+{"t":1794683950258,"pid":2199041,"ev":"cli.reload","ok":false,"exit":1,"errors":["picky: Error: unknown time zone Mars/Olympus"],"reloaded":["echo"],"kept":[],"swap":{"label":"reload: owner","generation":3,"waitedMs":1,"drainedMs":1,"closeMs":0,"interrupted":[],"affected":[]},"reason":"owner"}
+{"t":1794683950258,"pid":2199041,"ev":"status","after":"owner removed","status":["echo: echo#5@dd2b18cb","picky: removed"]}
+{"t":1794683950258,"pid":2199041,"ev":"user.posted","who":"A","key":"message/test:c1/m10","text":"after the owner was removed PLAN:{\"steps\":[\"try { console.lo"}
+{"t":1794683950312,"pid":2199041,"ev":"message.delivered","key":"message/test:c1/m10","session":"s-c1"}
+{"t":1794683950361,"pid":2199041,"ev":"turn.start","key":"message/test:c1/m10","session":"s-c1","turn":"9fe0a3cb-4974-4448-b214-4ef5674558cf","starts":1,"cuts":0,"resumed":false}
+{"t":1794683950363,"pid":2199041,"ev":"agent.built","session":"s-c1","rebuild":2,"generation":3,"on":{"echo":"dd2b18cb"},"tools":["slow","echo"]}
+{"t":1794683950428,"pid":2199041,"ev":"call.routed","session":"s-c1","tool":"echo","built":"dd2b18cb","to":"echo#5@dd2b18cb","recoded":false}
+{"t":1794683950430,"pid":2199041,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v1 hi Mars/Olympus #5: x\"\nERR pick is not defined\n"}
+{"t":1794683950545,"pid":2199041,"ev":"turn.end","key":"message/test:c1/m10","session":"s-c1","turn":"9fe0a3cb-4974-4448-b214-4ef5674558cf","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 hi Mars/Olympus #5: x\\\"\\nERR pick is not defined\\n\"]"}
+{"t":1794683950561,"pid":2199041,"ev":"answer","who":"A","key":"message/test:c1/m10","text":"RESULTS [\"OK \\\"v1 hi Mars/Olympus #5: x\\\"\\nERR pick is not defined\\n\"]"}
+{"t":1794683950561,"pid":2199041,"ev":"scenario.end","name":"reload-fail","phase":"1"}
+{"t":1794683950561,"pid":2199041,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794683950602,"pid":2199041,"ev":"stop.entityLayersClosed"}
+{"t":1794683962453,"pid":2199041,"ev":"stop.runnerClosed"}
+{"t":1794683962453,"pid":2199041,"ev":"hooks.draining","pending":0}
+{"t":1794683962453,"pid":2199041,"ev":"hooks.drained"}
+{"t":1794683962454,"pid":2199041,"ev":"plugin.closing","plugin":"echo","instance":5,"hash":"dd2b18cb"}
+{"t":1794683962454,"pid":2199041,"ev":"close.done","version":"echo#5@dd2b18cb","why":"graceful stop","ms":0}
+{"t":1794683962454,"pid":2199041,"ev":"plugins.closed"}
+{"t":1794683962528,"pid":2199041,"ev":"process.exit","code":0,"signal":null}

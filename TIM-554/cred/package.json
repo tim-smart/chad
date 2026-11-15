@@ -1,0 +1,20 @@
+{
+  "name": "chad-credential-tools-prototype",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@effect/ai-openai": "https://pkg.pr.new/Effect-TS/effect/@effect/ai-openai@0b51fb1",
+    "@effect/ai-openai-compat": "https://pkg.pr.new/Effect-TS/effect/@effect/ai-openai-compat@0b51fb1",
+    "@effect/chat-discord": "https://pkg.pr.new/Effect-TS/effect/@effect/chat-discord@0b51fb1",
+    "@effect/platform-node": "https://pkg.pr.new/Effect-TS/effect/@effect/platform-node@0b51fb1",
+    "@effect/platform-node-shared": "https://pkg.pr.new/Effect-TS/effect/@effect/platform-node-shared@0b51fb1",
+    "@effect/sql-sqlite-node": "https://pkg.pr.new/Effect-TS/effect/@effect/sql-sqlite-node@0b51fb1",
+    "clanka": "0.27.0",
+    "effect": "https://pkg.pr.new/Effect-TS/effect/effect@0b51fb1",
+    "esbuild": "^0.28.2"
+  },
+  "overrides": {
+    "effect": "https://pkg.pr.new/Effect-TS/effect/effect@0b51fb1",
+    "@effect/platform-node-shared": "https://pkg.pr.new/Effect-TS/effect/@effect/platform-node-shared@0b51fb1"
+  }
+}

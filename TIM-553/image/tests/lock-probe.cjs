@@ -1,0 +1,1 @@
+const {DatabaseSync}=require("node:sqlite"); const d=new DatabaseSync("/data/db/daemon.lock",{timeout:0}); try{d.exec("BEGIN IMMEDIATE"); console.log("lock is FREE, holder row:", JSON.stringify(d.prepare("select pid from holder").all())); d.exec("ROLLBACK")}catch(e){console.log("lock is HELD:", e.message)}

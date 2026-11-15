@@ -1,0 +1,17 @@
+{"t":1794653130144,"pid":3464696,"ev":"scenario.start","name":"idle-cost","phase":"1","variant":""}
+{"t":1794653130147,"pid":3464696,"ev":"user.posted","text":"sleep:100 warm up","key":"message/test:c1/m2"}
+{"t":1794653130180,"pid":3464696,"ev":"gateway.saved","key":"message/test:c1/m2","ms":32}
+{"t":1794653130288,"pid":3464696,"ev":"session.activated","thread":"c1","session":"c3bcdda8-ac9a-46e1-85d6-dbc38301f6bc","activation":1}
+{"t":1794653130292,"pid":3464696,"ev":"message.delivered","key":"message/test:c1/m2","ms":144,"text":"sleep:100 warm up"}
+{"t":1794653130323,"pid":3464696,"ev":"turn.start","key":"message/test:c1/m2","turn":"3a85b7c8-eb3f-4ffc-8978-f4b6e6b25a08","starts":1,"cuts":0,"kills":0,"resumed":false}
+{"t":1794653130324,"pid":3464696,"ev":"status.posted","id":"m4"}
+{"t":1794653130451,"pid":3464696,"ev":"turn.end","key":"message/test:c1/m2","turn":"3a85b7c8-eb3f-4ffc-8978-f4b6e6b25a08","outcome":"Answered","compacted":false}
+{"t":1794653130484,"pid":3464696,"ev":"turns.scheduled","timer":"cron/far","next":1794656730467}
+{"t":1794653162490,"pid":3464696,"ev":"idle.cpu","wallMs":30002,"cpuMs":20}
+{"t":1794653162511,"pid":3464696,"ev":"turns.cancelled","timer":"cron/far"}
+{"t":1794653162515,"pid":3464696,"ev":"scenario.end","name":"idle-cost","phase":"1"}
+{"t":1794653162526,"pid":3464696,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794653166774,"pid":3464696,"ev":"hooks.draining","pending":0}
+{"t":1794653166774,"pid":3464696,"ev":"hooks.drained"}
+{"t":1794653166774,"pid":3464696,"ev":"plugins.closed"}
+{"t":1794653166824,"pid":3464696,"ev":"process.exit","code":0,"signal":null}

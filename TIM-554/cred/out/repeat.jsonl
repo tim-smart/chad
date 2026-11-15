@@ -1,0 +1,102 @@
+{"t":1794687651381,"pid":2589079,"ev":"scenario.start","name":"repeat","phase":"1"}
+{"t":1794687651386,"pid":2589079,"ev":"user.posted","who":"A","key":"message/test:c1/m4","length":512}
+{"t":1794687651552,"pid":2589079,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687651554,"pid":2589079,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687651571,"pid":2589079,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"8bf2a89e-e341-4694-b06d-2f128947fbae","origin":"Message"}
+{"t":1794687651583,"pid":2589079,"ev":"agent.built","session":"s-c1","wrap":false,"mcp":false}
+{"t":1794687651617,"pid":2589079,"ev":"model.call","call":1,"messages":2,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687651634,"pid":2589079,"ev":"chat.edited","thread":"c1","messageId":"m6","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request DUP --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687651706,"pid":2589079,"ev":"spawner.spawn","session":"s-c1","command":"bash","args":["-c","chad secret request DUP --no-wait -m 'again'"]}
+{"t":1794687652437,"pid":2589079,"ev":"request.received","session":"s-c1","name":"DUP","kind":"plain","noWait":true,"ownerPresent":true}
+{"t":1794687652439,"pid":2589079,"ev":"request.posted","thread":"c1","name":"DUP","kind":"plain","messageId":"m7","ping":false}
+{"t":1794687652515,"pid":2589079,"ev":"brain.scriptOutput","session":"s-c1","output":"[20:20:51.703] INFO (#96): Calling \"bash\" { command: \"chad secret request DUP --no-wait -m 'again'\", timeoutMs: 330000 }\nOUT[completed] Asked for DUP\n\n"}
+{"t":1794687652548,"pid":2589079,"ev":"model.call","call":2,"messages":4,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result"]}
+{"t":1794687652558,"pid":2589079,"ev":"chat.edited","thread":"c1","messageId":"m6","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request DUP --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687652617,"pid":2589079,"ev":"spawner.spawn","session":"s-c1","command":"bash","args":["-c","chad secret request DUP --no-wait -m 'again'"]}
+{"t":1794687653186,"pid":2589079,"ev":"request.received","session":"s-c1","name":"DUP","kind":"plain","noWait":true,"ownerPresent":true}
+{"t":1794687653187,"pid":2589079,"ev":"request.repeat","thread":"c1","name":"DUP","askedAt":1794687652439}
+{"t":1794687653236,"pid":2589079,"ev":"brain.scriptOutput","session":"s-c1","output":"[20:20:52.616] INFO (#117): Calling \"bash\" { command: \"chad secret request DUP --no-wait -m 'again'\", timeoutMs: 330000 }\nOUT[completed] Already asked for DUP at 20:20:52 UTC\n\n"}
+{"t":1794687653265,"pid":2589079,"ev":"model.call","call":3,"messages":6,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result","assistant:call","tool:result"]}
+{"t":1794687653309,"pid":2589079,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"8bf2a89e-e341-4694-b06d-2f128947fbae","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:51.703] INFO (#96): Calling \\\"bash\\\" { command: \\\"chad secret request DUP --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for DUP\\n\\n\",\"[20:20:52.616] INFO (#117): Calling \\\"bash\\\" { command: \\\"chad secret request DUP --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Already asked for DUP at 20:20:52 UTC\\n\\n\"]"}}
+{"t":1794687653351,"pid":2589079,"ev":"answer","who":"A","key":"message/test:c1/m4","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:51.703] INFO (#96): Calling \\\"bash\\\" { command: \\\"chad secret request DUP --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for DUP\\n\\n\",\"[20:20:52.616] INFO (#117): Calling \\\"bash\\\" { command: \\\"chad secret request DUP --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Already asked for DUP at 20:20:52 UTC\\n\\n\"]"}}
+{"t":1794687653352,"pid":2589079,"ev":"user.posted","who":"B","key":"message/test:c2/m9","length":273}
+{"t":1794687653390,"pid":2589079,"ev":"session.activated","thread":"c2","session":"s-c2"}
+{"t":1794687653390,"pid":2589079,"ev":"message.delivered","key":"message/test:c2/m9","session":"s-c2"}
+{"t":1794687653411,"pid":2589079,"ev":"turn.start","key":"message/test:c2/m9","session":"s-c2","turn":"ef5dc2e2-76e0-4b44-aff8-93bd993032d0","origin":"Message"}
+{"t":1794687653416,"pid":2589079,"ev":"agent.built","session":"s-c2","wrap":false,"mcp":false}
+{"t":1794687653428,"pid":2589079,"ev":"model.call","call":4,"messages":2,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687653430,"pid":2589079,"ev":"chat.edited","thread":"c2","messageId":"m11","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request DUP --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687653473,"pid":2589079,"ev":"spawner.spawn","session":"s-c2","command":"bash","args":["-c","chad secret request DUP --no-wait -m 'again'"]}
+{"t":1794687653980,"pid":2589079,"ev":"request.received","session":"s-c2","name":"DUP","kind":"plain","noWait":true,"ownerPresent":true}
+{"t":1794687653981,"pid":2589079,"ev":"request.posted","thread":"c2","name":"DUP","kind":"plain","messageId":"m12","ping":false}
+{"t":1794687654016,"pid":2589079,"ev":"brain.scriptOutput","session":"s-c2","output":"[20:20:53.472] INFO (#159): Calling \"bash\" { command: \"chad secret request DUP --no-wait -m 'again'\", timeoutMs: 330000 }\nOUT[completed] Asked for DUP\n\n"}
+{"t":1794687654043,"pid":2589079,"ev":"model.call","call":5,"messages":4,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result"]}
+{"t":1794687654087,"pid":2589079,"ev":"turn.end","key":"message/test:c2/m9","session":"s-c2","turn":"ef5dc2e2-76e0-4b44-aff8-93bd993032d0","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:53.472] INFO (#159): Calling \\\"bash\\\" { command: \\\"chad secret request DUP --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for DUP\\n\\n\"]"}}
+{"t":1794687654136,"pid":2589079,"ev":"answer","who":"B","key":"message/test:c2/m9","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:53.472] INFO (#159): Calling \\\"bash\\\" { command: \\\"chad secret request DUP --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for DUP\\n\\n\"]"}}
+{"t":1794687654136,"pid":2589079,"ev":"repeat.posts","posted":2,"threads":["c1","c2"],"remembered":[{"thread":"c1","name":"DUP","messageId":"m7"},{"thread":"c2","name":"DUP","messageId":"m12"}]}
+{"t":1794687654137,"pid":2589079,"ev":"user.posted","who":"A","key":"message/test:c1/m14","length":289}
+{"t":1794687654163,"pid":2589079,"ev":"message.delivered","key":"message/test:c1/m14","session":"s-c1"}
+{"t":1794687654197,"pid":2589079,"ev":"turn.start","key":"message/test:c1/m14","session":"s-c1","turn":"3c642ee3-8fcd-4a32-a9fa-026404af506e","origin":"Message"}
+{"t":1794687654210,"pid":2589079,"ev":"model.call","call":6,"messages":8,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687654212,"pid":2589079,"ev":"chat.edited","thread":"c1","messageId":"m16","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request DUP -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687654261,"pid":2589079,"ev":"spawner.spawn","session":"s-c1","command":"bash","args":["-c","chad secret request DUP -m 'again'"]}
+{"t":1794687654775,"pid":2589079,"ev":"request.received","session":"s-c1","name":"DUP","kind":"plain","noWait":false,"ownerPresent":true}
+{"t":1794687654775,"pid":2589079,"ev":"request.repeat","thread":"c1","name":"DUP","askedAt":1794687652439}
+{"t":1794687655563,"pid":2589079,"ev":"secret.saved","name":"DUP","via":"cli","kind":"plain","replaced":false,"short":false}
+{"t":1794687655564,"pid":2589079,"ev":"chat.edited","thread":"c1","messageId":"m7","markdown":"Saved DUP","why":"saved","ok":true}
+{"t":1794687655565,"pid":2589079,"ev":"chat.edited","thread":"c2","messageId":"m12","markdown":"Saved DUP","why":"saved","ok":true}
+{"t":1794687655592,"pid":2589079,"ev":"cli","label":"set DUP","args":["secret","set","DUP"],"code":0,"stdout":"Saved DUP\n","stderr":"","ms":499}
+{"t":1794687655595,"pid":2589079,"ev":"brain.scriptOutput","session":"s-c1","output":"[20:20:54.261] INFO (#195): Calling \"bash\" { command: \"chad secret request DUP -m 'again'\", timeoutMs: 330000 }\nOUT[completed] Saved DUP\n\n"}
+{"t":1794687655640,"pid":2589079,"ev":"model.call","call":7,"messages":10,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result"]}
+{"t":1794687655641,"pid":2589079,"ev":"chat.edited","thread":"c1","messageId":"m16","markdown":"-# running\nconsole.log('STEP2 RAN')","why":"status","ok":true}
+{"t":1794687655677,"pid":2589079,"ev":"brain.scriptOutput","session":"s-c1","output":"STEP2 RAN\n"}
+{"t":1794687655706,"pid":2589079,"ev":"model.call","call":8,"messages":12,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result","assistant:call","tool:result"]}
+{"t":1794687655745,"pid":2589079,"ev":"turn.end","key":"message/test:c1/m14","session":"s-c1","turn":"3c642ee3-8fcd-4a32-a9fa-026404af506e","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:54.261] INFO (#195): Calling \\\"bash\\\" { command: \\\"chad secret request DUP -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Saved DUP\\n\\n\",\"STEP2 RAN\\n\"]"}}
+{"t":1794687655842,"pid":2589079,"ev":"repeat.saved","texts":["Saved DUP","Saved DUP"],"buttons":[false,false],"remembered":[]}
+{"t":1794687655842,"pid":2589079,"ev":"user.posted","who":"A","key":"message/test:c1/m18","length":263}
+{"t":1794687655863,"pid":2589079,"ev":"message.delivered","key":"message/test:c1/m18","session":"s-c1"}
+{"t":1794687655910,"pid":2589079,"ev":"turn.start","key":"message/test:c1/m18","session":"s-c1","turn":"310b6649-a4a9-430c-9a0d-7438b9240c66","origin":"Message"}
+{"t":1794687655943,"pid":2589079,"ev":"model.call","call":9,"messages":14,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687655945,"pid":2589079,"ev":"chat.edited","thread":"c1","messageId":"m20","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request MEM --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687655976,"pid":2589079,"ev":"spawner.spawn","session":"s-c1","command":"bash","args":["-c","chad secret request MEM --no-wait -m 'again'"]}
+{"t":1794687656389,"pid":2589079,"ev":"request.received","session":"s-c1","name":"MEM","kind":"plain","noWait":true,"ownerPresent":true}
+{"t":1794687656389,"pid":2589079,"ev":"request.posted","thread":"c1","name":"MEM","kind":"plain","messageId":"m21","ping":false}
+{"t":1794687656417,"pid":2589079,"ev":"brain.scriptOutput","session":"s-c1","output":"[20:20:55.976] INFO (#245): Calling \"bash\" { command: \"chad secret request MEM --no-wait -m 'again'\", timeoutMs: 330000 }\nOUT[completed] Asked for MEM\n\n"}
+{"t":1794687656460,"pid":2589079,"ev":"model.call","call":10,"messages":16,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result"]}
+{"t":1794687656491,"pid":2589079,"ev":"turn.end","key":"message/test:c1/m18","session":"s-c1","turn":"310b6649-a4a9-430c-9a0d-7438b9240c66","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:55.976] INFO (#245): Calling \\\"bash\\\" { command: \\\"chad secret request MEM --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for MEM\\n\\n\"]"}}
+{"t":1794687656545,"pid":2589079,"ev":"answer","who":"A","key":"message/test:c1/m18","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:55.976] INFO (#245): Calling \\\"bash\\\" { command: \\\"chad secret request MEM --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for MEM\\n\\n\"]"}}
+{"t":1794687656545,"pid":2589079,"ev":"user.posted","who":"B","key":"message/test:c2/m23","length":263}
+{"t":1794687656585,"pid":2589079,"ev":"message.delivered","key":"message/test:c2/m23","session":"s-c2"}
+{"t":1794687656606,"pid":2589079,"ev":"turn.start","key":"message/test:c2/m23","session":"s-c2","turn":"d5c45131-13a3-4d30-8299-6af079102a8e","origin":"Message"}
+{"t":1794687656629,"pid":2589079,"ev":"model.call","call":11,"messages":6,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687656631,"pid":2589079,"ev":"chat.edited","thread":"c2","messageId":"m25","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request MEM --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687656660,"pid":2589079,"ev":"spawner.spawn","session":"s-c2","command":"bash","args":["-c","chad secret request MEM --no-wait -m 'again'"]}
+{"t":1794687657016,"pid":2589079,"ev":"request.received","session":"s-c2","name":"MEM","kind":"plain","noWait":true,"ownerPresent":true}
+{"t":1794687657017,"pid":2589079,"ev":"request.posted","thread":"c2","name":"MEM","kind":"plain","messageId":"m26","ping":false}
+{"t":1794687657043,"pid":2589079,"ev":"brain.scriptOutput","session":"s-c2","output":"[20:20:56.660] INFO (#280): Calling \"bash\" { command: \"chad secret request MEM --no-wait -m 'again'\", timeoutMs: 330000 }\nOUT[completed] Asked for MEM\n\n"}
+{"t":1794687657088,"pid":2589079,"ev":"model.call","call":12,"messages":8,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result"]}
+{"t":1794687657135,"pid":2589079,"ev":"turn.end","key":"message/test:c2/m23","session":"s-c2","turn":"d5c45131-13a3-4d30-8299-6af079102a8e","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:56.660] INFO (#280): Calling \\\"bash\\\" { command: \\\"chad secret request MEM --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for MEM\\n\\n\"]"}}
+{"t":1794687657187,"pid":2589079,"ev":"answer","who":"B","key":"message/test:c2/m23","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:56.660] INFO (#280): Calling \\\"bash\\\" { command: \\\"chad secret request MEM --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for MEM\\n\\n\"]"}}
+{"t":1794687657187,"pid":2589079,"ev":"test.forgotButtons","n":2}
+{"t":1794687657187,"pid":2589079,"ev":"user.posted","who":"A","key":"message/test:c1/m28","length":269}
+{"t":1794687657250,"pid":2589079,"ev":"message.delivered","key":"message/test:c1/m28","session":"s-c1"}
+{"t":1794687657293,"pid":2589079,"ev":"turn.start","key":"message/test:c1/m28","session":"s-c1","turn":"c1fc7e5a-5e42-4ba1-a26b-df4b793cf707","origin":"Message"}
+{"t":1794687657334,"pid":2589079,"ev":"model.call","call":13,"messages":18,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687657336,"pid":2589079,"ev":"chat.edited","thread":"c1","messageId":"m30","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request MEM --no-wait -m 'again'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687657367,"pid":2589079,"ev":"spawner.spawn","session":"s-c1","command":"bash","args":["-c","chad secret request MEM --no-wait -m 'again'"]}
+{"t":1794687657709,"pid":2589079,"ev":"request.received","session":"s-c1","name":"MEM","kind":"plain","noWait":true,"ownerPresent":true}
+{"t":1794687657871,"pid":2589079,"ev":"request.posted","thread":"c1","name":"MEM","kind":"plain","messageId":"m31","ping":false}
+{"t":1794687657894,"pid":2589079,"ev":"brain.scriptOutput","session":"s-c1","output":"[20:20:57.367] INFO (#315): Calling \"bash\" { command: \"chad secret request MEM --no-wait -m 'again'\", timeoutMs: 330000 }\nOUT[completed] Asked for MEM\n\n"}
+{"t":1794687658200,"pid":2589079,"ev":"model.call","call":14,"messages":20,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result"]}
+{"t":1794687658337,"pid":2589079,"ev":"turn.end","key":"message/test:c1/m28","session":"s-c1","turn":"c1fc7e5a-5e42-4ba1-a26b-df4b793cf707","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:57.367] INFO (#315): Calling \\\"bash\\\" { command: \\\"chad secret request MEM --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for MEM\\n\\n\"]"}}
+{"t":1794687658426,"pid":2589079,"ev":"answer","who":"A","key":"message/test:c1/m28","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:57.367] INFO (#315): Calling \\\"bash\\\" { command: \\\"chad secret request MEM --no-wait -m 'again'\\\", timeoutMs: 330000 }\\nOUT[completed] Asked for MEM\\n\\n\"]"}}
+{"t":1794687658426,"pid":2589079,"ev":"forget.posts","posted":3,"threads":["c1","c2","c1"]}
+{"t":1794687658428,"pid":2589079,"ev":"click.opened","by":"owner-1","name":"MEM","kind":"plain"}
+{"t":1794687658430,"pid":2589079,"ev":"interact.click","messageId":"m21","userId":"owner-1","reply":"OpenModal","ms":3,"buttonData":28,"modal":{"title":"Enter a secret","labels":["MEM"],"fields":1,"metadataLength":34}}
+{"t":1794687658432,"pid":2589079,"ev":"interact.submit","userId":"owner-1","reply":"Close","ms":1}
+{"t":1794687658437,"pid":2589079,"ev":"secret.saved","name":"MEM","via":"modal","kind":"plain","replaced":false,"short":false}
+{"t":1794687658437,"pid":2589079,"ev":"chat.edited","thread":"c1","messageId":"m31","markdown":"Saved MEM","why":"saved","ok":true}
+{"t":1794687658437,"pid":2589079,"ev":"chat.edited","thread":"c1","messageId":"m21","markdown":"Saved MEM","why":"saved-from-click","ok":true}
+{"t":1794687658437,"pid":2589079,"ev":"submit.saved","name":"MEM","ok":true}
+{"t":1794687658492,"pid":2589079,"ev":"forget.saved","stored":true,"texts":["Saved MEM","The agent in session s-c2 asks for a sec","Saved MEM"],"buttons":[false,true,false]}
+{"t":1794687658492,"pid":2589079,"ev":"scenario.end","name":"repeat","phase":"1"}

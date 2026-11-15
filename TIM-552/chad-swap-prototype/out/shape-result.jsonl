@@ -1,0 +1,40 @@
+{"t":1794683948751,"pid":2199092,"ev":"boot.nothingApplied"}
+{"t":1794683948964,"pid":2199092,"ev":"scenario.start","name":"shape-result","phase":"1","drainMs":30000,"closeMs":10000}
+{"t":1794683948966,"pid":2199092,"ev":"apply.start","dir":"out/repo-shape-result/versions/1794683948965-2199092-1"}
+{"t":1794683949060,"pid":2199092,"ev":"build.ok","version":"shaped#1@81fe9bbb","tools":["measure","label","report","plain"],"hooks":[]}
+{"t":1794683949060,"pid":2199092,"ev":"live.moved","live":"versions/1794683948965-2199092-1"}
+{"t":1794683949061,"pid":2199092,"ev":"swap.gateClosed","label":"apply","plugins":["shaped: nothing -> shaped#1@81fe9bbb"]}
+{"t":1794683949061,"pid":2199092,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794683949061,"pid":2199092,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794683949061,"pid":2199092,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["shaped: shaped#1@81fe9bbb"]}
+{"t":1794683949061,"pid":2199092,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":["shaped"],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794683949063,"pid":2199092,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"a result that grew PLAN:{\"steps\":[\"try { console.log('OK ' +"}
+{"t":1794683949195,"pid":2199092,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794683949198,"pid":2199092,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794683949295,"pid":2199092,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"f8949c1c-0b2c-41bb-a7ad-d83b8f3b3165","starts":1,"cuts":0,"resumed":false}
+{"t":1794683949309,"pid":2199092,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"on":{"shaped":"81fe9bbb"},"tools":["measure","label","report","plain"]}
+{"t":1794683949417,"pid":2199092,"ev":"call.routed","session":"s-c1","tool":"report","built":"81fe9bbb","to":"shaped#1@81fe9bbb","recoded":false}
+{"t":1794683949420,"pid":2199092,"ev":"script.mark","session":"s-c1","label":"m1"}
+{"t":1794683949437,"pid":2199092,"ev":"apply.start","dir":"out/repo-shape-result/versions/1794683949437-2199092-2"}
+{"t":1794683949445,"pid":2199092,"ev":"build.ok","version":"shaped#2@81fe9bbb","tools":["measure","label","report","plain"],"hooks":[]}
+{"t":1794683949446,"pid":2199092,"ev":"live.moved","live":"versions/1794683949437-2199092-2"}
+{"t":1794683949446,"pid":2199092,"ev":"swap.gateClosed","label":"apply","plugins":["shaped: shaped#1@81fe9bbb -> shaped#2@81fe9bbb"]}
+{"t":1794683949446,"pid":2199092,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794683949446,"pid":2199092,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794683949447,"pid":2199092,"ev":"close.done","version":"shaped#1@81fe9bbb","why":"apply","ms":0}
+{"t":1794683949447,"pid":2199092,"ev":"swap.activated","label":"apply","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[],"now":["shaped: shaped#2@81fe9bbb"]}
+{"t":1794683949447,"pid":2199092,"ev":"cli.apply","label":"the limit on the result, which is in a schema and not in a declaration","ok":true,"exit":0,"errors":[],"reloaded":["shaped"],"kept":[],"swap":{"label":"apply","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[]}}
+{"t":1794683949449,"pid":2199092,"ev":"call.routed","session":"s-c1","tool":"report","built":"81fe9bbb","to":"shaped#2@81fe9bbb","recoded":true}
+{"t":1794683949451,"pid":2199092,"ev":"call.resultRefused","session":"s-c1","tool":"report","built":"81fe9bbb","on":"shaped#2@81fe9bbb","message":"report ran, but its result does not fit the declaration this turn was built with. Expected a value with a length of at most 5"}
+{"t":1794683949458,"pid":2199092,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"xxxxx\"\nERR report ran, but its result does not fit the declaration this turn was built with. Expected a value with a length of at most 5\n"}
+{"t":1794683949641,"pid":2199092,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"f8949c1c-0b2c-41bb-a7ad-d83b8f3b3165","outcome":"Answered","text":"RESULTS [\"OK \\\"xxxxx\\\"\\nERR report ran, but its result does not fit the declaration this turn was built with. Expected a value with a length of at most 5\\n\"]"}
+{"t":1794683949701,"pid":2199092,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"xxxxx\\\"\\nERR report ran, but its result does not fit the declaration this turn was built with. Expected a value with a length of at most 5\\n\"]"}
+{"t":1794683949701,"pid":2199092,"ev":"scenario.end","name":"shape-result","phase":"1"}
+{"t":1794683949701,"pid":2199092,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794683949743,"pid":2199092,"ev":"stop.entityLayersClosed"}
+{"t":1794683961943,"pid":2199092,"ev":"stop.runnerClosed"}
+{"t":1794683961945,"pid":2199092,"ev":"hooks.draining","pending":0}
+{"t":1794683961945,"pid":2199092,"ev":"hooks.drained"}
+{"t":1794683961945,"pid":2199092,"ev":"close.done","version":"shaped#2@81fe9bbb","why":"graceful stop","ms":0}
+{"t":1794683961945,"pid":2199092,"ev":"plugins.closed"}
+{"t":1794683962044,"pid":2199092,"ev":"process.exit","code":0,"signal":null}

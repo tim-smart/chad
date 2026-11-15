@@ -1,0 +1,1 @@
+{"mcpServers":{"echo":{"command":"node","args":["/home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-ae2721dc3022/workdir/cred/site/mcp-echo.mjs"],"env":{"KEY":"${API_KEY}"}}}}

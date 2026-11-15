@@ -1,0 +1,7 @@
+compact-real-short repeated 5 times (4 short turns each, threshold 3000 tokens, summarizer on the agent model)
+run 1: 2 summarizer calls started, 1 cancelled at turn end, 1 applied
+run 2: 1 summarizer calls started, 0 cancelled at turn end, 1 applied
+run 3: 3 summarizer calls started, 2 cancelled at turn end, 1 applied
+run 4: 3 summarizer calls started, 3 cancelled at turn end, 0 applied
+run 5: 3 summarizer calls started, 3 cancelled at turn end, 0 applied
+total: 12 started, 9 cancelled, 3 applied

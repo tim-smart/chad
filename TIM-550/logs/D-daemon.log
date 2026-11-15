@@ -1,0 +1,3 @@
+10:42:07.906 [daemon 3442642] lock taken
+10:42:07.907 [daemon 3442642] delaying 5000ms before listening
+10:42:12.918 [daemon 3442642] listening on state/chad.sock mode 600

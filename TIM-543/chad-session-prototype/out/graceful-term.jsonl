@@ -1,0 +1,15 @@
+{"t":1794652431883,"pid":3375949,"ev":"scenario.start","name":"graceful","phase":"1","variant":""}
+{"t":1794652431885,"pid":3375949,"ev":"user.posted","text":"sleep:200 hi","key":"message/test:c1/m2"}
+{"t":1794652431898,"pid":3375949,"ev":"gateway.saved","key":"message/test:c1/m2","ms":11}
+{"t":1794652431968,"pid":3375949,"ev":"session.activated","thread":"c1","session":"9c446b0d-01a6-4269-976b-68ef1b2c8bc8","activation":1}
+{"t":1794652431970,"pid":3375949,"ev":"message.delivered","key":"message/test:c1/m2","ms":83,"text":"sleep:200 hi"}
+{"t":1794652431988,"pid":3375949,"ev":"turn.start","key":"message/test:c1/m2","turn":"3f5ab149-d4b3-450b-83ef-6717076b546e","starts":1,"resumed":false}
+{"t":1794652431990,"pid":3375949,"ev":"status.posted","id":"m4"}
+{"t":1794652433383,"pid":3375949,"ev":"turn.end","key":"message/test:c1/m2","turn":"3f5ab149-d4b3-450b-83ef-6717076b546e","outcome":"Answered","compacted":false}
+{"t":1794652433580,"pid":3375949,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652436990,"pid":3375949,"ev":"hooks.draining","pending":1}
+{"t":1794652436991,"pid":3375949,"ev":"hook.afterTurn.finished","plugin":"slowAfter"}
+{"t":1794652436991,"pid":3375949,"ev":"hook.done","plugin":"slowAfter","label":"afterTurn","result":"ok","ms":3514}
+{"t":1794652437011,"pid":3375949,"ev":"hooks.drained"}
+{"t":1794652437012,"pid":3375949,"ev":"plugins.closed"}
+{"t":1794652437051,"pid":3375949,"ev":"process.exit","code":130,"signal":null}

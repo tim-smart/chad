@@ -1,0 +1,12 @@
+scenario models, model gpt-6-astra/low, node v26.8.2, clanka 0.27.0
+
+=== gpt-not-a-model at low, ws
+[   0.1s] gpt-not-a-model-ws turn starts: Reply with the single word: ok
+[   0.6s] gpt-not-a-model-ws turn failed, after 0.5s, model retries 0: failure: effect/ai/AiError/AiError: OpenAiClient.createResponseStream: Invalid request. {"type":"invalid_request_error","code":"model_not_found","message":"The 'gpt-not-a-model' model is not supported when using Codex with a ChatGPT account."}
+[   0.6s] gpt-not-a-model-ws history: 0 messages before the turn, 1 after it failed
+
+=== gpt-not-a-model at low, http
+[   0.6s] gpt-not-a-model-http turn starts: Reply with the single word: ok
+[   1.0s] gpt-not-a-model-http turn failed, after 0.4s, model retries 0: failure: effect/ai/AiError/AiError: OpenAiClient.createResponseStream: Invalid request. The 'gpt-not-a-model' model is not supported when using Codex with a ChatGPT account. (POST https://chatgpt.com/backend-api/codex/responses) [code: model_not_found]
+[   1.0s] gpt-not-a-model-http history: 0 messages before the turn, 1 after it failed
+[   1.0s] summary   device codes issued: 0; auth.openai.com requests: none

@@ -1,0 +1,69 @@
+{"t":1794683949047,"pid":2199078,"ev":"boot.nothingApplied"}
+{"t":1794683949216,"pid":2199078,"ev":"scenario.start","name":"shape","phase":"1","drainMs":30000,"closeMs":10000}
+{"t":1794683949247,"pid":2199078,"ev":"apply.start","dir":"out/repo-shape/versions/1794683949246-2199078-1"}
+{"t":1794683949366,"pid":2199078,"ev":"build.ok","version":"shaped#1@81fe9bbb","tools":["measure","label","report","plain"],"hooks":[]}
+{"t":1794683949366,"pid":2199078,"ev":"live.moved","live":"versions/1794683949246-2199078-1"}
+{"t":1794683949367,"pid":2199078,"ev":"swap.gateClosed","label":"apply","plugins":["shaped: nothing -> shaped#1@81fe9bbb"]}
+{"t":1794683949367,"pid":2199078,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794683949367,"pid":2199078,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794683949367,"pid":2199078,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["shaped: shaped#1@81fe9bbb"]}
+{"t":1794683949367,"pid":2199078,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":["shaped"],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794683949369,"pid":2199078,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"settings that shape a tool PLAN:{\"steps\":[\"try { console.log"}
+{"t":1794683949455,"pid":2199078,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794683949458,"pid":2199078,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794683949550,"pid":2199078,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"e0cccf82-ddd2-4b21-ae42-13f26ff10d14","starts":1,"cuts":0,"resumed":false}
+{"t":1794683949564,"pid":2199078,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"on":{"shaped":"81fe9bbb"},"tools":["measure","label","report","plain"]}
+{"t":1794683949655,"pid":2199078,"ev":"call.routed","session":"s-c1","tool":"measure","built":"81fe9bbb","to":"shaped#1@81fe9bbb","recoded":false}
+{"t":1794683949658,"pid":2199078,"ev":"call.routed","session":"s-c1","tool":"label","built":"81fe9bbb","to":"shaped#1@81fe9bbb","recoded":false}
+{"t":1794683949659,"pid":2199078,"ev":"call.routed","session":"s-c1","tool":"plain","built":"81fe9bbb","to":"shaped#1@81fe9bbb","recoded":false}
+{"t":1794683949688,"pid":2199078,"ev":"script.mark","session":"s-c1","label":"m1"}
+{"t":1794683949708,"pid":2199078,"ev":"apply.start","dir":"out/repo-shape/versions/1794683949708-2199078-2"}
+{"t":1794683949714,"pid":2199078,"ev":"build.ok","version":"shaped#2@81fe9bbb","tools":["measure","label","report","plain"],"hooks":[]}
+{"t":1794683949714,"pid":2199078,"ev":"live.moved","live":"versions/1794683949708-2199078-2"}
+{"t":1794683949714,"pid":2199078,"ev":"swap.gateClosed","label":"apply","plugins":["shaped: shaped#1@81fe9bbb -> shaped#2@81fe9bbb"]}
+{"t":1794683949714,"pid":2199078,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794683949714,"pid":2199078,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794683949715,"pid":2199078,"ev":"close.done","version":"shaped#1@81fe9bbb","why":"apply","ms":0}
+{"t":1794683949715,"pid":2199078,"ev":"swap.activated","label":"apply","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[],"now":["shaped: shaped#2@81fe9bbb"]}
+{"t":1794683949715,"pid":2199078,"ev":"cli.apply","label":"the unit setting, which is in a description","ok":true,"exit":0,"errors":[],"reloaded":["shaped"],"kept":[],"swap":{"label":"apply","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[]}}
+{"t":1794683949716,"pid":2199078,"ev":"call.refused","session":"s-c1","tool":"measure","at":"declaration","built":"81fe9bbb","current":"shaped#2@81fe9bbb","message":"measure was changed by an apply. The new version is in your next turn."}
+{"t":1794683949718,"pid":2199078,"ev":"call.routed","session":"s-c1","tool":"label","built":"81fe9bbb","to":"shaped#2@81fe9bbb","recoded":true}
+{"t":1794683949719,"pid":2199078,"ev":"call.routed","session":"s-c1","tool":"plain","built":"81fe9bbb","to":"shaped#2@81fe9bbb","recoded":true}
+{"t":1794683949719,"pid":2199078,"ev":"script.mark","session":"s-c1","label":"m2"}
+{"t":1794683949739,"pid":2199078,"ev":"apply.start","dir":"out/repo-shape/versions/1794683949738-2199078-3"}
+{"t":1794683949746,"pid":2199078,"ev":"build.ok","version":"shaped#3@81fe9bbb","tools":["measure","label","report","plain"],"hooks":[]}
+{"t":1794683949748,"pid":2199078,"ev":"live.moved","live":"versions/1794683949738-2199078-3"}
+{"t":1794683949748,"pid":2199078,"ev":"swap.gateClosed","label":"apply","plugins":["shaped: shaped#2@81fe9bbb -> shaped#3@81fe9bbb"]}
+{"t":1794683949748,"pid":2199078,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794683949748,"pid":2199078,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794683949748,"pid":2199078,"ev":"close.done","version":"shaped#2@81fe9bbb","why":"apply","ms":0}
+{"t":1794683949748,"pid":2199078,"ev":"swap.activated","label":"apply","generation":3,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["shaped: shaped#3@81fe9bbb"]}
+{"t":1794683949748,"pid":2199078,"ev":"cli.apply","label":"the trim setting, which is in a schema and not in a declaration","ok":true,"exit":0,"errors":[],"reloaded":["shaped"],"kept":[],"swap":{"label":"apply","generation":3,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794683949749,"pid":2199078,"ev":"call.refused","session":"s-c1","tool":"measure","at":"declaration","built":"81fe9bbb","current":"shaped#3@81fe9bbb","message":"measure was changed by an apply. The new version is in your next turn."}
+{"t":1794683949750,"pid":2199078,"ev":"call.routed","session":"s-c1","tool":"label","built":"81fe9bbb","to":"shaped#3@81fe9bbb","recoded":true}
+{"t":1794683949751,"pid":2199078,"ev":"call.routed","session":"s-c1","tool":"plain","built":"81fe9bbb","to":"shaped#3@81fe9bbb","recoded":true}
+{"t":1794683949785,"pid":2199078,"ev":"script.mark","session":"s-c1","label":"m3"}
+{"t":1794683949804,"pid":2199078,"ev":"apply.start","dir":"out/repo-shape/versions/1794683949804-2199078-4"}
+{"t":1794683949809,"pid":2199078,"ev":"build.ok","version":"shaped#4@81fe9bbb","tools":["measure","label","report","plain"],"hooks":[]}
+{"t":1794683949809,"pid":2199078,"ev":"live.moved","live":"versions/1794683949804-2199078-4"}
+{"t":1794683949810,"pid":2199078,"ev":"swap.gateClosed","label":"apply","plugins":["shaped: shaped#3@81fe9bbb -> shaped#4@81fe9bbb"]}
+{"t":1794683949810,"pid":2199078,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794683949810,"pid":2199078,"ev":"swap.drained","label":"apply","ms":1,"interrupted":[]}
+{"t":1794683949810,"pid":2199078,"ev":"close.done","version":"shaped#3@81fe9bbb","why":"apply","ms":0}
+{"t":1794683949810,"pid":2199078,"ev":"swap.activated","label":"apply","generation":4,"waitedMs":1,"drainedMs":1,"closeMs":0,"interrupted":[],"affected":[],"now":["shaped: shaped#4@81fe9bbb"]}
+{"t":1794683949810,"pid":2199078,"ev":"cli.apply","label":"a minimum length, which is in a schema and not in a declaration","ok":true,"exit":0,"errors":[],"reloaded":["shaped"],"kept":[],"swap":{"label":"apply","generation":4,"waitedMs":1,"drainedMs":1,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794683949811,"pid":2199078,"ev":"call.refused","session":"s-c1","tool":"measure","at":"declaration","built":"81fe9bbb","current":"shaped#4@81fe9bbb","message":"measure was changed by an apply. The new version is in your next turn."}
+{"t":1794683949812,"pid":2199078,"ev":"call.refused","session":"s-c1","tool":"label","at":"parameters","built":"81fe9bbb","current":"shaped#4@81fe9bbb","message":"label: the parameters do not fit the version an apply loaded. Expected a value with a length of at least 10   at [\"label\"]"}
+{"t":1794683949813,"pid":2199078,"ev":"call.routed","session":"s-c1","tool":"plain","built":"81fe9bbb","to":"shaped#4@81fe9bbb","recoded":true}
+{"t":1794683949817,"pid":2199078,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"3 metres #1\"\nOK \"schema says as typed, stored \\\"  bob  \\\" #1\"\nOK \"shaped #1\"\nERR measure was changed by an apply. The new version is in your next turn.\nOK \"schema says as typed, stored \\\"  bob  \\\" #2\"\nOK \"shaped #2\"\nERR measure was changed by an apply. The new version is in your next turn.\nOK \"schema says trimmed, stored \\\"bob\\\" #3\"\nOK \"shaped #3\"\nERR measure was changed by an apply. The new version is in your next turn.\nERR label: the parameters do not fit the version an apply loaded. Expected a value with a length of at least 10   at [\"label\"]\nOK \"shaped #4\"\n"}
+{"t":1794683949997,"pid":2199078,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"e0cccf82-ddd2-4b21-ae42-13f26ff10d14","outcome":"Answered","text":"RESULTS [\"OK \\\"3 metres #1\\\"\\nOK \\\"schema says as typed, stored \\\\\\\"  bob  \\\\\\\" #1\\\"\\nOK \\\"shaped #1\\\"\\nERR measure was changed by an apply. The new version is in your next turn.\\nOK \\\"schema says as typed, stored \\\\\\\"  bob  \\\\\\\" #2\\\"\\nOK \\\"shaped #2\\\"\\nERR measure was changed by an apply. The new version is in your next turn.\\nOK \\\"schema says trimmed, stored \\\\\\\"bob\\\\\\\" #3\\\"\\nOK \\\"shaped #3\\\"\\nERR measure was changed by an apply. The new version is in your next turn.\\nERR label: the parameters do not fit the version an apply loaded. Expected a value with a length of at least 10   at [\\\"label\\\"]\\nOK \\\"shaped #4\\\"\\n\"]"}
+{"t":1794683950044,"pid":2199078,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"3 metres #1\\\"\\nOK \\\"schema says as typed, stored \\\\\\\"  bob  \\\\\\\" #1\\\"\\nOK \\\"shaped #1\\\"\\nERR measure was changed by an apply. The new version is in your next turn.\\nOK \\\"schema says as typed, stored \\\\\\\"  bob  \\\\\\\" #2\\\"\\nOK \\\"shaped #2\\\"\\nERR measure was changed by an apply. The new version is in your next turn.\\nOK \\\"schema says trimmed, stored \\\\\\\"bob\\\\\\\" #3\\\"\\nOK \\\"shaped #3\\\"\\nERR measure was changed by an apply. The new version is in your next turn.\\nERR label: the parameters do not fit the version an apply loaded. Expected a value with a length of at least 10   at [\\\"label\\\"]\\nOK \\\"shaped #4\\\"\\n\"]"}
+{"t":1794683950044,"pid":2199078,"ev":"scenario.end","name":"shape","phase":"1"}
+{"t":1794683950044,"pid":2199078,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794683950055,"pid":2199078,"ev":"stop.entityLayersClosed"}
+{"t":1794683961551,"pid":2199078,"ev":"stop.runnerClosed"}
+{"t":1794683961552,"pid":2199078,"ev":"hooks.draining","pending":0}
+{"t":1794683961552,"pid":2199078,"ev":"hooks.drained"}
+{"t":1794683961552,"pid":2199078,"ev":"close.done","version":"shaped#4@81fe9bbb","why":"graceful stop","ms":0}
+{"t":1794683961552,"pid":2199078,"ev":"plugins.closed"}
+{"t":1794683961672,"pid":2199078,"ev":"process.exit","code":0,"signal":null}

@@ -1,0 +1,31 @@
+== npm install esbuild
+12M
+156K	node_modules/esbuild
+11M	node_modules/@esbuild
+esbuild 0.28.2
+esbuild
+== npm install typescript@7
+31M
+3.6M	node_modules/typescript
+27M	node_modules/@typescript
+typescript 7.0.2
+tsc
+== npm install esbuild typescript@7
+42M
+156K	node_modules/esbuild
+3.6M	node_modules/typescript
+11M	node_modules/@esbuild
+27M	node_modules/@typescript
+esbuild 0.28.2
+typescript 7.0.2
+esbuild
+tsc
+{
+  "dev": "3.9.4",
+  "tag-for-publishing-older-releases": "4.1.6",
+  "insiders": "4.6.2-insiders.20220225",
+  "rc": "7.0.1-rc",
+  "latest": "7.0.2",
+  "beta": "7.1.0-beta",
+  "next": "7.1.0-dev.20261114.1"
+}

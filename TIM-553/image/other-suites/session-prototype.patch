@@ -1,0 +1,116 @@
+--- a/run.ts	2026-11-14 10:46:26.000000000 +0000
++++ b/run.ts	2026-11-14 21:54:13.713471228 +0000
+@@ -18,6 +18,8 @@
+   readonly timeout?: number
+ }
+ interface Spec {
++  /** The scenario is meant to wait for something that must not come. */
++  readonly mayTimeOut?: boolean
+   readonly id: string
+   readonly scenario: string
+   readonly brain: "fake" | "real"
+@@ -68,7 +70,7 @@
+     results.push(line)
+     console.log(line)
+   }
+-  if (E.some((e) => e.ev === "driver.timeout" || e.ev === "scenario.timeout")) check("the scenario ran to its end", false, E.filter((e) => e.ev === "scenario.timeout").map((e) => e.label))
++  if (!spec.mayTimeOut && E.some((e) => e.ev === "driver.timeout" || e.ev === "scenario.timeout")) check("the scenario ran to its end", false, E.filter((e) => e.ev === "scenario.timeout").map((e) => e.label))
+   try {
+     spec.check(E, check)
+   } catch (error) {
+@@ -333,6 +335,37 @@
+       c("the run that had started still finished", of(E, "turn.end")[0]?.outcome === "Answered")
+     }
+   },
++  {
++    // Added for "The chad image built and run" (TIM-553): what a changed shard count does to what is already stored.
++    id: "shards-changed", scenario: "timer-held", brain: "fake", mayTimeOut: true, env: { PROTO_NO_SHARD_GUARD: "1" },
++    phases: [
++      { killOn: (e) => e.ev === "timer.held", killDelay: 500, env: { PROTO_SHARDS: "300" } },
++      { env: { PROTO_SHARDS: "1" }, timeout: 90_000 },
++      { env: { PROTO_SHARDS: "300" } }
++    ],
++    check: (E, c) => {
++      const p = (n: number) => E.filter((e) => e.phase === n)
++      c("stored at 300 shards, both timers are delivered and held", of(p(1), "timer.held").length === 2)
++      c("restarted at 1 shard on the same file, neither is delivered in 60 seconds", of(p(2), "timer.held").length === 0 && of(p(2), "turn.start").length === 0, { held: of(p(2), "timer.held").length, errors: p(2).filter((e) => /error|defect/i.test(String(e.ev))).map((e) => e.ev) })
++      c("restarted at 300 again, both are delivered and the one not cancelled fires once", of(p(3), "timer.held").length === 2 && of(p(3), "turn.start").length === 1, { held: of(p(3), "timer.held").length, starts: of(p(3), "turn.start").length })
++    }
++  },
++  {
++    // The guard that stops the case above from happening.
++    id: "shards-guard", scenario: "timer-held", brain: "fake",
++    phases: [
++      { killOn: (e) => e.ev === "timer.held", killDelay: 500, env: { PROTO_SHARDS: "300" } },
++      { env: { PROTO_SHARDS: "1" } },
++      { env: { PROTO_SHARDS: "300" } }
++    ],
++    check: (E, c) => {
++      const p = (n: number) => E.filter((e) => e.phase === n)
++      const refused = of(p(2), "boot.refused")[0], exit = of(p(2), "process.exit")[0]
++      c("a daemon started at 1 shard on a database made at 300 refuses to start, exits 1 and names both numbers", refused?.stored === 300 && refused?.now === 1 && exit?.code === 1 && /made with 300 shards and this chad uses 1/.test(String(refused?.message)), { message: refused?.message, exit: exit?.code })
++      c("it started nothing: no session, no timer, no turn", p(2).every((e) => ["boot.refused", "process.exit"].includes(e.ev)), p(2).map((e) => e.ev))
++      c("started at 300 again, both timers are delivered and the one not cancelled fires once", of(p(3), "timer.held").length === 2 && of(p(3), "turn.start").length === 1, { held: of(p(3), "timer.held").length, starts: of(p(3), "turn.start").length })
++    }
++  },
+   chainSpec("before"),
+   chainSpec("mid"),
+   chainSpec("after"),
+--- a/scenarios.ts	2026-11-14 10:46:26.000000000 +0000
++++ b/scenarios.ts	2026-11-14 21:54:13.714471228 +0000
+@@ -203,7 +203,9 @@
+   "term-mid-turn": Effect.gen(function*() {
+     const { post, bot } = yield* setup
+     if (phase === "1") {
+-      yield* post(variant === "short" ? "sleep:5000 short" : "sleep:15000 long")
++      // 30 s since TIM-553. It was 15 s, which ends 0.9 s before the stop cuts the turn. It only passed because
++      // the close of 300 shards slowed the turn. PROTO_TURN_MS=15000 puts the old length back.
++      yield* post(variant === "short" ? "sleep:5000 short" : "sleep:" + (process.env.PROTO_TURN_MS ?? "30000") + " long")
+       return yield* Effect.never
+     }
+     if (variant === "short") return yield* Effect.sleep(13_000) // nothing should be redelivered
+--- a/chad/host.ts	2026-11-14 10:46:26.000000000 +0000
++++ b/chad/host.ts	2026-11-14 21:54:13.712471228 +0000
+@@ -3,6 +3,7 @@
+ // effect cluster's SingleRunner over one SQLite file, ChatTest in place of
+ // Discord, clanka through openai-compat (or a scripted fake brain where the
+ // check is about cluster and not about the model).
++import { DatabaseSync } from "node:sqlite"
+ import * as NodeCrypto from "@effect/platform-node/NodeCrypto"
+ import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient"
+ import * as NodeServices from "@effect/platform-node/NodeServices"
+@@ -71,6 +72,25 @@
+ export const log = (ev: string, data: Record<string, unknown> = {}) =>
+   appendFileSync(LOG, JSON.stringify({ t: Date.now(), pid: process.pid, ev, ...data }) + "\n")
+ 
++// --- the shard count guard, added for "The chad image built and run" (TIM-553) ---------------
++// A stored message carries the shard it was stored under. Change the count and the runner never polls that
++// shard again: nothing errors, the message just never arrives. So the count is written to the database the
++// first time it is opened, and a daemon with another count refuses to start. PROTO_NO_SHARD_GUARD=1 turns it off.
++export const SHARDS = Number(env.PROTO_SHARDS ?? 300)
++if (env.PROTO_NO_SHARD_GUARD !== "1") {
++  const db = new DatabaseSync(DB)
++  db.exec("CREATE TABLE IF NOT EXISTS chad_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
++  const row = db.prepare("SELECT value FROM chad_meta WHERE key = 'shards'").get() as { value: string } | undefined
++  if (row === undefined) db.prepare("INSERT INTO chad_meta VALUES ('shards', ?)").run(String(SHARDS))
++  db.close()
++  if (row !== undefined && Number(row.value) !== SHARDS) {
++    const message = "chad serve: this database was made with " + row.value + " shards and this chad uses " + SHARDS + ". Messages stored under the old count would never be delivered, so chad will not start."
++    log("boot.refused", { stored: Number(row.value), now: SHARDS, message })
++    console.error(message)
++    process.exit(1)
++  }
++}
++
+ // --- stand-in plugins. A scenario fills this before the host starts. --------
+ 
+ export interface Turn {
+@@ -820,7 +840,7 @@
+ 
+ export const HostLive = Layer.mergeAll(SessionLive, TimerLive, GatewayLive, ButtonsLive, RetentionLive).pipe(
+   Layer.provideMerge(SingleRunner.layer({
+-    shardingConfig: env.PROTO_POLL ? { entityMessagePollInterval: Number(env.PROTO_POLL) } : {}
++    shardingConfig: { ...(env.PROTO_POLL ? { entityMessagePollInterval: Number(env.PROTO_POLL) } : {}), ...(env.PROTO_SHARDS ? { shardsPerGroup: Number(env.PROTO_SHARDS) } : {}) }
+   })),
+   Layer.provideMerge(HooksLive),
+   Layer.provideMerge(ChatInteraction.layer()),

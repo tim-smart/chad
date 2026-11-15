@@ -1,0 +1,44 @@
+{"t":1794683948848,"pid":2199099,"ev":"boot.nothingApplied"}
+{"t":1794683949062,"pid":2199099,"ev":"scenario.start","name":"stubborn","phase":"1","drainMs":1500,"closeMs":1000}
+{"t":1794683949064,"pid":2199099,"ev":"apply.start","dir":"out/repo-stubborn/versions/1794683949063-2199099-1"}
+{"t":1794683949159,"pid":2199099,"ev":"build.ok","version":"stubborn#1@62633613","tools":["stuck","ping"],"hooks":[]}
+{"t":1794683949159,"pid":2199099,"ev":"live.moved","live":"versions/1794683949063-2199099-1"}
+{"t":1794683949160,"pid":2199099,"ev":"swap.gateClosed","label":"apply","plugins":["stubborn: nothing -> stubborn#1@62633613"]}
+{"t":1794683949160,"pid":2199099,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794683949160,"pid":2199099,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794683949160,"pid":2199099,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["stubborn: stubborn#1@62633613"]}
+{"t":1794683949161,"pid":2199099,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":["stubborn"],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794683949162,"pid":2199099,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"a handler that cannot be interrupted PLAN:{\"steps\":[\"try { c"}
+{"t":1794683949314,"pid":2199099,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794683949316,"pid":2199099,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794683949391,"pid":2199099,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"6bc37e62-bde1-4e8d-9f7a-94238b63394b","starts":1,"cuts":0,"resumed":false}
+{"t":1794683949406,"pid":2199099,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"on":{"stubborn":"62633613"},"tools":["stuck","ping"]}
+{"t":1794683949502,"pid":2199099,"ev":"call.routed","session":"s-c1","tool":"stuck","built":"62633613","to":"stubborn#1@62633613","recoded":false}
+{"t":1794683949502,"pid":2199099,"ev":"plugin.stuck.start","plugin":"stubborn","instance":1,"hash":"62633613"}
+{"t":1794683949508,"pid":2199099,"ev":"apply.start","dir":"out/repo-stubborn/versions/1794683949507-2199099-2"}
+{"t":1794683949513,"pid":2199099,"ev":"build.ok","version":"stubborn#2@0a621f5a","tools":["stuck","ping"],"hooks":[]}
+{"t":1794683949513,"pid":2199099,"ev":"live.moved","live":"versions/1794683949507-2199099-2"}
+{"t":1794683949514,"pid":2199099,"ev":"swap.gateClosed","label":"apply","plugins":["stubborn: stubborn#1@62633613 -> stubborn#2@0a621f5a"]}
+{"t":1794683949514,"pid":2199099,"ev":"swap.draining","label":"apply","inflight":["tool:stuck in s-c1"]}
+{"t":1794683951015,"pid":2199099,"ev":"call.interruptedBySwap","label":"stuck","session":"s-c1","on":"stubborn#1@62633613","ranMs":1513}
+{"t":1794683951316,"pid":2199099,"ev":"flight.ignoredInterrupt","kind":"tool","label":"stuck","session":"s-c1","on":"stubborn#1@62633613","note":"two versions of stubborn now overlap"}
+{"t":1794683951318,"pid":2199099,"ev":"swap.drained","label":"apply","ms":1805,"interrupted":["tool:stuck in s-c1"]}
+{"t":1794683951318,"pid":2199099,"ev":"close.done","version":"stubborn#1@62633613","why":"apply","ms":0}
+{"t":1794683951318,"pid":2199099,"ev":"swap.activated","label":"apply","generation":2,"waitedMs":1805,"drainedMs":1805,"closeMs":0,"interrupted":["tool:stuck in s-c1"],"affected":["s-c1 loses stubborn until its turn ends (0 sub-agents running)"],"now":["stubborn: stubborn#2@0a621f5a"]}
+{"t":1794683951318,"pid":2199099,"ev":"cli.apply","label":"code change","ok":true,"exit":0,"errors":[],"reloaded":["stubborn"],"kept":[],"swap":{"label":"apply","generation":2,"waitedMs":1805,"drainedMs":1805,"closeMs":0,"interrupted":["tool:stuck in s-c1"],"affected":["s-c1 loses stubborn until its turn ends (0 sub-agents running)"]}}
+{"t":1794683951322,"pid":2199099,"ev":"brain.scriptOutput","session":"s-c1","output":"ERR stuck did not stop when an apply interrupted it and may still be running.\n"}
+{"t":1794683951414,"pid":2199099,"ev":"call.refused","session":"s-c1","tool":"ping","at":"bundle hash","built":"62633613","current":"stubborn#2@0a621f5a","message":"ping was changed by an apply. The new version is in your next turn."}
+{"t":1794683951417,"pid":2199099,"ev":"brain.scriptOutput","session":"s-c1","output":"ERR ping was changed by an apply. The new version is in your next turn.\n"}
+{"t":1794683951634,"pid":2199099,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"6bc37e62-bde1-4e8d-9f7a-94238b63394b","outcome":"Answered","text":"RESULTS [\"ERR stuck did not stop when an apply interrupted it and may still be running.\\n\",\"ERR ping was changed by an apply. The new version is in your next turn.\\n\"]"}
+{"t":1794683951754,"pid":2199099,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"ERR stuck did not stop when an apply interrupted it and may still be running.\\n\",\"ERR ping was changed by an apply. The new version is in your next turn.\\n\"]"}
+{"t":1794683955503,"pid":2199099,"ev":"plugin.stuck.end","plugin":"stubborn","instance":1,"hash":"62633613","connectionOpen":false}
+{"t":1794683955503,"pid":2199099,"ev":"flight.endedAfterAbandon","kind":"tool","label":"stuck","on":"stubborn#1@62633613","ranMs":6001}
+{"t":1794683955519,"pid":2199099,"ev":"scenario.end","name":"stubborn","phase":"1"}
+{"t":1794683955519,"pid":2199099,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794683955557,"pid":2199099,"ev":"stop.entityLayersClosed"}
+{"t":1794683964843,"pid":2199099,"ev":"stop.runnerClosed"}
+{"t":1794683964843,"pid":2199099,"ev":"hooks.draining","pending":0}
+{"t":1794683964843,"pid":2199099,"ev":"hooks.drained"}
+{"t":1794683964843,"pid":2199099,"ev":"close.done","version":"stubborn#2@0a621f5a","why":"graceful stop","ms":0}
+{"t":1794683964844,"pid":2199099,"ev":"plugins.closed"}
+{"t":1794683964890,"pid":2199099,"ev":"process.exit","code":0,"signal":null}

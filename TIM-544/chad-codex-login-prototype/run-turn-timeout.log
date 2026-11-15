@@ -1,0 +1,34 @@
+scenario turn-timeout, model gpt-6-astra/low, node v26.8.2, clanka 0.27.0
+
+=== chad's wrapper: login needed inside a model call, TurnTimeout 8s, login timeout 30s
+[   0.1s] thread-A  turn starts: hello
+[   0.2s] onCode    code #1 issued. CurrentSession inside onCode: thread-A, ownerPresent true
+[   0.2s] discord   to thread-A: Open https://auth.openai.com/codex/device and enter ****-***QN
+[   8.1s] thread-A  clanka retries the model call (#1): TurnTimeout was reached
+[  16.2s] thread-A  clanka retries the model call (#2): TurnTimeout was reached
+[  24.4s] thread-A  clanka retries the model call (#3): TurnTimeout was reached
+[  30.1s] wrapper   the shared wait ended: failure: Login timed out
+[  30.1s] thread-A  turn failed, after 30.1s, model retries 3: defect: Login timed out
+[  30.1s] summary   device codes issued in this run: 1
+
+=== clanka's CodexAuth as it is, MaxRetries cut from 20 to 5 so the run ends: login needed inside a model call, TurnTimeout 8s, login timeout 30s
+[  30.1s] thread-A  turn starts: hello
+[  30.2s] onCode    code #2 issued. CurrentSession inside onCode: thread-A, ownerPresent true
+[  30.2s] discord   to thread-A: Open https://auth.openai.com/codex/device and enter ****-***JG
+[  38.1s] thread-A  clanka retries the model call (#1): TurnTimeout was reached
+[  38.3s] onCode    code #3 issued. CurrentSession inside onCode: thread-A, ownerPresent true
+[  38.3s] discord   to thread-A: Open https://auth.openai.com/codex/device and enter ****-***OB
+[  46.2s] thread-A  clanka retries the model call (#2): TurnTimeout was reached
+[  46.5s] onCode    code #4 issued. CurrentSession inside onCode: thread-A, ownerPresent true
+[  46.5s] discord   to thread-A: Open https://auth.openai.com/codex/device and enter ****-***UX
+[  54.4s] thread-A  clanka retries the model call (#3): TurnTimeout was reached
+[  54.7s] onCode    code #5 issued. CurrentSession inside onCode: thread-A, ownerPresent true
+[  54.7s] discord   to thread-A: Open https://auth.openai.com/codex/device and enter ****-***LK
+[  62.7s] thread-A  clanka retries the model call (#4): TurnTimeout was reached
+[  63.1s] onCode    code #6 issued. CurrentSession inside onCode: thread-A, ownerPresent true
+[  63.1s] discord   to thread-A: Open https://auth.openai.com/codex/device and enter ****-***1L
+[  71.0s] thread-A  clanka retries the model call (#5): TurnTimeout was reached
+[  71.7s] onCode    code #7 issued. CurrentSession inside onCode: thread-A, ownerPresent true
+[  71.7s] discord   to thread-A: Open https://auth.openai.com/codex/device and enter ****-***DE
+[  79.6s] thread-A  turn failed, after 49.4s, model retries 5: failure: RetriesExhausted: 
+[  79.6s] summary   device codes issued in this run: 6

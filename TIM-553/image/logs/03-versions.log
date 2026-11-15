@@ -1,0 +1,15 @@
+node -v => v26.13.1
+git --version => git version 2.47.3
+rg --version => ripgrep 14.1.1
+gh --version => gh version 2.104.0 (2026-11-12)
+sqlite3 --version => 3.46.1 2024-08-13 09:16:08 c9c2ab54ba1f5f46360f1b4f35d849cd3f080e6fc2b6c60e91b16c63f69aalt1 (64-bit)
+curl --version => curl 8.14.1 (x86_64-pc-linux-gnu) libcurl/8.14.1 OpenSSL/3.5.7 zlib/1.3.1 brotli/1.1.0 zstd/1.5.7 libidn2/2.3.8 libpsl/0.21.2 libssh2/1.11.1 nghttp2/1.64.0 nghttp3/1.8.0 librtmp/2.3 OpenLDAP/2.6.10
+jq --version => jq-1.7
+ps --version => ps from procps-ng 4.0.4
+ssh -V => OpenSSH_10.0p2 Debian-7+deb13u4, OpenSSL 3.5.7 9 Jun 2026
+unzip -v => UnZip 6.00 of 20 April 2009, by Debian. Original by Info-ZIP.
+xz --version => xz (XZ Utils) 5.8.1
+tini --version => tini version 0.19.0
+uv --version => uv 0.13.8 (x86_64-unknown-linux-musl)
+/opt/chad/node_modules/.bin/tsc -v => Version 7.0.2
+/opt/chad/node_modules/.bin/esbuild --version => 0.28.2

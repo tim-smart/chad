@@ -1,0 +1,20 @@
+{"t":1794652378794,"pid":3369971,"ev":"scenario.start","name":"dedupe","phase":"1","variant":""}
+{"t":1794652378810,"pid":3369971,"ev":"gateway.saved","key":"message/test:c1/m2","ms":13}
+{"t":1794652378871,"pid":3369971,"ev":"session.activated","thread":"c1","session":"afe23a65-753e-4335-af7a-4a60a26bcaa1","activation":1}
+{"t":1794652378874,"pid":3369971,"ev":"message.delivered","key":"message/test:c1/m2","ms":77,"text":"sleep:300 once"}
+{"t":1794652378893,"pid":3369971,"ev":"turn.start","key":"message/test:c1/m2","turn":"164d2a6b-1911-4f97-8066-d2d26c91fdd6","starts":1,"resumed":false}
+{"t":1794652378896,"pid":3369971,"ev":"status.posted","id":"m4"}
+{"t":1794652379231,"pid":3369971,"ev":"turn.end","key":"message/test:c1/m2","turn":"164d2a6b-1911-4f97-8066-d2d26c91fdd6","outcome":"Answered","compacted":false}
+{"t":1794652379271,"pid":3369971,"ev":"gateway.saved","key":"message/test:c1/m2","ms":2}
+{"t":1794652380772,"pid":3369971,"ev":"dedupe.afterSecond","delivered":1}
+{"t":1794652383025,"pid":3369971,"ev":"dedupe.pruned"}
+{"t":1794652383035,"pid":3369971,"ev":"gateway.saved","key":"message/test:c1/m2","ms":9}
+{"t":1794652383044,"pid":3369971,"ev":"message.delivered","key":"message/test:c1/m2","ms":18,"text":"sleep:300 once"}
+{"t":1794652383044,"pid":3369971,"ev":"message.alreadyEnded","key":"message/test:c1/m2","outcome":"Answered"}
+{"t":1794652385035,"pid":3369971,"ev":"dedupe.afterThird","delivered":2}
+{"t":1794652385035,"pid":3369971,"ev":"scenario.end","name":"dedupe","phase":"1"}
+{"t":1794652385044,"pid":3369971,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652387231,"pid":3369971,"ev":"hooks.draining","pending":0}
+{"t":1794652387231,"pid":3369971,"ev":"hooks.drained"}
+{"t":1794652387231,"pid":3369971,"ev":"plugins.closed"}
+{"t":1794652387279,"pid":3369971,"ev":"process.exit","code":0,"signal":null}

@@ -1,0 +1,31 @@
+{"t":1794687650956,"pid":2589045,"ev":"scenario.start","name":"paste","phase":"1"}
+{"t":1794687650960,"pid":2589045,"ev":"user.posted","who":"A","key":"message/test:c1/m4","length":696}
+{"t":1794687651258,"pid":2589045,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687651261,"pid":2589045,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687651289,"pid":2589045,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"98948914-ba37-4067-bef4-b6aa8b98ba27","origin":"Message"}
+{"t":1794687651326,"pid":2589045,"ev":"agent.built","session":"s-c1","wrap":false,"mcp":false}
+{"t":1794687651372,"pid":2589045,"ev":"model.call","call":1,"messages":2,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687651385,"pid":2589045,"ev":"chat.edited","thread":"c1","messageId":"m6","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"printf %s 'FAKE-pasted-pw-0010' | chad secret set PASTED --note 'fake site, pasted in chat'\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687651475,"pid":2589045,"ev":"spawner.spawn","session":"s-c1","command":"bash","args":["-c","printf %s 'FAKE-pasted-pw-0010' | chad secret set PASTED --note 'fake site, pasted in chat'"]}
+{"t":1794687652323,"pid":2589045,"ev":"secret.saved","name":"PASTED","via":"cli in session s-c1","kind":"plain","replaced":false,"short":false}
+{"t":1794687652437,"pid":2589045,"ev":"brain.scriptOutput","session":"s-c1","output":"[20:20:51.472] INFO (#96): Calling \"bash\" { command: \"printf %s '<secret:PASTED>' | chad secret set PASTED --note 'fake site, pasted in chat'\", timeoutMs: 600000 }\nOUT[completed] Saved PASTED\n\n"}
+{"t":1794687652472,"pid":2589045,"ev":"model.call","call":2,"messages":4,"sees":["PASTED"],"seesMasked":[],"tail":["assistant:call","tool:result"]}
+{"t":1794687652481,"pid":2589045,"ev":"chat.edited","thread":"c1","messageId":"m6","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret run --env P=PASTED -- printenv P\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687652538,"pid":2589045,"ev":"spawner.spawn","session":"s-c1","command":"bash","args":["-c","chad secret run --env P=PASTED -- printenv P"]}
+{"t":1794687652784,"pid":2589045,"ev":"brain.scriptOutput","session":"s-c1","output":"[20:20:52.537] INFO (#117): Calling \"bash\" { command: 'chad secret run --env P=PASTED -- printenv P', timeoutMs: 600000 }\nOUT[completed] <secret:PASTED>\n\n"}
+{"t":1794687652807,"pid":2589045,"ev":"model.call","call":3,"messages":6,"sees":["PASTED"],"seesMasked":[],"tail":["assistant:call","tool:result","assistant:call","tool:result"]}
+{"t":1794687652810,"pid":2589045,"ev":"chat.edited","thread":"c1","messageId":"m6","markdown":"-# running\nconsole.log('You pasted a password into the chat. I saved it as PASTED. Change it on the site, since it is in the chat history now.')","why":"status","ok":true}
+{"t":1794687652856,"pid":2589045,"ev":"brain.scriptOutput","session":"s-c1","output":"You pasted a password into the chat. I saved it as PASTED. Change it on the site, since it is in the chat history now.\n"}
+{"t":1794687652877,"pid":2589045,"ev":"model.call","call":4,"messages":8,"sees":["PASTED"],"seesMasked":[],"tail":["assistant:call","tool:result","assistant:call","tool:result","assistant:call","tool:result"]}
+{"t":1794687652913,"pid":2589045,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"98948914-ba37-4067-bef4-b6aa8b98ba27","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:51.472] INFO (#96): Calling \\\"bash\\\" { command: \\\"printf %s '<secret:PASTED>' | chad secret set PASTED --note 'fake site, pasted in chat'\\\", timeoutMs: 600000 }\\nOUT[completed] Saved PASTED\\n\\n\",\"[20:20:52.537] INFO (#117): Calling \\\"bash\\\" { command: 'chad secret run --env P=PASTED -- printenv P', timeoutMs: 600000 }\\nOUT[completed] <secret:PASTED>\\n\\n\",\"You pasted a password into the chat. I saved it as PASTED. Change it on the site, since it is in the chat history now.\\n\"]"}}
+{"t":1794687652943,"pid":2589045,"ev":"answer","who":"A","key":"message/test:c1/m4","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:51.472] INFO (#96): Calling \\\"bash\\\" { command: \\\"printf %s '<secret:PASTED>' | chad secret set PASTED --note 'fake site, pasted in chat'\\\", timeoutMs: 600000 }\\nOUT[completed] Saved PASTED\\n\\n\",\"[20:20:52.537] INFO (#117): Calling \\\"bash\\\" { command: 'chad secret run --env P=PASTED -- printenv P', timeoutMs: 600000 }\\nOUT[completed] <secret:PASTED>\\n\\n\",\"You pasted a password into the chat. I saved it as PASTED. Change it on the site, since it is in the chat history now.\\n\"]"}}
+{"t":1794687652943,"pid":2589045,"ev":"user.posted","who":"A","key":"message/test:c1/m8","length":52}
+{"t":1794687652967,"pid":2589045,"ev":"message.delivered","key":"message/test:c1/m8","session":"s-c1"}
+{"t":1794687652988,"pid":2589045,"ev":"turn.start","key":"message/test:c1/m8","session":"s-c1","turn":"b8f5fe27-c7ce-478e-9bbb-0a2c9e537c65","origin":"Message"}
+{"t":1794687653000,"pid":2589045,"ev":"model.call","call":5,"messages":10,"sees":["PASTED"],"seesMasked":[],"tail":[]}
+{"t":1794687653005,"pid":2589045,"ev":"chat.edited","thread":"c1","messageId":"m10","markdown":"-# running\nconsole.log('next')","why":"status","ok":true}
+{"t":1794687653046,"pid":2589045,"ev":"brain.scriptOutput","session":"s-c1","output":"next\n"}
+{"t":1794687653069,"pid":2589045,"ev":"model.call","call":6,"messages":12,"sees":["PASTED"],"seesMasked":[],"tail":["assistant:call","tool:result"]}
+{"t":1794687653088,"pid":2589045,"ev":"turn.end","key":"message/test:c1/m8","session":"s-c1","turn":"b8f5fe27-c7ce-478e-9bbb-0a2c9e537c65","outcome":{"_tag":"Answered","text":"RESULTS [\"next\\n\"]"}}
+{"t":1794687653124,"pid":2589045,"ev":"answer","who":"A","key":"message/test:c1/m8","outcome":{"_tag":"Answered","text":"RESULTS [\"next\\n\"]"}}
+{"t":1794687653128,"pid":2589045,"ev":"scenario.end","name":"paste","phase":"1"}

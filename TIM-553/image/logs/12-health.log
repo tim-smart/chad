@@ -1,0 +1,5 @@
+PASS  [health]  healthy once the daemon answers  (healthy )
+PASS  [health]  chad health against a frozen daemon: exit 1 after its own 2 seconds  (chad health: no answer on /data/run/chad.sock in 2 seconds exit=1 in 2168 ms )
+PASS  [health]  Docker reports the frozen daemon unhealthy  (unhealthy 97 s after SIGSTOP, failing streak 3 )
+PASS  [health]  nothing restarts it, even with a restart policy  (running=true restarts=0 policy=unless-stopped )
+PASS  [health]  stopping it: SIGTERM cannot run the handler, so the kill of a frozen daemon is counted as unclean  (5410 ms, exit 137, boots 1 )

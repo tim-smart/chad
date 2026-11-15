@@ -1,0 +1,69 @@
+{"t":1794687316335,"pid":2550931,"ev":"boot.nothingApplied"}
+{"t":1794687316399,"pid":2550931,"ev":"scenario.start","name":"route","phase":"1","drainMs":30000,"closeMs":10000,"mcp":{"drainMs":30000,"heldMs":120000,"startMs":60000,"rules":"amended"}}
+{"t":1794687316402,"pid":2550931,"ev":"apply.start","dir":"out/repo-route/versions/1794687316401-2550931-1"}
+{"t":1794687316493,"pid":2550931,"ev":"build.ok","version":"echo#1@dd2b18cb","tools":["slow","echo"],"hooks":[]}
+{"t":1794687316494,"pid":2550931,"ev":"live.moved","live":"versions/1794687316401-2550931-1"}
+{"t":1794687316495,"pid":2550931,"ev":"swap.gateClosed","label":"apply","plugins":["echo: nothing -> echo#1@dd2b18cb"]}
+{"t":1794687316495,"pid":2550931,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687316495,"pid":2550931,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687316495,"pid":2550931,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["echo: echo#1@dd2b18cb"]}
+{"t":1794687316495,"pid":2550931,"ev":"apply.pluginsActivated","mcpStillRebuilding":false}
+{"t":1794687316495,"pid":2550931,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794687316497,"pid":2550931,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"one turn, four calls PLAN:{\"steps\":[\"try { console.log('OK '"}
+{"t":1794687316595,"pid":2550931,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687316597,"pid":2550931,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687316631,"pid":2550931,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"b944f72e-30fa-46bc-8400-bab1ceca4253","starts":1,"cuts":0,"resumed":false}
+{"t":1794687316641,"pid":2550931,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"mcp":"0-none","mcpPrompt":"01ba4719","on":{"echo":"dd2b18cb"},"tools":["slow","echo"]}
+{"t":1794687316645,"pid":2550931,"ev":"mcp.keysTaken","session":"s-c1","layer":null,"rebuilding":null,"keys":[]}
+{"t":1794687316647,"pid":2550931,"ev":"turn.system","session":"s-c1","hasMcpSection":false,"saysStillStarting":false,"mentions":[]}
+{"t":1794687316707,"pid":2550931,"ev":"call.routed","session":"s-c1","tool":"echo","built":"dd2b18cb","to":"echo#1@dd2b18cb","recoded":false}
+{"t":1794687316710,"pid":2550931,"ev":"script.mark","session":"s-c1","label":"m1"}
+{"t":1794687316719,"pid":2550931,"ev":"reload.start","reason":"chad plugin reload","names":["echo"]}
+{"t":1794687316720,"pid":2550931,"ev":"build.ok","version":"echo#2@dd2b18cb","tools":["slow","echo"],"hooks":[]}
+{"t":1794687316720,"pid":2550931,"ev":"swap.gateClosed","label":"reload: chad plugin reload","plugins":["echo: echo#1@dd2b18cb -> echo#2@dd2b18cb"]}
+{"t":1794687316720,"pid":2550931,"ev":"swap.draining","label":"reload: chad plugin reload","inflight":[]}
+{"t":1794687316721,"pid":2550931,"ev":"swap.drained","label":"reload: chad plugin reload","ms":0,"interrupted":[]}
+{"t":1794687316721,"pid":2550931,"ev":"plugin.closing","plugin":"echo","instance":1,"hash":"dd2b18cb"}
+{"t":1794687316721,"pid":2550931,"ev":"close.done","version":"echo#1@dd2b18cb","why":"reload: chad plugin reload","ms":0}
+{"t":1794687316721,"pid":2550931,"ev":"swap.activated","label":"reload: chad plugin reload","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["echo: echo#2@dd2b18cb"]}
+{"t":1794687316721,"pid":2550931,"ev":"reload.done","reason":"chad plugin reload","exit":0,"errors":[],"reloaded":["echo"]}
+{"t":1794687316721,"pid":2550931,"ev":"cli.reload","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"reload: chad plugin reload","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]},"reason":"chad plugin reload"}
+{"t":1794687316722,"pid":2550931,"ev":"call.routed","session":"s-c1","tool":"echo","built":"dd2b18cb","to":"echo#2@dd2b18cb","recoded":true}
+{"t":1794687316723,"pid":2550931,"ev":"script.mark","session":"s-c1","label":"m2"}
+{"t":1794687316742,"pid":2550931,"ev":"reload.start","reason":"timezone","names":["echo"]}
+{"t":1794687316744,"pid":2550931,"ev":"build.ok","version":"echo#3@dd2b18cb","tools":["slow","echo"],"hooks":[]}
+{"t":1794687316744,"pid":2550931,"ev":"swap.gateClosed","label":"reload: timezone","plugins":["echo: echo#2@dd2b18cb -> echo#3@dd2b18cb"]}
+{"t":1794687316744,"pid":2550931,"ev":"swap.draining","label":"reload: timezone","inflight":[]}
+{"t":1794687316744,"pid":2550931,"ev":"swap.drained","label":"reload: timezone","ms":0,"interrupted":[]}
+{"t":1794687316744,"pid":2550931,"ev":"plugin.closing","plugin":"echo","instance":2,"hash":"dd2b18cb"}
+{"t":1794687316744,"pid":2550931,"ev":"close.done","version":"echo#2@dd2b18cb","why":"reload: timezone","ms":0}
+{"t":1794687316744,"pid":2550931,"ev":"swap.activated","label":"reload: timezone","generation":3,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["echo: echo#3@dd2b18cb"]}
+{"t":1794687316744,"pid":2550931,"ev":"reload.done","reason":"timezone","exit":0,"errors":[],"reloaded":["echo"]}
+{"t":1794687316744,"pid":2550931,"ev":"cli.reload","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"reload: timezone","generation":3,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]},"reason":"timezone"}
+{"t":1794687316745,"pid":2550931,"ev":"call.routed","session":"s-c1","tool":"echo","built":"dd2b18cb","to":"echo#3@dd2b18cb","recoded":true}
+{"t":1794687316746,"pid":2550931,"ev":"script.mark","session":"s-c1","label":"m3"}
+{"t":1794687316775,"pid":2550931,"ev":"apply.start","dir":"out/repo-route/versions/1794687316765-2550931-2"}
+{"t":1794687316783,"pid":2550931,"ev":"build.ok","version":"echo#4@dd2b18cb","tools":["slow","echo"],"hooks":[]}
+{"t":1794687316783,"pid":2550931,"ev":"live.moved","live":"versions/1794687316765-2550931-2"}
+{"t":1794687316783,"pid":2550931,"ev":"swap.gateClosed","label":"apply","plugins":["echo: echo#3@dd2b18cb -> echo#4@dd2b18cb"]}
+{"t":1794687316783,"pid":2550931,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687316783,"pid":2550931,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687316784,"pid":2550931,"ev":"plugin.closing","plugin":"echo","instance":3,"hash":"dd2b18cb"}
+{"t":1794687316784,"pid":2550931,"ev":"close.done","version":"echo#3@dd2b18cb","why":"apply","ms":1}
+{"t":1794687316784,"pid":2550931,"ev":"swap.activated","label":"apply","generation":4,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[],"now":["echo: echo#4@dd2b18cb"]}
+{"t":1794687316784,"pid":2550931,"ev":"apply.pluginsActivated","mcpStillRebuilding":false}
+{"t":1794687316784,"pid":2550931,"ev":"cli.apply","label":"settings only","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"apply","generation":4,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[]}}
+{"t":1794687316785,"pid":2550931,"ev":"call.routed","session":"s-c1","tool":"echo","built":"dd2b18cb","to":"echo#4@dd2b18cb","recoded":true}
+{"t":1794687316792,"pid":2550931,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v1 hi Pacific/Auckland #1: a\"\nOK \"v1 hi Pacific/Auckland #2: b\"\nOK \"v1 hi Europe/London #3: c\"\nOK \"v1 yo Europe/London #4: d\"\n"}
+{"t":1794687316885,"pid":2550931,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"b944f72e-30fa-46bc-8400-bab1ceca4253","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: a\\\"\\nOK \\\"v1 hi Pacific/Auckland #2: b\\\"\\nOK \\\"v1 hi Europe/London #3: c\\\"\\nOK \\\"v1 yo Europe/London #4: d\\\"\\n\"]"}
+{"t":1794687316898,"pid":2550931,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: a\\\"\\nOK \\\"v1 hi Pacific/Auckland #2: b\\\"\\nOK \\\"v1 hi Europe/London #3: c\\\"\\nOK \\\"v1 yo Europe/London #4: d\\\"\\n\"]"}
+{"t":1794687316898,"pid":2550931,"ev":"scenario.end","name":"route","phase":"1"}
+{"t":1794687316898,"pid":2550931,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794687316910,"pid":2550931,"ev":"stop.entityLayersClosed"}
+{"t":1794687324424,"pid":2550931,"ev":"stop.runnerClosed"}
+{"t":1794687324424,"pid":2550931,"ev":"hooks.draining","pending":0}
+{"t":1794687324424,"pid":2550931,"ev":"hooks.drained"}
+{"t":1794687324425,"pid":2550931,"ev":"plugin.closing","plugin":"echo","instance":4,"hash":"dd2b18cb"}
+{"t":1794687324425,"pid":2550931,"ev":"close.done","version":"echo#4@dd2b18cb","why":"graceful stop","ms":0}
+{"t":1794687324425,"pid":2550931,"ev":"plugins.closed"}
+{"t":1794687324475,"pid":2550931,"ev":"process.exit","code":0,"signal":null}

@@ -1,0 +1,29 @@
+{"t":1794652426652,"pid":3375287,"ev":"scenario.start","name":"compact-gate","phase":"1","variant":"fast"}
+{"t":1794652426654,"pid":3375287,"ev":"user.posted","text":"sleep:200 compact","key":"message/test:c1/m2"}
+{"t":1794652426665,"pid":3375287,"ev":"gateway.saved","key":"message/test:c1/m2","ms":10}
+{"t":1794652426733,"pid":3375287,"ev":"session.activated","thread":"c1","session":"cd78535e-a9eb-46af-a318-bbb95bae2b63","activation":1}
+{"t":1794652426734,"pid":3375287,"ev":"message.delivered","key":"message/test:c1/m2","ms":79,"text":"sleep:200 compact"}
+{"t":1794652426749,"pid":3375287,"ev":"turn.start","key":"message/test:c1/m2","turn":"59462415-671d-4f30-8754-da7b1448bded","starts":1,"resumed":false}
+{"t":1794652426750,"pid":3375287,"ev":"hook.beforeTurn","plugin":"quick","turn":"59462415-671d-4f30-8754-da7b1448bded","origin":{"_tag":"Message","text":"sleep:200 compact","userId":"owner-1"},"resumed":false,"prompt":"sleep:200 compact"}
+{"t":1794652426751,"pid":3375287,"ev":"status.posted","id":"m4"}
+{"t":1794652426972,"pid":3375287,"ev":"turn.end","key":"message/test:c1/m2","turn":"59462415-671d-4f30-8754-da7b1448bded","outcome":"Answered","compacted":true}
+{"t":1794652426988,"pid":3375287,"ev":"hook.afterTurn","plugin":"quick","turn":"59462415-671d-4f30-8754-da7b1448bded","origin":{"_tag":"Message","text":"sleep:200 compact","userId":"owner-1"},"resumed":false,"outcome":"Answered"}
+{"t":1794652426988,"pid":3375287,"ev":"hook.done","plugin":"quick","label":"afterTurn","result":"ok","ms":0}
+{"t":1794652426989,"pid":3375287,"ev":"user.posted","text":"sleep:200 the message that arrived in the meantime","key":"message/test:c1/m6"}
+{"t":1794652426996,"pid":3375287,"ev":"gateway.saved","key":"message/test:c1/m6","ms":7}
+{"t":1794652427004,"pid":3375287,"ev":"message.delivered","key":"message/test:c1/m6","ms":15,"text":"sleep:200 the message that arrived in the meantime"}
+{"t":1794652427017,"pid":3375287,"ev":"turn.start","key":"message/test:c1/m6","turn":"bceacda2-919f-4eb1-ab09-5a5e7a8f162f","starts":1,"resumed":false}
+{"t":1794652427289,"pid":3375287,"ev":"hook.done","plugin":"quick","label":"Compacted","result":"ok","ms":301}
+{"t":1794652427289,"pid":3375287,"ev":"turn.waitedForHooks","key":"message/test:c1/m6","ms":272}
+{"t":1794652427289,"pid":3375287,"ev":"hook.beforeTurn","plugin":"quick","turn":"bceacda2-919f-4eb1-ab09-5a5e7a8f162f","origin":{"_tag":"Message","text":"sleep:200 the message that arrived in the meantime","userId":"owner-1"},"resumed":false,"prompt":"sleep:200 the message that arrived in th"}
+{"t":1794652427289,"pid":3375287,"ev":"status.posted","id":"m8"}
+{"t":1794652427520,"pid":3375287,"ev":"turn.end","key":"message/test:c1/m6","turn":"bceacda2-919f-4eb1-ab09-5a5e7a8f162f","outcome":"Answered","compacted":false}
+{"t":1794652427545,"pid":3375287,"ev":"hook.afterTurn","plugin":"quick","turn":"bceacda2-919f-4eb1-ab09-5a5e7a8f162f","origin":{"_tag":"Message","text":"sleep:200 the message that arrived in the meantime","userId":"owner-1"},"resumed":false,"outcome":"Answered"}
+{"t":1794652427545,"pid":3375287,"ev":"hook.done","plugin":"quick","label":"afterTurn","result":"ok","ms":0}
+{"t":1794652427545,"pid":3375287,"ev":"bot.messages","messages":["done: sleep:200 compact","done: sleep:200 the message that arrived in the meantime"]}
+{"t":1794652427545,"pid":3375287,"ev":"scenario.end","name":"compact-gate","phase":"1"}
+{"t":1794652427554,"pid":3375287,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652430736,"pid":3375287,"ev":"hooks.draining","pending":0}
+{"t":1794652430736,"pid":3375287,"ev":"hooks.drained"}
+{"t":1794652430736,"pid":3375287,"ev":"plugins.closed"}
+{"t":1794652430782,"pid":3375287,"ev":"process.exit","code":0,"signal":null}

@@ -1,0 +1,502 @@
+[
+ {
+  "name": "26.13.1-alpine3.24",
+  "updated": "2026-11-11",
+  "amd64": "63.0MB"
+ },
+ {
+  "name": "26.13.1-alpine3.23",
+  "updated": "2026-11-11",
+  "amd64": "62.8MB"
+ },
+ {
+  "name": "26.13.1-alpine",
+  "updated": "2026-11-11",
+  "amd64": "63.0MB"
+ },
+ {
+  "name": "26.13-alpine3.24",
+  "updated": "2026-11-11",
+  "amd64": "63.0MB"
+ },
+ {
+  "name": "26.13-alpine3.23",
+  "updated": "2026-11-11",
+  "amd64": "62.8MB"
+ },
+ {
+  "name": "26.13-alpine",
+  "updated": "2026-11-11",
+  "amd64": "63.0MB"
+ },
+ {
+  "name": "26-alpine3.24",
+  "updated": "2026-11-11",
+  "amd64": "63.0MB"
+ },
+ {
+  "name": "26-alpine3.23",
+  "updated": "2026-11-11",
+  "amd64": "62.8MB"
+ },
+ {
+  "name": "26-alpine",
+  "updated": "2026-11-11",
+  "amd64": "63.0MB"
+ },
+ {
+  "name": "26.13.1-trixie-slim",
+  "updated": "2026-11-11",
+  "amd64": "85.8MB"
+ },
+ {
+  "name": "26.13.1-trixie",
+  "updated": "2026-11-11",
+  "amd64": "444.9MB"
+ },
+ {
+  "name": "26.13.1-slim",
+  "updated": "2026-11-11",
+  "amd64": "85.8MB"
+ },
+ {
+  "name": "26.13.1-bookworm-slim",
+  "updated": "2026-11-11",
+  "amd64": "84.1MB"
+ },
+ {
+  "name": "26.13.1-bookworm",
+  "updated": "2026-11-11",
+  "amd64": "413.5MB"
+ },
+ {
+  "name": "26.13.1",
+  "updated": "2026-11-11",
+  "amd64": "444.9MB"
+ },
+ {
+  "name": "26.13-trixie-slim",
+  "updated": "2026-11-11",
+  "amd64": "85.8MB"
+ },
+ {
+  "name": "26.13-trixie",
+  "updated": "2026-11-11",
+  "amd64": "444.9MB"
+ },
+ {
+  "name": "26.13-slim",
+  "updated": "2026-11-11",
+  "amd64": "85.8MB"
+ },
+ {
+  "name": "26.13-bookworm-slim",
+  "updated": "2026-11-11",
+  "amd64": "84.1MB"
+ },
+ {
+  "name": "26.13-bookworm",
+  "updated": "2026-11-11",
+  "amd64": "413.5MB"
+ },
+ {
+  "name": "26.13",
+  "updated": "2026-11-11",
+  "amd64": "444.9MB"
+ },
+ {
+  "name": "26-trixie-slim",
+  "updated": "2026-11-11",
+  "amd64": "85.8MB"
+ },
+ {
+  "name": "26-trixie",
+  "updated": "2026-11-11",
+  "amd64": "444.9MB"
+ },
+ {
+  "name": "26-slim",
+  "updated": "2026-11-11",
+  "amd64": "85.8MB"
+ },
+ {
+  "name": "26-bookworm-slim",
+  "updated": "2026-11-11",
+  "amd64": "84.1MB"
+ },
+ {
+  "name": "26-bookworm",
+  "updated": "2026-11-11",
+  "amd64": "413.5MB"
+ },
+ {
+  "name": "26",
+  "updated": "2026-11-11",
+  "amd64": "444.9MB"
+ },
+ {
+  "name": "26.13.0-trixie",
+  "updated": "2026-11-06",
+  "amd64": "444.9MB"
+ },
+ {
+  "name": "26.13.0-bookworm",
+  "updated": "2026-11-06",
+  "amd64": "413.5MB"
+ },
+ {
+  "name": "26.13.0",
+  "updated": "2026-11-06",
+  "amd64": "444.9MB"
+ },
+ {
+  "name": "26.13.0-alpine3.24",
+  "updated": "2026-11-05",
+  "amd64": "62.9MB"
+ },
+ {
+  "name": "26.13.0-alpine3.23",
+  "updated": "2026-11-05",
+  "amd64": "62.8MB"
+ },
+ {
+  "name": "26.13.0-alpine",
+  "updated": "2026-11-05",
+  "amd64": "62.9MB"
+ },
+ {
+  "name": "26.13.0-trixie-slim",
+  "updated": "2026-11-05",
+  "amd64": "85.7MB"
+ },
+ {
+  "name": "26.13.0-slim",
+  "updated": "2026-11-05",
+  "amd64": "85.7MB"
+ },
+ {
+  "name": "26.13.0-bookworm-slim",
+  "updated": "2026-11-05",
+  "amd64": "84.1MB"
+ },
+ {
+  "name": "26.12.1-trixie",
+  "updated": "2026-10-28",
+  "amd64": "444.8MB"
+ },
+ {
+  "name": "26.12.1",
+  "updated": "2026-10-28",
+  "amd64": "444.8MB"
+ },
+ {
+  "name": "26.12-trixie",
+  "updated": "2026-10-28",
+  "amd64": "444.8MB"
+ },
+ {
+  "name": "26.12",
+  "updated": "2026-10-28",
+  "amd64": "444.8MB"
+ },
+ {
+  "name": "26.12.1-bookworm",
+  "updated": "2026-10-28",
+  "amd64": "413.4MB"
+ },
+ {
+  "name": "26.12-bookworm",
+  "updated": "2026-10-28",
+  "amd64": "413.4MB"
+ },
+ {
+  "name": "26.12.1-trixie-slim",
+  "updated": "2026-10-28",
+  "amd64": "85.7MB"
+ },
+ {
+  "name": "26.12.1-slim",
+  "updated": "2026-10-28",
+  "amd64": "85.7MB"
+ },
+ {
+  "name": "26.12.1-bookworm-slim",
+  "updated": "2026-10-28",
+  "amd64": "84.1MB"
+ },
+ {
+  "name": "26.12-trixie-slim",
+  "updated": "2026-10-28",
+  "amd64": "85.7MB"
+ },
+ {
+  "name": "26.12-slim",
+  "updated": "2026-10-28",
+  "amd64": "85.7MB"
+ },
+ {
+  "name": "26.12-bookworm-slim",
+  "updated": "2026-10-28",
+  "amd64": "84.1MB"
+ },
+ {
+  "name": "26.12.1-alpine3.24",
+  "updated": "2026-10-22",
+  "amd64": "62.9MB"
+ },
+ {
+  "name": "26.12.1-alpine",
+  "updated": "2026-10-22",
+  "amd64": "62.9MB"
+ },
+ {
+  "name": "26.12-alpine3.24",
+  "updated": "2026-10-22",
+  "amd64": "62.9MB"
+ },
+ {
+  "name": "26.12-alpine",
+  "updated": "2026-10-22",
+  "amd64": "62.9MB"
+ },
+ {
+  "name": "26.12.1-alpine3.23",
+  "updated": "2026-10-21",
+  "amd64": "62.8MB"
+ },
+ {
+  "name": "26.12-alpine3.23",
+  "updated": "2026-10-21",
+  "amd64": "62.8MB"
+ },
+ {
+  "name": "26.12.0-trixie-slim",
+  "updated": "2026-10-21",
+  "amd64": "85.7MB"
+ },
+ {
+  "name": "26.12.0-trixie",
+  "updated": "2026-10-21",
+  "amd64": "444.6MB"
+ },
+ {
+  "name": "26.12.0-slim",
+  "updated": "2026-10-21",
+  "amd64": "85.7MB"
+ },
+ {
+  "name": "26.12.0-bookworm-slim",
+  "updated": "2026-10-21",
+  "amd64": "84.1MB"
+ },
+ {
+  "name": "26.12.0-bookworm",
+  "updated": "2026-10-21",
+  "amd64": "413.3MB"
+ },
+ {
+  "name": "26.12.0",
+  "updated": "2026-10-21",
+  "amd64": "444.6MB"
+ },
+ {
+  "name": "26.12.0-alpine3.24",
+  "updated": "2026-10-14",
+  "amd64": "62.9MB"
+ },
+ {
+  "name": "26.12.0-alpine3.23",
+  "updated": "2026-10-14",
+  "amd64": "62.8MB"
+ },
+ {
+  "name": "26.12.0-alpine",
+  "updated": "2026-10-14",
+  "amd64": "62.9MB"
+ },
+ {
+  "name": "26.11.1-alpine3.23",
+  "updated": "2026-10-09",
+  "amd64": "62.7MB"
+ },
+ {
+  "name": "26.11-alpine3.23",
+  "updated": "2026-10-09",
+  "amd64": "62.7MB"
+ },
+ {
+  "name": "26.11.1-trixie-slim",
+  "updated": "2026-10-08",
+  "amd64": "85.7MB"
+ },
+ {
+  "name": "26.11.1-trixie",
+  "updated": "2026-10-08",
+  "amd64": "444.5MB"
+ },
+ {
+  "name": "26.11.1-slim",
+  "updated": "2026-10-08",
+  "amd64": "85.7MB"
+ },
+ {
+  "name": "26.11.1-bookworm-slim",
+  "updated": "2026-10-08",
+  "amd64": "84.0MB"
+ },
+ {
+  "name": "26.11.1-bookworm",
+  "updated": "2026-10-08",
+  "amd64": "415.5MB"
+ },
+ {
+  "name": "26.11.1-alpine3.24",
+  "updated": "2026-10-08",
+  "amd64": "62.8MB"
+ },
+ {
+  "name": "26.11.1-alpine",
+  "updated": "2026-10-08",
+  "amd64": "62.8MB"
+ },
+ {
+  "name": "26.11.1",
+  "updated": "2026-10-08",
+  "amd64": "444.5MB"
+ },
+ {
+  "name": "26.11-trixie-slim",
+  "updated": "2026-10-08",
+  "amd64": "85.7MB"
+ },
+ {
+  "name": "26.11-trixie",
+  "updated": "2026-10-08",
+  "amd64": "444.5MB"
+ },
+ {
+  "name": "26.11-slim",
+  "updated": "2026-10-08",
+  "amd64": "85.7MB"
+ },
+ {
+  "name": "26.11-bookworm-slim",
+  "updated": "2026-10-08",
+  "amd64": "84.0MB"
+ },
+ {
+  "name": "26.11-bookworm",
+  "updated": "2026-10-08",
+  "amd64": "415.5MB"
+ },
+ {
+  "name": "26.11-alpine3.24",
+  "updated": "2026-10-08",
+  "amd64": "62.8MB"
+ },
+ {
+  "name": "26.11-alpine",
+  "updated": "2026-10-08",
+  "amd64": "62.8MB"
+ },
+ {
+  "name": "26.11",
+  "updated": "2026-10-08",
+  "amd64": "444.5MB"
+ },
+ {
+  "name": "26.10.0-trixie",
+  "updated": "2026-10-06",
+  "amd64": "444.3MB"
+ },
+ {
+  "name": "26.10.0-bookworm",
+  "updated": "2026-10-06",
+  "amd64": "415.4MB"
+ },
+ {
+  "name": "26.10.0",
+  "updated": "2026-10-06",
+  "amd64": "444.3MB"
+ },
+ {
+  "name": "26.10-trixie",
+  "updated": "2026-10-06",
+  "amd64": "444.3MB"
+ },
+ {
+  "name": "26.10-bookworm",
+  "updated": "2026-10-06",
+  "amd64": "415.4MB"
+ },
+ {
+  "name": "26.10",
+  "updated": "2026-10-06",
+  "amd64": "444.3MB"
+ },
+ {
+  "name": "26.10.0-trixie-slim",
+  "updated": "2026-10-06",
+  "amd64": "85.5MB"
+ },
+ {
+  "name": "26.10.0-slim",
+  "updated": "2026-10-06",
+  "amd64": "85.5MB"
+ },
+ {
+  "name": "26.10.0-bookworm-slim",
+  "updated": "2026-10-06",
+  "amd64": "83.8MB"
+ },
+ {
+  "name": "26.10-trixie-slim",
+  "updated": "2026-10-06",
+  "amd64": "85.5MB"
+ },
+ {
+  "name": "26.10-slim",
+  "updated": "2026-10-06",
+  "amd64": "85.5MB"
+ },
+ {
+  "name": "26.10-bookworm-slim",
+  "updated": "2026-10-06",
+  "amd64": "83.8MB"
+ },
+ {
+  "name": "26.10.0-alpine3.24",
+  "updated": "2026-09-22",
+  "amd64": "67.1MB"
+ },
+ {
+  "name": "26.10.0-alpine3.23",
+  "updated": "2026-09-22",
+  "amd64": "66.9MB"
+ },
+ {
+  "name": "26.10.0-alpine",
+  "updated": "2026-09-22",
+  "amd64": "67.1MB"
+ },
+ {
+  "name": "26.10-alpine3.24",
+  "updated": "2026-09-22",
+  "amd64": "67.1MB"
+ },
+ {
+  "name": "26.10-alpine3.23",
+  "updated": "2026-09-22",
+  "amd64": "66.9MB"
+ },
+ {
+  "name": "26.10-alpine",
+  "updated": "2026-09-22",
+  "amd64": "67.1MB"
+ },
+ {
+  "name": "26.9.0-trixie",
+  "updated": "2026-09-19",
+  "amd64": "443.6MB"
+ }
+]

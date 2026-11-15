@@ -1,0 +1,111 @@
+model gpt-5.6-luna, prompt_cache_key not sent, scratch /home/tim/.tmp/multica-task-3900670807/chad-proto-s9cDl7
+
+=== turn 1: Agent A, tools: rollDice
+  user    Remember this codeword: PLATYPUS. Then roll a d20 and tell me what you got.
+  script  const r = await rollDice({sides: 20});
+          console.log(r.rolled);
+  output  17
+  answer  Codeword remembered: PLATYPUS; I rolled a 17.
+  tools   rollDice
+  system  dfa18735 (rendered)
+  tokens  input 3777, cached 1664 (44%); per model call: 1865 in / 1664 cached, 1912 in / 0 cached
+
+=== turn 2: same Agent, a long read to grow the history
+  user    Print the whole of notes.txt with readFile, then tell me how many coffees note 200 has.
+  script  const content = await readFile({path:"notes.txt", lineNumbers:true});
+          console.log(content);
+  output  1: Note 1: on day 1 the owner logged 0 km and 0 coffees.
+          2: Note 2: on day 2 the owner logged 37 km and 2 coffees.
+          ... 258 more lines
+  answer  Note 200 recorded 7 coffees.
+  tools   none
+  system  dfa18735 (frozen)
+  tokens  input 9452, cached 3584 (38%); per model call: 1958 in / 1792 cached, 7494 in / 1792 cached
+
+=== turn 3: same Agent, nothing changed
+  user    What is today's high?
+  answer  Today's high is 21°C.
+  tools   none
+  system  dfa18735 (frozen)
+  tokens  input 7517, cached 7296 (97%); per model call: 7517 in / 7296 cached
+
+=== turn 4: chunk changed, system prompt frozen
+  update  <environment-update>
+          # Plugin context changed
+          
+          The "weather" section of your instructions is replaced by:
+          
+          Today's weather: high 30°C, rain 4mm.
+          </environment-update>
+  user    And what is today's high now?
+  answer  Today's high is 30°C.
+  tools   none
+  system  dfa18735 (frozen)
+  tokens  input 7583, cached 7424 (98%); per model call: 7583 in / 7424 cached
+
+=== turn 5: Agent B, tools: rollDice + flipCoin, system prompt rebuilt
+  user    What was the codeword? Then flip a coin and tell me the side.
+  script  const r = await flipCoin({});
+          console.log(r.side);
+  output  heads
+  answer  The codeword was PLATYPUS; the coin landed heads.
+  tools   flipCoin
+  system  35a2aad5 (rendered)
+  tokens  input 15351, cached 3584 (23%); per model call: 7655 in / 1792 cached, 7696 in / 1792 cached
+
+=== turn 6: same Agent, nothing changed
+  user    Roll a d6.
+  script  const r = await rollDice({sides:6});
+          console.log(r.rolled);
+  output  6
+  answer  You rolled a 6.
+  tools   rollDice
+  system  35a2aad5 (frozen)
+  tokens  input 15496, cached 15104 (97%); per model call: 7725 in / 7552 cached, 7771 in / 7552 cached
+
+=== turn 7: Agent C, tools: + lookupWord, system prompt frozen
+  update  <environment-update>
+          # Tools changed
+          
+          This function is now available to your scripts, next to the ones in your instructions:
+          
+          ```ts
+          /** Look a word up in the owner's private glossary. */
+          declare function lookupWord(options: {
+              readonly word: string;
+          }): Promise<{
+              readonly meaning: string;
+          }>
+          ```
+          </environment-update>
+  user    Look up the word chad in my glossary.
+  script  const r = await lookupWord({word:"chad"});
+          console.log(r.meaning);
+  output  chad: glossary entry 4471, a single-owner assistant
+  answer  “chad” means “glossary entry 4471, a single-owner assistant.”
+  tools   lookupWord
+  system  35a2aad5 (frozen)
+  tokens  input 15803, cached 15232 (96%); per model call: 7872 in / 7552 cached, 7931 in / 7680 cached
+
+=== turn 8: Agent C starts a background task
+  user    Start the command 'sleep 297' as a background bash task and reply with its task id only.
+  script  const r = await bash({command:"sleep 297", background:true});
+          console.log(r.id);
+  output  bash_1
+  answer  bash_1
+  tools   none
+  system  35a2aad5 (frozen)
+  tokens  input 16048, cached 15488 (97%); per model call: 7981 in / 7808 cached, 8067 in / 7680 cached
+
+=== turn 9: Agent D, same tools, same executor
+  user    Call listTasks() and tell me exactly what it returned.
+  script  const r = await listTasks();
+          console.log(JSON.stringify(r));
+  output  []
+  answer  []
+  tools   none
+  system  35a2aad5 (frozen)
+  tokens  input 16242, cached 15744 (97%); per model call: 8092 in / 7808 cached, 8150 in / 7936 cached
+
+'sleep 297' still running after the rebuild: true
+'sleep 297' still running after the executor closed: false

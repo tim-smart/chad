@@ -1,0 +1,104 @@
+{"t":1794652334647,"pid":3365416,"ev":"scenario.start","name":"steer","phase":"1","variant":""}
+{"t":1794652334650,"pid":3365416,"ev":"user.posted","text":"Run the bash command `sleep 8` and then reply with the word ALPHA.","key":"message/test:c1/m2"}
+{"t":1794652334676,"pid":3365416,"ev":"gateway.saved","key":"message/test:c1/m2","ms":23}
+{"t":1794652334803,"pid":3365416,"ev":"session.activated","thread":"c1","session":"9ebf63ed-03e5-4f4c-981e-7e11a4c3bfee","activation":1}
+{"t":1794652334805,"pid":3365416,"ev":"message.delivered","key":"message/test:c1/m2","ms":152,"text":"Run the bash command `sleep 8` and then reply with the word "}
+{"t":1794652334821,"pid":3365416,"ev":"turn.start","key":"message/test:c1/m2","turn":"d3982518-1631-43b0-b43c-2189c0e321b4","starts":1,"resumed":false}
+{"t":1794652334822,"pid":3365416,"ev":"status.posted","id":"m4"}
+{"t":1794652337416,"pid":3365416,"ev":"brain.scriptEnd"}
+{"t":1794652339420,"pid":3365416,"ev":"user.posted","text":"Also include the word BRAVO in your reply.","key":"message/test:c1/m5"}
+{"t":1794652339434,"pid":3365416,"ev":"gateway.saved","key":"message/test:c1/m5","ms":13}
+{"t":1794652339448,"pid":3365416,"ev":"message.delivered","key":"message/test:c1/m5","ms":27,"text":"Also include the word BRAVO in your reply."}
+{"t":1794652345472,"pid":3365416,"ev":"brain.scriptOutput","output":"[10:32:17.451] INFO (#96): Calling \"bash\" { command: 'sleep 8', timeoutMs: 12000 }\ncompleted\n"}
+{"t":1794652345496,"pid":3365416,"ev":"message.steered","key":"message/test:c1/m5"}
+{"t":1794652346651,"pid":3365416,"ev":"turn.usage","key":"message/test:c1/m2","calls":["1852 in / 1664 cached","1950 in / 1664 cached"]}
+{"t":1794652346658,"pid":3365416,"ev":"turn.end","key":"message/test:c1/m2","turn":"d3982518-1631-43b0-b43c-2189c0e321b4","outcome":"Answered","compacted":false}
+{"t":1794652346679,"pid":3365416,"ev":"user.posted","text":"Run the bash command `sleep 3` and then reply with the word CHARLIE0.","key":"message/test:c1/m8"}
+{"t":1794652346686,"pid":3365416,"ev":"gateway.saved","key":"message/test:c1/m8","ms":7}
+{"t":1794652346694,"pid":3365416,"ev":"message.delivered","key":"message/test:c1/m8","ms":15,"text":"Run the bash command `sleep 3` and then reply with the word "}
+{"t":1794652346707,"pid":3365416,"ev":"turn.start","key":"message/test:c1/m8","turn":"efec5eb5-be36-4b68-afa5-71f8aa9acc6d","starts":1,"resumed":false}
+{"t":1794652346707,"pid":3365416,"ev":"status.posted","id":"m10"}
+{"t":1794652348302,"pid":3365416,"ev":"brain.scriptEnd"}
+{"t":1794652351343,"pid":3365416,"ev":"brain.scriptOutput","output":"[10:32:28.330] INFO (#155): Calling \"bash\" { command: 'sleep 3', timeoutMs: 8000 }\ncompleted\n"}
+{"t":1794652351495,"pid":3365416,"ev":"user.posted","text":"And then also say DELTA0.","key":"message/test:c1/m11"}
+{"t":1794652351502,"pid":3365416,"ev":"gateway.saved","key":"message/test:c1/m11","ms":7}
+{"t":1794652351503,"pid":3365416,"ev":"late.posted","i":0,"offset":150,"key":"message/test:c1/m11"}
+{"t":1794652351510,"pid":3365416,"ev":"message.delivered","key":"message/test:c1/m11","ms":15,"text":"And then also say DELTA0."}
+{"t":1794652352557,"pid":3365416,"ev":"message.steered","key":"message/test:c1/m11"}
+{"t":1794652353909,"pid":3365416,"ev":"turn.usage","key":"message/test:c1/m8","calls":["1985 in / 1664 cached","2090 in / 1792 cached"]}
+{"t":1794652353917,"pid":3365416,"ev":"turn.end","key":"message/test:c1/m8","turn":"efec5eb5-be36-4b68-afa5-71f8aa9acc6d","outcome":"Answered","compacted":false}
+{"t":1794652353945,"pid":3365416,"ev":"late.inHistory","i":0,"copies":1}
+{"t":1794652353947,"pid":3365416,"ev":"user.posted","text":"Run the bash command `sleep 3` and then reply with the word CHARLIE1.","key":"message/test:c1/m14"}
+{"t":1794652353954,"pid":3365416,"ev":"gateway.saved","key":"message/test:c1/m14","ms":7}
+{"t":1794652353964,"pid":3365416,"ev":"message.delivered","key":"message/test:c1/m14","ms":17,"text":"Run the bash command `sleep 3` and then reply with the word "}
+{"t":1794652353982,"pid":3365416,"ev":"turn.start","key":"message/test:c1/m14","turn":"3040ae96-a0d9-4847-af57-5ade7374b689","starts":1,"resumed":false}
+{"t":1794652353982,"pid":3365416,"ev":"status.posted","id":"m16"}
+{"t":1794652358536,"pid":3365416,"ev":"brain.scriptEnd"}
+{"t":1794652361576,"pid":3365416,"ev":"brain.scriptOutput","output":"[10:32:38.563] INFO (#213): Calling \"bash\" { command: 'sleep 3', timeoutMs: 8000 }\ncompleted\n"}
+{"t":1794652362096,"pid":3365416,"ev":"user.posted","text":"And then also say DELTA1.","key":"message/test:c1/m17"}
+{"t":1794652362105,"pid":3365416,"ev":"gateway.saved","key":"message/test:c1/m17","ms":8}
+{"t":1794652362105,"pid":3365416,"ev":"late.posted","i":1,"offset":500,"key":"message/test:c1/m17"}
+{"t":1794652362115,"pid":3365416,"ev":"message.delivered","key":"message/test:c1/m17","ms":18,"text":"And then also say DELTA1."}
+{"t":1794652363236,"pid":3365416,"ev":"message.steered","key":"message/test:c1/m17"}
+{"t":1794652364660,"pid":3365416,"ev":"turn.usage","key":"message/test:c1/m14","calls":["2123 in / 1920 cached","2228 in / 1920 cached"]}
+{"t":1794652364666,"pid":3365416,"ev":"turn.end","key":"message/test:c1/m14","turn":"3040ae96-a0d9-4847-af57-5ade7374b689","outcome":"Answered","compacted":false}
+{"t":1794652364686,"pid":3365416,"ev":"late.inHistory","i":1,"copies":1}
+{"t":1794652364686,"pid":3365416,"ev":"user.posted","text":"Run the bash command `sleep 3` and then reply with the word CHARLIE2.","key":"message/test:c1/m20"}
+{"t":1794652364693,"pid":3365416,"ev":"gateway.saved","key":"message/test:c1/m20","ms":7}
+{"t":1794652364708,"pid":3365416,"ev":"message.delivered","key":"message/test:c1/m20","ms":22,"text":"Run the bash command `sleep 3` and then reply with the word "}
+{"t":1794652364721,"pid":3365416,"ev":"turn.start","key":"message/test:c1/m20","turn":"a5ec268e-8da8-42e1-99aa-c43d68037be5","starts":1,"resumed":false}
+{"t":1794652364721,"pid":3365416,"ev":"status.posted","id":"m22"}
+{"t":1794652366434,"pid":3365416,"ev":"brain.scriptEnd"}
+{"t":1794652369478,"pid":3365416,"ev":"brain.scriptOutput","output":"[10:32:46.465] INFO (#271): Calling \"bash\" { command: 'sleep 3', timeoutMs: 8000 }\ncompleted\n"}
+{"t":1794652370394,"pid":3365416,"ev":"user.posted","text":"And then also say DELTA2.","key":"message/test:c1/m23"}
+{"t":1794652370402,"pid":3365416,"ev":"gateway.saved","key":"message/test:c1/m23","ms":7}
+{"t":1794652370402,"pid":3365416,"ev":"late.posted","i":2,"offset":900,"key":"message/test:c1/m23"}
+{"t":1794652370410,"pid":3365416,"ev":"message.delivered","key":"message/test:c1/m23","ms":15,"text":"And then also say DELTA2."}
+{"t":1794652371237,"pid":3365416,"ev":"message.steered","key":"message/test:c1/m23"}
+{"t":1794652372798,"pid":3365416,"ev":"turn.usage","key":"message/test:c1/m20","calls":["2261 in / 2048 cached","2366 in / 2176 cached"]}
+{"t":1794652372806,"pid":3365416,"ev":"turn.end","key":"message/test:c1/m20","turn":"a5ec268e-8da8-42e1-99aa-c43d68037be5","outcome":"Answered","compacted":false}
+{"t":1794652372826,"pid":3365416,"ev":"late.inHistory","i":2,"copies":1}
+{"t":1794652372826,"pid":3365416,"ev":"user.posted","text":"Run the bash command `sleep 3` and then reply with the word CHARLIE3.","key":"message/test:c1/m26"}
+{"t":1794652372834,"pid":3365416,"ev":"gateway.saved","key":"message/test:c1/m26","ms":7}
+{"t":1794652372841,"pid":3365416,"ev":"message.delivered","key":"message/test:c1/m26","ms":14,"text":"Run the bash command `sleep 3` and then reply with the word "}
+{"t":1794652372854,"pid":3365416,"ev":"turn.start","key":"message/test:c1/m26","turn":"f7b81b9e-3414-45f3-90d3-a7c0ac0dabe5","starts":1,"resumed":false}
+{"t":1794652372854,"pid":3365416,"ev":"status.posted","id":"m28"}
+{"t":1794652374764,"pid":3365416,"ev":"brain.scriptEnd"}
+{"t":1794652377808,"pid":3365416,"ev":"brain.scriptOutput","output":"[10:32:54.794] INFO (#329): Calling \"bash\" { command: 'sleep 3', timeoutMs: 8000 }\ncompleted\n"}
+{"t":1794652378922,"pid":3365416,"ev":"turn.usage","key":"message/test:c1/m26","calls":["2399 in / 2048 cached","2482 in / 2304 cached"]}
+{"t":1794652378930,"pid":3365416,"ev":"turn.end","key":"message/test:c1/m26","turn":"f7b81b9e-3414-45f3-90d3-a7c0ac0dabe5","outcome":"Answered","compacted":false}
+{"t":1794652379209,"pid":3365416,"ev":"user.posted","text":"And then also say DELTA3.","key":"message/test:c1/m30"}
+{"t":1794652379218,"pid":3365416,"ev":"gateway.saved","key":"message/test:c1/m30","ms":8}
+{"t":1794652379218,"pid":3365416,"ev":"late.posted","i":3,"offset":1400,"key":"message/test:c1/m30"}
+{"t":1794652379227,"pid":3365416,"ev":"message.delivered","key":"message/test:c1/m30","ms":17,"text":"And then also say DELTA3."}
+{"t":1794652379243,"pid":3365416,"ev":"turn.start","key":"message/test:c1/m30","turn":"7496c02e-e3ea-4780-b351-d811f4e01248","starts":1,"resumed":false}
+{"t":1794652379244,"pid":3365416,"ev":"status.posted","id":"m32"}
+{"t":1794652381922,"pid":3365416,"ev":"turn.usage","key":"message/test:c1/m30","calls":["2504 in / 2304 cached"]}
+{"t":1794652381929,"pid":3365416,"ev":"turn.end","key":"message/test:c1/m30","turn":"7496c02e-e3ea-4780-b351-d811f4e01248","outcome":"Answered","compacted":false}
+{"t":1794652381949,"pid":3365416,"ev":"late.inHistory","i":3,"copies":1}
+{"t":1794652381950,"pid":3365416,"ev":"user.posted","text":"Run the bash command `sleep 3` and then reply with the word CHARLIE4.","key":"message/test:c1/m34"}
+{"t":1794652381957,"pid":3365416,"ev":"gateway.saved","key":"message/test:c1/m34","ms":7}
+{"t":1794652381964,"pid":3365416,"ev":"message.delivered","key":"message/test:c1/m34","ms":14,"text":"Run the bash command `sleep 3` and then reply with the word "}
+{"t":1794652381978,"pid":3365416,"ev":"turn.start","key":"message/test:c1/m34","turn":"541971fe-5826-4d13-bdac-da34df9a6825","starts":1,"resumed":false}
+{"t":1794652381978,"pid":3365416,"ev":"status.posted","id":"m36"}
+{"t":1794652384142,"pid":3365416,"ev":"brain.scriptEnd"}
+{"t":1794652387182,"pid":3365416,"ev":"brain.scriptOutput","output":"[10:33:04.169] INFO (#385): Calling \"bash\" { command: 'sleep 3', timeoutMs: 8000 }\ncompleted\n"}
+{"t":1794652388493,"pid":3365416,"ev":"turn.usage","key":"message/test:c1/m34","calls":["2537 in / 2176 cached","2620 in / 2304 cached"]}
+{"t":1794652388499,"pid":3365416,"ev":"turn.end","key":"message/test:c1/m34","turn":"541971fe-5826-4d13-bdac-da34df9a6825","outcome":"Answered","compacted":false}
+{"t":1794652389199,"pid":3365416,"ev":"user.posted","text":"And then also say DELTA4.","key":"message/test:c1/m38"}
+{"t":1794652389209,"pid":3365416,"ev":"gateway.saved","key":"message/test:c1/m38","ms":9}
+{"t":1794652389209,"pid":3365416,"ev":"late.posted","i":4,"offset":2000,"key":"message/test:c1/m38"}
+{"t":1794652389218,"pid":3365416,"ev":"message.delivered","key":"message/test:c1/m38","ms":19,"text":"And then also say DELTA4."}
+{"t":1794652389234,"pid":3365416,"ev":"turn.start","key":"message/test:c1/m38","turn":"4a565068-5dd3-4d90-82bf-1685425ca0d6","starts":1,"resumed":false}
+{"t":1794652389234,"pid":3365416,"ev":"status.posted","id":"m40"}
+{"t":1794652390631,"pid":3365416,"ev":"turn.usage","key":"message/test:c1/m38","calls":["2642 in / 2176 cached"]}
+{"t":1794652390638,"pid":3365416,"ev":"turn.end","key":"message/test:c1/m38","turn":"4a565068-5dd3-4d90-82bf-1685425ca0d6","outcome":"Answered","compacted":false}
+{"t":1794652390662,"pid":3365416,"ev":"late.inHistory","i":4,"copies":1}
+{"t":1794652391164,"pid":3365416,"ev":"steer.stats","sends":8,"maxActiveSends":1,"turnsEnded":8}
+{"t":1794652391164,"pid":3365416,"ev":"bot.messages","messages":["ALPHA BRAVO","DELTA0","DELTA1","DELTA2","CHARLIE3","DELTA3","CHARLIE4","DELTA4"]}
+{"t":1794652391165,"pid":3365416,"ev":"scenario.end","name":"steer","phase":"1"}
+{"t":1794652391172,"pid":3365416,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652395367,"pid":3365416,"ev":"hooks.draining","pending":0}
+{"t":1794652395367,"pid":3365416,"ev":"hooks.drained"}
+{"t":1794652395367,"pid":3365416,"ev":"plugins.closed"}
+{"t":1794652395404,"pid":3365416,"ev":"process.exit","code":0,"signal":null}

@@ -1,0 +1,17 @@
+{
+  "name": "chad-asphodel-plugin-prototype",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "scenarios": "node scenarios/run.ts"
+  },
+  "dependencies": {
+    "effect": "https://pkg.pr.new/Effect-TS/effect/effect@0b51fb1",
+    "chad": "file:./chad"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "@types/node": "^24"
+  }
+}

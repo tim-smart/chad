@@ -1,0 +1,15 @@
+10:42:23.401 [daemon 3444271] lock taken
+10:42:23.407 [daemon 3444271] listening on state/chad.sock mode 600
+10:42:24.276 [daemon 3444271] Status from client version 9.9.9
+10:42:24.708 [daemon 3444271] REFUSED tail: client version "9.9.9" != daemon 0.1.0-proto
+10:42:24.708 [daemon 3444271] tail#1 (client 2) handler exit: failure
+10:42:25.141 [daemon 3444271] REFUSED apply: client version "9.9.9" != daemon 0.1.0-proto
+10:42:25.142 [daemon 3444271] apply#2 "e1" (client 3) handler exit: failure
+10:42:25.583 [daemon 3444271] REFUSED reload: client version "9.9.9" != daemon 0.1.0-proto
+10:42:26.010 [daemon 3444271] apply#3 "e2" (client 5) received
+10:42:26.010 [daemon 3444271] apply#3 "e2" (client 5) step snapshot
+10:42:26.110 [daemon 3444271] apply#3 "e2" (client 5) step check
+10:42:26.210 [daemon 3444271] apply#3 "e2" (client 5) step load
+10:42:26.311 [daemon 3444271] apply#3 "e2" (client 5) step commit
+10:42:26.312 [daemon 3444271] apply#3 "e2" (client 5) step swap
+10:42:26.312 [daemon 3444271] apply#3 "e2" (client 5) handler exit: success

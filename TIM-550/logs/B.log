@@ -1,0 +1,110 @@
+
+### B1/INT: long tail, then kill -INT the cli
+10:41:15.180 [cli 3436534] line 1/100 sent 10:41:15.177
+10:41:15.479 [cli 3436534] line 2/100 sent 10:41:15.478
+10:41:15.779 [cli 3436534] line 3/100 sent 10:41:15.778
+10:41:16.079 [cli 3436534] line 4/100 sent 10:41:16.079
+10:41:16.265 kill -INT 3436534
+cli exit=130
+
+### B1/KILL: long tail, then kill -KILL the cli
+10:41:17.001 [cli 3436726] line 1/100 sent 10:41:16.999
+10:41:17.300 [cli 3436726] line 2/100 sent 10:41:17.299
+10:41:17.601 [cli 3436726] line 3/100 sent 10:41:17.600
+10:41:17.901 [cli 3436726] line 4/100 sent 10:41:17.900
+10:41:18.092 kill -KILL 3436726
+/home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/scenarios/B.sh: line 6: 3436726 Killed                     node chad.ts tail --count 100 --interval 300
+cli exit=137
+
+### B2/INT: apply killed BEFORE commit (during load)
+10:41:18.821 [cli 3436936] step snapshot 10:41:18.819
+10:41:18.920 [cli 3436936] step check 10:41:18.920
+10:41:19.021 [cli 3436936] step load 10:41:19.021
+10:41:19.327 kill -INT 3436936
+cli exit=130
+commits.log lines for before-INT: 
+
+### B2/KILL: apply killed BEFORE commit (during load)
+10:41:20.272 [cli 3437083] step snapshot 10:41:20.271
+10:41:20.372 [cli 3437083] step check 10:41:20.371
+10:41:20.473 [cli 3437083] step load 10:41:20.472
+10:41:20.827 kill -KILL 3437083
+/home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/scenarios/B.sh: line 13: 3437083 Killed                     node chad.ts apply --label before-$sig --load 4000
+cli exit=137
+commits.log lines for before-KILL: 
+
+### B3/INT: apply killed AFTER commit (3s between commit and swap)
+10:41:21.766 [cli 3437316] step snapshot 10:41:21.764
+10:41:21.864 [cli 3437316] step check 10:41:21.864
+10:41:21.965 [cli 3437316] step load 10:41:21.965
+10:41:22.267 [cli 3437316] step commit 10:41:22.266
+10:41:22.296 commit seen in commits.log; kill -INT 3437316
+cli exit=130
+10:41:22.314 commits.log right after kill:
+10:41:22.266 commit after-INT
+10:41:25.820 commits.log 3.5s later:
+10:41:22.266 commit after-INT
+10:41:25.269 swap after-INT
+
+### B3/KILL: apply killed AFTER commit (3s between commit and swap)
+10:41:26.239 [cli 3437752] step snapshot 10:41:26.237
+10:41:26.338 [cli 3437752] step check 10:41:26.337
+10:41:26.438 [cli 3437752] step load 10:41:26.437
+10:41:26.738 [cli 3437752] step commit 10:41:26.737
+10:41:26.771 commit seen in commits.log; kill -KILL 3437752
+/home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/scenarios/B.sh: line 21: 3437752 Killed                     node chad.ts apply --label after-$sig --load 300 --swap-delay 3000
+cli exit=137
+10:41:26.786 commits.log right after kill:
+10:41:26.738 commit after-KILL
+10:41:30.293 commits.log 3.5s later:
+10:41:26.738 commit after-KILL
+10:41:29.741 swap after-KILL
+
+### status after all of it
+{"pid":3436510,"version":"0.1.0-proto","queue":"idle"}
+exit=0
+
+### daemon log
+10:41:14.729 [daemon 3436510] lock taken
+10:41:14.735 [daemon 3436510] listening on state/chad.sock mode 600
+10:41:15.177 [daemon 3436510] tail#1 (client 0) started
+10:41:16.268 [daemon 3436510] tail#1 (client 0) handler exit: INTERRUPTED
+[10:41:16.286] ERROR (#9): Unhandled error in SocketServer ~effect/socket/Socket/SocketError: An error occurred during Read
+    at Socket.onError (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/@effect/platform-node-shared/dist/NodeSocket.js:190:13)
+    at Socket.emit (node:events:526:24)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+10:41:16.999 [daemon 3436510] tail#2 (client 1) started
+10:41:18.106 [daemon 3436510] tail#2 (client 1) handler exit: INTERRUPTED
+10:41:18.819 [daemon 3436510] apply#3 "before-INT" (client 2) received
+10:41:18.819 [daemon 3436510] apply#3 "before-INT" (client 2) step snapshot
+10:41:18.920 [daemon 3436510] apply#3 "before-INT" (client 2) step check
+10:41:19.021 [daemon 3436510] apply#3 "before-INT" (client 2) step load
+10:41:19.329 [daemon 3436510] apply#3 "before-INT" (client 2) handler exit: INTERRUPTED
+[10:41:19.346] ERROR (#17): Unhandled error in SocketServer ~effect/socket/Socket/SocketError: An error occurred during Read
+    at Socket.onError (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/@effect/platform-node-shared/dist/NodeSocket.js:190:13)
+    at Socket.emit (node:events:526:24)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+10:41:20.271 [daemon 3436510] apply#4 "before-KILL" (client 3) received
+10:41:20.271 [daemon 3436510] apply#4 "before-KILL" (client 3) step snapshot
+10:41:20.371 [daemon 3436510] apply#4 "before-KILL" (client 3) step check
+10:41:20.472 [daemon 3436510] apply#4 "before-KILL" (client 3) step load
+10:41:20.841 [daemon 3436510] apply#4 "before-KILL" (client 3) handler exit: INTERRUPTED
+10:41:21.764 [daemon 3436510] apply#5 "after-INT" (client 4) received
+10:41:21.764 [daemon 3436510] apply#5 "after-INT" (client 4) step snapshot
+10:41:21.864 [daemon 3436510] apply#5 "after-INT" (client 4) step check
+10:41:21.965 [daemon 3436510] apply#5 "after-INT" (client 4) step load
+10:41:22.266 [daemon 3436510] apply#5 "after-INT" (client 4) step commit
+10:41:25.269 [daemon 3436510] apply#5 "after-INT" (client 4) step swap
+10:41:25.269 [daemon 3436510] apply#5 "after-INT" (client 4) handler exit: INTERRUPTED
+10:41:26.237 [daemon 3436510] apply#6 "after-KILL" (client 5) received
+10:41:26.237 [daemon 3436510] apply#6 "after-KILL" (client 5) step snapshot
+10:41:26.337 [daemon 3436510] apply#6 "after-KILL" (client 5) step check
+10:41:26.437 [daemon 3436510] apply#6 "after-KILL" (client 5) step load
+10:41:26.737 [daemon 3436510] apply#6 "after-KILL" (client 5) step commit
+10:41:29.741 [daemon 3436510] apply#6 "after-KILL" (client 5) step swap
+10:41:29.742 [daemon 3436510] apply#6 "after-KILL" (client 5) handler exit: INTERRUPTED
+10:41:30.708 [daemon 3436510] Status from client version 0.1.0-proto

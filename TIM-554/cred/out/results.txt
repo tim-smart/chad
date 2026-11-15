@@ -1,0 +1,216 @@
+node v26.8.2 on the host, node:26-trixie-slim in the containers, 2026-11-14T20:25:57.441Z
+179 passed, 0 failed, 28 marked FOUND
+A FOUND line records behaviour that TIM-546 did not settle or got wrong. PASS on it means the behaviour was observed as the line says.
+
+## sidecar: how the chad container reaches Chromium's CDP port (TIM-541, item 1)
+PASS  [sidecar]  from a container sharing the sidecar's network namespace, as in a pod, CDP answers on 127.0.0.1:9222  | 200 { "Browser": "HeadlessChrome/149.0.7827.55", "Protocol-Version": "1.3", "User-Agent": "Mozilla/5.0 (X11; L
+PASS  [sidecar]  FOUND: from another container on the same network, by name, the port is refused: this Chrome ignores --remote-debugging-address=0.0.0.0 and listens on loopback only  | ERR ECONNREFUSED
+PASS  [sidecar]  the listening socket is 127.0.0.1:9222 (0100007F:2406 in /proc/net/tcp)  | 0100007F:2406
+PASS  [sidecar]  FOUND: through a TCP forwarder in the sidecar: what Chrome answers to a request by container name and by IP address  | {"byName":"500 Host header is specified and is not an IP address or localhost.","byIp":"200 { \"Browser\": \"HeadlessChrome/149.0.7827.55\", \"Protocol-V"}
+PASS  [sidecar]  TIM-541: agent-browser and Playwright MCP install with npm under ~/.local on the volume and run from there as a user with no sudo  | agent-browser 0.43.0 | Version 0.0.85 | uid=1000 | sudo=none
+
+## run: chad secret run through clanka's bash and the spawner chad wraps (items 7, 8, 23)
+PASS  [run]  the scenario ran to its end  | {"exits":[0],"ms":28318,"events":71}
+PASS  [run]  --env: the child sees the value, and CHAD_SESSION from the spawner chad wraps  | OUT[completed] ENV len=21 sha=e9f2044ec3c48ed1d0873c79e9c576cf0ead1511001b2af702cac1ec4dc23cd3 session=s-c1
+PASS  [run]  the Calling "bash" lines show names only  | INFO (#104): Calling "bash" { command: 'chad secret run --env P=SITE_PASSWORD -- sh -c \'printf "ENV len=%s sha=%s session=%s" "${#P}" 
+PASS  [run]  --stdin: the value, no trailing newline, stdin closed  | ["STDIN sha=e9f2044ec3c48ed1d0873c79e9c576cf0ea","wc -c: 21"]
+PASS  [run]  a missing name exits 125 with the message  | ERR Command failed with exit code 125: chad secret run: no secret named NO_SUCH_NAME
+PASS  [run]  the child's exit code passes through: 7, 143 for SIGTERM, 127 for no such command  | ["ERR Command failed with exit code 7:","ERR Command failed with exit code 143:","ERR Command failed with exit code 127: chad secret run: no-such-command-here: command not found"]
+PASS  [run]  item 23, the quoting trap: "$P" in the outer shell is empty, inside sh -c it is the value  | ["OUT[completed] TRAP outer=[]","OUT[completed] TRAP inner len=21"]
+PASS  [run]  run gives a TOTP secret's current code, not its seed  | OUT[completed] TOTP via run: <6 digits>
+PASS  [run]  two secrets in one command  | OUT[completed] TWO 21 21
+PASS  [run]  chad secret code prints the code and the seconds left  | OUT[completed] <6 digits>\n30s left
+PASS  [run]  chad secret list prints name, kind, note and date, and no value  | OUT[completed] SITE_PASSWORD	plain	local test form, user tim	2026-11-14
+PASS  [run]  no model call's prompt held a stored value of 8 characters or more  | {"calls":14,"masking":"on"}
+PASS  [run]  the value is in none of chad's outputs  | {}
+PASS  [run]  item 5: set warns that a value under 8 characters will not be masked  | warning: TINY is under 8 characters, so it will not be masked
+PASS  [run]  every command went through the wrapped spawner  | {"spawns":13}
+
+## run-nomask: the same with masking switched off, to show which part of the promise is run's own (item 2)
+PASS  [run-nomask]  the scenario ran to its end  | {"exits":[0],"ms":28571,"events":71}
+PASS  [run-nomask]  --env: the child sees the value, and CHAD_SESSION from the spawner chad wraps  | OUT[completed] ENV len=21 sha=e9f2044ec3c48ed1d0873c79e9c576cf0ead1511001b2af702cac1ec4dc23cd3 session=s-c1
+PASS  [run-nomask]  the Calling "bash" lines show names only  | INFO (#104): Calling "bash" { command: 'chad secret run --env P=SITE_PASSWORD -- sh -c \'printf "ENV len=%s sha=%s session=%s" "${#P}" 
+PASS  [run-nomask]  --stdin: the value, no trailing newline, stdin closed  | ["STDIN sha=e9f2044ec3c48ed1d0873c79e9c576cf0ea","wc -c: 21"]
+PASS  [run-nomask]  a missing name exits 125 with the message  | ERR Command failed with exit code 125: chad secret run: no secret named NO_SUCH_NAME
+PASS  [run-nomask]  the child's exit code passes through: 7, 143 for SIGTERM, 127 for no such command  | ["ERR Command failed with exit code 7:","ERR Command failed with exit code 143:","ERR Command failed with exit code 127: chad secret run: no-such-command-here: command not found"]
+PASS  [run-nomask]  item 23, the quoting trap: "$P" in the outer shell is empty, inside sh -c it is the value  | ["OUT[completed] TRAP outer=[]","OUT[completed] TRAP inner len=21"]
+PASS  [run-nomask]  run gives a TOTP secret's current code, not its seed  | OUT[completed] TOTP via run: <6 digits>
+PASS  [run-nomask]  two secrets in one command  | OUT[completed] TWO 21 21
+PASS  [run-nomask]  chad secret code prints the code and the seconds left  | OUT[completed] <6 digits>\n30s left
+PASS  [run-nomask]  chad secret list prints name, kind, note and date, and no value  | OUT[completed] SITE_PASSWORD	plain	local test form, user tim	2026-11-14
+PASS  [run-nomask]  no model call's prompt held a stored value of 8 characters or more  | {"calls":14,"masking":"off"}
+PASS  [run-nomask]  with masking switched off the value is still in none of chad's outputs: run keeps it off the path by itself  | {}
+PASS  [run-nomask]  item 5: set warns that a value under 8 characters will not be masked  | warning: TINY is under 8 characters, so it will not be masked
+PASS  [run-nomask]  every command went through the wrapped spawner  | {"spawns":13}
+
+## code: chad secret code: RFC 6238 vectors, the wait under 5 seconds, the refusals (items 4, 5, 8)
+PASS  [code]  the scenario ran to its end  | {"exits":[0],"ms":30325,"events":65}
+PASS  [code]  RFC 6238 appendix B: all 18 vectors, SHA-1, SHA-256 and SHA-512, 8 digits, through the CLI  | {"ok":18,"of":18}
+PASS  [code]  with 6 and 5 seconds left the code is this window's and comes at once  | ["6s left in 107ms","5s left in 118ms"]
+PASS  [code]  with 4 and 1 seconds left it waits and prints the next window's code  | ["30s left (waited 3913ms for a new window), 4034ms wall","30s left (waited 914ms for a new window), 1030ms wall"]
+PASS  [code]  run waits the same way  | 3035ms wall
+PASS  [code]  refused for a secret that is not TOTP, exit 1  | chad secret code: SITE_PASSWORD is not a TOTP secret
+PASS  [code]  a name that does not exist: exit 1  | chad secret code: no secret named NO_SUCH_NAME
+PASS  [code]  item 4: set --totp refuses what does not decode  | chad secret set: the seed is not base32
+PASS  [code]  item 5: set on an existing name says it replaced it  | Replaced SITE_PASSWORD
+PASS  [code]  FOUND: set on an existing name without --note drops the note the first set gave. Item 5 does not say which it should do  | SITE_PASSWORD	plain	-	2026-11-14
+PASS  [code]  a seed typed in lower case with spaces is stored canonical, with what was typed kept for masking; secrets.json is mode 600  | {"typedKept":true,"canonical":true,"mode":"600"}
+PASS  [code]  chad secret code costs one node start  | 107ms wall
+
+## mask-floor: the masking floor, item 18: chad masks at its own outputs
+PASS  [mask-floor]  the scenario ran to its end  | {"exits":[0,0],"ms":33057,"events":102}
+PASS  [mask-floor]  item 18: no stored value in history rows  | none
+PASS  [mask-floor]  item 18: no stored value in turns table  | none
+PASS  [mask-floor]  item 18: no stored value in log  | none
+PASS  [mask-floor]  item 18: no stored value in chat posts and edits  | none
+PASS  [mask-floor]  item 18: no stored value in afterTurn hooks  | none
+PASS  [mask-floor]  item 18: no stored value in home/  | none
+PASS  [mask-floor]  item 18: no stored value in rest of the database  | none
+PASS  [mask-floor]  FOUND: a value with a quote and a backslash in it gets through when it is JSON-escaped twice, as an answer that quotes a tool result is  | {"spelling":"FAKE\\\\\\\"pw\\\\\\\\not'real-0002","foundIn":["log","history rows","turns table","rest of the database","chat posts and edits","afterTurn hooks"]}
+PASS  [mask-floor]  the status message is masked before it is cut to 300 characters, so no first half of a value is left  | {"lookedFor":"FAKE-pw-","foundIn":[]}
+PASS  [mask-floor]  Failed.reason in the turns table is masked  | OUT[completed] <secret:SITE_PASSWORD>\n\
+PASS  [mask-floor]  afterTurn received masked messages and a masked outcome  | {"hookCalls":5,"masks":31}
+PASS  [mask-floor]  a TOTP seed is masked  | "SITE_TOTP": {\n    "value": "<secret:SITE_TOTP>",\n    "
+PASS  [mask-floor]  FOUND: item 2: a value the script encodes passes the mask (base64)  | [completed] RkFLRS1wdy1ub3QtcmVhbC0wMDAx
+PASS  [mask-floor]  FOUND: an output over 30,000 characters is saved by clanka to a file chad does not write: the value is in it unmasked, mode 644, outside the data volume  | {"path":"<TMPDIR>/clanka-bash-Qx9H9C/d8b239bada1c","holds":["SITE_PASSWORD"],"mode":"644"}
+PASS  [mask-floor]  the floor alone: a value a script printed is in the model's context for the rest of the turn and every later turn  | {"outputs":{"calls":10,"sawPassword":8,"sawQuoted":6,"sawSeed":5,"sawMask":0},"sources":{"calls":4,"sawPassword":4,"sawQuoted":4,"sawSeed":4,"sawMask":0},"fails":{"calls":2,"sawPassword":2,"sawQuoted":2,"sawSeed":2,"sawMask":0},"owner":{"calls":2,"sawPassword":2,"sawQuoted":2,"sawSeed":2,"sawMask":2}}
+PASS  [mask-floor]  a sub-agent's answer and a background task's output come back masked  | ["outMs: 600000 }\\nOUT[completed] <secret:SITE_PASSWORD>\\n\\n\"]","eep 1; printenv P'\",\"output\":\"<secret:SITE_PASSWORD>\\n\",\"exitCode\":0}]"]
+PASS  [mask-floor]  after a restart the session reloads its history from the masked rows: the model sees <secret:NAME> and no value  | {"calls":2,"restored":31,"sees":["TINY"],"masked":["<secret:SITE_PASSWORD>","<secret:QUOTED>","<secret:SITE_TOTP>"]}
+PASS  [mask-floor]  the first turn's wall time, for comparing the two  | {"firstTurnMs":2848,"wrap":false}
+
+## mask-wrap: the AgentExecutor wrap, item 19: the same steps with execute's output masked before clanka uses it
+PASS  [mask-wrap]  the scenario ran to its end  | {"exits":[0,0],"ms":31694,"events":102}
+PASS  [mask-wrap]  item 18: no stored value in history rows  | none
+PASS  [mask-wrap]  item 18: no stored value in turns table  | none
+PASS  [mask-wrap]  item 18: no stored value in log  | none
+PASS  [mask-wrap]  item 18: no stored value in chat posts and edits  | none
+PASS  [mask-wrap]  item 18: no stored value in afterTurn hooks  | none
+PASS  [mask-wrap]  item 18: no stored value in home/  | none
+PASS  [mask-wrap]  item 18: no stored value in rest of the database  | none
+PASS  [mask-wrap]  with the wrap that spelling never forms, because the tool result the answer quotes was masked first  | {"foundIn":[]}
+PASS  [mask-wrap]  the status message is masked before it is cut to 300 characters, so no first half of a value is left  | {"lookedFor":"FAKE-pw-","foundIn":[]}
+PASS  [mask-wrap]  Failed.reason in the turns table is masked  | OUT[completed] <secret:SITE_PASSWORD>\n\
+PASS  [mask-wrap]  afterTurn received masked messages and a masked outcome  | {"hookCalls":5,"masks":33}
+PASS  [mask-wrap]  a TOTP seed is masked  | "SITE_TOTP": {\n    "value": "<secret:SITE_TOTP>",\n    "
+PASS  [mask-wrap]  FOUND: item 2: a value the script encodes passes the mask (base64)  | [completed] RkFLRS1wdy1ub3QtcmVhbC0wMDAx
+PASS  [mask-wrap]  FOUND: an output over 30,000 characters is saved by clanka to a file chad does not write: the value is in it unmasked, mode 644, outside the data volume  | {"path":"<TMPDIR>/clanka-bash-QhUAts/b15af6bb5529","holds":["SITE_PASSWORD"],"mode":"644"}
+PASS  [mask-wrap]  the wrap: no model call in the turn whose scripts printed the values saw one, sub-agent and background task included  | {"calls":10,"sawPassword":0,"sawQuoted":0,"sawSeed":0,"sawMask":8}
+PASS  [mask-wrap]  FOUND: the wrap does not cover a value the model writes into a script itself: it stays in the live context until the session is rebuilt  | {"sources":{"calls":4,"sawPassword":3,"sawQuoted":0,"sawSeed":0,"sawMask":4},"owner":{"calls":2,"sawPassword":2,"sawQuoted":0,"sawSeed":0,"sawMask":2}}
+PASS  [mask-wrap]  a sub-agent's answer and a background task's output come back masked  | ["outMs: 600000 }\\nOUT[completed] <secret:SITE_PASSWORD>\\n\\n\"]","eep 1; printenv P'\",\"output\":\"<secret:SITE_PASSWORD>\\n\",\"exitCode\":0}]"]
+PASS  [mask-wrap]  after a restart the session reloads its history from the masked rows: the model sees <secret:NAME> and no value  | {"calls":2,"restored":31,"sees":["TINY"],"masked":["<secret:SITE_PASSWORD>","<secret:QUOTED>","<secret:SITE_TOTP>"]}
+PASS  [mask-wrap]  the first turn's wall time, for comparing the two  | {"firstTurnMs":2810,"wrap":true}
+
+## paste: items 17 and 20: the owner pastes a password that is not stored yet
+PASS  [paste]  the scenario ran to its end  | {"exits":[0],"ms":17996,"events":31}
+PASS  [paste]  the agent saved it with chad secret set, and output after the save is masked  | OUT[completed] <secret:PASTED>
+PASS  [paste]  FOUND: item 20 costs this: the pasted value stays in clear wherever it was written before the save  | {"places":["log","history rows","turns table","rest of the database","chat posts and edits","afterTurn hooks"],"rowsPerTable":{"session_messages":1,"turns":1,"cluster_messages":1}}
+PASS  [paste]  FOUND: the script that saves a pasted value carries it, so chad's own status message posts it back into the chat before the save. Item 17 does not say how the agent hands the value to set  | {"botEditsHoldingIt":1,"first":"-# running\ntry {\nconst r = await bash({\"command\":\"printf %s 'FAKE-pasted-pw-0010' | chad secret set PASTED --n"}
+PASS  [paste]  and it is in the model's context in the next turn  | {"lastCallSees":["PASTED"]}
+
+## button: the Enter button and the modal on ChatTest (items 9, 10, 16, 21)
+PASS  [button]  the scenario ran to its end  | {"exits":[0],"ms":30280,"events":105}
+PASS  [button]  item 10: the message reads as the agent asking, names the session and quotes -m  | The agent in session s-c1 asks for a secret named API_KEY (fake API, user tim).\nIt says: "I need the key for the fake API you named"\nPress Enter to type it.
+PASS  [button]  a click from someone who is not an owner is ignored: no modal, nothing stored, the button stays  | {"reply":"Ack","stored":false,"button":true}
+PASS  [button]  the owner's click opens a modal with one text field, well inside 3 seconds  | {"ms":1,"modal":{"title":"Enter a secret","labels":["API_KEY"],"fields":1,"metadataLength":38}}
+PASS  [button]  FOUND: a submit from someone who is not an owner, on the modal the owner opened, stores nothing  | {"reply":"Close","stored":false}
+PASS  [button]  item 9: the submit takes the path chad secret set takes, so the MCP server that names the secret restarts with it  | {"before":"\"pid=2589449 keyLength=0 keySha=e3b0c44298fc1c14\"","after":"\"pid=2590042 keyLength=22 keySha=7fa1c112f3644601\"","restart":{"closeMs":29,"buildMs":332}}
+PASS  [button]  the message is edited to "Saved API_KEY" and the button is gone; request printed the same and exited 0  | {"text":"Saved API_KEY","button":false,"request":"OUT[completed] Saved API_KEY"}
+PASS  [button]  a TOTP seed that does not decode is refused inside the modal, and the button stays  | {"reply":"Errors","errors":{"value":"the seed is not base32"}}
+PASS  [button]  --totp through the button stores a TOTP secret that chad secret code reads  | {"kind":"totp","message":"Saved OTP_ONE"}
+PASS  [button]  item 8: set NAME --totp is refused while the live mcp.json names NAME, and the secret is left as it was  | {"exit":1,"stderr":"chad secret set: mcp.json names API_KEY, so it cannot become a TOTP secret","kindAfter":"plain"}
+PASS  [button]  FOUND: with the daemon's queue held for 5 seconds the modal is answered at once and the save lands when the queue frees. Item 9 does not say the reply cannot wait for the queue  | {"replyMs":1,"storedAtReply":false,"storedLater":true,"message":"Saved HELD_ONE"}
+PASS  [button]  FOUND: the button id carries the name, so a name has a cap TIM-546 did not set: with this encoding the button posts up to 75 characters and fails at 76  | {"buttonPosts":[68,69,70,74,75],"at76":"chad secret request: the message could not be posted (TooLarge)"}
+PASS  [button]  FOUND: the modal's id plus metadata passes 100 characters at a 70 character name. ChatTest declares that limit and does not apply it to a modal reply, so this is a count, not a refusal that was seen  | {"modalIdPlusMetadataByNameLength":{"68":99,"69":100,"70":101,"74":105,"75":106},"limit":100}
+PASS  [button]  item 21: a typed value is in no log line, chat post, history row or hook  | {}
+
+## button-await: the same with the submit waiting for the daemon's queue before it answers (PROTO_SUBMIT_AWAITS_QUEUE=1)
+PASS  [button-await]  the scenario ran to its end  | {"exits":[0],"ms":30450,"events":102}
+PASS  [button-await]  FOUND: if the submit waits for the daemon's queue before it answers, a 5 second hold leaves the modal unanswered at 3 seconds: ChatTest reports the reply as Late  | {"reply":"Late","ms":3001}
+PASS  [button-await]  FOUND: what became of the value typed into that modal: it was dropped, and the owner has to type it again  | {"stored":false,"message":"Press Enter to save a secret named HELD_"}
+
+## code-request: chad secret request --code (items 11, 21)
+PASS  [code-request]  the scenario ran to its end  | {"exits":[0],"ms":17992,"events":36}
+PASS  [code-request]  the typed code is request's stdout, exit 0, and the script's next step ran  | ["OUT[completed] 482915","NEXT STEP RAN"]
+PASS  [code-request]  nothing is stored: secrets.json is byte for byte what it was  | {"storeUnchanged":true}
+PASS  [code-request]  the message is edited to "Code received" and the button is gone  | {"text":"Code received","button":false}
+PASS  [code-request]  a click from someone who is not an owner is ignored  | Ack
+PASS  [code-request]  the code reaches the script without a new turn  | {"turns":1,"msFromSubmitToScript":44}
+PASS  [code-request]  the code is not masked: it is in what afterTurn received, in clear  | 482915
+PASS  [code-request]  item 10: the message reads as the agent asking  | The agent in session s-c1 asks for a one-off code.\nIt says: "the SMS code the fake site just sent"\nPress Enter to type it.
+
+## interrupt: an owner message ends a pending request, and /stop kills it (item 12)
+PASS  [interrupt]  the scenario ran to its end  | {"exits":[0],"ms":27028,"events":91}
+PASS  [interrupt]  stored form: request exits 1 with "owner replied in chat instead"  | {"output":"ERR Command failed with exit code 1: chad secret request: owner replied in chat instead","msAfterTheMessage":139}
+PASS  [interrupt]  --code: the same, and the message is edited to "Answered in chat" with the button gone  | {"msAfterTheMessage":60,"message":"Answered in chat"}
+PASS  [interrupt]  the message then steers the turn as usual: the model's next call has it after the tool result, and the script went on  | {"steered":2,"tail":["assistant:call","tool:result","user:never mind, use the other account"]}
+PASS  [interrupt]  a stored-form button stays after the owner's message  | {"button":true}
+PASS  [interrupt]  /stop kills the request command: chad as clanka's direct child  | {"goneMs":80}
+PASS  [interrupt]  /stop kills it with bash as its parent too  | {"goneMs":34}
+PASS  [interrupt]  the daemon notices the dropped client and edits a --code message to "Cancelled", button gone  | {"texts":["Cancelled","Cancelled"],"editMsAfterStop":18}
+PASS  [interrupt]  /stop on the stored form kills the command and leaves the button  | {"goneMs":204,"button":true}
+PASS  [interrupt]  each of those turns ended Stopped and no later step ran  | {"stopped":3}
+
+## repeat: repeat requests, and a save by any path (item 14)
+PASS  [repeat]  the scenario ran to its end  | {"exits":[0],"ms":25853,"events":102}
+PASS  [repeat]  a repeat request for the same name in the same thread posts no second button  | {"buttonsPosted":2,"threads":["c1","c2"],"secondRequest":"OUT[completed] Already asked for DUP at 20:20:52 UTC"}
+PASS  [repeat]  in an owner's turn a repeat waits on the existing button, and returns when the name is saved from a terminal  | {"request":"OUT[completed] Saved DUP"}
+PASS  [repeat]  saving the name by any path edits every remembered button for it, in every thread, to "Saved NAME"  | {"texts":["Saved DUP","Saved DUP"],"buttons":[false,false]}
+PASS  [repeat]  a restart loses the memory, which costs one extra button in that thread  | {"posted":3,"threads":["c1","c2","c1"]}
+PASS  [repeat]  the forgotten button still works: the click is handled from its id and the value is stored  | {"stored":true}
+PASS  [repeat]  FOUND: after a restart a save leaves the forgotten buttons in other threads live. Item 14 counts the cost as one extra ping only  | {"buttonsStillLive":[false,true,false],"texts":["Saved MEM","The agent in session s-c2 asks for a sec","Saved MEM"]}
+
+## noowner: no owner present, and /secret in chat (items 13, 14, 15). Not on TIM-554's list
+PASS  [noowner]  the scenario ran to its end  | {"exits":[0],"ms":24478,"events":49}
+PASS  [noowner]  a plugin's turn: the stored form posts the button with a ping and exits 1 without waiting  | {"output":"ERR Command failed with exit code 1: chad secret request: asked for CRON_PW, not waiting: no owner is present in this turn","turnMs":1972}
+PASS  [noowner]  a repeat with no owner exits 1 with "already asked at <time>" and posts nothing  | ERR Command failed with exit code 1: chad secret request: already asked at 20:20:54 UTC
+PASS  [noowner]  --code with no owner is refused and posts nothing  | ERR Command failed with exit code 1: chad secret request --code: no owner is present in this turn, so nobody can type a code. Nothing was posted.
+PASS  [noowner]  a command that outlived its turn counts as no owner  | ["chad secret request: asked for LATE_PW, not waiting: no owner is present in this turn","chad secret request --code: no owner is present in this turn, so nobody can type a code. Nothing was posted."]
+PASS  [noowner]  CHAD_SESSION unset or "daemon": refused, and points at chad secret set  | chad secret request: there is no chat thread to ask in here. Save it yourself with: chad secret set TERMINAL_PW
+PASS  [noowner]  item 15: /secret NAME posts the button, /secret alone prints the list, and neither starts a turn  | {"turnsStarted":0,"chat":["owner-1: /secret FROM_CHAT","bot: Press Enter to save a secret named FROM_CHAT.","owner-1: /secret","bot: SITE_PASSWORD  plain  local test form, user tim  2026-11-14\nQUOTED  pl"]}
+
+## wait5: the real 5 minutes inside clanka's bash with timeoutMs 330000 (items 12, 23, and the open question on a script limit)
+PASS  [wait5]  the scenario ran to its end  | {"exits":[0],"ms":306520,"events":54}
+PASS  [wait5]  stored form: request waits the 5 minutes inside one bash call and exits 1; clanka cut nothing  | {"waitedMs":300020,"output":"ERR Command failed with exit code 1: chad secret request: timed out after 300 s. The button is still there, so SLOW_STORED can still be saved."}
+PASS  [wait5]  --code: the same  | {"waitedMs":300024,"output":"ERR Command failed with exit code 1: chad secret request: timed out after 300 s"}
+PASS  [wait5]  FOUND: clanka put no limit on the execute script that wraps the call: the next step ran and nothing was cut. Limits.scriptTimeout exists and defaults to none  | {"scriptTimedOut":false}
+PASS  [wait5]  on the timeout a --code message is edited to "Timed out" and its button removed; a stored-form button stays  | [{"name":"RUN_FORM","button":true,"text":"The agent in session s-c3 asks for a secret named "},{"name":"SLOW_STORED","button":true,"text":"The agent in session s-c1 asks for a secret named "},{"name":"--code","button":false,"text":"Timed out"}]
+PASS  [wait5]  item 23: run() gives up on the same command after 120 seconds and moves it to the background, so the script goes on without the answer  | {"returnedAfterMs":119186,"output":"RUN Task \"bash_1\" is still running in the background"}
+
+## script-limit: what clanka's script limit does if chad sets one: scriptTimeout 2 s against a 6 s wait
+PASS  [script-limit]  the scenario ran to its end  | {"exits":[0],"ms":17909,"events":54}
+PASS  [script-limit]  FOUND: set to 2 s, Limits.scriptTimeout cuts the script that wraps the wait  | Script timed out: it reached its 2000ms limit and was stopped. Pending tool calls were cancelled.
+PASS  [script-limit]  the cut is one script: the plan's next step still ran  | ["AFTER-A","AFTER-C","AFTER-B"]
+PASS  [script-limit]  FOUND: what the cut leaves of the requests  | [{"name":"SLOW_STORED","button":true,"text":"The agent in session s-c1 asks for a secret named "},{"name":"--code","button":false,"text":"Cancelled"},{"name":"RUN_FORM","button":true,"text":"The agent in session s-c3 asks for a secret named "}]
+
+## signin: agent-browser 0.43.0 from the volume, a Chromium sidecar over CDP, a password and a TOTP (items 1, 7, 8, 23)
+PASS  [signin]  the scenario ran to its end  | {"exits":[0],"ms":36104,"events":73}
+PASS  [signin]  chad secret run --stdin NAME -- agent-browser auth save ... --password-stdin stores the profile  | OUT[completed] ✓ Done
+PASS  [signin]  auth login over CDP to the sidecar fills and submits: the site received the exact password  | {"site":{"ok":true,"passwordLength":21,"shaMatches":true},"url":"http://chad-cred-site:8080/totp"}
+PASS  [signin]  the code from chad secret code completes the sign-in: the page says so  | {"site":{"ok":true,"window":"current"},"page":"Signed in as tim"}
+PASS  [signin]  neither password nor the seed is in any of chad's outputs, or in clear under home/  | {}
+PASS  [signin]  no model call saw a stored value  | {"calls":13}
+PASS  [signin]  FOUND: item 23: agent-browser's vault is a second copy. It is AES-256-GCM with the key in a file beside it on the volume, so the two files give the password back  | {"encrypted":true,"keyMode":"600","fileMode":"600","decryptsWithKeyBesideIt":true,"holds":["SITE_PASSWORD"]}
+PASS  [signin]  auth show prints no password  | ["OUT[completed] Name: testsite","URL: http://chad-cred-site:8080/login","Username: tim"]
+PASS  [signin]  item 23: after the password changes, auth login without a new auth save sends the old one  | {"site":{"ok":false,"sentTheOldOne":true},"page":"Wrong username or password"}
+PASS  [signin]  FOUND: auth login prints "Logged in" for a login the site refused: it reports the submit, not the result  | OUT[completed] ✓ Logged in as 'testsite'\n✓ Done\nWrong username or password
+PASS  [signin]  auth save again, then auth login, sends the new password  | {"ok":true}
+PASS  [signin]  item 23: a second code in the same window is rejected by the site as already used  | {"site":{"reused":true,"ok":false},"page":"That code was already used"}
+PASS  [signin]  FOUND: the retry works by reading the seconds left, sleeping past the window and asking again. chad has no flag for it  | {"page":"Signed in as tim"}
+PASS  [signin]  agent-browser close leaves the sidecar's browser running  | ✓ Browser closed
+
+## pwmcp: @playwright/mcp 0.0.85 through clanka's MCP layer: the dotenv step, and a secret change during a login
+PASS  [pwmcp]  the scenario ran to its end  | {"exits":[0],"ms":31270,"events":91}
+PASS  [pwmcp]  --secrets reads a process substitution: the text "SITE_PASSWORD" is typed as the value, and the site received the exact password  | {"toolResult":"await page.locator('#password').fill(process.env['SITE_PASSWORD']);","siteAccepted":true,"at":"AT \"/totp\""}
+PASS  [pwmcp]  asked for the field's value, Playwright MCP answers with its own mask, <secret>NAME</secret>  | ASK ### Result\n"<secret>SITE_PASSWORD</secret>"
+PASS  [pwmcp]  FOUND: item 2: asked for it encoded, it gives the value: base64 passes Playwright MCP's mask and chad's  | B64 ### Result\n"RkFLRS1wdy1ub3QtcmVhbC0wMDAx"
+PASS  [pwmcp]  a secret change during the login restarts the servers that name it  | {"closeMs":59,"buildMs":389,"oldServersAlive":0,"newServers":4}
+PASS  [pwmcp]  FOUND: the MCP call in flight fails with "Connection closed"; the script and the turn go on  | WAIT failed after 1874ms: mcp.playwright.browser_wait_for: MCP error -32000: Connection closed
+PASS  [pwmcp]  the login survives the restart: the sidecar's tab is still on the TOTP page, and the code completes the sign-in  | {"tab":"STILL \"http://chad-cred-site:8080/totp\"","page":"WHO \"Account\\n\\nSigned in as tim\\n\\nSign out\""}
+PASS  [pwmcp]  after the restart every server types the new value  | {"playwright":true,"pwplain":true,"pwshm":true,"pwfd":true}
+PASS  [pwmcp]  FOUND: the dotenv spelling matters: NAME='value' carried all three test values exactly; NAME=value cut one at " #"; NAME="value" changed the one with a backslash  | {"single quotes, <(...)":{"quoted":"exact","hashy":"exact"},"unquoted, <(...)":{"quoted":"exact","hashy":"wrong 7:645803467"},"double quotes, /dev/shm file":{"quoted":"wrong 20:964842707","hashy":"exact"},"single quotes, /dev/shm file opened then unlinked":{"quoted":"exact","hashy":"exact"},"expected":{"quoted":"21:55431052","hashy":"22:940524021"}}
+PASS  [pwmcp]  process substitution and the unlinked file leave nothing behind; the plain /dev/shm file stays, mode 600, with the value in it  | ["OUT[completed] SHM pwmcp-secrets.env ","SHMFILE 600 1"]
+PASS  [pwmcp]  no plaintext copy on the data volume outside secrets/  | files under /data holding the value, secrets/ excluded: 0
+PASS  [pwmcp]  FOUND: the value is in each server's environment, which the agent can read from /proc  | ["2 ENVIRON 0","4 ENVIRON 1"]
+PASS  [pwmcp]  no stored value in any of chad's outputs or under home/  | {}
+PASS  [pwmcp]  no model call saw a stored value  | {"calls":18}
+PASS  [pwmcp]  four Playwright MCP servers from the volume connect, 25 tools each  | {"firstBuildMs":1045,"restarts":4}

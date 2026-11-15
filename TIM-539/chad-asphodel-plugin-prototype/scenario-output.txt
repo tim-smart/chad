@@ -1,0 +1,209 @@
+
+== 1. Load. Hermes: initialize
+  daemon  GET /v1/health  -> 200
+  daemon  PUT /v1/banks/chad {"owner_name":"Tim","owner_platform_ids":["discord:1234"],"assistant_name":"chad","timezone":"Pacific/Auckland"} -> 200
+  chad    loaded asphodel
+  PASS    health probe, then the bank PUT
+  PASS    the bank gets the owner ids and the timezone from chad, not from plugin config
+
+== 2. Two owner turns in a DM. Hermes: system_prompt_block, prefetch, sync_turn
+  chad    turn-2 starts in session-1: "when is my dentist appointment?"
+  daemon  GET /v1/banks/chad/system-prompt?session_id=session-1  -> 200
+  chad    system prompt rendered with the chunk "[asphodel agenda, block-1]"
+  daemon  POST /v1/banks/chad/prefetch {"session_id":"session-1","query":"when is my dentist appointment?"} -> 200
+  chad    model sees <plugin-context plugin="asphodel">[memories for "when is my dentist appointment?", recall-1]</plugin-context>
+  chad    turn-2 ends: Answered
+  chad    runs afterTurn(turn-2)
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-1","message_at":"2026-11-14T09:00:00.000Z","timezone":"Pacific/Auckland","user_text":"when is my dentist appointment?","assistant_text":"Tuesday at 3pm.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":"recall-1","forget_requested":false} -> 200
+  PASS    one block fetch with the session id, one prefetch, one ingest
+  PASS    the ingest echoes the prefetch's recall id and names the author
+  chad    turn-3 starts in session-1: "move it to Friday"
+  daemon  POST /v1/banks/chad/prefetch {"session_id":"session-1","query":"move it to Friday","previous_query":"when is my dentist appointment?","previous_reply":"Tuesday at 3pm."} -> 200
+  chad    model sees <plugin-context plugin="asphodel">[memories for "move it to Friday", recall-2]</plugin-context>
+  chad    turn-3 ends: Answered
+  chad    runs afterTurn(turn-3)
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-1","message_at":"2026-11-14T09:00:00.000Z","timezone":"Pacific/Auckland","user_text":"move it to Friday","assistant_text":"Done.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":"recall-2","forget_requested":false} -> 200
+  PASS    the second turn does not fetch the block again
+  PASS    its prefetch carries the previous query and reply
+
+== 3. A message steers the turn
+  chad    turn-4 starts in session-1: "book a table for two"
+  daemon  POST /v1/banks/chad/prefetch {"session_id":"session-1","query":"book a table for two","previous_query":"move it to Friday","previous_reply":"Done."} -> 200
+  chad    model sees <plugin-context plugin="asphodel">[memories for "book a table for two", recall-3]</plugin-context>
+  chad    turn-4 ends: Answered
+  chad    runs afterTurn(turn-4)
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-1","message_at":"2026-11-14T09:00:00.000Z","timezone":"Pacific/Auckland","user_text":"book a table for two\n\nmake it three","assistant_text":"Booked for three.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":"recall-3","forget_requested":false} -> 200
+  PASS    no prefetch ran for the steering message
+  PASS    the ingest's user_text holds both messages
+
+== 4. A cron turn. Hermes: agent_context is not primary
+  chad    turn-6 starts in session-1: "Run the job \"morning briefing\"."
+  daemon  POST /v1/banks/chad/recall {"query":"today","session_id":"session-1"} -> 200
+  chad    tool memory_recall({"query":"today"}) -> "m7: Tim's dentist is Dr. Lee"
+  chad    tool memory_forget({"ids":["m7"]}) -> FAILED "Only the owner may call memory_forget."
+  chad    turn-6 ends: Answered
+  chad    runs afterTurn(turn-6)
+  PASS    memory_recall works and memory_forget is refused
+  PASS    no prefetch and no ingest
+
+== 5. The owner asks to forget. Hermes: the memory_forget scan and forget_requested
+  chad    turn-7 starts in session-1: "forget my dentist"
+  daemon  POST /v1/banks/chad/prefetch {"session_id":"session-1","query":"forget my dentist","previous_query":"book a table for two","previous_reply":"Booked for three."} -> 200
+  chad    model sees <plugin-context plugin="asphodel">[memories for "forget my dentist", recall-4]</plugin-context>
+  daemon  POST /v1/banks/chad/forget {"ids":["m7"],"session_id":"session-1"} -> 200
+  chad    tool memory_forget({"ids":["m7"]}) -> {"forgotten":["m7"],"unknown":[]}
+  chad    turn-7 ends: Answered
+  chad    runs afterTurn(turn-7)
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-1","message_at":"2026-11-14T09:00:00.000Z","timezone":"Pacific/Auckland","user_text":"forget my dentist","assistant_text":"Forgotten.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":"recall-4","forget_requested":true} -> 200
+  PASS    the forget carries the session id
+  PASS    the turn is ingested with forget_requested
+  chad    turn-8 starts in session-1: "thanks"
+  daemon  POST /v1/banks/chad/prefetch {"session_id":"session-1","query":"thanks"} -> 200
+  chad    model sees <plugin-context plugin="asphodel">[memories for "thanks", recall-5]</plugin-context>
+  chad    turn-8 ends: Answered
+  chad    runs afterTurn(turn-8)
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-1","message_at":"2026-11-14T09:00:00.000Z","timezone":"Pacific/Auckland","user_text":"thanks","assistant_text":"Any time.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":"recall-5","forget_requested":false} -> 200
+  PASS    the next prefetch does not send the forget request as previous_query
+
+== 6. A background task calls a tool after its turn ended
+  chad    tool memory_keep({"ids":["m7"]}) -> FAILED "Only the owner may call memory_keep."
+  PASS    memory_keep is refused, because there is no turn
+
+== 7. The daemon is down for a turn. Hermes: the spool
+  chad    turn-9 starts in session-1: "I got a new job at Acme"
+  daemon  POST /v1/banks/chad/prefetch -> connection refused
+  chad    beforeTurn failed and was skipped: Cause([Fail(DaemonUnavailable)])
+  chad    turn-9 ends: Answered
+  chad    runs afterTurn(turn-9)
+  daemon  POST /v1/banks/chad/turns -> connection refused
+[09:00:00.000] WARN (#105): asphodel: ingest failed (DaemonUnavailable); spooling the turn
+  PASS    the turn ran without memories and was spooled
+  chad    turn-10 starts in session-1: "I start on Monday"
+  daemon  POST /v1/banks/chad/prefetch {"session_id":"session-1","query":"I start on Monday","previous_query":"thanks","previous_reply":"Any time."} -> 200
+  chad    model sees <plugin-context plugin="asphodel">[memories for "I start on Monday", recall-6]</plugin-context>
+  chad    turn-10 ends: Answered
+  chad    runs afterTurn(turn-10)
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-1","message_at":"2026-11-14T09:00:00.000Z","timezone":"Pacific/Auckland","user_text":"I start on Monday","assistant_text":"Noted.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":"recall-6","forget_requested":false} -> 200
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-1","message_at":"2026-11-14T09:00:00.000Z","timezone":"Pacific/Auckland","user_text":"I got a new job at Acme","assistant_text":"Congratulations!","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":null,"forget_requested":false} -> 200
+  PASS    the next ingest is followed by the spooled turn
+  PASS    the spool is empty
+
+== 7b. The same, and the owner says nothing more. The plugin's own fiber replays the spool
+  chad    turn-11 starts in session-1: "my manager is called Priya"
+  daemon  POST /v1/banks/chad/prefetch -> connection refused
+  chad    beforeTurn failed and was skipped: Cause([Fail(DaemonUnavailable)])
+  chad    turn-11 ends: Answered
+  chad    runs afterTurn(turn-11)
+  daemon  POST /v1/banks/chad/turns -> connection refused
+[09:00:00.000] WARN (#127): asphodel: ingest failed (DaemonUnavailable); spooling the turn
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-1","message_at":"2026-11-14T09:00:00.000Z","timezone":"Pacific/Auckland","user_text":"my manager is called Priya","assistant_text":"Got it.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":null,"forget_requested":false} -> 200
+  PASS    a minute later the spooled turn is delivered with no turn running
+
+== 8a. A compaction, with the Compacted hook finished before the next turn (the proposed rule)
+  chad    turn-12 starts in session-1: "summarise this week"
+  daemon  POST /v1/banks/chad/prefetch {"session_id":"session-1","query":"summarise this week","previous_query":"I start on Monday","previous_reply":"Noted."} -> 200
+  chad    model sees <plugin-context plugin="asphodel">[memories for "summarise this week", recall-7]</plugin-context>
+  chad    turn-12 ends: Answered
+  chad    runs afterTurn(turn-12)
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-1","message_at":"2026-11-14T09:01:00.000Z","timezone":"Pacific/Auckland","user_text":"summarise this week","assistant_text":"Here it is.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":"recall-7","forget_requested":false} -> 200
+  chad    runs onSession(Compacted session-1)
+  daemon  POST /v1/banks/chad/sessions/session-1/clear  -> 204
+  chad    turn-13 starts in session-1: "and next week?"
+  daemon  GET /v1/banks/chad/system-prompt?session_id=session-1  -> 200
+  chad    system prompt rendered again after the compaction, chunk "[asphodel agenda, block-2]"
+  daemon  POST /v1/banks/chad/prefetch {"session_id":"session-1","query":"and next week?"} -> 200
+  chad    model sees <plugin-context plugin="asphodel">[memories for "and next week?", recall-8]</plugin-context>
+  chad    turn-13 ends: Answered
+  chad    runs afterTurn(turn-13)
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-1","message_at":"2026-11-14T09:01:00.000Z","timezone":"Pacific/Auckland","user_text":"and next week?","assistant_text":"Quiet.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":"recall-8","forget_requested":false} -> 200
+  PASS    order: ingest, clear, a fresh block, prefetch
+
+== 8b. The same, but the next turn starts before the hooks have run (today's rule)
+  chad    turn-14 starts in session-1: "summarise this month"
+  daemon  POST /v1/banks/chad/prefetch {"session_id":"session-1","query":"summarise this month","previous_query":"and next week?","previous_reply":"Quiet."} -> 200
+  chad    model sees <plugin-context plugin="asphodel">[memories for "summarise this month", recall-9]</plugin-context>
+  chad    turn-14 ends: Answered
+  chad    turn-15 starts in session-1: "and next month?"
+  chad    system prompt rendered again after the compaction, chunk "[asphodel agenda, block-2]"
+  daemon  POST /v1/banks/chad/prefetch {"session_id":"session-1","query":"and next month?","previous_query":"summarise this month"} -> 200
+  chad    model sees <plugin-context plugin="asphodel">[memories for "and next month?", recall-10]</plugin-context>
+  chad    turn-15 ends: Answered
+  chad    runs afterTurn(turn-14)
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-1","message_at":"2026-11-14T09:01:00.000Z","timezone":"Pacific/Auckland","user_text":"summarise this month","assistant_text":"Here it is.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":"recall-9","forget_requested":false} -> 200
+  chad    runs onSession(Compacted session-1)
+  daemon  POST /v1/banks/chad/sessions/session-1/clear  -> 204
+  chad    runs afterTurn(turn-15)
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-1","message_at":"2026-11-14T09:01:00.000Z","timezone":"Pacific/Auckland","user_text":"and next month?","assistant_text":"Busy.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":"recall-10","forget_requested":false} -> 200
+  PASS    the new system prompt froze the old block, because no fetch came before the second prefetch
+  PASS    the clear then wipes what that prefetch injected, so its recall id commits nothing
+  chad    turn-16 starts in session-1: "ok"
+  daemon  GET /v1/banks/chad/system-prompt?session_id=session-1  -> 200
+  chad    model sees <environment-update> with the chunk "[asphodel agenda, block-3]"
+  daemon  POST /v1/banks/chad/prefetch {"session_id":"session-1","query":"ok"} -> 200
+  chad    model sees <plugin-context plugin="asphodel">[memories for "ok", recall-11]</plugin-context>
+  chad    turn-16 ends: Answered
+  chad    runs afterTurn(turn-16)
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-1","message_at":"2026-11-14T09:01:00.000Z","timezone":"Pacific/Auckland","user_text":"ok","assistant_text":"Ok.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":"recall-11","forget_requested":false} -> 200
+  PASS    the turn after that fetches a new block, which reaches the model as an update message
+
+== 9. /new. Hermes: on_session_switch(reset)
+  chad    runs onSession(Reset session-1 -> session-17)
+  daemon  POST /v1/banks/chad/sessions/session-1/clear  -> 204
+  PASS    the old session is cleared
+  chad    turn-18 starts in session-17: "hello again"
+  daemon  GET /v1/banks/chad/system-prompt?session_id=session-17  -> 200
+  chad    system prompt rendered with the chunk "[asphodel agenda, block-4]"
+  daemon  POST /v1/banks/chad/prefetch {"session_id":"session-17","query":"hello again"} -> 200
+  chad    model sees <plugin-context plugin="asphodel">[memories for "hello again", recall-12]</plugin-context>
+  chad    turn-18 ends: Answered
+  chad    runs afterTurn(turn-18)
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-17","message_at":"2026-11-14T09:01:00.000Z","timezone":"Pacific/Auckland","user_text":"hello again","assistant_text":"Hello.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":"recall-12","forget_requested":false} -> 200
+  PASS    the new session fetches its own block
+
+== 10. The process restarts in the middle of a turn
+  chad    turn-19 starts in session-17: "plan my trip to Tokyo"
+  daemon  POST /v1/banks/chad/prefetch {"session_id":"session-17","query":"plan my trip to Tokyo","previous_query":"hello again","previous_reply":"Hello."} -> 200
+  chad    model sees <plugin-context plugin="asphodel">[memories for "plan my trip to Tokyo", recall-13]</plugin-context>
+  chad    turn-19 is cut off
+[09:01:00.000] INFO (#1): asphodel: unloaded
+  chad    unloaded asphodel
+  daemon  GET /v1/health  -> 200
+  daemon  PUT /v1/banks/chad {"owner_name":"Tim","owner_platform_ids":["discord:1234"],"assistant_name":"chad","timezone":"Pacific/Auckland"} -> 200
+  chad    loaded asphodel
+  chad    turn-19 starts in session-17 (resumed): "The process restarted while you were working. Side effects o"
+  chad    turn-19 ends: Answered
+  chad    runs afterTurn(turn-19)
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-17","message_at":"2026-11-14T09:01:00.000Z","timezone":"Pacific/Auckland","user_text":"plan my trip to Tokyo","assistant_text":"Here is a plan.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":"recall-13","forget_requested":false} -> 200
+  PASS    the resumed turn does not prefetch again
+  PASS    it is ingested once, with the owner's message and the first attempt's recall id
+  PASS    the restart did not fetch a second block, because the first is in the store
+
+== 11. A session starts while the daemon is down. Hermes: breaker.py
+  chad    turn-21 starts in session-20: "remind me what we decided"
+  daemon  GET /v1/banks/chad/system-prompt -> connection refused
+  daemon  GET /v1/banks/chad/system-prompt -> connection refused
+[09:01:00.000] WARN (#287): asphodel: no system prompt block (DaemonUnavailable)
+  chad    system prompt rendered with the chunk ""
+  daemon  POST /v1/banks/chad/prefetch -> connection refused
+  chad    beforeTurn failed and was skipped: Cause([Fail(DaemonUnavailable)])
+  chad    turn-21 ends: Answered
+  chad    runs afterTurn(turn-21)
+[09:01:00.000] WARN (#292): asphodel: ingest failed (DaemonUnavailable); spooling the turn
+  PASS    after three refused connections the breaker stops asking, and the turn is spooled
+  chad    turn-22 starts in session-20: "try again"
+  daemon  GET /v1/banks/chad/system-prompt?session_id=session-20  -> 200
+  chad    model sees <environment-update> with the chunk "[asphodel agenda, block-5]"
+  daemon  POST /v1/banks/chad/prefetch {"session_id":"session-20","query":"try again"} -> 200
+  chad    model sees <plugin-context plugin="asphodel">[memories for "try again", recall-14]</plugin-context>
+  chad    turn-22 ends: Answered
+  chad    runs afterTurn(turn-22)
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-20","message_at":"2026-11-14T09:01:31.000Z","timezone":"Pacific/Auckland","user_text":"try again","assistant_text":"We decided on Friday.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":"recall-14","forget_requested":false} -> 200
+  daemon  POST /v1/banks/chad/turns {"session_id":"session-20","message_at":"2026-11-14T09:01:00.000Z","timezone":"Pacific/Auckland","user_text":"remind me what we decided","assistant_text":"I can't reach my memory right now.","author":{"id":"1234","name":"Tim","is_bot":false},"platform":"discord","recall_id":null,"forget_requested":false} -> 200
+  PASS    the next turn gets the block, which reaches the model as an update message
+  PASS    and the spooled turn is delivered
+
+== 12. Unload. Hermes: shutdown
+[09:01:31.000] INFO (#1): asphodel: unloaded
+  chad    unloaded asphodel
+
+Every check passed.

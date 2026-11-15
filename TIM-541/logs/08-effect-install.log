@@ -1,0 +1,55 @@
+===== npm 11.20.0
+
+added 128 packages in 12s
+npm exit=0
+--- package.json dependencies:
+{
+ "@effect/platform-node": "https://pkg.pr.new/Effect-TS/effect/@effect/platform-node@0b51fb1",
+ "clanka": "^0.27.0",
+ "effect": "https://pkg.pr.new/Effect-TS/effect/effect@0b51fb1"
+}
+--- copies:
+node_modules/effect/package.json -> 4.1.4
+node_modules/@effect/platform-node/package.json -> 4.1.4
+node_modules/@effect/platform-node-shared/package.json -> 4.1.4
+node_modules/@effect/ai-openai/package.json -> 4.1.4
+node_modules/@effect/ai-openai-compat/package.json -> 4.1.4
+node_modules/clanka/package.json -> 0.27.0
+--- installed @effect/platform-node deps/peers:
+{"version":"4.1.4","dependencies":{"@effect/platform-node-shared":"https://pkg.pr.new/Effect-TS/effect/@effect/platform-node-shared@0b51fb176db86e796a914921b11c544eac2670af","undici":"^8.12.4"},"peerDependencies":{"redis":">=5.1.0 <7.0.0","effect":"^4.1.4"}}
+--- installed effect deps:
+{"version":"4.1.4"}
+--- npm ls effect:
+n@1.0.0 /tmp/n
++-- @effect/platform-node@4.1.4
+| +-- @effect/platform-node-shared@4.1.4
+| | `-- effect@4.1.4 deduped
+| `-- effect@4.1.4 deduped
++-- clanka@0.27.0
+| +-- @effect/ai-openai-compat@4.1.4
+| | `-- effect@4.1.4 deduped
+| +-- @effect/ai-openai@4.1.4
+| | `-- effect@4.1.4 deduped
+| `-- effect@4.1.4 deduped
+`-- effect@4.1.4
+
+546M	node_modules
+
+===== pnpm
+12.18.0
+Progress: resolved 0, reused 0, downloaded 1, added 0
+Downloading @anthropic-ai/claude-agent-sdk-linux-x64@0.3.323: 0.00 B/167.49 MB
+Error: ERR_PNPM_EXOTIC_SUBDEP
+
+  × adding a new package
+  ╰─▶ Failed to resolve dependency tree: Exotic dependency "@effect/platform-
+      node-shared" (resolved via url) is not allowed in subdependencies when
+      blockExoticSubdeps is enabled
+
+pnpm exit=0
+--- package.json dependencies:
+undefined
+--- copies of effect in the pnpm store dir:
+ls: cannot access 'node_modules/.pnpm/effect@*': No such file or directory
+ls: cannot access 'node_modules/.pnpm/@effect+*': No such file or directory
+--- pnpm why effect:

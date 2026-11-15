@@ -1,0 +1,17 @@
+{"t":1794652377593,"pid":3369775,"ev":"scenario.start","name":"button","phase":"1","variant":""}
+{"t":1794652377595,"pid":3369775,"ev":"user.posted","text":"sleep:20000 long","key":"message/test:c1/m2"}
+{"t":1794652377606,"pid":3369775,"ev":"gateway.saved","key":"message/test:c1/m2","ms":10}
+{"t":1794652377668,"pid":3369775,"ev":"session.activated","thread":"c1","session":"3c9f83e0-f423-4c00-b8b1-fb2109d063dc","activation":1}
+{"t":1794652377671,"pid":3369775,"ev":"message.delivered","key":"message/test:c1/m2","ms":75,"text":"sleep:20000 long"}
+{"t":1794652377689,"pid":3369775,"ev":"turn.start","key":"message/test:c1/m2","turn":"133a99d9-c50d-47a5-adea-e2a37643e052","starts":1,"resumed":false}
+{"t":1794652377691,"pid":3369775,"ev":"status.posted","id":"m4"}
+{"t":1794652378195,"pid":3369775,"ev":"stop.received","by":"button","running":true}
+{"t":1794652378204,"pid":3369775,"ev":"turn.end","key":"message/test:c1/m2","turn":"133a99d9-c50d-47a5-adea-e2a37643e052","outcome":"Stopped","compacted":false}
+{"t":1794652378230,"pid":3369775,"ev":"button.stop","stopped":true,"ms":37}
+{"t":1794652378230,"pid":3369775,"ev":"button.reply","reply":"Ack","ms":38}
+{"t":1794652378230,"pid":3369775,"ev":"scenario.end","name":"button","phase":"1"}
+{"t":1794652378241,"pid":3369775,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652380722,"pid":3369775,"ev":"hooks.draining","pending":0}
+{"t":1794652380722,"pid":3369775,"ev":"hooks.drained"}
+{"t":1794652380722,"pid":3369775,"ev":"plugins.closed"}
+{"t":1794652380762,"pid":3369775,"ev":"process.exit","code":0,"signal":null}

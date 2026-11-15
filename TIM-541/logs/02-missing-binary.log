@@ -1,0 +1,8 @@
+bash exit=0 out="hi\n"
+rg FAILED: {"_id":"Cause","reasons":[{"_tag":"Fail","error":{"reason":{"_tag":"NotFound","module":"ChildProcess","method":"spawn","pathOrDescriptor":"rg --version","syscall":"spawn rg","cause":{"errno":-2,"code":"ENOENT","syscall":"spawn rg","path":"rg","spawnargs":["--version"]}},"cause":{"errno":-2,"code":"ENOENT","syscall":"spawn rg","path":"rg","spawnargs":["--version"]},"_tag":"PlatformError","~effect/P
+gh FAILED: {"_id":"Cause","reasons":[{"_tag":"Fail","error":{"reason":{"_tag":"NotFound","module":"ChildProcess","method":"spawn","pathOrDescriptor":"gh --version","syscall":"spawn gh","cause":{"errno":-2,"code":"ENOENT","syscall":"spawn gh","path":"gh","spawnargs":["--version"]}},"cause":{"errno":-2,"code":"ENOENT","syscall":"spawn gh","path":"gh","spawnargs":["--version"]},"_tag":"PlatformError","~effect/P
+git FAILED: {"_id":"Cause","reasons":[{"_tag":"Fail","error":{"reason":{"_tag":"NotFound","module":"ChildProcess","method":"spawn","pathOrDescriptor":"git --version","syscall":"spawn git","cause":{"errno":-2,"code":"ENOENT","syscall":"spawn git","path":"git","spawnargs":["--version"]}},"cause":{"errno":-2,"code":"ENOENT","syscall":"spawn git","path":"git","spawnargs":["--version"]},"_tag":"PlatformError","~ef
+--- @vscode/ripgrep after npm install:
+ls: cannot access 'node_modules/@vscode/ripgrep/bin': No such file or directory
+anthropic-ai-sdk clanka node-which 
+--- rg on PATH? no

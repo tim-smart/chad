@@ -1,0 +1,391 @@
+
+## mcp-gate: rules 2 and 3: a call in flight finishes on the old layer, a call that arrives at the closed gate is held and answered by the new layer
+PASS  [mcp-gate]  no handler touched what a closed version owned
+PASS  [mcp-gate]  no turn failed
+PASS  [mcp-gate]  the call in flight when the gate closed finished on the old layer, and the rebuild waited for it  ({"drainedMs":2949})
+PASS  [mcp-gate]  a call that arrived at the closed gate was held  ({"heldMs":9245})
+PASS  [mcp-gate]  it was released when the new layer was ready and answered by it  (OK "v2 fs pid 2528290 token none: b-during"
+)
+PASS  [mcp-gate]  the old server had exited before the new one started  ({"msBetween":5370})
+
+## hole: why the rule is by bundle hash: NumberFromString became String
+PASS  [hole]  no handler touched what a closed version owned
+PASS  [hole]  no turn failed
+PASS  [hole]  with the rule, the running turn's call fails as changed
+
+## subagent: calls from a sub-agent and from a background sub-agent follow the same rules
+PASS  [subagent]  no handler touched what a closed version owned
+PASS  [subagent]  no turn failed
+PASS  [subagent]  both sub-agents' first calls were answered by the first instance
+PASS  [subagent]  after chad plugin reload both sub-agents' calls were routed to the new instance
+PASS  [subagent]  after an apply that changed the code both sub-agents' calls failed with the agreed message  (echo was changed by an apply. The new version is in your next turn, which cannot start while this turn has a sub-agent running.)
+PASS  [subagent]  the apply output counts the session's sub-agents  (["s-c1 loses echo until its turn ends (2 sub-agents running)"])
+PASS  [subagent]  both sub-agents finished and the turn ended with an answer
+
+## shape: the same bundle with other settings: comparing the rendered declarations
+PASS  [shape]  no handler touched what a closed version owned
+PASS  [shape]  no turn failed
+PASS  [shape]  a tool whose description is built from a setting fails as changed once that setting changes  (ERR measure was changed by an apply. The new version is in your next turn.)
+PASS  [shape]  the other tools of the same plugin, whose declarations did not change, are routed
+PASS  [shape]  a schema that changed behind an unchanged declaration: the call is routed and the parameters are carried across, so the new handler gets what its own schema decodes  (OK "schema says trimmed, stored \"bob\" #3")
+PASS  [shape]  parameters the new schema rejects fail as a parameter error, and the handler does not run  (ERR label: the parameters do not fit the version an apply loaded. Expected a value with a length of at least 10   at ["label"])
+PASS  [shape]  a tool with no parameters is still routed
+
+## route: the wrapper looks the version up per call; a reload that keeps the code reaches a running turn
+PASS  [route]  no handler touched what a closed version owned
+PASS  [route]  no turn failed
+PASS  [route]  one turn, one Agent, four calls routed to four instances of the same bundle  (["echo#1@dd2b18cb","echo#2@dd2b18cb","echo#3@dd2b18cb","echo#4@dd2b18cb"])
+PASS  [route]  after chad plugin reload the running turn's call is answered by the new instance
+PASS  [route]  after a timezone change it is answered by an instance built with the new timezone
+PASS  [route]  after an apply that changed only a setting it is answered with the new setting
+
+## shape-raw: the same without carrying the parameters across (PROTO_NO_RECODE=1)
+PASS  [shape-raw]  no handler touched what a closed version owned
+PASS  [shape-raw]  no turn failed
+PASS  [shape-raw]  the new handler is handed what the old Agent's schema decoded: untrimmed under a schema that trims, 7 characters under a minimum of 10  (OK "schema says trimmed, stored \"  bob  \" #4")
+
+## hole-any: the same with the rejected rule, route by tool name (PROTO_ROUTE_ANY=1)
+PASS  [hole-any]  no handler touched what a closed version owned
+PASS  [hole-any]  no turn failed
+PASS  [hole-any]  the new handler, written for a string, is handed a number decoded by the old Agent's schema  (OK "the v1 handler got a number"
+OK "the v2 handler, written for a string, got a number and stored \"420\""
+)
+
+## stubborn: a handler that ignores the interruption (drain 1.5 s, close 1 s here)
+PASS  [stubborn]  no handler touched what a closed version owned
+PASS  [stubborn]  no turn failed
+PASS  [stubborn]  the caller was told the handler did not stop
+PASS  [stubborn]  the swap waited 0.3 s for it and no longer, and that came out of the close deadline  ({"waitedMs":1848,"note":"two versions of stubborn now overlap"})
+PASS  [stubborn]  FOUND: the handler ran on for seconds inside a closed version  ({"ranMs":8965,"connectionOpen":false})
+
+## shape-result: a result the Agent's schema no longer accepts
+PASS  [shape-result]  no handler touched what a closed version owned
+PASS  [shape-result]  no turn failed
+PASS  [shape-result]  the first call returned five characters  (OK "xxxxx")
+PASS  [shape-result]  after the limit was raised the call was routed and the handler ran on the new instance
+PASS  [shape-result]  its result failed the Agent's schema, and the message says the call ran  (ERR report ran, but its result does not fit the declaration this turn was built with. Expected a value with a length of at most 5)
+
+## reload-fail: a reload that is not an apply, with one plugin that fails to build: the others swap, that one keeps its old version, the command exits 1
+PASS  [reload-fail]  no handler touched what a closed version owned
+PASS  [reload-fail]  no turn failed
+PASS  [reload-fail]  the command exits 1 and names the failed plugin and its error  (["picky: Error: unknown time zone Mars/Olympus"])
+PASS  [reload-fail]  the plugin that built was swapped
+PASS  [reload-fail]  the one that failed keeps its old version and still answers
+PASS  [reload-fail]  chad status marks it as running with the previous timezone  (echo: echo#3@dd2b18cb | picky: picky#2@234200e5 (running with the previous timezone: Error: unknown time zone Mars/Olympus))
+PASS  [reload-fail]  when an owner is removed, the plugin whose build fails is unloaded  (echo: echo#5@dd2b18cb | picky: removed)
+PASS  [reload-fail]  its tool is gone from the next turn
+
+## mcp-amended-backstop: amended rule 3 with the backstop shortened to 3 s: the held call fails "not sent", the rebuild carries on, and the same call made again is held again
+PASS  [mcp-amended-backstop]  no handler touched what a closed version owned
+PASS  [mcp-amended-backstop]  no turn failed
+PASS  [mcp-amended-backstop]  the held call failed at the backstop with the agreed message, before the rebuild ended  ({"msAfterGate":3022})
+FAIL  [mcp-amended-backstop]  the call made again was held again and answered by the new layer  ({})
+FAIL  [mcp-amended-backstop]  the server saw one call
+
+## gate: a call that arrives during a swap is held for the activation and not cut off; one from an Agent built on another bundle fails at once
+PASS  [gate]  no handler touched what a closed version owned
+PASS  [gate]  no turn failed
+FAIL  [gate]  the call in flight when the gate closed finished on the old instance, and the swap waited for it  ({"waitedMs":5060})
+PASS  [gate]  a call from an Agent built on this bundle was held at the gate  ({"heldMs":5041})
+PASS  [gate]  it was released at the activation and answered by the new instance  (OK "v2 hi Pacific/Auckland #3: b-during-swap"
+)
+PASS  [gate]  a call from an Agent built on another bundle failed at once, at the closed gate  ({"msAfterGateClosed":19})
+
+## mcp-route: rules 1 and 7: every Agent has the one wrapper, a running turn's call goes to the layer that is current when it is made, each kind of rebuild takes the one path, and an added server is callable from the next turn
+PASS  [mcp-route]  no handler touched what a closed version owned
+PASS  [mcp-route]  no turn failed
+PASS  [mcp-route]  one turn on one Agent made four calls, answered by four server processes  (["v1 pid 2527555 token t1","v2 pid 2527962 token t1","v2 pid 2528061 token t2","v2 pid 2528200 token t2"])
+PASS  [mcp-route]  after chad mcp restart the running turn's call is answered by the restarted server
+PASS  [mcp-route]  after a change to a secret that mcp.json names, by a server started with the new secret
+PASS  [mcp-route]  a change to a secret that mcp.json does not name rebuilds nothing
+PASS  [mcp-route]  after an apply that changed mcp.json, by another new server
+PASS  [mcp-route]  all three rebuilds ran gate, drain, close, connect in that order  (gateClosed drained closed connected ready)
+PASS  [mcp-route]  rule 7: the server the apply added is callable from the session's next turn and from another session
+PASS  [mcp-route]  the running turn has no name for the added server: its call throws in the script and never reaches chad
+PASS  [mcp-route]  searchTools in that same turn lists the added server all the same
+PASS  [mcp-route]  a sub-agent that turn spawns after the rebuild can call the added server
+
+## bg-open: a background sub-agent the script does not wait for
+PASS  [bg-open]  no handler touched what a closed version owned
+PASS  [bg-open]  no turn failed
+PASS  [bg-open]  clanka keeps the turn open while the background sub-agent runs, after the model has answered
+PASS  [bg-open]  so its calls are a running turn's calls: routed after a reload, refused after a code change
+PASS  [bg-open]  FOUND: the owner's next message is steered into the open turn, on the old Agent, and its call fails as changed  (echo was changed by an apply. The new version is in your next turn, which cannot start while this turn has a sub-agent running.)
+PASS  [bg-open]  the turn ended once the sub-agent finished, and the turn after it has the new version
+
+## mcp-start-nowait: not in the rules: a turn that starts during a rebuild does not wait at all. It starts on the previous layer's keys and is treated like a running turn (held cap left at 60 s)
+PASS  [mcp-start-nowait]  no handler touched what a closed version owned
+PASS  [mcp-start-nowait]  no turn failed
+PASS  [mcp-start-nowait]  the turn started at once, 5 seconds before the new layer was ready, with the previous layer's MCP section  ({"startMs":55,"readyAfterMs":5652})
+PASS  [mcp-start-nowait]  its first MCP call was held at the gate and answered by the new layer  ({"heldMs":5129})
+PASS  [mcp-start-nowait]  its second was routed to the new layer
+PASS  [mcp-start-nowait]  the session's next turn has MCP on the new layer
+
+## mcp-sub-none: a sub-agent spawned by a running turn while no layer is current, when such a spawn gets no keys: it has no MCP for its whole life
+PASS  [mcp-sub-none]  no handler touched what a closed version owned
+PASS  [mcp-sub-none]  no turn failed
+PASS  [mcp-sub-none]  the sub-agent took its handler keys after the old layer closed and before the new one was ready  ({"keys":0})
+PASS  [mcp-sub-none]  its MCP call fails with "mcp is not defined"  (SUB "RESULTS [\"ERR mcp is not defined\\n\"]")
+PASS  [mcp-sub-none]  the parent turn's own call after the rebuild is answered by the new layer
+
+## mcp-start-route: rule 6 read a third way, with a 3 s cap: the turn that gave up keeps the previous layer's keys and is treated like a running turn
+PASS  [mcp-start-route]  no handler touched what a closed version owned
+PASS  [mcp-start-route]  no turn failed
+PASS  [mcp-start-route]  the turn that started during the rebuild gave up waiting at the cap, before the new layer was ready  ({"waitedMs":3000,"readyAfterMs":5271})
+PASS  [mcp-start-route]  it has the previous layer's keys and MCP section
+PASS  [mcp-start-route]  its first MCP call was held at the gate and answered by the new layer  ({"heldMs":1700})
+PASS  [mcp-start-route]  its second was routed to the new layer
+PASS  [mcp-start-route]  the session's next turn has MCP on the new layer
+
+## mcp-amended-route: amended rule 7: searchTools in a running turn names the tools it lists that the turn cannot call
+PASS  [mcp-amended-route]  no handler touched what a closed version owned
+PASS  [mcp-amended-route]  no turn failed
+PASS  [mcp-amended-route]  searchTools lists the added server and ends with the hint  (Promise<string>\n}\n\nmcp.extra.echo is callable from your next turn.")
+PASS  [mcp-amended-route]  the call itself still throws in the script
+PASS  [mcp-amended-route]  the next turn can call it
+PASS  [mcp-amended-route]  routing is unchanged: four calls, four server processes
+
+## mcp-start-fail: rule 6 read another way, with a 3 s cap: the turn that gave up keeps the previous layer's keys and each call fails with the agreed message
+PASS  [mcp-start-fail]  no handler touched what a closed version owned
+PASS  [mcp-start-fail]  no turn failed
+PASS  [mcp-start-fail]  the turn that started during the rebuild gave up waiting at the cap, before the new layer was ready  ({"waitedMs":3004,"readyAfterMs":5816})
+PASS  [mcp-start-fail]  it has the previous layer's keys and MCP section
+FAIL  [mcp-start-fail]  each MCP call fails with the agreed message, the one made after the new layer was ready too  (ERR MCP servers were restarting when this turn started. They are back in your next turn.
+ERR MCP servers were restarting when this turn started. They are back in your next turn.
+)
+PASS  [mcp-start-fail]  the session's next turn has MCP on the new layer
+
+## mcp-removed: rule 4: what a running turn is told about a removed server, a dropped tool, changed parameters and a server that no longer connects
+PASS  [mcp-removed]  no handler touched what a closed version owned
+PASS  [mcp-removed]  no turn failed
+PASS  [mcp-removed]  a server the apply took out of mcp.json: the removed message
+PASS  [mcp-removed]  a tool that a server still connected no longer lists after the apply: the removed message
+PASS  [mcp-removed]  a tool whose parameter changed type: the old argument fails clanka's validation against the new schema  (ERR mcp.fs.store: Expected number)
+PASS  [mcp-removed]  and it was not sent to the server  (["string","number"])
+PASS  [mcp-removed]  the same tool called with the new type is answered by the new server
+FAIL  [mcp-removed]  a server still in mcp.json that did not connect is not called removed
+FAIL  [mcp-removed]  that sentence is chad's, built from clanka's status: clanka's layer holds no handler for a server that did not connect
+PASS  [mcp-removed]  searchTools in the running turn shows the new layer's declarations
+PASS  [mcp-removed]  a tool that is gone after a restart that was not an apply cannot be called "removed by an apply": the prototype had to word one
+
+## mcp-amended-both: amended rule 6 next to rule 5: a turn that starts during a slow MCP rebuild and uses only a plugin tool is not held up
+PASS  [mcp-amended-both]  no handler touched what a closed version owned
+PASS  [mcp-amended-both]  no turn failed
+PASS  [mcp-amended-both]  it started and ended while the MCP server was still connecting  ({"turnMs":597,"mcpReadyAfterMs":5296})
+PASS  [mcp-amended-both]  the running turn's MCP call was still held and answered by the new layer
+
+## mcp-both: rule 5: one apply that changes a plugin setting and mcp.json closes both gates together, and the plugin activates without waiting for a slow MCP server
+PASS  [mcp-both]  no handler touched what a closed version owned
+PASS  [mcp-both]  no turn failed
+PASS  [mcp-both]  both gates closed together  ({"msApart":2})
+PASS  [mcp-both]  the plugin activated while the MCP server was still connecting  ({"pluginMs":3,"mcpMs":5327})
+PASS  [mcp-both]  the running turn's plugin call was answered with the new setting before the MCP layer was ready  ({"msAfterGate":14})
+PASS  [mcp-both]  its MCP call was held and answered by the new layer  ({"heldMs":5311})
+PASS  [mcp-both]  a turn that started during the rebuild and used only a plugin tool waited for the MCP layer all the same (rule 6)  ({"waitedMs":4745})
+
+## mcp-sub-route: the same sub-agent when the spawn gets the previous layer's keys: its call is held at the gate and answered by the new layer
+PASS  [mcp-sub-route]  no handler touched what a closed version owned
+PASS  [mcp-sub-route]  no turn failed
+PASS  [mcp-sub-route]  the sub-agent took its handler keys after the old layer closed and before the new one was ready  ({"keys":5})
+PASS  [mcp-sub-route]  its MCP call was held and then answered by the new layer  ({"heldMs":5207})
+PASS  [mcp-sub-route]  the parent turn's own call after the rebuild is answered by the new layer
+
+## hooks: hooks queued off the reply path run on the new version; a kind it no longer registers is dropped and logged
+PASS  [hooks]  no handler touched what a closed version owned
+PASS  [hooks]  no turn failed
+PASS  [hooks]  the hook that was running finished on the old version, and the swap waited for that one only  ({"waitedMs":1497})
+FAIL  [hooks]  the two afterTurn hooks still queued ran on the new version  (["echo#1@5c28e0bc","echo#1@5c28e0bc"])
+FAIL  [hooks]  the queued Compacted hook was dropped and logged, the new version registers none
+PASS  [hooks]  the old version's Plugin.background fiber was interrupted at its close, and the drain did not wait for it
+FAIL  [hooks]  when the plugin was removed its queued hook was dropped and logged
+
+## mcp-amended-removed: amended rule 4: the wording for a removed server, a tool no longer listed and a server that is not connected
+PASS  [mcp-amended-removed]  no handler touched what a closed version owned
+PASS  [mcp-amended-removed]  no turn failed
+PASS  [mcp-amended-removed]  a server taken out of mcp.json
+PASS  [mcp-amended-removed]  a tool its server no longer lists after an apply
+PASS  [mcp-amended-removed]  a tool its server no longer lists after chad mcp restart: the same sentence
+FAIL  [mcp-amended-removed]  a server still in mcp.json that did not connect
+PASS  [mcp-amended-removed]  changed parameters still fail clanka's validation, and the new type is answered
+PASS  [mcp-amended-removed]  searchTools adds no hint when the new layer has nothing this turn lacks
+
+## mcp-start-none: rule 6 as written, with a 3 s cap: the turn that gave up starts without MCP. It has no handler keys, so its calls cannot be given the agreed message
+PASS  [mcp-start-none]  no handler touched what a closed version owned
+PASS  [mcp-start-none]  no turn failed
+PASS  [mcp-start-none]  the turn that started during the rebuild gave up waiting at the cap, before the new layer was ready  ({"waitedMs":3001,"readyAfterMs":5317})
+PASS  [mcp-start-none]  it has no MCP section in its prompt and no handler keys
+PASS  [mcp-start-none]  its MCP calls fail with "mcp is not defined": the script has no such name, and chad's wrapper is never reached  (ERR mcp is not defined
+ERR mcp is not defined
+)
+PASS  [mcp-start-none]  the second of them was made after the new layer was ready, and fails the same way
+PASS  [mcp-start-none]  the session's next turn has MCP on the new layer
+
+## changed: after an apply that changed the code a running turn's call fails with the agreed message and the turn carries on; the same for a removed tool and safe mode
+PASS  [changed]  no handler touched what a closed version owned
+PASS  [changed]  no turn failed
+PASS  [changed]  the running turn's next call fails with the agreed message  (OK "v1 hi Pacific/Auckland #1: a1"
+ERR echo was changed by an apply. The new version is in your next turn.
+ERR slow was changed by an apply. The new version is in your next turn.
+the turn carried on
+)
+PASS  [changed]  a tool of the same plugin whose own code did not change fails too (the rule is per bundle)
+PASS  [changed]  the turn carries on and ends with an answer
+PASS  [changed]  a turn in another session loses the tool as well
+PASS  [changed]  the apply output names both sessions with a running turn  (["s-c1 loses echo until its turn ends (0 sub-agents running)","s-c2 loses echo until its turn ends (0 sub-agents running)"])
+PASS  [changed]  the next turn has the new version
+PASS  [changed]  a tool the apply removed fails with the removed message
+PASS  [changed]  in safe mode the call fails with the safe mode message
+PASS  [changed]  a timer of a plugin that safe mode turned off is held, and runs after safe off  ({"t":1794687106031,"pid":2526614,"ev":"timer.held","timer":"echo/job","why":"held, not loaded","ms":1009,"phase":1})
+PASS  [changed]  after safe off the next turn has the plugin again
+
+## mcp-deadlines: rules 2 and 6 with the real 30 s drain: a call that hangs is interrupted with the agreed message, and a turn that starts during the rebuild waits for the new layer
+PASS  [mcp-deadlines]  no handler touched what a closed version owned
+PASS  [mcp-deadlines]  no turn failed
+PASS  [mcp-deadlines]  the drain took 30 seconds and interrupted the one call still in flight  ({"drainedMs":30003})
+PASS  [mcp-deadlines]  the caller got the agreed message  (ERR mcp.fs.slow was interrupted by an MCP restart, it may have partly run.)
+PASS  [mcp-deadlines]  the call stopped at once on chad's side and the server was told to cancel  ({"ms":2})
+PASS  [mcp-deadlines]  the old layer closed after the drain, and the new server started after that  ({"closeMs":246})
+PASS  [mcp-deadlines]  the interrupted turn carried on: its next call was held and answered by the new layer
+PASS  [mcp-deadlines]  the call held since the gate closed waited 35 seconds and was answered by the new layer  ({"heldMs":34873})
+PASS  [mcp-deadlines]  rule 6: the turn that started during the rebuild waited for the new layer and took its keys from it  ({"waitedMs":34873,"rebuildMs":35482})
+
+## stop-before-commit: a graceful stop before the commit cancels the apply and changes nothing
+PASS  [stop-before-commit]  no handler touched what a closed version owned
+PASS  [stop-before-commit]  no turn failed
+PASS  [stop-before-commit]  the apply was cancelled and live did not move  (versions/1794687079981-2526641-1)
+PASS  [stop-before-commit]  the version it had built was closed
+PASS  [stop-before-commit]  the process exited by itself after SIGTERM  ({"ms":49797,"code":130})
+PASS  [stop-before-commit]  the next boot loads the old version  (OK "v1 hi Pacific/Auckland #1: a1"
+)
+
+## mcp-stop-between: a graceful stop after the old layer closed and before the new one connected: nothing is current, the held call waits for the stop to cut its turn
+PASS  [mcp-stop-between]  no handler touched what a closed version owned
+PASS  [mcp-stop-between]  no turn failed
+PASS  [mcp-stop-between]  the process exited by itself after SIGTERM  ({"ms":38107,"code":130})
+PASS  [mcp-stop-between]  the abandoned rebuild left no layer
+PASS  [mcp-stop-between]  abandoning it took 2 seconds: the half-started server did not exit when its stdin closed and was sent SIGTERM  ({"ms":2011})
+PASS  [mcp-stop-between]  the held call was not answered and not failed; the stop cut its turn and saved it
+PASS  [mcp-stop-between]  the next boot connected what the apply had committed, and the resumed turn's call was answered by it
+PASS  [mcp-stop-between]  a new session after the boot has MCP
+
+## deadlines: the real constants: a 30 s drain, a 10 s close, a 40 s wait for a turn, a timer held for the activation
+PASS  [deadlines]  no handler touched what a closed version owned
+PASS  [deadlines]  no turn failed
+PASS  [deadlines]  the drain took 30 seconds  ({"drainedMs":30002})
+PASS  [deadlines]  the tool call still running then was interrupted with the agreed message  ({"ranMs":30074})
+PASS  [deadlines]  the afterTurn hook still running then was interrupted and logged, though its own timeout was 120 s  ({"ranMs":30805})
+PASS  [deadlines]  the finalizer that hangs was abandoned after 10 seconds  ({"ms":9999})
+PASS  [deadlines]  the new version activated 40 seconds after the gate closed  ({"waitedMs":40098})
+PASS  [deadlines]  the turn carried on after the cut, and its next call failed as changed
+PASS  [deadlines]  a turn that started during the swap waited for the activation, 40 s at most  ({"ms":38657})
+PASS  [deadlines]  a timer that fired during the swap was held until the activation, then its turn ran on the new version  ({"t":1794687134291,"pid":2526616,"ev":"timer.held","timer":"echo/job","why":"held for a swap","ms":37268,"phase":1})
+PASS  [deadlines]  the afterTurn hooks of the turns that ended after the swap ran on the new version
+
+## mcp-amended-boot: amended rule 6 at boot, where no layer has connected yet, with the backstop shortened to 3 s and a server that takes 6: the turn waits, then starts without MCP and its prompt says so
+PASS  [mcp-amended-boot]  no handler touched what a closed version owned
+PASS  [mcp-amended-boot]  no turn failed
+PASS  [mcp-amended-boot]  the turn waited for the boot's layer up to the backstop  ({"waitedMs":3000,"bootLayerReadyMs":6245})
+PASS  [mcp-amended-boot]  it started without MCP, and its prompt has the line that says so
+PASS  [mcp-amended-boot]  its MCP call throws "mcp is not defined"  (ERR mcp is not defined
+)
+PASS  [mcp-amended-boot]  its next turn has MCP and no such line
+
+## stop-close: a graceful stop while the old scope is closing: the plugin is between its close and its activation
+PASS  [stop-close]  no handler touched what a closed version owned
+PASS  [stop-close]  no turn failed
+PASS  [stop-close]  the swap was abandoned with the old version closed and the new one never activated  (["echo: old version closed, new one never activated"])
+FAIL  [stop-close]  the queued hook was dropped with a log line
+PASS  [stop-close]  a call that arrived while the old version was closing failed at once as changed
+PASS  [stop-close]  a call after the stop abandoned the swap was not answered: it waited, and the stop cut its turn
+PASS  [stop-close]  that turn resumed after the restart on the new version  (OK "v2 hi Pacific/Auckland #1: b-closing"
+OK "v2 hi Pacific/Auckland #1: b-after-the-stop"
+)
+PASS  [stop-close]  the process exited by itself after SIGTERM  ({"ms":37374,"code":130})
+PASS  [stop-close]  the next boot loads the new version  (OK "v2 hi Pacific/Auckland #1: a1"
+)
+
+## mcp-stubborn: a call the server does not stop, on a stdio server that exits when asked, two that ignore stdin closing and SIGTERM, and one over HTTP (drain shortened to 1.5 s)
+PASS  [mcp-stubborn]  no handler touched what a closed version owned
+PASS  [mcp-stubborn]  no turn failed
+PASS  [mcp-stubborn]  all four callers got the agreed interrupted message
+PASS  [mcp-stubborn]  every call stopped at once on chad's side; the 1 second wait and the "did not stop" message never came up  ([1,0,0,1])
+PASS  [mcp-stubborn]  each stdio server was told to cancel
+PASS  [mcp-stubborn]  the HTTP server was not told to cancel: no request reached it between the interrupt and the end of the close  ([])
+PASS  [mcp-stubborn]  the HTTP server's session was not deleted when the old layer closed
+PASS  [mcp-stubborn]  the work carried on to its end on the HTTP server and on the stdio server that was closed last; the stdio server closed first was killed before it finished  (["hard1","soft","remote"])
+FAIL  [mcp-stubborn]  closing the old layer took 4 seconds for each server that ignores stdin closing and SIGTERM, one after the other  ({"closeMs":10033})
+PASS  [mcp-stubborn]  the turn's next call was held for all of that and answered by the HTTP server, which was never restarted  ({"heldMs":10115})
+PASS  [mcp-stubborn]  the graceful stop at the end spent the same 8 seconds closing the layer  ({"closeMs":8018})
+
+## mcp-stubborn-pause: the same with a 250 ms pause between interrupting the calls and closing the old layer, which is not in the rules
+PASS  [mcp-stubborn-pause]  no handler touched what a closed version owned
+PASS  [mcp-stubborn-pause]  no turn failed
+PASS  [mcp-stubborn-pause]  all four callers got the agreed interrupted message
+PASS  [mcp-stubborn-pause]  every call stopped at once on chad's side; the 1 second wait and the "did not stop" message never came up  ([3,1,0,1])
+PASS  [mcp-stubborn-pause]  each stdio server was told to cancel
+PASS  [mcp-stubborn-pause]  with the pause the HTTP server was told to cancel  (["POST notifications/cancelled"])
+PASS  [mcp-stubborn-pause]  the HTTP server's session was not deleted when the old layer closed
+PASS  [mcp-stubborn-pause]  the work carried on to its end on the HTTP server and on the stdio server that was closed last; the stdio server closed first was killed before it finished  (["hard1","remote","soft"])
+PASS  [mcp-stubborn-pause]  closing the old layer took 4 seconds for each server that ignores stdin closing and SIGTERM, one after the other  ({"closeMs":8015})
+PASS  [mcp-stubborn-pause]  the turn's next call was held for all of that and answered by the HTTP server, which was never restarted  ({"heldMs":9365})
+PASS  [mcp-stubborn-pause]  the graceful stop at the end spent the same 8 seconds closing the layer  ({"closeMs":8020})
+
+## stop-drain: a graceful stop while a swap is draining abandons it
+PASS  [stop-drain]  no handler touched what a closed version owned
+PASS  [stop-drain]  no turn failed
+PASS  [stop-drain]  the swap was abandoned  (["echo: stays on echo#1@6e40a489 for the graceful stop"])
+PASS  [stop-drain]  the new instance was closed without being activated
+PASS  [stop-drain]  the old version went through the ordinary graceful stop
+PASS  [stop-drain]  FOUND: the call held at the gate was let go, answered by the old version, and its turn ended during the stop  ({"heldMs":650,"to":"echo#1@6e40a489"})
+PASS  [stop-drain]  the process exited by itself after SIGTERM  ({"ms":45134,"code":130})
+PASS  [stop-drain]  the next boot loads the plugin
+PASS  [stop-drain]  the turn the stop cut resumed after the restart and ended with an answer
+
+## mcp-stop-drain: a graceful stop while a rebuild drains: the held call goes through routing again against the old layer, which is still current
+PASS  [mcp-stop-drain]  no handler touched what a closed version owned
+PASS  [mcp-stop-drain]  no turn failed
+PASS  [mcp-stop-drain]  the process exited by itself after SIGTERM  ({"ms":40451,"code":130})
+PASS  [mcp-stop-drain]  the abandoned rebuild left the old layer in place
+PASS  [mcp-stop-drain]  the held call was released, routed again and answered by the old layer  ({"heldMs":311})
+PASS  [mcp-stop-drain]  the rebuild interrupted nothing; the stop cut the turn whose call was in flight, and saved it
+FAIL  [mcp-stop-drain]  the next boot connected the MCP layer, the resumed turn waited for it and ended with its answers  ({})
+PASS  [mcp-stop-drain]  the call that was in flight at the stop was sent to the server twice
+PASS  [mcp-stop-drain]  a new session after the boot has MCP
+
+## mcp-cap: rules 3, 4 and 6 with the real 60 s caps, a full drain and a server that never answers: the held call fails "not sent", the turn that waited starts without MCP
+PASS  [mcp-cap]  no handler touched what a closed version owned
+PASS  [mcp-cap]  no turn failed
+PASS  [mcp-cap]  rule 3: the call held since the gate closed failed at 60 seconds with the agreed message  ({"msAfterGate":60342})
+PASS  [mcp-cap]  the server never saw that call
+PASS  [mcp-cap]  the rebuild outlasted the cap: a full drain, the close, clanka's 30 s connect timeout and 2 s more to kill the server that never answered  ({"rebuildMs":62866,"drainMs":30002,"closeMs":838,"connectMs":32026})
+PASS  [mcp-cap]  so the held call failed while the server it was for had been connected for 30 seconds inside a layer that was not current yet
+PASS  [mcp-cap]  the same turn's next call is answered by the new layer
+PASS  [mcp-cap]  rule 4: a server that is still configured and did not connect is not called removed  (ERR mcp.slowpoke.echo: MCP server "slowpoke" is not connected: connection timed out after 30000ms)
+PASS  [mcp-cap]  rule 6: the turn that started during the rebuild gave up at 60 seconds and started without MCP  ({"waitedMs":60001})
+PASS  [mcp-cap]  its MCP call fails with "mcp is not defined" and not with the agreed message  (ERR mcp is not defined
+)
+PASS  [mcp-cap]  its next turn has MCP again
+
+## mcp-amended-held: amended rules 2, 3, 4 and 6 with the real times and a 62 s rebuild: held calls wait for the rebuild to end, and a turn that starts during it does not wait
+PASS  [mcp-amended-held]  no handler touched what a closed version owned
+PASS  [mcp-amended-held]  no turn failed
+PASS  [mcp-amended-held]  the rebuild took longer than 60 seconds  ({"rebuildMs":62879})
+PASS  [mcp-amended-held]  the interrupted call got the amended message  (ERR mcp.fs.slow was interrupted by an MCP restart. It may have run in part or in full.)
+FAIL  [mcp-amended-held]  the old layer closed 250 ms after the interrupt  ({"pauseMs":828})
+PASS  [mcp-amended-held]  a call held since the gate closed waited past 60 seconds and was answered by the new layer  ({"heldMs":62452})
+PASS  [mcp-amended-held]  a call held for a server that then failed to connect got the not-connected message and not "not sent"  (ERR mcp.slowpoke.echo: MCP server "slowpoke" is not connected: connection timed out after 30000ms)
+PASS  [mcp-amended-held]  the turn that started during the rebuild did not wait: it started on the previous layer's keys and prompt  ({"startMs":48})
+PASS  [mcp-amended-held]  its MCP call was held like a running turn's and answered by the new layer  ({"heldMs":62304})
+
+## stop-apply: a graceful stop after live moved abandons the swap, and the next boot loads the new version
+PASS  [stop-apply]  no handler touched what a closed version owned
+PASS  [stop-apply]  no turn failed
+PASS  [stop-apply]  live had moved before the stop  (versions/1794687094732-2526631-2)
+PASS  [stop-apply]  the swap was abandoned and the new version closed without being activated  (["echo: stays on echo#1@a6e4e743 for the graceful stop"])
+PASS  [stop-apply]  the old version's queued afterTurn hook ran on it during the graceful stop, inside its budget  ([8078,1701])
+PASS  [stop-apply]  the old version closed after its hooks
+PASS  [stop-apply]  the process exited by itself after SIGTERM  ({"ms":40548,"code":130})
+PASS  [stop-apply]  the next boot loads the new version  (["echo#1@876ab345"])
+PASS  [stop-apply]  the cut turn resumed on the new version  (RESULTS ["OK \"v2 hi Pacific/Auckland #1: slow a2\"\n","OK \"v2 hi Pacific/Auckland #1: after\"\n"])
+
+277 passed, 14 failed

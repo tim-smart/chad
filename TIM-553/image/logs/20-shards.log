@@ -1,0 +1,4 @@
+NOTE  [shards]  under load, 300 shards: ms from the entities' close to the runner's, three runs  ( 2660 1866 2295 )
+PASS  [shards]  under load, 1 shard: the runner closes in milliseconds, three runs  (ms after the entities: 10 9 53 )
+NOTE  [shards]  load on the engine while those six ran  (24 busy loops on 8 CPUs, load average 16.66 5.24 2.61 )
+PASS  [shards]  1 shard, a turn running: the turn started, was interrupted at 15 s and the daemon exited 0  (turn.start 1, entities closed at 15118, exit 0 )

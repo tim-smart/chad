@@ -1,0 +1,9 @@
+resolves to: 0.0.0.0 127.0.0.1
+pkg.pr.new ECONNREFUSED
+registry.npmjs.org 200
++ typescript 7.0.2
+
+Done in 2.4s using pnpm v12.18.0
+install exit=0
+packages: 146
+1

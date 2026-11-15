@@ -1,0 +1,15 @@
+300 shards, idle: runner closed 2166 ms after the entities, exit 0
+300 shards, idle: runner closed 2003 ms after the entities, exit 0
+300 shards, idle: runner closed 2004 ms after the entities, exit 0
+100 shards, idle: runner closed 2597 ms after the entities, exit 0
+100 shards, idle: runner closed 689 ms after the entities, exit 0
+100 shards, idle: runner closed 718 ms after the entities, exit 0
+10 shards, idle: runner closed 76 ms after the entities, exit 0
+10 shards, idle: runner closed 74 ms after the entities, exit 0
+10 shards, idle: runner closed 69 ms after the entities, exit 0
+1 shards, idle: runner closed 10 ms after the entities, exit 0
+1 shards, idle: runner closed 10 ms after the entities, exit 0
+1 shards, idle: runner closed 12 ms after the entities, exit 0
+300 shards, a turn running: turn started 1, interrupted at 15011 ms, entities closed at 15014 ms, runner closed at 15023 ms, exit 0
+1 shards, a turn running: turn started 1, interrupted at 15010 ms, entities closed at 15014 ms, runner closed at 15028 ms, exit 0
+outside a container, HOME=/home/tim and CHAD_DATA under /home/tim/.tmp/multica-task-3227909185: 0 volume warnings

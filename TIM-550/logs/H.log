@@ -1,0 +1,90 @@
+
+### H0: owner, no session
+reloaded
+exit=0
+
+### H1: CHAD_SESSION set -> cli refuses before talking to the daemon
+chad reload: refused: 'reload' is an owner command and this shell belongs to agent session sess-42
+exit=3
+chad secret-set: refused: 'secret-set' is an owner command and this shell belongs to agent session sess-42
+exit=3
+
+### H2: non-owner command inside a session still works
+{"pid":3445488,"version":"0.1.0-proto","queue":"idle"}
+exit=0
+
+### H3: a cli that skips its own check but still forwards the session id -> daemon refuses
+chad reload: refused by daemon: 'reload' is an owner command; call came from agent session sess-42
+exit=3
+
+### H4: the lie: inside a session shell, the agent unsets the variable
+shell has CHAD_SESSION=sess-42
+reloaded
+exit=0
+
+### H5: usage errors
+USAGE
+  chad <subcommand> [flags]
+
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|powershell|sh|pwsh>                    Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
+
+SUBCOMMANDS
+  serve         
+  health        
+  status        
+  tail          
+  apply         
+  reload        
+  secret-set    
+  secret-raw    
+
+ERROR
+  Unknown subcommand "nope" for "chad"
+exit=2
+USAGE
+  chad tail [flags]
+
+FLAGS
+  --count integer       
+  --interval integer    
+
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|powershell|sh|pwsh>                    Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
+
+ERROR
+  Invalid value for flag --count: "abc". Expected a string representing a finite number
+exit=2
+USAGE
+  chad tail [flags]
+
+FLAGS
+  --count integer       
+  --interval integer    
+
+GLOBAL FLAGS
+  --help, -h                                                          Show help information
+  --version, -v                                                       Show version information
+  --wizard                                                            Start wizard mode for a command
+  --completions <bash|zsh|fish|powershell|sh|pwsh>                    Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)
+  --log-level <all|trace|debug|info|warn|warning|error|fatal|none>    Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)
+
+ERROR
+  Unrecognized flag: --bogus in command chad tail
+exit=2
+
+### daemon log
+10:42:33.675 [daemon 3445488] lock taken
+10:42:33.681 [daemon 3445488] listening on state/chad.sock mode 600
+10:42:34.122 [daemon 3445488] Reload accepted (owner call, no session id on the call)
+10:42:35.395 [daemon 3445488] Status from client version 0.1.0-proto
+10:42:35.824 [daemon 3445488] REFUSED reload: owner call carried session id sess-42
+10:42:36.258 [daemon 3445488] Reload accepted (owner call, no session id on the call)

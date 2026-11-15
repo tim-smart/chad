@@ -1,0 +1,78 @@
+
+### D1: no daemon, no state dir
+chad status: no daemon (lock /home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/state/daemon.lock is free)
+exit=4
+chad apply: no daemon (lock /home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/state/daemon.lock is free)
+exit=4
+state dir exists after those calls? no
+
+### D2: daemon takes the lock, waits 5s before listening
+--- state before cli:
+total 12
+drwxr-xr-x 2 tim users 4096 2026-11-14 10:42:07.906348027 +0000 .
+drwxr-xr-x 4 tim users 4096 2026-11-14 10:42:07.905717079 +0000 ..
+-rw-r--r-- 1 tim users    0 2026-11-14 10:42:07.905717079 +0000 daemon.lock
+-rw-r--r-- 1 tim users  512 2026-11-14 10:42:07.906528273 +0000 daemon.lock-journal
+d41d8cd98f00b204e9800998ecf8427e  state/daemon.lock
+24846d1af245384a69156ab737fcd3d2  state/daemon.lock-journal
+10:42:08.217 running: node chad.ts apply --label d1
+chad apply: daemon is starting or frozen (lock held, no answer on state/chad.sock in 2s)
+
+real	0m0.442s
+user	0m0.435s
+sys	0m0.084s
+exit=4
+10:42:08.661 running: node chad.ts health
+chad health: daemon is starting or frozen (lock held, no answer on state/chad.sock in 2s)
+exit=4
+--- state after cli:
+total 12
+drwxr-xr-x 2 tim users 4096 2026-11-14 10:42:07.906348027 +0000 .
+drwxr-xr-x 4 tim users 4096 2026-11-14 10:42:07.905717079 +0000 ..
+-rw-r--r-- 1 tim users    0 2026-11-14 10:42:07.905717079 +0000 daemon.lock
+-rw-r--r-- 1 tim users  512 2026-11-14 10:42:07.906528273 +0000 daemon.lock-journal
+d41d8cd98f00b204e9800998ecf8427e  state/daemon.lock
+24846d1af245384a69156ab737fcd3d2  state/daemon.lock-journal
+10:42:12.989 daemon listening now
+healthy: lock held and daemon answered ping
+exit=0
+
+### D3: second daemon while the first runs
+10:42:13.837 [daemon 3443340] another daemon holds /home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/state/daemon.lock: database is locked
+second daemon exit=1
+
+### D4: kill -9 the daemon; socket file stays
+total 12
+drwxr-xr-x 2 tim users 4096 Nov 14 10:42 .
+drwxr-xr-x 4 tim users 4096 Nov 14 10:42 ..
+srw------- 1 tim users    0 Nov 14 10:42 chad.sock
+-rw-r--r-- 1 tim users    0 Nov 14 10:42 daemon.lock
+-rw-r--r-- 1 tim users  512 Nov 14 10:42 daemon.lock-journal
+chad status: no daemon (lock /home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/state/daemon.lock is free)
+exit=4
+
+### D5a: new daemon WITHOUT unlinking the stale socket (what NodeSocketServer does on its own)
+10:42:14.698 [daemon 3443451] lock taken
+main failed: {
+  reason: {
+    cause: Error: listen EADDRINUSE: address already in use state/chad.sock
+      code: 'EADDRINUSE',
+      errno: -98,
+      syscall: 'listen',
+      address: 'state/chad.sock',
+      port: -1
+    },
+    _tag: 'SocketServerOpenError'
+  },
+
+### D5b: new daemon that unlinks the stale socket after taking the lock
+10:42:15.114 [daemon 3443466] lock taken
+10:42:15.115 [daemon 3443466] removed stale socket file (safe: we hold the lock)
+10:42:15.120 [daemon 3443466] listening on state/chad.sock mode 600
+healthy: lock held and daemon answered ping
+exit=0
+
+### first daemon log
+10:42:07.906 [daemon 3442642] lock taken
+10:42:07.907 [daemon 3442642] delaying 5000ms before listening
+10:42:12.918 [daemon 3442642] listening on state/chad.sock mode 600

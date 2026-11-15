@@ -1,0 +1,32 @@
+
+### K (extra, not in the claim list): SIGTERM to the DAEMON between commit and swap
+10:45:28.128 [cli 3464537] step snapshot 10:45:28.125
+10:45:28.228 [cli 3464537] step check 10:45:28.227
+10:45:28.328 [cli 3464537] step load 10:45:28.327
+10:45:28.629 [cli 3464537] step commit 10:45:28.628
+10:45:28.658 commit seen; kill -TERM daemon 3464513
+10:45:31.653 daemon exit=130
+10:45:31.655 cli exit=130
+
+### commits.log
+10:45:28.628 commit k1
+10:45:31.632 swap k1
+
+### ls state
+total 16
+drwxr-xr-x 2 tim users 4096 Nov 14 10:45 .
+drwxr-xr-x 4 tim users 4096 Nov 14 10:45 ..
+-rw-r--r-- 1 tim users   44 Nov 14 10:45 commits.log
+-rw-r--r-- 1 tim users    0 Nov 14 10:45 daemon.lock
+-rw-r--r-- 1 tim users  512 Nov 14 10:45 daemon.lock-journal
+
+### daemon log
+10:45:27.686 [daemon 3464513] lock taken
+10:45:27.692 [daemon 3464513] listening on state/chad.sock mode 600
+10:45:28.125 [daemon 3464513] apply#1 "k1" (client 0) received
+10:45:28.125 [daemon 3464513] apply#1 "k1" (client 0) step snapshot
+10:45:28.226 [daemon 3464513] apply#1 "k1" (client 0) step check
+10:45:28.327 [daemon 3464513] apply#1 "k1" (client 0) step load
+10:45:28.628 [daemon 3464513] apply#1 "k1" (client 0) step commit
+10:45:31.632 [daemon 3464513] apply#1 "k1" (client 0) step swap
+10:45:31.632 [daemon 3464513] apply#1 "k1" (client 0) handler exit: INTERRUPTED

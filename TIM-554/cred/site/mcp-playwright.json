@@ -1,0 +1,52 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "exec playwright-mcp --cdp-endpoint http://127.0.0.1:9222 --secrets <(printf \"%s='%s'\\n\" SITE_PASSWORD \"$SITE_PASSWORD\" QUOTED \"$QUOTED\" HASHY \"$HASHY\")"
+      ],
+      "env": {
+        "SITE_PASSWORD": "${SITE_PASSWORD}",
+        "QUOTED": "${QUOTED}",
+        "HASHY": "${HASHY}"
+      }
+    },
+    "pwplain": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "exec playwright-mcp --cdp-endpoint http://127.0.0.1:9222 --secrets <(printf '%s=%s\\n' SITE_PASSWORD \"$SITE_PASSWORD\" QUOTED \"$QUOTED\" HASHY \"$HASHY\")"
+      ],
+      "env": {
+        "SITE_PASSWORD": "${SITE_PASSWORD}",
+        "QUOTED": "${QUOTED}",
+        "HASHY": "${HASHY}"
+      }
+    },
+    "pwshm": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "f=/dev/shm/pwmcp-secrets.env; (umask 077; printf '%s=\"%s\"\\n' SITE_PASSWORD \"$SITE_PASSWORD\" QUOTED \"$QUOTED\" HASHY \"$HASHY\" > $f); exec playwright-mcp --cdp-endpoint http://127.0.0.1:9222 --secrets $f"
+      ],
+      "env": {
+        "SITE_PASSWORD": "${SITE_PASSWORD}",
+        "QUOTED": "${QUOTED}",
+        "HASHY": "${HASHY}"
+      }
+    },
+    "pwfd": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "f=$(mktemp /dev/shm/pw.XXXXXX); printf \"%s='%s'\\n\" SITE_PASSWORD \"$SITE_PASSWORD\" QUOTED \"$QUOTED\" HASHY \"$HASHY\" > $f; exec 3<$f; rm $f; exec playwright-mcp --cdp-endpoint http://127.0.0.1:9222 --secrets /dev/fd/3"
+      ],
+      "env": {
+        "SITE_PASSWORD": "${SITE_PASSWORD}",
+        "QUOTED": "${QUOTED}",
+        "HASHY": "${HASHY}"
+      }
+    }
+  }
+}

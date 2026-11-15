@@ -1,0 +1,25 @@
+scenario midturn, model gpt-6-astra/low, node v26.8.2, clanka 0.27.0
+
+=== http: a first turn, logged in
+[   0.1s] thread-http turn starts: Reply with the single word: one
+[   2.7s] thread-http answer: one
+[   2.7s] thread-http tokens: input 1791, cached 0; per model call: 1791 in / 0 cached
+
+=== http: logout while a script runs, 40s login timeout
+[   2.7s] thread-http turn starts: Run exactly this script and tell me what it printed: await sleep(5000); console.log('slept')
+[   5.1s] host      logout called on the shared CodexAuth while the script runs
+[  10.2s] onCode    code #1 issued. CurrentSession inside onCode: thread-http, ownerPresent true
+[  10.2s] discord   to thread-http: Open https://auth.openai.com/codex/device and enter ****-***JN
+[  50.1s] wrapper   the shared wait ended: failure: Login timed out
+[  50.1s] thread-http turn failed, after 47.4s, model retries 0: defect: Login timed out
+[  50.1s] thread-http history: 2 messages before the turn, 5 after it failed
+
+=== http: the next owner message, chad's token check before send
+[  50.1s] thread-http turn starts: Reply with the single word: two
+[  50.2s] onCode    code #2 issued. CurrentSession inside onCode: thread-http, ownerPresent true
+[  50.2s] discord   to thread-http: Open https://auth.openai.com/codex/device and enter ****-***SF
+[  90.1s] wrapper   the shared wait ended: failure: Login timed out
+[  90.1s] discord   to thread-http: -# failure: Login timed out
+[  90.1s] thread-http turn ended before send, after 40.0s
+[  90.1s] summary   device codes issued: 2; auth.openai.com requests: /api/accounts/deviceauth/usercode x2, /api/accounts/deviceauth/token x10
+[  90.1s] host      token file in the store after the run: false

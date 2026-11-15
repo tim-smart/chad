@@ -1,0 +1,30 @@
+{"t":1794653130153,"pid":3464694,"ev":"scenario.start","name":"term-mid-turn","phase":"1","variant":""}
+{"t":1794653130175,"pid":3464694,"ev":"user.posted","text":"sleep:15000 long","key":"message/test:c1/m2"}
+{"t":1794653130190,"pid":3464694,"ev":"gateway.saved","key":"message/test:c1/m2","ms":12}
+{"t":1794653130292,"pid":3464694,"ev":"session.activated","thread":"c1","session":"946f0ab5-b9d2-4cd2-a12f-f3a0c60954b9","activation":1}
+{"t":1794653130296,"pid":3464694,"ev":"message.delivered","key":"message/test:c1/m2","ms":117,"text":"sleep:15000 long"}
+{"t":1794653130328,"pid":3464694,"ev":"turn.start","key":"message/test:c1/m2","turn":"12a57d66-0f70-4785-95e6-a7de8160a968","starts":1,"cuts":0,"kills":0,"resumed":false}
+{"t":1794653130330,"pid":3464694,"ev":"hook.beforeTurn","plugin":"probe","turn":"12a57d66-0f70-4785-95e6-a7de8160a968","origin":{"_tag":"Message","text":"sleep:15000 long","userId":"owner-1"},"resumed":false,"prompt":"sleep:15000 long"}
+{"t":1794653130332,"pid":3464694,"ev":"status.posted","id":"m4"}
+{"t":1794653146356,"pid":3464694,"ev":"turn.cutByShutdown","key":"message/test:c1/m2","saved":true}
+{"t":1794653146357,"pid":3464694,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794653146367,"pid":3464694,"ev":"hooks.draining","pending":0}
+{"t":1794653146367,"pid":3464694,"ev":"hooks.drained"}
+{"t":1794653146367,"pid":3464694,"ev":"plugins.closed"}
+{"t":1794653146406,"pid":3464694,"ev":"process.exit","code":130,"signal":null}
+{"t":1794653147354,"pid":3466493,"ev":"scenario.start","name":"term-mid-turn","phase":"2","variant":""}
+{"t":1794653147421,"pid":3466493,"ev":"session.activated","thread":"c1","session":"946f0ab5-b9d2-4cd2-a12f-f3a0c60954b9","activation":1}
+{"t":1794653147423,"pid":3466493,"ev":"message.delivered","key":"message/test:c1/m2","ms":17245,"text":"sleep:15000 long"}
+{"t":1794653147433,"pid":3466493,"ev":"turn.start","key":"message/test:c1/m2","turn":"12a57d66-0f70-4785-95e6-a7de8160a968","starts":2,"cuts":1,"kills":1,"resumed":true}
+{"t":1794653147433,"pid":3466493,"ev":"hook.beforeTurn","plugin":"probe","turn":"12a57d66-0f70-4785-95e6-a7de8160a968","origin":{"_tag":"Message","text":"sleep:15000 long","userId":"owner-1"},"resumed":true,"prompt":"[chad restarted while this turn was runn"}
+{"t":1794653147434,"pid":3466493,"ev":"status.posted","id":"m2"}
+{"t":1794653162590,"pid":3466493,"ev":"turn.end","key":"message/test:c1/m2","turn":"12a57d66-0f70-4785-95e6-a7de8160a968","outcome":"Answered","compacted":false}
+{"t":1794653162628,"pid":3466493,"ev":"hook.afterTurn","plugin":"probe","turn":"12a57d66-0f70-4785-95e6-a7de8160a968","origin":{"_tag":"Message","text":"sleep:15000 long","userId":"owner-1"},"resumed":true,"outcome":"Answered"}
+{"t":1794653162630,"pid":3466493,"ev":"hook.done","plugin":"probe","label":"afterTurn","result":"ok","ms":2}
+{"t":1794653162630,"pid":3466493,"ev":"bot.messages","messages":["done: sleep:15000 long"]}
+{"t":1794653162630,"pid":3466493,"ev":"scenario.end","name":"term-mid-turn","phase":"2"}
+{"t":1794653162638,"pid":3466493,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794653166906,"pid":3466493,"ev":"hooks.draining","pending":0}
+{"t":1794653166906,"pid":3466493,"ev":"hooks.drained"}
+{"t":1794653166906,"pid":3466493,"ev":"plugins.closed"}
+{"t":1794653166947,"pid":3466493,"ev":"process.exit","code":0,"signal":null}

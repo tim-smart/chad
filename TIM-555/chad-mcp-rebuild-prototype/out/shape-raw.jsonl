@@ -1,0 +1,75 @@
+{"t":1794687334044,"pid":2553507,"ev":"boot.nothingApplied"}
+{"t":1794687334152,"pid":2553507,"ev":"scenario.start","name":"shape","phase":"1","drainMs":30000,"closeMs":10000,"mcp":{"drainMs":30000,"heldMs":120000,"startMs":60000,"rules":"amended"}}
+{"t":1794687334156,"pid":2553507,"ev":"apply.start","dir":"out/repo-shape-raw/versions/1794687334153-2553507-1"}
+{"t":1794687334242,"pid":2553507,"ev":"build.ok","version":"shaped#1@81fe9bbb","tools":["measure","label","report","plain"],"hooks":[]}
+{"t":1794687334243,"pid":2553507,"ev":"live.moved","live":"versions/1794687334153-2553507-1"}
+{"t":1794687334244,"pid":2553507,"ev":"swap.gateClosed","label":"apply","plugins":["shaped: nothing -> shaped#1@81fe9bbb"]}
+{"t":1794687334244,"pid":2553507,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687334244,"pid":2553507,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687334244,"pid":2553507,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["shaped: shaped#1@81fe9bbb"]}
+{"t":1794687334244,"pid":2553507,"ev":"apply.pluginsActivated","mcpStillRebuilding":false}
+{"t":1794687334245,"pid":2553507,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":["shaped"],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794687334246,"pid":2553507,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"settings that shape a tool PLAN:{\"steps\":[\"try { console.log"}
+{"t":1794687334341,"pid":2553507,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687334343,"pid":2553507,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687334385,"pid":2553507,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"832220ba-08f8-46aa-9de1-47f353657a99","starts":1,"cuts":0,"resumed":false}
+{"t":1794687334393,"pid":2553507,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"mcp":"0-none","mcpPrompt":"01ba4719","on":{"shaped":"81fe9bbb"},"tools":["measure","label","report","plain"]}
+{"t":1794687334396,"pid":2553507,"ev":"mcp.keysTaken","session":"s-c1","layer":null,"rebuilding":null,"keys":[]}
+{"t":1794687334396,"pid":2553507,"ev":"turn.system","session":"s-c1","hasMcpSection":false,"saysStillStarting":false,"mentions":[]}
+{"t":1794687334463,"pid":2553507,"ev":"call.routed","session":"s-c1","tool":"measure","built":"81fe9bbb","to":"shaped#1@81fe9bbb","recoded":false}
+{"t":1794687334465,"pid":2553507,"ev":"call.routed","session":"s-c1","tool":"label","built":"81fe9bbb","to":"shaped#1@81fe9bbb","recoded":false}
+{"t":1794687334466,"pid":2553507,"ev":"call.routed","session":"s-c1","tool":"plain","built":"81fe9bbb","to":"shaped#1@81fe9bbb","recoded":false}
+{"t":1794687334467,"pid":2553507,"ev":"script.mark","session":"s-c1","label":"m1"}
+{"t":1794687334475,"pid":2553507,"ev":"apply.start","dir":"out/repo-shape-raw/versions/1794687334473-2553507-2"}
+{"t":1794687334479,"pid":2553507,"ev":"build.ok","version":"shaped#2@81fe9bbb","tools":["measure","label","report","plain"],"hooks":[]}
+{"t":1794687334480,"pid":2553507,"ev":"live.moved","live":"versions/1794687334473-2553507-2"}
+{"t":1794687334480,"pid":2553507,"ev":"swap.gateClosed","label":"apply","plugins":["shaped: shaped#1@81fe9bbb -> shaped#2@81fe9bbb"]}
+{"t":1794687334480,"pid":2553507,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687334480,"pid":2553507,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687334481,"pid":2553507,"ev":"close.done","version":"shaped#1@81fe9bbb","why":"apply","ms":0}
+{"t":1794687334481,"pid":2553507,"ev":"swap.activated","label":"apply","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[],"now":["shaped: shaped#2@81fe9bbb"]}
+{"t":1794687334481,"pid":2553507,"ev":"apply.pluginsActivated","mcpStillRebuilding":false}
+{"t":1794687334481,"pid":2553507,"ev":"cli.apply","label":"the unit setting, which is in a description","ok":true,"exit":0,"errors":[],"reloaded":["shaped"],"kept":[],"swap":{"label":"apply","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[]}}
+{"t":1794687334482,"pid":2553507,"ev":"call.refused","session":"s-c1","tool":"measure","at":"declaration","built":"81fe9bbb","current":"shaped#2@81fe9bbb","message":"measure was changed by an apply. The new version is in your next turn."}
+{"t":1794687334490,"pid":2553507,"ev":"call.routed","session":"s-c1","tool":"label","built":"81fe9bbb","to":"shaped#2@81fe9bbb","recoded":false}
+{"t":1794687334490,"pid":2553507,"ev":"call.routed","session":"s-c1","tool":"plain","built":"81fe9bbb","to":"shaped#2@81fe9bbb","recoded":false}
+{"t":1794687334493,"pid":2553507,"ev":"script.mark","session":"s-c1","label":"m2"}
+{"t":1794687334503,"pid":2553507,"ev":"apply.start","dir":"out/repo-shape-raw/versions/1794687334502-2553507-3"}
+{"t":1794687334508,"pid":2553507,"ev":"build.ok","version":"shaped#3@81fe9bbb","tools":["measure","label","report","plain"],"hooks":[]}
+{"t":1794687334508,"pid":2553507,"ev":"live.moved","live":"versions/1794687334502-2553507-3"}
+{"t":1794687334509,"pid":2553507,"ev":"swap.gateClosed","label":"apply","plugins":["shaped: shaped#2@81fe9bbb -> shaped#3@81fe9bbb"]}
+{"t":1794687334509,"pid":2553507,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687334509,"pid":2553507,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687334509,"pid":2553507,"ev":"close.done","version":"shaped#2@81fe9bbb","why":"apply","ms":0}
+{"t":1794687334509,"pid":2553507,"ev":"swap.activated","label":"apply","generation":3,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["shaped: shaped#3@81fe9bbb"]}
+{"t":1794687334509,"pid":2553507,"ev":"apply.pluginsActivated","mcpStillRebuilding":false}
+{"t":1794687334509,"pid":2553507,"ev":"cli.apply","label":"the trim setting, which is in a schema and not in a declaration","ok":true,"exit":0,"errors":[],"reloaded":["shaped"],"kept":[],"swap":{"label":"apply","generation":3,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794687334510,"pid":2553507,"ev":"call.refused","session":"s-c1","tool":"measure","at":"declaration","built":"81fe9bbb","current":"shaped#3@81fe9bbb","message":"measure was changed by an apply. The new version is in your next turn."}
+{"t":1794687334510,"pid":2553507,"ev":"call.routed","session":"s-c1","tool":"label","built":"81fe9bbb","to":"shaped#3@81fe9bbb","recoded":false}
+{"t":1794687334511,"pid":2553507,"ev":"call.routed","session":"s-c1","tool":"plain","built":"81fe9bbb","to":"shaped#3@81fe9bbb","recoded":false}
+{"t":1794687334512,"pid":2553507,"ev":"script.mark","session":"s-c1","label":"m3"}
+{"t":1794687334530,"pid":2553507,"ev":"apply.start","dir":"out/repo-shape-raw/versions/1794687334530-2553507-4"}
+{"t":1794687334537,"pid":2553507,"ev":"build.ok","version":"shaped#4@81fe9bbb","tools":["measure","label","report","plain"],"hooks":[]}
+{"t":1794687334539,"pid":2553507,"ev":"live.moved","live":"versions/1794687334530-2553507-4"}
+{"t":1794687334539,"pid":2553507,"ev":"swap.gateClosed","label":"apply","plugins":["shaped: shaped#3@81fe9bbb -> shaped#4@81fe9bbb"]}
+{"t":1794687334539,"pid":2553507,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687334539,"pid":2553507,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687334539,"pid":2553507,"ev":"close.done","version":"shaped#3@81fe9bbb","why":"apply","ms":0}
+{"t":1794687334539,"pid":2553507,"ev":"swap.activated","label":"apply","generation":4,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["shaped: shaped#4@81fe9bbb"]}
+{"t":1794687334539,"pid":2553507,"ev":"apply.pluginsActivated","mcpStillRebuilding":false}
+{"t":1794687334539,"pid":2553507,"ev":"cli.apply","label":"a minimum length, which is in a schema and not in a declaration","ok":true,"exit":0,"errors":[],"reloaded":["shaped"],"kept":[],"swap":{"label":"apply","generation":4,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794687334540,"pid":2553507,"ev":"call.refused","session":"s-c1","tool":"measure","at":"declaration","built":"81fe9bbb","current":"shaped#4@81fe9bbb","message":"measure was changed by an apply. The new version is in your next turn."}
+{"t":1794687334540,"pid":2553507,"ev":"call.routed","session":"s-c1","tool":"label","built":"81fe9bbb","to":"shaped#4@81fe9bbb","recoded":false}
+{"t":1794687334541,"pid":2553507,"ev":"call.routed","session":"s-c1","tool":"plain","built":"81fe9bbb","to":"shaped#4@81fe9bbb","recoded":false}
+{"t":1794687334546,"pid":2553507,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"3 metres #1\"\nOK \"schema says as typed, stored \\\"  bob  \\\" #1\"\nOK \"shaped #1\"\nERR measure was changed by an apply. The new version is in your next turn.\nOK \"schema says as typed, stored \\\"  bob  \\\" #2\"\nOK \"shaped #2\"\nERR measure was changed by an apply. The new version is in your next turn.\nOK \"schema says trimmed, stored \\\"  bob  \\\" #3\"\nOK \"shaped #3\"\nERR measure was changed by an apply. The new version is in your next turn.\nOK \"schema says trimmed, stored \\\"  bob  \\\" #4\"\nOK \"shaped #4\"\n"}
+{"t":1794687334654,"pid":2553507,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"832220ba-08f8-46aa-9de1-47f353657a99","outcome":"Answered","text":"RESULTS [\"OK \\\"3 metres #1\\\"\\nOK \\\"schema says as typed, stored \\\\\\\"  bob  \\\\\\\" #1\\\"\\nOK \\\"shaped #1\\\"\\nERR measure was changed by an apply. The new version is in your next turn.\\nOK \\\"schema says as typed, stored \\\\\\\"  bob  \\\\\\\" #2\\\"\\nOK \\\"shaped #2\\\"\\nERR measure was changed by an apply. The new version is in your next turn.\\nOK \\\"schema says trimmed, stored \\\\\\\"  bob  \\\\\\\" #3\\\"\\nOK \\\"shaped #3\\\"\\nERR measure was changed by an apply. The new version is in your next turn.\\nOK \\\"schema says trimmed, stored \\\\\\\"  bob  \\\\\\\" #4\\\"\\nOK \\\"shaped #4\\\"\\n\"]"}
+{"t":1794687334684,"pid":2553507,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"3 metres #1\\\"\\nOK \\\"schema says as typed, stored \\\\\\\"  bob  \\\\\\\" #1\\\"\\nOK \\\"shaped #1\\\"\\nERR measure was changed by an apply. The new version is in your next turn.\\nOK \\\"schema says as typed, stored \\\\\\\"  bob  \\\\\\\" #2\\\"\\nOK \\\"shaped #2\\\"\\nERR measure was changed by an apply. The new version is in your next turn.\\nOK \\\"schema says trimmed, stored \\\\\\\"  bob  \\\\\\\" #3\\\"\\nOK \\\"shaped #3\\\"\\nERR measure was changed by an apply. The new version is in your next turn.\\nOK \\\"schema says trimmed, stored \\\\\\\"  bob  \\\\\\\" #4\\\"\\nOK \\\"shaped #4\\\"\\n\"]"}
+{"t":1794687334684,"pid":2553507,"ev":"scenario.end","name":"shape","phase":"1"}
+{"t":1794687334684,"pid":2553507,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794687334694,"pid":2553507,"ev":"stop.entityLayersClosed"}
+{"t":1794687338628,"pid":2553507,"ev":"stop.runnerClosed"}
+{"t":1794687338629,"pid":2553507,"ev":"hooks.draining","pending":0}
+{"t":1794687338629,"pid":2553507,"ev":"hooks.drained"}
+{"t":1794687338629,"pid":2553507,"ev":"close.done","version":"shaped#4@81fe9bbb","why":"graceful stop","ms":0}
+{"t":1794687338629,"pid":2553507,"ev":"plugins.closed"}
+{"t":1794687338676,"pid":2553507,"ev":"process.exit","code":0,"signal":null}

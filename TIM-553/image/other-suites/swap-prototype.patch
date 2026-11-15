@@ -1,0 +1,23 @@
+--- a/scenarios.ts	2026-11-14 19:18:02.000000000 +0000
++++ b/scenarios.ts	2026-11-14 21:58:05.769307970 +0000
+@@ -256,7 +256,8 @@
+     yield* applied("code change, no onSession")
+     yield* until("queued hooks done", (e) => e.ev === "hook.done" || e.ev === "hook.dropped", { count: 4 })
+     // A removed plugin's queued hooks are dropped.
+-    write("echo", echoSource({ label: "v3", afterTurn: 1500 }))
++    // PROTO_V3_HOOK, added for TIM-553: a short hook lets t4's finish before t5 ends, so t5's hook is running, not queued, at the removal.
++    write("echo", echoSource({ label: "v3", afterTurn: Number(process.env.PROTO_V3_HOOK ?? 1500) }))
+     yield* applied("slower hook again")
+     yield* ask("A", "t4 " + plan([[call("echo", { text: "t4" })]]))
+     yield* ask("A", "t5 " + plan([[call("echo", { text: "t5" })]]))
+--- a/chad/host.ts	2026-11-14 19:15:16.000000000 +0000
++++ b/chad/host.ts	2026-11-14 20:55:11.000038079 +0000
+@@ -568,7 +568,7 @@
+ export const HostLive = AbandonLive.pipe(
+   Layer.provideMerge(Layer.mergeAll(SessionLive, TimerLive, GatewayLive)),
+   Layer.provideMerge(marker("stop.entityLayersClosed")),
+-  Layer.provideMerge(SingleRunner.layer({ shardingConfig: { entityMessagePollInterval: 1000 } })),
++  Layer.provideMerge(SingleRunner.layer({ shardingConfig: { entityMessagePollInterval: 1000, ...(process.env.PROTO_SHARDS ? { shardsPerGroup: Number(process.env.PROTO_SHARDS) } : {}) } })),
+   Layer.provideMerge(marker("stop.runnerClosed")),
+   Layer.provideMerge(HooksLive),
+   Layer.provideMerge(PluginsLive),

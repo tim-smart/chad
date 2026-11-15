@@ -1,0 +1,42 @@
+{"t":1794652434700,"pid":3376372,"ev":"scenario.start","name":"chunks","phase":"1","variant":""}
+{"t":1794652434702,"pid":3376372,"ev":"user.posted","text":"sleep:100 turn 1","key":"message/test:c1/m2"}
+{"t":1794652434727,"pid":3376372,"ev":"gateway.saved","key":"message/test:c1/m2","ms":23}
+{"t":1794652434805,"pid":3376372,"ev":"session.activated","thread":"c1","session":"93c81e49-7d9c-4c56-842f-536fc604633a","activation":1}
+{"t":1794652434818,"pid":3376372,"ev":"message.delivered","key":"message/test:c1/m2","ms":114,"text":"sleep:100 turn 1"}
+{"t":1794652434840,"pid":3376372,"ev":"turn.start","key":"message/test:c1/m2","turn":"534f2ccf-e189-4153-bf2c-359c08de6150","starts":1,"resumed":false}
+{"t":1794652434849,"pid":3376372,"ev":"status.posted","id":"m4"}
+{"t":1794652434987,"pid":3376372,"ev":"turn.end","key":"message/test:c1/m2","turn":"534f2ccf-e189-4153-bf2c-359c08de6150","outcome":"Answered","compacted":false}
+{"t":1794652435005,"pid":3376372,"ev":"user.posted","text":"sleep:100 turn 2","key":"message/test:c1/m6"}
+{"t":1794652435023,"pid":3376372,"ev":"gateway.saved","key":"message/test:c1/m6","ms":18}
+{"t":1794652435033,"pid":3376372,"ev":"message.delivered","key":"message/test:c1/m6","ms":28,"text":"sleep:100 turn 2"}
+{"t":1794652435055,"pid":3376372,"ev":"turn.start","key":"message/test:c1/m6","turn":"1364b656-df19-499b-9a7a-e7c8300b8472","starts":1,"resumed":false}
+{"t":1794652435076,"pid":3376372,"ev":"chunk.updateSent","text":"## mem\n\nmemory block v2"}
+{"t":1794652435076,"pid":3376372,"ev":"status.posted","id":"m8"}
+{"t":1794652435221,"pid":3376372,"ev":"turn.end","key":"message/test:c1/m6","turn":"1364b656-df19-499b-9a7a-e7c8300b8472","outcome":"Answered","compacted":false}
+{"t":1794652435274,"pid":3376372,"ev":"user.posted","text":"sleep:100 turn 3","key":"message/test:c1/m10"}
+{"t":1794652435282,"pid":3376372,"ev":"gateway.saved","key":"message/test:c1/m10","ms":8}
+{"t":1794652435294,"pid":3376372,"ev":"message.delivered","key":"message/test:c1/m10","ms":20,"text":"sleep:100 turn 3"}
+{"t":1794652435327,"pid":3376372,"ev":"turn.start","key":"message/test:c1/m10","turn":"dad75694-d451-4705-8606-0080f226bca4","starts":1,"resumed":false}
+{"t":1794652435329,"pid":3376372,"ev":"chunk.renderFailed","plugin":"mem","kept":"memory block v2"}
+{"t":1794652435330,"pid":3376372,"ev":"status.posted","id":"m12"}
+{"t":1794652435476,"pid":3376372,"ev":"turn.end","key":"message/test:c1/m10","turn":"dad75694-d451-4705-8606-0080f226bca4","outcome":"Answered","compacted":false}
+{"t":1794652435489,"pid":3376372,"ev":"user.posted","text":"sleep:100 turn 4","key":"message/test:c1/m14"}
+{"t":1794652435501,"pid":3376372,"ev":"gateway.saved","key":"message/test:c1/m14","ms":10}
+{"t":1794652435519,"pid":3376372,"ev":"message.delivered","key":"message/test:c1/m14","ms":28,"text":"sleep:100 turn 4"}
+{"t":1794652435535,"pid":3376372,"ev":"turn.start","key":"message/test:c1/m14","turn":"354ae2d2-0b26-4d7c-ae45-6a002205cd5c","starts":1,"resumed":false}
+{"t":1794652435538,"pid":3376372,"ev":"status.posted","id":"m16"}
+{"t":1794652435690,"pid":3376372,"ev":"turn.end","key":"message/test:c1/m14","turn":"354ae2d2-0b26-4d7c-ae45-6a002205cd5c","outcome":"Answered","compacted":false}
+{"t":1794652435705,"pid":3376372,"ev":"user.posted","text":"sleep:100 turn 5","key":"message/test:c1/m18"}
+{"t":1794652435725,"pid":3376372,"ev":"gateway.saved","key":"message/test:c1/m18","ms":20}
+{"t":1794652435734,"pid":3376372,"ev":"message.delivered","key":"message/test:c1/m18","ms":29,"text":"sleep:100 turn 5"}
+{"t":1794652435750,"pid":3376372,"ev":"turn.start","key":"message/test:c1/m18","turn":"0af1dc2e-a463-4221-8848-05cd5bc18765","starts":1,"resumed":false}
+{"t":1794652435758,"pid":3376372,"ev":"chunk.updateSent","text":"## mem\n\nmemory block v3"}
+{"t":1794652435768,"pid":3376372,"ev":"status.posted","id":"m20"}
+{"t":1794652435929,"pid":3376372,"ev":"turn.end","key":"message/test:c1/m18","turn":"0af1dc2e-a463-4221-8848-05cd5bc18765","outcome":"Answered","compacted":false}
+{"t":1794652435938,"pid":3376372,"ev":"chunks.updatesInHistory","rows":2}
+{"t":1794652435940,"pid":3376372,"ev":"scenario.end","name":"chunks","phase":"1"}
+{"t":1794652435951,"pid":3376372,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652440868,"pid":3376372,"ev":"hooks.draining","pending":0}
+{"t":1794652440868,"pid":3376372,"ev":"hooks.drained"}
+{"t":1794652440868,"pid":3376372,"ev":"plugins.closed"}
+{"t":1794652440913,"pid":3376372,"ev":"process.exit","code":0,"signal":null}

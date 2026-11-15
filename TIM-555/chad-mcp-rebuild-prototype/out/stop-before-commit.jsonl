@@ -1,0 +1,57 @@
+{"t":1794687325578,"pid":2552405,"ev":"boot.nothingApplied"}
+{"t":1794687325705,"pid":2552405,"ev":"scenario.start","name":"stop-before-commit","phase":"1","drainMs":30000,"closeMs":10000,"mcp":{"drainMs":30000,"heldMs":120000,"startMs":60000,"rules":"amended"}}
+{"t":1794687325708,"pid":2552405,"ev":"apply.start","dir":"out/repo-stop-before-commit/versions/1794687325708-2552405-1"}
+{"t":1794687325796,"pid":2552405,"ev":"build.ok","version":"echo#1@dd2b18cb","tools":["slow","echo"],"hooks":[]}
+{"t":1794687325796,"pid":2552405,"ev":"apply.built","waitingMs":1500}
+{"t":1794687327297,"pid":2552405,"ev":"live.moved","live":"versions/1794687325708-2552405-1"}
+{"t":1794687327298,"pid":2552405,"ev":"swap.gateClosed","label":"apply","plugins":["echo: nothing -> echo#1@dd2b18cb"]}
+{"t":1794687327298,"pid":2552405,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687327298,"pid":2552405,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687327299,"pid":2552405,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[],"now":["echo: echo#1@dd2b18cb"]}
+{"t":1794687327299,"pid":2552405,"ev":"apply.pluginsActivated","mcpStillRebuilding":false}
+{"t":1794687327299,"pid":2552405,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[]}}
+{"t":1794687327300,"pid":2552405,"ev":"apply.start","dir":"out/repo-stop-before-commit/versions/1794687327300-2552405-2"}
+{"t":1794687327308,"pid":2552405,"ev":"build.ok","version":"echo#2@3e5f9bb7","tools":["slow","echo"],"hooks":[]}
+{"t":1794687327308,"pid":2552405,"ev":"apply.built","waitingMs":1500}
+{"t":1794687327530,"pid":2552405,"ev":"driver.sigterm"}
+{"t":1794687327531,"pid":2552405,"ev":"stop.abandonSwap","running":true,"swapping":null}
+{"t":1794687327531,"pid":2552405,"ev":"plugin.closing","plugin":"echo","instance":2,"hash":"3e5f9bb7"}
+{"t":1794687327532,"pid":2552405,"ev":"close.done","version":"echo#2@3e5f9bb7","why":"the apply was cancelled before its commit","ms":1}
+{"t":1794687327532,"pid":2552405,"ev":"apply.cancelledBeforeCommit","live":"versions/1794687325708-2552405-1"}
+{"t":1794687327540,"pid":2552405,"ev":"stop.entityLayersClosed"}
+{"t":1794687331200,"pid":2552405,"ev":"stop.runnerClosed"}
+{"t":1794687331200,"pid":2552405,"ev":"hooks.draining","pending":0}
+{"t":1794687331200,"pid":2552405,"ev":"hooks.drained"}
+{"t":1794687331200,"pid":2552405,"ev":"plugin.closing","plugin":"echo","instance":1,"hash":"dd2b18cb"}
+{"t":1794687331200,"pid":2552405,"ev":"close.done","version":"echo#1@dd2b18cb","why":"graceful stop","ms":0}
+{"t":1794687331200,"pid":2552405,"ev":"plugins.closed"}
+{"t":1794687331279,"pid":2552405,"ev":"process.exit","code":130,"signal":null}
+{"t":1794687332225,"pid":2553358,"ev":"build.ok","version":"echo#1@dd2b18cb","tools":["slow","echo"],"hooks":[]}
+{"t":1794687332226,"pid":2553358,"ev":"swap.gateClosed","label":"boot","plugins":["echo: nothing -> echo#1@dd2b18cb"]}
+{"t":1794687332229,"pid":2553358,"ev":"swap.draining","label":"boot","inflight":[]}
+{"t":1794687332229,"pid":2553358,"ev":"swap.drained","label":"boot","ms":3,"interrupted":[]}
+{"t":1794687332229,"pid":2553358,"ev":"swap.activated","label":"boot","generation":1,"waitedMs":3,"drainedMs":3,"closeMs":0,"interrupted":[],"affected":[],"now":["echo: echo#1@dd2b18cb"]}
+{"t":1794687332229,"pid":2553358,"ev":"boot.loaded","live":"versions/1794687325708-2552405-1","plugins":["echo#1@dd2b18cb"]}
+{"t":1794687332256,"pid":2553358,"ev":"scenario.start","name":"stop-before-commit","phase":"2","drainMs":30000,"closeMs":10000,"mcp":{"drainMs":30000,"heldMs":120000,"startMs":60000,"rules":"amended"}}
+{"t":1794687332258,"pid":2553358,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"after the boot PLAN:{\"steps\":[\"try { console.log('OK ' + JSO"}
+{"t":1794687332417,"pid":2553358,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687332419,"pid":2553358,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687332449,"pid":2553358,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"dbf0792a-152d-4dec-9eba-b001a4e2a611","starts":1,"cuts":0,"resumed":false}
+{"t":1794687332456,"pid":2553358,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"mcp":"0-none","mcpPrompt":"01ba4719","on":{"echo":"dd2b18cb"},"tools":["slow","echo"]}
+{"t":1794687332458,"pid":2553358,"ev":"mcp.keysTaken","session":"s-c1","layer":null,"rebuilding":null,"keys":[]}
+{"t":1794687332460,"pid":2553358,"ev":"turn.system","session":"s-c1","hasMcpSection":false,"saysStillStarting":false,"mentions":[]}
+{"t":1794687332537,"pid":2553358,"ev":"call.routed","session":"s-c1","tool":"echo","built":"dd2b18cb","to":"echo#1@dd2b18cb","recoded":false}
+{"t":1794687332542,"pid":2553358,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v1 hi Pacific/Auckland #1: a1\"\n"}
+{"t":1794687332629,"pid":2553358,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"dbf0792a-152d-4dec-9eba-b001a4e2a611","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: a1\\\"\\n\"]"}
+{"t":1794687332646,"pid":2553358,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: a1\\\"\\n\"]"}
+{"t":1794687332646,"pid":2553358,"ev":"status","status":["echo: echo#1@dd2b18cb"]}
+{"t":1794687332646,"pid":2553358,"ev":"scenario.end","name":"stop-before-commit","phase":"2"}
+{"t":1794687332646,"pid":2553358,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794687332687,"pid":2553358,"ev":"stop.entityLayersClosed"}
+{"t":1794687337427,"pid":2553358,"ev":"stop.runnerClosed"}
+{"t":1794687337427,"pid":2553358,"ev":"hooks.draining","pending":0}
+{"t":1794687337427,"pid":2553358,"ev":"hooks.drained"}
+{"t":1794687337428,"pid":2553358,"ev":"plugin.closing","plugin":"echo","instance":1,"hash":"dd2b18cb"}
+{"t":1794687337428,"pid":2553358,"ev":"close.done","version":"echo#1@dd2b18cb","why":"graceful stop","ms":0}
+{"t":1794687337428,"pid":2553358,"ev":"plugins.closed"}
+{"t":1794687337472,"pid":2553358,"ev":"process.exit","code":0,"signal":null}

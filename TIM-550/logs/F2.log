@@ -1,0 +1,11 @@
+
+### F2: daemon frozen in the MIDDLE of a streaming call; cli run with CHAD_PROTO_DEBUG=1
+10:45:16.726 [cli 3463470] line 1/100 sent 10:45:16.723
+10:45:17.025 [cli 3463470] line 2/100 sent 10:45:17.024
+10:45:17.325 [cli 3463470] line 3/100 sent 10:45:17.324
+10:45:17.627 [cli 3463470] line 4/100 sent 10:45:17.626
+10:45:17.810 kill -STOP daemon
+chad tail: failed: SocketReadError: An error occurred during Read
+10:45:26.720 [debug] teardown: main fiber exit=Success exitCode var=1
+10:45:26.720 [debug] process exit event: code=1 exitCode var=1
+10:45:26.736 cli exit=1

@@ -1,0 +1,6 @@
+10:42:33.675 [daemon 3445488] lock taken
+10:42:33.681 [daemon 3445488] listening on state/chad.sock mode 600
+10:42:34.122 [daemon 3445488] Reload accepted (owner call, no session id on the call)
+10:42:35.395 [daemon 3445488] Status from client version 0.1.0-proto
+10:42:35.824 [daemon 3445488] REFUSED reload: owner call carried session id sess-42
+10:42:36.258 [daemon 3445488] Reload accepted (owner call, no session id on the call)

@@ -1,0 +1,65 @@
+{"t":1794687651162,"pid":2589024,"ev":"scenario.start","name":"code","phase":"1"}
+{"t":1794687651882,"pid":2589024,"ev":"secret.saved","name":"SITE_PASSWORD","via":"cli","kind":"plain","replaced":false,"short":false}
+{"t":1794687651927,"pid":2589024,"ev":"cli","label":"set SITE_PASSWORD","args":["secret","set","SITE_PASSWORD","--note","local test form, user tim"],"code":0,"stdout":"Saved SITE_PASSWORD\n","stderr":"","ms":763}
+{"t":1794687652619,"pid":2589024,"ev":"secret.saved","name":"QUOTED","via":"cli","kind":"plain","replaced":false,"short":false}
+{"t":1794687652657,"pid":2589024,"ev":"cli","label":"set QUOTED","args":["secret","set","QUOTED"],"code":0,"stdout":"Saved QUOTED\n","stderr":"","ms":730}
+{"t":1794687653190,"pid":2589024,"ev":"secret.saved","name":"SITE_TOTP","via":"cli","kind":"totp","replaced":false,"short":false}
+{"t":1794687653226,"pid":2589024,"ev":"cli","label":"set SITE_TOTP","args":["secret","set","SITE_TOTP","--totp"],"code":0,"stdout":"Saved SITE_TOTP\n","stderr":"","ms":569}
+{"t":1794687653778,"pid":2589024,"ev":"secret.saved","name":"TINY","via":"cli","kind":"plain","replaced":false,"short":true}
+{"t":1794687653801,"pid":2589024,"ev":"cli","label":"set TINY","args":["secret","set","TINY"],"code":0,"stdout":"Saved TINY\n","stderr":"warning: TINY is under 8 characters, so it will not be masked\n","ms":572}
+{"t":1794687654272,"pid":2589024,"ev":"secret.saved","name":"VEC_SHA1","via":"cli","kind":"totp","replaced":false,"short":false}
+{"t":1794687654309,"pid":2589024,"ev":"cli","label":"set VEC_SHA1","args":["secret","set","VEC_SHA1","--totp"],"code":0,"stdout":"Saved VEC_SHA1\n","stderr":"","ms":508}
+{"t":1794687654759,"pid":2589024,"ev":"secret.saved","name":"VEC_SHA256","via":"cli","kind":"totp","replaced":false,"short":false}
+{"t":1794687654787,"pid":2589024,"ev":"cli","label":"set VEC_SHA256","args":["secret","set","VEC_SHA256","--totp"],"code":0,"stdout":"Saved VEC_SHA256\n","stderr":"","ms":478}
+{"t":1794687655239,"pid":2589024,"ev":"secret.saved","name":"VEC_SHA512","via":"cli","kind":"totp","replaced":false,"short":false}
+{"t":1794687655273,"pid":2589024,"ev":"cli","label":"set VEC_SHA512","args":["secret","set","VEC_SHA512","--totp"],"code":0,"stdout":"Saved VEC_SHA512\n","stderr":"","ms":485}
+{"t":59,"pid":2589024,"ev":"expect.vector","alg":"SHA1","want":"94287082"}
+{"t":1794687655420,"pid":2589024,"ev":"cli","label":"vec/SHA1/59","args":["secret","code","VEC_SHA1"],"code":0,"stdout":"94287082\n","stderr":"28s left\n","ms":146}
+{"t":59,"pid":2589024,"ev":"expect.vector","alg":"SHA256","want":"46119246"}
+{"t":1794687655577,"pid":2589024,"ev":"cli","label":"vec/SHA256/59","args":["secret","code","VEC_SHA256"],"code":0,"stdout":"46119246\n","stderr":"28s left\n","ms":156}
+{"t":59,"pid":2589024,"ev":"expect.vector","alg":"SHA512","want":"90693936"}
+{"t":1794687655715,"pid":2589024,"ev":"cli","label":"vec/SHA512/59","args":["secret","code","VEC_SHA512"],"code":0,"stdout":"90693936\n","stderr":"28s left\n","ms":137}
+{"t":1111111109,"pid":2589024,"ev":"expect.vector","alg":"SHA1","want":"07081804"}
+{"t":1794687655841,"pid":2589024,"ev":"cli","label":"vec/SHA1/1111111109","args":["secret","code","VEC_SHA1"],"code":0,"stdout":"07081804\n","stderr":"28s left\n","ms":126}
+{"t":1111111109,"pid":2589024,"ev":"expect.vector","alg":"SHA256","want":"68084774"}
+{"t":1794687655961,"pid":2589024,"ev":"cli","label":"vec/SHA256/1111111109","args":["secret","code","VEC_SHA256"],"code":0,"stdout":"68084774\n","stderr":"28s left\n","ms":120}
+{"t":1111111109,"pid":2589024,"ev":"expect.vector","alg":"SHA512","want":"25091201"}
+{"t":1794687656095,"pid":2589024,"ev":"cli","label":"vec/SHA512/1111111109","args":["secret","code","VEC_SHA512"],"code":0,"stdout":"25091201\n","stderr":"28s left\n","ms":134}
+{"t":1111111111,"pid":2589024,"ev":"expect.vector","alg":"SHA1","want":"14050471"}
+{"t":1794687656221,"pid":2589024,"ev":"cli","label":"vec/SHA1/1111111111","args":["secret","code","VEC_SHA1"],"code":0,"stdout":"14050471\n","stderr":"28s left\n","ms":125}
+{"t":1111111111,"pid":2589024,"ev":"expect.vector","alg":"SHA256","want":"67062674"}
+{"t":1794687656383,"pid":2589024,"ev":"cli","label":"vec/SHA256/1111111111","args":["secret","code","VEC_SHA256"],"code":0,"stdout":"67062674\n","stderr":"28s left\n","ms":161}
+{"t":1111111111,"pid":2589024,"ev":"expect.vector","alg":"SHA512","want":"99943326"}
+{"t":1794687656502,"pid":2589024,"ev":"cli","label":"vec/SHA512/1111111111","args":["secret","code","VEC_SHA512"],"code":0,"stdout":"99943326\n","stderr":"28s left\n","ms":119}
+{"t":1234567890,"pid":2589024,"ev":"expect.vector","alg":"SHA1","want":"89005924"}
+{"t":1794687656618,"pid":2589024,"ev":"cli","label":"vec/SHA1/1234567890","args":["secret","code","VEC_SHA1"],"code":0,"stdout":"89005924\n","stderr":"28s left\n","ms":115}
+{"t":1234567890,"pid":2589024,"ev":"expect.vector","alg":"SHA256","want":"91819424"}
+{"t":1794687656737,"pid":2589024,"ev":"cli","label":"vec/SHA256/1234567890","args":["secret","code","VEC_SHA256"],"code":0,"stdout":"91819424\n","stderr":"28s left\n","ms":118}
+{"t":1234567890,"pid":2589024,"ev":"expect.vector","alg":"SHA512","want":"93441116"}
+{"t":1794687656862,"pid":2589024,"ev":"cli","label":"vec/SHA512/1234567890","args":["secret","code","VEC_SHA512"],"code":0,"stdout":"93441116\n","stderr":"28s left\n","ms":124}
+{"t":2000000000,"pid":2589024,"ev":"expect.vector","alg":"SHA1","want":"69279037"}
+{"t":1794687657008,"pid":2589024,"ev":"cli","label":"vec/SHA1/2000000000","args":["secret","code","VEC_SHA1"],"code":0,"stdout":"69279037\n","stderr":"28s left\n","ms":146}
+{"t":2000000000,"pid":2589024,"ev":"expect.vector","alg":"SHA256","want":"90698825"}
+{"t":1794687657137,"pid":2589024,"ev":"cli","label":"vec/SHA256/2000000000","args":["secret","code","VEC_SHA256"],"code":0,"stdout":"90698825\n","stderr":"28s left\n","ms":128}
+{"t":2000000000,"pid":2589024,"ev":"expect.vector","alg":"SHA512","want":"38618901"}
+{"t":1794687657263,"pid":2589024,"ev":"cli","label":"vec/SHA512/2000000000","args":["secret","code","VEC_SHA512"],"code":0,"stdout":"38618901\n","stderr":"28s left\n","ms":126}
+{"t":20000000000,"pid":2589024,"ev":"expect.vector","alg":"SHA1","want":"65353130"}
+{"t":1794687657387,"pid":2589024,"ev":"cli","label":"vec/SHA1/20000000000","args":["secret","code","VEC_SHA1"],"code":0,"stdout":"65353130\n","stderr":"28s left\n","ms":124}
+{"t":20000000000,"pid":2589024,"ev":"expect.vector","alg":"SHA256","want":"77737706"}
+{"t":1794687657514,"pid":2589024,"ev":"cli","label":"vec/SHA256/20000000000","args":["secret","code","VEC_SHA256"],"code":0,"stdout":"77737706\n","stderr":"28s left\n","ms":127}
+{"t":20000000000,"pid":2589024,"ev":"expect.vector","alg":"SHA512","want":"47863826"}
+{"t":1794687657978,"pid":2589024,"ev":"cli","label":"vec/SHA512/20000000000","args":["secret","code","VEC_SHA512"],"code":0,"stdout":"47863826\n","stderr":"28s left\n","ms":107}
+{"t":1794687657979,"pid":2589024,"ev":"expect.wait","thisWindow":"726656","nextWindow":"486601"}
+{"t":1794687658086,"pid":2589024,"ev":"cli","label":"nowait/6s-left","args":["secret","code","SITE_TOTP"],"code":0,"stdout":"726656\n","stderr":"6s left\n","ms":107}
+{"t":1794687658306,"pid":2589024,"ev":"cli","label":"nowait/5s-left","args":["secret","code","SITE_TOTP"],"code":0,"stdout":"726656\n","stderr":"5s left\n","ms":118}
+{"t":1794687662340,"pid":2589024,"ev":"cli","label":"wait/4s-left","args":["secret","code","SITE_TOTP"],"code":0,"stdout":"486601\n","stderr":"30s left (waited 3913ms for a new window)\n","ms":4034}
+{"t":1794687663371,"pid":2589024,"ev":"cli","label":"wait/1s-left","args":["secret","code","SITE_TOTP"],"code":0,"stdout":"486601\n","stderr":"30s left (waited 914ms for a new window)\n","ms":1030}
+{"t":1794687666406,"pid":2589024,"ev":"cli","label":"runwait/3s-left","args":["secret","run","--env","C=SITE_TOTP","--","sh","-c","echo $C"],"code":0,"stdout":"486601\n","stderr":"","ms":3035}
+{"t":1794687666519,"pid":2589024,"ev":"cli","label":"refuse/plain","args":["secret","code","SITE_PASSWORD"],"code":1,"stdout":"","stderr":"chad secret code: SITE_PASSWORD is not a TOTP secret\n","ms":113}
+{"t":1794687666627,"pid":2589024,"ev":"cli","label":"refuse/missing","args":["secret","code","NO_SUCH_NAME"],"code":1,"stdout":"","stderr":"chad secret code: no secret named NO_SUCH_NAME\n","ms":108}
+{"t":1794687666974,"pid":2589024,"ev":"cli","label":"set/bad-seed","args":["secret","set","BAD_SEED","--totp"],"code":1,"stdout":"","stderr":"chad secret set: the seed is not base32\n","ms":347}
+{"t":1794687667302,"pid":2589024,"ev":"secret.saved","name":"SITE_PASSWORD","via":"cli","kind":"plain","replaced":true,"short":false}
+{"t":1794687667323,"pid":2589024,"ev":"cli","label":"set/replace","args":["secret","set","SITE_PASSWORD"],"code":0,"stdout":"Replaced SITE_PASSWORD\n","stderr":"","ms":348}
+{"t":1794687667435,"pid":2589024,"ev":"cli","label":"list","args":["secret","list"],"code":0,"stdout":"SITE_PASSWORD\tplain\t-\t2026-11-14\nQUOTED\tplain\t-\t2026-11-14\nSITE_TOTP\ttotp\t-\t2026-11-14\nTINY\tplain\t-\t2026-11-14\nVEC_SHA1\ttotp\t-\t2026-11-14\nVEC_SHA256\ttotp\t-\t2026-11-14\nVEC_SHA512\ttotp\t-\t2026-11-14\n","stderr":"","ms":112}
+{"t":1794687667435,"pid":2589024,"ev":"store.shape","typedKept":true,"canonical":true,"mode":"600"}
+{"t":1794687667435,"pid":2589024,"ev":"scenario.end","name":"code","phase":"1"}

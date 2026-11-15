@@ -1,0 +1,32 @@
+scenario models, model gpt-6-astra/medium, node v26.8.2, clanka 0.27.0
+
+=== gpt-6.1-sol at medium, ws
+[   0.1s] gpt-6.1-sol-ws turn starts: Reply with the single word: ok
+[   1.8s] gpt-6.1-sol-ws answer: ok
+[   1.8s] gpt-6.1-sol-ws tokens: input 1791, cached 0; per model call: 1791 in / 0 cached
+
+=== gpt-6.1-sol at medium, http
+[   1.8s] gpt-6.1-sol-http turn starts: Reply with the single word: ok
+[   4.7s] gpt-6.1-sol-http answer: ok
+[   4.7s] gpt-6.1-sol-http tokens: input 1791, cached 0; per model call: 1791 in / 0 cached
+
+=== gpt-6.1-terra at medium, ws
+[   4.7s] gpt-6.1-terra-ws turn starts: Reply with the single word: ok
+[   8.8s] gpt-6.1-terra-ws answer: ok
+[   8.8s] gpt-6.1-terra-ws tokens: input 1791, cached 0; per model call: 1791 in / 0 cached
+
+=== gpt-6.1-terra at medium, http
+[   8.8s] gpt-6.1-terra-http turn starts: Reply with the single word: ok
+[   9.7s] gpt-6.1-terra-http answer: ok
+[   9.7s] gpt-6.1-terra-http tokens: input 1791, cached 0; per model call: 1791 in / 0 cached
+
+=== gpt-6-luna at medium, ws
+[   9.7s] gpt-6-luna-ws turn starts: Reply with the single word: ok
+[  11.3s] gpt-6-luna-ws answer: ok
+[  11.3s] gpt-6-luna-ws tokens: input 1791, cached 0; per model call: 1791 in / 0 cached
+
+=== gpt-6-luna at medium, http
+[  11.3s] gpt-6-luna-http turn starts: Reply with the single word: ok
+[  13.6s] gpt-6-luna-http answer: ok
+[  13.6s] gpt-6-luna-http tokens: input 1791, cached 0; per model call: 1791 in / 0 cached
+[  13.6s] summary   device codes issued: 0; auth.openai.com requests: none

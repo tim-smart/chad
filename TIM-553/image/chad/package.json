@@ -1,0 +1,49 @@
+{
+  "name": "chad",
+  "version": "0.0.0-proto",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "chad": "./bin/chad.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./Plugin": {
+      "types": "./dist/Plugin.d.ts",
+      "default": "./dist/Plugin.js"
+    },
+    "./Session": {
+      "types": "./dist/Session.d.ts",
+      "default": "./dist/Session.js"
+    },
+    "./Turns": {
+      "types": "./dist/Turns.d.ts",
+      "default": "./dist/Turns.js"
+    }
+  },
+  "files": [
+    "bin",
+    "dist",
+    "plugins"
+  ],
+  "scripts": {
+    "build": "tsc -p . && esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfile=dist/cli.bundle.js --log-level=warning",
+    "check:plugins": "tsc -p plugins"
+  },
+  "dependencies": {
+    "@effect/ai-openai": "catalog:",
+    "@effect/ai-openai-compat": "catalog:",
+    "@effect/chat-discord": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@effect/sql-sqlite-node": "catalog:",
+    "effect": "catalog:",
+    "clanka": "0.27.0",
+    "dfx": "^1.1.1",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2",
+    "@types/node": "^26.0.0"
+  }
+}

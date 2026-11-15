@@ -1,0 +1,7 @@
+model call role=root index=0
+spawner[sess-PARENT] spawn bash ["-c","echo \"root sees [$CHAD_SESSION]\""]
+model call role=child index=0
+spawner[sess-PARENT] spawn bash ["-c","echo \"child sees [$CHAD_SESSION] nvars=$(env | grep -c .)\""]
+model call role=child index=1
+model call role=root index=1
+ROOT EXIT: {"_id":"Exit","_tag":"Success","value":"[10:36:35.151] INFO (#22): Calling \"bash\" { command: 'echo \"root sees [$CHAD_SESSION]\"', timeoutMs: 600000 }\nroot sees [sess-PARENT]\n\n[10:36:35.169] INFO (#31): Calling \"subagent\" { background: false }\nchild result: [10:36:35.205] INFO (#42): Calling \"bash\" { command: 'echo \"child sees [$CHAD_SESSION] nvars=$(env | grep -c .)\"', timeoutMs: 600000 }\nchild sees [sess-PARENT] nvars=67\n"}

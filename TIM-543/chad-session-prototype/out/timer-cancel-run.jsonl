@@ -1,0 +1,17 @@
+{"t":1794652398224,"pid":3372207,"ev":"scenario.start","name":"timer-cancel-run","phase":"1","variant":""}
+{"t":1794652398247,"pid":3372207,"ev":"turns.scheduled","timer":"cron/job","next":1794652401225}
+{"t":1794652408285,"pid":3372207,"ev":"timer.delivered","timer":"cron/job","at":1794652401225,"lateMs":7060}
+{"t":1794652408313,"pid":3372207,"ev":"session.activated","thread":"c1","session":"64622b57-7c1a-4af7-a75a-194568630d1d","activation":1}
+{"t":1794652408313,"pid":3372207,"ev":"pluginTurn.delivered","key":"timer/cron/job/1794652401225","ms":28}
+{"t":1794652408330,"pid":3372207,"ev":"turn.start","key":"timer/cron/job/1794652401225","turn":"362fa199-a0d6-4a39-b422-bcb59ca8a38e","starts":1,"resumed":false}
+{"t":1794652408331,"pid":3372207,"ev":"status.posted","id":"m2"}
+{"t":1794652408347,"pid":3372207,"ev":"turns.cancelled","timer":"cron/job"}
+{"t":1794652410385,"pid":3372207,"ev":"turn.end","key":"timer/cron/job/1794652401225","turn":"362fa199-a0d6-4a39-b422-bcb59ca8a38e","outcome":"Answered","compacted":false}
+{"t":1794652410409,"pid":3372207,"ev":"timer.turnEnded","timer":"cron/job","at":1794652401225,"outcome":"Answered"}
+{"t":1794652410409,"pid":3372207,"ev":"timer.cancelledDuringRun","timer":"cron/job","at":1794652401225}
+{"t":1794652417428,"pid":3372207,"ev":"scenario.end","name":"timer-cancel-run","phase":"1"}
+{"t":1794652417439,"pid":3372207,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652419437,"pid":3372207,"ev":"hooks.draining","pending":0}
+{"t":1794652419437,"pid":3372207,"ev":"hooks.drained"}
+{"t":1794652419437,"pid":3372207,"ev":"plugins.closed"}
+{"t":1794652419482,"pid":3372207,"ev":"process.exit","code":0,"signal":null}

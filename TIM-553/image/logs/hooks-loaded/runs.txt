@@ -1,0 +1,8 @@
+1 shards, run 1, on one CPU shared with 3 busy loops: 7 passed, 0 failed
+1 shards, run 2, on one CPU shared with 3 busy loops: 7 passed, 0 failed
+1 shards, run 3, on one CPU shared with 3 busy loops: 7 passed, 0 failed
+1 shards, run 4, on one CPU shared with 3 busy loops: 7 passed, 0 failed
+300 shards, run 1, on one CPU shared with 3 busy loops: 7 passed, 0 failed
+300 shards, run 2, on one CPU shared with 3 busy loops: 7 passed, 0 failed
+300 shards, run 3, on one CPU shared with 3 busy loops: 7 passed, 0 failed
+300 shards, run 4, on one CPU shared with 3 busy loops: 7 passed, 0 failed

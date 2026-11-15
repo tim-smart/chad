@@ -1,0 +1,11 @@
+{
+  "name": "chad",
+  "version": "0.0.0-prototype",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  }
+}

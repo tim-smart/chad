@@ -1,0 +1,105 @@
+{"t":1794687362638,"pid":2556785,"ev":"boot.nothingApplied"}
+{"t":1794687362698,"pid":2556785,"ev":"scenario.start","name":"mcp-stop-drain","phase":"1","drainMs":30000,"closeMs":10000,"mcp":{"drainMs":30000,"heldMs":60000,"startMs":60000,"rules":"as written"}}
+{"t":1794687362700,"pid":2556785,"ev":"apply.start","dir":"out/repo-mcp-stop-drain/versions/1794687362699-2556785-1"}
+{"t":1794687362700,"pid":2556785,"ev":"live.moved","live":"versions/1794687362699-2556785-1"}
+{"t":1794687362701,"pid":2556785,"ev":"mcp.gateClosed","label":"apply","layer":null,"inflight":[]}
+{"t":1794687362716,"pid":2556785,"ev":"swap.gateClosed","label":"apply","plugins":[]}
+{"t":1794687362716,"pid":2556785,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687362716,"pid":2556785,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687362716,"pid":2556785,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":[]}
+{"t":1794687362717,"pid":2556785,"ev":"apply.pluginsActivated","mcpStillRebuilding":true}
+{"t":1794687362952,"pid":2556926,"ev":"server.start","server":"fs","label":"v1","mode":"stdio","connectMs":0,"tools":["echo","slow","stubborn","store"]}
+{"t":1794687362958,"pid":2556926,"ev":"server.connected","server":"fs"}
+{"t":1794687362988,"pid":2556785,"ev":"mcp.connected","layer":1,"why":"apply","ms":287,"servers":{"fs":"connected, 4 tools"}}
+{"t":1794687362988,"pid":2556785,"ev":"mcp.ready","label":"apply","layer":1,"generation":1,"waitedMs":287,"interrupted":[],"runningTurns":[]}
+{"t":1794687362989,"pid":2556785,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":[],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]},"mcp":{"label":"apply","layer":1,"generation":1,"waitedMs":287,"interrupted":[],"runningTurns":[]}}
+{"t":1794687362989,"pid":2556785,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"in flight at the stop PLAN:{\"steps\":[\"try { console.log('OK "}
+{"t":1794687363026,"pid":2556785,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687363028,"pid":2556785,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687363043,"pid":2556785,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"40e348a7-d663-4844-9baf-6ad7c91ac0e8","starts":1,"cuts":0,"resumed":false}
+{"t":1794687363050,"pid":2556785,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"mcp":"1","mcpPrompt":"1883d285","on":{},"tools":[]}
+{"t":1794687363054,"pid":2556785,"ev":"mcp.keysTaken","session":"s-c1","layer":1,"rebuilding":null,"keys":["fs.echo","fs.slow","fs.stubborn","fs.store","searchTools"]}
+{"t":1794687363054,"pid":2556785,"ev":"turn.system","session":"s-c1","hasMcpSection":true,"saysStillStarting":false,"mentions":["fs"]}
+{"t":1794687363110,"pid":2556785,"ev":"mcp.call.routed","session":"s-c1","key":"fs.slow","to":1}
+{"t":1794687363112,"pid":2556926,"ev":"server.slow.start","server":"fs","tag":"a"}
+{"t":1794687363126,"pid":2556785,"ev":"user.posted","who":"B","key":"message/test:c2/m6","text":"held at the gate PLAN:{\"steps\":[\"await mark({ label: \\\"b1\\\" "}
+{"t":1794687363152,"pid":2556785,"ev":"session.activated","thread":"c2","session":"s-c2"}
+{"t":1794687363152,"pid":2556785,"ev":"message.delivered","key":"message/test:c2/m6","session":"s-c2"}
+{"t":1794687363168,"pid":2556785,"ev":"turn.start","key":"message/test:c2/m6","session":"s-c2","turn":"9526bcbc-00a6-4aa3-8395-2c8f6ac2ade2","starts":1,"cuts":0,"resumed":false}
+{"t":1794687363170,"pid":2556785,"ev":"agent.built","session":"s-c2","rebuild":0,"generation":1,"mcp":"1","mcpPrompt":"1883d285","on":{},"tools":[]}
+{"t":1794687363170,"pid":2556785,"ev":"mcp.keysTaken","session":"s-c2","layer":1,"rebuilding":null,"keys":["fs.echo","fs.slow","fs.stubborn","fs.store","searchTools"]}
+{"t":1794687363171,"pid":2556785,"ev":"turn.system","session":"s-c2","hasMcpSection":true,"saysStillStarting":false,"mentions":["fs"]}
+{"t":1794687363212,"pid":2556785,"ev":"script.mark","session":"s-c2","label":"b1"}
+{"t":1794687363229,"pid":2556785,"ev":"mcp.gateClosed","label":"chad mcp restart","layer":1,"inflight":["fs.slow in s-c1"]}
+{"t":1794687363251,"pid":2556785,"ev":"mcp.call.held","session":"s-c2","key":"fs.echo","rebuild":"chad mcp restart"}
+{"t":1794687363571,"pid":2556785,"ev":"driver.sigterm"}
+{"t":1794687363572,"pid":2556785,"ev":"stop.abandonSwap","running":true,"swapping":null}
+{"t":1794687363572,"pid":2556785,"ev":"mcp.call.released","session":"s-c2","key":"fs.echo","heldMs":321}
+{"t":1794687363573,"pid":2556785,"ev":"mcp.call.routed","session":"s-c2","key":"fs.echo","to":1}
+{"t":1794687363573,"pid":2556785,"ev":"mcp.abandoned","label":"chad mcp restart","state":"the old layer stays for the graceful stop"}
+{"t":1794687363573,"pid":2556926,"ev":"server.echo","server":"fs","text":"b-held"}
+{"t":1794687363589,"pid":2556785,"ev":"brain.scriptOutput","session":"s-c2","output":"OK \"v1 fs pid 2556926 token none: b-held\"\n"}
+{"t":1794687363632,"pid":2556785,"ev":"turn.end","key":"message/test:c2/m6","session":"s-c2","turn":"9526bcbc-00a6-4aa3-8395-2c8f6ac2ade2","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 fs pid 2556926 token none: b-held\\\"\\n\"]"}
+{"t":1794687378594,"pid":2556785,"ev":"turn.cutByShutdown","key":"message/test:c1/m4","saved":true}
+{"t":1794687378599,"pid":2556926,"ev":"server.slow.cancelled","server":"fs","tag":"a"}
+{"t":1794687378600,"pid":2556785,"ev":"stop.entityLayersClosed"}
+{"t":1794687378607,"pid":2556785,"ev":"stop.runnerClosed"}
+{"t":1794687378608,"pid":2556785,"ev":"hooks.draining","pending":0}
+{"t":1794687378608,"pid":2556785,"ev":"hooks.drained"}
+{"t":1794687378608,"pid":2556926,"ev":"server.stdinEnded","server":"fs"}
+{"t":1794687378608,"pid":2556926,"ev":"server.exit","server":"fs","code":0}
+{"t":1794687378619,"pid":2556785,"ev":"mcp.closed","label":"graceful stop","layer":1,"ms":11}
+{"t":1794687378619,"pid":2556785,"ev":"plugins.closed"}
+{"t":1794687378657,"pid":2556785,"ev":"process.exit","code":130,"signal":null}
+{"t":1794687379581,"pid":2558655,"ev":"swap.gateClosed","label":"boot","plugins":[]}
+{"t":1794687379581,"pid":2558655,"ev":"swap.draining","label":"boot","inflight":[]}
+{"t":1794687379581,"pid":2558655,"ev":"swap.drained","label":"boot","ms":0,"interrupted":[]}
+{"t":1794687379581,"pid":2558655,"ev":"swap.activated","label":"boot","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":[]}
+{"t":1794687379582,"pid":2558655,"ev":"boot.loaded","live":"versions/1794687362699-2556785-1","plugins":[]}
+{"t":1794687379582,"pid":2558655,"ev":"mcp.gateClosed","label":"boot","layer":null,"inflight":[]}
+{"t":1794687379620,"pid":2558655,"ev":"scenario.start","name":"mcp-stop-drain","phase":"2","drainMs":30000,"closeMs":10000,"mcp":{"drainMs":30000,"heldMs":60000,"startMs":60000,"rules":"as written"}}
+{"t":1794687379694,"pid":2558655,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687379696,"pid":2558655,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687379705,"pid":2558655,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"40e348a7-d663-4844-9baf-6ad7c91ac0e8","starts":2,"cuts":1,"resumed":true}
+{"t":1794687379707,"pid":2558655,"ev":"mcp.turn.waiting","session":"s-c1","rebuild":"boot"}
+{"t":1794687379804,"pid":2558775,"ev":"server.start","server":"fs","label":"v1","mode":"stdio","connectMs":0,"tools":["echo","slow","stubborn","store"]}
+{"t":1794687379832,"pid":2558775,"ev":"server.connected","server":"fs"}
+{"t":1794687379859,"pid":2558655,"ev":"mcp.connected","layer":1,"why":"boot","ms":276,"servers":{"fs":"connected, 4 tools"}}
+{"t":1794687379859,"pid":2558655,"ev":"mcp.turn.waited","session":"s-c1","ms":152}
+{"t":1794687379861,"pid":2558655,"ev":"mcp.ready","label":"boot","layer":1,"generation":1,"waitedMs":279,"interrupted":[],"runningTurns":[]}
+{"t":1794687379864,"pid":2558655,"ev":"session.restored","session":"s-c1","messages":1}
+{"t":1794687379865,"pid":2558655,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"mcp":"1","mcpPrompt":"1883d285","on":{},"tools":[]}
+{"t":1794687379867,"pid":2558655,"ev":"mcp.keysTaken","session":"s-c1","layer":1,"rebuilding":null,"keys":["fs.echo","fs.slow","fs.stubborn","fs.store","searchTools"]}
+{"t":1794687379868,"pid":2558655,"ev":"turn.system","session":"s-c1","hasMcpSection":true,"saysStillStarting":false,"mentions":["fs"]}
+{"t":1794687380033,"pid":2558655,"ev":"mcp.call.routed","session":"s-c1","key":"fs.slow","to":1}
+{"t":1794687380035,"pid":2558775,"ev":"server.slow.start","server":"fs","tag":"a"}
+{"t":1794687400056,"pid":2558775,"ev":"server.slow.end","server":"fs","tag":"a"}
+{"t":1794687400066,"pid":2558655,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v1 fs pid 2558775 token none: slow a\"\n"}
+{"t":1794687400114,"pid":2558655,"ev":"mcp.call.routed","session":"s-c1","key":"fs.echo","to":1}
+{"t":1794687400115,"pid":2558775,"ev":"server.echo","server":"fs","text":"a-after"}
+{"t":1794687400119,"pid":2558655,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v1 fs pid 2558775 token none: a-after\"\n"}
+{"t":1794687400164,"pid":2558655,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"40e348a7-d663-4844-9baf-6ad7c91ac0e8","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 fs pid 2558775 token none: slow a\\\"\\n\",\"OK \\\"v1 fs pid 2558775 token none: a-after\\\"\\n\"]"}
+{"t":1794687400191,"pid":2558655,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"v1 fs pid 2558775 token none: slow a\\\"\\n\",\"OK \\\"v1 fs pid 2558775 token none: a-after\\\"\\n\"]"}
+{"t":1794687400192,"pid":2558655,"ev":"user.posted","who":"C","key":"message/test:c3/m5","text":"after the boot PLAN:{\"steps\":[\"try { console.log('OK ' + JSO"}
+{"t":1794687400220,"pid":2558655,"ev":"session.activated","thread":"c3","session":"s-c3"}
+{"t":1794687400220,"pid":2558655,"ev":"message.delivered","key":"message/test:c3/m5","session":"s-c3"}
+{"t":1794687400233,"pid":2558655,"ev":"turn.start","key":"message/test:c3/m5","session":"s-c3","turn":"e2a3d3f7-829d-41d1-998f-92403c1e256d","starts":1,"cuts":0,"resumed":false}
+{"t":1794687400236,"pid":2558655,"ev":"agent.built","session":"s-c3","rebuild":0,"generation":1,"mcp":"1","mcpPrompt":"1883d285","on":{},"tools":[]}
+{"t":1794687400236,"pid":2558655,"ev":"mcp.keysTaken","session":"s-c3","layer":1,"rebuilding":null,"keys":["fs.echo","fs.slow","fs.stubborn","fs.store","searchTools"]}
+{"t":1794687400236,"pid":2558655,"ev":"turn.system","session":"s-c3","hasMcpSection":true,"saysStillStarting":false,"mentions":["fs"]}
+{"t":1794687400277,"pid":2558655,"ev":"mcp.call.routed","session":"s-c3","key":"fs.echo","to":1}
+{"t":1794687400278,"pid":2558775,"ev":"server.echo","server":"fs","text":"c1"}
+{"t":1794687400281,"pid":2558655,"ev":"brain.scriptOutput","session":"s-c3","output":"OK \"v1 fs pid 2558775 token none: c1\"\n"}
+{"t":1794687400319,"pid":2558655,"ev":"turn.end","key":"message/test:c3/m5","session":"s-c3","turn":"e2a3d3f7-829d-41d1-998f-92403c1e256d","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 fs pid 2558775 token none: c1\\\"\\n\"]"}
+{"t":1794687400337,"pid":2558655,"ev":"answer","who":"C","key":"message/test:c3/m5","text":"RESULTS [\"OK \\\"v1 fs pid 2558775 token none: c1\\\"\\n\"]"}
+{"t":1794687400337,"pid":2558655,"ev":"scenario.end","name":"mcp-stop-drain","phase":"2"}
+{"t":1794687400337,"pid":2558655,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794687400348,"pid":2558655,"ev":"stop.entityLayersClosed"}
+{"t":1794687403339,"pid":2558655,"ev":"stop.runnerClosed"}
+{"t":1794687403339,"pid":2558655,"ev":"hooks.draining","pending":0}
+{"t":1794687403339,"pid":2558655,"ev":"hooks.drained"}
+{"t":1794687403340,"pid":2558775,"ev":"server.stdinEnded","server":"fs"}
+{"t":1794687403340,"pid":2558775,"ev":"server.exit","server":"fs","code":0}
+{"t":1794687403350,"pid":2558655,"ev":"mcp.closed","label":"graceful stop","layer":1,"ms":11}
+{"t":1794687403350,"pid":2558655,"ev":"plugins.closed"}
+{"t":1794687403398,"pid":2558655,"ev":"process.exit","code":0,"signal":null}

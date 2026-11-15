@@ -1,0 +1,24 @@
+mode control
+
+> Start two background bash tasks with bash({ command, background: true }): 'sleep 4; echo quick-done' and 'sleep 40; echo slow-done'. Reply with the two task ids only. Do not wait for them.
+  output  bash_1
+          bash_2
+  answer  bash_1
+          bash_2
+  pushed  none
+
+-- 9s later: the quick task has ended, the slow one is running
+
+> In one script, print JSON.stringify(await listTasks()), then for each of the two task ids you started print the result of taskOutput(id), catching and printing any error message. Then tell me in one sentence what state the two tasks are in.
+  output  [{"id":"bash_1","kind":"bash","status":"completed","description":"sleep 4; echo quick-done","output":"quick-done\n","exitCode":0},{"id":"bash_2","kind":"bash","status":"running","description":"sleep 40; echo slow-done","output":""}]
+          { id: 'bash_1', kind: 'bash', status: 'completed', description: 'sleep 4; echo quick-done', output: 'quick-done\n', exitCode: 0 }
+          { id: 'bash_2', kind: 'bash', status: 'running', description: 'sleep 40; echo slow-done', output: '' }
+          bash_1 is completed and bash_2 is running.
+  answer  `bash_1` is completed, and `bash_2` is running.
+  pushed  <task id="bash_1" kind="bash" status="completed" exitCode="0">
+
+-- 38s later: the slow task has ended
+
+> Without running anything: has the slow task finished, as far as you know? One sentence.
+  answer  No—as far as the last state I observed, the slow task was still running.
+  pushed  <task id="bash_2" kind="bash" status="completed" exitCode="0">

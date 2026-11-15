@@ -1,0 +1,65 @@
+{"t":1794652539734,"pid":3393003,"ev":"scenario.start","name":"compact-real","phase":"1","variant":"short"}
+{"t":1794652539735,"pid":3393003,"ev":"mark","label":"turn 1"}
+{"t":1794652539736,"pid":3393003,"ev":"user.posted","text":"Run a script that prints the full output of the bash command `seq 1 15","key":"message/test:c1/m2"}
+{"t":1794652539747,"pid":3393003,"ev":"gateway.saved","key":"message/test:c1/m2","ms":11}
+{"t":1794652539819,"pid":3393003,"ev":"session.activated","thread":"c1","session":"ba7284c8-4ba9-4056-ae36-07a7c2394d75","activation":1}
+{"t":1794652539820,"pid":3393003,"ev":"message.delivered","key":"message/test:c1/m2","ms":84,"text":"Run a script that prints the full output of the bash command"}
+{"t":1794652539833,"pid":3393003,"ev":"turn.start","key":"message/test:c1/m2","turn":"86aea34d-904d-4c38-96bc-0b52db963dc7","starts":1,"resumed":false}
+{"t":1794652539834,"pid":3393003,"ev":"hook.beforeTurn","plugin":"probe","turn":"86aea34d-904d-4c38-96bc-0b52db963dc7","origin":{"_tag":"Message","text":"Run a script that prints the full output of the bash command `seq 1 1500` with console.log, and then reply with just OK.","userId":"owner-1"},"resumed":false,"prompt":"Run a script that prints the full output"}
+{"t":1794652539835,"pid":3393003,"ev":"status.posted","id":"m4"}
+{"t":1794652541840,"pid":3393003,"ev":"brain.scriptEnd"}
+{"t":1794652541892,"pid":3393003,"ev":"brain.scriptOutput","output":"[10:35:41.873] INFO (#97): Calling \"bash\" { command: 'seq 1 1500', timeoutMs: 120000 }\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n31\n32\n33\n34\n35\n36\n37\n38\n39\n40\n41"}
+{"t":1794652543004,"pid":3393003,"ev":"turn.usage","key":"message/test:c1/m2","calls":["1865 in / 1664 cached","5444 in / 1664 cached"]}
+{"t":1794652543014,"pid":3393003,"ev":"turn.end","key":"message/test:c1/m2","turn":"86aea34d-904d-4c38-96bc-0b52db963dc7","outcome":"Answered","compacted":false}
+{"t":1794652543038,"pid":3393003,"ev":"hook.afterTurn","plugin":"probe","turn":"86aea34d-904d-4c38-96bc-0b52db963dc7","origin":{"_tag":"Message","text":"Run a script that prints the full output of the bash command `seq 1 1500` with console.log, and then reply with just OK.","userId":"owner-1"},"resumed":false,"outcome":"Answered"}
+{"t":1794652543039,"pid":3393003,"ev":"hook.done","plugin":"probe","label":"afterTurn","result":"ok","ms":1}
+{"t":1794652543039,"pid":3393003,"ev":"mark","label":"turn 2"}
+{"t":1794652543039,"pid":3393003,"ev":"user.posted","text":"Reply with just the word PING.","key":"message/test:c1/m6"}
+{"t":1794652543048,"pid":3393003,"ev":"gateway.saved","key":"message/test:c1/m6","ms":9}
+{"t":1794652543056,"pid":3393003,"ev":"message.delivered","key":"message/test:c1/m6","ms":17,"text":"Reply with just the word PING."}
+{"t":1794652543070,"pid":3393003,"ev":"turn.start","key":"message/test:c1/m6","turn":"ffcd52e0-dbdf-4011-a636-28431bb026bd","starts":1,"resumed":false}
+{"t":1794652543071,"pid":3393003,"ev":"hook.beforeTurn","plugin":"probe","turn":"ffcd52e0-dbdf-4011-a636-28431bb026bd","origin":{"_tag":"Message","text":"Reply with just the word PING.","userId":"owner-1"},"resumed":false,"prompt":"Reply with just the word PING."}
+{"t":1794652543071,"pid":3393003,"ev":"status.posted","id":"m8"}
+{"t":1794652543081,"pid":3393003,"ev":"brain.CompactionStarted","reason":"threshold"}
+{"t":1794652543951,"pid":3393003,"ev":"brain.CompactionEnded","reason":"threshold","tokensBefore":4583,"tokensAfter":4583}
+{"t":1794652543951,"pid":3393003,"ev":"turn.usage","key":"message/test:c1/m6","calls":["5463 in / 5248 cached"]}
+{"t":1794652543960,"pid":3393003,"ev":"turn.end","key":"message/test:c1/m6","turn":"ffcd52e0-dbdf-4011-a636-28431bb026bd","outcome":"Answered","compacted":false}
+{"t":1794652543968,"pid":3393003,"ev":"hook.afterTurn","plugin":"probe","turn":"ffcd52e0-dbdf-4011-a636-28431bb026bd","origin":{"_tag":"Message","text":"Reply with just the word PING.","userId":"owner-1"},"resumed":false,"outcome":"Answered"}
+{"t":1794652543968,"pid":3393003,"ev":"hook.done","plugin":"probe","label":"afterTurn","result":"ok","ms":0}
+{"t":1794652544469,"pid":3393003,"ev":"mark","label":"turn 3"}
+{"t":1794652544469,"pid":3393003,"ev":"user.posted","text":"Reply with just the word PONG.","key":"message/test:c1/m10"}
+{"t":1794652544478,"pid":3393003,"ev":"gateway.saved","key":"message/test:c1/m10","ms":9}
+{"t":1794652544486,"pid":3393003,"ev":"message.delivered","key":"message/test:c1/m10","ms":17,"text":"Reply with just the word PONG."}
+{"t":1794652544500,"pid":3393003,"ev":"turn.start","key":"message/test:c1/m10","turn":"733fdeb1-9265-47dd-8256-c8f4aff3ddd3","starts":1,"resumed":false}
+{"t":1794652544500,"pid":3393003,"ev":"hook.beforeTurn","plugin":"probe","turn":"733fdeb1-9265-47dd-8256-c8f4aff3ddd3","origin":{"_tag":"Message","text":"Reply with just the word PONG.","userId":"owner-1"},"resumed":false,"prompt":"Reply with just the word PONG."}
+{"t":1794652544500,"pid":3393003,"ev":"status.posted","id":"m12"}
+{"t":1794652544510,"pid":3393003,"ev":"brain.CompactionStarted","reason":"threshold"}
+{"t":1794652545339,"pid":3393003,"ev":"brain.CompactionEnded","reason":"threshold","tokensBefore":4709,"tokensAfter":4709}
+{"t":1794652545339,"pid":3393003,"ev":"turn.usage","key":"message/test:c1/m10","calls":["5482 in / 5376 cached"]}
+{"t":1794652545346,"pid":3393003,"ev":"turn.end","key":"message/test:c1/m10","turn":"733fdeb1-9265-47dd-8256-c8f4aff3ddd3","outcome":"Answered","compacted":false}
+{"t":1794652545366,"pid":3393003,"ev":"hook.afterTurn","plugin":"probe","turn":"733fdeb1-9265-47dd-8256-c8f4aff3ddd3","origin":{"_tag":"Message","text":"Reply with just the word PONG.","userId":"owner-1"},"resumed":false,"outcome":"Answered"}
+{"t":1794652545366,"pid":3393003,"ev":"hook.done","plugin":"probe","label":"afterTurn","result":"ok","ms":0}
+{"t":1794652545367,"pid":3393003,"ev":"mark","label":"turn 4"}
+{"t":1794652545367,"pid":3393003,"ev":"user.posted","text":"Reply with just the word LAST.","key":"message/test:c1/m14"}
+{"t":1794652545374,"pid":3393003,"ev":"gateway.saved","key":"message/test:c1/m14","ms":7}
+{"t":1794652545386,"pid":3393003,"ev":"message.delivered","key":"message/test:c1/m14","ms":19,"text":"Reply with just the word LAST."}
+{"t":1794652545401,"pid":3393003,"ev":"turn.start","key":"message/test:c1/m14","turn":"f3d1589c-1ded-4a86-9554-66660ab4ce52","starts":1,"resumed":false}
+{"t":1794652545401,"pid":3393003,"ev":"hook.beforeTurn","plugin":"probe","turn":"f3d1589c-1ded-4a86-9554-66660ab4ce52","origin":{"_tag":"Message","text":"Reply with just the word LAST.","userId":"owner-1"},"resumed":false,"prompt":"Reply with just the word LAST."}
+{"t":1794652545401,"pid":3393003,"ev":"status.posted","id":"m16"}
+{"t":1794652545411,"pid":3393003,"ev":"brain.CompactionStarted","reason":"threshold"}
+{"t":1794652546890,"pid":3393003,"ev":"brain.historyReplaced","messages":6}
+{"t":1794652546890,"pid":3393003,"ev":"brain.CompactionEnded","reason":"threshold","tokensBefore":4835,"tokensAfter":2458}
+{"t":1794652546890,"pid":3393003,"ev":"turn.usage","key":"message/test:c1/m14","calls":["5501 in / 5376 cached"]}
+{"t":1794652546897,"pid":3393003,"ev":"turn.end","key":"message/test:c1/m14","turn":"f3d1589c-1ded-4a86-9554-66660ab4ce52","outcome":"Answered","compacted":true}
+{"t":1794652546917,"pid":3393003,"ev":"hook.afterTurn","plugin":"probe","turn":"f3d1589c-1ded-4a86-9554-66660ab4ce52","origin":{"_tag":"Message","text":"Reply with just the word LAST.","userId":"owner-1"},"resumed":false,"outcome":"Answered"}
+{"t":1794652546917,"pid":3393003,"ev":"hook.done","plugin":"probe","label":"afterTurn","result":"ok","ms":0}
+{"t":1794652548419,"pid":3393003,"ev":"hook.compacted","session":"ba7284c8-4ba9-4056-ae36-07a7c2394d75"}
+{"t":1794652548419,"pid":3393003,"ev":"hook.done","plugin":"probe","label":"Compacted","result":"ok","ms":1502}
+{"t":1794652549419,"pid":3393003,"ev":"history.rows","rows":6}
+{"t":1794652549419,"pid":3393003,"ev":"bot.messages","messages":["OK","PING","PONG","LAST"]}
+{"t":1794652549419,"pid":3393003,"ev":"scenario.end","name":"compact-real","phase":"1"}
+{"t":1794652549428,"pid":3393003,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652551411,"pid":3393003,"ev":"hooks.draining","pending":0}
+{"t":1794652551411,"pid":3393003,"ev":"hooks.drained"}
+{"t":1794652551411,"pid":3393003,"ev":"plugins.closed"}
+{"t":1794652551460,"pid":3393003,"ev":"process.exit","code":0,"signal":null}

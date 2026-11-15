@@ -1,0 +1,39 @@
+{"t":1794683948888,"pid":2199126,"ev":"boot.nothingApplied"}
+{"t":1794683949105,"pid":2199126,"ev":"scenario.start","name":"hole","phase":"1","drainMs":30000,"closeMs":10000}
+{"t":1794683949137,"pid":2199126,"ev":"apply.start","dir":"out/repo-hole-any/versions/1794683949136-2199126-1"}
+{"t":1794683949269,"pid":2199126,"ev":"build.ok","version":"conv#1@1f69b3f8","tools":["store"],"hooks":[]}
+{"t":1794683949293,"pid":2199126,"ev":"live.moved","live":"versions/1794683949136-2199126-1"}
+{"t":1794683949294,"pid":2199126,"ev":"swap.gateClosed","label":"apply","plugins":["conv: nothing -> conv#1@1f69b3f8"]}
+{"t":1794683949294,"pid":2199126,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794683949294,"pid":2199126,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794683949294,"pid":2199126,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["conv: conv#1@1f69b3f8"]}
+{"t":1794683949294,"pid":2199126,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":["conv"],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794683949296,"pid":2199126,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"a changed parameter PLAN:{\"steps\":[\"try { console.log('OK ' "}
+{"t":1794683949405,"pid":2199126,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794683949412,"pid":2199126,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794683949481,"pid":2199126,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"2fe06289-43d7-46a6-a190-87ecc69711c1","starts":1,"cuts":0,"resumed":false}
+{"t":1794683949496,"pid":2199126,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"on":{"conv":"1f69b3f8"},"tools":["store"]}
+{"t":1794683949604,"pid":2199126,"ev":"call.routed","session":"s-c1","tool":"store","built":"1f69b3f8","to":"conv#1@1f69b3f8","recoded":false}
+{"t":1794683949607,"pid":2199126,"ev":"script.mark","session":"s-c1","label":"m1"}
+{"t":1794683949640,"pid":2199126,"ev":"apply.start","dir":"out/repo-hole-any/versions/1794683949640-2199126-2"}
+{"t":1794683949649,"pid":2199126,"ev":"build.ok","version":"conv#2@24a44955","tools":["store"],"hooks":[]}
+{"t":1794683949650,"pid":2199126,"ev":"live.moved","live":"versions/1794683949640-2199126-2"}
+{"t":1794683949650,"pid":2199126,"ev":"swap.gateClosed","label":"apply","plugins":["conv: conv#1@1f69b3f8 -> conv#2@24a44955"]}
+{"t":1794683949650,"pid":2199126,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794683949650,"pid":2199126,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794683949651,"pid":2199126,"ev":"close.done","version":"conv#1@1f69b3f8","why":"apply","ms":1}
+{"t":1794683949653,"pid":2199126,"ev":"swap.activated","label":"apply","generation":2,"waitedMs":3,"drainedMs":0,"closeMs":3,"interrupted":[],"affected":["s-c1 loses conv until its turn ends (0 sub-agents running)"],"now":["conv: conv#2@24a44955"]}
+{"t":1794683949653,"pid":2199126,"ev":"cli.apply","label":"NumberFromString became String","ok":true,"exit":0,"errors":[],"reloaded":["conv"],"kept":[],"swap":{"label":"apply","generation":2,"waitedMs":3,"drainedMs":0,"closeMs":3,"interrupted":[],"affected":["s-c1 loses conv until its turn ends (0 sub-agents running)"]}}
+{"t":1794683949654,"pid":2199126,"ev":"call.routed","session":"s-c1","tool":"store","built":"1f69b3f8","to":"conv#2@24a44955","recoded":false}
+{"t":1794683949659,"pid":2199126,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"the v1 handler got a number\"\nOK \"the v2 handler, written for a string, got a number and stored \\\"420\\\"\"\n"}
+{"t":1794683949848,"pid":2199126,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"2fe06289-43d7-46a6-a190-87ecc69711c1","outcome":"Answered","text":"RESULTS [\"OK \\\"the v1 handler got a number\\\"\\nOK \\\"the v2 handler, written for a string, got a number and stored \\\\\\\"420\\\\\\\"\\\"\\n\"]"}
+{"t":1794683949901,"pid":2199126,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"the v1 handler got a number\\\"\\nOK \\\"the v2 handler, written for a string, got a number and stored \\\\\\\"420\\\\\\\"\\\"\\n\"]"}
+{"t":1794683949902,"pid":2199126,"ev":"scenario.end","name":"hole","phase":"1"}
+{"t":1794683949902,"pid":2199126,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794683949917,"pid":2199126,"ev":"stop.entityLayersClosed"}
+{"t":1794683960099,"pid":2199126,"ev":"stop.runnerClosed"}
+{"t":1794683960137,"pid":2199126,"ev":"hooks.draining","pending":0}
+{"t":1794683960137,"pid":2199126,"ev":"hooks.drained"}
+{"t":1794683960137,"pid":2199126,"ev":"close.done","version":"conv#2@24a44955","why":"graceful stop","ms":0}
+{"t":1794683960137,"pid":2199126,"ev":"plugins.closed"}
+{"t":1794683960222,"pid":2199126,"ev":"process.exit","code":0,"signal":null}

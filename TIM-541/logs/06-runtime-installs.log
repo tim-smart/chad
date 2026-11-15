@@ -1,0 +1,104 @@
+### first container (kept, so podman diff can show what landed outside the volume)
+uid=1000(node) gid=1000(node) groups=1000(node)
+HOME=/data/home
+--- npm install -g cowsay (NPM_CONFIG_PREFIX=/data/home/.npm-global)
+npm notice To update run: npm install -g npm@12.2.2
+npm notice
+exit=0
+npm prefix -g: /data/home/.npm-global   npm cache: /data/home/.npm
+/data/home/.npm-global/bin/cowsay
+ ____
+< ok >
+--- npm install -g WITHOUT the prefix (default /usr/local) as uid 1000
+npm error code EACCES
+npm error syscall mkdir
+npm error path /usr/local/lib/node_modules/cowsay
+npm error Error: EACCES: permission denied, mkdir '/usr/local/lib/node_modules/cowsay'
+--- uv dirs
+uv tool dir: /data/home/.local/share/uv/tools
+uv tool bin dir: /data/home/.local/bin
+uv cache dir: /data/home/.cache/uv
+uv python dir: /data/home/.local/share/uv/python
+--- uv tool install pycowsay
+ Downloaded cpython-3.15.2-linux-x86_64-gnu (download)
+Resolved 1 package in 27ms
+Prepared 1 package in 13ms
+Installed 1 package in 4ms
+ + pycowsay==0.0.0.2
+Installed 1 executable: pycowsay
+exit=0
+/data/home/.local/bin/pycowsay
+/data/home/.local/share/uv/tools/pycowsay/lib/python3.15/site-packages/pycowsay/main.py:27: SyntaxWarning: "\ " is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\ "? A raw string is also an option.
+  \   ^__^
+
+  --
+< ok >
+--- uvx ruff --version
+Installed 1 package in 2ms
+ruff 0.17.5
+--- apt-get install as uid 1000
+E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)
+E: Unable to acquire the dpkg frontend lock (/var/lib/dpkg/lock-frontend), are you root?
+exit=0
+Reading package lists...
+E: List directory /var/lib/apt/lists/partial is missing. - Acquire (13: Permission denied)
+--- sudo / su available?
+sudo: MISSING
+--- write outside /data as uid 1000
+touch: cannot touch '/usr/local/bin/x': Permission denied
+touch: cannot touch '/opt/x': Permission denied
+/tmp writable
+/home/node writable
+--- sizes under /data/home
+2.7M	/data/home/.npm-global
+3.7M	/data/home/.npm
+27M	/data/home/.cache/uv
+140K	/data/home/.local/share/uv/tools
+114M	/data/home/.local/share/uv/python
+4.0K	/data/home/.local/bin
+
+### podman diff of that container (changes to the image filesystem, i.e. NOT on the volume; lost when the container is replaced):
+   A /data
+   C /etc
+   C /home/node
+   C /home
+   A /home/node/x
+   C /tmp
+   A /tmp/node-compile-cache
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/00bf0630
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/00e7fb07
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/01c08d40
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/0275a71a
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/027fd99b
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/029c3683
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/03bfe4fd
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/04e65cde
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/052c232d
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/0535d717
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/053fed39
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/0555bc32
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/077049fd
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/09587c8c
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/09a7ebaf
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/09cc6bf3
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/0abe949a
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/0b00cc65
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/0bb0939e
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/0c15d042
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/0c92995d
+   A /tmp/node-compile-cache/v26.13.1-x64-310b2ce3-1000/0cb643b3
+
+### second, new container on the same volume (what survived)
+/data/home/.npm-global/bin/cowsay
+ __________
+< survived >
+/data/home/.local/bin/pycowsay
+
+  --------
+< survived >
+pycowsay v0.0.0.2
+- pycowsay
+cpython-3.15.2-linux-x86_64-gnu    /data/home/.local/share/uv/python/cpython-3.15-linux-x86_64-gnu/bin/python3.15
+ls: cannot access '/tmp/x': No such file or directory
+ls: cannot access '/home/node/x': No such file or directory

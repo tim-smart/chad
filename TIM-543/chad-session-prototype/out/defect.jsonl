@@ -1,0 +1,29 @@
+{"t":1794652382917,"pid":3370385,"ev":"scenario.start","name":"defect","phase":"1","variant":""}
+{"t":1794652382919,"pid":3370385,"ev":"user.posted","text":"sleep:200 before the defect","key":"message/test:c1/m2"}
+{"t":1794652382930,"pid":3370385,"ev":"gateway.saved","key":"message/test:c1/m2","ms":10}
+{"t":1794652382990,"pid":3370385,"ev":"session.activated","thread":"c1","session":"6a052830-c01d-43d9-91fd-692b87e5e12f","activation":1}
+{"t":1794652382992,"pid":3370385,"ev":"message.delivered","key":"message/test:c1/m2","ms":72,"text":"sleep:200 before the defect"}
+{"t":1794652383007,"pid":3370385,"ev":"turn.start","key":"message/test:c1/m2","turn":"b87ff84b-edf4-4fe8-8967-e63b1fb6afbf","starts":1,"resumed":false}
+{"t":1794652383009,"pid":3370385,"ev":"status.posted","id":"m4"}
+{"t":1794652383235,"pid":3370385,"ev":"turn.end","key":"message/test:c1/m2","turn":"b87ff84b-edf4-4fe8-8967-e63b1fb6afbf","outcome":"Answered","compacted":false}
+{"t":1794652383285,"pid":3370385,"ev":"message.delivered","key":"defect-1","ms":22,"text":"handler-defect"}
+{"t":1794652383294,"pid":3370385,"ev":"defect.exit","exit":"{\"_id\":\"Exit\",\"_tag\":\"Failure\",\"cause\":{\"_id\":\"Cause\",\"reasons\":[{\"_tag\":\"Die\",\"defect\":{}}]}}"}
+{"t":1794652383294,"pid":3370385,"ev":"user.posted","text":"sleep:200 after the defect","key":"message/test:c1/m6"}
+{"t":1794652383301,"pid":3370385,"ev":"gateway.saved","key":"message/test:c1/m6","ms":7}
+{"t":1794652383309,"pid":3370385,"ev":"message.delivered","key":"message/test:c1/m6","ms":15,"text":"sleep:200 after the defect"}
+{"t":1794652383321,"pid":3370385,"ev":"turn.start","key":"message/test:c1/m6","turn":"d0a8a12c-43f7-4fbd-8790-015bb318addb","starts":1,"resumed":false}
+{"t":1794652383321,"pid":3370385,"ev":"status.posted","id":"m8"}
+{"t":1794652383543,"pid":3370385,"ev":"turn.end","key":"message/test:c1/m6","turn":"d0a8a12c-43f7-4fbd-8790-015bb318addb","outcome":"Answered","compacted":false}
+{"t":1794652383552,"pid":3370385,"ev":"peek","activation":1}
+{"t":1794652383552,"pid":3370385,"ev":"scenario.end","name":"defect","phase":"1"}
+{"t":1794652383560,"pid":3370385,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652385716,"pid":3370385,"ev":"hooks.draining","pending":0}
+{"t":1794652385716,"pid":3370385,"ev":"hooks.drained"}
+{"t":1794652385716,"pid":3370385,"ev":"plugins.closed"}
+{"t":1794652385761,"pid":3370385,"ev":"process.exit","code":0,"signal":null}
+{"t":1794652386667,"pid":3370853,"ev":"scenario.start","name":"defect","phase":"2","variant":""}
+{"t":1794652399669,"pid":3370853,"ev":"scenario.end","name":"defect","phase":"2"}
+{"t":1794652402399,"pid":3370853,"ev":"hooks.draining","pending":0}
+{"t":1794652402399,"pid":3370853,"ev":"hooks.drained"}
+{"t":1794652402399,"pid":3370853,"ev":"plugins.closed"}
+{"t":1794652402437,"pid":3370853,"ev":"process.exit","code":0,"signal":null}

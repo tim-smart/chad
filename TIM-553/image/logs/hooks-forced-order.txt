@@ -1,0 +1,8 @@
+PASS  [hooks]  no handler touched what a closed version owned
+PASS  [hooks]  no turn failed
+PASS  [hooks]  the hook that was running finished on the old version, and the swap waited for that one only  ({"waitedMs":1253})
+PASS  [hooks]  the two afterTurn hooks still queued ran on the new version  (["echo#2@a8639b46","echo#2@a8639b46"])
+PASS  [hooks]  the queued Compacted hook was dropped and logged, the new version registers none  (the current version registers no Compacted hook)
+PASS  [hooks]  the old version's Plugin.background fiber was interrupted at its close, and the drain did not wait for it
+FAIL  [hooks]  when the plugin was removed its queued hook was dropped and logged
+6 passed, 1 failed

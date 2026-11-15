@@ -1,0 +1,15 @@
+scenario login, model gpt-6-astra/low, node v26.8.2, clanka 0.27.0
+
+=== two sessions need a login at the same moment, 15 minute timeout
+[   0.1s] thread-A  turn starts: Reply with the single word: ready
+[   0.2s] onCode    code #1 issued. CurrentSession inside onCode: thread-A, ownerPresent true
+[   0.2s] discord   to thread-A: Open https://auth.openai.com/codex/device and enter ****-***SF
+[   2.1s] thread-B  turn starts: Reply with the single word: steady
+[   2.1s] discord   to thread-B: -# Waiting for the login in thread-A
+[ 242.7s] wrapper   the shared wait ended: logged in
+[ 244.7s] thread-B  answer: steady
+[ 244.7s] thread-B  tokens: input 1791, cached 0; per model call: 1791 in / 0 cached
+[ 245.0s] thread-A  answer: ready
+[ 245.0s] thread-A  tokens: input 1791, cached 0; per model call: 1791 in / 0 cached
+[ 245.0s] summary   device codes issued: 1; auth.openai.com requests: /api/accounts/deviceauth/usercode x1, /api/accounts/deviceauth/token x31, /oauth/token x1
+[ 245.0s] host      token store: /home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-040a61a7bad4/workdir/chad-codex-login-prototype/PROTOTYPE-wipe-me-auth

@@ -1,0 +1,73 @@
+
+### C1: slow apply c1, then c2 from another cli process
+10:45:03.011 [cli 3461942] step snapshot 10:45:03.009
+10:45:03.110 [cli 3461942] step check 10:45:03.110
+10:45:03.212 [cli 3461942] step load 10:45:03.211
+10:45:03.667 [cli 3462062] waiting on: apply#1 "c1" (client 0) (at step load)
+10:45:06.215 [cli 3461942] step commit 10:45:06.214
+10:45:06.216 [cli 3461942] step swap 10:45:06.215
+10:45:06.216 [cli 3461942] applied c1
+10:45:06.217 [cli 3462062] step snapshot 10:45:06.216
+c1 exit=0
+10:45:06.317 [cli 3462062] step check 10:45:06.316
+10:45:06.417 [cli 3462062] step load 10:45:06.416
+10:45:06.718 [cli 3462062] step commit 10:45:06.717
+10:45:06.719 [cli 3462062] step swap 10:45:06.718
+10:45:06.719 [cli 3462062] applied c2
+c2 exit=0
+
+### C2: c3 slow, c4 waits, kill -9 c3 while c4 waits
+10:45:07.155 [cli 3462360] step snapshot 10:45:07.153
+10:45:07.254 [cli 3462360] step check 10:45:07.253
+10:45:07.354 [cli 3462360] step load 10:45:07.353
+10:45:07.816 [cli 3462488] waiting on: apply#3 "c3" (client 2) (at step load)
+10:45:08.361 kill -9 3462360 (c3)
+/home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/scenarios/C.sh: line 13: 3462360 Killed                     node chad.ts apply --label c3 --load 8000
+c3 exit=137
+10:45:08.375 [cli 3462488] step snapshot 10:45:08.374
+10:45:08.475 [cli 3462488] step check 10:45:08.474
+10:45:08.575 [cli 3462488] step load 10:45:08.574
+10:45:08.875 [cli 3462488] step commit 10:45:08.874
+10:45:08.876 [cli 3462488] step swap 10:45:08.875
+10:45:08.876 [cli 3462488] applied c4
+10:45:08.895 c4 exit=0
+
+### commits.log
+10:45:06.214 commit c1
+10:45:06.215 swap c1
+10:45:06.718 commit c2
+10:45:06.718 swap c2
+10:45:08.874 commit c4
+10:45:08.875 swap c4
+
+### daemon log
+10:45:02.566 [daemon 3461829] lock taken
+10:45:02.572 [daemon 3461829] listening on state/chad.sock mode 600
+10:45:03.009 [daemon 3461829] apply#1 "c1" (client 0) received
+10:45:03.009 [daemon 3461829] apply#1 "c1" (client 0) step snapshot
+10:45:03.110 [daemon 3461829] apply#1 "c1" (client 0) step check
+10:45:03.211 [daemon 3461829] apply#1 "c1" (client 0) step load
+10:45:03.665 [daemon 3461829] apply#2 "c2" (client 1) received
+10:45:03.666 [daemon 3461829] apply#2 "c2" (client 1) queued behind apply#1 "c1" (client 0)
+10:45:06.214 [daemon 3461829] apply#1 "c1" (client 0) step commit
+10:45:06.215 [daemon 3461829] apply#1 "c1" (client 0) step swap
+10:45:06.215 [daemon 3461829] apply#1 "c1" (client 0) handler exit: success
+10:45:06.216 [daemon 3461829] apply#2 "c2" (client 1) step snapshot
+10:45:06.316 [daemon 3461829] apply#2 "c2" (client 1) step check
+10:45:06.416 [daemon 3461829] apply#2 "c2" (client 1) step load
+10:45:06.717 [daemon 3461829] apply#2 "c2" (client 1) step commit
+10:45:06.718 [daemon 3461829] apply#2 "c2" (client 1) step swap
+10:45:06.718 [daemon 3461829] apply#2 "c2" (client 1) handler exit: success
+10:45:07.153 [daemon 3461829] apply#3 "c3" (client 2) received
+10:45:07.153 [daemon 3461829] apply#3 "c3" (client 2) step snapshot
+10:45:07.253 [daemon 3461829] apply#3 "c3" (client 2) step check
+10:45:07.353 [daemon 3461829] apply#3 "c3" (client 2) step load
+10:45:07.814 [daemon 3461829] apply#4 "c4" (client 3) received
+10:45:07.814 [daemon 3461829] apply#4 "c4" (client 3) queued behind apply#3 "c3" (client 2)
+10:45:08.374 [daemon 3461829] apply#3 "c3" (client 2) handler exit: INTERRUPTED
+10:45:08.374 [daemon 3461829] apply#4 "c4" (client 3) step snapshot
+10:45:08.474 [daemon 3461829] apply#4 "c4" (client 3) step check
+10:45:08.574 [daemon 3461829] apply#4 "c4" (client 3) step load
+10:45:08.874 [daemon 3461829] apply#4 "c4" (client 3) step commit
+10:45:08.875 [daemon 3461829] apply#4 "c4" (client 3) step swap
+10:45:08.875 [daemon 3461829] apply#4 "c4" (client 3) handler exit: success

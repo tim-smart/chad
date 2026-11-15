@@ -1,0 +1,43 @@
+10:38:57.208 [daemon 3421351] lock taken
+main failed: {
+  reason: {
+    cause: Error: listen EINVAL: invalid argument /home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/state/chad.sock
+        at Server.setupListenHandle [as _listen2] (node:net:2306:21)
+        at listenInCluster (node:net:2437:12)
+        at Server.listen (node:net:2579:5)
+        at MixedScheduler.<anonymous> (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/@effect/platform-node-shared/dist/NodeSocketServer.js:224:12)
+        at ~effect/Effect/evaluate (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/effect/dist/internal/effect.js:854:38)
+        at FiberImpl.runLoop (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/effect/dist/internal/effect.js:493:99)
+        at FiberImpl.evaluate (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/effect/dist/internal/effect.js:426:23)
+        at forkUnsafe (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/effect/dist/internal/effect.js:2488:11)
+        at MixedScheduler.<anonymous> (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/effect/dist/internal/effect.js:1192:21)
+        at ~effect/Effect/evaluate (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/effect/dist/internal/effect.js:854:38) {
+      code: 'EINVAL',
+      errno: -22,
+      syscall: 'listen',
+      address: '/home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/state/chad.sock',
+      port: -1
+    },
+    _tag: 'SocketServerOpenError'
+  },
+  cause: Error: listen EINVAL: invalid argument /home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/state/chad.sock
+      at Server.setupListenHandle [as _listen2] (node:net:2306:21)
+      at listenInCluster (node:net:2437:12)
+      at Server.listen (node:net:2579:5)
+      at MixedScheduler.<anonymous> (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/@effect/platform-node-shared/dist/NodeSocketServer.js:224:12)
+      at ~effect/Effect/evaluate (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/effect/dist/internal/effect.js:854:38)
+      at FiberImpl.runLoop (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/effect/dist/internal/effect.js:493:99)
+      at FiberImpl.evaluate (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/effect/dist/internal/effect.js:426:23)
+      at forkUnsafe (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/effect/dist/internal/effect.js:2488:11)
+      at MixedScheduler.<anonymous> (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/effect/dist/internal/effect.js:1192:21)
+      at ~effect/Effect/evaluate (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/effect/dist/internal/effect.js:854:38) {
+    code: 'EINVAL',
+    errno: -22,
+    syscall: 'listen',
+    address: '/home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/state/chad.sock',
+    port: -1
+  },
+  _tag: 'SocketServerError',
+  '@effect/platform/SocketServer/SocketServerError': '@effect/platform/SocketServer/SocketServerError'
+}
+exit=2

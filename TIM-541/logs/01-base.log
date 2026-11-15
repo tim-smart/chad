@@ -1,0 +1,103 @@
+== 26-bookworm-slim
+0b49af50ad66fcdc97ee176a6762e4c5f2c427916a83555c672841e366a94589
+== 26-trixie-slim
+bd57e13a3a218d2cdb81fa50f845db04886f1225c81cb5bba6431de7ba86ba84
+== 26-alpine
+1185bc3113149ddf267acf78f69b0a12a48995d903b45a0e9926058ab5edab36
+== 26-slim
+bd57e13a3a218d2cdb81fa50f845db04886f1225c81cb5bba6431de7ba86ba84
+docker.io/library/node:24.21.0-bookworm-slim 235 MB 470015c1ab15
+docker.io/library/node:26-alpine 182 MB 1185bc311314
+docker.io/library/node:26-bookworm-slim 251 MB 0b49af50ad66
+docker.io/library/node:26-slim 255 MB bd57e13a3a21
+docker.io/library/node:26-trixie-slim 255 MB bd57e13a3a21
+=== node:26-bookworm-slim
+size=251213862 user="" entrypoint=[docker-entrypoint.sh] cmd=[node] stopsignal="" env=[PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin NODE_VERSION=26.13.1] digest=sha256:18a166e2d50578afe933434857ed2d9059bd1aa398a223e9c89eb4302354f079
+whoami=root id=uid=0(root) gid=0(root) groups=0(root)
+uid=1000(node) gid=1000(node) groups=1000(node)
+node:x:1000:1000::/home/node:/bin/bash
+v26.13.1
+11.20.0
+node:sqlite ok 3.54.1
+ldd (Debian GLIBC 2.36-9+deb12u14) 2.36
+PRETTY_NAME="Debian GNU/Linux 12 (bookworm)"
+bash: present /usr/bin/bash
+git: MISSING
+curl: MISSING
+wget: MISSING
+tini: MISSING
+dumb-init: MISSING
+rg: MISSING
+sqlite3: MISSING
+gh: MISSING
+python3: MISSING
+uv: MISSING
+corepack: MISSING
+yarn: MISSING
+pnpm: MISSING
+ps: MISSING
+ca-certificates: MISSING (/etc/ssl/certs/ca-certificates.crt)
+un  ca-certificates <none>       <none>       (no description available)
+drwxr-xr-x 2 node node 4096 Nov 11 18:42 /home/node
+drwxr-xr-x 3 root root 4096 Nov 11 00:17 /usr/local/lib/node_modules
+node fetch https status 200
+=== node:26-trixie-slim
+size=254776583 user="" entrypoint=[docker-entrypoint.sh] cmd=[node] stopsignal="" env=[PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin NODE_VERSION=26.13.1] digest=sha256:a5a5adfee3013de54504e0e6aff49993acf7daed072e86be75b8818c0f6ac258
+whoami=root id=uid=0(root) gid=0(root) groups=0(root)
+uid=1000(node) gid=1000(node) groups=1000(node)
+node:x:1000:1000::/home/node:/bin/bash
+v26.13.1
+11.20.0
+node:sqlite ok 3.54.1
+ldd (Debian GLIBC 2.41-12+deb13u4) 2.41
+PRETTY_NAME="Debian GNU/Linux 13 (trixie)"
+bash: present /usr/bin/bash
+git: MISSING
+curl: MISSING
+wget: MISSING
+tini: MISSING
+dumb-init: MISSING
+rg: MISSING
+sqlite3: MISSING
+gh: MISSING
+python3: MISSING
+uv: MISSING
+corepack: MISSING
+yarn: MISSING
+pnpm: MISSING
+ps: MISSING
+ca-certificates: MISSING (/etc/ssl/certs/ca-certificates.crt)
+un  ca-certificates <none>       <none>       (no description available)
+drwx------ 2 node node 4096 Nov 11 18:42 /home/node
+drwxr-xr-x 3 root root 4096 Nov 11 00:17 /usr/local/lib/node_modules
+node fetch https status 200
+=== node:26-alpine
+size=182076881 user="" entrypoint=[docker-entrypoint.sh] cmd=[node] stopsignal="" env=[PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin NODE_VERSION=26.13.1] digest=sha256:a90bda2938f2b57112d94ee2e3722c5346efca76e4a034042b5223197567a16c
+whoami=root id=uid=0(root) gid=0(root) groups=0(root),1(bin),2(daemon),3(sys),4(adm),6(disk),10(wheel),11(floppy),20(dialout),26(tape),27(video)
+uid=1000(node) gid=1000(node) groups=1000(node),1000(node)
+node:x:1000:1000::/home/node:/bin/sh
+v26.13.1
+11.20.0
+node:sqlite ok 3.54.1
+musl libc (x86_64)
+PRETTY_NAME="Alpine Linux v3.24"
+bash: MISSING
+git: MISSING
+curl: MISSING
+wget: present /usr/bin/wget
+tini: MISSING
+dumb-init: MISSING
+rg: MISSING
+sqlite3: MISSING
+gh: MISSING
+python3: MISSING
+uv: MISSING
+corepack: MISSING
+yarn: MISSING
+pnpm: MISSING
+ps: present /bin/ps
+ca-certificates: present
+sh: dpkg: not found
+drwxr-sr-x    2 node     node          4096 Nov 11 18:41 /home/node
+drwxr-xr-x    3 root     root          4096 Nov 11 18:42 /usr/local/lib/node_modules
+node fetch https status 200

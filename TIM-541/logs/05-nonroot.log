@@ -1,0 +1,45 @@
+
+### A. stock image (no /data dir in image), fresh named volume, --user node
+   uid=1000(node) gid=1000(node) groups=1000(node)
+   drwxr-xr-x 2 1000 1000 4096 Nov 14 10:38 /data
+   WRITE-OK
+
+### A2. same volume again, second run
+   uid=1000(node) gid=1000(node) groups=1000(node)
+   drwxr-xr-x 2 1000 1000 4096 Nov 14 10:38 /data
+   WRITE-OK
+
+### B. image with 'RUN mkdir -p /data && chown node:node /data' + 'USER node', fresh named volume
+   uid=1000(node) gid=1000(node) groups=1000(node)
+   drwxr-xr-x 2 1000 1000 4096 Nov 14 10:38 /data
+   WRITE-OK
+
+### B2. the volume first mounted by a root container (stock image), then by the node image
+   0
+   drwxr-xr-x 2 0 0 4096 Nov 14 10:38 /data
+   uid=1000(node) gid=1000(node) groups=1000(node)
+   drwxr-xr-x 2 1000 1000 4096 Nov 14 10:38 /data
+   WRITE-OK
+
+### C. stock image, fresh named volume with :U (podman only: chown volume to the container user)
+   uid=1000(node) gid=1000(node) groups=1000(node)
+   drwxr-xr-x 2 1000 1000 4096 Nov 14 10:38 /data
+   WRITE-OK
+
+### D. host bind mount (host dir owned by host uid 1000, rootless podman), --user node
+   uid=1000(node) gid=1000(node) groups=1000(node)
+   drwxr-xr-x 2 0 0 4096 Nov 14 10:38 /data
+   touch: cannot touch '/data/x': Permission denied
+   WRITE-FAILED
+
+### D2. host bind mount + --userns=keep-id:uid=1000,gid=1000 (rootless podman only)
+   uid=1000(node) gid=1000(node) groups=1000(node)
+   drwxr-xr-x 2 1000 1000 4096 Nov 14 10:38 /data
+   WRITE-OK
+
+### E. podman volume ownership as seen from the host
+   chadfacts-nr1: 65534:65534 755  (host ids; rootless maps container uid 1000 to a subuid)
+   chadfacts-nr2: 65534:65534 755  (host ids; rootless maps container uid 1000 to a subuid)
+   chadfacts-nr4: 65534:65534 755  (host ids; rootless maps container uid 1000 to a subuid)
+         1000       1000          1
+   grep: /etc/subuid: No such file or directory

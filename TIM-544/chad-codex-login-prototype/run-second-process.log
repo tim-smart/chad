@@ -1,0 +1,26 @@
+scenario second-process, model gpt-6-astra/low, node v26.8.2, clanka 0.27.0
+
+=== daemon A starts logged out
+[   0.1s] host      a second process (cp) wrote the token file into the store. In the store now: true
+
+=== daemon A, a turn with no owner present
+[   0.1s] A-cron    turn starts: Reply with the single word: one
+[   0.2s] onCode    code #1 issued. CurrentSession inside onCode: A-cron, ownerPresent false
+[   0.2s] onCode    no owner present, the handler dies
+[   0.2s] discord   to A-cron: -# defect: NoOwnerPresent
+[   0.2s] A-cron    turn ended before send, after 0.1s
+
+=== daemon B starts on the same store
+[   0.2s] B-thread  turn starts: Reply with the single word: two
+[   2.4s] B-thread  answer: two
+[   2.4s] B-thread  tokens: input 1791, cached 1664; per model call: 1791 in / 1664 cached
+[   2.4s] host      a second process (rm) removed the token file. In the store now: false
+
+=== daemon B, after the file is gone
+[   2.4s] B-thread  turn starts: Reply with the single word: three
+[   3.8s] B-thread  answer: three
+[   3.8s] B-thread  tokens: input 1809, cached 1664; per model call: 1809 in / 1664 cached
+[   3.8s] B-thread-2 turn starts: Reply with the single word: four
+[   5.6s] B-thread-2 answer: four
+[   5.6s] B-thread-2 tokens: input 1791, cached 0; per model call: 1791 in / 0 cached
+[   5.6s] summary   device codes issued: 1; auth.openai.com requests: /api/accounts/deviceauth/usercode x1

@@ -1,0 +1,5 @@
+10:38:57.661 [daemon 3421411] lock taken
+10:38:57.667 [daemon 3421411] listening on state/chad.sock mode 600
+10:38:59.602 [daemon 3421411] Status from client version 0.1.0-proto
+10:39:00.041 [daemon 3421411] tail#1 (client 2) started
+10:39:00.943 [daemon 3421411] tail#1 (client 2) handler exit: success

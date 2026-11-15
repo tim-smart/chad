@@ -1,0 +1,82 @@
+{
+  "A": [
+    {
+      "id": "m4",
+      "author": "owner-1",
+      "text": "my password for the fake site is FAKE-pasted-pw-0010 PLAN:{\"steps\":[\"try { const r = await bash({\\\"command\\\":\\\"printf %s 'FAKE-pasted-pw-0010' | chad secret set PASTED --note 'fake site, pasted in chat'\\\"}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"try { const r = await bash({\\\"command\\\":\\\"chad secret run --env P=PASTED -- printenv P\\\"}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"console.log('You pasted a password into the chat. I saved it as PASTED. Change it on the site, since it is in the chat history now.')\"]}"
+    },
+    {
+      "id": "m6",
+      "author": "bot",
+      "text": "-# running\nconsole.log('You pasted a password into the chat. I saved it as PASTED. Change it on the site, since it is in the chat history now.')"
+    },
+    {
+      "id": "m7",
+      "author": "bot",
+      "text": "RESULTS [\"[20:20:51.472] INFO (#96): Calling \\\"bash\\\" { command: \\\"printf %s '<secret:PASTED>' | chad secret set PASTED --note 'fake site, pasted in chat'\\\", timeoutMs: 600000 }\\nOUT[completed] Saved PASTED\\n\\n\",\"[20:20:52.537] INFO (#117): Calling \\\"bash\\\" { command: 'chad secret run --env P=PASTED -- printenv P', timeoutMs: 600000 }\\nOUT[completed] <secret:PASTED>\\n\\n\",\"You pasted a password into the chat. I saved it as PASTED. Change it on the site, since it is in the chat history now.\\n\"]"
+    },
+    {
+      "id": "m8",
+      "author": "owner-1",
+      "text": "the next turn PLAN:{\"steps\":[\"console.log('next')\"]}"
+    },
+    {
+      "id": "m10",
+      "author": "bot",
+      "text": "-# running\nconsole.log('next')"
+    },
+    {
+      "id": "m11",
+      "author": "bot",
+      "text": "RESULTS [\"next\\n\"]"
+    }
+  ],
+  "B": [],
+  "C": [],
+  "calls": [
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "-# working"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"printf %s 'FAKE-pasted-pw-0010' | chad secret set PASTED --note 'fake site, pasted in chat'\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret run --env P=PASTED -- printenv P\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\nconsole.log('You pasted a password into the chat. I saved it as PASTED. Change it on the site, since it is in the chat history now.')"
+    },
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "RESULTS [\"[20:20:51.472] INFO (#96): Calling \\\"bash\\\" { command: \\\"printf %s '<secret:PASTED>' | chad secret set PASTED --note 'fake site, pasted in chat'\\\", timeoutMs: 600000 }\\nOUT[completed] Saved PASTED\\n\\n\",\"[20:20:52.537] INFO (#117): Calling \\\"bash\\\" { command: 'chad secret run --env P=PASTED -- printenv P', timeoutMs: 600000 }\\nOUT[completed] <secret:PASTED>\\n\\n\",\"You pasted a password into the chat. I saved it as PASTED. Change it on the site, since it is in the chat history now.\\n\"]"
+    },
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "-# working"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m10",
+      "markdown": "-# running\nconsole.log('next')"
+    },
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "RESULTS [\"next\\n\"]"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{"t":1794687359044,"pid":2556295,"ev":"boot.nothingApplied"}
+{"t":1794687359134,"pid":2556295,"ev":"scenario.start","name":"mcp-sub","phase":"1","drainMs":30000,"closeMs":10000,"mcp":{"drainMs":30000,"heldMs":60000,"startMs":60000,"rules":"as written"}}
+{"t":1794687359138,"pid":2556295,"ev":"apply.start","dir":"out/repo-mcp-sub-none/versions/1794687359137-2556295-1"}
+{"t":1794687359139,"pid":2556295,"ev":"live.moved","live":"versions/1794687359137-2556295-1"}
+{"t":1794687359139,"pid":2556295,"ev":"mcp.gateClosed","label":"apply","layer":null,"inflight":[]}
+{"t":1794687359155,"pid":2556295,"ev":"swap.gateClosed","label":"apply","plugins":[]}
+{"t":1794687359155,"pid":2556295,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687359155,"pid":2556295,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687359155,"pid":2556295,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":[]}
+{"t":1794687359155,"pid":2556295,"ev":"apply.pluginsActivated","mcpStillRebuilding":true}
+{"t":1794687359372,"pid":2556413,"ev":"server.start","server":"fs","label":"v1","mode":"stdio","connectMs":0,"tools":["echo","slow","stubborn","store"]}
+{"t":1794687359377,"pid":2556413,"ev":"server.connected","server":"fs"}
+{"t":1794687359403,"pid":2556295,"ev":"mcp.connected","layer":1,"why":"apply","ms":263,"servers":{"fs":"connected, 4 tools"}}
+{"t":1794687359403,"pid":2556295,"ev":"mcp.ready","label":"apply","layer":1,"generation":1,"waitedMs":264,"interrupted":[],"runningTurns":[]}
+{"t":1794687359403,"pid":2556295,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":[],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]},"mcp":{"label":"apply","layer":1,"generation":1,"waitedMs":264,"interrupted":[],"runningTurns":[]}}
+{"t":1794687359404,"pid":2556295,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"spawns a sub-agent during a rebuild PLAN:{\"steps\":[\"try { co"}
+{"t":1794687359479,"pid":2556295,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687359481,"pid":2556295,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687359503,"pid":2556295,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"f588edc2-f809-4590-b369-4fb8300d0838","starts":1,"cuts":0,"resumed":false}
+{"t":1794687359509,"pid":2556295,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"mcp":"1","mcpPrompt":"1883d285","on":{},"tools":[]}
+{"t":1794687359512,"pid":2556295,"ev":"mcp.keysTaken","session":"s-c1","layer":1,"rebuilding":null,"keys":["fs.echo","fs.slow","fs.stubborn","fs.store","searchTools"]}
+{"t":1794687359512,"pid":2556295,"ev":"turn.system","session":"s-c1","hasMcpSection":true,"saysStillStarting":false,"mentions":["fs"]}
+{"t":1794687359577,"pid":2556295,"ev":"mcp.call.routed","session":"s-c1","key":"fs.echo","to":1}
+{"t":1794687359579,"pid":2556413,"ev":"server.echo","server":"fs","text":"a0"}
+{"t":1794687359584,"pid":2556295,"ev":"script.mark","session":"s-c1","label":"m1"}
+{"t":1794687359595,"pid":2556295,"ev":"mcp.gateClosed","label":"chad mcp restart","layer":1,"inflight":[]}
+{"t":1794687359595,"pid":2556295,"ev":"mcp.drained","label":"chad mcp restart","ms":0,"interrupted":[]}
+{"t":1794687359596,"pid":2556413,"ev":"server.stdinEnded","server":"fs"}
+{"t":1794687359596,"pid":2556413,"ev":"server.exit","server":"fs","code":0}
+{"t":1794687359606,"pid":2556295,"ev":"mcp.closed","label":"chad mcp restart","layer":1,"ms":11}
+{"t":1794687359621,"pid":2556295,"ev":"mcp.keysTaken","session":"s-c1","layer":null,"rebuilding":"chad mcp restart","keys":[]}
+{"t":1794687359622,"pid":2556295,"ev":"turn.system","session":"s-c1","hasMcpSection":true,"saysStillStarting":false,"mentions":["fs"]}
+{"t":1794687359623,"pid":2556295,"ev":"brain.subagentStart","session":"s-c1"}
+{"t":1794687359702,"pid":2556295,"ev":"brain.subagentComplete","session":"s-c1"}
+{"t":1794687359702,"pid":2556295,"ev":"mcp.call.held","session":"s-c1","key":"fs.echo","rebuild":"chad mcp restart"}
+{"t":1794687359811,"pid":2556521,"ev":"server.start","server":"fs","label":"v2","mode":"stdio","connectMs":5000,"tools":["echo","slow","stubborn","store"]}
+{"t":1794687364821,"pid":2556521,"ev":"server.connected","server":"fs"}
+{"t":1794687364832,"pid":2556295,"ev":"mcp.connected","layer":2,"why":"chad mcp restart","ms":5226,"servers":{"fs":"connected, 4 tools"}}
+{"t":1794687364832,"pid":2556295,"ev":"mcp.call.released","session":"s-c1","key":"fs.echo","heldMs":5130}
+{"t":1794687364832,"pid":2556295,"ev":"mcp.call.routed","session":"s-c1","key":"fs.echo","to":2}
+{"t":1794687364833,"pid":2556295,"ev":"mcp.ready","label":"chad mcp restart","layer":2,"generation":2,"waitedMs":5238,"interrupted":[],"runningTurns":["s-c1"]}
+{"t":1794687364833,"pid":2556295,"ev":"cli.mcp","label":"chad mcp restart","layer":2,"generation":2,"waitedMs":5238,"interrupted":[],"runningTurns":["s-c1"]}
+{"t":1794687364834,"pid":2556521,"ev":"server.echo","server":"fs","text":"a-after"}
+{"t":1794687364837,"pid":2556295,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v1 fs pid 2556413 token none: a0\"\n[20:15:59.617] INFO (#116): Calling \"subagent\" { background: false }\nSUB \"RESULTS [\\\"ERR mcp is not defined\\\\n\\\"]\"\nOK \"v2 fs pid 2556521 token none: a-after\"\n"}
+{"t":1794687364876,"pid":2556295,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"f588edc2-f809-4590-b369-4fb8300d0838","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 fs pid 2556413 token none: a0\\\"\\n[20:15:59.617] INFO (#116): Calling \\\"subagent\\\" { background: false }\\nSUB \\\"RESULTS [\\\\\\\"ERR mcp is not defined\\\\\\\\n\\\\\\\"]\\\"\\nOK \\\"v2 fs pid 2556521 token none: a-after\\\"\\n\"]"}
+{"t":1794687364898,"pid":2556295,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"v1 fs pid 2556413 token none: a0\\\"\\n[20:15:59.617] INFO (#116): Calling \\\"subagent\\\" { background: false }\\nSUB \\\"RESULTS [\\\\\\\"ERR mcp is not defined\\\\\\\\n\\\\\\\"]\\\"\\nOK \\\"v2 fs pid 2556521 token none: a-after\\\"\\n\"]"}
+{"t":1794687364898,"pid":2556295,"ev":"scenario.end","name":"mcp-sub","phase":"1"}
+{"t":1794687364898,"pid":2556295,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794687364910,"pid":2556295,"ev":"stop.entityLayersClosed"}
+{"t":1794687368029,"pid":2556295,"ev":"stop.runnerClosed"}
+{"t":1794687368029,"pid":2556295,"ev":"hooks.draining","pending":0}
+{"t":1794687368029,"pid":2556295,"ev":"hooks.drained"}
+{"t":1794687368029,"pid":2556521,"ev":"server.stdinEnded","server":"fs"}
+{"t":1794687368030,"pid":2556521,"ev":"server.exit","server":"fs","code":0}
+{"t":1794687368038,"pid":2556295,"ev":"mcp.closed","label":"graceful stop","layer":2,"ms":9}
+{"t":1794687368038,"pid":2556295,"ev":"plugins.closed"}
+{"t":1794687368087,"pid":2556295,"ev":"process.exit","code":0,"signal":null}

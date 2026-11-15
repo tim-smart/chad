@@ -1,0 +1,14 @@
+ripgrep
+ripgrep-linux-x64
+{"version":"1.18.0","optionalDependencies":{"@vscode/ripgrep-darwin-x64":"1.18.0","@vscode/ripgrep-darwin-arm64":"1.18.0","@vscode/ripgrep-win32-x64":"1.18.0","@vscode/ripgrep-win32-arm64":"1.18.0","@vscode/ripgrep-win32-ia32":"1.18.0","@vscode/ripgrep-linux-x64":"1.18.0","@vscode/ripgrep-linux-arm64":"1.18.0","@vscode/ripgrep-linux-arm":"1.18.0","@vscode/ripgrep-linux-ppc64":"1.18.0","@vscode/ripgrep-linux-riscv64":"1.18.0","@vscode/ripgrep-linux-s390x":"1.18.0","@vscode/ripgrep-linux-ia32":"1.18.0"}}
+node_modules/@vscode/ripgrep-linux-x64/bin/rg
+-rwxr-xr-x 1 root root 5728032 Nov 14 10:43 node_modules/@vscode/ripgrep-linux-x64/bin/rg
+ripgrep 15.0.0 (rev 3a612f88b8)
+--- references in clanka dist:
+--- ChildProcess.make calls in clanka dist:
+      1 make("bash", ["-c", options.command], {
+      1 make("bash", {
+      1 make("gh", args, {
+      1 make("gh", {
+      1 make("rg", args, {
+      1 make("rg", {

@@ -1,0 +1,25 @@
+[10:45:33.286] WARN (#40): No healthy runners available {
+  module: 'effect/cluster/Sharding',
+  fiber: 'RunnerStorage sync',
+  runner: RunnerAddress(localhost:34431)
+}
+[10:45:36.577] WARN (#40): No healthy runners available {
+  module: 'effect/cluster/Sharding',
+  fiber: 'RunnerStorage sync',
+  runner: RunnerAddress(localhost:34431)
+}
+[10:45:39.578] WARN (#40): No healthy runners available {
+  module: 'effect/cluster/Sharding',
+  fiber: 'RunnerStorage sync',
+  runner: RunnerAddress(localhost:34431)
+}
+[10:45:42.578] WARN (#40): No healthy runners available {
+  module: 'effect/cluster/Sharding',
+  fiber: 'RunnerStorage sync',
+  runner: RunnerAddress(localhost:34431)
+}
+[10:45:45.579] WARN (#40): No healthy runners available {
+  module: 'effect/cluster/Sharding',
+  fiber: 'RunnerStorage sync',
+  runner: RunnerAddress(localhost:34431)
+}

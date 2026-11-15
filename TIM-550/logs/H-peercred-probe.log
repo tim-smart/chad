@@ -1,0 +1,2 @@
+socket/handle members matching cred|peer|pid|uid: ["_getpeername"]
+remoteAddress: undefined handle fd: 23

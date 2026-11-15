@@ -1,0 +1,44 @@
+{"t":1794687334288,"pid":2553514,"ev":"boot.nothingApplied"}
+{"t":1794687334393,"pid":2553514,"ev":"scenario.start","name":"shape-result","phase":"1","drainMs":30000,"closeMs":10000,"mcp":{"drainMs":30000,"heldMs":120000,"startMs":60000,"rules":"amended"}}
+{"t":1794687334396,"pid":2553514,"ev":"apply.start","dir":"out/repo-shape-result/versions/1794687334395-2553514-1"}
+{"t":1794687334487,"pid":2553514,"ev":"build.ok","version":"shaped#1@81fe9bbb","tools":["measure","label","report","plain"],"hooks":[]}
+{"t":1794687334488,"pid":2553514,"ev":"live.moved","live":"versions/1794687334395-2553514-1"}
+{"t":1794687334489,"pid":2553514,"ev":"swap.gateClosed","label":"apply","plugins":["shaped: nothing -> shaped#1@81fe9bbb"]}
+{"t":1794687334489,"pid":2553514,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687334489,"pid":2553514,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687334489,"pid":2553514,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["shaped: shaped#1@81fe9bbb"]}
+{"t":1794687334489,"pid":2553514,"ev":"apply.pluginsActivated","mcpStillRebuilding":false}
+{"t":1794687334489,"pid":2553514,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":["shaped"],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794687334490,"pid":2553514,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"a result that grew PLAN:{\"steps\":[\"try { console.log('OK ' +"}
+{"t":1794687334547,"pid":2553514,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687334549,"pid":2553514,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687334604,"pid":2553514,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"29912e32-3ad3-47be-95e8-cf05463b9b62","starts":1,"cuts":0,"resumed":false}
+{"t":1794687334612,"pid":2553514,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"mcp":"0-none","mcpPrompt":"01ba4719","on":{"shaped":"81fe9bbb"},"tools":["measure","label","report","plain"]}
+{"t":1794687334614,"pid":2553514,"ev":"mcp.keysTaken","session":"s-c1","layer":null,"rebuilding":null,"keys":[]}
+{"t":1794687334615,"pid":2553514,"ev":"turn.system","session":"s-c1","hasMcpSection":false,"saysStillStarting":false,"mentions":[]}
+{"t":1794687334685,"pid":2553514,"ev":"call.routed","session":"s-c1","tool":"report","built":"81fe9bbb","to":"shaped#1@81fe9bbb","recoded":false}
+{"t":1794687334687,"pid":2553514,"ev":"script.mark","session":"s-c1","label":"m1"}
+{"t":1794687334703,"pid":2553514,"ev":"apply.start","dir":"out/repo-shape-result/versions/1794687334702-2553514-2"}
+{"t":1794687334710,"pid":2553514,"ev":"build.ok","version":"shaped#2@81fe9bbb","tools":["measure","label","report","plain"],"hooks":[]}
+{"t":1794687334712,"pid":2553514,"ev":"live.moved","live":"versions/1794687334702-2553514-2"}
+{"t":1794687334712,"pid":2553514,"ev":"swap.gateClosed","label":"apply","plugins":["shaped: shaped#1@81fe9bbb -> shaped#2@81fe9bbb"]}
+{"t":1794687334712,"pid":2553514,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687334712,"pid":2553514,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687334712,"pid":2553514,"ev":"close.done","version":"shaped#1@81fe9bbb","why":"apply","ms":0}
+{"t":1794687334713,"pid":2553514,"ev":"swap.activated","label":"apply","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[],"now":["shaped: shaped#2@81fe9bbb"]}
+{"t":1794687334713,"pid":2553514,"ev":"apply.pluginsActivated","mcpStillRebuilding":false}
+{"t":1794687334713,"pid":2553514,"ev":"cli.apply","label":"the limit on the result, which is in a schema and not in a declaration","ok":true,"exit":0,"errors":[],"reloaded":["shaped"],"kept":[],"swap":{"label":"apply","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[]}}
+{"t":1794687334714,"pid":2553514,"ev":"call.routed","session":"s-c1","tool":"report","built":"81fe9bbb","to":"shaped#2@81fe9bbb","recoded":true}
+{"t":1794687334714,"pid":2553514,"ev":"call.resultRefused","session":"s-c1","tool":"report","built":"81fe9bbb","on":"shaped#2@81fe9bbb","message":"report ran, but its result does not fit the declaration this turn was built with. Expected a value with a length of at most 5"}
+{"t":1794687334718,"pid":2553514,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"xxxxx\"\nERR report ran, but its result does not fit the declaration this turn was built with. Expected a value with a length of at most 5\n"}
+{"t":1794687334797,"pid":2553514,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"29912e32-3ad3-47be-95e8-cf05463b9b62","outcome":"Answered","text":"RESULTS [\"OK \\\"xxxxx\\\"\\nERR report ran, but its result does not fit the declaration this turn was built with. Expected a value with a length of at most 5\\n\"]"}
+{"t":1794687334830,"pid":2553514,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"xxxxx\\\"\\nERR report ran, but its result does not fit the declaration this turn was built with. Expected a value with a length of at most 5\\n\"]"}
+{"t":1794687334830,"pid":2553514,"ev":"scenario.end","name":"shape-result","phase":"1"}
+{"t":1794687334830,"pid":2553514,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794687334840,"pid":2553514,"ev":"stop.entityLayersClosed"}
+{"t":1794687338642,"pid":2553514,"ev":"stop.runnerClosed"}
+{"t":1794687338642,"pid":2553514,"ev":"hooks.draining","pending":0}
+{"t":1794687338642,"pid":2553514,"ev":"hooks.drained"}
+{"t":1794687338642,"pid":2553514,"ev":"close.done","version":"shaped#2@81fe9bbb","why":"graceful stop","ms":0}
+{"t":1794687338642,"pid":2553514,"ev":"plugins.closed"}
+{"t":1794687338696,"pid":2553514,"ev":"process.exit","code":0,"signal":null}

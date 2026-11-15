@@ -1,0 +1,71 @@
+{"t":1794683948614,"pid":2199077,"ev":"boot.nothingApplied"}
+{"t":1794683948800,"pid":2199077,"ev":"scenario.start","name":"bg-open","phase":"1","drainMs":30000,"closeMs":10000}
+{"t":1794683948802,"pid":2199077,"ev":"apply.start","dir":"out/repo-bg-open/versions/1794683948801-2199077-1"}
+{"t":1794683948902,"pid":2199077,"ev":"build.ok","version":"echo#1@dd2b18cb","tools":["slow","echo"],"hooks":[]}
+{"t":1794683948944,"pid":2199077,"ev":"live.moved","live":"versions/1794683948801-2199077-1"}
+{"t":1794683948945,"pid":2199077,"ev":"swap.gateClosed","label":"apply","plugins":["echo: nothing -> echo#1@dd2b18cb"]}
+{"t":1794683948945,"pid":2199077,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794683948945,"pid":2199077,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794683948945,"pid":2199077,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["echo: echo#1@dd2b18cb"]}
+{"t":1794683948945,"pid":2199077,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794683948947,"pid":2199077,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"start it and answer PLAN:{\"steps\":[\"const bg = await subagen"}
+{"t":1794683949100,"pid":2199077,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794683949103,"pid":2199077,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794683949188,"pid":2199077,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"b7ca0b41-bc03-4e80-9e75-475b869d3b20","starts":1,"cuts":0,"resumed":false}
+{"t":1794683949200,"pid":2199077,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"on":{"echo":"dd2b18cb"},"tools":["slow","echo"]}
+{"t":1794683949326,"pid":2199077,"ev":"brain.subagentStart","session":"s-c1"}
+{"t":1794683949328,"pid":2199077,"ev":"script.mark","session":"s-c1","label":"t1"}
+{"t":1794683949335,"pid":2199077,"ev":"brain.scriptOutput","session":"s-c1","output":"[19:19:09.322] INFO (#95): Calling \"subagent\" { background: true }\nstarted subagent_1 running\n"}
+{"t":1794683949393,"pid":2199077,"ev":"call.routed","session":"s-c1","tool":"echo","built":"dd2b18cb","to":"echo#1@dd2b18cb","recoded":false}
+{"t":1794683949439,"pid":2199077,"ev":"script.mark","session":"s-c1","label":"bg1"}
+{"t":1794683950940,"pid":2199077,"ev":"bg.turnStillOpen","open":true,"modelAnswered":true}
+{"t":1794683950940,"pid":2199077,"ev":"reload.start","reason":"chad plugin reload","names":["echo"]}
+{"t":1794683950944,"pid":2199077,"ev":"build.ok","version":"echo#2@dd2b18cb","tools":["slow","echo"],"hooks":[]}
+{"t":1794683950944,"pid":2199077,"ev":"swap.gateClosed","label":"reload: chad plugin reload","plugins":["echo: echo#1@dd2b18cb -> echo#2@dd2b18cb"]}
+{"t":1794683950944,"pid":2199077,"ev":"swap.draining","label":"reload: chad plugin reload","inflight":[]}
+{"t":1794683950944,"pid":2199077,"ev":"swap.drained","label":"reload: chad plugin reload","ms":0,"interrupted":[]}
+{"t":1794683950944,"pid":2199077,"ev":"plugin.closing","plugin":"echo","instance":1,"hash":"dd2b18cb"}
+{"t":1794683950945,"pid":2199077,"ev":"close.done","version":"echo#1@dd2b18cb","why":"reload: chad plugin reload","ms":1}
+{"t":1794683950945,"pid":2199077,"ev":"swap.activated","label":"reload: chad plugin reload","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[],"now":["echo: echo#2@dd2b18cb"]}
+{"t":1794683950947,"pid":2199077,"ev":"reload.done","reason":"chad plugin reload","exit":0,"errors":[],"reloaded":["echo"]}
+{"t":1794683950947,"pid":2199077,"ev":"cli.reload","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"reload: chad plugin reload","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[]},"reason":"chad plugin reload"}
+{"t":1794683950948,"pid":2199077,"ev":"call.routed","session":"s-c1","tool":"echo","built":"dd2b18cb","to":"echo#2@dd2b18cb","recoded":true}
+{"t":1794683950949,"pid":2199077,"ev":"script.mark","session":"s-c1","label":"bg2"}
+{"t":1794683950968,"pid":2199077,"ev":"apply.start","dir":"out/repo-bg-open/versions/1794683950967-2199077-2"}
+{"t":1794683950973,"pid":2199077,"ev":"build.ok","version":"echo#3@3e5f9bb7","tools":["slow","echo"],"hooks":[]}
+{"t":1794683950973,"pid":2199077,"ev":"live.moved","live":"versions/1794683950967-2199077-2"}
+{"t":1794683950973,"pid":2199077,"ev":"swap.gateClosed","label":"apply","plugins":["echo: echo#2@dd2b18cb -> echo#3@3e5f9bb7"]}
+{"t":1794683950973,"pid":2199077,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794683950973,"pid":2199077,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794683950974,"pid":2199077,"ev":"plugin.closing","plugin":"echo","instance":2,"hash":"dd2b18cb"}
+{"t":1794683950974,"pid":2199077,"ev":"close.done","version":"echo#2@dd2b18cb","why":"apply","ms":1}
+{"t":1794683950974,"pid":2199077,"ev":"swap.activated","label":"apply","generation":3,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":["s-c1 loses echo until its turn ends (1 sub-agents running)"],"now":["echo: echo#3@3e5f9bb7"]}
+{"t":1794683950974,"pid":2199077,"ev":"cli.apply","label":"code change","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"apply","generation":3,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":["s-c1 loses echo until its turn ends (1 sub-agents running)"]}}
+{"t":1794683950974,"pid":2199077,"ev":"user.posted","who":"A","key":"message/test:c1/m6","text":"try the new version PLAN:{\"steps\":[\"try { console.log('OK ' "}
+{"t":1794683951035,"pid":2199077,"ev":"message.delivered","key":"message/test:c1/m6","session":"s-c1"}
+{"t":1794683951049,"pid":2199077,"ev":"message.steered","key":"message/test:c1/m6"}
+{"t":1794683951241,"pid":2199077,"ev":"call.refused","session":"s-c1","tool":"echo","at":"bundle hash","built":"dd2b18cb","current":"echo#3@3e5f9bb7","message":"echo was changed by an apply. The new version is in your next turn, which cannot start while this turn has a sub-agent running."}
+{"t":1794683951243,"pid":2199077,"ev":"script.mark","session":"s-c1","label":"steered"}
+{"t":1794683951247,"pid":2199077,"ev":"brain.scriptOutput","session":"s-c1","output":"ERR echo was changed by an apply. The new version is in your next turn, which cannot start while this turn has a sub-agent running.\n"}
+{"t":1794683951304,"pid":2199077,"ev":"call.refused","session":"s-c1","tool":"echo","at":"bundle hash","built":"dd2b18cb","current":"echo#3@3e5f9bb7","message":"echo was changed by an apply. The new version is in your next turn, which cannot start while this turn has a sub-agent running."}
+{"t":1794683951378,"pid":2199077,"ev":"brain.subagentComplete","session":"s-c1"}
+{"t":1794683951495,"pid":2199077,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"b7ca0b41-bc03-4e80-9e75-475b869d3b20","outcome":"Answered","text":"RESULTS [\"ERR echo was changed by an apply. The new version is in your next turn, which cannot start while this turn has a sub-agent running.\\n\"]"}
+{"t":1794683951509,"pid":2199077,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"ERR echo was changed by an apply. The new version is in your next turn, which cannot start while this turn has a sub-agent running.\\n\"]"}
+{"t":1794683951509,"pid":2199077,"ev":"user.posted","who":"A","key":"message/test:c1/m9","text":"the next turn PLAN:{\"steps\":[\"try { console.log('OK ' + JSON"}
+{"t":1794683951556,"pid":2199077,"ev":"message.delivered","key":"message/test:c1/m9","session":"s-c1"}
+{"t":1794683951635,"pid":2199077,"ev":"turn.start","key":"message/test:c1/m9","session":"s-c1","turn":"192d727a-f80c-4d35-bf2d-777b9ae7e3ce","starts":1,"cuts":0,"resumed":false}
+{"t":1794683951637,"pid":2199077,"ev":"agent.built","session":"s-c1","rebuild":1,"generation":3,"on":{"echo":"3e5f9bb7"},"tools":["slow","echo"]}
+{"t":1794683951715,"pid":2199077,"ev":"call.routed","session":"s-c1","tool":"echo","built":"3e5f9bb7","to":"echo#3@3e5f9bb7","recoded":false}
+{"t":1794683951717,"pid":2199077,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v2 hi Pacific/Auckland #3: t2\"\n"}
+{"t":1794683951847,"pid":2199077,"ev":"turn.end","key":"message/test:c1/m9","session":"s-c1","turn":"192d727a-f80c-4d35-bf2d-777b9ae7e3ce","outcome":"Answered","text":"RESULTS [\"OK \\\"v2 hi Pacific/Auckland #3: t2\\\"\\n\"]"}
+{"t":1794683951889,"pid":2199077,"ev":"answer","who":"A","key":"message/test:c1/m9","text":"RESULTS [\"OK \\\"v2 hi Pacific/Auckland #3: t2\\\"\\n\"]"}
+{"t":1794683951889,"pid":2199077,"ev":"scenario.end","name":"bg-open","phase":"1"}
+{"t":1794683951889,"pid":2199077,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794683951900,"pid":2199077,"ev":"stop.entityLayersClosed"}
+{"t":1794683963650,"pid":2199077,"ev":"stop.runnerClosed"}
+{"t":1794683963651,"pid":2199077,"ev":"hooks.draining","pending":0}
+{"t":1794683963651,"pid":2199077,"ev":"hooks.drained"}
+{"t":1794683963652,"pid":2199077,"ev":"plugin.closing","plugin":"echo","instance":3,"hash":"3e5f9bb7"}
+{"t":1794683963652,"pid":2199077,"ev":"close.done","version":"echo#3@3e5f9bb7","why":"graceful stop","ms":0}
+{"t":1794683963652,"pid":2199077,"ev":"plugins.closed"}
+{"t":1794683963728,"pid":2199077,"ev":"process.exit","code":0,"signal":null}

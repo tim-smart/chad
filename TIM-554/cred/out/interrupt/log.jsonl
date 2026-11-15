@@ -1,0 +1,91 @@
+{"t":1794687651165,"pid":2589078,"ev":"scenario.start","name":"interrupt","phase":"1"}
+{"t":1794687651169,"pid":2589078,"ev":"user.posted","who":"A","key":"message/test:c1/m4","length":300}
+{"t":1794687651425,"pid":2589078,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687651432,"pid":2589078,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687651465,"pid":2589078,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"982f4e5e-1160-425a-8e22-1cabfde1d0a4","origin":"Message"}
+{"t":1794687651491,"pid":2589078,"ev":"agent.built","session":"s-c1","wrap":false,"mcp":false}
+{"t":1794687651530,"pid":2589078,"ev":"model.call","call":1,"messages":2,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687651542,"pid":2589078,"ev":"chat.edited","thread":"c1","messageId":"m6","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request LOGIN_PW -m 'for the fake site'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687651632,"pid":2589078,"ev":"spawner.spawn","session":"s-c1","command":"bash","args":["-c","chad secret request LOGIN_PW -m 'for the fake site'"]}
+{"t":1794687652251,"pid":2589078,"ev":"request.received","session":"s-c1","name":"LOGIN_PW","kind":"plain","noWait":false,"ownerPresent":true}
+{"t":1794687652254,"pid":2589078,"ev":"request.posted","thread":"c1","name":"LOGIN_PW","kind":"plain","messageId":"m7","ping":false}
+{"t":1794687652568,"pid":2589078,"ev":"owner.speaks","n":1}
+{"t":1794687652569,"pid":2589078,"ev":"user.posted","who":"A","key":"message/test:c1/m8","length":33}
+{"t":1794687652598,"pid":2589078,"ev":"message.delivered","key":"message/test:c1/m8","session":"s-c1"}
+{"t":1794687652612,"pid":2589078,"ev":"request.endedByOwner","thread":"c1","ended":1}
+{"t":1794687652707,"pid":2589078,"ev":"brain.scriptOutput","session":"s-c1","output":"[20:20:51.631] INFO (#96): Calling \"bash\" { command: \"chad secret request LOGIN_PW -m 'for the fake site'\", timeoutMs: 330000 }\nERR Command failed with exit code 1: chad secret request: owner replied in chat instead\n\n"}
+{"t":1794687652755,"pid":2589078,"ev":"message.steered","key":"message/test:c1/m8"}
+{"t":1794687652791,"pid":2589078,"ev":"model.call","call":2,"messages":5,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result","user:never mind, use the other account"]}
+{"t":1794687652804,"pid":2589078,"ev":"chat.edited","thread":"c1","messageId":"m6","markdown":"-# running\nconsole.log('STEP2 RAN')","why":"status","ok":true}
+{"t":1794687652877,"pid":2589078,"ev":"brain.scriptOutput","session":"s-c1","output":"STEP2 RAN\n"}
+{"t":1794687652903,"pid":2589078,"ev":"model.call","call":3,"messages":7,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result","user:never mind, use the other account","assistant:call","tool:result"]}
+{"t":1794687652934,"pid":2589078,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"982f4e5e-1160-425a-8e22-1cabfde1d0a4","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:51.631] INFO (#96): Calling \\\"bash\\\" { command: \\\"chad secret request LOGIN_PW -m 'for the fake site'\\\", timeoutMs: 330000 }\\nERR Command failed with exit code 1: chad secret request: owner replied in chat instead\\n\\n\",\"STEP2 RAN\\n\"]"}}
+{"t":1794687652948,"pid":2589078,"ev":"after.1","button":true,"text":"The agent in session s-c1 asks for a secret named LOGIN_PW.\nIt says: \"for the fake site\"\nPress Enter to type it."}
+{"t":1794687652948,"pid":2589078,"ev":"user.posted","who":"A","key":"message/test:c1/m12","length":286}
+{"t":1794687652977,"pid":2589078,"ev":"message.delivered","key":"message/test:c1/m12","session":"s-c1"}
+{"t":1794687652995,"pid":2589078,"ev":"turn.start","key":"message/test:c1/m12","session":"s-c1","turn":"0a8fe49a-6917-4424-b195-bdc6fecf4007","origin":"Message"}
+{"t":1794687653006,"pid":2589078,"ev":"model.call","call":4,"messages":9,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687653009,"pid":2589078,"ev":"chat.edited","thread":"c1","messageId":"m14","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request --code -m 'sms code'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687653060,"pid":2589078,"ev":"spawner.spawn","session":"s-c1","command":"bash","args":["-c","chad secret request --code -m 'sms code'"]}
+{"t":1794687653620,"pid":2589078,"ev":"request.received","session":"s-c1","kind":"code","noWait":false,"ownerPresent":true}
+{"t":1794687653620,"pid":2589078,"ev":"request.posted","thread":"c1","code":"c1","messageId":"m15"}
+{"t":1794687653941,"pid":2589078,"ev":"owner.speaks","n":2}
+{"t":1794687653942,"pid":2589078,"ev":"user.posted","who":"A","key":"message/test:c1/m16","length":12}
+{"t":1794687653967,"pid":2589078,"ev":"message.delivered","key":"message/test:c1/m16","session":"s-c1"}
+{"t":1794687653969,"pid":2589078,"ev":"chat.edited","thread":"c1","messageId":"m15","markdown":"Answered in chat","why":"owner-replied","ok":true}
+{"t":1794687653970,"pid":2589078,"ev":"request.endedByOwner","thread":"c1","ended":1}
+{"t":1794687654001,"pid":2589078,"ev":"brain.scriptOutput","session":"s-c1","output":"[20:20:53.060] INFO (#155): Calling \"bash\" { command: \"chad secret request --code -m 'sms code'\", timeoutMs: 330000 }\nERR Command failed with exit code 1: chad secret request: owner replied in chat instead\n\n"}
+{"t":1794687654042,"pid":2589078,"ev":"message.steered","key":"message/test:c1/m16"}
+{"t":1794687654093,"pid":2589078,"ev":"model.call","call":5,"messages":12,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result","user:it is 123456"]}
+{"t":1794687654106,"pid":2589078,"ev":"chat.edited","thread":"c1","messageId":"m14","markdown":"-# running\nconsole.log('STEP2 RAN')","why":"status","ok":true}
+{"t":1794687654145,"pid":2589078,"ev":"brain.scriptOutput","session":"s-c1","output":"STEP2 RAN\n"}
+{"t":1794687654184,"pid":2589078,"ev":"model.call","call":6,"messages":14,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result","user:it is 123456","assistant:call","tool:result"]}
+{"t":1794687654228,"pid":2589078,"ev":"turn.end","key":"message/test:c1/m12","session":"s-c1","turn":"0a8fe49a-6917-4424-b195-bdc6fecf4007","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:53.060] INFO (#155): Calling \\\"bash\\\" { command: \\\"chad secret request --code -m 'sms code'\\\", timeoutMs: 330000 }\\nERR Command failed with exit code 1: chad secret request: owner replied in chat instead\\n\\n\",\"STEP2 RAN\\n\"]"}}
+{"t":1794687654243,"pid":2589078,"ev":"after.2","button":false,"text":"Answered in chat"}
+{"t":1794687654245,"pid":2589078,"ev":"user.posted","who":"B","key":"message/test:c2/m19","length":287}
+{"t":1794687654307,"pid":2589078,"ev":"session.activated","thread":"c2","session":"s-c2"}
+{"t":1794687654307,"pid":2589078,"ev":"message.delivered","key":"message/test:c2/m19","session":"s-c2"}
+{"t":1794687654352,"pid":2589078,"ev":"turn.start","key":"message/test:c2/m19","session":"s-c2","turn":"b267782f-865e-4d04-a7e2-26b67e30db9d","origin":"Message"}
+{"t":1794687654356,"pid":2589078,"ev":"agent.built","session":"s-c2","wrap":false,"mcp":false}
+{"t":1794687654386,"pid":2589078,"ev":"model.call","call":7,"messages":2,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687654389,"pid":2589078,"ev":"chat.edited","thread":"c2","messageId":"m21","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request --code -m 'sms code'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687654436,"pid":2589078,"ev":"spawner.spawn","session":"s-c2","command":"bash","args":["-c","chad secret request --code -m 'sms code'"]}
+{"t":1794687654888,"pid":2589078,"ev":"request.received","session":"s-c2","kind":"code","noWait":false,"ownerPresent":true}
+{"t":1794687654889,"pid":2589078,"ev":"request.posted","thread":"c2","code":"c2","messageId":"m22"}
+{"t":1794687655401,"pid":2589078,"ev":"stop.before","n":3,"pids":[2590656],"command":"chad secret request --code -m 'sms code'"}
+{"t":1794687655402,"pid":2589078,"ev":"user.posted","who":"B","key":"message/test:c2/m23","length":5}
+{"t":1794687655403,"pid":2589078,"ev":"stop.received","by":"command","running":true}
+{"t":1794687655421,"pid":2589078,"ev":"chat.edited","thread":"c2","messageId":"m22","markdown":"Cancelled","why":"client-dropped","ok":true}
+{"t":1794687655431,"pid":2589078,"ev":"turn.end","key":"message/test:c2/m19","session":"s-c2","turn":"b267782f-865e-4d04-a7e2-26b67e30db9d","outcome":{"_tag":"Stopped"}}
+{"t":1794687655985,"pid":2589078,"ev":"stop.after","n":3,"pids":[2590656],"goneMs":80,"stillAlive":[],"button":false,"text":"Cancelled"}
+{"t":1794687655986,"pid":2589078,"ev":"user.posted","who":"C","key":"message/test:c3/m26","length":302}
+{"t":1794687656046,"pid":2589078,"ev":"session.activated","thread":"c3","session":"s-c3"}
+{"t":1794687656047,"pid":2589078,"ev":"message.delivered","key":"message/test:c3/m26","session":"s-c3"}
+{"t":1794687656086,"pid":2589078,"ev":"turn.start","key":"message/test:c3/m26","session":"s-c3","turn":"57946af2-e55b-4383-a775-b2cd4500a4a3","origin":"Message"}
+{"t":1794687656088,"pid":2589078,"ev":"agent.built","session":"s-c3","wrap":false,"mcp":false}
+{"t":1794687656100,"pid":2589078,"ev":"model.call","call":8,"messages":2,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687656102,"pid":2589078,"ev":"chat.edited","thread":"c3","messageId":"m28","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request --code -m 'second code'; echo after\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687656134,"pid":2589078,"ev":"spawner.spawn","session":"s-c3","command":"bash","args":["-c","chad secret request --code -m 'second code'; echo after"]}
+{"t":1794687656539,"pid":2589078,"ev":"request.received","session":"s-c3","kind":"code","noWait":false,"ownerPresent":true}
+{"t":1794687656539,"pid":2589078,"ev":"request.posted","thread":"c3","code":"c3","messageId":"m29"}
+{"t":1794687657045,"pid":2589078,"ev":"stop.before","n":4,"pids":[2591304],"command":"chad secret request --code -m 'second code'; echo after"}
+{"t":1794687657046,"pid":2589078,"ev":"user.posted","who":"C","key":"message/test:c3/m30","length":5}
+{"t":1794687657047,"pid":2589078,"ev":"stop.received","by":"command","running":true}
+{"t":1794687657062,"pid":2589078,"ev":"chat.edited","thread":"c3","messageId":"m29","markdown":"Cancelled","why":"client-dropped","ok":true}
+{"t":1794687657091,"pid":2589078,"ev":"turn.end","key":"message/test:c3/m26","session":"s-c3","turn":"57946af2-e55b-4383-a775-b2cd4500a4a3","outcome":{"_tag":"Stopped"}}
+{"t":1794687657936,"pid":2589078,"ev":"stop.after","n":4,"pids":[2591304],"goneMs":34,"stillAlive":[],"button":false,"text":"Cancelled"}
+{"t":1794687657936,"pid":2589078,"ev":"user.posted","who":"B","key":"message/test:c2/m33","length":291}
+{"t":1794687658234,"pid":2589078,"ev":"message.delivered","key":"message/test:c2/m33","session":"s-c2"}
+{"t":1794687658338,"pid":2589078,"ev":"turn.start","key":"message/test:c2/m33","session":"s-c2","turn":"68f33e84-f4ac-49a5-bec0-e2c3d7e51a25","origin":"Message"}
+{"t":1794687658349,"pid":2589078,"ev":"model.call","call":9,"messages":3,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687658351,"pid":2589078,"ev":"chat.edited","thread":"c2","messageId":"m35","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request STOP_PW -m 'stored form'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687658382,"pid":2589078,"ev":"spawner.spawn","session":"s-c2","command":"bash","args":["-c","chad secret request STOP_PW -m 'stored form'"]}
+{"t":1794687658714,"pid":2589078,"ev":"request.received","session":"s-c2","name":"STOP_PW","kind":"plain","noWait":false,"ownerPresent":true}
+{"t":1794687658714,"pid":2589078,"ev":"request.posted","thread":"c2","name":"STOP_PW","kind":"plain","messageId":"m36","ping":false}
+{"t":1794687659233,"pid":2589078,"ev":"stop.before","n":5,"pids":[2591840],"command":"chad secret request STOP_PW -m 'stored form'"}
+{"t":1794687659234,"pid":2589078,"ev":"user.posted","who":"B","key":"message/test:c2/m37","length":5}
+{"t":1794687659235,"pid":2589078,"ev":"stop.received","by":"command","running":true}
+{"t":1794687659255,"pid":2589078,"ev":"request.clientDropped","name":"STOP_PW","thread":"c2"}
+{"t":1794687659290,"pid":2589078,"ev":"turn.end","key":"message/test:c2/m33","session":"s-c2","turn":"68f33e84-f4ac-49a5-bec0-e2c3d7e51a25","outcome":{"_tag":"Stopped"}}
+{"t":1794687659938,"pid":2589078,"ev":"stop.after","n":5,"pids":[2591840],"goneMs":204,"stillAlive":[],"button":true,"text":"The agent in session s-c2 asks for a secret named STOP_PW.\nIt says: \"stored form\"\nPress Enter to type it."}
+{"t":1794687659939,"pid":2589078,"ev":"scenario.end","name":"interrupt","phase":"1"}

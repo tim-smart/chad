@@ -1,0 +1,171 @@
+
+## hole-any: the same with the rejected rule, route by tool name (PROTO_ROUTE_ANY=1)
+PASS  [hole-any]  no handler touched what a closed version owned
+PASS  [hole-any]  no turn failed
+PASS  [hole-any]  the new handler, written for a string, is handed a number decoded by the old Agent's schema  (OK "the v1 handler got a number"
+OK "the v2 handler, written for a string, got a number and stored \"420\""
+)
+
+## shape: the same bundle with other settings: comparing the rendered declarations
+PASS  [shape]  no handler touched what a closed version owned
+PASS  [shape]  no turn failed
+PASS  [shape]  a tool whose description is built from a setting fails as changed once that setting changes  (ERR measure was changed by an apply. The new version is in your next turn.)
+PASS  [shape]  the other tools of the same plugin, whose declarations did not change, are routed
+PASS  [shape]  a schema that changed behind an unchanged declaration: the call is routed and the parameters are carried across, so the new handler gets what its own schema decodes  (OK "schema says trimmed, stored \"bob\" #3")
+PASS  [shape]  parameters the new schema rejects fail as a parameter error, and the handler does not run  (ERR label: the parameters do not fit the version an apply loaded. Expected a value with a length of at least 10   at ["label"])
+PASS  [shape]  a tool with no parameters is still routed
+
+## shape-raw: the same without carrying the parameters across (PROTO_NO_RECODE=1)
+PASS  [shape-raw]  no handler touched what a closed version owned
+PASS  [shape-raw]  no turn failed
+PASS  [shape-raw]  the new handler is handed what the old Agent's schema decoded: untrimmed under a schema that trims, 7 characters under a minimum of 10  (OK "schema says trimmed, stored \"  bob  \" #4")
+
+## hole: why the rule is by bundle hash: NumberFromString became String
+PASS  [hole]  no handler touched what a closed version owned
+PASS  [hole]  no turn failed
+PASS  [hole]  with the rule, the running turn's call fails as changed
+
+## route: the wrapper looks the version up per call; a reload that keeps the code reaches a running turn
+PASS  [route]  no handler touched what a closed version owned
+PASS  [route]  no turn failed
+PASS  [route]  one turn, one Agent, four calls routed to four instances of the same bundle  (["echo#1@dd2b18cb","echo#2@dd2b18cb","echo#3@dd2b18cb","echo#4@dd2b18cb"])
+PASS  [route]  after chad plugin reload the running turn's call is answered by the new instance
+PASS  [route]  after a timezone change it is answered by an instance built with the new timezone
+PASS  [route]  after an apply that changed only a setting it is answered with the new setting
+
+## shape-result: a result the Agent's schema no longer accepts
+PASS  [shape-result]  no handler touched what a closed version owned
+PASS  [shape-result]  no turn failed
+PASS  [shape-result]  the first call returned five characters  (OK "xxxxx")
+PASS  [shape-result]  after the limit was raised the call was routed and the handler ran on the new instance
+PASS  [shape-result]  its result failed the Agent's schema, and the message says the call ran  (ERR report ran, but its result does not fit the declaration this turn was built with. Expected a value with a length of at most 5)
+
+## subagent: calls from a sub-agent and from a background sub-agent follow the same rules
+PASS  [subagent]  no handler touched what a closed version owned
+PASS  [subagent]  no turn failed
+PASS  [subagent]  both sub-agents' first calls were answered by the first instance
+PASS  [subagent]  after chad plugin reload both sub-agents' calls were routed to the new instance
+PASS  [subagent]  after an apply that changed the code both sub-agents' calls failed with the agreed message  (echo was changed by an apply. The new version is in your next turn, which cannot start while this turn has a sub-agent running.)
+PASS  [subagent]  the apply output counts the session's sub-agents  (["s-c1 loses echo until its turn ends (2 sub-agents running)"])
+PASS  [subagent]  both sub-agents finished and the turn ended with an answer
+
+## reload-fail: a reload that is not an apply, with one plugin that fails to build: the others swap, that one keeps its old version, the command exits 1
+PASS  [reload-fail]  no handler touched what a closed version owned
+PASS  [reload-fail]  no turn failed
+PASS  [reload-fail]  the command exits 1 and names the failed plugin and its error  (["picky: Error: unknown time zone Mars/Olympus"])
+PASS  [reload-fail]  the plugin that built was swapped
+PASS  [reload-fail]  the one that failed keeps its old version and still answers
+PASS  [reload-fail]  chad status marks it as running with the previous timezone  (echo: echo#3@dd2b18cb | picky: picky#2@234200e5 (running with the previous timezone: Error: unknown time zone Mars/Olympus))
+PASS  [reload-fail]  when an owner is removed, the plugin whose build fails is unloaded  (echo: echo#5@dd2b18cb | picky: removed)
+PASS  [reload-fail]  its tool is gone from the next turn
+
+## bg-open: a background sub-agent the script does not wait for
+PASS  [bg-open]  no handler touched what a closed version owned
+PASS  [bg-open]  no turn failed
+PASS  [bg-open]  clanka keeps the turn open while the background sub-agent runs, after the model has answered
+PASS  [bg-open]  so its calls are a running turn's calls: routed after a reload, refused after a code change
+PASS  [bg-open]  FOUND: the owner's next message is steered into the open turn, on the old Agent, and its call fails as changed  (echo was changed by an apply. The new version is in your next turn, which cannot start while this turn has a sub-agent running.)
+PASS  [bg-open]  the turn ended once the sub-agent finished, and the turn after it has the new version
+
+## stop-before-commit: a graceful stop before the commit cancels the apply and changes nothing
+PASS  [stop-before-commit]  no handler touched what a closed version owned
+PASS  [stop-before-commit]  no turn failed
+PASS  [stop-before-commit]  the apply was cancelled and live did not move  (versions/1794689811851-2799051-1)
+PASS  [stop-before-commit]  the version it had built was closed
+PASS  [stop-before-commit]  the process exited by itself after SIGTERM  ({"ms":54,"code":130})
+PASS  [stop-before-commit]  the next boot loads the old version  (OK "v1 hi Pacific/Auckland #1: a1"
+)
+
+## changed: after an apply that changed the code a running turn's call fails with the agreed message and the turn carries on; the same for a removed tool and safe mode
+PASS  [changed]  no handler touched what a closed version owned
+PASS  [changed]  no turn failed
+PASS  [changed]  the running turn's next call fails with the agreed message  (OK "v1 hi Pacific/Auckland #1: a1"
+ERR echo was changed by an apply. The new version is in your next turn.
+ERR slow was changed by an apply. The new version is in your next turn.
+the turn carried on
+)
+PASS  [changed]  a tool of the same plugin whose own code did not change fails too (the rule is per bundle)
+PASS  [changed]  the turn carries on and ends with an answer
+PASS  [changed]  a turn in another session loses the tool as well
+PASS  [changed]  the apply output names both sessions with a running turn  (["s-c1 loses echo until its turn ends (0 sub-agents running)","s-c2 loses echo until its turn ends (0 sub-agents running)"])
+PASS  [changed]  the next turn has the new version
+PASS  [changed]  a tool the apply removed fails with the removed message
+PASS  [changed]  in safe mode the call fails with the safe mode message
+PASS  [changed]  a timer of a plugin that safe mode turned off is held, and runs after safe off  ({"t":1794689815195,"pid":2799027,"ev":"timer.held","timer":"echo/job","why":"held, not loaded","ms":1008,"phase":1})
+PASS  [changed]  after safe off the next turn has the plugin again
+
+## hooks: hooks queued off the reply path run on the new version; a kind it no longer registers is dropped and logged
+PASS  [hooks]  no handler touched what a closed version owned
+PASS  [hooks]  no turn failed
+PASS  [hooks]  the hook that was running finished on the old version, and the swap waited for that one only  ({"waitedMs":700})
+PASS  [hooks]  the two afterTurn hooks still queued ran on the new version  (["echo#2@a8639b46","echo#2@a8639b46"])
+PASS  [hooks]  the queued Compacted hook was dropped and logged, the new version registers none  (the current version registers no Compacted hook)
+PASS  [hooks]  the old version's Plugin.background fiber was interrupted at its close, and the drain did not wait for it
+PASS  [hooks]  when the plugin was removed its queued hook was dropped and logged  ({"t":1794689815804,"pid":2799030,"ev":"hook.dropped","plugin":"echo","kind":"afterTurn","turn":"f6e19790-b849-4170-b580-98bb7bbdfed4","why":"the plugin is removed","phase":1})
+
+## gate: a call that arrives during a swap is held for the activation and not cut off; one from an Agent built on another bundle fails at once
+PASS  [gate]  no handler touched what a closed version owned
+PASS  [gate]  no turn failed
+PASS  [gate]  the call in flight when the gate closed finished on the old instance, and the swap waited for it  ({"waitedMs":2975})
+PASS  [gate]  a call from an Agent built on this bundle was held at the gate  ({"heldMs":2957})
+PASS  [gate]  it was released at the activation and answered by the new instance  (OK "v2 hi Pacific/Auckland #3: b-during-swap"
+)
+PASS  [gate]  a call from an Agent built on another bundle failed at once, at the closed gate  ({"msAfterGateClosed":18})
+
+## stubborn: a handler that ignores the interruption (drain 1.5 s, close 1 s here)
+PASS  [stubborn]  no handler touched what a closed version owned
+PASS  [stubborn]  no turn failed
+PASS  [stubborn]  the caller was told the handler did not stop
+PASS  [stubborn]  the swap waited 0.3 s for it and no longer, and that came out of the close deadline  ({"waitedMs":1804,"note":"two versions of stubborn now overlap"})
+PASS  [stubborn]  FOUND: the handler ran on for seconds inside a closed version  ({"ranMs":6000,"connectionOpen":false})
+
+## stop-close: a graceful stop while the old scope is closing: the plugin is between its close and its activation
+PASS  [stop-close]  no handler touched what a closed version owned
+PASS  [stop-close]  no turn failed
+PASS  [stop-close]  the swap was abandoned with the old version closed and the new one never activated  (["echo: old version closed, new one never activated"])
+PASS  [stop-close]  the queued hook was dropped with a log line  ({"t":1794689815406,"pid":2799060,"ev":"hook.dropped","plugin":"echo","kind":"afterTurn","turn":"848d9e3e-1ce3-42be-a33b-7edc94eeee39","why":"the plugin is between its close and its activation","phase":1})
+PASS  [stop-close]  a call that arrived while the old version was closing failed at once as changed
+PASS  [stop-close]  a call after the stop abandoned the swap was not answered: it waited, and the stop cut its turn
+PASS  [stop-close]  that turn resumed after the restart on the new version  (OK "v2 hi Pacific/Auckland #1: b-closing"
+OK "v2 hi Pacific/Auckland #1: b-after-the-stop"
+)
+PASS  [stop-close]  the process exited by itself after SIGTERM  ({"ms":15067,"code":130})
+PASS  [stop-close]  the next boot loads the new version  (OK "v2 hi Pacific/Auckland #1: a1"
+)
+
+## stop-drain: a graceful stop while a swap is draining abandons it
+PASS  [stop-drain]  no handler touched what a closed version owned
+PASS  [stop-drain]  no turn failed
+PASS  [stop-drain]  the swap was abandoned  (["echo: stays on echo#1@6e40a489 for the graceful stop"])
+PASS  [stop-drain]  the new instance was closed without being activated
+PASS  [stop-drain]  the old version went through the ordinary graceful stop
+PASS  [stop-drain]  FOUND: the call held at the gate was let go, answered by the old version, and its turn ended during the stop  ({"heldMs":312,"to":"echo#1@6e40a489"})
+PASS  [stop-drain]  the process exited by itself after SIGTERM  ({"ms":15078,"code":130})
+PASS  [stop-drain]  the next boot loads the plugin
+PASS  [stop-drain]  the turn the stop cut resumed after the restart and ended with an answer
+
+## stop-apply: a graceful stop after live moved abandons the swap, and the next boot loads the new version
+PASS  [stop-apply]  no handler touched what a closed version owned
+PASS  [stop-apply]  no turn failed
+PASS  [stop-apply]  live had moved before the stop  (versions/1794689813368-2799043-2)
+PASS  [stop-apply]  the swap was abandoned and the new version closed without being activated  (["echo: stays on echo#1@a6e4e743 for the graceful stop"])
+PASS  [stop-apply]  the old version's queued afterTurn hook ran on it during the graceful stop, inside its budget  ([1502,1501])
+PASS  [stop-apply]  the old version closed after its hooks
+PASS  [stop-apply]  the process exited by itself after SIGTERM  ({"ms":15066,"code":130})
+PASS  [stop-apply]  the next boot loads the new version  (["echo#1@876ab345"])
+PASS  [stop-apply]  the cut turn resumed on the new version  (RESULTS ["OK \"v2 hi Pacific/Auckland #1: slow a2\"\n","OK \"v2 hi Pacific/Auckland #1: after\"\n"])
+
+## deadlines: the real constants: a 30 s drain, a 10 s close, a 40 s wait for a turn, a timer held for the activation
+PASS  [deadlines]  no handler touched what a closed version owned
+PASS  [deadlines]  no turn failed
+PASS  [deadlines]  the drain took 30 seconds  ({"drainedMs":30003})
+PASS  [deadlines]  the tool call still running then was interrupted with the agreed message  ({"ranMs":30051})
+PASS  [deadlines]  the afterTurn hook still running then was interrupted and logged, though its own timeout was 120 s  ({"ranMs":30384})
+PASS  [deadlines]  the finalizer that hangs was abandoned after 10 seconds  ({"ms":9999})
+PASS  [deadlines]  the new version activated 40 seconds after the gate closed  ({"waitedMs":40012})
+PASS  [deadlines]  the turn carried on after the cut, and its next call failed as changed
+PASS  [deadlines]  a turn that started during the swap waited for the activation, 40 s at most  ({"ms":39745})
+PASS  [deadlines]  a timer that fired during the swap was held until the activation, then its turn ran on the new version  ({"t":1794689852682,"pid":2799029,"ev":"timer.held","timer":"echo/job","why":"held for a swap","ms":37013,"phase":1})
+PASS  [deadlines]  the afterTurn hooks of the turns that ended after the swap ran on the new version
+
+122 passed, 0 failed

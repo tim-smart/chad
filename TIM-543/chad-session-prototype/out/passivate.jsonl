@@ -1,0 +1,49 @@
+{"t":1794652360253,"pid":3367990,"ev":"scenario.start","name":"passivate","phase":"1","variant":""}
+{"t":1794652360255,"pid":3367990,"ev":"user.posted","text":"Remember this codeword: HERON-42. Reply with just OK.","key":"message/test:c1/m2"}
+{"t":1794652360273,"pid":3367990,"ev":"gateway.saved","key":"message/test:c1/m2","ms":17}
+{"t":1794652360345,"pid":3367990,"ev":"session.activated","thread":"c1","session":"443f0bf2-f86a-4bd5-a83d-6dd286f92f2e","activation":1}
+{"t":1794652360347,"pid":3367990,"ev":"message.delivered","key":"message/test:c1/m2","ms":91,"text":"Remember this codeword: HERON-42. Reply with just OK."}
+{"t":1794652360360,"pid":3367990,"ev":"turn.start","key":"message/test:c1/m2","turn":"dc32afdc-2c8a-4075-92d3-6db29c25269c","starts":1,"resumed":false}
+{"t":1794652360361,"pid":3367990,"ev":"status.posted","id":"m4"}
+{"t":1794652361651,"pid":3367990,"ev":"turn.usage","key":"message/test:c1/m2","calls":["1849 in / 1664 cached"]}
+{"t":1794652361658,"pid":3367990,"ev":"turn.end","key":"message/test:c1/m2","turn":"dc32afdc-2c8a-4075-92d3-6db29c25269c","outcome":"Answered","compacted":false}
+{"t":1794652361681,"pid":3367990,"ev":"user.posted","text":"What is 2+2? Reply with just the number.","key":"message/test:c1/m6"}
+{"t":1794652361689,"pid":3367990,"ev":"gateway.saved","key":"message/test:c1/m6","ms":8}
+{"t":1794652361697,"pid":3367990,"ev":"message.delivered","key":"message/test:c1/m6","ms":16,"text":"What is 2+2? Reply with just the number."}
+{"t":1794652361714,"pid":3367990,"ev":"turn.start","key":"message/test:c1/m6","turn":"05a2ec6c-0c24-40b6-b9f5-26bccc3c031c","starts":1,"resumed":false}
+{"t":1794652361714,"pid":3367990,"ev":"status.posted","id":"m8"}
+{"t":1794652362719,"pid":3367990,"ev":"turn.usage","key":"message/test:c1/m6","calls":["1873 in / 1664 cached"]}
+{"t":1794652362726,"pid":3367990,"ev":"turn.end","key":"message/test:c1/m6","turn":"05a2ec6c-0c24-40b6-b9f5-26bccc3c031c","outcome":"Answered","compacted":false}
+{"t":1794652362747,"pid":3367990,"ev":"user.posted","text":"What is 3+3? Reply with just the number.","key":"message/test:c1/m10"}
+{"t":1794652362754,"pid":3367990,"ev":"gateway.saved","key":"message/test:c1/m10","ms":7}
+{"t":1794652362762,"pid":3367990,"ev":"message.delivered","key":"message/test:c1/m10","ms":15,"text":"What is 3+3? Reply with just the number."}
+{"t":1794652362776,"pid":3367990,"ev":"turn.start","key":"message/test:c1/m10","turn":"5dd8a98b-2757-4041-8638-22bde1982afa","starts":1,"resumed":false}
+{"t":1794652362776,"pid":3367990,"ev":"status.posted","id":"m12"}
+{"t":1794652364361,"pid":3367990,"ev":"turn.usage","key":"message/test:c1/m10","calls":["1897 in / 1792 cached"]}
+{"t":1794652364373,"pid":3367990,"ev":"turn.end","key":"message/test:c1/m10","turn":"5dd8a98b-2757-4041-8638-22bde1982afa","outcome":"Answered","compacted":false}
+{"t":1794652364401,"pid":3367990,"ev":"peek","when":"before","activation":1,"system":"fb3e321464","systemChars":7869}
+{"t":1794652372318,"pid":3367990,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652372339,"pid":3367990,"ev":"user.posted","text":"What was the codeword? Reply with just the codeword.","key":"message/test:c1/m14"}
+{"t":1794652372350,"pid":3367990,"ev":"gateway.saved","key":"message/test:c1/m14","ms":11}
+{"t":1794652372361,"pid":3367990,"ev":"session.restored","messages":6,"frozenSystem":true}
+{"t":1794652372361,"pid":3367990,"ev":"session.activated","thread":"c1","session":"443f0bf2-f86a-4bd5-a83d-6dd286f92f2e","activation":2}
+{"t":1794652372361,"pid":3367990,"ev":"message.delivered","key":"message/test:c1/m14","ms":22,"text":"What was the codeword? Reply with just the codeword."}
+{"t":1794652372380,"pid":3367990,"ev":"turn.start","key":"message/test:c1/m14","turn":"fd70897f-ed97-4eba-a722-7262ec5704d6","starts":1,"resumed":false}
+{"t":1794652372380,"pid":3367990,"ev":"status.posted","id":"m16"}
+{"t":1794652373799,"pid":3367990,"ev":"turn.usage","key":"message/test:c1/m14","calls":["1921 in / 1792 cached"]}
+{"t":1794652373807,"pid":3367990,"ev":"turn.end","key":"message/test:c1/m14","turn":"fd70897f-ed97-4eba-a722-7262ec5704d6","outcome":"Answered","compacted":false}
+{"t":1794652373834,"pid":3367990,"ev":"user.posted","text":"What is 4+4? Reply with just the number.","key":"message/test:c1/m18"}
+{"t":1794652373842,"pid":3367990,"ev":"gateway.saved","key":"message/test:c1/m18","ms":8}
+{"t":1794652373849,"pid":3367990,"ev":"message.delivered","key":"message/test:c1/m18","ms":15,"text":"What is 4+4? Reply with just the number."}
+{"t":1794652373869,"pid":3367990,"ev":"turn.start","key":"message/test:c1/m18","turn":"8b58541b-766e-45f4-9596-673b70183728","starts":1,"resumed":false}
+{"t":1794652373869,"pid":3367990,"ev":"status.posted","id":"m20"}
+{"t":1794652375208,"pid":3367990,"ev":"turn.usage","key":"message/test:c1/m18","calls":["1948 in / 1792 cached"]}
+{"t":1794652375216,"pid":3367990,"ev":"turn.end","key":"message/test:c1/m18","turn":"8b58541b-766e-45f4-9596-673b70183728","outcome":"Answered","compacted":false}
+{"t":1794652375242,"pid":3367990,"ev":"peek","when":"after","activation":2,"system":"fb3e321464","systemChars":7869}
+{"t":1794652375242,"pid":3367990,"ev":"bot.messages","messages":["OK","4","6","HERON-42","8"]}
+{"t":1794652375242,"pid":3367990,"ev":"scenario.end","name":"passivate","phase":"1"}
+{"t":1794652375250,"pid":3367990,"ev":"session.passivated","thread":"c1","activation":2}
+{"t":1794652377719,"pid":3367990,"ev":"hooks.draining","pending":0}
+{"t":1794652377719,"pid":3367990,"ev":"hooks.drained"}
+{"t":1794652377719,"pid":3367990,"ev":"plugins.closed"}
+{"t":1794652377764,"pid":3367990,"ev":"process.exit","code":0,"signal":null}

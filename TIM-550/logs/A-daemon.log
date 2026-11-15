@@ -1,0 +1,4 @@
+10:47:04.359 [daemon 3474969] lock taken
+10:47:04.365 [daemon 3474969] listening on state/chad.sock mode 600
+10:47:04.796 [daemon 3474969] tail#1 (client 0) started
+10:47:06.799 [daemon 3474969] tail#1 (client 0) handler exit: success

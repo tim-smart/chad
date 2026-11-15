@@ -1,0 +1,31 @@
++ @types/node 26.6.6
++ clanka 0.27.0
++ dfx 1.1.1
++ effect 4.1.4
++ esbuild 0.28.2
++ typescript 7.0.2
+
+Done in 457ms using pnpm v12.18.0
+exit=0
+--- pkg.pr.new in lockfile: 0
+--- effect dirs:
+node_modules/.pnpm/@effect+ai-openai-compat@file+vendor+effect-ai-openai-compat.tgz_effect@file+vendor+effect.tgz
+node_modules/.pnpm/@effect+ai-openai@file+vendor+effect-ai-openai.tgz_effect@file+vendor+effect.tgz
+node_modules/.pnpm/@effect+chat-discord@file+vendor+effect-chat-discord.tgz_dfx@1.1.1_effect@file+vendor+e_60e74f329c32316531f6e8e39abfc482
+node_modules/.pnpm/effect@file+vendor+effect.tgz
+node_modules/.pnpm/@effect+platform-node@file+vendor+effect-platform-node.tgz_effect@file+vendor+effect.tg_8aca78d9d510069f3a333879ee4f6a9f
+node_modules/.pnpm/@effect+platform-node-shared@file+vendor+effect-platform-node-shared.tgz_effect@file+vendor+effect.tgz
+node_modules/.pnpm/@effect+sql-sqlite-node@file+vendor+effect-sql-sqlite-node.tgz_effect@file+vendor+effect.tgz
+--- effect package.json copies: 1
+--- anthropic:
+@anthropic-ai+claude-agent-sdk@0.3.324_@anthropic-ai+sdk@1.8.0_zod@4.6.7__@modelcontext_ac59f570585efa5913139a40ac1f8464
+@anthropic-ai+sdk@1.8.0_zod@4.6.7
+clanka@0.27.0_@anthropic-ai+sdk@1.8.0_zod@4.6.7__@effect+ai-openai-compat@file+vendor+e_76070c20e4dae95d595bd9f818798a8e
+--- size:
+243
+1
+  - "@anthropic-ai/claude-agent-sdk-win32-x64"
+  - "@anthropic-ai/claude-agent-sdk-win32-arm64"
+
+minimumReleaseAgeExclude:
+  - clanka@0.27.0

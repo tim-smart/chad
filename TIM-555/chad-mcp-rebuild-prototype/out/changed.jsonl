@@ -1,0 +1,145 @@
+{"t":1794687316381,"pid":2550932,"ev":"boot.nothingApplied"}
+{"t":1794687316451,"pid":2550932,"ev":"scenario.start","name":"changed","phase":"1","drainMs":30000,"closeMs":10000,"mcp":{"drainMs":30000,"heldMs":120000,"startMs":60000,"rules":"amended"}}
+{"t":1794687316454,"pid":2550932,"ev":"apply.start","dir":"out/repo-changed/versions/1794687316453-2550932-1"}
+{"t":1794687316540,"pid":2550932,"ev":"build.ok","version":"echo#1@dd2b18cb","tools":["slow","echo"],"hooks":[]}
+{"t":1794687316540,"pid":2550932,"ev":"live.moved","live":"versions/1794687316453-2550932-1"}
+{"t":1794687316541,"pid":2550932,"ev":"swap.gateClosed","label":"apply","plugins":["echo: nothing -> echo#1@dd2b18cb"]}
+{"t":1794687316541,"pid":2550932,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687316541,"pid":2550932,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687316542,"pid":2550932,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[],"now":["echo: echo#1@dd2b18cb"]}
+{"t":1794687316542,"pid":2550932,"ev":"apply.pluginsActivated","mcpStillRebuilding":false}
+{"t":1794687316542,"pid":2550932,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":[]}}
+{"t":1794687316543,"pid":2550932,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"code change PLAN:{\"steps\":[\"try { console.log('OK ' + JSON.s"}
+{"t":1794687316592,"pid":2550932,"ev":"user.posted","who":"B","key":"message/test:c2/m6","text":"another session PLAN:{\"steps\":[\"await mark({ label: \\\"b1\\\" }"}
+{"t":1794687316647,"pid":2550932,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687316650,"pid":2550932,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687316689,"pid":2550932,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"e556a090-6fa2-4644-a0cd-d62d792d0d6e","starts":1,"cuts":0,"resumed":false}
+{"t":1794687316701,"pid":2550932,"ev":"session.activated","thread":"c2","session":"s-c2"}
+{"t":1794687316704,"pid":2550932,"ev":"message.delivered","key":"message/test:c2/m6","session":"s-c2"}
+{"t":1794687316734,"pid":2550932,"ev":"turn.start","key":"message/test:c2/m6","session":"s-c2","turn":"e9563010-0ed4-456a-854b-c0ea89b6cc28","starts":1,"cuts":0,"resumed":false}
+{"t":1794687316742,"pid":2550932,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"mcp":"0-none","mcpPrompt":"01ba4719","on":{"echo":"dd2b18cb"},"tools":["slow","echo"]}
+{"t":1794687316747,"pid":2550932,"ev":"agent.built","session":"s-c2","rebuild":0,"generation":1,"mcp":"0-none","mcpPrompt":"01ba4719","on":{"echo":"dd2b18cb"},"tools":["slow","echo"]}
+{"t":1794687316750,"pid":2550932,"ev":"mcp.keysTaken","session":"s-c1","layer":null,"rebuilding":null,"keys":[]}
+{"t":1794687316750,"pid":2550932,"ev":"turn.system","session":"s-c1","hasMcpSection":false,"saysStillStarting":false,"mentions":[]}
+{"t":1794687316759,"pid":2550932,"ev":"mcp.keysTaken","session":"s-c2","layer":null,"rebuilding":null,"keys":[]}
+{"t":1794687316761,"pid":2550932,"ev":"turn.system","session":"s-c2","hasMcpSection":false,"saysStillStarting":false,"mentions":[]}
+{"t":1794687316835,"pid":2550932,"ev":"call.routed","session":"s-c1","tool":"echo","built":"dd2b18cb","to":"echo#1@dd2b18cb","recoded":false}
+{"t":1794687316837,"pid":2550932,"ev":"script.mark","session":"s-c2","label":"b1"}
+{"t":1794687316839,"pid":2550932,"ev":"script.mark","session":"s-c1","label":"a1"}
+{"t":1794687316843,"pid":2550932,"ev":"apply.start","dir":"out/repo-changed/versions/1794687316843-2550932-2"}
+{"t":1794687316848,"pid":2550932,"ev":"build.ok","version":"echo#2@3e5f9bb7","tools":["slow","echo"],"hooks":[]}
+{"t":1794687316849,"pid":2550932,"ev":"live.moved","live":"versions/1794687316843-2550932-2"}
+{"t":1794687316849,"pid":2550932,"ev":"swap.gateClosed","label":"apply","plugins":["echo: echo#1@dd2b18cb -> echo#2@3e5f9bb7"]}
+{"t":1794687316849,"pid":2550932,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687316849,"pid":2550932,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687316849,"pid":2550932,"ev":"plugin.closing","plugin":"echo","instance":1,"hash":"dd2b18cb"}
+{"t":1794687316850,"pid":2550932,"ev":"close.done","version":"echo#1@dd2b18cb","why":"apply","ms":1}
+{"t":1794687316850,"pid":2550932,"ev":"swap.activated","label":"apply","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":["s-c1 loses echo until its turn ends (0 sub-agents running)","s-c2 loses echo until its turn ends (0 sub-agents running)"],"now":["echo: echo#2@3e5f9bb7"]}
+{"t":1794687316850,"pid":2550932,"ev":"apply.pluginsActivated","mcpStillRebuilding":false}
+{"t":1794687316850,"pid":2550932,"ev":"cli.apply","label":"code change","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"apply","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":["s-c1 loses echo until its turn ends (0 sub-agents running)","s-c2 loses echo until its turn ends (0 sub-agents running)"]}}
+{"t":1794687316854,"pid":2550932,"ev":"call.refused","session":"s-c1","tool":"echo","at":"bundle hash","built":"dd2b18cb","current":"echo#2@3e5f9bb7","message":"echo was changed by an apply. The new version is in your next turn."}
+{"t":1794687316856,"pid":2550932,"ev":"call.refused","session":"s-c2","tool":"echo","at":"bundle hash","built":"dd2b18cb","current":"echo#2@3e5f9bb7","message":"echo was changed by an apply. The new version is in your next turn."}
+{"t":1794687316859,"pid":2550932,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v1 hi Pacific/Auckland #1: a1\"\nERR echo was changed by an apply. The new version is in your next turn.\n"}
+{"t":1794687316902,"pid":2550932,"ev":"brain.scriptOutput","session":"s-c2","output":"ERR echo was changed by an apply. The new version is in your next turn.\n"}
+{"t":1794687317043,"pid":2550932,"ev":"turn.end","key":"message/test:c2/m6","session":"s-c2","turn":"e9563010-0ed4-456a-854b-c0ea89b6cc28","outcome":"Answered","text":"RESULTS [\"ERR echo was changed by an apply. The new version is in your next turn.\\n\"]"}
+{"t":1794687317126,"pid":2550932,"ev":"call.refused","session":"s-c1","tool":"slow","at":"bundle hash","built":"dd2b18cb","current":"echo#2@3e5f9bb7","message":"slow was changed by an apply. The new version is in your next turn."}
+{"t":1794687317129,"pid":2550932,"ev":"brain.scriptOutput","session":"s-c1","output":"ERR slow was changed by an apply. The new version is in your next turn.\n"}
+{"t":1794687317217,"pid":2550932,"ev":"brain.scriptOutput","session":"s-c1","output":"the turn carried on\n"}
+{"t":1794687317642,"pid":2550932,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"e556a090-6fa2-4644-a0cd-d62d792d0d6e","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: a1\\\"\\nERR echo was changed by an apply. The new version is in your next turn.\\n\",\"ERR slow was changed by an apply. The new version is in your next turn.\\n\",\"the turn carried on\\n\"]"}
+{"t":1794687317685,"pid":2550932,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: a1\\\"\\nERR echo was changed by an apply. The new version is in your next turn.\\n\",\"ERR slow was changed by an apply. The new version is in your next turn.\\n\",\"the turn carried on\\n\"]"}
+{"t":1794687317685,"pid":2550932,"ev":"answer","who":"B","key":"message/test:c2/m6","text":"RESULTS [\"ERR echo was changed by an apply. The new version is in your next turn.\\n\"]"}
+{"t":1794687317685,"pid":2550932,"ev":"user.posted","who":"A","key":"message/test:c1/m10","text":"next turn PLAN:{\"steps\":[\"try { console.log('OK ' + JSON.str"}
+{"t":1794687317729,"pid":2550932,"ev":"message.delivered","key":"message/test:c1/m10","session":"s-c1"}
+{"t":1794687317750,"pid":2550932,"ev":"turn.start","key":"message/test:c1/m10","session":"s-c1","turn":"7942f027-3b6a-4ac8-b0ce-c4f40397d521","starts":1,"cuts":0,"resumed":false}
+{"t":1794687317754,"pid":2550932,"ev":"agent.built","session":"s-c1","rebuild":1,"generation":2,"mcp":"0-none","mcpPrompt":"01ba4719","on":{"echo":"3e5f9bb7"},"tools":["slow","echo"]}
+{"t":1794687317754,"pid":2550932,"ev":"mcp.keysTaken","session":"s-c1","layer":null,"rebuilding":null,"keys":[]}
+{"t":1794687317755,"pid":2550932,"ev":"turn.system","session":"s-c1","hasMcpSection":false,"saysStillStarting":false,"mentions":[]}
+{"t":1794687317809,"pid":2550932,"ev":"call.routed","session":"s-c1","tool":"echo","built":"3e5f9bb7","to":"echo#2@3e5f9bb7","recoded":false}
+{"t":1794687317812,"pid":2550932,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v2 hi Pacific/Auckland #2: a4\"\n"}
+{"t":1794687317887,"pid":2550932,"ev":"turn.end","key":"message/test:c1/m10","session":"s-c1","turn":"7942f027-3b6a-4ac8-b0ce-c4f40397d521","outcome":"Answered","text":"RESULTS [\"OK \\\"v2 hi Pacific/Auckland #2: a4\\\"\\n\"]"}
+{"t":1794687317896,"pid":2550932,"ev":"answer","who":"A","key":"message/test:c1/m10","text":"RESULTS [\"OK \\\"v2 hi Pacific/Auckland #2: a4\\\"\\n\"]"}
+{"t":1794687317896,"pid":2550932,"ev":"user.posted","who":"A","key":"message/test:c1/m13","text":"removed tool PLAN:{\"steps\":[\"try { console.log('OK ' + JSON."}
+{"t":1794687317912,"pid":2550932,"ev":"message.delivered","key":"message/test:c1/m13","session":"s-c1"}
+{"t":1794687317939,"pid":2550932,"ev":"turn.start","key":"message/test:c1/m13","session":"s-c1","turn":"44509893-fd81-4bd4-87b7-d4fe93d4537c","starts":1,"cuts":0,"resumed":false}
+{"t":1794687317939,"pid":2550932,"ev":"mcp.keysTaken","session":"s-c1","layer":null,"rebuilding":null,"keys":[]}
+{"t":1794687317939,"pid":2550932,"ev":"turn.system","session":"s-c1","hasMcpSection":false,"saysStillStarting":false,"mentions":[]}
+{"t":1794687317975,"pid":2550932,"ev":"call.routed","session":"s-c1","tool":"slow","built":"3e5f9bb7","to":"echo#2@3e5f9bb7","recoded":false}
+{"t":1794687317975,"pid":2550932,"ev":"plugin.slow.start","plugin":"echo","instance":2,"hash":"3e5f9bb7","tag":"c1"}
+{"t":1794687317985,"pid":2550932,"ev":"plugin.slow.end","plugin":"echo","instance":2,"hash":"3e5f9bb7","tag":"c1"}
+{"t":1794687317986,"pid":2550932,"ev":"script.mark","session":"s-c1","label":"c1"}
+{"t":1794687318002,"pid":2550932,"ev":"apply.start","dir":"out/repo-changed/versions/1794687318002-2550932-3"}
+{"t":1794687318010,"pid":2550932,"ev":"build.ok","version":"echo#3@51edeb89","tools":["echo"],"hooks":[]}
+{"t":1794687318011,"pid":2550932,"ev":"live.moved","live":"versions/1794687318002-2550932-3"}
+{"t":1794687318011,"pid":2550932,"ev":"swap.gateClosed","label":"apply","plugins":["echo: echo#2@3e5f9bb7 -> echo#3@51edeb89"]}
+{"t":1794687318011,"pid":2550932,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687318011,"pid":2550932,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687318011,"pid":2550932,"ev":"plugin.closing","plugin":"echo","instance":2,"hash":"3e5f9bb7"}
+{"t":1794687318011,"pid":2550932,"ev":"close.done","version":"echo#2@3e5f9bb7","why":"apply","ms":0}
+{"t":1794687318011,"pid":2550932,"ev":"swap.activated","label":"apply","generation":3,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":["s-c1 loses echo until its turn ends (0 sub-agents running)"],"now":["echo: echo#3@51edeb89"]}
+{"t":1794687318011,"pid":2550932,"ev":"apply.pluginsActivated","mcpStillRebuilding":false}
+{"t":1794687318011,"pid":2550932,"ev":"cli.apply","label":"tool removed","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"apply","generation":3,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":["s-c1 loses echo until its turn ends (0 sub-agents running)"]}}
+{"t":1794687318012,"pid":2550932,"ev":"call.refused","session":"s-c1","tool":"slow","at":"bundle hash","built":"3e5f9bb7","current":"echo#3@51edeb89","message":"slow was removed by an apply and is gone from your next turn."}
+{"t":1794687318013,"pid":2550932,"ev":"call.refused","session":"s-c1","tool":"echo","at":"bundle hash","built":"3e5f9bb7","current":"echo#3@51edeb89","message":"echo was changed by an apply. The new version is in your next turn."}
+{"t":1794687318014,"pid":2550932,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v2 hi Pacific/Auckland #2: slow c1\"\nERR slow was removed by an apply and is gone from your next turn.\nERR echo was changed by an apply. The new version is in your next turn.\n"}
+{"t":1794687318074,"pid":2550932,"ev":"turn.end","key":"message/test:c1/m13","session":"s-c1","turn":"44509893-fd81-4bd4-87b7-d4fe93d4537c","outcome":"Answered","text":"RESULTS [\"OK \\\"v2 hi Pacific/Auckland #2: slow c1\\\"\\nERR slow was removed by an apply and is gone from your next turn.\\nERR echo was changed by an apply. The new version is in your next turn.\\n\"]"}
+{"t":1794687318098,"pid":2550932,"ev":"answer","who":"A","key":"message/test:c1/m13","text":"RESULTS [\"OK \\\"v2 hi Pacific/Auckland #2: slow c1\\\"\\nERR slow was removed by an apply and is gone from your next turn.\\nERR echo was changed by an apply. The new version is in your next turn.\\n\"]"}
+{"t":1794687318098,"pid":2550932,"ev":"user.posted","who":"A","key":"message/test:c1/m16","text":"safe mode PLAN:{\"steps\":[\"try { console.log('OK ' + JSON.str"}
+{"t":1794687318144,"pid":2550932,"ev":"message.delivered","key":"message/test:c1/m16","session":"s-c1"}
+{"t":1794687318162,"pid":2550932,"ev":"turn.start","key":"message/test:c1/m16","session":"s-c1","turn":"db2a754f-15f2-4d78-bd22-a123d10106e7","starts":1,"cuts":0,"resumed":false}
+{"t":1794687318164,"pid":2550932,"ev":"agent.built","session":"s-c1","rebuild":2,"generation":3,"mcp":"0-none","mcpPrompt":"01ba4719","on":{"echo":"51edeb89"},"tools":["echo"]}
+{"t":1794687318165,"pid":2550932,"ev":"mcp.keysTaken","session":"s-c1","layer":null,"rebuilding":null,"keys":[]}
+{"t":1794687318165,"pid":2550932,"ev":"turn.system","session":"s-c1","hasMcpSection":false,"saysStillStarting":false,"mentions":[]}
+{"t":1794687318216,"pid":2550932,"ev":"call.routed","session":"s-c1","tool":"echo","built":"51edeb89","to":"echo#3@51edeb89","recoded":false}
+{"t":1794687318217,"pid":2550932,"ev":"script.mark","session":"s-c1","label":"d1"}
+{"t":1794687318228,"pid":2550932,"ev":"swap.gateClosed","label":"safe on","plugins":["echo: echo#3@51edeb89 -> safe"]}
+{"t":1794687318228,"pid":2550932,"ev":"swap.draining","label":"safe on","inflight":[]}
+{"t":1794687318228,"pid":2550932,"ev":"swap.drained","label":"safe on","ms":0,"interrupted":[]}
+{"t":1794687318229,"pid":2550932,"ev":"plugin.closing","plugin":"echo","instance":3,"hash":"51edeb89"}
+{"t":1794687318229,"pid":2550932,"ev":"close.done","version":"echo#3@51edeb89","why":"safe on","ms":1}
+{"t":1794687318229,"pid":2550932,"ev":"swap.activated","label":"safe on","generation":4,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":["s-c1 loses echo until its turn ends (0 sub-agents running)"],"now":["echo: safe"]}
+{"t":1794687318231,"pid":2550932,"ev":"call.refused","session":"s-c1","tool":"echo","at":"no version","built":"51edeb89","current":"safe","message":"echo is off in safe mode."}
+{"t":1794687318233,"pid":2550932,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v3 hi Pacific/Auckland #3: d1\"\nERR echo is off in safe mode.\n"}
+{"t":1794687318284,"pid":2550932,"ev":"turn.end","key":"message/test:c1/m16","session":"s-c1","turn":"db2a754f-15f2-4d78-bd22-a123d10106e7","outcome":"Answered","text":"RESULTS [\"OK \\\"v3 hi Pacific/Auckland #3: d1\\\"\\nERR echo is off in safe mode.\\n\"]"}
+{"t":1794687318293,"pid":2550932,"ev":"answer","who":"A","key":"message/test:c1/m16","text":"RESULTS [\"OK \\\"v3 hi Pacific/Auckland #3: d1\\\"\\nERR echo is off in safe mode.\\n\"]"}
+{"t":1794687318310,"pid":2550932,"ev":"turns.scheduled","timer":"echo/job","at":1794687318493}
+{"t":1794687318790,"pid":2550932,"ev":"timer.delivered","timer":"echo/job","at":1794687318493,"lateMs":297}
+{"t":1794687319792,"pid":2550932,"ev":"safe.stillOn","timerTurnStarted":false}
+{"t":1794687319795,"pid":2550932,"ev":"build.ok","version":"echo#4@51edeb89","tools":["echo"],"hooks":[]}
+{"t":1794687319795,"pid":2550932,"ev":"swap.gateClosed","label":"boot","plugins":["echo: nothing -> echo#4@51edeb89"]}
+{"t":1794687319796,"pid":2550932,"ev":"swap.draining","label":"boot","inflight":[]}
+{"t":1794687319796,"pid":2550932,"ev":"swap.drained","label":"boot","ms":1,"interrupted":[]}
+{"t":1794687319796,"pid":2550932,"ev":"swap.activated","label":"boot","generation":5,"waitedMs":1,"drainedMs":1,"closeMs":0,"interrupted":[],"affected":[],"now":["echo: echo#4@51edeb89"]}
+{"t":1794687319796,"pid":2550932,"ev":"boot.loaded","live":"versions/1794687318002-2550932-3","plugins":["echo#4@51edeb89"]}
+{"t":1794687319796,"pid":2550932,"ev":"timer.held","timer":"echo/job","why":"held, not loaded","ms":1006}
+{"t":1794687320133,"pid":2550932,"ev":"session.activated","thread":"c3","session":"s-c3"}
+{"t":1794687320133,"pid":2550932,"ev":"pluginTurn.delivered","key":"timer/echo/job/1794687318493","session":"s-c3"}
+{"t":1794687320274,"pid":2550932,"ev":"turn.start","key":"timer/echo/job/1794687318493","session":"s-c3","turn":"3ad9a48a-f64b-45e6-a774-fd4be974bc51","starts":1,"cuts":0,"resumed":false}
+{"t":1794687320338,"pid":2550932,"ev":"agent.built","session":"s-c3","rebuild":0,"generation":5,"mcp":"0-none","mcpPrompt":"01ba4719","on":{"echo":"51edeb89"},"tools":["echo"]}
+{"t":1794687320341,"pid":2550932,"ev":"mcp.keysTaken","session":"s-c3","layer":null,"rebuilding":null,"keys":[]}
+{"t":1794687320341,"pid":2550932,"ev":"turn.system","session":"s-c3","hasMcpSection":false,"saysStillStarting":false,"mentions":[]}
+{"t":1794687320459,"pid":2550932,"ev":"call.routed","session":"s-c3","tool":"echo","built":"51edeb89","to":"echo#4@51edeb89","recoded":false}
+{"t":1794687320461,"pid":2550932,"ev":"brain.scriptOutput","session":"s-c3","output":"OK \"v3 hi Pacific/Auckland #4: timer\"\n"}
+{"t":1794687320688,"pid":2550932,"ev":"turn.end","key":"timer/echo/job/1794687318493","session":"s-c3","turn":"3ad9a48a-f64b-45e6-a774-fd4be974bc51","outcome":"Answered","text":"RESULTS [\"OK \\\"v3 hi Pacific/Auckland #4: timer\\\"\\n\"]"}
+{"t":1794687320778,"pid":2550932,"ev":"timer.turnEnded","timer":"echo/job","at":1794687318493,"outcome":"Answered"}
+{"t":1794687320878,"pid":2550932,"ev":"answer","who":"C","key":"timer/echo/job/1794687318493","text":"RESULTS [\"OK \\\"v3 hi Pacific/Auckland #4: timer\\\"\\n\"]"}
+{"t":1794687320878,"pid":2550932,"ev":"user.posted","who":"A","key":"message/test:c1/m20","text":"after safe off PLAN:{\"steps\":[\"try { console.log('OK ' + JSO"}
+{"t":1794687320951,"pid":2550932,"ev":"message.delivered","key":"message/test:c1/m20","session":"s-c1"}
+{"t":1794687321031,"pid":2550932,"ev":"turn.start","key":"message/test:c1/m20","session":"s-c1","turn":"2c28b43d-5ffb-4b38-b26e-dd002ff1ec97","starts":1,"cuts":0,"resumed":false}
+{"t":1794687321036,"pid":2550932,"ev":"agent.built","session":"s-c1","rebuild":3,"generation":5,"mcp":"0-none","mcpPrompt":"01ba4719","on":{"echo":"51edeb89"},"tools":["echo"]}
+{"t":1794687321038,"pid":2550932,"ev":"mcp.keysTaken","session":"s-c1","layer":null,"rebuilding":null,"keys":[]}
+{"t":1794687321038,"pid":2550932,"ev":"turn.system","session":"s-c1","hasMcpSection":false,"saysStillStarting":false,"mentions":[]}
+{"t":1794687321107,"pid":2550932,"ev":"call.routed","session":"s-c1","tool":"echo","built":"51edeb89","to":"echo#4@51edeb89","recoded":false}
+{"t":1794687321109,"pid":2550932,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v3 hi Pacific/Auckland #4: e1\"\n"}
+{"t":1794687321244,"pid":2550932,"ev":"turn.end","key":"message/test:c1/m20","session":"s-c1","turn":"2c28b43d-5ffb-4b38-b26e-dd002ff1ec97","outcome":"Answered","text":"RESULTS [\"OK \\\"v3 hi Pacific/Auckland #4: e1\\\"\\n\"]"}
+{"t":1794687321343,"pid":2550932,"ev":"answer","who":"A","key":"message/test:c1/m20","text":"RESULTS [\"OK \\\"v3 hi Pacific/Auckland #4: e1\\\"\\n\"]"}
+{"t":1794687321343,"pid":2550932,"ev":"status","status":["echo: echo#4@51edeb89"]}
+{"t":1794687321343,"pid":2550932,"ev":"scenario.end","name":"changed","phase":"1"}
+{"t":1794687321343,"pid":2550932,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794687321390,"pid":2550932,"ev":"stop.entityLayersClosed"}
+{"t":1794687327480,"pid":2550932,"ev":"stop.runnerClosed"}
+{"t":1794687327480,"pid":2550932,"ev":"hooks.draining","pending":0}
+{"t":1794687327480,"pid":2550932,"ev":"hooks.drained"}
+{"t":1794687327481,"pid":2550932,"ev":"plugin.closing","plugin":"echo","instance":4,"hash":"51edeb89"}
+{"t":1794687327481,"pid":2550932,"ev":"close.done","version":"echo#4@51edeb89","why":"graceful stop","ms":1}
+{"t":1794687327481,"pid":2550932,"ev":"plugins.closed"}
+{"t":1794687327535,"pid":2550932,"ev":"process.exit","code":0,"signal":null}

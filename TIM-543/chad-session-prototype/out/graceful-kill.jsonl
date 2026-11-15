@@ -1,0 +1,9 @@
+{"t":1794652431971,"pid":3375981,"ev":"scenario.start","name":"graceful","phase":"1","variant":""}
+{"t":1794652431974,"pid":3375981,"ev":"user.posted","text":"sleep:200 hi","key":"message/test:c1/m2"}
+{"t":1794652431985,"pid":3375981,"ev":"gateway.saved","key":"message/test:c1/m2","ms":11}
+{"t":1794652432051,"pid":3375981,"ev":"session.activated","thread":"c1","session":"2cebcd25-e16a-4133-b90d-00418b14921a","activation":1}
+{"t":1794652432053,"pid":3375981,"ev":"message.delivered","key":"message/test:c1/m2","ms":79,"text":"sleep:200 hi"}
+{"t":1794652432067,"pid":3375981,"ev":"turn.start","key":"message/test:c1/m2","turn":"cdfda170-d37b-4e17-a523-15d5b3339806","starts":1,"resumed":false}
+{"t":1794652432068,"pid":3375981,"ev":"status.posted","id":"m4"}
+{"t":1794652433383,"pid":3375981,"ev":"turn.end","key":"message/test:c1/m2","turn":"cdfda170-d37b-4e17-a523-15d5b3339806","outcome":"Answered","compacted":false}
+{"t":1794652433601,"pid":3375981,"ev":"process.exit","code":null,"signal":"SIGKILL"}

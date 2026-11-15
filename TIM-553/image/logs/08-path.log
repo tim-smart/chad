@@ -1,0 +1,12 @@
+PASS  [path]  PATH ends with the volume's two bin directories  (/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/data/home/.npm-global/bin:/data/home/.local/bin )
+PASS  [path]  npm install -g works as uid 1000 and its command is on PATH  (npm exit=0 /data/home/.npm-global/bin/cowsay )
+PASS  [path]  uv tool install works as uid 1000, with no Python in the image, and its command is on PATH  (uv exit=0 /data/home/.local/bin/ruff ruff 0.17.5 )
+NOTE  [path]  uv run with a managed Python  (3.15.2 /data/home/.local/share/uv/python/cpython-3.15-linux-x86_64-gnu/bin/python3.15 )
+PASS  [path]  the npm and uv caches are under cache/  (/data/cache/npm/_cacache /data/cache/uv 30 )
+NOTE  [path]  what is in home/ after the installs  (. ./.local ./.local/bin ./.local/bin/ruff ./.local/share ./.local/share/uv ./.npm-global ./.npm-global/bin ./.npm-global/bin/cowsay ./.npm-global/bin/cowthink ./.npm-global/lib 140 MB )
+PASS  [path]  nothing was cached under home/
+PASS  [path]  a git, chad, node, npm or rg dropped on the volume does not shadow the image's  (/usr/bin/git /usr/local/bin/chad /usr/local/bin/node /usr/local/bin/npm /usr/bin/rg git version 2.47.3 ok v26.13.1 )
+PASS  [path]  the same holds for a command the daemon starts the way clanka does  (PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/data/home/.npm-global/bin:/data/home/.local/bin )
+PASS  [path]  a login shell resets PATH from /etc/profile, and the image's profile.d file puts the volume's directories back, last  (/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games:/data/home/.npm-global/bin:/data/home/.local/bin /data/home/.local/bin/ruff /usr/bin/git )
+PASS  [path]  a login shell started from a shell that has them does not list them twice  (2 )
+PASS  [path]  after the container is replaced, both installs are still there and run  (/data/home/.npm-global/bin/cowsay /data/home/.local/bin/ruff ruff 0.17.5 )

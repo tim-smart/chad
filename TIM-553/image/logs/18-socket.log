@@ -1,0 +1,3 @@
+PASS  [socket]  a CHAD_DATA so deep that the socket path passes 107 bytes: refused, with the length and CHAD_SOCKET named  (exit 1: chad serve: the socket path /srv/a-long-directory-name-a-long-directory-name-a-long-directory-name-a-long-directory-name-a-long-directory-name-/run/chad.sock is 129 bytes and a unix socket path holds 107. Set CHAD_SOCKET to a shorter path, for example )
+PASS  [socket]  the same with CHAD_SOCKET=/tmp/chad.sock: the daemon boots and docker exec finds it  (phase: ready ok s )
+NOTE  [socket]  what Node says when the check is not there  (EINVAL listen EINVAL: invalid argument /srv/a-long-directory-name-a )

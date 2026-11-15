@@ -1,0 +1,36 @@
+{"t":1794687651270,"pid":2589071,"ev":"scenario.start","name":"code-request","phase":"1"}
+{"t":1794687651937,"pid":2589071,"ev":"secret.saved","name":"SITE_PASSWORD","via":"cli","kind":"plain","replaced":false,"short":false}
+{"t":1794687651982,"pid":2589071,"ev":"cli","label":"set SITE_PASSWORD","args":["secret","set","SITE_PASSWORD","--note","local test form, user tim"],"code":0,"stdout":"Saved SITE_PASSWORD\n","stderr":"","ms":707}
+{"t":1794687652952,"pid":2589071,"ev":"secret.saved","name":"QUOTED","via":"cli","kind":"plain","replaced":false,"short":false}
+{"t":1794687652984,"pid":2589071,"ev":"cli","label":"set QUOTED","args":["secret","set","QUOTED"],"code":0,"stdout":"Saved QUOTED\n","stderr":"","ms":1002}
+{"t":1794687653502,"pid":2589071,"ev":"secret.saved","name":"SITE_TOTP","via":"cli","kind":"totp","replaced":false,"short":false}
+{"t":1794687653536,"pid":2589071,"ev":"cli","label":"set SITE_TOTP","args":["secret","set","SITE_TOTP","--totp"],"code":0,"stdout":"Saved SITE_TOTP\n","stderr":"","ms":552}
+{"t":1794687654006,"pid":2589071,"ev":"secret.saved","name":"TINY","via":"cli","kind":"plain","replaced":false,"short":true}
+{"t":1794687654030,"pid":2589071,"ev":"cli","label":"set TINY","args":["secret","set","TINY"],"code":0,"stdout":"Saved TINY\n","stderr":"warning: TINY is under 8 characters, so it will not be masked\n","ms":493}
+{"t":1794687654032,"pid":2589071,"ev":"user.posted","who":"A","key":"message/test:c1/m4","length":318}
+{"t":1794687654097,"pid":2589071,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687654098,"pid":2589071,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687654136,"pid":2589071,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"c2c0e098-0c15-4ec6-b991-3f3043f1f508","origin":"Message"}
+{"t":1794687654147,"pid":2589071,"ev":"agent.built","session":"s-c1","wrap":false,"mcp":false}
+{"t":1794687654184,"pid":2589071,"ev":"model.call","call":1,"messages":2,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687654196,"pid":2589071,"ev":"chat.edited","thread":"c1","messageId":"m6","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request --code -m 'the SMS code the fake site just sent'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687654274,"pid":2589071,"ev":"spawner.spawn","session":"s-c1","command":"bash","args":["-c","chad secret request --code -m 'the SMS code the fake site just sent'"]}
+{"t":1794687654753,"pid":2589071,"ev":"request.received","session":"s-c1","kind":"code","noWait":false,"ownerPresent":true}
+{"t":1794687654754,"pid":2589071,"ev":"request.posted","thread":"c1","code":"c1","messageId":"m7"}
+{"t":1794687654763,"pid":2589071,"ev":"asked.message","text":"The agent in session s-c1 asks for a one-off code.\nIt says: \"the SMS code the fake site just sent\"\nPress Enter to type it."}
+{"t":1794687654764,"pid":2589071,"ev":"click.ignored","by":"intruder-9","name":"c1"}
+{"t":1794687654765,"pid":2589071,"ev":"interact.click","messageId":"m7","userId":"intruder-9","reply":"Ack","ms":2,"buttonData":26}
+{"t":1794687654765,"pid":2589071,"ev":"click.opened","by":"owner-1","name":"c1","kind":"code"}
+{"t":1794687654766,"pid":2589071,"ev":"interact.click","messageId":"m7","userId":"owner-1","reply":"OpenModal","ms":1,"buttonData":26,"modal":{"title":"Enter a secret","labels":["One-off code"],"fields":1,"metadataLength":32}}
+{"t":1794687654767,"pid":2589071,"ev":"submit.code","request":"c1","pending":true}
+{"t":1794687654767,"pid":2589071,"ev":"chat.edited","thread":"c1","messageId":"m7","markdown":"Code received","why":"code","ok":true}
+{"t":1794687654768,"pid":2589071,"ev":"interact.submit","userId":"owner-1","reply":"Close","ms":2}
+{"t":1794687654810,"pid":2589071,"ev":"brain.scriptOutput","session":"s-c1","output":"[20:20:54.272] INFO (#104): Calling \"bash\" { command: \"chad secret request --code -m 'the SMS code the fake site just sent'\", timeoutMs: 330000 }\nOUT[completed] 482915\n\n"}
+{"t":1794687654813,"pid":2589071,"ev":"code.delivered","ms":44}
+{"t":1794687654845,"pid":2589071,"ev":"model.call","call":2,"messages":4,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result"]}
+{"t":1794687654847,"pid":2589071,"ev":"chat.edited","thread":"c1","messageId":"m6","markdown":"-# running\nconsole.log('NEXT STEP RAN')","why":"status","ok":true}
+{"t":1794687654888,"pid":2589071,"ev":"brain.scriptOutput","session":"s-c1","output":"NEXT STEP RAN\n"}
+{"t":1794687654941,"pid":2589071,"ev":"model.call","call":3,"messages":6,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result","assistant:call","tool:result"]}
+{"t":1794687654998,"pid":2589071,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"c2c0e098-0c15-4ec6-b991-3f3043f1f508","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:54.272] INFO (#104): Calling \\\"bash\\\" { command: \\\"chad secret request --code -m 'the SMS code the fake site just sent'\\\", timeoutMs: 330000 }\\nOUT[completed] 482915\\n\\n\",\"NEXT STEP RAN\\n\"]"}}
+{"t":1794687655048,"pid":2589071,"ev":"after.code","storeUnchanged":true,"storeHoldsCode":false,"text":"Code received","button":false}
+{"t":1794687655048,"pid":2589071,"ev":"scenario.end","name":"code-request","phase":"1"}

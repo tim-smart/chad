@@ -1,0 +1,73 @@
+{"t":1794687351148,"pid":2555434,"ev":"boot.nothingApplied"}
+{"t":1794687351200,"pid":2555434,"ev":"scenario.start","name":"mcp-start","phase":"1","drainMs":30000,"closeMs":10000,"mcp":{"drainMs":30000,"heldMs":3000,"startMs":3000,"rules":"as written"}}
+{"t":1794687351201,"pid":2555434,"ev":"apply.start","dir":"out/repo-mcp-start-fail/versions/1794687351201-2555434-1"}
+{"t":1794687351202,"pid":2555434,"ev":"live.moved","live":"versions/1794687351201-2555434-1"}
+{"t":1794687351202,"pid":2555434,"ev":"mcp.gateClosed","label":"apply","layer":null,"inflight":[]}
+{"t":1794687351219,"pid":2555434,"ev":"swap.gateClosed","label":"apply","plugins":[]}
+{"t":1794687351219,"pid":2555434,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687351220,"pid":2555434,"ev":"swap.drained","label":"apply","ms":1,"interrupted":[]}
+{"t":1794687351220,"pid":2555434,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":1,"drainedMs":1,"closeMs":0,"interrupted":[],"affected":[],"now":[]}
+{"t":1794687351220,"pid":2555434,"ev":"apply.pluginsActivated","mcpStillRebuilding":true}
+{"t":1794687351431,"pid":2555567,"ev":"server.start","server":"fs","label":"v1","mode":"stdio","connectMs":0,"tools":["echo","slow","stubborn","store"]}
+{"t":1794687351437,"pid":2555567,"ev":"server.connected","server":"fs"}
+{"t":1794687351461,"pid":2555434,"ev":"mcp.connected","layer":1,"why":"apply","ms":258,"servers":{"fs":"connected, 4 tools"}}
+{"t":1794687351461,"pid":2555434,"ev":"mcp.ready","label":"apply","layer":1,"generation":1,"waitedMs":259,"interrupted":[],"runningTurns":[]}
+{"t":1794687351461,"pid":2555434,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":[],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":1,"drainedMs":1,"closeMs":0,"interrupted":[],"affected":[]},"mcp":{"label":"apply","layer":1,"generation":1,"waitedMs":259,"interrupted":[],"runningTurns":[]}}
+{"t":1794687351462,"pid":2555434,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"before PLAN:{\"steps\":[\"try { console.log('OK ' + JSON.string"}
+{"t":1794687351497,"pid":2555434,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687351499,"pid":2555434,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687351514,"pid":2555434,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"f2244c7e-f050-46d4-8b2c-76d074c26f0a","starts":1,"cuts":0,"resumed":false}
+{"t":1794687351520,"pid":2555434,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"mcp":"1","mcpPrompt":"1883d285","on":{},"tools":[]}
+{"t":1794687351523,"pid":2555434,"ev":"mcp.keysTaken","session":"s-c1","layer":1,"rebuilding":null,"keys":["fs.echo","fs.slow","fs.stubborn","fs.store","searchTools"]}
+{"t":1794687351523,"pid":2555434,"ev":"turn.system","session":"s-c1","hasMcpSection":true,"saysStillStarting":false,"mentions":["fs"]}
+{"t":1794687351575,"pid":2555434,"ev":"mcp.call.routed","session":"s-c1","key":"fs.echo","to":1}
+{"t":1794687351578,"pid":2555567,"ev":"server.echo","server":"fs","text":"a0"}
+{"t":1794687351585,"pid":2555434,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v1 fs pid 2555567 token none: a0\"\n"}
+{"t":1794687351628,"pid":2555434,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"f2244c7e-f050-46d4-8b2c-76d074c26f0a","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 fs pid 2555567 token none: a0\\\"\\n\"]"}
+{"t":1794687351640,"pid":2555434,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"v1 fs pid 2555567 token none: a0\\\"\\n\"]"}
+{"t":1794687351641,"pid":2555434,"ev":"mcp.gateClosed","label":"chad mcp restart","layer":1,"inflight":[]}
+{"t":1794687351641,"pid":2555434,"ev":"mcp.drained","label":"chad mcp restart","ms":0,"interrupted":[]}
+{"t":1794687351641,"pid":2555567,"ev":"server.stdinEnded","server":"fs"}
+{"t":1794687351642,"pid":2555567,"ev":"server.exit","server":"fs","code":0}
+{"t":1794687351651,"pid":2555434,"ev":"mcp.closed","label":"chad mcp restart","layer":1,"ms":10}
+{"t":1794687351660,"pid":2555434,"ev":"user.posted","who":"A","key":"message/test:c1/m7","text":"starts during the rebuild PLAN:{\"steps\":[\"try { console.log("}
+{"t":1794687351680,"pid":2555434,"ev":"message.delivered","key":"message/test:c1/m7","session":"s-c1"}
+{"t":1794687351699,"pid":2555434,"ev":"turn.start","key":"message/test:c1/m7","session":"s-c1","turn":"2d1411a7-5781-417f-8b9c-5bc7a55beb4f","starts":1,"cuts":0,"resumed":false}
+{"t":1794687351699,"pid":2555434,"ev":"mcp.turn.waiting","session":"s-c1","rebuild":"chad mcp restart"}
+{"t":1794687351849,"pid":2555648,"ev":"server.start","server":"fs","label":"v2","mode":"stdio","connectMs":5000,"tools":["echo","slow","stubborn","store"]}
+{"t":1794687354700,"pid":2555434,"ev":"mcp.turn.gaveUp","session":"s-c1","ms":3001,"mode":"fail"}
+{"t":1794687354702,"pid":2555434,"ev":"agent.built","session":"s-c1","rebuild":1,"generation":1,"mcp":"1-none","mcpPrompt":"01ba4719","on":{},"tools":[]}
+{"t":1794687354702,"pid":2555434,"ev":"mcp.keysTaken","session":"s-c1","layer":null,"rebuilding":"chad mcp restart","keys":["fs.echo","fs.slow","fs.stubborn","fs.store","searchTools"]}
+{"t":1794687354702,"pid":2555434,"ev":"turn.system","session":"s-c1","hasMcpSection":true,"saysStillStarting":false,"mentions":["fs"]}
+{"t":1794687354740,"pid":2555434,"ev":"mcp.call.refused","session":"s-c1","key":"fs.echo","at":"turn started during a rebuild","message":"MCP servers were restarting when this turn started. They are back in your next turn."}
+{"t":1794687354741,"pid":2555434,"ev":"script.mark","session":"s-c1","label":"a1"}
+{"t":1794687356859,"pid":2555648,"ev":"server.connected","server":"fs"}
+{"t":1794687356870,"pid":2555434,"ev":"mcp.connected","layer":2,"why":"chad mcp restart","ms":5219,"servers":{"fs":"connected, 4 tools"}}
+{"t":1794687356870,"pid":2555434,"ev":"mcp.ready","label":"chad mcp restart","layer":2,"generation":2,"waitedMs":5229,"interrupted":[],"runningTurns":["s-c1"]}
+{"t":1794687356870,"pid":2555434,"ev":"cli.mcp","label":"chad mcp restart","layer":2,"generation":2,"waitedMs":5229,"interrupted":[],"runningTurns":["s-c1"]}
+{"t":1794687356871,"pid":2555434,"ev":"mcp.call.refused","session":"s-c1","key":"fs.echo","at":"turn started during a rebuild","message":"MCP servers were restarting when this turn started. They are back in your next turn."}
+{"t":1794687356873,"pid":2555434,"ev":"brain.scriptOutput","session":"s-c1","output":"ERR MCP servers were restarting when this turn started. They are back in your next turn.\nERR MCP servers were restarting when this turn started. They are back in your next turn.\n"}
+{"t":1794687356927,"pid":2555434,"ev":"turn.end","key":"message/test:c1/m7","session":"s-c1","turn":"2d1411a7-5781-417f-8b9c-5bc7a55beb4f","outcome":"Answered","text":"RESULTS [\"ERR MCP servers were restarting when this turn started. They are back in your next turn.\\nERR MCP servers were restarting when this turn started. They are back in your next turn.\\n\"]"}
+{"t":1794687356979,"pid":2555434,"ev":"answer","who":"A","key":"message/test:c1/m7","text":"RESULTS [\"ERR MCP servers were restarting when this turn started. They are back in your next turn.\\nERR MCP servers were restarting when this turn started. They are back in your next turn.\\n\"]"}
+{"t":1794687356979,"pid":2555434,"ev":"user.posted","who":"A","key":"message/test:c1/m10","text":"its next turn PLAN:{\"steps\":[\"try { console.log('OK ' + JSON"}
+{"t":1794687357000,"pid":2555434,"ev":"message.delivered","key":"message/test:c1/m10","session":"s-c1"}
+{"t":1794687357032,"pid":2555434,"ev":"turn.start","key":"message/test:c1/m10","session":"s-c1","turn":"93b81bb6-7416-4df3-96f1-c02957006b45","starts":1,"cuts":0,"resumed":false}
+{"t":1794687357034,"pid":2555434,"ev":"agent.built","session":"s-c1","rebuild":2,"generation":1,"mcp":"2","mcpPrompt":"1883d285","on":{},"tools":[]}
+{"t":1794687357034,"pid":2555434,"ev":"mcp.keysTaken","session":"s-c1","layer":2,"rebuilding":null,"keys":["fs.echo","fs.slow","fs.stubborn","fs.store","searchTools"]}
+{"t":1794687357035,"pid":2555434,"ev":"turn.system","session":"s-c1","hasMcpSection":true,"saysStillStarting":false,"mentions":["fs"]}
+{"t":1794687357072,"pid":2555434,"ev":"mcp.call.routed","session":"s-c1","key":"fs.echo","to":2}
+{"t":1794687357088,"pid":2555648,"ev":"server.echo","server":"fs","text":"a3"}
+{"t":1794687357092,"pid":2555434,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v2 fs pid 2555648 token none: a3\"\n"}
+{"t":1794687357143,"pid":2555434,"ev":"turn.end","key":"message/test:c1/m10","session":"s-c1","turn":"93b81bb6-7416-4df3-96f1-c02957006b45","outcome":"Answered","text":"RESULTS [\"OK \\\"v2 fs pid 2555648 token none: a3\\\"\\n\"]"}
+{"t":1794687357189,"pid":2555434,"ev":"answer","who":"A","key":"message/test:c1/m10","text":"RESULTS [\"OK \\\"v2 fs pid 2555648 token none: a3\\\"\\n\"]"}
+{"t":1794687357189,"pid":2555434,"ev":"scenario.end","name":"mcp-start","phase":"1"}
+{"t":1794687357190,"pid":2555434,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794687357202,"pid":2555434,"ev":"stop.entityLayersClosed"}
+{"t":1794687361136,"pid":2555434,"ev":"stop.runnerClosed"}
+{"t":1794687361136,"pid":2555434,"ev":"hooks.draining","pending":0}
+{"t":1794687361136,"pid":2555434,"ev":"hooks.drained"}
+{"t":1794687361137,"pid":2555648,"ev":"server.stdinEnded","server":"fs"}
+{"t":1794687361137,"pid":2555648,"ev":"server.exit","server":"fs","code":0}
+{"t":1794687361146,"pid":2555434,"ev":"mcp.closed","label":"graceful stop","layer":2,"ms":10}
+{"t":1794687361146,"pid":2555434,"ev":"plugins.closed"}
+{"t":1794687361200,"pid":2555434,"ev":"process.exit","code":0,"signal":null}

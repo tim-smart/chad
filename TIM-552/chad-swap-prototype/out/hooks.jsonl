@@ -1,0 +1,108 @@
+{"t":1794683948508,"pid":2199040,"ev":"boot.nothingApplied"}
+{"t":1794683948716,"pid":2199040,"ev":"scenario.start","name":"hooks","phase":"1","drainMs":30000,"closeMs":10000}
+{"t":1794683948717,"pid":2199040,"ev":"apply.start","dir":"out/repo-hooks/versions/1794683948717-2199040-1"}
+{"t":1794683948806,"pid":2199040,"ev":"build.ok","version":"echo#1@5c28e0bc","tools":["slow","echo"],"hooks":["afterTurn","Compacted"]}
+{"t":1794683948835,"pid":2199040,"ev":"live.moved","live":"versions/1794683948717-2199040-1"}
+{"t":1794683948836,"pid":2199040,"ev":"swap.gateClosed","label":"apply","plugins":["echo: nothing -> echo#1@5c28e0bc"]}
+{"t":1794683948836,"pid":2199040,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794683948836,"pid":2199040,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794683948836,"pid":2199040,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["echo: echo#1@5c28e0bc"]}
+{"t":1794683948837,"pid":2199040,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794683948841,"pid":2199040,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"t1 PLAN:{\"steps\":[\"try { console.log('OK ' + JSON.stringify("}
+{"t":1794683949009,"pid":2199040,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794683949011,"pid":2199040,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794683949088,"pid":2199040,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"8837f75e-f5b1-4e13-a016-277981b3a0b3","starts":1,"cuts":0,"resumed":false}
+{"t":1794683949092,"pid":2199040,"ev":"plugin.background.start","plugin":"echo","instance":1,"hash":"5c28e0bc"}
+{"t":1794683949100,"pid":2199040,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"on":{"echo":"5c28e0bc"},"tools":["slow","echo"]}
+{"t":1794683949199,"pid":2199040,"ev":"call.routed","session":"s-c1","tool":"echo","built":"5c28e0bc","to":"echo#1@5c28e0bc","recoded":false}
+{"t":1794683949207,"pid":2199040,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v1 hi Pacific/Auckland #1: t1\"\n"}
+{"t":1794683949400,"pid":2199040,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"8837f75e-f5b1-4e13-a016-277981b3a0b3","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: t1\\\"\\n\"]"}
+{"t":1794683949400,"pid":2199040,"ev":"hook.queued","plugin":"echo","kind":"afterTurn","turn":"8837f75e-f5b1-4e13-a016-277981b3a0b3","queued":1}
+{"t":1794683949400,"pid":2199040,"ev":"plugin.afterTurn.start","plugin":"echo","instance":1,"hash":"5c28e0bc","turn":"8837f75e-f5b1-4e13-a016-277981b3a0b3"}
+{"t":1794683949488,"pid":2199040,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: t1\\\"\\n\"]"}
+{"t":1794683949488,"pid":2199040,"ev":"user.posted","who":"A","key":"message/test:c1/m7","text":"t2 COMPACTED PLAN:{\"steps\":[\"try { console.log('OK ' + JSON."}
+{"t":1794683949559,"pid":2199040,"ev":"message.delivered","key":"message/test:c1/m7","session":"s-c1"}
+{"t":1794683949606,"pid":2199040,"ev":"turn.start","key":"message/test:c1/m7","session":"s-c1","turn":"a787ddd2-f598-4fce-9fc2-9d0a5d55416d","starts":1,"cuts":0,"resumed":false}
+{"t":1794683949675,"pid":2199040,"ev":"call.routed","session":"s-c1","tool":"echo","built":"5c28e0bc","to":"echo#1@5c28e0bc","recoded":false}
+{"t":1794683949678,"pid":2199040,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v1 hi Pacific/Auckland #1: t2\"\n"}
+{"t":1794683949796,"pid":2199040,"ev":"turn.end","key":"message/test:c1/m7","session":"s-c1","turn":"a787ddd2-f598-4fce-9fc2-9d0a5d55416d","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: t2\\\"\\n\"]"}
+{"t":1794683949798,"pid":2199040,"ev":"hook.queued","plugin":"echo","kind":"afterTurn","turn":"a787ddd2-f598-4fce-9fc2-9d0a5d55416d","queued":1}
+{"t":1794683949798,"pid":2199040,"ev":"hook.queued","plugin":"echo","kind":"Compacted","turn":"a787ddd2-f598-4fce-9fc2-9d0a5d55416d","queued":2}
+{"t":1794683949856,"pid":2199040,"ev":"answer","who":"A","key":"message/test:c1/m7","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: t2\\\"\\n\"]"}
+{"t":1794683949856,"pid":2199040,"ev":"user.posted","who":"A","key":"message/test:c1/m10","text":"t3 PLAN:{\"steps\":[\"try { console.log('OK ' + JSON.stringify("}
+{"t":1794683949915,"pid":2199040,"ev":"message.delivered","key":"message/test:c1/m10","session":"s-c1"}
+{"t":1794683949997,"pid":2199040,"ev":"turn.start","key":"message/test:c1/m10","session":"s-c1","turn":"fbf2df38-0cdc-4e1d-921b-be8a5c59d9e5","starts":1,"cuts":0,"resumed":false}
+{"t":1794683950074,"pid":2199040,"ev":"call.routed","session":"s-c1","tool":"echo","built":"5c28e0bc","to":"echo#1@5c28e0bc","recoded":false}
+{"t":1794683950089,"pid":2199040,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v1 hi Pacific/Auckland #1: t3\"\n"}
+{"t":1794683950213,"pid":2199040,"ev":"turn.end","key":"message/test:c1/m10","session":"s-c1","turn":"fbf2df38-0cdc-4e1d-921b-be8a5c59d9e5","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: t3\\\"\\n\"]"}
+{"t":1794683950213,"pid":2199040,"ev":"hook.queued","plugin":"echo","kind":"afterTurn","turn":"fbf2df38-0cdc-4e1d-921b-be8a5c59d9e5","queued":3}
+{"t":1794683950302,"pid":2199040,"ev":"answer","who":"A","key":"message/test:c1/m10","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: t3\\\"\\n\"]"}
+{"t":1794683950304,"pid":2199040,"ev":"apply.start","dir":"out/repo-hooks/versions/1794683950302-2199040-2"}
+{"t":1794683950309,"pid":2199040,"ev":"build.ok","version":"echo#2@a8639b46","tools":["slow","echo"],"hooks":["afterTurn"]}
+{"t":1794683950310,"pid":2199040,"ev":"live.moved","live":"versions/1794683950302-2199040-2"}
+{"t":1794683950310,"pid":2199040,"ev":"swap.gateClosed","label":"apply","plugins":["echo: echo#1@5c28e0bc -> echo#2@a8639b46"]}
+{"t":1794683950310,"pid":2199040,"ev":"swap.draining","label":"apply","inflight":["hook:afterTurn in s-c1"]}
+{"t":1794683950901,"pid":2199040,"ev":"plugin.afterTurn.end","plugin":"echo","instance":1,"hash":"5c28e0bc","turn":"8837f75e-f5b1-4e13-a016-277981b3a0b3"}
+{"t":1794683950901,"pid":2199040,"ev":"swap.drained","label":"apply","ms":591,"interrupted":[]}
+{"t":1794683950901,"pid":2199040,"ev":"plugin.closing","plugin":"echo","instance":1,"hash":"5c28e0bc"}
+{"t":1794683950902,"pid":2199040,"ev":"plugin.background.interrupted","plugin":"echo","instance":1,"hash":"5c28e0bc"}
+{"t":1794683950902,"pid":2199040,"ev":"close.done","version":"echo#1@5c28e0bc","why":"apply","ms":1}
+{"t":1794683950902,"pid":2199040,"ev":"swap.activated","label":"apply","generation":2,"waitedMs":592,"drainedMs":591,"closeMs":1,"interrupted":[],"affected":[],"now":["echo: echo#2@a8639b46"]}
+{"t":1794683950902,"pid":2199040,"ev":"cli.apply","label":"code change, no onSession","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"apply","generation":2,"waitedMs":592,"drainedMs":591,"closeMs":1,"interrupted":[],"affected":[]}}
+{"t":1794683950902,"pid":2199040,"ev":"hook.done","plugin":"echo","kind":"afterTurn","turn":"8837f75e-f5b1-4e13-a016-277981b3a0b3","on":"echo#1@5c28e0bc","result":"ok","ms":1502}
+{"t":1794683950902,"pid":2199040,"ev":"plugin.afterTurn.start","plugin":"echo","instance":2,"hash":"a8639b46","turn":"a787ddd2-f598-4fce-9fc2-9d0a5d55416d"}
+{"t":1794683951002,"pid":2199040,"ev":"plugin.afterTurn.end","plugin":"echo","instance":2,"hash":"a8639b46","turn":"a787ddd2-f598-4fce-9fc2-9d0a5d55416d"}
+{"t":1794683951004,"pid":2199040,"ev":"hook.done","plugin":"echo","kind":"afterTurn","turn":"a787ddd2-f598-4fce-9fc2-9d0a5d55416d","on":"echo#2@a8639b46","result":"ok","ms":102}
+{"t":1794683951005,"pid":2199040,"ev":"hook.dropped","plugin":"echo","kind":"Compacted","turn":"a787ddd2-f598-4fce-9fc2-9d0a5d55416d","why":"the current version registers no Compacted hook","current":"echo#2@a8639b46"}
+{"t":1794683951005,"pid":2199040,"ev":"plugin.afterTurn.start","plugin":"echo","instance":2,"hash":"a8639b46","turn":"fbf2df38-0cdc-4e1d-921b-be8a5c59d9e5"}
+{"t":1794683951105,"pid":2199040,"ev":"plugin.afterTurn.end","plugin":"echo","instance":2,"hash":"a8639b46","turn":"fbf2df38-0cdc-4e1d-921b-be8a5c59d9e5"}
+{"t":1794683951105,"pid":2199040,"ev":"hook.done","plugin":"echo","kind":"afterTurn","turn":"fbf2df38-0cdc-4e1d-921b-be8a5c59d9e5","on":"echo#2@a8639b46","result":"ok","ms":100}
+{"t":1794683951108,"pid":2199040,"ev":"apply.start","dir":"out/repo-hooks/versions/1794683951108-2199040-3"}
+{"t":1794683951114,"pid":2199040,"ev":"build.ok","version":"echo#3@e0211c45","tools":["slow","echo"],"hooks":["afterTurn"]}
+{"t":1794683951114,"pid":2199040,"ev":"live.moved","live":"versions/1794683951108-2199040-3"}
+{"t":1794683951114,"pid":2199040,"ev":"swap.gateClosed","label":"apply","plugins":["echo: echo#2@a8639b46 -> echo#3@e0211c45"]}
+{"t":1794683951114,"pid":2199040,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794683951114,"pid":2199040,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794683951114,"pid":2199040,"ev":"plugin.closing","plugin":"echo","instance":2,"hash":"a8639b46"}
+{"t":1794683951114,"pid":2199040,"ev":"close.done","version":"echo#2@a8639b46","why":"apply","ms":0}
+{"t":1794683951114,"pid":2199040,"ev":"swap.activated","label":"apply","generation":3,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["echo: echo#3@e0211c45"]}
+{"t":1794683951114,"pid":2199040,"ev":"cli.apply","label":"slower hook again","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"apply","generation":3,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794683951114,"pid":2199040,"ev":"user.posted","who":"A","key":"message/test:c1/m13","text":"t4 PLAN:{\"steps\":[\"try { console.log('OK ' + JSON.stringify("}
+{"t":1794683951196,"pid":2199040,"ev":"message.delivered","key":"message/test:c1/m13","session":"s-c1"}
+{"t":1794683951247,"pid":2199040,"ev":"turn.start","key":"message/test:c1/m13","session":"s-c1","turn":"183c8313-5a53-418f-8393-83cc6fda35aa","starts":1,"cuts":0,"resumed":false}
+{"t":1794683951250,"pid":2199040,"ev":"agent.built","session":"s-c1","rebuild":1,"generation":3,"on":{"echo":"e0211c45"},"tools":["slow","echo"]}
+{"t":1794683951324,"pid":2199040,"ev":"call.routed","session":"s-c1","tool":"echo","built":"e0211c45","to":"echo#3@e0211c45","recoded":false}
+{"t":1794683951327,"pid":2199040,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v3 hi Pacific/Auckland #3: t4\"\n"}
+{"t":1794683951450,"pid":2199040,"ev":"turn.end","key":"message/test:c1/m13","session":"s-c1","turn":"183c8313-5a53-418f-8393-83cc6fda35aa","outcome":"Answered","text":"RESULTS [\"OK \\\"v3 hi Pacific/Auckland #3: t4\\\"\\n\"]"}
+{"t":1794683951450,"pid":2199040,"ev":"hook.queued","plugin":"echo","kind":"afterTurn","turn":"183c8313-5a53-418f-8393-83cc6fda35aa","queued":1}
+{"t":1794683951450,"pid":2199040,"ev":"plugin.afterTurn.start","plugin":"echo","instance":3,"hash":"e0211c45","turn":"183c8313-5a53-418f-8393-83cc6fda35aa"}
+{"t":1794683951508,"pid":2199040,"ev":"answer","who":"A","key":"message/test:c1/m13","text":"RESULTS [\"OK \\\"v3 hi Pacific/Auckland #3: t4\\\"\\n\"]"}
+{"t":1794683951509,"pid":2199040,"ev":"user.posted","who":"A","key":"message/test:c1/m16","text":"t5 PLAN:{\"steps\":[\"try { console.log('OK ' + JSON.stringify("}
+{"t":1794683951556,"pid":2199040,"ev":"message.delivered","key":"message/test:c1/m16","session":"s-c1"}
+{"t":1794683951635,"pid":2199040,"ev":"turn.start","key":"message/test:c1/m16","session":"s-c1","turn":"728f2f16-8e86-4a5b-8d0b-f7625e65a1cd","starts":1,"cuts":0,"resumed":false}
+{"t":1794683951672,"pid":2199040,"ev":"call.routed","session":"s-c1","tool":"echo","built":"e0211c45","to":"echo#3@e0211c45","recoded":false}
+{"t":1794683951674,"pid":2199040,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v3 hi Pacific/Auckland #3: t5\"\n"}
+{"t":1794683951803,"pid":2199040,"ev":"turn.end","key":"message/test:c1/m16","session":"s-c1","turn":"728f2f16-8e86-4a5b-8d0b-f7625e65a1cd","outcome":"Answered","text":"RESULTS [\"OK \\\"v3 hi Pacific/Auckland #3: t5\\\"\\n\"]"}
+{"t":1794683951806,"pid":2199040,"ev":"hook.queued","plugin":"echo","kind":"afterTurn","turn":"728f2f16-8e86-4a5b-8d0b-f7625e65a1cd","queued":1}
+{"t":1794683951843,"pid":2199040,"ev":"answer","who":"A","key":"message/test:c1/m16","text":"RESULTS [\"OK \\\"v3 hi Pacific/Auckland #3: t5\\\"\\n\"]"}
+{"t":1794683951843,"pid":2199040,"ev":"apply.start","dir":"out/repo-hooks/versions/1794683951843-2199040-4"}
+{"t":1794683951844,"pid":2199040,"ev":"live.moved","live":"versions/1794683951843-2199040-4"}
+{"t":1794683951844,"pid":2199040,"ev":"swap.gateClosed","label":"apply","plugins":["echo: echo#3@e0211c45 -> removed"]}
+{"t":1794683951844,"pid":2199040,"ev":"swap.draining","label":"apply","inflight":["hook:afterTurn in s-c1"]}
+{"t":1794683952950,"pid":2199040,"ev":"plugin.afterTurn.end","plugin":"echo","instance":3,"hash":"e0211c45","turn":"183c8313-5a53-418f-8393-83cc6fda35aa"}
+{"t":1794683952951,"pid":2199040,"ev":"swap.drained","label":"apply","ms":1107,"interrupted":[]}
+{"t":1794683952951,"pid":2199040,"ev":"plugin.closing","plugin":"echo","instance":3,"hash":"e0211c45"}
+{"t":1794683952951,"pid":2199040,"ev":"close.done","version":"echo#3@e0211c45","why":"apply","ms":0}
+{"t":1794683952951,"pid":2199040,"ev":"hook.dropped","plugin":"echo","kind":"afterTurn","turn":"728f2f16-8e86-4a5b-8d0b-f7625e65a1cd","why":"the plugin is removed"}
+{"t":1794683952951,"pid":2199040,"ev":"swap.activated","label":"apply","generation":4,"waitedMs":1107,"drainedMs":1107,"closeMs":0,"interrupted":[],"affected":[],"now":["echo: removed"]}
+{"t":1794683952951,"pid":2199040,"ev":"cli.apply","label":"plugin removed","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"apply","generation":4,"waitedMs":1107,"drainedMs":1107,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794683952952,"pid":2199040,"ev":"hook.done","plugin":"echo","kind":"afterTurn","turn":"183c8313-5a53-418f-8393-83cc6fda35aa","on":"echo#3@e0211c45","result":"ok","ms":1502}
+{"t":1794683952971,"pid":2199040,"ev":"status","status":["echo: removed"]}
+{"t":1794683952971,"pid":2199040,"ev":"scenario.end","name":"hooks","phase":"1"}
+{"t":1794683952971,"pid":2199040,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794683952998,"pid":2199040,"ev":"stop.entityLayersClosed"}
+{"t":1794683963496,"pid":2199040,"ev":"stop.runnerClosed"}
+{"t":1794683963496,"pid":2199040,"ev":"hooks.draining","pending":0}
+{"t":1794683963496,"pid":2199040,"ev":"hooks.drained"}
+{"t":1794683963496,"pid":2199040,"ev":"plugins.closed"}
+{"t":1794683963582,"pid":2199040,"ev":"process.exit","code":0,"signal":null}

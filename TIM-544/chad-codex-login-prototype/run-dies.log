@@ -1,0 +1,21 @@
+scenario dies, model gpt-6-astra/low, node v26.8.2, clanka 0.27.0
+
+=== no owner present, logged out, chad's token check before send
+[   0.1s] cron-job  turn starts: Run the morning summary.
+[   0.2s] onCode    code #1 issued. CurrentSession inside onCode: cron-job, ownerPresent false
+[   0.2s] onCode    no owner present, the handler dies
+[   0.2s] discord   to cron-job: -# defect: NoOwnerPresent
+[   0.2s] cron-job  turn ended before send, after 0.1s
+
+=== no owner present, logged out, no check: the WebSocket model layer is built first
+[   0.2s] cron-ws   turn starts: Run the morning summary.
+[   0.3s] onCode    code #2 issued. CurrentSession inside onCode: cron-ws, ownerPresent false
+[   0.3s] onCode    no owner present, the handler dies
+[   0.3s] cron-ws   turn ended while its model layer was built, after 0.1s: defect: NoOwnerPresent
+
+=== no owner present, logged out, no check, HTTP transport: the token is asked for inside the model call
+[   0.3s] cron-http turn starts: Run the morning summary.
+[   0.4s] onCode    code #3 issued. CurrentSession inside onCode: cron-http, ownerPresent false
+[   0.4s] onCode    no owner present, the handler dies
+[   0.4s] cron-http turn failed, after 0.1s, model retries 0: defect: NoOwnerPresent
+[   0.4s] summary   device codes issued: 3; auth.openai.com requests: /api/accounts/deviceauth/usercode x3

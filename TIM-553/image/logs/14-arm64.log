@@ -1,0 +1,8 @@
+PASS  [arm64]  the image is arm64  (linux/arm64 )
+WARNING: The requested image's platform (linux/arm64) does not match the detected host platform (linux/amd64/v3) and no specific platform was requested
+PASS  [arm64]  the daemon boots to ready on arm64  (aarch64 phase: ready )
+PASS  [arm64]  chad health answers  (ok exit=0 )
+PASS  [arm64]  the arm64 builds of the native parts are the ones installed  (@esbuild+linux-arm64@0.28.2 @typescript+typescript-linux-arm64@7.0.2 )
+PASS  [arm64]  tsc and esbuild run on arm64  (tsc=0 esbuild=0 )
+PASS  [arm64]  git, rg, gh, sqlite3 and uv run on arm64  (exit=0 )
+NOTE  [arm64]  docker stop with a turn running, under emulation  (15765 ms, exit 0 )

@@ -1,0 +1,43 @@
+{"t":1794687338510,"pid":2554096,"ev":"boot.nothingApplied"}
+{"t":1794687338595,"pid":2554096,"ev":"scenario.start","name":"hole","phase":"1","drainMs":30000,"closeMs":10000,"mcp":{"drainMs":30000,"heldMs":120000,"startMs":60000,"rules":"amended"}}
+{"t":1794687338597,"pid":2554096,"ev":"apply.start","dir":"out/repo-hole/versions/1794687338596-2554096-1"}
+{"t":1794687338658,"pid":2554096,"ev":"build.ok","version":"conv#1@1f69b3f8","tools":["store"],"hooks":[]}
+{"t":1794687338658,"pid":2554096,"ev":"live.moved","live":"versions/1794687338596-2554096-1"}
+{"t":1794687338659,"pid":2554096,"ev":"swap.gateClosed","label":"apply","plugins":["conv: nothing -> conv#1@1f69b3f8"]}
+{"t":1794687338659,"pid":2554096,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687338659,"pid":2554096,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687338659,"pid":2554096,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":["conv: conv#1@1f69b3f8"]}
+{"t":1794687338660,"pid":2554096,"ev":"apply.pluginsActivated","mcpStillRebuilding":false}
+{"t":1794687338660,"pid":2554096,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":["conv"],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794687338661,"pid":2554096,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"a changed parameter PLAN:{\"steps\":[\"try { console.log('OK ' "}
+{"t":1794687338697,"pid":2554096,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687338699,"pid":2554096,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687338713,"pid":2554096,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"d6e7e6d3-4219-4b83-a0a5-fdc9d6dc3745","starts":1,"cuts":0,"resumed":false}
+{"t":1794687338720,"pid":2554096,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"mcp":"0-none","mcpPrompt":"01ba4719","on":{"conv":"1f69b3f8"},"tools":["store"]}
+{"t":1794687338723,"pid":2554096,"ev":"mcp.keysTaken","session":"s-c1","layer":null,"rebuilding":null,"keys":[]}
+{"t":1794687338723,"pid":2554096,"ev":"turn.system","session":"s-c1","hasMcpSection":false,"saysStillStarting":false,"mentions":[]}
+{"t":1794687338779,"pid":2554096,"ev":"call.routed","session":"s-c1","tool":"store","built":"1f69b3f8","to":"conv#1@1f69b3f8","recoded":false}
+{"t":1794687338783,"pid":2554096,"ev":"script.mark","session":"s-c1","label":"m1"}
+{"t":1794687338801,"pid":2554096,"ev":"apply.start","dir":"out/repo-hole/versions/1794687338801-2554096-2"}
+{"t":1794687338807,"pid":2554096,"ev":"build.ok","version":"conv#2@24a44955","tools":["store"],"hooks":[]}
+{"t":1794687338807,"pid":2554096,"ev":"live.moved","live":"versions/1794687338801-2554096-2"}
+{"t":1794687338807,"pid":2554096,"ev":"swap.gateClosed","label":"apply","plugins":["conv: conv#1@1f69b3f8 -> conv#2@24a44955"]}
+{"t":1794687338807,"pid":2554096,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687338807,"pid":2554096,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687338808,"pid":2554096,"ev":"close.done","version":"conv#1@1f69b3f8","why":"apply","ms":1}
+{"t":1794687338808,"pid":2554096,"ev":"swap.activated","label":"apply","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":["s-c1 loses conv until its turn ends (0 sub-agents running)"],"now":["conv: conv#2@24a44955"]}
+{"t":1794687338808,"pid":2554096,"ev":"apply.pluginsActivated","mcpStillRebuilding":false}
+{"t":1794687338808,"pid":2554096,"ev":"cli.apply","label":"NumberFromString became String","ok":true,"exit":0,"errors":[],"reloaded":["conv"],"kept":[],"swap":{"label":"apply","generation":2,"waitedMs":1,"drainedMs":0,"closeMs":1,"interrupted":[],"affected":["s-c1 loses conv until its turn ends (0 sub-agents running)"]}}
+{"t":1794687338809,"pid":2554096,"ev":"call.refused","session":"s-c1","tool":"store","at":"bundle hash","built":"1f69b3f8","current":"conv#2@24a44955","message":"store was changed by an apply. The new version is in your next turn."}
+{"t":1794687338814,"pid":2554096,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"the v1 handler got a number\"\nERR store was changed by an apply. The new version is in your next turn.\n"}
+{"t":1794687338859,"pid":2554096,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"d6e7e6d3-4219-4b83-a0a5-fdc9d6dc3745","outcome":"Answered","text":"RESULTS [\"OK \\\"the v1 handler got a number\\\"\\nERR store was changed by an apply. The new version is in your next turn.\\n\"]"}
+{"t":1794687338871,"pid":2554096,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"the v1 handler got a number\\\"\\nERR store was changed by an apply. The new version is in your next turn.\\n\"]"}
+{"t":1794687338871,"pid":2554096,"ev":"scenario.end","name":"hole","phase":"1"}
+{"t":1794687338871,"pid":2554096,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794687338880,"pid":2554096,"ev":"stop.entityLayersClosed"}
+{"t":1794687341762,"pid":2554096,"ev":"stop.runnerClosed"}
+{"t":1794687341762,"pid":2554096,"ev":"hooks.draining","pending":0}
+{"t":1794687341762,"pid":2554096,"ev":"hooks.drained"}
+{"t":1794687341762,"pid":2554096,"ev":"close.done","version":"conv#2@24a44955","why":"graceful stop","ms":0}
+{"t":1794687341762,"pid":2554096,"ev":"plugins.closed"}
+{"t":1794687341842,"pid":2554096,"ev":"process.exit","code":0,"signal":null}

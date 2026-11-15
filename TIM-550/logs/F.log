@@ -1,0 +1,48 @@
+
+### F: healthy first
+healthy: lock held and daemon answered ping
+
+real	0m0.443s
+user	0m0.429s
+sys	0m0.080s
+exit=0
+
+### kill -STOP 3462619, then health
+chad health: daemon is starting or frozen (lock held, no answer on state/chad.sock in 2s)
+
+real	0m2.436s
+user	0m0.439s
+sys	0m0.077s
+exit=4
+
+### apply against the stopped daemon
+chad apply: daemon is starting or frozen (lock held, no answer on state/chad.sock in 2s)
+
+real	0m2.432s
+user	0m0.430s
+sys	0m0.076s
+exit=4
+
+### kill -CONT, then health
+healthy: lock held and daemon answered ping
+
+real	0m0.448s
+user	0m0.445s
+sys	0m0.086s
+exit=0
+
+### daemon log
+10:45:09.554 [daemon 3462619] lock taken
+10:45:09.560 [daemon 3462619] listening on state/chad.sock mode 600
+[10:45:14.884] ERROR (#11): Unhandled error in SocketServer ~effect/socket/Socket/SocketError: An error occurred during Read
+    at Socket.onError (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/@effect/platform-node-shared/dist/NodeSocket.js:190:13)
+    at Socket.emit (node:events:526:24)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+[10:45:14.888] ERROR (#12): Unhandled error in SocketServer ~effect/socket/Socket/SocketError: An error occurred during Read
+    at Socket.onError (file:///home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/app/node_modules/@effect/platform-node-shared/dist/NodeSocket.js:190:13)
+    at Socket.emit (node:events:526:24)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)

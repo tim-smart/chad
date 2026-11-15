@@ -1,0 +1,54 @@
+{"t":1794683948544,"pid":2199059,"ev":"boot.nothingApplied"}
+{"t":1794683948762,"pid":2199059,"ev":"scenario.start","name":"stop-before-commit","phase":"1","drainMs":30000,"closeMs":10000}
+{"t":1794683948788,"pid":2199059,"ev":"apply.start","dir":"out/repo-stop-before-commit/versions/1794683948788-2199059-1"}
+{"t":1794683948900,"pid":2199059,"ev":"build.ok","version":"echo#1@dd2b18cb","tools":["slow","echo"],"hooks":[]}
+{"t":1794683948944,"pid":2199059,"ev":"apply.built","waitingMs":1500}
+{"t":1794683950445,"pid":2199059,"ev":"live.moved","live":"versions/1794683948788-2199059-1"}
+{"t":1794683950446,"pid":2199059,"ev":"swap.gateClosed","label":"apply","plugins":["echo: nothing -> echo#1@dd2b18cb"]}
+{"t":1794683950446,"pid":2199059,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794683950446,"pid":2199059,"ev":"swap.drained","label":"apply","ms":1,"interrupted":[]}
+{"t":1794683950446,"pid":2199059,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":1,"drainedMs":1,"closeMs":0,"interrupted":[],"affected":[],"now":["echo: echo#1@dd2b18cb"]}
+{"t":1794683950446,"pid":2199059,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":["echo"],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":1,"drainedMs":1,"closeMs":0,"interrupted":[],"affected":[]}}
+{"t":1794683950449,"pid":2199059,"ev":"apply.start","dir":"out/repo-stop-before-commit/versions/1794683950449-2199059-2"}
+{"t":1794683950455,"pid":2199059,"ev":"build.ok","version":"echo#2@3e5f9bb7","tools":["slow","echo"],"hooks":[]}
+{"t":1794683950455,"pid":2199059,"ev":"apply.built","waitingMs":1500}
+{"t":1794683950668,"pid":2199059,"ev":"driver.sigterm"}
+{"t":1794683950688,"pid":2199059,"ev":"stop.abandonSwap","running":true,"swapping":null}
+{"t":1794683950689,"pid":2199059,"ev":"plugin.closing","plugin":"echo","instance":2,"hash":"3e5f9bb7"}
+{"t":1794683950689,"pid":2199059,"ev":"close.done","version":"echo#2@3e5f9bb7","why":"the apply was cancelled before its commit","ms":0}
+{"t":1794683950689,"pid":2199059,"ev":"apply.cancelledBeforeCommit","live":"versions/1794683948788-2199059-1"}
+{"t":1794683950699,"pid":2199059,"ev":"stop.entityLayersClosed"}
+{"t":1794683962612,"pid":2199059,"ev":"stop.runnerClosed"}
+{"t":1794683962613,"pid":2199059,"ev":"hooks.draining","pending":0}
+{"t":1794683962613,"pid":2199059,"ev":"hooks.drained"}
+{"t":1794683962613,"pid":2199059,"ev":"plugin.closing","plugin":"echo","instance":1,"hash":"dd2b18cb"}
+{"t":1794683962613,"pid":2199059,"ev":"close.done","version":"echo#1@dd2b18cb","why":"graceful stop","ms":0}
+{"t":1794683962613,"pid":2199059,"ev":"plugins.closed"}
+{"t":1794683962680,"pid":2199059,"ev":"process.exit","code":130,"signal":null}
+{"t":1794683963625,"pid":2201038,"ev":"build.ok","version":"echo#1@dd2b18cb","tools":["slow","echo"],"hooks":[]}
+{"t":1794683963625,"pid":2201038,"ev":"swap.gateClosed","label":"boot","plugins":["echo: nothing -> echo#1@dd2b18cb"]}
+{"t":1794683963626,"pid":2201038,"ev":"swap.draining","label":"boot","inflight":[]}
+{"t":1794683963626,"pid":2201038,"ev":"swap.drained","label":"boot","ms":1,"interrupted":[]}
+{"t":1794683963626,"pid":2201038,"ev":"swap.activated","label":"boot","generation":1,"waitedMs":1,"drainedMs":1,"closeMs":0,"interrupted":[],"affected":[],"now":["echo: echo#1@dd2b18cb"]}
+{"t":1794683963626,"pid":2201038,"ev":"boot.loaded","live":"versions/1794683948788-2199059-1","plugins":["echo#1@dd2b18cb"]}
+{"t":1794683963648,"pid":2201038,"ev":"scenario.start","name":"stop-before-commit","phase":"2","drainMs":30000,"closeMs":10000}
+{"t":1794683963650,"pid":2201038,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"after the boot PLAN:{\"steps\":[\"try { console.log('OK ' + JSO"}
+{"t":1794683963864,"pid":2201038,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794683963868,"pid":2201038,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794683963902,"pid":2201038,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"6af064ce-b47c-4a30-be00-88d47908c592","starts":1,"cuts":0,"resumed":false}
+{"t":1794683963912,"pid":2201038,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"on":{"echo":"dd2b18cb"},"tools":["slow","echo"]}
+{"t":1794683963969,"pid":2201038,"ev":"call.routed","session":"s-c1","tool":"echo","built":"dd2b18cb","to":"echo#1@dd2b18cb","recoded":false}
+{"t":1794683963974,"pid":2201038,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v1 hi Pacific/Auckland #1: a1\"\n"}
+{"t":1794683964041,"pid":2201038,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"6af064ce-b47c-4a30-be00-88d47908c592","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: a1\\\"\\n\"]"}
+{"t":1794683964107,"pid":2201038,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"v1 hi Pacific/Auckland #1: a1\\\"\\n\"]"}
+{"t":1794683964107,"pid":2201038,"ev":"status","status":["echo: echo#1@dd2b18cb"]}
+{"t":1794683964108,"pid":2201038,"ev":"scenario.end","name":"stop-before-commit","phase":"2"}
+{"t":1794683964108,"pid":2201038,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794683964117,"pid":2201038,"ev":"stop.entityLayersClosed"}
+{"t":1794683966367,"pid":2201038,"ev":"stop.runnerClosed"}
+{"t":1794683966367,"pid":2201038,"ev":"hooks.draining","pending":0}
+{"t":1794683966367,"pid":2201038,"ev":"hooks.drained"}
+{"t":1794683966367,"pid":2201038,"ev":"plugin.closing","plugin":"echo","instance":1,"hash":"dd2b18cb"}
+{"t":1794683966367,"pid":2201038,"ev":"close.done","version":"echo#1@dd2b18cb","why":"graceful stop","ms":0}
+{"t":1794683966368,"pid":2201038,"ev":"plugins.closed"}
+{"t":1794683966412,"pid":2201038,"ev":"process.exit","code":0,"signal":null}

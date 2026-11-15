@@ -1,0 +1,284 @@
+
+### B1/INT: long tail, then kill -INT the cli
+10:40:06.228 [cli 3428676] line 1/100 sent 10:40:06.224
+10:40:06.526 [cli 3428676] line 2/100 sent 10:40:06.524
+10:40:06.826 [cli 3428676] line 3/100 sent 10:40:06.825
+10:40:07.126 [cli 3428676] line 4/100 sent 10:40:07.126
+10:40:07.292 kill -INT 3428674
+10:40:07.428 [cli 3428676] line 5/100 sent 10:40:07.427
+10:40:07.728 [cli 3428676] line 6/100 sent 10:40:07.728
+10:40:08.029 [cli 3428676] line 7/100 sent 10:40:08.029
+10:40:08.331 [cli 3428676] line 8/100 sent 10:40:08.330
+10:40:08.631 [cli 3428676] line 9/100 sent 10:40:08.630
+10:40:08.932 [cli 3428676] line 10/100 sent 10:40:08.931
+10:40:09.232 [cli 3428676] line 11/100 sent 10:40:09.231
+10:40:09.532 [cli 3428676] line 12/100 sent 10:40:09.532
+10:40:09.833 [cli 3428676] line 13/100 sent 10:40:09.832
+10:40:10.133 [cli 3428676] line 14/100 sent 10:40:10.133
+10:40:10.435 [cli 3428676] line 15/100 sent 10:40:10.434
+10:40:10.735 [cli 3428676] line 16/100 sent 10:40:10.734
+10:40:11.035 [cli 3428676] line 17/100 sent 10:40:11.034
+10:40:11.335 [cli 3428676] line 18/100 sent 10:40:11.334
+10:40:11.635 [cli 3428676] line 19/100 sent 10:40:11.634
+10:40:11.935 [cli 3428676] line 20/100 sent 10:40:11.934
+10:40:12.235 [cli 3428676] line 21/100 sent 10:40:12.234
+10:40:12.535 [cli 3428676] line 22/100 sent 10:40:12.534
+10:40:12.837 [cli 3428676] line 23/100 sent 10:40:12.836
+10:40:13.137 [cli 3428676] line 24/100 sent 10:40:13.136
+10:40:13.437 [cli 3428676] line 25/100 sent 10:40:13.436
+10:40:13.737 [cli 3428676] line 26/100 sent 10:40:13.736
+10:40:14.037 [cli 3428676] line 27/100 sent 10:40:14.036
+10:40:14.337 [cli 3428676] line 28/100 sent 10:40:14.336
+10:40:14.637 [cli 3428676] line 29/100 sent 10:40:14.636
+10:40:14.937 [cli 3428676] line 30/100 sent 10:40:14.936
+10:40:15.238 [cli 3428676] line 31/100 sent 10:40:15.238
+10:40:15.539 [cli 3428676] line 32/100 sent 10:40:15.539
+10:40:15.840 [cli 3428676] line 33/100 sent 10:40:15.840
+10:40:16.142 [cli 3428676] line 34/100 sent 10:40:16.141
+10:40:16.442 [cli 3428676] line 35/100 sent 10:40:16.442
+10:40:16.743 [cli 3428676] line 36/100 sent 10:40:16.742
+10:40:17.043 [cli 3428676] line 37/100 sent 10:40:17.042
+10:40:17.343 [cli 3428676] line 38/100 sent 10:40:17.343
+10:40:17.644 [cli 3428676] line 39/100 sent 10:40:17.644
+10:40:17.945 [cli 3428676] line 40/100 sent 10:40:17.944
+10:40:18.245 [cli 3428676] line 41/100 sent 10:40:18.244
+10:40:18.545 [cli 3428676] line 42/100 sent 10:40:18.545
+10:40:18.846 [cli 3428676] line 43/100 sent 10:40:18.846
+10:40:19.147 [cli 3428676] line 44/100 sent 10:40:19.147
+10:40:19.448 [cli 3428676] line 45/100 sent 10:40:19.448
+10:40:19.750 [cli 3428676] line 46/100 sent 10:40:19.749
+10:40:20.050 [cli 3428676] line 47/100 sent 10:40:20.049
+10:40:20.350 [cli 3428676] line 48/100 sent 10:40:20.349
+10:40:20.817 [cli 3428676] line 49/100 sent 10:40:20.650
+10:40:20.951 [cli 3428676] line 50/100 sent 10:40:20.950
+10:40:21.250 [cli 3428676] line 51/100 sent 10:40:21.250
+10:40:21.551 [cli 3428676] line 52/100 sent 10:40:21.550
+10:40:21.851 [cli 3428676] line 53/100 sent 10:40:21.850
+10:40:22.151 [cli 3428676] line 54/100 sent 10:40:22.150
+10:40:22.452 [cli 3428676] line 55/100 sent 10:40:22.452
+10:40:22.753 [cli 3428676] line 56/100 sent 10:40:22.752
+10:40:23.053 [cli 3428676] line 57/100 sent 10:40:23.052
+10:40:23.355 [cli 3428676] line 58/100 sent 10:40:23.354
+10:40:23.655 [cli 3428676] line 59/100 sent 10:40:23.654
+10:40:23.955 [cli 3428676] line 60/100 sent 10:40:23.955
+10:40:24.256 [cli 3428676] line 61/100 sent 10:40:24.256
+10:40:24.557 [cli 3428676] line 62/100 sent 10:40:24.556
+10:40:24.857 [cli 3428676] line 63/100 sent 10:40:24.856
+10:40:25.157 [cli 3428676] line 64/100 sent 10:40:25.157
+10:40:25.458 [cli 3428676] line 65/100 sent 10:40:25.458
+10:40:25.759 [cli 3428676] line 66/100 sent 10:40:25.759
+10:40:26.060 [cli 3428676] line 67/100 sent 10:40:26.060
+10:40:26.361 [cli 3428676] line 68/100 sent 10:40:26.360
+10:40:26.661 [cli 3428676] line 69/100 sent 10:40:26.661
+10:40:26.962 [cli 3428676] line 70/100 sent 10:40:26.962
+10:40:27.264 [cli 3428676] line 71/100 sent 10:40:27.263
+10:40:27.565 [cli 3428676] line 72/100 sent 10:40:27.564
+10:40:27.865 [cli 3428676] line 73/100 sent 10:40:27.864
+10:40:28.165 [cli 3428676] line 74/100 sent 10:40:28.164
+10:40:28.465 [cli 3428676] line 75/100 sent 10:40:28.464
+10:40:28.765 [cli 3428676] line 76/100 sent 10:40:28.765
+10:40:29.066 [cli 3428676] line 77/100 sent 10:40:29.066
+10:40:29.367 [cli 3428676] line 78/100 sent 10:40:29.367
+10:40:29.668 [cli 3428676] line 79/100 sent 10:40:29.667
+10:40:29.968 [cli 3428676] line 80/100 sent 10:40:29.967
+10:40:30.268 [cli 3428676] line 81/100 sent 10:40:30.267
+10:40:30.568 [cli 3428676] line 82/100 sent 10:40:30.568
+10:40:30.870 [cli 3428676] line 83/100 sent 10:40:30.869
+10:40:31.170 [cli 3428676] line 84/100 sent 10:40:31.169
+10:40:31.470 [cli 3428676] line 85/100 sent 10:40:31.469
+10:40:31.770 [cli 3428676] line 86/100 sent 10:40:31.770
+10:40:32.071 [cli 3428676] line 87/100 sent 10:40:32.071
+10:40:32.373 [cli 3428676] line 88/100 sent 10:40:32.372
+10:40:32.673 [cli 3428676] line 89/100 sent 10:40:32.672
+10:40:32.973 [cli 3428676] line 90/100 sent 10:40:32.972
+10:40:33.273 [cli 3428676] line 91/100 sent 10:40:33.272
+10:40:33.573 [cli 3428676] line 92/100 sent 10:40:33.573
+10:40:33.874 [cli 3428676] line 93/100 sent 10:40:33.874
+10:40:34.175 [cli 3428676] line 94/100 sent 10:40:34.175
+10:40:34.476 [cli 3428676] line 95/100 sent 10:40:34.476
+10:40:34.777 [cli 3428676] line 96/100 sent 10:40:34.777
+10:40:35.079 [cli 3428676] line 97/100 sent 10:40:35.078
+10:40:35.379 [cli 3428676] line 98/100 sent 10:40:35.378
+10:40:35.679 [cli 3428676] line 99/100 sent 10:40:35.678
+10:40:35.978 [cli 3428676] line 100/100 sent 10:40:35.978
+cli exit=0
+
+### B1/KILL: long tail, then kill -KILL the cli
+10:40:37.016 [cli 3432422] line 1/100 sent 10:40:37.015
+10:40:37.315 [cli 3432422] line 2/100 sent 10:40:37.314
+10:40:37.615 [cli 3432422] line 3/100 sent 10:40:37.614
+10:40:37.917 [cli 3432422] line 4/100 sent 10:40:37.916
+10:40:38.111 kill -KILL 3432420
+/home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/scenarios/B.sh: line 6: 3432420 Killed                     chad tail --count 100 --interval 300
+cli exit=137
+10:40:38.218 [cli 3432422] line 5/100 sent 10:40:38.217
+
+### B2/INT: apply killed BEFORE commit (during load)
+10:40:38.518 [cli 3432422] line 6/100 sent 10:40:38.517
+10:40:38.818 [cli 3432422] line 7/100 sent 10:40:38.818
+10:40:38.828 [cli 3432649] step snapshot 10:40:38.827
+10:40:38.928 [cli 3432649] step check 10:40:38.927
+10:40:39.028 [cli 3432649] step load 10:40:39.027
+10:40:39.119 [cli 3432422] line 8/100 sent 10:40:39.118
+10:40:39.334 kill -INT 3432647
+10:40:39.419 [cli 3432422] line 9/100 sent 10:40:39.419
+10:40:39.721 [cli 3432422] line 10/100 sent 10:40:39.720
+10:40:40.021 [cli 3432422] line 11/100 sent 10:40:40.020
+10:40:40.321 [cli 3432422] line 12/100 sent 10:40:40.320
+10:40:40.621 [cli 3432422] line 13/100 sent 10:40:40.621
+10:40:40.922 [cli 3432422] line 14/100 sent 10:40:40.922
+10:40:41.224 [cli 3432422] line 15/100 sent 10:40:41.223
+10:40:41.524 [cli 3432422] line 16/100 sent 10:40:41.523
+10:40:41.825 [cli 3432422] line 17/100 sent 10:40:41.825
+10:40:42.126 [cli 3432422] line 18/100 sent 10:40:42.125
+10:40:42.426 [cli 3432422] line 19/100 sent 10:40:42.425
+10:40:42.728 [cli 3432422] line 20/100 sent 10:40:42.727
+10:40:43.029 [cli 3432649] step commit 10:40:43.027
+10:40:43.029 [cli 3432422] line 21/100 sent 10:40:43.028
+10:40:43.029 [cli 3432649] step swap 10:40:43.028
+10:40:43.029 [cli 3432649] applied before-INT
+cli exit=0
+10:40:43.329 [cli 3432422] line 22/100 sent 10:40:43.328
+commits.log lines for before-INT: 2
+
+### B2/KILL: apply killed BEFORE commit (during load)
+10:40:43.629 [cli 3432422] line 23/100 sent 10:40:43.628
+10:40:43.929 [cli 3432422] line 24/100 sent 10:40:43.928
+10:40:43.970 [cli 3433223] step snapshot 10:40:43.969
+10:40:44.070 [cli 3433223] step check 10:40:44.069
+10:40:44.170 [cli 3433223] step load 10:40:44.169
+10:40:44.229 [cli 3432422] line 25/100 sent 10:40:44.228
+10:40:44.478 kill -KILL 3433221
+/home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/scenarios/B.sh: line 13: 3433221 Killed                     chad apply --label before-$sig --load 4000
+cli exit=137
+10:40:44.529 [cli 3432422] line 26/100 sent 10:40:44.528
+10:40:44.829 [cli 3432422] line 27/100 sent 10:40:44.828
+commits.log lines for before-KILL: 0
+
+### B3/INT: apply killed AFTER commit (3s between commit and swap)
+10:40:45.129 [cli 3432422] line 28/100 sent 10:40:45.128
+10:40:45.410 [cli 3433355] waiting on: apply#4 "before-KILL" (client 3) (at step load)
+10:40:45.428 [cli 3432422] line 29/100 sent 10:40:45.428
+10:40:45.729 [cli 3432422] line 30/100 sent 10:40:45.729
+10:40:46.031 [cli 3432422] line 31/100 sent 10:40:46.030
+10:40:46.331 [cli 3432422] line 32/100 sent 10:40:46.330
+10:40:46.631 [cli 3432422] line 33/100 sent 10:40:46.630
+10:40:46.931 [cli 3432422] line 34/100 sent 10:40:46.930
+10:40:47.232 [cli 3432422] line 35/100 sent 10:40:47.231
+10:40:47.532 [cli 3432422] line 36/100 sent 10:40:47.531
+10:40:47.832 [cli 3432422] line 37/100 sent 10:40:47.831
+10:40:48.132 [cli 3432422] line 38/100 sent 10:40:48.131
+10:40:48.170 [cli 3433223] step commit 10:40:48.169
+10:40:48.171 [cli 3433223] step swap 10:40:48.170
+10:40:48.171 [cli 3433223] applied before-KILL
+10:40:48.171 [cli 3433355] step snapshot 10:40:48.170
+10:40:48.271 [cli 3433355] step check 10:40:48.270
+10:40:48.371 [cli 3433355] step load 10:40:48.370
+10:40:48.432 [cli 3432422] line 39/100 sent 10:40:48.432
+10:40:48.672 [cli 3433355] step commit 10:40:48.671
+10:40:48.701 commit seen in commits.log; kill -INT 3433353
+10:40:48.732 [cli 3432422] line 40/100 sent 10:40:48.732
+10:40:49.033 [cli 3432422] line 41/100 sent 10:40:49.033
+10:40:49.334 [cli 3432422] line 42/100 sent 10:40:49.334
+10:40:49.635 [cli 3432422] line 43/100 sent 10:40:49.635
+10:40:49.937 [cli 3432422] line 44/100 sent 10:40:49.936
+10:40:50.237 [cli 3432422] line 45/100 sent 10:40:50.236
+10:40:50.537 [cli 3432422] line 46/100 sent 10:40:50.536
+10:40:50.837 [cli 3432422] line 47/100 sent 10:40:50.837
+10:40:51.138 [cli 3432422] line 48/100 sent 10:40:51.138
+10:40:51.439 [cli 3432422] line 49/100 sent 10:40:51.439
+10:40:51.673 [cli 3433355] step swap 10:40:51.672
+10:40:51.673 [cli 3433355] applied after-INT
+cli exit=0
+10:40:51.696 commits.log right after kill:
+10:40:48.671 commit after-INT
+10:40:51.672 swap after-INT
+10:40:51.740 [cli 3432422] line 50/100 sent 10:40:51.740
+10:40:52.041 [cli 3432422] line 51/100 sent 10:40:52.040
+10:40:52.341 [cli 3432422] line 52/100 sent 10:40:52.340
+10:40:52.641 [cli 3432422] line 53/100 sent 10:40:52.640
+10:40:52.941 [cli 3432422] line 54/100 sent 10:40:52.940
+10:40:53.241 [cli 3432422] line 55/100 sent 10:40:53.241
+10:40:53.542 [cli 3432422] line 56/100 sent 10:40:53.542
+10:40:53.843 [cli 3432422] line 57/100 sent 10:40:53.843
+10:40:54.144 [cli 3432422] line 58/100 sent 10:40:54.144
+10:40:54.445 [cli 3432422] line 59/100 sent 10:40:54.445
+10:40:54.746 [cli 3432422] line 60/100 sent 10:40:54.746
+10:40:55.047 [cli 3432422] line 61/100 sent 10:40:55.046
+10:40:55.203 commits.log 3.5s later:
+10:40:48.671 commit after-INT
+10:40:51.672 swap after-INT
+
+### B3/KILL: apply killed AFTER commit (3s between commit and swap)
+10:40:55.347 [cli 3432422] line 62/100 sent 10:40:55.346
+10:40:55.643 [cli 3434521] step snapshot 10:40:55.642
+10:40:55.646 [cli 3432422] line 63/100 sent 10:40:55.646
+10:40:55.743 [cli 3434521] step check 10:40:55.743
+10:40:55.844 [cli 3434521] step load 10:40:55.844
+10:40:55.947 [cli 3432422] line 64/100 sent 10:40:55.947
+10:40:56.145 [cli 3434521] step commit 10:40:56.145
+10:40:56.153 commit seen in commits.log; kill -KILL 3434519
+/home/tim/multica_workspaces/tim-smart-ffe7f0c5f42f/task-5a72b5ca1970/workdir/scratch/cli-proto/scenarios/B.sh: line 21: 3434519 Killed                     chad apply --label after-$sig --load 300 --swap-delay 3000
+cli exit=137
+10:40:56.155 commits.log right after kill:
+10:40:56.145 commit after-KILL
+10:40:56.248 [cli 3432422] line 65/100 sent 10:40:56.248
+10:40:56.550 [cli 3432422] line 66/100 sent 10:40:56.549
+10:40:56.850 [cli 3432422] line 67/100 sent 10:40:56.849
+10:40:57.150 [cli 3432422] line 68/100 sent 10:40:57.149
+10:40:57.451 [cli 3432422] line 69/100 sent 10:40:57.450
+10:40:57.752 [cli 3432422] line 70/100 sent 10:40:57.752
+10:40:58.053 [cli 3432422] line 71/100 sent 10:40:58.053
+10:40:58.354 [cli 3432422] line 72/100 sent 10:40:58.354
+10:40:58.655 [cli 3432422] line 73/100 sent 10:40:58.655
+10:40:58.956 [cli 3432422] line 74/100 sent 10:40:58.956
+10:40:59.147 [cli 3434521] step swap 10:40:59.146
+10:40:59.147 [cli 3434521] applied after-KILL
+10:40:59.257 [cli 3432422] line 75/100 sent 10:40:59.256
+10:40:59.557 [cli 3432422] line 76/100 sent 10:40:59.556
+10:40:59.662 commits.log 3.5s later:
+10:40:56.145 commit after-KILL
+10:40:59.146 swap after-KILL
+
+### status after all of it
+10:40:59.857 [cli 3432422] line 77/100 sent 10:40:59.857
+{"pid":3428657,"version":"0.1.0-proto","queue":"idle"}
+exit=0
+
+### daemon log
+10:40:05.764 [daemon 3428657] lock taken
+10:40:05.771 [daemon 3428657] listening on state/chad.sock mode 600
+10:40:06.224 [daemon 3428657] tail#1 (client 0) started
+10:40:36.278 [daemon 3428657] tail#1 (client 0) handler exit: success
+10:40:37.014 [daemon 3428657] tail#2 (client 1) started
+10:40:38.826 [daemon 3428657] apply#3 "before-INT" (client 2) received
+10:40:38.827 [daemon 3428657] apply#3 "before-INT" (client 2) step snapshot
+10:40:38.927 [daemon 3428657] apply#3 "before-INT" (client 2) step check
+10:40:39.027 [daemon 3428657] apply#3 "before-INT" (client 2) step load
+10:40:43.027 [daemon 3428657] apply#3 "before-INT" (client 2) step commit
+10:40:43.028 [daemon 3428657] apply#3 "before-INT" (client 2) step swap
+10:40:43.028 [daemon 3428657] apply#3 "before-INT" (client 2) handler exit: success
+10:40:43.968 [daemon 3428657] apply#4 "before-KILL" (client 3) received
+10:40:43.969 [daemon 3428657] apply#4 "before-KILL" (client 3) step snapshot
+10:40:44.069 [daemon 3428657] apply#4 "before-KILL" (client 3) step check
+10:40:44.169 [daemon 3428657] apply#4 "before-KILL" (client 3) step load
+10:40:45.408 [daemon 3428657] apply#5 "after-INT" (client 4) received
+10:40:45.409 [daemon 3428657] apply#5 "after-INT" (client 4) queued behind apply#4 "before-KILL" (client 3)
+10:40:48.169 [daemon 3428657] apply#4 "before-KILL" (client 3) step commit
+10:40:48.170 [daemon 3428657] apply#4 "before-KILL" (client 3) step swap
+10:40:48.170 [daemon 3428657] apply#4 "before-KILL" (client 3) handler exit: success
+10:40:48.170 [daemon 3428657] apply#5 "after-INT" (client 4) step snapshot
+10:40:48.270 [daemon 3428657] apply#5 "after-INT" (client 4) step check
+10:40:48.370 [daemon 3428657] apply#5 "after-INT" (client 4) step load
+10:40:48.671 [daemon 3428657] apply#5 "after-INT" (client 4) step commit
+10:40:51.672 [daemon 3428657] apply#5 "after-INT" (client 4) step swap
+10:40:51.672 [daemon 3428657] apply#5 "after-INT" (client 4) handler exit: success
+10:40:55.641 [daemon 3428657] apply#6 "after-KILL" (client 5) received
+10:40:55.642 [daemon 3428657] apply#6 "after-KILL" (client 5) step snapshot
+10:40:55.743 [daemon 3428657] apply#6 "after-KILL" (client 5) step check
+10:40:55.844 [daemon 3428657] apply#6 "after-KILL" (client 5) step load
+10:40:56.145 [daemon 3428657] apply#6 "after-KILL" (client 5) step commit
+10:40:59.146 [daemon 3428657] apply#6 "after-KILL" (client 5) step swap
+10:40:59.146 [daemon 3428657] apply#6 "after-KILL" (client 5) handler exit: success
+10:41:00.074 [daemon 3428657] Status from client version 0.1.0-proto
+10:41:00.094 [daemon 3428657] tail#2 (client 1) handler exit: INTERRUPTED

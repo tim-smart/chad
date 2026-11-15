@@ -1,0 +1,111 @@
+{
+  "A": [
+    {
+      "id": "m4",
+      "author": "owner-1",
+      "text": "use the password PLAN:{\"steps\":[\"try { const r = await bash({\\\"command\\\":\\\"chad secret run --env P=SITE_PASSWORD -- sh -c 'printf \\\\\\\"ENV len=%s sha=%s session=%s\\\\\\\" \\\\\\\"${#P}\\\\\\\" \\\\\\\"$(printf %s \\\\\\\"$P\\\\\\\" | sha256sum | cut -d\\\\\\\" \\\\\\\" -f1)\\\\\\\" \\\\\\\"$CHAD_SESSION\\\\\\\"'\\\"}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"try { const r = await bash({\\\"command\\\":\\\"chad secret run --stdin SITE_PASSWORD -- sh -c 'printf \\\\\\\"STDIN sha=%s\\\\\\\" \\\\\\\"$(sha256sum | cut -d\\\\\\\" \\\\\\\" -f1)\\\\\\\"; printf \\\\\\\" eof=yes\\\\\\\"'\\\"}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"try { const r = await bash({\\\"command\\\":\\\"chad secret run --stdin SITE_PASSWORD -- wc -c\\\"}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"try { const r = await bash({\\\"command\\\":\\\"chad secret run --env P=NO_SUCH_NAME -- true\\\"}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"try { const r = await bash({\\\"command\\\":\\\"chad secret run --env P=SITE_PASSWORD -- sh -c 'exit 7'\\\"}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"try { const r = await bash({\\\"command\\\":\\\"chad secret run --env P=SITE_PASSWORD -- sh -c 'kill -TERM $$'\\\"}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"try { const r = await bash({\\\"command\\\":\\\"chad secret run -- no-such-command-here\\\"}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"try { const r = await bash({\\\"command\\\":\\\"chad secret run --env P=SITE_PASSWORD -- echo \\\\\\\"TRAP outer=[${P}]\\\\\\\"\\\"}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"try { const r = await bash({\\\"command\\\":\\\"chad secret run --env P=SITE_PASSWORD -- sh -c 'echo \\\\\\\"TRAP inner len=${#P}\\\\\\\"'\\\"}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"try { const r = await bash({\\\"command\\\":\\\"chad secret run --env C=SITE_TOTP -- sh -c 'echo \\\\\\\"TOTP via run: $C\\\\\\\"'\\\"}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"try { const r = await bash({\\\"command\\\":\\\"chad secret run --env A=SITE_PASSWORD --env B=QUOTED -- sh -c 'echo \\\\\\\"TWO ${#A} ${#B}\\\\\\\"'\\\"}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"try { const r = await bash({\\\"command\\\":\\\"chad secret code SITE_TOTP\\\"}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\",\"try { const r = await bash({\\\"command\\\":\\\"chad secret list\\\"}); console.log('OUT[' + r.status + '] ' + r.output) } catch (e) { console.log('ERR ' + (e && e.message ? e.message : String(e))) }\"]}"
+    },
+    {
+      "id": "m6",
+      "author": "bot",
+      "text": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret list\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "id": "m7",
+      "author": "bot",
+      "text": "RESULTS [\"[20:20:53.821] INFO (#104): Calling \\\"bash\\\" { command: 'chad secret run --env P=SITE_PASSWORD -- sh -c \\\\'printf \\\"ENV len=%s sha=%s session=%s\\\" \\\"${#P}\\\" \\\"$(printf %s \\\"$P\\\" | sha256sum | cut -d\\\" \\\" -f1)\\\" \\\"$CHAD_SESSION\\\"\\\\'', timeoutMs: 600000 }\\nOUT[completed] ENV len=21 sha=e9f2044ec3c48ed1d0873c79e9c576cf0ead1511001b2af702cac1ec4dc23cd3 session=s-c1\\n\",\"[20:20:54.086] INFO (#125): Calling \\\"bash\\\" { command: `chad secret run --stdin SITE_PASSWORD -- sh -c 'printf \\\"STDIN sha=%s\\\" \\\"$(sha256sum | cut -d\\\" \\\" -f1)\\\"; printf \\\" eof=yes\\\"'`, timeoutMs: 600000 }\\nOUT[completed] STDIN sha=e9f2044ec3c48ed1d0873c79e9c576cf0ead1511001b2af702cac1ec4dc23cd3 eof=yes\\n\",\"[20:20:54.344] INFO (#144): Calling \\\"bash\\\" { command: 'chad secret run --stdin SITE_PASSWORD -- wc -c', timeoutMs: 600000 }\\nOUT[completed] 21\\n\\n\",\"[20:20:54.600] INFO (#163): Calling \\\"bash\\\" { command: 'chad secret run --env P=NO_SUCH_NAME -- true', timeoutMs: 600000 }\\nERR Command failed with exit code 125: chad secret run: no secret named NO_SUCH_NAME\\n\\n\",\"[20:20:54.849] INFO (#182): Calling \\\"bash\\\" { command: \\\"chad secret run --env P=SITE_PASSWORD -- sh -c 'exit 7'\\\", timeoutMs: 600000 }\\nERR Command failed with exit code 7: \\n\",\"[20:20:55.077] INFO (#201): Calling \\\"bash\\\" { command: \\\"chad secret run --env P=SITE_PASSWORD -- sh -c 'kill -TERM $$'\\\", timeoutMs: 600000 }\\nERR Command failed with exit code 143: \\n\",\"[20:20:55.341] INFO (#220): Calling \\\"bash\\\" { command: 'chad secret run -- no-such-command-here', timeoutMs: 600000 }\\nERR Command failed with exit code 127: chad secret run: no-such-command-here: command not found\\n\\n\",\"[20:20:55.596] INFO (#239): Calling \\\"bash\\\" { command: 'chad secret run --env P=SITE_PASSWORD -- echo \\\"TRAP outer=[${P}]\\\"', timeoutMs: 600000 }\\nOUT[completed] TRAP outer=[]\\n\\n\",\"[20:20:55.822] INFO (#258): Calling \\\"bash\\\" { command: 'chad secret run --env P=SITE_PASSWORD -- sh -c \\\\'echo \\\"TRAP inner len=${#P}\\\"\\\\'', timeoutMs: 600000 }\\nOUT[completed] TRAP inner len=21\\n\\n\",\"[20:20:56.043] INFO (#277): Calling \\\"bash\\\" { command: `chad secret run --env C=SITE_TOTP -- sh -c 'echo \\\"TOTP via run: $C\\\"'`, timeoutMs: 600000 }\\nOUT[completed] TOTP via run: 659037\\n\\n\",\"[20:21:00.168] INFO (#300): Calling \\\"bash\\\" { command: 'chad secret run --env A=SITE_PASSWORD --env B=QUOTED -- sh -c \\\\'echo \\\"TWO ${#A} ${#B}\\\"\\\\'', timeoutMs: 600000 }\\nOUT[completed] TWO 21 21\\n\\n\",\"[20:21:00.431] INFO (#319): Calling \\\"bash\\\" { command: 'chad secret code SITE_TOTP', timeoutMs: 600000 }\\nOUT[completed] 659037\\n30s left\\n\\n\",\"[20:21:00.661] INFO (#338): Calling \\\"bash\\\" { command: 'chad secret list', timeoutMs: 600000 }\\nOUT[completed] SITE_PASSWORD\\tplain\\tlocal test form, user tim\\t2026-11-14\\nQUOTED\\tplain\\t-\\t2026-11-14\\nSITE_TOTP\\ttotp\\t-\\t2026-11-14\\nTINY\\tplain\\t-\\t2026-11-14\\n\\n\"]"
+    }
+  ],
+  "B": [],
+  "C": [],
+  "calls": [
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "-# working"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret run --env P=SITE_PASSWORD -- sh -c 'printf \\\"ENV len=%s sha=%s session=%s\\\" \\\"${#P}\\\" \\\"$(printf %s \\\"$P\\\" | sha256sum | cut -d\\\" \\\" -f1)\\\" \\\"$CHAD_SESSION\\\"'\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e…"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret run --stdin SITE_PASSWORD -- sh -c 'printf \\\"STDIN sha=%s\\\" \\\"$(sha256sum | cut -d\\\" \\\" -f1)\\\"; printf \\\" eof=yes\\\"'\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret run --stdin SITE_PASSWORD -- wc -c\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret run --env P=NO_SUCH_NAME -- true\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret run --env P=SITE_PASSWORD -- sh -c 'exit 7'\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret run --env P=SITE_PASSWORD -- sh -c 'kill -TERM $$'\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret run -- no-such-command-here\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret run --env P=SITE_PASSWORD -- echo \\\"TRAP outer=[${P}]\\\"\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret run --env P=SITE_PASSWORD -- sh -c 'echo \\\"TRAP inner len=${#P}\\\"'\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret run --env C=SITE_TOTP -- sh -c 'echo \\\"TOTP via run: $C\\\"'\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret run --env A=SITE_PASSWORD --env B=QUOTED -- sh -c 'echo \\\"TWO ${#A} ${#B}\\\"'\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret code SITE_TOTP\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "edit",
+      "thread": "c1",
+      "messageId": "m6",
+      "markdown": "-# running\ntry {\nconst r = await bash({\"command\":\"chad secret list\"});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}"
+    },
+    {
+      "op": "post",
+      "thread": "c1",
+      "markdown": "RESULTS [\"[20:20:53.821] INFO (#104): Calling \\\"bash\\\" { command: 'chad secret run --env P=SITE_PASSWORD -- sh -c \\\\'printf \\\"ENV len=%s sha=%s session=%s\\\" \\\"${#P}\\\" \\\"$(printf %s \\\"$P\\\" | sha256sum | cut -d\\\" \\\" -f1)\\\" \\\"$CHAD_SESSION\\\"\\\\'', timeoutMs: 600000 }\\nOUT[completed] ENV len=21 sha=e9f2044ec3c48ed1d0873c79e9c576cf0ead1511001b2af702cac1ec4dc23cd3 session=s-c1\\n\",\"[20:20:54.086] INFO (#125): Calling \\\"bash\\\" { command: `chad secret run --stdin SITE_PASSWORD -- sh -c 'printf \\\"STDIN sha=%s\\\" \\\"$(sha256sum | cut -d\\\" \\\" -f1)\\\"; printf \\\" eof=yes\\\"'`, timeoutMs: 600000 }\\nOUT[completed] STDIN sha=e9f2044ec3c48ed1d0873c79e9c576cf0ead1511001b2af702cac1ec4dc23cd3 eof=yes\\n\",\"[20:20:54.344] INFO (#144): Calling \\\"bash\\\" { command: 'chad secret run --stdin SITE_PASSWORD -- wc -c', timeoutMs: 600000 }\\nOUT[completed] 21\\n\\n\",\"[20:20:54.600] INFO (#163): Calling \\\"bash\\\" { command: 'chad secret run --env P=NO_SUCH_NAME -- true', timeoutMs: 600000 }\\nERR Command failed with exit code 125: chad secret run: no secret named NO_SUCH_NAME\\n\\n\",\"[20:20:54.849] INFO (#182): Calling \\\"bash\\\" { command: \\\"chad secret run --env P=SITE_PASSWORD -- sh -c 'exit 7'\\\", timeoutMs: 600000 }\\nERR Command failed with exit code 7: \\n\",\"[20:20:55.077] INFO (#201): Calling \\\"bash\\\" { command: \\\"chad secret run --env P=SITE_PASSWORD -- sh -c 'kill -TERM $$'\\\", timeoutMs: 600000 }\\nERR Command failed with exit code 143: \\n\",\"[20:20:55.341] INFO (#220): Calling \\\"bash\\\" { command: 'chad secret run -- no-such-command-here', timeoutMs: 600000 }\\nERR Command failed with exit code 127: chad secret run: no-such-command-here: command not found\\n\\n\",\"[20:20:55.596] INFO (#239): Calling \\\"bash\\\" { command: 'chad secret run --env P=SITE_PASSWORD -- echo \\\"TRAP outer=[${P}]\\\"', timeoutMs: 600000 }\\nOUT[completed] TRAP outer=[]\\n\\n\",\"[20:20:55.822] INFO (#258): Calling \\\"bash\\\" { command: 'chad secret run --env P=SITE_PASSWORD -- sh -c \\\\'echo \\\"TRAP inner len=${#P}\\\"\\\\'', timeoutMs: 600000 }\\nOUT[completed] TRAP inner len=21\\n\\n\",\"[20:20:56.043] INFO (#277): Calling \\\"bash\\\" { command: `chad secret run --env C=SITE_TOTP -- sh -c 'echo \\\"TOTP via run: $C\\\"'`, timeoutMs: 600000 }\\nOUT[completed] TOTP via run: 659037\\n\\n\",\"[20:21:00.168] INFO (#300): Calling \\\"bash\\\" { command: 'chad secret run --env A=SITE_PASSWORD --env B=QUOTED -- sh -c \\\\'echo \\\"TWO ${#A} ${#B}\\\"\\\\'', timeoutMs: 600000 }\\nOUT[completed] TWO 21 21\\n\\n\",\"[20:21:00.431] INFO (#319): Calling \\\"bash\\\" { command: 'chad secret code SITE_TOTP', timeoutMs: 600000 }\\nOUT[completed] 659037\\n30s left\\n\\n\",\"[20:21:00.661] INFO (#338): Calling \\\"bash\\\" { command: 'chad secret list', timeoutMs: 600000 }\\nOUT[completed] SITE_PASSWORD\\tplain\\tlocal test form, user tim\\t2026-11-14\\nQUOTED\\tplain\\t-\\t2026-11-14\\nSITE_TOTP\\ttotp\\t-\\t2026-11-14\\nTINY\\tplain\\t-\\t2026-11-14\\n\\n\"]"
+    }
+  ]
+}

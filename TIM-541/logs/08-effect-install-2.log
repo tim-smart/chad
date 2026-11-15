@@ -1,0 +1,91 @@
+===== npm: resolved URLs from package-lock.json
+node_modules/@effect/ai-openai 4.1.4 https://registry.npmjs.org/@effect/ai-openai/-/ai-openai-4.1.4.tgz (peer)
+node_modules/@effect/ai-openai-compat 4.1.4 https://registry.npmjs.org/@effect/ai-openai-compat/-/ai-openai-compat-4.1.4.tgz (peer)
+node_modules/@effect/platform-node 4.1.4 https://pkg.pr.new/Effect-TS/effect/@effect/platform-node@0b51fb1 
+node_modules/@effect/platform-node-shared 4.1.4 https://pkg.pr.new/Effect-TS/effect/@effect/platform-node-shared@0b51fb176db86e796a914921b11c544eac2670af 
+node_modules/clanka 0.27.0 https://registry.npmjs.org/clanka/-/clanka-0.27.0.tgz 
+node_modules/effect 4.1.4 https://pkg.pr.new/Effect-TS/effect/effect@0b51fb1 
+--- biggest packages:
+7	node_modules/@modelcontextprotocol
+8	node_modules/clanka
+9	node_modules/@mixmark-io
+9	node_modules/zod
+15	node_modules/@redis
+23	node_modules/@effect
+65	node_modules/effect
+380	node_modules/@anthropic-ai
+--- npm view versions on the registry:
+effect latest=4.1.4
+@effect/platform-node latest=4.1.4
+@effect/ai-openai latest=4.1.4
+@effect/chat-discord latest=npm error A complete log of this run can be found in: /root/.npm/_logs/2026-11-14T10_41_51_339Z-debug-0.log
+@effect/chat-slack latest=npm error A complete log of this run can be found in: /root/.npm/_logs/2026-11-14T10_41_51_721Z-debug-0.log
+@effect/sql-sqlite-node latest=4.1.4
+dfx latest=1.1.1
+clanka latest=0.28.0
+
+===== pnpm with blockExoticSubdeps=false
+12.18.0
+Packages are hard linked from the content-addressable store to the virtual store.
+  Content-addressable store is at: /root/.local/share/pnpm/store/v11
+  Virtual store is at:             node_modules/.pnpm
+Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt):
+  clanka@0.27.0
+Packages: +125
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+dependencies:
++ @effect/platform-node 4.1.4
++ clanka 0.27.0
++ effect 4.1.4
+
+Done in 4.2s using pnpm v12.18.0
+pnpm exit=0
+--- package.json dependencies:
+{
+ "@effect/platform-node": "https://pkg.pr.new/Effect-TS/effect/@effect/platform-node@0b51fb1",
+ "clanka": "0.27.0",
+ "effect": "https://pkg.pr.new/Effect-TS/effect/effect@0b51fb1"
+}
+--- copies of effect / @effect in node_modules/.pnpm:
+node_modules/.pnpm/@effect+ai-openai-compat@4.1.4_effect@https+++pkg.pr.new+Effect-TS+effect+effect@0b51fb_c16801ea8f7aac4c48aa8f9f0f7ff4fa
+node_modules/.pnpm/@effect+ai-openai@4.1.4_effect@https+++pkg.pr.new+Effect-TS+effect+effect@0b51fb1_7f3fff9c15f167bf6364bcca7e4e218f
+node_modules/.pnpm/@effect+platform-node-shared@https+++pkg.pr.new+Effect-TS+effect+@effect+platform-node-_e6421787cbd379b8bdf36ba3987f2e9e
+node_modules/.pnpm/@effect+platform-node@https+++pkg.pr.new+Effect-TS+effect+@effect+platform-node@0b51fb1_788e9c0bd65b60c0eca516fa5a9125de
+node_modules/.pnpm/effect@https+++pkg.pr.new+Effect-TS+effect+effect@0b51fb1_47c66ca08ffc7a6cca53173e09720edb
+--- find:
+node_modules/.pnpm/effect@https+++pkg.pr.new+Effect-TS+effect+effect@0b51fb1_47c66ca08ffc7a6cca53173e09720edb/node_modules/effect/package.json
+--- pnpm-workspace.yaml after add:
+blockExoticSubdeps: false
+minimumReleaseAgeExclude:
+  - clanka@0.27.0
+
+===== pnpm, same but also with the chat + sqlite packages and an overrides block
+Packages are hard linked from the content-addressable store to the virtual store.
+  Content-addressable store is at: /root/.local/share/pnpm/store/v11
+  Virtual store is at:             node_modules/.pnpm
+Added 1 entry to minimumReleaseAgeExclude in pnpm-workspace.yaml (set minimumReleaseAgeStrict to true to gate these updates with a prompt):
+  clanka@0.27.0
+Packages: +142
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+dependencies:
++ @effect/chat-discord 4.1.4
++ @effect/chat-slack 4.1.4
++ @effect/platform-node 4.1.4
++ @effect/sql-sqlite-node 4.1.4
++ clanka 0.27.0
++ dfx 1.1.1
++ effect 4.1.4
+
+Done in 2s using pnpm v12.18.0
+pnpm exit=0
+node_modules/.pnpm/@effect+ai-openai-compat@4.1.4_effect@https+++pkg.pr.new+Effect-TS+effect+effect@0b51fb_c16801ea8f7aac4c48aa8f9f0f7ff4fa
+node_modules/.pnpm/@effect+ai-openai@4.1.4_effect@https+++pkg.pr.new+Effect-TS+effect+effect@0b51fb1_7f3fff9c15f167bf6364bcca7e4e218f
+node_modules/.pnpm/@effect+chat-discord@https+++pkg.pr.new+Effect-TS+effect+@effect+chat-discord@0b51fb1_d_b1f6a5515360e796ecd590f746026996
+node_modules/.pnpm/@effect+chat-slack@https+++pkg.pr.new+Effect-TS+effect+@effect+chat-slack@0b51fb1_effec_bb291efe6fda041a14abd0f2448fb855
+node_modules/.pnpm/@effect+platform-node-shared@https+++pkg.pr.new+Effect-TS+effect+@effect+platform-node-_e6421787cbd379b8bdf36ba3987f2e9e
+node_modules/.pnpm/@effect+platform-node@https+++pkg.pr.new+Effect-TS+effect+@effect+platform-node@0b51fb1_788e9c0bd65b60c0eca516fa5a9125de
+node_modules/.pnpm/@effect+sql-sqlite-node@https+++pkg.pr.new+Effect-TS+effect+@effect+sql-sqlite-node@0b5_0ee14647ccc73ad738e51fa7dc298997
+node_modules/.pnpm/dfx@1.1.1_effect@https+++pkg.pr.new+Effect-TS+effect+effect@0b51fb1_d69f643e08c7394939e0fd3447c69acf
+node_modules/.pnpm/effect@https+++pkg.pr.new+Effect-TS+effect+effect@0b51fb1_47c66ca08ffc7a6cca53173e09720edb

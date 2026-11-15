@@ -1,0 +1,18 @@
+[20:21:03.034] WARN (#2): ChatInteraction: the reply was not carried out {
+  'chat.error': 'test.openModal: TooLarge: modal_metadata_too_long',
+  'chat.platform': 'test',
+  'chat.interaction.id': 'enter',
+  'chat.interaction.reason': 'ReplyRefused'
+}
+[20:21:03.372] WARN (#2): ChatInteraction: the reply was not carried out {
+  'chat.error': 'test.openModal: TooLarge: modal_metadata_too_long',
+  'chat.platform': 'test',
+  'chat.interaction.id': 'enter',
+  'chat.interaction.reason': 'ReplyRefused'
+}
+[20:21:03.718] WARN (#2): ChatInteraction: the reply was not carried out {
+  'chat.error': 'test.openModal: TooLarge: modal_metadata_too_long',
+  'chat.platform': 'test',
+  'chat.interaction.id': 'enter',
+  'chat.interaction.reason': 'ReplyRefused'
+}

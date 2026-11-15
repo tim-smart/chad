@@ -1,0 +1,3 @@
+10:42:15.114 [daemon 3443466] lock taken
+10:42:15.115 [daemon 3443466] removed stale socket file (safe: we hold the lock)
+10:42:15.120 [daemon 3443466] listening on state/chad.sock mode 600

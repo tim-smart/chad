@@ -1,0 +1,29 @@
+
+### A: stream of lines over the unix socket; cli prefix = time received, payload = time sent
+10:47:04.798 [cli 3475075] line 1/5 sent 10:47:04.796
+10:47:05.198 [cli 3475075] line 2/5 sent 10:47:05.197
+10:47:05.599 [cli 3475075] line 3/5 sent 10:47:05.597
+10:47:05.999 [cli 3475075] line 4/5 sent 10:47:05.998
+10:47:06.400 [cli 3475075] line 5/5 sent 10:47:06.399
+exit=0
+
+### ls -la state
+total 12
+drwxr-xr-x 2 tim users 4096 Nov 14 10:47 .
+drwxr-xr-x 4 tim users 4096 Nov 14 10:47 ..
+srw------- 1 tim users    0 Nov 14 10:47 chad.sock
+-rw-r--r-- 1 tim users    0 Nov 14 10:47 daemon.lock
+-rw-r--r-- 1 tim users  512 Nov 14 10:47 daemon.lock-journal
+
+### daemon log
+10:47:04.359 [daemon 3474969] lock taken
+10:47:04.365 [daemon 3474969] listening on state/chad.sock mode 600
+10:47:04.796 [daemon 3474969] tail#1 (client 0) started
+10:47:06.799 [daemon 3474969] tail#1 (client 0) handler exit: success
+
+### after SIGTERM: ls -la state
+total 12
+drwxr-xr-x 2 tim users 4096 Nov 14 10:47 .
+drwxr-xr-x 4 tim users 4096 Nov 14 10:47 ..
+-rw-r--r-- 1 tim users    0 Nov 14 10:47 daemon.lock
+-rw-r--r-- 1 tim users  512 Nov 14 10:47 daemon.lock-journal

@@ -1,0 +1,11 @@
+- generic [active] [ref=f2e1]:
+  - heading "Sign in" [level=1] [ref=f2e2]
+  - paragraph [ref=f2e3]: Wrong username or password
+  - generic [ref=f2e4]:
+    - generic [ref=f2e5]:
+      - text: Username
+      - textbox "Username" [ref=f2e6]
+    - generic [ref=f2e7]:
+      - text: Password
+      - textbox "Password" [ref=f2e8]
+    - button "Sign in" [ref=f2e9]

@@ -1,0 +1,51 @@
+{"t":1794652373752,"pid":3369244,"ev":"scenario.start","name":"stop","phase":"1","variant":""}
+{"t":1794652373754,"pid":3369244,"ev":"user.posted","text":"Run the bash command `sleep 40` and then reply with the word DONE.","key":"message/test:c1/m2"}
+{"t":1794652373765,"pid":3369244,"ev":"gateway.saved","key":"message/test:c1/m2","ms":10}
+{"t":1794652373841,"pid":3369244,"ev":"session.activated","thread":"c1","session":"7435ad8c-efec-457b-8b91-c4b894471c41","activation":1}
+{"t":1794652373842,"pid":3369244,"ev":"message.delivered","key":"message/test:c1/m2","ms":87,"text":"Run the bash command `sleep 40` and then reply with the word"}
+{"t":1794652373865,"pid":3369244,"ev":"turn.start","key":"message/test:c1/m2","turn":"bff64e62-a6ab-45d2-92de-350cb048521d","starts":1,"resumed":false}
+{"t":1794652373867,"pid":3369244,"ev":"status.posted","id":"m4"}
+{"t":1794652376125,"pid":3369244,"ev":"brain.scriptEnd"}
+{"t":1794652377641,"pid":3369244,"ev":"user.posted","text":"Also say EXTRA.","key":"message/test:c1/m5"}
+{"t":1794652377652,"pid":3369244,"ev":"gateway.saved","key":"message/test:c1/m5","ms":10}
+{"t":1794652377664,"pid":3369244,"ev":"message.delivered","key":"message/test:c1/m5","ms":22,"text":"Also say EXTRA."}
+{"t":1794652378355,"pid":3369244,"ev":"user.posted","text":"/stop","key":"message/test:c1/m7"}
+{"t":1794652378358,"pid":3369244,"ev":"stop.received","by":"command","running":true}
+{"t":1794652378372,"pid":3369244,"ev":"turn.end","key":"message/test:c1/m2","turn":"bff64e62-a6ab-45d2-92de-350cb048521d","outcome":"Stopped","compacted":false}
+{"t":1794652378374,"pid":3369244,"ev":"message.dropped","key":"message/test:c1/m5"}
+{"t":1794652385814,"pid":3369244,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652385838,"pid":3369244,"ev":"user.posted","text":"In one short sentence, what did my first message ask you to do?","key":"message/test:c1/m10"}
+{"t":1794652385846,"pid":3369244,"ev":"gateway.saved","key":"message/test:c1/m10","ms":8}
+{"t":1794652385859,"pid":3369244,"ev":"session.restored","messages":1,"frozenSystem":true}
+{"t":1794652385859,"pid":3369244,"ev":"session.activated","thread":"c1","session":"7435ad8c-efec-457b-8b91-c4b894471c41","activation":2}
+{"t":1794652385859,"pid":3369244,"ev":"message.delivered","key":"message/test:c1/m10","ms":21,"text":"In one short sentence, what did my first message ask you to "}
+{"t":1794652385877,"pid":3369244,"ev":"turn.start","key":"message/test:c1/m10","turn":"74a4a164-c121-430b-acd5-5e40bb4967f8","starts":1,"resumed":false}
+{"t":1794652385879,"pid":3369244,"ev":"status.posted","id":"m12"}
+{"t":1794652387248,"pid":3369244,"ev":"turn.usage","key":"message/test:c1/m10","calls":["1870 in / 1664 cached"]}
+{"t":1794652387255,"pid":3369244,"ev":"turn.end","key":"message/test:c1/m10","turn":"74a4a164-c121-430b-acd5-5e40bb4967f8","outcome":"Answered","compacted":false}
+{"t":1794652387276,"pid":3369244,"ev":"user.posted","text":"Run the bash command `sleep 40` and then reply with the word DONE2.","key":"message/test:c1/m14"}
+{"t":1794652387283,"pid":3369244,"ev":"gateway.saved","key":"message/test:c1/m14","ms":7}
+{"t":1794652387291,"pid":3369244,"ev":"message.delivered","key":"message/test:c1/m14","ms":15,"text":"Run the bash command `sleep 40` and then reply with the word"}
+{"t":1794652387303,"pid":3369244,"ev":"turn.start","key":"message/test:c1/m14","turn":"cf9d9b51-9ecc-4752-8e97-e13bc6f74c44","starts":1,"resumed":false}
+{"t":1794652387304,"pid":3369244,"ev":"status.posted","id":"m16"}
+{"t":1794652389278,"pid":3369244,"ev":"brain.scriptEnd"}
+{"t":1794652390786,"pid":3369244,"ev":"stop.received","by":"button","running":true}
+{"t":1794652390786,"pid":3369244,"ev":"button.stop","stopped":true,"ms":1}
+{"t":1794652390786,"pid":3369244,"ev":"button.reply","reply":"Ack","ms":2}
+{"t":1794652390799,"pid":3369244,"ev":"turn.end","key":"message/test:c1/m14","turn":"cf9d9b51-9ecc-4752-8e97-e13bc6f74c44","outcome":"Stopped","compacted":false}
+{"t":1794652390825,"pid":3369244,"ev":"user.posted","text":"Reply with just the word ALIVE.","key":"message/test:c1/m19"}
+{"t":1794652390833,"pid":3369244,"ev":"gateway.saved","key":"message/test:c1/m19","ms":8}
+{"t":1794652390841,"pid":3369244,"ev":"message.delivered","key":"message/test:c1/m19","ms":16,"text":"Reply with just the word ALIVE."}
+{"t":1794652390858,"pid":3369244,"ev":"turn.start","key":"message/test:c1/m19","turn":"9672981e-ac40-40b5-9122-cec497357754","starts":1,"resumed":false}
+{"t":1794652390858,"pid":3369244,"ev":"status.posted","id":"m21"}
+{"t":1794652391724,"pid":3369244,"ev":"turn.usage","key":"message/test:c1/m19","calls":["1929 in / 1792 cached"]}
+{"t":1794652391735,"pid":3369244,"ev":"turn.end","key":"message/test:c1/m19","turn":"9672981e-ac40-40b5-9122-cec497357754","outcome":"Answered","compacted":false}
+{"t":1794652391776,"pid":3369244,"ev":"user.posted","text":"/stop","key":"message/test:c1/m23"}
+{"t":1794652391777,"pid":3369244,"ev":"stop.received","by":"command","running":false}
+{"t":1794652392078,"pid":3369244,"ev":"bot.messages","messages":["-# stopped","Your first message asked me to run `sleep 40` and then reply with “DONE.”","-# stopped","ALIVE","-# Nothing is running."]}
+{"t":1794652392078,"pid":3369244,"ev":"scenario.end","name":"stop","phase":"1"}
+{"t":1794652392088,"pid":3369244,"ev":"session.passivated","thread":"c1","activation":2}
+{"t":1794652396981,"pid":3369244,"ev":"hooks.draining","pending":0}
+{"t":1794652396983,"pid":3369244,"ev":"hooks.drained"}
+{"t":1794652396983,"pid":3369244,"ev":"plugins.closed"}
+{"t":1794652397046,"pid":3369244,"ev":"process.exit","code":0,"signal":null}

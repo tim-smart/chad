@@ -1,0 +1,30 @@
+{"t":1794652334645,"pid":3365417,"ev":"scenario.start","name":"kill-resume","phase":"1","variant":""}
+{"t":1794652334648,"pid":3365417,"ev":"user.posted","text":"Run the bash command `sleep 25; echo finished > done.txt` and then rep","key":"message/test:c1/m2"}
+{"t":1794652334666,"pid":3365417,"ev":"gateway.saved","key":"message/test:c1/m2","ms":17}
+{"t":1794652334803,"pid":3365417,"ev":"session.activated","thread":"c1","session":"8532d84c-9934-4b9b-9f18-a811f1eed2d2","activation":1}
+{"t":1794652334805,"pid":3365417,"ev":"message.delivered","key":"message/test:c1/m2","ms":156,"text":"Run the bash command `sleep 25; echo finished > done.txt` an"}
+{"t":1794652334825,"pid":3365417,"ev":"turn.start","key":"message/test:c1/m2","turn":"c6cfe718-b27f-4b1f-881d-93b087ada566","starts":1,"resumed":false}
+{"t":1794652334825,"pid":3365417,"ev":"hook.beforeTurn","plugin":"probe","turn":"c6cfe718-b27f-4b1f-881d-93b087ada566","origin":{"_tag":"Message","text":"Run the bash command `sleep 25; echo finished > done.txt` and then reply with the word OMEGA.","userId":"owner-1"},"resumed":false,"prompt":"Run the bash command `sleep 25; echo fin"}
+{"t":1794652334826,"pid":3365417,"ev":"status.posted","id":"m4"}
+{"t":1794652338108,"pid":3365417,"ev":"brain.scriptEnd"}
+{"t":1794652341173,"pid":3365417,"ev":"process.exit","code":null,"signal":"SIGKILL"}
+{"t":1794652342114,"pid":3366148,"ev":"scenario.start","name":"kill-resume","phase":"2","variant":""}
+{"t":1794652342191,"pid":3366148,"ev":"session.restored","messages":1,"frozenSystem":true}
+{"t":1794652342191,"pid":3366148,"ev":"session.activated","thread":"c1","session":"8532d84c-9934-4b9b-9f18-a811f1eed2d2","activation":1}
+{"t":1794652342193,"pid":3366148,"ev":"message.delivered","key":"message/test:c1/m2","ms":7544,"text":"Run the bash command `sleep 25; echo finished > done.txt` an"}
+{"t":1794652342200,"pid":3366148,"ev":"turn.start","key":"message/test:c1/m2","turn":"c6cfe718-b27f-4b1f-881d-93b087ada566","starts":2,"resumed":true}
+{"t":1794652342201,"pid":3366148,"ev":"hook.beforeTurn","plugin":"probe","turn":"c6cfe718-b27f-4b1f-881d-93b087ada566","origin":{"_tag":"Message","text":"Run the bash command `sleep 25; echo finished > done.txt` and then reply with the word OMEGA.","userId":"owner-1"},"resumed":true,"prompt":"[chad restarted while this turn was runn"}
+{"t":1794652342202,"pid":3366148,"ev":"status.posted","id":"m2"}
+{"t":1794652344553,"pid":3366148,"ev":"brain.scriptEnd"}
+{"t":1794652369609,"pid":3366148,"ev":"brain.scriptOutput","output":"[10:32:24.586] INFO (#82): Calling \"bash\" { command: 'if [ -f done.txt ]; then cat done.txt; else sleep 25; echo finished > done.txt; cat done.txt; fi', timeoutMs: 120000 }\nfinished\n\n"}
+{"t":1794652370635,"pid":3366148,"ev":"turn.usage","key":"message/test:c1/m2","calls":["1898 in / 1664 cached","2022 in / 1792 cached"]}
+{"t":1794652370642,"pid":3366148,"ev":"turn.end","key":"message/test:c1/m2","turn":"c6cfe718-b27f-4b1f-881d-93b087ada566","outcome":"Answered","compacted":false}
+{"t":1794652370664,"pid":3366148,"ev":"hook.afterTurn","plugin":"probe","turn":"c6cfe718-b27f-4b1f-881d-93b087ada566","origin":{"_tag":"Message","text":"Run the bash command `sleep 25; echo finished > done.txt` and then reply with the word OMEGA.","userId":"owner-1"},"resumed":true,"outcome":"Answered"}
+{"t":1794652370665,"pid":3366148,"ev":"hook.done","plugin":"probe","label":"afterTurn","result":"ok","ms":1}
+{"t":1794652370665,"pid":3366148,"ev":"bot.messages","messages":["OMEGA"]}
+{"t":1794652370665,"pid":3366148,"ev":"scenario.end","name":"kill-resume","phase":"2"}
+{"t":1794652370673,"pid":3366148,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652372672,"pid":3366148,"ev":"hooks.draining","pending":0}
+{"t":1794652372672,"pid":3366148,"ev":"hooks.drained"}
+{"t":1794652372672,"pid":3366148,"ev":"plugins.closed"}
+{"t":1794652372723,"pid":3366148,"ev":"process.exit","code":0,"signal":null}

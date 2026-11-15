@@ -1,0 +1,63 @@
+parent env: nvars=66 CHAD_SESSION=undefined
+
+=== (i)+(ii) foreground bash, mode=extend ===
+spawner[sess-A] spawn bash ["-c","echo \"[$CHAD_SESSION]\"; env | grep -c .; echo \"PATH=$(echo \"$PATH\" |
+[10:46:32.887] INFO (#9): Calling "bash" { command: 'echo "[$CHAD_SESSION]"; env | grep -c .; echo "PATH=$(echo "$PATH" | cut -c1-40)... HOME=$HOME"', timeoutMs: 600000 }
+[sess-A]
+67
+PATH=/home/tim/.tmp/multica-task-3384188262/c... HOME=/home/tim
+
+
+
+=== (ii-negative) foreground bash, mode=naive-setEnv (ChildProcess.setEnv only) ===
+spawner[sess-N] spawn bash ["-c","echo \"[$CHAD_SESSION]\"; env | grep -c .; echo \"PATH=$(echo \"$PATH\" |
+[10:46:32.940] INFO (#34): Calling "bash" { command: 'echo "[$CHAD_SESSION]"; env | grep -c .; echo "PATH=$(echo "$PATH" | cut -c1-40)... HOME=$HOME"', timeoutMs: 600000 }
+[sess-N]
+bash: line 1: env: command not found
+bash: line 1: grep: command not found
+bash: line 1: cut: command not found
+PATH=... HOME=
+
+
+
+=== (iii) background bash ===
+spawner[sess-B] spawn bash ["-c","sleep 0.3; echo \"bg:[$CHAD_SESSION] HOME=$HOME nvars=$(env | grep -c .)\
+[10:46:32.979] INFO (#59): Calling "bash" { command: 'sleep 0.3; echo "bg:[$CHAD_SESSION] HOME=$HOME nvars=$(env | grep -c .)"', background: true, timeoutMs: 600000 }
+started bash_1 running
+[10:46:32.982] INFO (#63): Calling "sleep" for 900ms
+[10:46:33.884] INFO (#68): Calling "taskOutput" { id: 'bash_1' }
+completed bg:[sess-B] HOME=/home/tim nvars=67
+
+
+
+=== (iv) rg and gh tools (fake binaries first on PATH) ===
+spawner[sess-C] spawn rg ["--max-filesize=1M","--heading","--line-number","--max-columns=300","needle"]
+spawner[sess-C] spawn gh ["--version"]
+spawner[sess-C] spawn bash ["-c","echo \"run:[$CHAD_SESSION]\""]
+[10:46:33.916] INFO (#84): Calling "rg" { pattern: 'needle' }
+rg -> fake-rg sees CHAD_SESSION=[sess-C] HOME=[/home/tim] nvars=67
+[10:46:33.929] INFO (#89): Calling "gh" { args: [ '--version' ] }
+gh -> fake-gh sees CHAD_SESSION=[sess-C] HOME=[/home/tim] nvars=67
+
+[10:46:33.938] INFO (#97): Calling "bash" { command: 'echo "run:[$CHAD_SESSION]"', timeoutMs: 120000 }
+run -> run:[sess-C]
+
+
+
+=== (v) two sessions at once ===
+spawner[sess-X] spawn bash ["-c","sleep 0.5; echo \"X sees [$CHAD_SESSION] at $(date +%s.%N)\""]
+spawner[sess-Y] spawn bash ["-c","sleep 0.5; echo \"Y sees [$CHAD_SESSION] at $(date +%s.%N)\""]
+[10:46:33.978] INFO (#131): Calling "bash" { command: 'sleep 0.5; echo "X sees [$CHAD_SESSION] at $(date +%s.%N)"', timeoutMs: 600000 }
+X sees [sess-X] at 1794653194.489470353
+
+[10:46:33.979] INFO (#135): Calling "bash" { command: 'sleep 0.5; echo "Y sees [$CHAD_SESSION] at $(date +%s.%N)"', timeoutMs: 600000 }
+Y sees [sess-Y] at 1794653194.491934496
+
+
+
+=== (vii) executor built with sess-OUTER; a different spawner (sess-PER-CALL) provided around one execute call ===
+spawner[sess-OUTER] spawn bash ["-c","echo \"saw [$CHAD_SESSION]\""]
+[10:46:34.527] INFO (#174): Calling "bash" { command: 'echo "saw [$CHAD_SESSION]"', timeoutMs: 600000 }
+saw [sess-OUTER]
+
+

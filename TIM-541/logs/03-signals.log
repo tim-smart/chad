@@ -1,0 +1,90 @@
+
+##### chadfacts-sig-a: podman run -d docker.io/library/node:26-trixie-slim node /s/graceful.mjs
+-- processes:
+pid=1 (node-MainThread) state=S ppid=0
+pid=9 (sh) state=S ppid=0
+-- podman stop took 3305 ms; exit code 0 ; StopSignal=SIGTERM StopTimeout=10
+-- logs:
+   start pid 1
+   2026-11-14T10:35:53.697Z got SIGTERM, shutting down in 3s
+   2026-11-14T10:35:56.698Z graceful exit
+
+##### chadfacts-sig-b: podman run -d --init docker.io/library/node:26-trixie-slim node /s/graceful.mjs
+-- processes:
+pid=1 (podman-init) state=S ppid=0
+pid=10 (sh) state=S ppid=0
+pid=2 (node-MainThread) state=S ppid=1
+-- podman stop took 3373 ms; exit code 0 ; StopSignal=SIGTERM StopTimeout=10
+-- logs:
+   start pid 2
+   2026-11-14T10:35:59.072Z got SIGTERM, shutting down in 3s
+   2026-11-14T10:36:02.073Z graceful exit
+
+##### chadfacts-sig-c: podman run -d docker.io/library/node:26-trixie-slim node /s/nohandler.mjs
+-- processes:
+pid=1 (node-MainThread) state=S ppid=0
+pid=9 (sh) state=S ppid=0
+-- podman stop took 10537 ms; exit code 137 ; StopSignal=SIGTERM StopTimeout=10
+-- logs:
+   start pid 1 (no SIGTERM handler)
+
+##### chadfacts-sig-d: podman run -d --init docker.io/library/node:26-trixie-slim node /s/nohandler.mjs
+-- processes:
+pid=1 (podman-init) state=S ppid=0
+pid=10 (sh) state=S ppid=0
+pid=2 (node-MainThread) state=S ppid=1
+-- podman stop took 265 ms; exit code 143 ; StopSignal=SIGTERM StopTimeout=10
+-- logs:
+   start pid 2 (no SIGTERM handler)
+
+##### chadfacts-sig-e: podman run -d docker.io/library/node:26-trixie-slim sh -c node /s/graceful.mjs; echo node-exited-$?
+-- processes:
+pid=1 (sh) state=S ppid=0
+pid=10 (sh) state=S ppid=0
+pid=3 (node-MainThread) state=S ppid=1
+-- podman stop took 10281 ms; exit code 137 ; StopSignal=SIGTERM StopTimeout=10
+-- logs:
+   start pid 3
+
+##### chadfacts-sig-f: podman run -d --entrypoint  docker.io/library/node:26-trixie-slim /bin/sh -c node /s/graceful.mjs
+-- processes:
+pid=1 (sh) state=S ppid=0
+pid=2 (node-MainThread) state=S ppid=1
+pid=9 (sh) state=S ppid=0
+-- podman stop took 10505 ms; exit code 137 ; StopSignal=SIGTERM StopTimeout=10
+-- logs:
+   start pid 2
+
+##### chadfacts-orph-a orphans: podman run -d docker.io/library/node:26-trixie-slim node /s/graceful.mjs orphan
+-- right after exec (orphans still running):
+pid=1 (node-MainThread) state=S ppid=0
+pid=11 (sleep) state=S ppid=1
+pid=14 (sleep) state=S ppid=1
+pid=17 (sleep) state=S ppid=1
+pid=18 (sh) state=S ppid=0
+-- 2.5s later (orphans have exited):
+pid=1 (node-MainThread) state=S ppid=0
+pid=11 (sleep) state=Z ppid=1
+pid=14 (sleep) state=Z ppid=1
+pid=17 (sleep) state=Z ppid=1
+pid=24 (sh) state=S ppid=0
+-- zombies: 3
+
+##### chadfacts-orph-b orphans: podman run -d --init docker.io/library/node:26-trixie-slim node /s/graceful.mjs orphan
+-- right after exec (orphans still running):
+pid=1 (podman-init) state=S ppid=0
+pid=12 (sleep) state=S ppid=1
+pid=15 (sleep) state=S ppid=1
+pid=18 (sleep) state=S ppid=1
+pid=19 (sh) state=S ppid=0
+pid=2 (node-MainThread) state=S ppid=1
+-- 2.5s later (orphans have exited):
+pid=1 (podman-init) state=S ppid=0
+pid=2 (node-MainThread) state=S ppid=1
+pid=26 (sh) state=S ppid=0
+-- zombies: 0
+
+podman info init path:
+/nix/store/870ca6b1nxj0dryjldjnp73pzxxp3gb5-podman-helper-binary-wrapper/bin/conmon
+/run/podman-init -- docker-entrypoint.sh sh -c cat /proc/1/cmdline | tr "\0" " "; echo; /run/podman-init --version 2>&1 || /dev/init --version 2>&1 
+tini version 0.2.1_catatonit

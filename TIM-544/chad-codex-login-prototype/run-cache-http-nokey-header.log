@@ -1,0 +1,31 @@
+scenario cache, model gpt-6-astra/low, node v26.8.2, clanka 0.27.0
+
+=== transport http, prompt_cache_key not sent, pause between turns 3s, headers sent: session_id and conversation_id
+[   0.1s] session-f1fca6a1 turn starts: Remember this codeword: PLATYPUS-f1fca6a1. Reply ok.
+[   1.6s] session-f1fca6a1 answer: ok
+[   1.6s] session-f1fca6a1 tokens: input 1804, cached 1664; per model call: 1804 in / 1664 cached
+[   1.6s] session-f1fca6a1 turn starts: Run exactly this script, then tell me how many coffees note 200 has: console.log(await readFile({ path: 'notes.txt' }))
+[   6.9s] session-f1fca6a1 answer: Note 200 has 7 coffees.
+[   6.9s] session-f1fca6a1 tokens: input 11293, cached 3328; per model call: 1844 in / 1664 cached, 9449 in / 1664 cached
+[   9.9s] session-f1fca6a1 turn starts: From the notes you already printed, how many km did note 10 log? Answer from memory, run no script.
+[  13.1s] session-f1fca6a1 answer: Note 10 logged 60 km.
+[  13.1s] session-f1fca6a1 tokens: input 9491, cached 9344; per model call: 9491 in / 9344 cached
+[  16.1s] session-f1fca6a1 turn starts: From the notes you already printed, how many km did note 20 log? Answer from memory, run no script.
+[  19.3s] session-f1fca6a1 answer: Note 20 logged 66 km.
+[  19.3s] session-f1fca6a1 tokens: input 9533, cached 9344; per model call: 9533 in / 9344 cached
+[  19.3s] session-f1fca6a1 system prompt e2a1e9dd
+
+=== no rebuild (control)
+[  22.3s] session-f1fca6a1 turn starts: From the notes you already printed, how many km did note 30 log? Answer from memory, run no script.
+[  24.3s] session-f1fca6a1 answer: Note 30 logged 72 km.
+[  24.3s] session-f1fca6a1 tokens: input 9575, cached 9344; per model call: 9575 in / 9344 cached
+[  24.3s] session-f1fca6a1 system prompt e2a1e9dd (frozen)
+[  27.3s] session-f1fca6a1 turn starts: From the notes you already printed, how many km did note 40 log? Answer from memory, run no script.
+[  30.4s] session-f1fca6a1 answer: Note 40 logged 78 km.
+[  30.4s] session-f1fca6a1 tokens: input 9617, cached 9472; per model call: 9617 in / 9472 cached
+
+=== sub-agents on the main model, one after the other
+[  30.4s] session-f1fca6a1 turn starts: Run exactly this script and tell me what it printed: const a = await subagent({ prompt: 'Reply with the single word pong.' }); const b = await subagent({ prompt: 'Reply with the single word ping.' }); console.log(a.output, b.output)
+[  37.6s] session-f1fca6a1 answer: It printed `pong ping`.
+[  37.6s] session-f1fca6a1 tokens: input 23145, cached 14464; per model call: sub-agent 1823 in / 1664 cached, sub-agent 1823 in / 1664 cached, 9690 in / 1664 cached, 9809 in / 9472 cached
+[  37.6s] summary   device codes issued: 0; auth.openai.com requests: none

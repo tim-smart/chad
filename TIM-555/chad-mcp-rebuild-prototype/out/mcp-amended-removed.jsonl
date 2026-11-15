@@ -1,0 +1,97 @@
+{"t":1794687385249,"pid":2559276,"ev":"boot.nothingApplied"}
+{"t":1794687385339,"pid":2559276,"ev":"scenario.start","name":"mcp-removed","phase":"1","drainMs":30000,"closeMs":10000,"mcp":{"drainMs":30000,"heldMs":120000,"startMs":60000,"rules":"amended"}}
+{"t":1794687385341,"pid":2559276,"ev":"apply.start","dir":"out/repo-mcp-amended-removed/versions/1794687385340-2559276-1"}
+{"t":1794687385344,"pid":2559276,"ev":"live.moved","live":"versions/1794687385340-2559276-1"}
+{"t":1794687385344,"pid":2559276,"ev":"mcp.gateClosed","label":"apply","layer":null,"inflight":[]}
+{"t":1794687385370,"pid":2559276,"ev":"swap.gateClosed","label":"apply","plugins":[]}
+{"t":1794687385370,"pid":2559276,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687385371,"pid":2559276,"ev":"swap.drained","label":"apply","ms":1,"interrupted":[]}
+{"t":1794687385371,"pid":2559276,"ev":"swap.activated","label":"apply","generation":1,"waitedMs":1,"drainedMs":1,"closeMs":0,"interrupted":[],"affected":[],"now":[]}
+{"t":1794687385371,"pid":2559276,"ev":"apply.pluginsActivated","mcpStillRebuilding":true}
+{"t":1794687385574,"pid":2559471,"ev":"server.start","server":"fs","label":"v1","mode":"stdio","connectMs":0,"tools":["echo","slow","stubborn","store"]}
+{"t":1794687385579,"pid":2559473,"ev":"server.start","server":"flaky","label":"f1","mode":"stdio","connectMs":0,"tools":["echo"]}
+{"t":1794687385580,"pid":2559471,"ev":"server.connected","server":"fs"}
+{"t":1794687385581,"pid":2559472,"ev":"server.start","server":"gone","label":"g1","mode":"stdio","connectMs":0,"tools":["echo"]}
+{"t":1794687385587,"pid":2559473,"ev":"server.connected","server":"flaky"}
+{"t":1794687385588,"pid":2559472,"ev":"server.connected","server":"gone"}
+{"t":1794687385612,"pid":2559276,"ev":"mcp.connected","layer":1,"why":"apply","ms":267,"servers":{"fs":"connected, 4 tools","gone":"connected, 1 tools","flaky":"connected, 1 tools"}}
+{"t":1794687385612,"pid":2559276,"ev":"mcp.ready","label":"apply","layer":1,"generation":1,"waitedMs":268,"interrupted":[],"runningTurns":[]}
+{"t":1794687385612,"pid":2559276,"ev":"cli.apply","label":"first","ok":true,"exit":0,"errors":[],"reloaded":[],"kept":[],"swap":{"label":"apply","generation":1,"waitedMs":1,"drainedMs":1,"closeMs":0,"interrupted":[],"affected":[]},"mcp":{"label":"apply","layer":1,"generation":1,"waitedMs":268,"interrupted":[],"runningTurns":[]}}
+{"t":1794687385613,"pid":2559276,"ev":"user.posted","who":"A","key":"message/test:c1/m4","text":"what a running turn is told PLAN:{\"steps\":[\"try { console.lo"}
+{"t":1794687385653,"pid":2559276,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687385655,"pid":2559276,"ev":"message.delivered","key":"message/test:c1/m4","session":"s-c1"}
+{"t":1794687385670,"pid":2559276,"ev":"turn.start","key":"message/test:c1/m4","session":"s-c1","turn":"588d1e57-8a41-42a0-9590-23b1d7e897a8","starts":1,"cuts":0,"resumed":false}
+{"t":1794687385676,"pid":2559276,"ev":"agent.built","session":"s-c1","rebuild":0,"generation":1,"mcp":"1","mcpPrompt":"af3466e2","on":{},"tools":[]}
+{"t":1794687385681,"pid":2559276,"ev":"mcp.keysTaken","session":"s-c1","layer":1,"rebuilding":null,"keys":["fs.echo","fs.slow","fs.stubborn","fs.store","gone.echo","flaky.echo","searchTools"]}
+{"t":1794687385681,"pid":2559276,"ev":"turn.system","session":"s-c1","hasMcpSection":true,"saysStillStarting":false,"mentions":["fs","gone","flaky"]}
+{"t":1794687385735,"pid":2559276,"ev":"mcp.call.routed","session":"s-c1","key":"fs.store","to":1}
+{"t":1794687385738,"pid":2559471,"ev":"server.store","server":"fs","n":"42","type":"string"}
+{"t":1794687385741,"pid":2559276,"ev":"mcp.call.routed","session":"s-c1","key":"gone.echo","to":1}
+{"t":1794687385743,"pid":2559472,"ev":"server.echo","server":"gone","text":"1"}
+{"t":1794687385747,"pid":2559276,"ev":"mcp.call.routed","session":"s-c1","key":"flaky.echo","to":1}
+{"t":1794687385748,"pid":2559473,"ev":"server.echo","server":"flaky","text":"1"}
+{"t":1794687385751,"pid":2559276,"ev":"mcp.call.routed","session":"s-c1","key":"fs.slow","to":1}
+{"t":1794687385751,"pid":2559471,"ev":"server.slow.start","server":"fs","tag":"1"}
+{"t":1794687385762,"pid":2559471,"ev":"server.slow.end","server":"fs","tag":"1"}
+{"t":1794687385763,"pid":2559276,"ev":"script.mark","session":"s-c1","label":"m1"}
+{"t":1794687385777,"pid":2559276,"ev":"apply.start","dir":"out/repo-mcp-amended-removed/versions/1794687385777-2559276-2"}
+{"t":1794687385778,"pid":2559276,"ev":"live.moved","live":"versions/1794687385777-2559276-2"}
+{"t":1794687385778,"pid":2559276,"ev":"mcp.gateClosed","label":"apply","layer":1,"inflight":[]}
+{"t":1794687385778,"pid":2559276,"ev":"mcp.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687385778,"pid":2559276,"ev":"swap.gateClosed","label":"apply","plugins":[]}
+{"t":1794687385778,"pid":2559276,"ev":"swap.draining","label":"apply","inflight":[]}
+{"t":1794687385778,"pid":2559276,"ev":"swap.drained","label":"apply","ms":0,"interrupted":[]}
+{"t":1794687385778,"pid":2559276,"ev":"swap.activated","label":"apply","generation":2,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[],"now":[]}
+{"t":1794687385778,"pid":2559276,"ev":"apply.pluginsActivated","mcpStillRebuilding":true}
+{"t":1794687385779,"pid":2559473,"ev":"server.stdinEnded","server":"flaky"}
+{"t":1794687385782,"pid":2559473,"ev":"server.exit","server":"flaky","code":0}
+{"t":1794687385793,"pid":2559472,"ev":"server.stdinEnded","server":"gone"}
+{"t":1794687385793,"pid":2559472,"ev":"server.exit","server":"gone","code":0}
+{"t":1794687385801,"pid":2559471,"ev":"server.stdinEnded","server":"fs"}
+{"t":1794687385801,"pid":2559471,"ev":"server.exit","server":"fs","code":0}
+{"t":1794687385809,"pid":2559276,"ev":"mcp.closed","label":"apply","layer":1,"ms":31}
+{"t":1794687386020,"pid":2559498,"ev":"server.start","server":"fs","label":"v2","mode":"stdio","connectMs":0,"tools":["echo","store"]}
+{"t":1794687386026,"pid":2559498,"ev":"server.connected","server":"fs"}
+{"t":1794687386028,"pid":2559499,"ev":"server.start","server":"flaky","label":"f2","mode":"stdio","connectMs":60000,"tools":["echo"]}
+{"t":1794687389822,"pid":2559499,"ev":"server.sigterm","server":"flaky"}
+{"t":1794687389822,"pid":2559499,"ev":"server.exit","server":"flaky","code":0}
+{"t":1794687389832,"pid":2559276,"ev":"mcp.connected","layer":2,"why":"apply","ms":4023,"servers":{"fs":"connected, 2 tools","flaky":"failed: connection timed out after 2000ms"}}
+{"t":1794687389832,"pid":2559276,"ev":"mcp.ready","label":"apply","layer":2,"generation":2,"waitedMs":4054,"interrupted":[],"runningTurns":["s-c1"]}
+{"t":1794687389832,"pid":2559276,"ev":"cli.apply","label":"mcp.json loses a server","ok":true,"exit":0,"errors":[],"reloaded":[],"kept":[],"swap":{"label":"apply","generation":2,"waitedMs":0,"drainedMs":0,"closeMs":0,"interrupted":[],"affected":[]},"mcp":{"label":"apply","layer":2,"generation":2,"waitedMs":4054,"interrupted":[],"runningTurns":["s-c1"]}}
+{"t":1794687389833,"pid":2559276,"ev":"mcp.call.refused","session":"s-c1","key":"gone.echo","at":"not in layer 2","message":"mcp.gone.echo: MCP server \"gone\" was removed from mcp.json."}
+{"t":1794687389834,"pid":2559276,"ev":"mcp.call.refused","session":"s-c1","key":"fs.slow","at":"not in layer 2","message":"mcp.fs.slow: \"fs\" no longer lists this tool."}
+{"t":1794687389834,"pid":2559276,"ev":"mcp.call.routed","session":"s-c1","key":"fs.store","to":2}
+{"t":1794687389835,"pid":2559276,"ev":"mcp.call.routed","session":"s-c1","key":"fs.store","to":2}
+{"t":1794687389837,"pid":2559498,"ev":"server.store","server":"fs","n":42,"type":"number"}
+{"t":1794687389839,"pid":2559276,"ev":"mcp.call.refused","session":"s-c1","key":"flaky.echo","at":"not in layer 2","message":"mcp.flaky.echo: MCP server \"flaky\" is not connected: connection timed out after 2000ms"}
+{"t":1794687389839,"pid":2559276,"ev":"mcp.call.routed","session":"s-c1","key":"searchTools","to":2}
+{"t":1794687389840,"pid":2559276,"ev":"script.mark","session":"s-c1","label":"m2"}
+{"t":1794687389853,"pid":2559276,"ev":"mcp.gateClosed","label":"chad mcp restart","layer":2,"inflight":[]}
+{"t":1794687389853,"pid":2559276,"ev":"mcp.drained","label":"chad mcp restart","ms":0,"interrupted":[]}
+{"t":1794687389854,"pid":2559498,"ev":"server.stdinEnded","server":"fs"}
+{"t":1794687389854,"pid":2559498,"ev":"server.exit","server":"fs","code":0}
+{"t":1794687389862,"pid":2559276,"ev":"mcp.closed","label":"chad mcp restart","layer":2,"ms":9}
+{"t":1794687390062,"pid":2559962,"ev":"server.start","server":"fs","label":"v3","mode":"stdio","connectMs":0,"tools":["store"]}
+{"t":1794687390063,"pid":2559963,"ev":"server.start","server":"flaky","label":"f2","mode":"stdio","connectMs":60000,"tools":["echo"]}
+{"t":1794687390068,"pid":2559962,"ev":"server.connected","server":"fs"}
+{"t":1794687393872,"pid":2559963,"ev":"server.sigterm","server":"flaky"}
+{"t":1794687393872,"pid":2559963,"ev":"server.exit","server":"flaky","code":0}
+{"t":1794687393882,"pid":2559276,"ev":"mcp.connected","layer":3,"why":"chad mcp restart","ms":4020,"servers":{"fs":"connected, 1 tools","flaky":"failed: connection timed out after 2000ms"}}
+{"t":1794687393882,"pid":2559276,"ev":"mcp.ready","label":"chad mcp restart","layer":3,"generation":3,"waitedMs":4029,"interrupted":[],"runningTurns":["s-c1"]}
+{"t":1794687393882,"pid":2559276,"ev":"cli.mcp","label":"chad mcp restart","layer":3,"generation":3,"waitedMs":4029,"interrupted":[],"runningTurns":["s-c1"]}
+{"t":1794687393883,"pid":2559276,"ev":"mcp.call.refused","session":"s-c1","key":"fs.echo","at":"not in layer 3","message":"mcp.fs.echo: \"fs\" no longer lists this tool."}
+{"t":1794687393887,"pid":2559276,"ev":"brain.scriptOutput","session":"s-c1","output":"OK \"v1 fs pid 2559471 token none: stored \\\"42\\\" (string)\"\nOK \"g1 gone pid 2559472 token none: 1\"\nOK \"f1 flaky pid 2559473 token none: 1\"\nOK \"v1 fs pid 2559471 token none: slow 1\"\nERR mcp.gone.echo: MCP server \"gone\" was removed from mcp.json.\nERR mcp.fs.slow: \"fs\" no longer lists this tool.\nERR mcp.fs.store: Expected number\n  at [\"n\"]\nOK \"v2 fs pid 2559498 token none: stored 42 (number)\"\nERR mcp.flaky.echo: MCP server \"flaky\" is not connected: connection timed out after 2000ms\nSEARCH \"declare namespace mcp.fs {\\n  /** Echo the text back. */\\n  function echo(options: {\\n      readonly text: str"}
+{"t":1794687393941,"pid":2559276,"ev":"turn.end","key":"message/test:c1/m4","session":"s-c1","turn":"588d1e57-8a41-42a0-9590-23b1d7e897a8","outcome":"Answered","text":"RESULTS [\"OK \\\"v1 fs pid 2559471 token none: stored \\\\\\\"42\\\\\\\" (string)\\\"\\nOK \\\"g1 gone pid 2559472 token none: 1\\\"\\nOK \\\"f1 flaky pid 2559473 token none: 1\\\"\\nOK \\\"v1 fs pid 2559471 token none: slow 1\\\"\\nERR mcp.gone.echo: MCP server \\\"gone\\\" was removed from mcp.json.\\nERR mcp.fs.slow: \\\"fs\\\" no longer lists this tool.\\nERR mcp.fs.store: Expected number\\n  at [\\\"n\\\"]\\nOK \\\"v2 fs pid 2559498 token none: stored 42 (number)\\\"\\nERR mcp.flaky.echo: MCP server \\\"flaky\\\" is not connected: connection timed out after 2000ms\\nSEARCH \\\"declare namespace mcp.fs {\\\\n  /** Echo the text back. */\\\\n  function echo(options: {\\\\n      readonly text: string;\\\\n  }): Promise<string>\\\\n\\\\n  /** Store a value. */\\\\n  function store(options: {\\\\n      readonly n: number;\\\\n  }): Promise<string>\\\\n}\\\"\\nERR mcp.fs.echo: \\\"fs\\\" no longer lists this tool.\\n\"]"}
+{"t":1794687393973,"pid":2559276,"ev":"answer","who":"A","key":"message/test:c1/m4","text":"RESULTS [\"OK \\\"v1 fs pid 2559471 token none: stored \\\\\\\"42\\\\\\\" (string)\\\"\\nOK \\\"g1 gone pid 2559472 token none: 1\\\"\\nOK \\\"f1 flaky pid 2559473 token none: 1\\\"\\nOK \\\"v1 fs pid 2559471 token none: slow 1\\\"\\nERR mcp.gone.echo: MCP server \\\"gone\\\" was removed from mcp.json.\\nERR mcp.fs.slow: \\\"fs\\\" no longer lists this tool.\\nERR mcp.fs.store: Expected number\\n  at [\\\"n\\\"]\\nOK \\\"v2 fs pid 2559498 token none: stored 42 (number)\\\"\\nERR mcp.flaky.echo: MCP server \\\"flaky\\\" is not connected: connection timed out after 2000ms\\nSEARCH \\\"declare namespace mcp.fs {\\\\n  /** Echo the text back. */\\\\n  function echo(options: {\\\\n      readonly text: string;\\\\n  }): Promise<string>\\\\n\\\\n  /** Store a value. */\\\\n  function store(options: {\\\\n      readonly n: number;\\\\n  }): Promise<string>\\\\n}\\\"\\nERR mcp.fs.echo: \\\"fs\\\" no longer lists this tool.\\n\"]"}
+{"t":1794687393974,"pid":2559276,"ev":"status","mcp":{"layer":3,"rebuilding":null,"servers":{"fs":"connected","flaky":"failed: connection timed out after 2000ms"}}}
+{"t":1794687393974,"pid":2559276,"ev":"scenario.end","name":"mcp-removed","phase":"1"}
+{"t":1794687393974,"pid":2559276,"ev":"stop.abandonSwap","running":false,"swapping":null}
+{"t":1794687393992,"pid":2559276,"ev":"stop.entityLayersClosed"}
+{"t":1794687397677,"pid":2559276,"ev":"stop.runnerClosed"}
+{"t":1794687397677,"pid":2559276,"ev":"hooks.draining","pending":0}
+{"t":1794687397677,"pid":2559276,"ev":"hooks.drained"}
+{"t":1794687397678,"pid":2559962,"ev":"server.stdinEnded","server":"fs"}
+{"t":1794687397678,"pid":2559962,"ev":"server.exit","server":"fs","code":0}
+{"t":1794687397687,"pid":2559276,"ev":"mcp.closed","label":"graceful stop","layer":3,"ms":10}
+{"t":1794687397687,"pid":2559276,"ev":"plugins.closed"}
+{"t":1794687397735,"pid":2559276,"ev":"process.exit","code":0,"signal":null}

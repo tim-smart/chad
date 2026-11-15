@@ -1,0 +1,41 @@
+local /home/tim/.local/share/containers/storage/volumes/chadfacts-vol/_data
+################ named volume (local driver)  (-v chadfacts-vol:/data)
+A logs: HELD by 1
+A fs of /data: /dev/sda       ext4 527324856 373851172 153457300  71% /data /home/tim/.local/share/containers/storage/volumes/chadfacts-vol/_data /data rw,nosuid,nodev,relatime - ext4 /dev/sda rw 
+A /proc/locks: 5: POSIX  ADVISORY  WRITE 1 08:00:28311746 1073741824 1073742335;
+1. B (second container, same volume) hold.mjs -> expect REFUSED:
+   REFUSED: ERR_SQLITE_ERROR database is locked
+2. B test.mjs -> expect held:
+   held (database is locked)
+   test took 3.648481 ms
+3. podman exec in A hold.mjs -> expect REFUSED:
+   REFUSED: ERR_SQLITE_ERROR database is locked
+4. podman exec in A test.mjs -> expect held:
+   held (database is locked)
+   test took 3.675973 ms
+5. podman kill A (SIGKILL)
+   A state: exited exit=137
+6. B test.mjs after kill -> expect free:
+   free
+   test took 3.71803 ms
+7. B hold.mjs after kill -> expect HELD:
+   HELD by 1
+   files: drwxr-xr-x 2 root root 4096 Nov 14 10:36 .;drwxr-xr-x 4 root root 4096 Nov 14 10:36 ..;-rw-r--r-- 1 root root    0 Nov 14 10:36 daemon.lock;
+---- unix socket /data/run/chad.sock
+A logs: listening on /data/run/chad.sock mode 755 uid 0
+8. client via podman exec in A:
+   CONNECTED: hello from server pid 1 uid 0
+9. client from container B (same volume, separate network namespace):
+   CONNECTED: hello from server pid 1 uid 0
+10. client from container B as uid 1000 (--user node):
+   CONNECT ERROR: EACCES connect EACCES /data/run/chad.sock
+11. podman kill A, then socket file left behind?
+   drwxr-xr-x 2 root root 4096 Nov 14 10:36 .
+   drwxr-xr-x 4 root root 4096 Nov 14 10:36 ..
+   srwxr-xr-x 1 root root    0 Nov 14 10:36 chad.sock
+   CONNECT ERROR: ECONNREFUSED connect ECONNREFUSED /data/run/chad.sock
+12. new server on the stale path without unlink:
+   LISTEN ERROR: EADDRINUSE listen EADDRINUSE: address already in use /data/run/chad.sock
+13. new server on the stale path with unlink first:
+   listening on /data/run/chad.sock mode 755 uid 0
+   CONNECTED: hello from server pid 1 uid 0

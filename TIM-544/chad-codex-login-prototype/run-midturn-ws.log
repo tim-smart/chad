@@ -1,0 +1,32 @@
+scenario midturn, model gpt-6-astra/low, node v26.8.2, clanka 0.27.0
+
+=== ws: a first turn, logged in
+[   0.1s] thread-ws turn starts: Reply with the single word: one
+[   2.2s] thread-ws answer: one
+[   2.2s] thread-ws tokens: input 1791, cached 0; per model call: 1791 in / 0 cached
+
+=== ws: logout while a script runs, the socket stays open
+[   2.2s] thread-ws turn starts: Run exactly this script and tell me what it printed: await sleep(5000); console.log('slept')
+[   4.6s] host      logout called on the shared CodexAuth while the script runs
+[  10.9s] thread-ws answer: slept
+[  10.9s] thread-ws tokens: input 3714, cached 1664; per model call: 1825 in / 1664 cached, 1889 in / 0 cached
+
+=== ws: still logged out, a script outlasts the socket's 60s idle time, TurnTimeout 15s, 40s login timeout
+[  10.9s] thread-ws turn starts: Run exactly this script and tell me what it printed: await sleep(70000); console.log('slept')
+[  82.9s] onCode    code #1 issued. CurrentSession inside onCode: thread-ws, ownerPresent true
+[  82.9s] discord   to thread-ws: Open https://auth.openai.com/codex/device and enter ****-***EX
+[  97.8s] thread-ws clanka retries the model call (#1): TurnTimeout was reached
+[ 112.9s] thread-ws clanka retries the model call (#2): TurnTimeout was reached
+[ 122.8s] wrapper   the shared wait ended: failure: Login timed out
+[ 122.8s] thread-ws turn failed, after 111.9s, model retries 2: defect: Login timed out
+[ 122.8s] thread-ws history: 6 messages before the turn, 9 after it failed
+
+=== ws: the next owner message, chad's token check before send
+[ 122.8s] thread-ws turn starts: Reply with the single word: two
+[ 123.0s] onCode    code #2 issued. CurrentSession inside onCode: thread-ws, ownerPresent true
+[ 123.0s] discord   to thread-ws: Open https://auth.openai.com/codex/device and enter ****-***7D
+[ 162.8s] wrapper   the shared wait ended: failure: Login timed out
+[ 162.8s] discord   to thread-ws: -# failure: Login timed out
+[ 162.8s] thread-ws turn ended before send, after 40.0s
+[ 162.8s] summary   device codes issued: 2; auth.openai.com requests: /api/accounts/deviceauth/usercode x2, /api/accounts/deviceauth/token x10
+[ 162.8s] host      token file in the store after the run: false

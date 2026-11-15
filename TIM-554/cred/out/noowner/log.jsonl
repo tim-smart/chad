@@ -1,0 +1,49 @@
+{"t":1794687651289,"pid":2589091,"ev":"scenario.start","name":"noowner","phase":"1"}
+{"t":1794687652031,"pid":2589091,"ev":"secret.saved","name":"SITE_PASSWORD","via":"cli","kind":"plain","replaced":false,"short":false}
+{"t":1794687652073,"pid":2589091,"ev":"cli","label":"set SITE_PASSWORD","args":["secret","set","SITE_PASSWORD","--note","local test form, user tim"],"code":0,"stdout":"Saved SITE_PASSWORD\n","stderr":"","ms":782}
+{"t":1794687652785,"pid":2589091,"ev":"secret.saved","name":"QUOTED","via":"cli","kind":"plain","replaced":false,"short":false}
+{"t":1794687652817,"pid":2589091,"ev":"cli","label":"set QUOTED","args":["secret","set","QUOTED"],"code":0,"stdout":"Saved QUOTED\n","stderr":"","ms":743}
+{"t":1794687653347,"pid":2589091,"ev":"secret.saved","name":"SITE_TOTP","via":"cli","kind":"totp","replaced":false,"short":false}
+{"t":1794687653375,"pid":2589091,"ev":"cli","label":"set SITE_TOTP","args":["secret","set","SITE_TOTP","--totp"],"code":0,"stdout":"Saved SITE_TOTP\n","stderr":"","ms":558}
+{"t":1794687653931,"pid":2589091,"ev":"secret.saved","name":"TINY","via":"cli","kind":"plain","replaced":false,"short":true}
+{"t":1794687653965,"pid":2589091,"ev":"cli","label":"set TINY","args":["secret","set","TINY"],"code":0,"stdout":"Saved TINY\n","stderr":"warning: TINY is under 8 characters, so it will not be masked\n","ms":590}
+{"t":1794687654026,"pid":2589091,"ev":"session.activated","thread":"c1","session":"s-c1"}
+{"t":1794687654046,"pid":2589091,"ev":"turn.start","key":"plugin/ea8797bb-cad8-4032-a0e2-a034ab439f83","session":"s-c1","turn":"b5e56c19-05f2-40d4-b340-66cfcc85eaa0","origin":"Plugin"}
+{"t":1794687654060,"pid":2589091,"ev":"agent.built","session":"s-c1","wrap":false,"mcp":false}
+{"t":1794687654093,"pid":2589091,"ev":"model.call","call":1,"messages":2,"sees":[],"seesMasked":[],"tail":[]}
+{"t":1794687654101,"pid":2589091,"ev":"chat.edited","thread":"c1","messageId":"m4","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request CRON_PW -m 'the nightly job needs it'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687654159,"pid":2589091,"ev":"spawner.spawn","session":"s-c1","command":"bash","args":["-c","chad secret request CRON_PW -m 'the nightly job needs it'"]}
+{"t":1794687654638,"pid":2589091,"ev":"request.received","session":"s-c1","name":"CRON_PW","kind":"plain","noWait":false,"ownerPresent":false}
+{"t":1794687654640,"pid":2589091,"ev":"request.posted","thread":"c1","name":"CRON_PW","kind":"plain","messageId":"m5","ping":true}
+{"t":1794687654678,"pid":2589091,"ev":"brain.scriptOutput","session":"s-c1","output":"[20:20:54.157] INFO (#104): Calling \"bash\" { command: \"chad secret request CRON_PW -m 'the nightly job needs it'\", timeoutMs: 330000 }\nERR Command failed with exit code 1: chad secret request: asked for CRON_PW, not waiting: no owner is present in this turn\n\n"}
+{"t":1794687654703,"pid":2589091,"ev":"model.call","call":2,"messages":4,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result"]}
+{"t":1794687654705,"pid":2589091,"ev":"chat.edited","thread":"c1","messageId":"m4","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request CRON_PW -m 'the nightly job needs it'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687654744,"pid":2589091,"ev":"spawner.spawn","session":"s-c1","command":"bash","args":["-c","chad secret request CRON_PW -m 'the nightly job needs it'"]}
+{"t":1794687655182,"pid":2589091,"ev":"request.received","session":"s-c1","name":"CRON_PW","kind":"plain","noWait":false,"ownerPresent":false}
+{"t":1794687655182,"pid":2589091,"ev":"request.repeat","thread":"c1","name":"CRON_PW","askedAt":1794687654640}
+{"t":1794687655215,"pid":2589091,"ev":"brain.scriptOutput","session":"s-c1","output":"[20:20:54.744] INFO (#127): Calling \"bash\" { command: \"chad secret request CRON_PW -m 'the nightly job needs it'\", timeoutMs: 330000 }\nERR Command failed with exit code 1: chad secret request: already asked at 20:20:54 UTC\n\n"}
+{"t":1794687655259,"pid":2589091,"ev":"model.call","call":3,"messages":6,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result","assistant:call","tool:result"]}
+{"t":1794687655262,"pid":2589091,"ev":"chat.edited","thread":"c1","messageId":"m4","markdown":"-# running\ntry {\nconst r = await bash({\"command\":\"chad secret request --code -m 'sms'\",\"timeoutMs\":330000});\nconsole.log('OUT[' + r.status + '] ' + r.output)\n} catch (e) {\nconsole.log('ERR ' + (e && e.message ? e.message : String(e)))\n}","why":"status","ok":true}
+{"t":1794687655322,"pid":2589091,"ev":"spawner.spawn","session":"s-c1","command":"bash","args":["-c","chad secret request --code -m 'sms'"]}
+{"t":1794687655744,"pid":2589091,"ev":"request.received","session":"s-c1","kind":"code","noWait":false,"ownerPresent":false}
+{"t":1794687655770,"pid":2589091,"ev":"brain.scriptOutput","session":"s-c1","output":"[20:20:55.322] INFO (#148): Calling \"bash\" { command: \"chad secret request --code -m 'sms'\", timeoutMs: 330000 }\nERR Command failed with exit code 1: chad secret request --code: no owner is present in this turn, so nobody can type a code. Nothing was posted.\n\n"}
+{"t":1794687655790,"pid":2589091,"ev":"model.call","call":4,"messages":8,"sees":[],"seesMasked":[],"tail":["assistant:call","tool:result","assistant:call","tool:result","assistant:call","tool:result"]}
+{"t":1794687655890,"pid":2589091,"ev":"turn.end","key":"plugin/ea8797bb-cad8-4032-a0e2-a034ab439f83","session":"s-c1","turn":"b5e56c19-05f2-40d4-b340-66cfcc85eaa0","outcome":{"_tag":"Answered","text":"RESULTS [\"[20:20:54.157] INFO (#104): Calling \\\"bash\\\" { command: \\\"chad secret request CRON_PW -m 'the nightly job needs it'\\\", timeoutMs: 330000 }\\nERR Command failed with exit code 1: chad secret request: asked for CRON_PW, not waiting: no owner is present in this turn\\n\\n\",\"[20:20:54.744] INFO (#127): Calling \\\"bash\\\" { command: \\\"chad secret request CRON_PW -m 'the nightly job needs it'\\\", timeoutMs: 330000 }\\nERR Command failed with exit code 1: chad secret request: already asked at 20:20:54 UTC\\n\\n\",\"[20:20:55.322] INFO (#148): Calling \\\"bash\\\" { command: \\\"chad secret request --code -m 'sms'\\\", timeoutMs: 330000 }\\nERR Command failed with exit code 1: chad secret request --code: no owner is present in this turn, so nobody can type a code. Nothing was posted.\\n\\n\"]"}}
+{"t":1794687655939,"pid":2589091,"ev":"plugin.turn","ms":1972,"posted":1,"chat":["-# running\ntry {\nconst r = await bash({\"command\":\"chad secre","<@owner-1> The agent in session s-c1 asks for a secret named","RESULTS [\"[20:20:54.157] INFO (#104): Calling \\\"bash\\\" { com"]}
+{"t":1794687656331,"pid":2589091,"ev":"request.received","session":"s-c1","name":"LATE_PW","kind":"plain","noWait":false,"ownerPresent":false}
+{"t":1794687656332,"pid":2589091,"ev":"request.posted","thread":"c1","name":"LATE_PW","kind":"plain","messageId":"m7","ping":true}
+{"t":1794687656356,"pid":2589091,"ev":"cli","label":"outlived/stored","args":["secret","request","LATE_PW"],"code":1,"stdout":"","stderr":"chad secret request: asked for LATE_PW, not waiting: no owner is present in this turn\n","ms":417}
+{"t":1794687656714,"pid":2589091,"ev":"request.received","session":"s-c1","kind":"code","noWait":false,"ownerPresent":false}
+{"t":1794687656734,"pid":2589091,"ev":"cli","label":"outlived/code","args":["secret","request","--code"],"code":1,"stdout":"","stderr":"chad secret request --code: no owner is present in this turn, so nobody can type a code. Nothing was posted.\n","ms":378}
+{"t":1794687656851,"pid":2589091,"ev":"cli","label":"nosession","args":["secret","request","TERMINAL_PW"],"code":1,"stdout":"","stderr":"chad secret request: there is no chat thread to ask in here. Save it yourself with: chad secret set TERMINAL_PW\n","ms":116}
+{"t":1794687656977,"pid":2589091,"ev":"cli","label":"daemon","args":["secret","request","TERMINAL_PW"],"code":1,"stdout":"","stderr":"chad secret request: there is no chat thread to ask in here. Save it yourself with: chad secret set TERMINAL_PW\n","ms":126}
+{"t":1794687657368,"pid":2589091,"ev":"cli","label":"unknown-session","args":["secret","request","TERMINAL_PW"],"code":1,"stdout":"","stderr":"chad secret request: there is no chat thread to ask in here. Save it yourself with: chad secret set TERMINAL_PW\n","ms":391}
+{"t":1794687657369,"pid":2589091,"ev":"user.posted","who":"B","key":"message/test:c2/m8","length":17}
+{"t":1794687657370,"pid":2589091,"ev":"request.posted","thread":"c2","name":"FROM_CHAT","kind":"plain","messageId":"m10","ping":false}
+{"t":1794687657370,"pid":2589091,"ev":"gateway.secretCommand","thread":"c2","name":"FROM_CHAT"}
+{"t":1794687657370,"pid":2589091,"ev":"user.posted","who":"B","key":"message/test:c2/m11","length":7}
+{"t":1794687657371,"pid":2589091,"ev":"gateway.secretCommand","thread":"c2"}
+{"t":1794687657371,"pid":2589091,"ev":"user.posted","who":"B","key":"message/test:c2/m14","length":16}
+{"t":1794687657371,"pid":2589091,"ev":"gateway.secretCommand","thread":"c2","name":"bad-name"}
+{"t":1794687657936,"pid":2589091,"ev":"slash","turnsStarted":0,"chat":["owner-1: /secret FROM_CHAT","bot: Press Enter to save a secret named FROM_CHAT.","owner-1: /secret","bot: SITE_PASSWORD  plain  local test form, user tim  2026-11-14\nQUOTED  pl","owner-1: /secret bad-name","bot: A secret's name must match ^[A-Z][A-Z0-9_]*$"],"posted":1}
+{"t":1794687657937,"pid":2589091,"ev":"scenario.end","name":"noowner","phase":"1"}

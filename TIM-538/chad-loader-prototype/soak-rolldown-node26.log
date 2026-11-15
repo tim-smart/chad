@@ -1,0 +1,15 @@
+loader rolldown   runtime node v26.8.2
+300 applies, 600 plugin reloads (big and dice change every time, ticker never does)
+median ms per apply: snapshot 14.8, tsc 222.8, load+build 13.3, commit+swap 19.8
+heap used: 30.58 MB -> 39.99 MB  (16.1 KB per plugin reload)
+rss:       256.58 MB -> 398.59 MB
+child processes: none
+old plugin modules collected: 600 of 600
+versions/ entries on disk: 1
+  live   -> versions/f7995defdd133d7b7bee8533cb6c68cd161e8a3b   commit f6a0c6a
+  plugin big      version f7995de  bundle 63d0de690c77  tools [bigTool0, bigTool1, bigTool2, bigTool3, bigTool4, bigTool5, bigTool6, bigTool7, bigTool8, bigTool9, bigTool10, bigTool11, bigTool12, bigTool13, bigTool14, bigTool15, bigTool16, bigTool17, bigTool18, bigTool19, bigTool20, bigTool21, bigTool22, bigTool23, bigTool24, bigTool25, bigTool26, bigTool27, bigTool28, bigTool29]
+  plugin dice     version f7995de  bundle 1de17150538e  tools [rollDice, whichEffect]
+  plugin ticker   version a16b7cc  bundle 1040f48113a2  tools []
+  rollDice({ sides: 6 }) = "run 300: a 6-sided die shows 3"
+  plugin's Effect.gen is the host's: true
+  work/ git status: clean

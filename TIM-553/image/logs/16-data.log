@@ -1,0 +1,7 @@
+PASS  [data]  CHAD_DATA=/srv/chad on a fresh named volume is refused by the owner check: the image only owns /data, so Docker makes the volume as root  (exit 1: chad serve: cannot write /srv/chad. chad runs as uid 1000, gid 1000 and /srv/chad is owned by uid 0, gid 0, mode 755. Give the volume to uid 1000, for example: chown -R 1000:1000 <volume> )
+PASS  [data]  CHAD_DATA=/srv/chad on a host directory owned by uid 1000: the daemon boots there, and warns for HOME, the npm prefix and the cache  (running, phase: ready data volume: ext4 (/dev/vda1 at /srv/chad) warning: HOME=/data/home is on the container's own filesystem, not on the volume at /srv/chad. What is installed there is lost with the container. In the chad image the volume is mounted at /data)
+PASS  [data]  the layout, the socket and the links follow CHAD_DATA, and docker exec finds the daemon  (cache db home logs repo run secrets sessions state /opt/chad/plugins ok )
+PASS  [data]  FOUND: HOME, the caches, the npm prefix and PATH do not follow it: they are fixed at /data by the image  (/data/home /data/cache /data/home/.npm-global 2 )
+PASS  [data]  FOUND: so an install lands on the container's own layer, outside the volume  (/data/home/.npm-global/bin/cowsay 0 overlay )
+PASS  [data]  FOUND: and it is gone once the container is replaced  (cowsay not found )
+NOTE  [data]  the directory a session's command runs in  (/srv/chad/sessions/s1 )

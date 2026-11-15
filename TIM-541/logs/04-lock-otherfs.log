@@ -1,0 +1,59 @@
+== host: sudo without password? sudo: The "no new privileges" flag is set, which prevents sudo from running as root.
+sudo: If sudo is running in a container, you may need to adjust the container configuration to disable the flag.
+no
+== host: block filesystems the kernel has registered: ext3 ext4 fuseblk vfat 
+== host: modprobe xfs/btrfs possible as this user? 
+
+################ tmpfs (bind mount of host /dev/shm/chadfacts-tmpfs)  (-v /dev/shm/chadfacts-tmpfs:/data)
+A logs: HELD by 1
+A fs of /data: tmpfs          tmpfs  32920692   176  32920516   1% /data /chadfacts-tmpfs /data rw,nosuid,nodev - tmpfs tmpfs rw,size=32920692k 
+A /proc/locks: 8: POSIX  ADVISORY  WRITE 1 00:21:542349 1073741824 1073742335;
+1. B (second container, same volume) hold.mjs -> expect REFUSED:
+   REFUSED: ERR_SQLITE_ERROR database is locked
+2. B test.mjs -> expect held:
+   held (database is locked)
+   test took 3.828115 ms
+3. podman exec in A hold.mjs -> expect REFUSED:
+   REFUSED: ERR_SQLITE_ERROR database is locked
+4. podman exec in A test.mjs -> expect held:
+   held (database is locked)
+   test took 3.538705 ms
+5. podman kill A (SIGKILL)
+   A state: exited exit=137
+6. B test.mjs after kill -> expect free:
+   free
+   test took 3.719833 ms
+7. B hold.mjs after kill -> expect HELD:
+   HELD by 1
+
+################ tmpfs named volume (--opt type=tmpfs)  (-v chadfacts-tmpfsvol:/data)
+A logs: HELD by 1
+A fs of /data: tmpfs          tmpfs     65536     4     65532   1% /data / /data rw,nosuid,nodev,relatime - tmpfs tmpfs rw,size=65536k,uid=1000,gid=100 
+A /proc/locks: 8: POSIX  ADVISORY  WRITE 1 00:c1:4 1073741824 1073742335;
+1. B (second container, same volume) hold.mjs -> expect REFUSED:
+   REFUSED: ERR_SQLITE_ERROR database is locked
+2. B test.mjs -> expect held:
+   held (database is locked)
+   test took 3.880192 ms
+3. podman exec in A hold.mjs -> expect REFUSED:
+   REFUSED: ERR_SQLITE_ERROR database is locked
+4. podman exec in A test.mjs -> expect held:
+   held (database is locked)
+   test took 3.610669 ms
+5. podman kill A (SIGKILL)
+   A state: exited exit=137
+6. B test.mjs after kill -> expect free:
+   file:///s/test.mjs:3
+   const db = new DatabaseSync(process.argv[2], { timeout: 0 })
+              ^
+   
+
+################ overlay (container rootfs, exec only)
+A logs: HELD by 1
+A fs of /ovl: overlay        overlay 527324856 373852444 153456028  71% /
+exec hold.mjs -> expect REFUSED: REFUSED: ERR_SQLITE_ERROR database is locked
+exec test.mjs -> expect held: held (database is locked) test took 3.578519 ms 
+HELD by 6
+holder is a background child (pid 6); test -> held (database is locked)
+after kill -9 of holder; test -> free
+after kill -9 of holder; hold -> HELD by 32

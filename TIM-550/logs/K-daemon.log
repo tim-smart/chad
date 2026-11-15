@@ -1,0 +1,9 @@
+10:45:27.686 [daemon 3464513] lock taken
+10:45:27.692 [daemon 3464513] listening on state/chad.sock mode 600
+10:45:28.125 [daemon 3464513] apply#1 "k1" (client 0) received
+10:45:28.125 [daemon 3464513] apply#1 "k1" (client 0) step snapshot
+10:45:28.226 [daemon 3464513] apply#1 "k1" (client 0) step check
+10:45:28.327 [daemon 3464513] apply#1 "k1" (client 0) step load
+10:45:28.628 [daemon 3464513] apply#1 "k1" (client 0) step commit
+10:45:31.632 [daemon 3464513] apply#1 "k1" (client 0) step swap
+10:45:31.632 [daemon 3464513] apply#1 "k1" (client 0) handler exit: INTERRUPTED

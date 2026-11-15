@@ -1,0 +1,29 @@
+
+### bundle with esbuild
+
+  ../dist/chad.mjs  709.6kb
+
+⚡ Done in 58ms
+
+  ../dist/chad.min.mjs  311.7kb
+
+⚡ Done in 79ms
+-rw-r--r-- 1 tim users 319218 Nov 14 10:45 ../dist/chad.min.mjs
+-rw-r--r-- 1 tim users 726675 Nov 14 10:45 ../dist/chad.mjs
+
+### bundle works against the daemon?
+healthy: lock held and daemon answered ping
+exit=0
+{"pid":3467154,"version":"0.1.0-proto","queue":"idle"}
+exit=0
+
+### node v26.8.2, 16 cpus, x86_64
+(c) empty script                                     median 33.3 ms  min 31.3  max 41.7  exit 0
+(a) health, unbundled .ts                            median 429.2 ms  min 422.0  max 435.7  exit 0
+(b) health, esbuild bundle                           median 128.0 ms  min 125.2  max 148.6  exit 0
+(b2) health, esbuild bundle minified                 median 118.3 ms  min 116.4  max 134.4  exit 0
+(a+cc) health, unbundled .ts + NODE_COMPILE_CACHE    median 324.6 ms  min 315.1  max 338.1  exit 0
+(b+cc) health, bundle + NODE_COMPILE_CACHE           median 110.9 ms  min 106.6  max 122.2  exit 0
+--help, unbundled .ts                                median 425.0 ms  min 410.6  max 440.1  exit 0
+--help, esbuild bundle                               median 113.6 ms  min 110.4  max 128.2  exit 0
+--help, bundle + NODE_COMPILE_CACHE                  median 96.2 ms  min 93.6  max 105.4  exit 0

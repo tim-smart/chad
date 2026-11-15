@@ -1,0 +1,32 @@
+{"t":1794652334612,"pid":3365415,"ev":"scenario.start","name":"latency","phase":"1","variant":""}
+{"t":1794652334614,"pid":3365415,"ev":"user.posted","text":"sleep:200 cold","key":"message/test:c1/m2"}
+{"t":1794652334628,"pid":3365415,"ev":"gateway.saved","key":"message/test:c1/m2","ms":13}
+{"t":1794652334722,"pid":3365415,"ev":"session.activated","thread":"c1","session":"f62566eb-9fe5-4f14-864a-19babf55d772","activation":1}
+{"t":1794652334726,"pid":3365415,"ev":"message.delivered","key":"message/test:c1/m2","ms":111,"text":"sleep:200 cold"}
+{"t":1794652334788,"pid":3365415,"ev":"turn.start","key":"message/test:c1/m2","turn":"00ba9392-ac49-4368-a4d1-61e84e21d837","starts":1,"resumed":false}
+{"t":1794652334791,"pid":3365415,"ev":"status.posted","id":"m4"}
+{"t":1794652335018,"pid":3365415,"ev":"turn.end","key":"message/test:c1/m2","turn":"00ba9392-ac49-4368-a4d1-61e84e21d837","outcome":"Answered","compacted":false}
+{"t":1794652335042,"pid":3365415,"ev":"user.posted","text":"sleep:200 warm","key":"message/test:c1/m6"}
+{"t":1794652335050,"pid":3365415,"ev":"gateway.saved","key":"message/test:c1/m6","ms":8}
+{"t":1794652335058,"pid":3365415,"ev":"message.delivered","key":"message/test:c1/m6","ms":16,"text":"sleep:200 warm"}
+{"t":1794652335070,"pid":3365415,"ev":"turn.start","key":"message/test:c1/m6","turn":"9395fc3e-dda7-44bc-8ed2-4e5c11c39889","starts":1,"resumed":false}
+{"t":1794652335071,"pid":3365415,"ev":"status.posted","id":"m8"}
+{"t":1794652335295,"pid":3365415,"ev":"turn.end","key":"message/test:c1/m6","turn":"9395fc3e-dda7-44bc-8ed2-4e5c11c39889","outcome":"Answered","compacted":false}
+{"t":1794652335303,"pid":3365415,"ev":"user.posted","text":"sleep:200 warm again","key":"message/test:c1/m10"}
+{"t":1794652335310,"pid":3365415,"ev":"gateway.saved","key":"message/test:c1/m10","ms":7}
+{"t":1794652335319,"pid":3365415,"ev":"message.delivered","key":"message/test:c1/m10","ms":16,"text":"sleep:200 warm again"}
+{"t":1794652335332,"pid":3365415,"ev":"turn.start","key":"message/test:c1/m10","turn":"23ca0e3c-289e-4ff6-84b5-ad3defc1267a","starts":1,"resumed":false}
+{"t":1794652335332,"pid":3365415,"ev":"status.posted","id":"m12"}
+{"t":1794652335555,"pid":3365415,"ev":"turn.end","key":"message/test:c1/m10","turn":"23ca0e3c-289e-4ff6-84b5-ad3defc1267a","outcome":"Answered","compacted":false}
+{"t":1794652335579,"pid":3365415,"ev":"pluginTurn.delivered","key":"start/9880e435-c940-410a-bc72-161088407706","ms":16}
+{"t":1794652335592,"pid":3365415,"ev":"turn.start","key":"start/9880e435-c940-410a-bc72-161088407706","turn":"ae96779b-03a2-441a-bf8d-eb5faaa39b65","starts":1,"resumed":false}
+{"t":1794652335593,"pid":3365415,"ev":"status.posted","id":"m14"}
+{"t":1794652335813,"pid":3365415,"ev":"turn.end","key":"start/9880e435-c940-410a-bc72-161088407706","turn":"ae96779b-03a2-441a-bf8d-eb5faaa39b65","outcome":"Answered","compacted":false}
+{"t":1794652335822,"pid":3365415,"ev":"turns.start.outcome","outcome":{"_tag":"Answered","text":"done: sleep:200 plugin turn"}}
+{"t":1794652335823,"pid":3365415,"ev":"bot.messages","messages":["done: sleep:200 cold","done: sleep:200 warm","done: sleep:200 warm again","done: sleep:200 plugin turn"]}
+{"t":1794652335823,"pid":3365415,"ev":"scenario.end","name":"latency","phase":"1"}
+{"t":1794652335832,"pid":3365415,"ev":"session.passivated","thread":"c1","activation":1}
+{"t":1794652337933,"pid":3365415,"ev":"hooks.draining","pending":0}
+{"t":1794652337933,"pid":3365415,"ev":"hooks.drained"}
+{"t":1794652337933,"pid":3365415,"ev":"plugins.closed"}
+{"t":1794652337979,"pid":3365415,"ev":"process.exit","code":0,"signal":null}
