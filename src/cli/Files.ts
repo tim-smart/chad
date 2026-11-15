@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readFileSync } from "node:fs"
 import { dirname } from "node:path"
-import { Duration, Effect, Result, SemVer } from "effect"
+import { Duration, Effect, FileSystem, Result, SemVer } from "effect"
+import * as Errno from "../Errno.ts"
 import * as Lock from "../Lock.ts"
 import * as Messages from "../Messages.ts"
 import * as Paths from "../Paths.ts"
@@ -19,20 +19,29 @@ export const writable = Effect.fn("Files.writable")(function* (
   command: string,
 ) {
   const environment = yield* Environment
+  const fs = yield* FileSystem.FileSystem
   const failed = (message: string) =>
     new Failure({ code: ExitCode.failed, message })
-  if (!existsSync(environment.data)) {
+  const present = yield* fs
+    .exists(environment.data)
+    .pipe(Effect.catch(() => Effect.succeed(false)))
+  if (!present) {
     return yield* failed(Messages.volumeMissing(command, environment.data))
   }
   const path = Paths.version(environment.data)
-  let text: string
-  try {
-    text = readFileSync(path, "utf8").trim()
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code ?? "unknown"
-    if (code === "ENOENT") return
-    return yield* failed(Messages.unreadable(command, path, code))
-  }
+  const read = yield* fs
+    .readFileString(path)
+    .pipe(
+      Effect.catchTag("PlatformError", (error) =>
+        error.reason._tag === "NotFound"
+          ? Effect.succeed(undefined)
+          : Effect.fail(
+              failed(Messages.unreadable(command, path, Errno.code(error))),
+            ),
+      ),
+    )
+  if (read === undefined) return
+  const text = read.trim()
   const volume = SemVer.parse(text)
   if (Result.isFailure(volume)) {
     // What the file holds is no version, so nothing says this CLI is new enough.
@@ -51,10 +60,13 @@ export const writable = Effect.fn("Files.writable")(function* (
 export const locked = <A, E, R>(
   command: string,
   write: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E | Failure, R | Environment> =>
+): Effect.Effect<A, E | Failure, R | Environment | FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const environment = yield* Environment
-    mkdirSync(dirname(environment.lock), { recursive: true })
+    const fs = yield* FileSystem.FileSystem
+    yield* Effect.orDie(
+      fs.makeDirectory(dirname(environment.lock), { recursive: true }),
+    )
     const release = Lock.take(environment.lock, Duration.zero)
     if (release === undefined) {
       return yield* new Failure({

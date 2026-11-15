@@ -1,6 +1,6 @@
-import { readFileSync } from "node:fs"
-import { Effect, Option, Redacted, Stdio, Stream } from "effect"
+import { Effect, FileSystem, Option, Redacted, Stdio, Stream } from "effect"
 import { Prompt } from "effect/cli"
+import * as Errno from "../Errno.ts"
 import * as Messages from "../Messages.ts"
 import { ExitCode, Failure } from "./Failure.ts"
 
@@ -16,18 +16,20 @@ export const read = Effect.fn("Token.read")(function* (
   const stdio = yield* Stdio.Stdio
   let token: string
   if (Option.isSome(file)) {
-    try {
-      token = readFileSync(file.value, "utf8")
-    } catch (error) {
-      return yield* new Failure({
-        code: ExitCode.failed,
-        message: Messages.unreadable(
-          command,
-          file.value,
-          (error as NodeJS.ErrnoException).code ?? "unknown",
-        ),
-      })
-    }
+    const fs = yield* FileSystem.FileSystem
+    token = yield* fs.readFileString(file.value).pipe(
+      Effect.mapError(
+        (error) =>
+          new Failure({
+            code: ExitCode.failed,
+            message: Messages.unreadable(
+              command,
+              file.value,
+              Errno.code(error),
+            ),
+          }),
+      ),
+    )
   } else if (yield* stdio.stdinIsTerminal) {
     token = yield* Prompt.run(
       Prompt.Hidden({ message: Messages.tokenPrompt() }),

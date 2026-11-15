@@ -67,7 +67,9 @@ export const make = <R = never>(
           full,
         )
         if (next.changed) {
-          yield* Connections.write(environment.data, next.connections)
+          yield* Effect.orDie(
+            Connections.write(environment.data, next.connections),
+          )
         }
         const made: Connections.Changed = { changed: next.changed, ...checked }
         return made

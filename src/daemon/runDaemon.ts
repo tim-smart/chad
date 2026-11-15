@@ -1,4 +1,3 @@
-import { mkdirSync, writeFileSync } from "node:fs"
 import { dirname } from "node:path"
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto"
 import * as NodeServices from "@effect/platform-node/NodeServices"
@@ -10,6 +9,7 @@ import {
   Duration,
   Effect,
   Exit,
+  FileSystem,
   Layer,
   Option,
   Scope,
@@ -88,7 +88,10 @@ const boot = Effect.fnUntraced(function* (
   environment: Environment.Environment,
   file: Logger.FileSink,
   state: Server.State,
+  /** Node's file system, paths and child processes, which the boot itself reads the volume with. */
+  platform: Context.Context<NodeServices.NodeServices>,
 ) {
+  const fs = yield* FileSystem.FileSystem
   const started = Date.now()
   const volume = Volume.make(environment.data, environment.socket)
   if (environment.unknownLogLevel !== undefined) {
@@ -100,18 +103,18 @@ const boot = Effect.fnUntraced(function* (
   }
 
   // Step 1. The two checks write nothing, and no lock is held, so their lines are on stdout only until step 2.
-  const unwritable = Volume.check(volume)
+  const unwritable = yield* Volume.check(volume)
   if (unwritable !== undefined) {
     yield* Logger.event("boot.refused", unwritable, { reason: "volume" })
     return 1
   }
-  state.filesystem = Filesystem.check(volume.data, environment.installs)
+  state.filesystem = yield* Filesystem.check(volume.data, environment.installs)
   for (const warning of state.filesystem) {
     yield* Logger.event("boot.filesystem", warning)
   }
 
   // Step 2. A boot that is refused the lock has touched nothing but `state/`, which holds the lock file.
-  mkdirSync(dirname(volume.lock), { recursive: true })
+  yield* fs.makeDirectory(dirname(volume.lock), { recursive: true })
   const release = Lock.take(volume.lock, inputs.timings.lockBusy)
   if (release === undefined) {
     yield* Logger.event("boot.refused", Messages.lockHeld(volume.data), {
@@ -119,10 +122,11 @@ const boot = Effect.fnUntraced(function* (
     })
     return 1
   }
-  // The scope's first finalizer runs last, so the lock outlives everything else the daemon closes.
+  // Only Node's own services are in the scope before this, and a scope closes in reverse, so the lock outlives
+  // everything the daemon opens.
   yield* Effect.addFinalizer(() => Effect.sync(release))
   // The log file is the daemon's from here on, and the lines stdout already has go into it first.
-  mkdirSync(dirname(volume.log), { recursive: true })
+  yield* fs.makeDirectory(dirname(volume.log), { recursive: true })
   file.open(volume.log)
   yield* Logger.event("boot.started", "chad serve holds the lock", {
     version,
@@ -131,7 +135,7 @@ const boot = Effect.fnUntraced(function* (
   })
 
   // Steps 3 and 4, the check for a newer state/version and the boot counter, belong here.
-  Volume.prepare(volume)
+  yield* Volume.prepare(volume)
 
   // The stored connections are read before the socket listens, so that status names them from its first answer.
   const stored = yield* StoredConnections.read(volume.data).pipe(
@@ -167,7 +171,7 @@ const boot = Effect.fnUntraced(function* (
   // The outside world comes before the database, which is opened for step 6.
   const world = yield* Layer.buildWithScope(
     Layer.mergeAll(
-      NodeServices.layer,
+      Layer.succeedContext(platform),
       NodeCrypto.layerDigest,
       inputs.httpClient,
       inputs.webSocketConstructor,
@@ -205,7 +209,7 @@ const boot = Effect.fnUntraced(function* (
       migrations: migrated.map(([id, name]) => `${id}_${name}`).join(","),
     })
   }
-  writeFileSync(volume.version, version + "\n")
+  yield* fs.writeFileString(volume.version, version + "\n")
 
   // Step 9.
   state.phase = "loading"
@@ -289,7 +293,9 @@ export const runDaemon = (inputs: DaemonInputs): Promise<number> => {
 
   const program = Effect.gen(function* () {
     const scope = yield* Scope.make()
-    const code = yield* boot(inputs, environment, file, state).pipe(
+    const platform = yield* Layer.buildWithScope(NodeServices.layer, scope)
+    const code = yield* boot(inputs, environment, file, state, platform).pipe(
+      Effect.provide(platform),
       Scope.provide(scope),
       Effect.catchCause((cause) =>
         Logger.event("boot.refused", "chad serve failed", {

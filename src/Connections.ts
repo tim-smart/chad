@@ -1,15 +1,10 @@
-import {
-  chmodSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-} from "node:fs"
 import { createConnection } from "node:net"
 import { dirname, join } from "node:path"
-import { Effect, Schema } from "effect"
+import { Effect, FileSystem, Schema } from "effect"
 import type { HttpClient } from "effect/http"
+import type { PlatformError } from "effect/PlatformError"
 import * as Discord from "./Discord.ts"
+import * as Errno from "./Errno.ts"
 
 /**
  * The stored chat connections: the file `secrets/connections.json`, and what a `connection` or `owner` command may
@@ -151,60 +146,67 @@ export const validName = (name: string): boolean => /^[a-z0-9-]+$/.test(name)
  * Reads the stored connections. A missing file is no connection. A file with a higher format number is refused before
  * anything else of it is read, because a newer chad may have given the list another shape.
  */
-export const read = (
+export const read = Effect.fnUntraced(function* (
   data: string,
-): Effect.Effect<ReadonlyArray<Connection>, Rejected> =>
-  Effect.suspend(() => {
-    let text: string
-    try {
-      text = readFileSync(path(data), "utf8")
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code ?? "unknown"
-      return code === "ENOENT"
-        ? Effect.succeed([])
-        : Effect.fail(rejected("unreadable", path(data), code))
-    }
-    let json: unknown
-    try {
-      json = JSON.parse(text)
-    } catch {
-      return Effect.fail(rejected("malformed", path(data)))
-    }
-    const found = Schema.decodeUnknownOption(
-      Schema.Struct({ format: Schema.Number }),
-    )(json)
-    if (found._tag === "Some" && found.value.format > format) {
-      return Effect.fail(
-        rejected("newer-format", path(data), String(found.value.format)),
-      )
-    }
-    return Schema.decodeUnknownEffect(Stored)(json).pipe(
-      Effect.map((stored) => stored.connections),
-      Effect.mapError(() => rejected("malformed", path(data))),
+): Effect.fn.Return<
+  ReadonlyArray<Connection>,
+  Rejected,
+  FileSystem.FileSystem
+> {
+  const fs = yield* FileSystem.FileSystem
+  const file = path(data)
+  const text = yield* fs
+    .readFileString(file)
+    .pipe(
+      Effect.catchTag("PlatformError", (error) =>
+        error.reason._tag === "NotFound"
+          ? Effect.succeed(undefined)
+          : Effect.fail(rejected("unreadable", file, Errno.code(error))),
+      ),
     )
-  })
+  if (text === undefined) return []
+  let json: unknown
+  try {
+    json = JSON.parse(text)
+  } catch {
+    return yield* Effect.fail(rejected("malformed", file))
+  }
+  const found = Schema.decodeUnknownOption(
+    Schema.Struct({ format: Schema.Number }),
+  )(json)
+  if (found._tag === "Some" && found.value.format > format) {
+    return yield* Effect.fail(
+      rejected("newer-format", file, String(found.value.format)),
+    )
+  }
+  return yield* Schema.decodeUnknownEffect(Stored)(json).pipe(
+    Effect.map((stored) => stored.connections),
+    Effect.mapError(() => rejected("malformed", file)),
+  )
+})
 
 /**
  * Writes the stored connections, by a temporary file and a rename. `secrets/` gets mode 0700 and the file 0600, each
  * by a chmod after it is made, and the process umask is left alone.
  */
-export const write = (
+export const write = Effect.fnUntraced(function* (
   data: string,
   connections: ReadonlyArray<Connection>,
-): Effect.Effect<void> =>
-  Effect.sync(() => {
-    const target = path(data)
-    mkdirSync(dirname(target), { recursive: true })
-    chmodSync(dirname(target), 0o700)
-    const temporary = `${target}.${process.pid}.tmp`
-    writeFileSync(
-      temporary,
-      JSON.stringify({ format, connections }, null, 2) + "\n",
-      { mode: 0o600 },
-    )
-    chmodSync(temporary, 0o600)
-    renameSync(temporary, target)
-  })
+): Effect.fn.Return<void, PlatformError, FileSystem.FileSystem> {
+  const fs = yield* FileSystem.FileSystem
+  const target = path(data)
+  const directory = dirname(target)
+  yield* fs.makeDirectory(directory, { recursive: true })
+  yield* fs.chmod(directory, 0o700)
+  const temporary = `${target}.${process.pid}.tmp`
+  yield* fs.writeFileString(
+    temporary,
+    JSON.stringify({ format, connections }, null, 2) + "\n",
+    { mode: 0o600 },
+  )
+  yield* fs.chmod(temporary, 0o600)
+  yield* fs.rename(temporary, target)
+})
 
 /** The list after a change, and whether the change made a difference. It fails with the reason a change is refused for. */
 export const apply = (

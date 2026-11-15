@@ -1,5 +1,5 @@
-import { readFileSync, realpathSync } from "node:fs"
 import { basename, dirname, join } from "node:path"
+import { Effect, FileSystem } from "effect"
 import * as Messages from "../Messages.ts"
 
 /** One line of `/proc/self/mountinfo`: where a filesystem is mounted and what type it is. */
@@ -106,31 +106,51 @@ export const warnings = (input: {
 }
 
 /** Where a path really is. A part that does not exist yet is kept as it is written, under what does exist. */
-export const real = (path: string): string => {
-  try {
-    return realpathSync(path)
-  } catch {
+export const real: (
+  path: string,
+) => Effect.Effect<string, never, FileSystem.FileSystem> = Effect.fnUntraced(
+  function* (path: string) {
+    const fs = yield* FileSystem.FileSystem
+    const found = yield* fs
+      .realPath(path)
+      .pipe(Effect.catch(() => Effect.succeed(undefined)))
+    if (found !== undefined) return found
     const parent = dirname(path)
-    return parent === path ? path : join(real(parent), basename(path))
-  }
-}
+    return parent === path ? path : join(yield* real(parent), basename(path))
+  },
+)
 
-const mountinfo = (): string => {
-  try {
-    return readFileSync("/proc/self/mountinfo", "utf8")
-  } catch {
-    // A platform with no such file gets no warning.
-    return ""
-  }
-}
+/** The mounts of this process. A platform with no such file gets no warning. */
+const mountinfo = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem
+  return yield* fs
+    .readFileString("/proc/self/mountinfo")
+    .pipe(Effect.catch(() => Effect.succeed("")))
+})
 
 /** The filesystem check as `chad serve` runs it. It reads and writes nothing on the volume. */
-export const check = (
+export const check = Effect.fnUntraced(function* (
   data: string,
   env: Readonly<Record<string, string | undefined>>,
-): ReadonlyArray<string> =>
-  warnings({ mountinfo: mountinfo(), data, env, real })
+) {
+  // The paths the warnings ask about are followed first, so that the warnings themselves stay a plain function.
+  const paths = [data, ...installs.map((name) => env[name] ?? "")]
+  const found = new Map<string, string>()
+  for (const path of paths) {
+    if (path !== "") found.set(path, yield* real(path))
+  }
+  return warnings({
+    mountinfo: yield* mountinfo,
+    data,
+    env,
+    real: (path) => found.get(path) ?? path,
+  })
+})
 
 /** The type of the filesystem that holds a path, for the message about a socket it cannot hold. */
-export const typeOf = (path: string): string =>
-  holding(mounts(mountinfo()), real(path))?.type ?? "an unknown filesystem"
+export const typeOf = Effect.fnUntraced(function* (path: string) {
+  return (
+    holding(mounts(yield* mountinfo), yield* real(path))?.type ??
+    "an unknown filesystem"
+  )
+})
