@@ -22,14 +22,7 @@ import {
 } from "effect"
 import type { LanguageModel, Model as AiModel } from "effect/ai"
 import { Prompt } from "effect/ai"
-import {
-  Chat,
-  ChatError,
-  ChatEvent,
-  ChatMarkdown,
-  ChatMessage,
-  ChatThread,
-} from "effect/chat"
+import { ChatEvent, ChatMessage, ChatThread } from "effect/chat"
 import { ClusterSchema, Entity, type Sharding } from "effect/cluster"
 import { Rpc } from "effect/rpc"
 import { SqlClient } from "effect/sql"
@@ -40,6 +33,7 @@ import { Chats, type ChatService } from "./Chats.ts"
 import * as Disk from "./Disk.ts"
 import * as Failed from "./Failed.ts"
 import * as Logger from "./Logger.ts"
+import * as Post from "./Post.ts"
 import * as Queue from "./Queue.ts"
 import * as Sessions from "./Sessions.ts"
 import * as StatusMessage from "./StatusMessage.ts"
@@ -93,22 +87,6 @@ export const Outcome = Schema.Union([
   Schema.TaggedStruct("Dropped", {}),
 ])
 export type Outcome = typeof Outcome.Type
-
-/** What became of a post: it reached the thread, the thread is gone, or it failed otherwise. */
-type Posting = "posted" | "gone" | "failed"
-
-/** Whether a post failed because the platform does not have the thread (FAIL-44). */
-const gone = (cause: Cause.Cause<unknown>) =>
-  cause.reasons.some((reason) => {
-    if (reason._tag !== "Fail") return false
-    const error = reason.error
-    const chat =
-      error instanceof ChatMarkdown.ChatMarkdownError &&
-      error.cause._tag === "Chat"
-        ? error.cause.error
-        : error
-    return ChatError.isChatError(chat) && chat.reason._tag === "NotFound"
-  })
 
 /** A request with its chat message decoded. */
 interface Request {
@@ -301,16 +279,27 @@ export const layer = Layer.unwrap(
         )
 
         /** Posts in the thread, and says whether the post reached it, or found the thread gone. */
-        const post = (chat: ChatService, markdown: string) =>
-          ChatMarkdown.post(thread, markdown).pipe(
-            Effect.provideService(Chat.Chat, chat),
-            Effect.as<Posting>("posted"),
-            Effect.catchCause((cause) =>
-              Effect.logError("A message could not be posted", cause).pipe(
-                Effect.as<Posting>(gone(cause) ? "gone" : "failed"),
-              ),
-            ),
-          )
+        const post = (
+          chat: ChatService,
+          markdown: string,
+          options?: Post.Options,
+        ) => Post.post(chat, thread, markdown, options)
+
+        /**
+         * The owner's message that the answer, the failed-turn message and the give-up message of a turn reply to: the
+         * one that started the turn, also when others steered it (DIS-98, DIS-99). A DM gets plain posts (DIS-53), and
+         * so does a turn whose message is in the channel that chad opened the thread from (DIS-118). A kind that cannot
+         * be read counts as a server thread's, which keeps the ping.
+         */
+        const replyTo = (request: Request) =>
+          ChatThread.toString(request.message.thread) !== key
+            ? Effect.succeed(undefined)
+            : Sessions.kindOf(key).pipe(
+                Effect.orElseSucceed(() => undefined),
+                Effect.map((kind) =>
+                  kind === "direct" ? undefined : request.message.id,
+                ),
+              )
 
         /**
          * Tells the owner about the files of a message that chad skipped, once for a message, though a message that
@@ -833,8 +822,9 @@ export const layer = Layer.unwrap(
          * gets no reply, so that the next start delivers it again (FAIL-135). It resumes as a turn a crash cut, or,
          * when its row was never written, runs as a fresh delivery.
          */
-        const failed = (turn: Turn, own: State, connection: string) =>
+        const failed = (turn: Turn, own: State, request: Request) =>
           Effect.fnUntraced(function* (cause: Cause.Cause<unknown>) {
+            const connection = request.connection
             const at = Date.now()
             const reason = Failed.classify(cause)
             // A full volume is no special mode: the turn fails as `Internal`, and the log says why (FAIL-135, FAIL-281).
@@ -866,12 +856,14 @@ export const layer = Layer.unwrap(
             // The status message goes however the turn ends (DIS-35), and a turn whose end is not written finds it gone
             // when it is delivered again.
             if (turn.status !== undefined) yield* turn.status.remove
+            // In a server thread it replies to the owner's message, which pings them (FAIL-66).
             if (posted(reason)) {
-              yield* chats.get(connection).pipe(
-                Effect.flatMap((chat) =>
+              yield* Effect.all([chats.get(connection), replyTo(request)]).pipe(
+                Effect.flatMap(([chat, reply]) =>
                   post(
                     chat,
                     Messages.failedTurn(at - turn.at, reason, turn.id),
+                    { replyTo: reply },
                   ),
                 ),
                 Effect.catchCause((cause) =>
@@ -900,6 +892,7 @@ export const layer = Layer.unwrap(
           request: Request,
         ) {
           const chat = yield* chats.get(request.connection)
+          const reply = yield* replyTo(request)
           if (own.ready !== undefined) yield* Deferred.await(own.ready)
           // The start is counted first, since the row holds the status message an earlier start posted.
           const counted = yield* Effect.exit(
@@ -923,7 +916,7 @@ export const layer = Layer.unwrap(
             }),
           )
           if (Exit.isFailure(counted)) {
-            return yield* failed(turn, own, request.connection)(counted.cause)
+            return yield* failed(turn, own, request)(counted.cause)
           }
           const { session, started } = counted.value
           const ids = { session, turn: turn.id }
@@ -943,7 +936,7 @@ export const layer = Layer.unwrap(
             if (started.status !== undefined) {
               yield* StatusMessage.discard(chat, thread, started.status)
             }
-            yield* post(chat, Messages.gaveUp(turn.id))
+            yield* post(chat, Messages.gaveUp(turn.id), { replyTo: reply })
             yield* TurnLog.failed(
               {
                 ...ids,
@@ -1000,7 +993,7 @@ export const layer = Layer.unwrap(
             }),
           )
           if (Exit.isFailure(built)) {
-            return yield* failed(turn, own, request.connection)(built.cause)
+            return yield* failed(turn, own, request)(built.cause)
           }
           const live = built.value
           live.view.lines = status
@@ -1069,7 +1062,7 @@ export const layer = Layer.unwrap(
             return { outcome, reconciled, at }
           }).pipe(Effect.uninterruptible, Effect.exit)
           if (Exit.isFailure(end))
-            return yield* failed(turn, own, request.connection)(end.cause)
+            return yield* failed(turn, own, request)(end.cause)
 
           const { outcome, reconciled, at } = end.value
           // The status message goes however the turn ends, before what it ends with is posted (DIS-35, OV-28).
@@ -1085,6 +1078,7 @@ export const layer = Layer.unwrap(
               yield* post(
                 chat,
                 Messages.failedTurn(at - turn.at, outcome.reason, turn.id),
+                { replyTo: reply },
               )
             }
             yield* TurnLog.failed(
@@ -1094,15 +1088,13 @@ export const layer = Layer.unwrap(
             )
             return outcome
           }
-          // The answer goes out through the connection the message arrived on. An answer that could not be posted
-          // leaves the turn `Answered`, because the history holds it (FAIL-51), and the model is told that the owner
-          // has not read it (FAIL-129).
-          const delivered = yield* post(
-            chat,
-            outcome._tag === "Answered"
-              ? outcome.text
-              : Messages.stopped(at - turn.at),
-          )
+          // The answer goes out through the connection the message arrived on, as a reply to the owner's message in a
+          // server thread (DIS-55). An answer that could not be posted, also the second time (DIS-54), leaves the turn
+          // `Answered`, because the history holds it (FAIL-51), and the model is told that the owner has not read it
+          // (FAIL-129).
+          const delivered = yield* outcome._tag === "Answered"
+            ? post(chat, outcome.text, { replyTo: reply, answer: ids })
+            : post(chat, Messages.stopped(at - turn.at))
           // An answer for a thread that no longer exists ends the turn `ThreadGone`, which posts nothing (FAIL-44,
           // FAIL-64).
           if (delivered === "gone" && outcome._tag === "Answered") {
@@ -1374,7 +1366,7 @@ export const layer = Layer.unwrap(
                   own.turn = turn
                   yield* take(payload.key)
                   const outcome = yield* run(own, turn, request).pipe(
-                    Effect.catchCause(failed(turn, own, request.connection)),
+                    Effect.catchCause(failed(turn, own, request)),
                     Effect.ensuring(close(own, turn)),
                   )
                   // A turn whose end could not be written leaves its request unprocessed, as a crash would, and

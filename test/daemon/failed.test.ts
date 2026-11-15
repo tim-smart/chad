@@ -75,7 +75,7 @@ test("FAIL-43 FAIL-54 FAIL-55 FAIL-65 FAIL-16 STO-76 API-112 FAIL-125 FAIL-127 F
   expect(rows(running, "SELECT * FROM session_updates")).toEqual([])
 })
 
-test("FAIL-132 FAIL-51 API-99 a turn that answered adds nothing for the next turn, and an answer whose post failed stays answered and is told to the model at the next turn", async () => {
+test("FAIL-132 FAIL-51 API-99 DIS-54 FAIL-256 a turn that answered adds nothing for the next turn, and an answer whose post failed twice is logged as turn.answer-unposted, stays answered and is told to the model at the next turn", async () => {
   const running = await scenario()
   const { fakes, chat } = running
   await fakes.model.script([
@@ -89,18 +89,21 @@ test("FAIL-132 FAIL-51 API-99 a turn that answered adds nothing for the next tur
   await lines(running, "turn.ended", 1)
   expect(rows(running, "SELECT * FROM session_updates")).toEqual([])
 
-  // The answer's post fails, which comes after the status message's.
+  // The answer's post fails, and so does its second try. Both come after the status message's post.
   await says(running, thread, "more")
   await fakes.model.received(2)
   await Effect.runPromise(
     chat.failNext(
       "post",
       new ChatError.Forbidden({ detail: "Missing Access" }),
+      { times: 2 },
     ),
   )
   await fakes.model.release(1)
   const [, second] = await lines(running, "turn.ended", 2)
   const turn = String(second!.annotations["turn"])
+  const [unposted] = await lines(running, "turn.answer-unposted", 1)
+  expect(unposted!.annotations["turn"]).toBe(turn)
   expect(second!.annotations["outcome"]).toBe("answered")
   await found(running, "SELECT 1 FROM session_updates")
 
@@ -132,6 +135,8 @@ test("FAIL-44 a turn whose thread is gone when its answer is posted ends failed 
     chat.failNext(
       "post",
       new ChatError.NotFound({ detail: "thread_not_found" }),
+      // A thread that is gone refuses the answer's second try too (DIS-54).
+      { times: 2 },
     ),
   )
   await fakes.model.release(0)

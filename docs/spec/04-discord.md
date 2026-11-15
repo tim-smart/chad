@@ -155,6 +155,8 @@ const ButtonsLive = Buttons.toLayer(Effect.gen(function*() {
 - **DIS-98** The answer and the failed-turn message reply to the message that started the turn, also when other messages steered the turn. A steering message has its acknowledgement in the status message (DIS-30).
 - **DIS-99** The id of the message that started the turn is kept in the turn's saved request, so a turn that is resumed after a restart replies to the same message (see 03-sessions-and-turns.md).
 - **DIS-100** When the message that a post would reply to no longer exists, the post goes out as a plain post, and the missing message does not make the post fail. This holds for every post chad makes as a reply, which covers the answer (DIS-55), the failed-turn message (DIS-60) and the give-up message (DIS-62). The last two are covered because the owner still has to be told that the turn failed.
+- **DIS-118** A turn whose message is not in the session's thread, which is the first turn of a thread that chad opened from a mention in a plain channel, posts its answer, its failed-turn message and its give-up message as plain posts, because the owner's message is in the parent channel and not in the thread.
+- **DIS-119** When a post that replies to the owner's message fails before any of it went out, chad tries it once more. The second try is a plain post unless the first failed in a way that is worth a retry, such as a rate limit or a server error, so that a reply that Discord refuses for any reason still tells the owner. For an answer this second try is the one of DIS-54.
 - **DIS-101** The message that carries a plugin-started turn's `mention` allows that one user id in its allowed mentions and leaves every other mention in it inert (see 13-timers-and-cron.md).
 - **DIS-102** chad drops a `mention` whose user id is not on the allowlist when it posts. No plugin can therefore ping anyone who is not an owner, and an owner who was removed from the allowlist stops being pinged.
 
@@ -390,3 +392,5 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-115 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `wire` |
 | DIS-116 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `discord-ui` |
 | DIS-117 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `discord-ui` |
+| DIS-118 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `discord-ui` |
+| DIS-119 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `discord-ui` |

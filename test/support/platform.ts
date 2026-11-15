@@ -7,6 +7,7 @@ import { DiscordREST } from "dfx"
 import {
   Context,
   Deferred,
+  Duration,
   Effect,
   Layer,
   Queue,
@@ -23,6 +24,7 @@ import {
 } from "effect/chat"
 import { RpcSerialization, RpcServer } from "effect/rpc"
 import * as LocalChat from "../../dist/daemon/LocalChat.js"
+import { factor } from "./entry.ts"
 
 /** The name of the platform in a thread string, such as `local:1`. */
 export const name = "local"
@@ -114,7 +116,15 @@ export const make = (
       ChatTest.layer({
         platform: name,
         capabilities: [...discord.capabilities],
-        limits: discord.limits,
+        // Discord's floor between two writes, scaled as the daemon's own lengths are, so that an answer of five parts
+        // is not paced by seconds.
+        limits: {
+          ...discord.limits,
+          minWriteInterval: Duration.times(
+            discord.limits.minWriteInterval,
+            factor,
+          ),
+        },
         measure: discord.measure,
       }),
     )

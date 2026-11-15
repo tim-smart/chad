@@ -98,6 +98,33 @@ test("TST-60a OV-45 DIS-1 DIS-8 DIS-15 DIS-86 a DM over the scripted gateway run
   ).toEqual([])
 })
 
+test("DIS-55 DIS-52 DIS-100 in a server thread the answer replies to the owner's message with the reply ping on, pings nobody else, and lets Discord post it plain if that message is gone", async () => {
+  const thread = "810000000000000002"
+  const chad = await scenario({ connections: [home] })
+  chad.discord.rest.channel(thread, 11)
+  await chad.fakes.model.script([{ text: "in the thread" }])
+  const { socket } = await identify(chad)
+  socket.receive(
+    Discord.messageCreate(2, {
+      id: "3",
+      channel: thread,
+      channelType: 11,
+      guild: "600000000000000001",
+      author: owner,
+      content: `<@${Discord.bot}> hello`,
+      mentions: [Discord.bot],
+    }),
+  )
+  expect(await answers(chad, 1, thread)).toEqual([
+    {
+      content: "in the thread",
+      allowed_mentions: { parse: [], users: [], roles: [], replied_user: true },
+      flags: 4,
+      message_reference: { message_id: "3", fail_if_not_exists: false },
+    },
+  ])
+})
+
 test("STO-35 STO-147 STO-148 SES-30a SES-185 TST-61b each connection answers with its own token and keeps its shard state in a row of core_discord_shards under its name, and a restart on the volume resumes with it", async () => {
   const work: Connection = { ...home, name: "work", token: "work-token" }
   const first = await scenario({ connections: [home, work] })
