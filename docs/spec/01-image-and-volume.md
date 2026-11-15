@@ -286,7 +286,7 @@ effect/chat is not released. It is installed from a snapshot of the effect pull 
 - **IMG-53** Each dependency edge inside the snapshot that names a pkg.pr.new URL is redirected to its tarball by a pnpm `overrides` entry. The lockfile names no pkg.pr.new URL, and a clean `pnpm install --frozen-lockfile` passes with pkg.pr.new unreachable.
 - **IMG-54** The pnpm 12 workspace sets `blockExoticSubdeps: false`, `enableGlobalVirtualStore: false`, `allowBuilds` for esbuild and `minimumReleaseAgeExclude: clanka@0.28.0`, with the version in it.
 - **IMG-55** clanka is version 0.28.0 from npm, pinned by the lockfile. It is not vendored.
-- **IMG-56** CI fails when `node_modules` holds more than one `effect`. The check counts the copies under the `node_modules` of a clean install of the checkout, so it needs no image. The image build repeats the count, as the Dockerfile above shows (see 07-plugin-loading.md).
+- **IMG-56** (a) CI fails when `node_modules` holds more than one `effect`. The check counts the copies under the `node_modules` of a clean install of the checkout, so it needs no image. (b) The image build repeats the count, as the Dockerfile above shows (see 07-plugin-loading.md).
 - **IMG-57** The move to released versions of effect is one commit, which changes the catalog and the overrides and nothing else.
 - **IMG-119** One script replaces the vendored tarballs as a set. A real upgrade and the weekly job against the newest effect snapshot both use it (see 17-testing.md).
 

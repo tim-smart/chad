@@ -10,7 +10,7 @@ Three words are used throughout. A scenario is one test that drives a daemon thr
 - **TST-2** Continuous integration (CI) runs on GitHub Actions.
 - **TST-3** There is one vitest project per layer. Each project uses `pool: forks`, and each scenario starts its own daemon.
 - **TST-4** The process suite and the image suite are vitest files that start processes and run `docker`. The repository holds no bash check scripts.
-- **TST-5** CI runs the Node version that the Dockerfile names. It installs effect from the tarballs under `vendor/` and clanka from npm at the version the lockfile pins, never from pkg.pr.new (see 01-image-and-volume.md).
+- **TST-5** (a) CI runs the Node version that the Dockerfile names. (b) It installs effect from the tarballs under `vendor/` and clanka from npm at the version the lockfile pins, never from pkg.pr.new (see 01-image-and-volume.md).
 - **TST-204** The repository uses oxlint and prettier, configured as in `tim-smart/lalph`: an `.oxlintrc.json`, and a `.prettierrc.json` with `semi` set to false. The gate runs `oxlint` and `prettier --check .`. The typecheck is `tsc`. This was inferred from Tim's other TypeScript repos and is open with him (TST-G25).
 
 ## Stages and slices
