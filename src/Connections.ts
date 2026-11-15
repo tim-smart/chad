@@ -1,0 +1,375 @@
+import {
+  chmodSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs"
+import { createConnection } from "node:net"
+import { dirname, join } from "node:path"
+import { Effect, Schema } from "effect"
+import type { HttpClient } from "effect/http"
+import * as Discord from "./Discord.ts"
+
+/**
+ * The stored chat connections: the file `secrets/connections.json`, and what a `connection` or `owner` command may
+ * do to it. The CLI uses this when no daemon runs and the daemon uses it when one does, so the two never differ on
+ * what a command is refused for.
+ */
+
+/** The format number this chad writes, and the highest it reads. */
+export const format = 1
+
+/** The file, as a path on the volume. */
+export const path = (data: string): string =>
+  join(data, "secrets/connections.json")
+
+/** The fixed path at which a `local` connection looks for its chat platform. */
+export const localSocket = (data: string): string =>
+  join(data, "run/local.sock")
+
+export const Kind = Schema.Literals(["discord", "local"])
+export type Kind = typeof Kind.Type
+
+/** What a stored chat connection holds. A connection of kind `local` has no token. */
+export const Connection = Schema.Struct({
+  /** The unique name, which tells two connections of one platform apart. */
+  name: Schema.String,
+  kind: Kind,
+  token: Schema.optionalKey(Schema.String),
+  /** The ids of the users who may talk to chad on this connection. */
+  owners: Schema.Array(Schema.String),
+})
+export type Connection = typeof Connection.Type
+
+const Stored = Schema.Struct({
+  format: Schema.Number,
+  connections: Schema.Array(Connection),
+})
+
+/** A connection as a command shows it, which is without its token. */
+export const Listed = Schema.Struct({
+  name: Schema.String,
+  kind: Kind,
+  owners: Schema.Array(Schema.String),
+})
+export type Listed = typeof Listed.Type
+
+export const listed = (
+  connections: ReadonlyArray<Connection>,
+): ReadonlyArray<Listed> =>
+  connections.map(({ name, kind, owners }) => ({ name, kind, owners }))
+
+/** Why a command was refused or failed. Each reason has one message in the `Messages` module. */
+export const Reason = Schema.Literals([
+  "name-invalid",
+  "name-taken",
+  "second-local",
+  "no-connection",
+  "no-token",
+  "last-connection",
+  "last-owner",
+  "token-refused",
+  "token-unchecked",
+  "newer-format",
+  "unreadable",
+  "malformed",
+])
+export type Reason = typeof Reason.Type
+
+/** A command that changed nothing, with the reason and what the reason's message names. */
+export class Rejected extends Schema.TaggedError<Rejected>(
+  "chad/Connections/Rejected",
+)("Rejected", {
+  reason: Reason,
+  /** The connection the reason is about. */
+  name: Schema.String,
+  /** The owner id, the format number or what went wrong, by the reason. */
+  detail: Schema.String,
+}) {}
+
+const rejected = (reason: Reason, name: string, detail = "") =>
+  new Rejected({ reason, name, detail })
+
+/** What a `connection` or `owner` command changes. */
+export const Change = Schema.Union([
+  Schema.TaggedStruct("Add", {
+    name: Schema.String,
+    kind: Kind,
+    token: Schema.optionalKey(Schema.String),
+  }),
+  Schema.TaggedStruct("Token", { name: Schema.String, token: Schema.String }),
+  Schema.TaggedStruct("Remove", { name: Schema.String, force: Schema.Boolean }),
+  Schema.TaggedStruct("OwnerAdd", { name: Schema.String, id: Schema.String }),
+  Schema.TaggedStruct("OwnerRemove", {
+    name: Schema.String,
+    id: Schema.String,
+    force: Schema.Boolean,
+  }),
+])
+export type Change = typeof Change.Type
+
+/** The command behind a change, as the CLI's messages and the log name it. */
+export const commandOf = (change: Change): string =>
+  ({
+    Add: "connection add",
+    Token: "connection token",
+    Remove: "connection remove",
+    OwnerAdd: "owner add",
+    OwnerRemove: "owner remove",
+  })[change._tag]
+
+/** What a change that was made gives back. */
+export const Changed = Schema.Struct({
+  /** False for an owner id that was already on the list, or already off it. */
+  changed: Schema.Boolean,
+  /** The id of the Discord application a checked token belongs to, which the invite URL is made from. */
+  application: Schema.optionalKey(Schema.String),
+})
+export type Changed = typeof Changed.Type
+
+/** One line of `chad connection check`. */
+export const Checked = Schema.Struct({
+  name: Schema.String,
+  kind: Kind,
+  /** How the check ended. `no-platform` is a local connection whose socket nothing listens on. */
+  result: Schema.Literals([
+    "ok",
+    "token-refused",
+    "token-unchecked",
+    "no-platform",
+  ]),
+  /** What the platform or the socket answered, when the check failed. */
+  detail: Schema.String,
+})
+export type Checked = typeof Checked.Type
+
+/** A connection's name is made of lower-case letters, digits and hyphens, as a plugin's is. */
+export const validName = (name: string): boolean => /^[a-z0-9-]+$/.test(name)
+
+/**
+ * Reads the stored connections. A missing file is no connection. A file with a higher format number is refused before
+ * anything else of it is read, because a newer chad may have given the list another shape.
+ */
+export const read = (
+  data: string,
+): Effect.Effect<ReadonlyArray<Connection>, Rejected> =>
+  Effect.suspend(() => {
+    let text: string
+    try {
+      text = readFileSync(path(data), "utf8")
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code ?? "unknown"
+      return code === "ENOENT"
+        ? Effect.succeed([])
+        : Effect.fail(rejected("unreadable", path(data), code))
+    }
+    let json: unknown
+    try {
+      json = JSON.parse(text)
+    } catch {
+      return Effect.fail(rejected("malformed", path(data)))
+    }
+    const found = Schema.decodeUnknownOption(
+      Schema.Struct({ format: Schema.Number }),
+    )(json)
+    if (found._tag === "Some" && found.value.format > format) {
+      return Effect.fail(
+        rejected("newer-format", path(data), String(found.value.format)),
+      )
+    }
+    return Schema.decodeUnknownEffect(Stored)(json).pipe(
+      Effect.map((stored) => stored.connections),
+      Effect.mapError(() => rejected("malformed", path(data))),
+    )
+  })
+
+/**
+ * Writes the stored connections, by a temporary file and a rename. `secrets/` gets mode 0700 and the file 0600, each
+ * by a chmod after it is made, and the process umask is left alone.
+ */
+export const write = (
+  data: string,
+  connections: ReadonlyArray<Connection>,
+): Effect.Effect<void> =>
+  Effect.sync(() => {
+    const target = path(data)
+    mkdirSync(dirname(target), { recursive: true })
+    chmodSync(dirname(target), 0o700)
+    const temporary = `${target}.${process.pid}.tmp`
+    writeFileSync(
+      temporary,
+      JSON.stringify({ format, connections }, null, 2) + "\n",
+      { mode: 0o600 },
+    )
+    chmodSync(temporary, 0o600)
+    renameSync(temporary, target)
+  })
+
+/** The list after a change, and whether the change made a difference. It fails with the reason a change is refused for. */
+export const apply = (
+  connections: ReadonlyArray<Connection>,
+  change: Change,
+): Effect.Effect<
+  {
+    readonly connections: ReadonlyArray<Connection>
+    readonly changed: boolean
+  },
+  Rejected
+> =>
+  Effect.gen(function* () {
+    const done = (next: ReadonlyArray<Connection>) => ({
+      connections: next,
+      changed: true,
+    })
+    const current = connections.find(({ name }) => name === change.name)
+    if (change._tag === "Add") {
+      if (!validName(change.name)) {
+        return yield* rejected("name-invalid", change.name)
+      }
+      if (current !== undefined) {
+        return yield* rejected("name-taken", change.name)
+      }
+      const local = connections.find(({ kind }) => kind === "local")
+      if (change.kind === "local" && local !== undefined) {
+        return yield* rejected("second-local", local.name)
+      }
+      return done([
+        ...connections,
+        change.kind === "local"
+          ? { name: change.name, kind: change.kind, owners: [] }
+          : {
+              name: change.name,
+              kind: change.kind,
+              token: change.token ?? "",
+              owners: [],
+            },
+      ])
+    }
+    if (current === undefined) {
+      return yield* rejected("no-connection", change.name)
+    }
+    const others = connections.filter((connection) => connection !== current)
+    const replaced = (next: Connection) =>
+      done(
+        connections.map((connection) =>
+          connection === current ? next : connection,
+        ),
+      )
+    switch (change._tag) {
+      case "Token":
+        return current.kind === "local"
+          ? yield* rejected("no-token", change.name)
+          : replaced({ ...current, token: change.token })
+      case "Remove":
+        return others.length === 0 && !change.force
+          ? yield* rejected("last-connection", change.name)
+          : done(others)
+      case "OwnerAdd":
+        return current.owners.includes(change.id)
+          ? { connections, changed: false }
+          : replaced({ ...current, owners: [...current.owners, change.id] })
+      case "OwnerRemove": {
+        if (!current.owners.includes(change.id)) {
+          return { connections, changed: false }
+        }
+        const owners = current.owners.filter((id) => id !== change.id)
+        return owners.length === 0 && !change.force
+          ? yield* rejected("last-owner", change.name, change.id)
+          : replaced({ ...current, owners })
+      }
+    }
+  })
+
+const checkToken = (name: string, token: string) =>
+  Discord.checkToken(token).pipe(
+    Effect.mapError((error) =>
+      rejected(
+        error.reason === "refused" ? "token-refused" : "token-unchecked",
+        name,
+        error.detail,
+      ),
+    ),
+  )
+
+/**
+ * What comes before a change takes its place: the change is tried on the list as it stands, so that a change that is
+ * refused asks nothing of the platform, and a token is checked against the platform. It gives the application a
+ * Discord token belongs to.
+ */
+export const prepare = Effect.fn("Connections.prepare")(function* (
+  connections: ReadonlyArray<Connection>,
+  change: Change,
+): Effect.fn.Return<
+  { readonly application?: string },
+  Rejected,
+  HttpClient.HttpClient
+> {
+  yield* apply(connections, change)
+  if (change._tag === "Token") {
+    return yield* checkToken(change.name, change.token)
+  }
+  if (change._tag === "Add" && change.kind === "discord") {
+    return yield* checkToken(change.name, change.token ?? "")
+  }
+  return {}
+})
+
+/** Whether something accepts a connection on a unix socket, and the error code when nothing does. */
+const accepts = (socket: string) =>
+  Effect.callback<string | undefined>((resume) => {
+    const connection = createConnection({ path: socket })
+    connection.once("connect", () => {
+      connection.destroy()
+      resume(Effect.succeed(undefined))
+    })
+    connection.once("error", (error: NodeJS.ErrnoException) =>
+      resume(Effect.succeed(error.code ?? "unknown")),
+    )
+    return Effect.sync(() => connection.destroy())
+  })
+
+/**
+ * Checks the stored connections, or the one that is named. A Discord connection's token is checked as a new one is,
+ * and a local connection is checked for a platform that accepts a connection on its socket.
+ */
+export const check = Effect.fn("Connections.check")(function* (
+  connections: ReadonlyArray<Connection>,
+  data: string,
+  name: string | undefined,
+) {
+  const chosen =
+    name === undefined
+      ? connections
+      : connections.filter((connection) => connection.name === name)
+  if (name !== undefined && chosen.length === 0) {
+    return yield* rejected("no-connection", name)
+  }
+  return yield* Effect.forEach(
+    chosen,
+    Effect.fnUntraced(function* (connection) {
+      const line = (
+        result: Checked["result"] = "ok",
+        detail = "",
+      ): Checked => ({
+        name: connection.name,
+        kind: connection.kind,
+        result,
+        detail,
+      })
+      if (connection.kind === "local") {
+        const socket = localSocket(data)
+        const code = yield* accepts(socket)
+        return code === undefined
+          ? line()
+          : line("no-platform", `${socket}: ${code}`)
+      }
+      return yield* Discord.checkToken(connection.token ?? "").pipe(
+        Effect.as(line()),
+        Effect.catch((error) =>
+          Effect.succeed(line(`token-${error.reason}`, error.detail)),
+        ),
+      )
+    }),
+  )
+})

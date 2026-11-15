@@ -90,6 +90,9 @@ const Messages = Schema.Array(ChatMessage.ChatMessage)
 
 const Reply = Schema.Struct({
   text: Schema.optionalKey(Schema.String),
+  tool: Schema.optionalKey(
+    Schema.Struct({ name: Schema.String, arguments: Schema.Json }),
+  ),
   status: Schema.optionalKey(Schema.Number),
   hold: Schema.optionalKey(Schema.Boolean),
 })

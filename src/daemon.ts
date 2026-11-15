@@ -10,5 +10,4 @@ process.exitCode = await runDaemon({
   httpClient: NodeHttpClient.layerUndici,
   webSocketConstructor: NodeSocket.layerWebSocketConstructor,
   timings: defaults,
-  connections: [],
 })

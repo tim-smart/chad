@@ -26,15 +26,18 @@ export const owner = (
   return { ...rest, ...env }
 }
 
-/** Starts `chad` with the arguments, in the given environment over the owner's. */
+/** Starts `chad` with the arguments, in the given environment over the owner's. `input` is what it reads on stdin. */
 export const start = (
   args: ReadonlyArray<string>,
   env: Readonly<Record<string, string | undefined>> = {},
+  input?: string,
 ): Running => {
   const child = spawn(process.execPath, [path("bin/chad.js"), ...args], {
     env: owner(env),
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["pipe", "pipe", "pipe"],
   })
+  // Stdin is a pipe that ends at once, or after the input, and never a terminal.
+  child.stdin.end(input)
   let stdout = ""
   let stderr = ""
   const waiting = new Set<() => void>()
@@ -78,4 +81,5 @@ export const start = (
 export const chad = (
   args: ReadonlyArray<string>,
   env: Readonly<Record<string, string | undefined>> = {},
-): Promise<Ran> => start(args, env).done
+  input?: string,
+): Promise<Ran> => start(args, env, input).done

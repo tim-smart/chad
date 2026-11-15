@@ -4,9 +4,12 @@ import {
   appendFileSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
   readFileSync,
   rmSync,
+  writeFileSync,
 } from "node:fs"
+import { tmpdir } from "node:os"
 import { join } from "node:path"
 import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient"
 import * as NodeSocket from "@effect/platform-node/NodeSocket"
@@ -14,13 +17,15 @@ import { Effect, Exit, Layer, Scope } from "effect"
 import type { ChatTest } from "effect/chat"
 import { HttpClient, HttpClientRequest } from "effect/http"
 import { RpcClient, RpcSerialization } from "effect/rpc"
-import { onTestFinished } from "vitest"
+import { onTestFinished, vi } from "vitest"
+import { runCli } from "../../dist/cli/runCli.js"
 import * as Chat from "../../dist/daemon/Chat.js"
 import type { Connection } from "../../dist/daemon/Connection.js"
 import * as LocalChat from "../../dist/daemon/LocalChat.js"
+import { defaults, scale } from "../../dist/Timings.js"
 import * as Cli from "./cli.ts"
 import * as Discord from "./discord.ts"
-import { start } from "./entry.ts"
+import { factor, start } from "./entry.ts"
 import * as Fakes from "./fakes.ts"
 import * as Model from "./model.ts"
 import * as Platform from "./platform.ts"
@@ -46,7 +51,11 @@ export interface LogLine {
 }
 
 export interface Options {
-  /** The daemon's connections. The default is one `local` connection whose owner is `owner`. */
+  /**
+   * The connections the volume gets before the daemon starts, each added with `chad connection add` and its owners
+   * with `chad owner add`, as an owner does. The default is one `local` connection whose owner is `owner`. A volume
+   * that holds connections already keeps them and gets none.
+   */
   readonly connections?: ReadonlyArray<Connection>
   /**
    * How the daemon and the scenario reach the fakes. `direct` is the same process with no socket. `socket` is the
@@ -97,12 +106,18 @@ export interface Scenario {
   readonly environment: () => NodeJS.ProcessEnv
   /**
    * Runs the built `chad` on this scenario's volume as the owner at a shell does, and gives what it printed and its
-   * exit code. `env` goes over the owner's environment.
+   * exit code. `env` goes over the owner's environment, and `input` is what the command reads on stdin.
    */
   readonly chad: (
     args: ReadonlyArray<string>,
     env?: Readonly<Record<string, string | undefined>>,
+    input?: string,
   ) => Promise<Cli.Ran>
+  /**
+   * Runs a command on this scenario's volume through `runCli` in the test's own process, for one that reaches the
+   * network by itself: its requests go to the fakes, as the daemon's do.
+   */
+  readonly cli: (args: ReadonlyArray<string>) => Promise<Cli.Ran>
 }
 
 let count = 0
@@ -147,6 +162,94 @@ export const httpClient = (
     }),
   ).pipe(Layer.provide(NodeHttpClient.layerUndici))
 
+/**
+ * Runs a command through `runCli` in the test's own process, for one that reaches the network: its requests go
+ * through the client it is given, and its durations are the scaled ones. The environment is the owner's, with `env`
+ * over it, for as long as `runCli` reads it.
+ */
+export const inProcess = async (
+  args: ReadonlyArray<string>,
+  client: Layer.Layer<HttpClient.HttpClient>,
+  env: Readonly<Record<string, string | undefined>> = {},
+): Promise<Cli.Ran> => {
+  const variables = { CHAD_SESSION: undefined, ...env }
+  const saved = Object.keys(variables).map(
+    (name) => [name, process.env[name]] as const,
+  )
+  const set = (name: string, value: string | undefined) => {
+    if (value === undefined) delete process.env[name]
+    else process.env[name] = value
+  }
+  let stdout = ""
+  let stderr = ""
+  const log = vi
+    .spyOn(console, "log")
+    .mockImplementation((...parts) => void (stdout += parts.join(" ") + "\n"))
+  const error = vi
+    .spyOn(console, "error")
+    .mockImplementation((...parts) => void (stderr += parts.join(" ") + "\n"))
+  for (const [name, value] of Object.entries(variables)) set(name, value)
+  const running = runCli({
+    args,
+    httpClient: client,
+    timings: scale(defaults, factor),
+  })
+  for (const [name, value] of saved) set(name, value)
+  try {
+    const code = await running
+    return { stdout, stderr, code }
+  } finally {
+    log.mockRestore()
+    error.mockRestore()
+  }
+}
+
+/** A file that holds a token, outside every scenario's directory, and what removes it. */
+const tokenFile = (token: string) => {
+  const directory = mkdtempSync(join(tmpdir(), "chad-token-"))
+  const file = join(directory, "token")
+  writeFileSync(file, token, { mode: 0o600 })
+  return { file, remove: () => rmSync(directory, { recursive: true }) }
+}
+
+/**
+ * Stores a connection and its owners on a volume no daemon runs on, with the commands an owner uses. A Discord
+ * connection's token is checked over the network, so that command runs in the test's process, on the client it is
+ * given. The rest run the real bin.
+ */
+const store = async (
+  data: string,
+  connection: Connection,
+  client: Layer.Layer<HttpClient.HttpClient>,
+) => {
+  const done = (what: string, ran: Cli.Ran) => {
+    if (ran.code !== 0) {
+      throw new Error(`${what} exited ${ran.code}: ${ran.stdout}${ran.stderr}`)
+    }
+  }
+  const env = { CHAD_DATA: data }
+  const add = ["connection", "add", connection.kind, "--name", connection.name]
+  if (connection.kind === "discord") {
+    const token = tokenFile(connection.token ?? "")
+    try {
+      done(
+        "chad connection add discord",
+        await inProcess([...add, "--token-file", token.file], client, env),
+      )
+    } finally {
+      token.remove()
+    }
+  } else {
+    done("chad connection add local", await Cli.chad(add, env))
+  }
+  for (const id of connection.owners) {
+    done(
+      "chad owner add",
+      await Cli.chad(["owner", "add", connection.name, id], env),
+    )
+  }
+}
+
 export const scenario = async (options: Options = {}): Promise<Scenario> => {
   const directory = options.directory ?? fresh()
   const data = join(directory, "data")
@@ -183,6 +286,18 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
   for (const [name, value] of Object.entries(variables)) set(name, value)
   const requests: Array<string> = []
   const discord = { gateway: Discord.gateway(), rest: await Discord.rest() }
+  const client = httpClient(
+    { model: model.url, discord: discord.rest.url },
+    requests,
+    options.live === true,
+  )
+  if (!existsSync(join(data, "secrets/connections.json"))) {
+    for (const connection of options.connections ?? [
+      { name: "local", kind: "local", owners: [owner] },
+    ]) {
+      await store(data, connection, client)
+    }
+  }
   record("daemon", { state: "starting", transport })
   const exit = start({
     // A `discord` connection always gets the product's adapter, over the scripted gateway and the fake REST server.
@@ -201,19 +316,12 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
             ),
           )
     },
-    httpClient: httpClient(
-      { model: model.url, discord: discord.rest.url },
-      requests,
-      options.live === true,
-    ),
+    httpClient: client,
     // The one WebSocket a daemon opens so far is the gateway's. A Codex model's arrives with its slice.
     webSocketConstructor:
       options.live === true
         ? NodeSocket.layerWebSocketConstructor
         : discord.gateway.layer,
-    connections: options.connections ?? [
-      { name: "local", kind: "local", owners: [owner] },
-    ],
   })
   for (const [name, value] of saved) set(name, value)
   void exit.then((code) => record("daemon", { state: "ended", code }))
@@ -307,6 +415,8 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
     exit,
     stop,
     environment: () => Cli.owner(),
-    chad: (args, env = {}) => Cli.chad(args, { CHAD_DATA: data, ...env }),
+    chad: (args, env = {}, input) =>
+      Cli.chad(args, { CHAD_DATA: data, ...env }, input),
+    cli: (args) => inProcess(args, client, { CHAD_DATA: data }),
   }
 }

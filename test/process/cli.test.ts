@@ -5,6 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -15,7 +16,8 @@ import { join } from "node:path"
 import { Duration, Effect, Exit, Layer, Scope } from "effect"
 import { expect, it, onTestFinished } from "vitest"
 import * as Lock from "../../dist/Lock.js"
-import { Rpcs, layerVersionCheck } from "../../dist/Rpcs.js"
+import * as Messages from "../../dist/Messages.js"
+import { OpenRpcs, Rpcs, layerVersionCheck } from "../../dist/Rpcs.js"
 import { version } from "../../dist/Version.js"
 import { chad, owner, start } from "../support/cli.ts"
 import * as Platform from "../support/platform.ts"
@@ -162,9 +164,9 @@ it("CLI-21 CLI-22 CLI-127 CLI-128 IMG-74 IMG-75 chad health tests the lock befor
   await Effect.runPromise(
     Layer.buildWithScope(
       Platform.serve(
-        Rpcs,
+        OpenRpcs,
         Layer.merge(
-          Rpcs.toLayer({
+          OpenRpcs.toLayer({
             Ping: (_, { headers }) =>
               Effect.sync(() => {
                 versions.push(headers["chad-version"])
@@ -305,3 +307,119 @@ it("IMG-16b CLI-142 CLI-143 CLI-144 the client is one esbuild file with effect i
     `chad health: no daemon (lock ${join(copy, "data/state/daemon.lock")} is free)\n`,
   )
 }, 30_000)
+
+it("CLI-59 CLI-218 the CLI sends its CHAD_SESSION with every request, and a daemon that goes away during a call ends the command with exit 4", async () => {
+  const data = volume()
+  mkdirSync(join(data, "run"))
+  hold(data)
+  const sessions: Array<string | undefined> = []
+  const scope = Effect.runSync(Scope.make())
+  onTestFinished(() => Effect.runPromise(Scope.close(scope, Exit.void)))
+  const noted = <A>(headers: Readonly<Record<string, string>>, answer: A) =>
+    Effect.sync(() => {
+      sessions.push(headers["chad-session"])
+      return answer
+    })
+  // A daemon that notes the session id of each request, and goes away when it is asked for the connections.
+  await Effect.runPromise(
+    Layer.buildWithScope(
+      Platform.serve(
+        Rpcs,
+        Layer.merge(
+          Rpcs.toLayer({
+            Ping: (_, { headers }) => noted(headers, "pong"),
+            Status: (_, { headers }) =>
+              noted(headers, {
+                version,
+                effect: "4.0.0",
+                phase: "ready" as const,
+                filesystem: [],
+                connections: [],
+              }),
+            ConnectionList: () =>
+              Effect.andThen(
+                Effect.promise(() =>
+                  Effect.runPromise(Scope.close(scope, Exit.void)),
+                ),
+                Effect.never,
+              ),
+            ConnectionCheck: () => Effect.succeed([]),
+            ConnectionChange: () => Effect.succeed({ changed: false }),
+          }),
+          layerVersionCheck(version),
+        ),
+        join(data, "run/chad.sock"),
+      ),
+      scope,
+    ),
+  )
+
+  const session = "0b4b1c9e-55d0-4d0c-9f0a-3e8f0f7f2a11"
+  for (const CHAD_SESSION of [session, "daemon", undefined]) {
+    const env = { CHAD_DATA: data, CHAD_SESSION }
+    expect((await chad(["status"], env)).code).toBe(0)
+    expect((await chad(["health"], env)).code).toBe(0)
+  }
+  // Each command makes one call, and each call carries the id as the variable gave it.
+  expect(sessions).toEqual([
+    session,
+    session,
+    "daemon",
+    "daemon",
+    undefined,
+    undefined,
+  ])
+
+  expect(await chad(["connection", "list"], { CHAD_DATA: data })).toEqual({
+    stdout: "",
+    stderr: Messages.daemonGone("connection list") + "\n",
+    code: 4,
+  })
+})
+
+it("CLI-219 CLI-222 CLI-223 with no daemon a connection command creates no data directory, ends with exit 1 on a file it cannot read or that holds no connections, and with exit 2 when the token it is given is empty", async () => {
+  const data = volume()
+  const absent = join(data, "absent")
+  const failed = (code: number, message: string) => ({
+    stdout: "",
+    stderr: message + "\n",
+    code,
+  })
+  expect(
+    await chad(["connection", "add", "local"], { CHAD_DATA: absent }),
+  ).toEqual(failed(1, Messages.volumeMissing("connection add", absent)))
+  expect(existsSync(absent)).toBe(false)
+
+  const env = { CHAD_DATA: data }
+  const token = join(data, "no-such-token")
+  expect(
+    await chad(["connection", "add", "discord", "--token-file", token], env),
+  ).toEqual(failed(1, Messages.unreadable("connection add", token, "ENOENT")))
+  // A token that is only white space is no token, from a pipe or from a file.
+  writeFileSync(token, " \n")
+  expect(
+    await chad(["connection", "add", "discord", "--token-file", token], env),
+  ).toEqual(failed(2, Messages.noToken("connection add")))
+  expect(await chad(["connection", "add", "discord"], env, "\n")).toEqual(
+    failed(2, Messages.noToken("connection add")),
+  )
+  expect(existsSync(join(data, "secrets"))).toBe(false)
+
+  const file = join(data, "secrets/connections.json")
+  mkdirSync(join(data, "secrets"))
+  for (const content of ["not json", JSON.stringify({ format: 1 })]) {
+    writeFileSync(file, content)
+    expect(await chad(["connection", "list"], env)).toEqual(
+      failed(1, Messages.malformed("connection list", file)),
+    )
+    expect(await chad(["owner", "add", "local", "ada"], env)).toEqual(
+      failed(1, Messages.malformed("owner add", file)),
+    )
+    expect(readFileSync(file, "utf8")).toBe(content)
+  }
+  rmSync(file)
+  mkdirSync(file)
+  expect(await chad(["connection", "list"], env)).toEqual(
+    failed(1, Messages.unreadable("connection list", file, "EISDIR")),
+  )
+})

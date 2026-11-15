@@ -1,5 +1,6 @@
 import * as NodeSocket from "@effect/platform-node/NodeSocket"
 import {
+  Cause,
   Duration,
   Effect,
   Layer,
@@ -12,7 +13,7 @@ import type { RpcClientError } from "effect/rpc/RpcClientError"
 import * as Lock from "../Lock.ts"
 import * as Messages from "../Messages.ts"
 import * as Paths from "../Paths.ts"
-import { type Refused, Rpcs, versionHeader } from "../Rpcs.ts"
+import { type Refused, Rpcs, sessionHeader, versionHeader } from "../Rpcs.ts"
 import { Timings } from "../Timings.ts"
 import { version } from "../Version.ts"
 import { Environment } from "./Environment.ts"
@@ -29,9 +30,13 @@ export type Client = RpcClient.RpcClient<
   RpcClientError
 >
 
-/** The headers every call of this CLI carries. */
-export const headers = (): Record<string, string> => ({
+/**
+ * The headers every call of this CLI carries: its version, and the `CHAD_SESSION` it runs under when it has one. The
+ * daemon refuses nothing for a session, and uses the id to name the caller.
+ */
+export const headers = (session?: string): Record<string, string> => ({
   [versionHeader]: version,
+  ...(session === undefined ? {} : { [sessionHeader]: session }),
 })
 
 /** The lock test. A free lock means that no daemon runs on the volume. */
@@ -159,3 +164,31 @@ export const refused = (command: string, error: Refused): Failure =>
       error.daemon,
     ),
   })
+
+/**
+ * A call of a command on a daemon that was reached. A refusal for the CLI's version and a daemon that goes away
+ * during the call end the command, and what the call itself fails with is left to the command. A daemon that stops
+ * in good order interrupts the calls it was answering, so an interrupt that came back as the call's own exit is a
+ * daemon that went away as well.
+ */
+export const call = <A, E, R>(
+  command: string,
+  effect: Effect.Effect<A, E | Refused | RpcClientError, R>,
+): Effect.Effect<A, Exclude<E, Refused | RpcClientError> | Failure, R> => {
+  const gone = new Failure({
+    code: ExitCode.daemon,
+    message: Messages.daemonGone(command),
+  })
+  return effect.pipe(
+    Effect.catchCauseIf(Cause.hasInterruptsOnly, () => Effect.fail(gone)),
+    Effect.catchIf(
+      (error): error is Refused => Predicate.isTagged(error, "Refused"),
+      (error) => Effect.fail(refused(command, error)),
+    ),
+    Effect.catchIf(
+      (error): error is RpcClientError =>
+        Predicate.isTagged(error, "RpcClientError"),
+      () => Effect.fail(gone),
+    ),
+  ) as Effect.Effect<A, Exclude<E, Refused | RpcClientError> | Failure, R>
+}

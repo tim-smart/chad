@@ -7,10 +7,10 @@ import { ShardStateStore } from "dfx/DiscordGateway/Shard/StateStore"
 import { MemoryShardStoreLive } from "dfx/DiscordGateway/ShardStore"
 import { DiscordRESTLive } from "dfx/DiscordREST"
 import { MemoryRateLimitStoreLive } from "dfx/RateLimit"
-import { GatewayIntentBits, Permissions } from "dfx/types"
 import { Deferred, Effect, Exit, Layer, Redacted, Scope } from "effect"
 import { KeyValueStore } from "effect/persistence"
 import { Socket } from "effect/socket"
+import { intents } from "../Discord.ts"
 import type { Connection } from "./Connection.ts"
 import * as Logger from "./Logger.ts"
 
@@ -18,26 +18,10 @@ import * as Logger from "./Logger.ts"
 export { DiscordChat }
 
 /**
- * The gateway intents chad identifies with: guilds, guild messages, direct messages and message content. The invite
- * URL of `chad connection add discord` is built from this same list.
+ * The one list of intents and permissions, which the CLI builds the invite URL of `chad connection add discord`
+ * from. The gateway identifies with these intents.
  */
-export const intents =
-  GatewayIntentBits.Guilds |
-  GatewayIntentBits.GuildMessages |
-  GatewayIntentBits.DirectMessages |
-  GatewayIntentBits.MessageContent
-
-/** The intents of the list that Discord calls privileged, which no invite URL can grant. */
-export const privilegedIntents = GatewayIntentBits.MessageContent
-
-/** The permissions the bot needs in a server channel. */
-export const permissions =
-  Permissions.ViewChannel |
-  Permissions.SendMessages |
-  Permissions.SendMessagesInThreads |
-  Permissions.CreatePublicThreads |
-  Permissions.ReadMessageHistory |
-  Permissions.AttachFiles
+export { intents, permissions, privilegedIntents } from "../Discord.ts"
 
 /** The table that holds dfx's shard state. The key-value layer creates it, and no migration does. */
 export const shardTable = "core_discord_shards"

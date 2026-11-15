@@ -1,5 +1,6 @@
 import { Effect, Layer, Schema } from "effect"
 import { Rpc, RpcGroup, RpcMiddleware } from "effect/rpc"
+import * as Connections from "./Connections.ts"
 import { version } from "./Version.ts"
 
 /**
@@ -9,6 +10,9 @@ import { version } from "./Version.ts"
 
 /** The header that carries the chad version of the CLI that makes a call. */
 export const versionHeader = "chad-version"
+
+/** The header that carries the `CHAD_SESSION` of the CLI that makes a call, when it has one. */
+export const sessionHeader = "chad-session"
 
 /** The phase of a boot, as `chad status` names it. */
 export const Phase = Schema.Literals([
@@ -65,12 +69,30 @@ export const layerVersionCheck = (daemon: string = version) =>
   })
 
 /** The calls behind `chad health` and `chad status`, which a CLI of any version may make. */
-const open = RpcGroup.make(
+export const OpenRpcs = RpcGroup.make(
   Rpc.make("Ping", { success: Schema.String }),
   Rpc.make("Status", { success: Report }),
 )
 
-/** Every other call. A call is declared here, and is then refused to a CLI of another version. */
-const checked = RpcGroup.make().middleware(VersionCheck)
+/**
+ * Every other call. A call is declared here, and is then refused to a CLI of another version. No call returns a
+ * stored secret: a connection comes back without its token.
+ */
+const checked = RpcGroup.make(
+  /** A `connection` or `owner` command that changes something. */
+  Rpc.make("ConnectionChange", {
+    payload: { change: Connections.Change },
+    success: Connections.Changed,
+    error: Connections.Rejected,
+  }),
+  /** `chad connection list`. */
+  Rpc.make("ConnectionList", { success: Schema.Array(Connections.Listed) }),
+  /** `chad connection check`, of every connection or of the one that is named. */
+  Rpc.make("ConnectionCheck", {
+    payload: { name: Schema.optionalKey(Schema.String) },
+    success: Schema.Array(Connections.Checked),
+    error: Connections.Rejected,
+  }),
+).middleware(VersionCheck)
 
-export const Rpcs = open.merge(checked)
+export const Rpcs = OpenRpcs.merge(checked)

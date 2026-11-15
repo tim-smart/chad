@@ -16,6 +16,9 @@ export const socket = (env: NodeJS.ProcessEnv): string =>
 /** The daemon lock's file. */
 export const lock = (data: string): string => join(data, "state/daemon.lock")
 
+/** The database. */
+export const database = (data: string): string => join(data, "db/chad.db")
+
 /** The file that holds the chad version that last wrote the volume. */
 export const version = (data: string): string => join(data, "state/version")
 

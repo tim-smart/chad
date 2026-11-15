@@ -1,7 +1,7 @@
 import { chmodSync, rmSync } from "node:fs"
 import { dirname } from "node:path"
 import * as NodeSocketServer from "@effect/platform-node/NodeSocketServer"
-import { Data, Effect, Layer } from "effect"
+import { Data, Deferred, Effect, Layer } from "effect"
 import {
   type Rpc,
   type RpcGroup,
@@ -11,10 +11,18 @@ import {
 import { SocketServer } from "effect/socket"
 import * as Messages from "../Messages.ts"
 import * as Paths from "../Paths.ts"
-import { type Phase, type Report, Rpcs, layerVersionCheck } from "../Rpcs.ts"
+import {
+  type Phase,
+  type Report,
+  Rpcs,
+  layerVersionCheck,
+  sessionHeader,
+} from "../Rpcs.ts"
 import * as Version from "../Version.ts"
+import type { Commands } from "./Connections.ts"
 import * as Filesystem from "./Filesystem.ts"
 import * as Logger from "./Logger.ts"
+import * as Queue from "./Queue.ts"
 import type { Volume } from "./Volume.ts"
 
 /** What the daemon knows about itself as it boots and runs. The boot writes it and the `Status` call reads it. */
@@ -22,12 +30,15 @@ export interface State {
   phase: Phase
   filesystem: ReadonlyArray<string>
   connections: ReadonlyArray<{ readonly name: string; readonly kind: string }>
+  /** The connection and owner commands, which the boot hands over once it has loaded the connections. */
+  readonly commands: Deferred.Deferred<Commands>
 }
 
 export const makeState = (): State => ({
   phase: "starting",
   filesystem: [],
   connections: [],
+  commands: Deferred.makeUnsafe(),
 })
 
 const report = (state: State): Report => ({
@@ -127,11 +138,21 @@ export const serve = <Rpcs extends Rpc.Any>(
   )
 
 /** What each call does. A call that is added to the group gets its handler here. */
-const handlers = (state: State) =>
-  Rpcs.toLayer({
+const handlers = (state: State) => {
+  // A command that arrives while the daemon boots waits for the boot.
+  const commands = Deferred.await(state.commands)
+  return Rpcs.toLayer({
     Ping: () => Effect.succeed("pong"),
     Status: () => Effect.sync(() => report(state)),
+    ConnectionChange: ({ change }, { headers }) =>
+      Effect.flatMap(commands, (commands) =>
+        commands.change(change, Queue.caller(headers[sessionHeader])),
+      ),
+    ConnectionList: () => Effect.flatMap(commands, (commands) => commands.list),
+    ConnectionCheck: ({ name }) =>
+      Effect.flatMap(commands, (commands) => commands.check(name)),
   })
+}
 
 /** The daemon's RPC server, listening on the volume's socket. */
 export const layer = (volume: Pick<Volume, "data" | "socket">, state: State) =>

@@ -127,9 +127,7 @@ test("OV-20 IMG-59 IMG-60 IMG-126 CLI-13 CLI-25 STO-26 STO-196 FAIL-286a FAIL-32
   const lines = printed().slice(before.lines)
   expect(events(lines)).toEqual(["boot.refused"])
   expect(lines[0]).toContain("reason=lock")
-  expect(lines[0]).toContain(
-    `chad serve: another chad serve holds the lock on ${data}. This boot is not counted.`,
-  )
+  expect(lines[0]).toContain(Messages.lockHeld(data))
 
   expect(readdirSync(data, { recursive: true }).sort()).toEqual(before.files)
   expect(readFileSync(join(data, "logs/chad.log"), "utf8")).toBe(before.log)
@@ -181,8 +179,8 @@ test("IMG-70 IMG-71 IMG-72 IMG-126 FAIL-290 FAIL-322 a volume that is really on 
   const { data } = running
   await running.logged("boot.ready")
   const warnings = [
-    `${data} is on tmpfs, which is memory. Everything chad writes is lost when the container stops.`,
-    `XDG_CACHE_HOME=${cache} is on tmpfs, not on the volume at ${data}. What is installed there is lost with the container. In the chad image the volume is mounted at /data.`,
+    Messages.filesystemMemory(data, "tmpfs"),
+    Messages.filesystemInstall("XDG_CACHE_HOME", cache, "tmpfs", data),
   ]
 
   const file = running
@@ -245,9 +243,7 @@ test("IMG-63 CLI-11 a socket path over the platform's limit ends the start with 
   expect(await running.exit).toBe(1)
   // The boot holds the lock by then, so the line is in the file as well.
   const refused = await running.logged("boot.refused")
-  expect(refused.message).toBe(
-    `chad serve: the socket path ${socket} is ${bytes} bytes and a unix socket path holds 107. Set CHAD_SOCKET to a shorter path, for example /tmp/chad.sock.`,
-  )
+  expect(refused.message).toBe(Messages.socketPathTooLong(socket, bytes, 107))
   expect(refused.annotations["reason"]).toBe("socket")
   expect(existsSync(socket)).toBe(false)
 })
@@ -279,7 +275,7 @@ test("CLI-22 IMG-97 the calls behind chad health and chad status are answered fo
   expect(answers).toEqual({ ping: "pong", daemon: version })
 })
 
-test("CLI-23a CLI-125i CLI-125j CLI-128 IMG-75 with the daemon stopped the lock is free: chad health exits 4, and chad status exits 4 and prints what the files say, state/version included", async () => {
+test("CLI-23a CLI-125i CLI-125j CLI-128 CLI-230 IMG-75 with the daemon stopped the lock is free: chad health exits 4, and chad status exits 4 and prints what the files say, state/version and the stored connections included", async () => {
   const running = await scenario()
   const { data } = running
   await running.logged("boot.ready")
@@ -288,13 +284,14 @@ test("CLI-23a CLI-125i CLI-125j CLI-128 IMG-75 with the daemon stopped the lock 
 
   expect(await running.chad(["health"])).toEqual({
     stdout: "",
-    stderr: `chad health: no daemon (lock ${lock} is free)\n`,
+    stderr: Messages.noDaemon("health", lock) + "\n",
     code: 4,
   })
   expect(await running.chad(["status"])).toEqual({
     stdout: [
       `daemon: not running (lock ${lock} is free)`,
       `version: chad ${version}, volume written by chad ${version}`,
+      "connection: local (local)",
       "",
     ].join("\n"),
     stderr: "",

@@ -28,6 +28,7 @@ import { SqlClient } from "effect/sql"
 import { Timings } from "../Timings.ts"
 import { Chats } from "./Chats.ts"
 import * as Logger from "./Logger.ts"
+import * as Spawner from "./Spawner.ts"
 import { Volume } from "./Volume.ts"
 
 /**
@@ -109,8 +110,11 @@ export const layer = Layer.unwrap(
           session = id
           const directory = join(volume.sessions, id)
           mkdirSync(directory, { recursive: true })
+          // Every process the session starts carries the session id, through a spawner of the session's own.
           const executor = yield* Layer.buildWithScope(
-            AgentExecutor.layerLocal({ directory }),
+            AgentExecutor.layerLocal({ directory }).pipe(
+              Layer.provide(Spawner.layer(id)),
+            ),
             scope,
           )
           agent = yield* Agent.make.pipe(

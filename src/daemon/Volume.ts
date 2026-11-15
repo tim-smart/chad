@@ -29,7 +29,7 @@ export const make = (
   data,
   lock: Paths.lock(data),
   socket,
-  database: join(data, "db/chad.db"),
+  database: Paths.database(data),
   repo: join(data, "repo"),
   sessions: join(data, "sessions"),
   version: Paths.version(data),

@@ -60,10 +60,11 @@ const ended = (error: unknown): Effect.Effect<ExitCode> => {
  * and it never exits the process itself.
  */
 export const runCli = (inputs: CliInputs): Promise<ExitCode> => {
+  const environment = Environment.read(process.env)
   const services = Layer.mergeAll(
     NodeServices.layer,
     inputs.httpClient,
-    Layer.succeed(Environment.Environment, Environment.read(process.env)),
+    Layer.succeed(Environment.Environment, environment),
     Layer.succeed(Timings, inputs.timings),
     // Of the flags effect adds by itself, chad keeps --help and --version.
     CliConfig.layer({ builtIns: [GlobalFlag.Help, GlobalFlag.Version] }),
@@ -73,7 +74,7 @@ export const runCli = (inputs: CliInputs): Promise<ExitCode> => {
     ),
   )
   const program = Command.runWith(root, { version })(inputs.args).pipe(
-    RpcClient.withHeaders(Daemon.headers()),
+    RpcClient.withHeaders(Daemon.headers(environment.session)),
     Effect.scoped,
     Effect.as<ExitCode>(ExitCode.done),
     Effect.catch(ended),

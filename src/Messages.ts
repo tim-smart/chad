@@ -2,6 +2,7 @@
  * What chad posts in chat, its CLI errors and the messages the model reads as tool results. Each template is pinned to
  * the spec's wording by a test, and a scenario refers to a message by its name here.
  */
+import * as Connections from "./Connections.ts"
 
 /** The start-up check found no data directory (docs/spec/01-image-and-volume.md, IMG-58). */
 export const dataMissing = (data: string) =>
@@ -73,6 +74,21 @@ export const filesystemInstall = (
 ) =>
   `${name}=${value} is on ${where}, not on the volume at ${data}. What is installed there is lost with the container. In the chad image the volume is mounted at /data.`
 
+/** `chad db query` or `chad db check` found no database file on the volume (docs/spec/02-storage.md). */
+export const dbMissing = (command: "query" | "check", path: string) =>
+  `chad db ${command}: no database at ${path}`
+
+/** SQLite failed the statement of `chad db query` or `chad db check`. The line carries SQLite's own message. */
+export const dbFailed = (command: "query" | "check", message: string) =>
+  `chad db ${command}: ${message}`
+
+/** `chad db query` stopped at its row limit and the statement had more rows. */
+export const dbMore = (limit: number) =>
+  `chad db query: stopped at ${limit} rows and the statement has more. Pass --limit <n> for more rows.`
+
+/** What `--limit` of `chad db query` takes, which the usage error for any other value names. */
+export const dbLimit = () => "a whole number from 1 up"
+
 /** A command needs the daemon and the lock is free (docs/spec/10-cli.md). */
 export const noDaemon = (command: string, lock: string) =>
   `chad ${command}: no daemon (lock ${lock} is free)`
@@ -91,3 +107,157 @@ export const healthy = () => "chad health: ok"
 /** The daemon refused a command because the CLI is of another chad version (CLI-22, CLI-214). */
 export const versionMismatch = (command: string, cli: string, daemon: string) =>
   `chad ${command}: refused: this CLI is chad ${cli} and the daemon is chad ${daemon}. Run the command with the daemon's own CLI, for example: docker exec -it chad chad ${command}`
+
+/** The CLI refused an owner command because `CHAD_SESSION` is set (CLI-48, CLI-217). */
+export const ownerRefused = (command: string, session: string) =>
+  `chad ${command}: refused: '${command}' is an owner command and this shell belongs to agent session ${session}. Ask the owner to run it.`
+
+/** The daemon stopped answering in the middle of a command (CLI-218). */
+export const daemonGone = (command: string) =>
+  `chad ${command}: the daemon went away during the call`
+
+/** A command that writes with no daemon found no data directory (CLI-219). */
+export const volumeMissing = (command: string, data: string) =>
+  `chad ${command}: ${data} does not exist. Mount the data volume there or set CHAD_DATA.`
+
+/** A CLI that is older than the volume was asked to write with no daemon (CLI-220). */
+export const cliOlder = (command: string, cli: string, volume: string) =>
+  `chad ${command}: refused: this CLI is chad ${cli} and the volume was written by chad ${volume}. Use a chad of that version or a newer one.`
+
+/** A daemon took the lock while a command that writes with no daemon was at work (CLI-221). */
+export const daemonStarted = (command: string) =>
+  `chad ${command}: a daemon started during the command, run chad ${command} again`
+
+/** A file the command needs could not be read. `detail` is the error's code (CLI-222). */
+export const unreadable = (command: string, path: string, detail: string) =>
+  `chad ${command}: cannot read ${path} (${detail})`
+
+/** `secrets/connections.json` holds something else than connections (CLI-222). */
+export const malformed = (command: string, path: string) =>
+  `chad ${command}: ${path} is not a connections file`
+
+/** The stored connections were written by a newer chad (STO-197). */
+export const newerFormat = (
+  command: string,
+  path: string,
+  found: string,
+  known: number,
+) =>
+  `chad ${command}: ${path} has format ${found} and this chad reads format ${known}. Use the chad that wrote it.`
+
+/** No token came on stdin, from the file or from the prompt (CLI-223). */
+export const noToken = (command: string) =>
+  `chad ${command}: no token was given`
+
+/** The prompt of a token typed at a terminal (CLI-223). */
+export const tokenPrompt = () => "Discord bot token"
+
+/**
+ * Why a `connection` or `owner` command changed nothing (CLI-224). The reason comes from the store, which the CLI
+ * and the daemon share, so the line is the same whichever of them refused. For the two reasons about a file, `name`
+ * is the file's path.
+ */
+export const connectionRejected = (
+  command: string,
+  rejected: {
+    readonly reason: Connections.Reason
+    readonly name: string
+    readonly detail: string
+  },
+): string => {
+  const { name, detail } = rejected
+  switch (rejected.reason) {
+    case "name-invalid":
+      return `chad ${command}: '${name}' is not a connection name. A name is made of lower-case letters, digits and hyphens.`
+    case "name-taken":
+      return `chad ${command}: there is already a connection named ${name}`
+    case "second-local":
+      return `chad ${command}: there is already a local connection, ${name}, and run/local.sock serves one`
+    case "no-connection":
+      return `chad ${command}: there is no connection named ${name}`
+    case "no-token":
+      return `chad ${command}: ${name} is a local connection and has no token`
+    case "last-connection":
+      return `chad ${command}: ${name} is the last connection. Pass --force to remove it.`
+    case "last-owner":
+      return `chad ${command}: ${detail} is the last owner of ${name}. Pass --force to remove it.`
+    case "token-refused":
+      return `chad ${command}: Discord refused the token (${detail}). Nothing was changed.`
+    case "token-unchecked":
+      return `chad ${command}: the token could not be checked (${detail}). Nothing was changed.`
+    case "newer-format":
+      return newerFormat(command, name, detail, Connections.format)
+    case "unreadable":
+      return unreadable(command, name, detail)
+    case "malformed":
+      return malformed(command, name)
+  }
+}
+
+/** `chad serve` could not use the stored connections (STO-197). */
+export const connectionsRefused = (rejected: {
+  readonly reason: Connections.Reason
+  readonly name: string
+  readonly detail: string
+}) => connectionRejected("serve", rejected)
+
+/** What a `connection` or `owner` command prints when it has made its change (CLI-225). */
+export const connectionAdded = (name: string, kind: string) =>
+  `connection ${name} added (${kind})`
+
+/** The invite URL of a Discord connection that was added (CLI-208, CLI-225). */
+export const connectionInvite = (url: string) => `invite: ${url}`
+
+/** The privileged intents an invite cannot grant (CLI-209, CLI-225). */
+export const connectionIntents = (names: ReadonlyArray<string>) =>
+  `intents: turn on ${names.join(", ")} for the bot in the Discord developer portal, because an invite URL cannot grant a privileged intent`
+
+export const connectionToken = (name: string) =>
+  `connection ${name} has a new token`
+
+export const connectionRemoved = (name: string) => `connection ${name} removed`
+
+export const ownerAdded = (id: string, connection: string) =>
+  `owner ${id} added to ${connection}`
+
+/** An owner change that found nothing to change (CLI-233). */
+export const ownerListed = (id: string, connection: string) =>
+  `owner ${id} is already an owner of ${connection}`
+
+/** What `chad owner remove` prints when it has made its change (CLI-225). */
+export const ownerRemoved = (id: string, connection: string) =>
+  `owner ${id} removed from ${connection}`
+
+/** An owner change that found nothing to change (CLI-233). */
+export const ownerUnlisted = (id: string, connection: string) =>
+  `owner ${id} is not an owner of ${connection}`
+
+/** One line of `chad connection list` (CLI-226). */
+export const connectionLine = (
+  name: string,
+  kind: string,
+  owners: ReadonlyArray<string>,
+) =>
+  `${name} (${kind}) owners: ${owners.length === 0 ? "none" : owners.join(", ")}`
+
+/** What `chad connection list` and `chad connection check` print when nothing is stored (CLI-226). */
+export const noConnections = () => "no connections"
+
+/** One line of `chad connection check` (CLI-227). */
+export const connectionChecked = (
+  name: string,
+  kind: string,
+  result: Connections.Checked["result"],
+  detail: string,
+): string => {
+  switch (result) {
+    case "ok":
+      return `${name} (${kind}): ok`
+    case "token-refused":
+      return `${name} (${kind}): failed: Discord refused the token (${detail})`
+    case "token-unchecked":
+      return `${name} (${kind}): failed: the token could not be checked (${detail})`
+    case "no-platform":
+      return `${name} (${kind}): failed: nothing accepts a connection on ${detail}`
+  }
+}

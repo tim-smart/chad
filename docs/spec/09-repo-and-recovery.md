@@ -260,7 +260,7 @@ A chat connection is one chat platform's token together with the ids of the owne
 - **REC-93** No environment variable supplies a Discord token in v1.
 - **REC-94** An apply never commits a connection, and a revert never changes who the owner is.
 - **REC-95** chad sets the marker variable `CHAD_SESSION=<session id>` on every command the agent runs (see 10-cli.md for the spawner).
-- **REC-96** When `CHAD_SESSION` is set, the CLI refuses the `connection` and `owner` commands with exit 3 and tells the agent to ask the owner. The same refusal covers the other owner commands, and 10-cli.md holds the list of them and of the commands that stay open to the agent. Only the CLI refuses, and the daemon does not.
+- **REC-96** (a) When `CHAD_SESSION` is set, the CLI refuses the `connection` and `owner` commands with exit 3 and tells the agent to ask the owner. (b) The same refusal covers the other owner commands, and 10-cli.md holds the list of them and of the commands that stay open to the agent. (a) Only the CLI refuses, and the daemon does not.
 - **REC-97** The refusal is not a security boundary. The agent can read a secret file if it goes looking, and it can get round a refusal by unsetting the variable or by writing the file itself. v1 stops neither. The refusals stop an agent that is confused or was told something by a web page.
 - **REC-98** A token is checked against the platform before it is saved, and the old token is kept if the check fails. The daemon makes the check when it is running, and the CLI makes it itself when no daemon runs (see 10-cli.md).
 - **REC-99** Removing the last owner id of a connection, or the last connection, needs `--force` (see 10-cli.md for the commands and their exit codes).

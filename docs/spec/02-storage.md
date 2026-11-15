@@ -72,6 +72,7 @@ Anything chad has to read before the database is open, or write with no daemon r
 - **STO-138** Each connection in the list carries its unique name, its kind, its token and its owner ids. A connection of kind `local` has no token. The name is what tells two connections of one platform apart.
 - **STO-11** `secrets/auth/` is Effect's file system `KeyValueStore` (a store that writes one file per key), and it is the one store chad gives clanka for model logins. A Codex login writes its token there under the key prefix `codex.auth/`, and that key is the only one chad's rules rest on. clanka's Copilot and xAI logins use the same store, with xAI tokens under `xai.auth/`, and clanka keeps its models.dev cache under `models-dev/` in whatever store it is given. Those keys land in this directory when clanka writes them. chad does not write them itself and does not promise that any path of chad makes clanka write them. The CLI can write the store with no daemon running. See 05-model-and-login.md.
 - **STO-139** chad sets mode 0600 on each file under `secrets/` with a chmod after the write, and never changes the process umask. See 01-image-and-volume.md and 05-model-and-login.md.
+- **STO-197** The format number of `secrets/connections.json` is 1. A CLI that finds a higher number refuses every `connection` and `owner` command, the ones that only read included, with exit 1 and the line `chad <command>: <path> has format <found> and this chad reads format <known>. Use the chad that wrote it.` on stderr, and it changes nothing. `chad status` prints the same line on stderr beside what else it can read, and keeps its own exit code. A `chad serve` that finds a higher number, or a file that it cannot read as the object of STO-137, refuses the boot with exit 1 and a `boot.refused` line whose reason is `connections`, and leaves the file as it is.
 - **STO-12** `secrets/secrets.json` holds the named secrets managed by `chad secret`, with a kind (`totp` or plain) and a note for each secret. See 15-credentials.md.
 - **STO-13** The unclean boot counter, the safe mode flag and the model override are the small files `state/boot-count`, `state/safe-mode` and `state/model`.
 - **STO-14** The files in STO-13 are written by writing a temporary file and renaming it over the old one.
@@ -102,7 +103,7 @@ Cluster keeps a lock row keyed by runner address in the database. Two daemons wi
 
 - **STO-26** The daemon takes a lock at boot, and a second daemon on the same volume exits with an error. The lock is one the operating system drops when the process dies.
 - **STO-27** The lock is a SQLite lock on `state/daemon.lock`, opened with `journal_mode=MEMORY` so that no journal file is ever written next to it. The daemon keeps the lock's handle until the process exits. The full mechanism, the timeouts and the CLI's test of the same lock are in 10-cli.md.
-- **STO-28** With no daemon running, a CLI command that writes files on the volume holds the lock while it writes. `chad backup` and `chad restore` hold it for the whole copy.
+- **STO-28** (a) With no daemon running, a CLI command that writes files on the volume holds the lock while it writes. (b) `chad backup` and `chad restore` hold it for the whole copy.
 
 ## The SQLite database
 
@@ -117,6 +118,7 @@ All structured state is in one SQLite file, `db/chad.db`. SQLite comes with the 
 - **STO-35** dfx's gateway shard state, which is what lets the Discord connection resume after a restart, is stored in the database. dfx's `ShardStateStore.KVSLive` sits on a `KeyValueStore`, and chad gives it a core table made with `KeyValueStore.layerSql`. See 04-discord.md.
 - **STO-147** The dfx shard state table is named `core_discord_shards`, a fixed name that no plugin's table can take. The key-value layer creates the table (STO-40), so no migration of chad's creates it.
 - **STO-148** Each chat connection's shard state store is prefixed with the connection's name. dfx's keys are `dfx-shard-state-<id>-<count>` and carry no connection, so two Discord connections would otherwise overwrite each other's resume state.
+- **STO-198** The key of a row of `core_discord_shards` is `<connection name>/dfx-shard-state-<id>-<count>`, which is the connection's name, a `/` and dfx's own key. A connection's name holds no `/` (see 10-cli.md), so the rows of a connection named `discord` are told from those of one named `discord2`.
 - **STO-149** With the daemon running, `chad connection remove` has the daemon delete that connection's rows from `core_discord_shards`. With no daemon running the command leaves the rows, because no write made with no daemon needs the database, and the next boot deletes the rows of every connection that is no longer in `secrets/connections.json`. Nothing else deletes rows of that table. See 10-cli.md.
 - **STO-36** Cluster's `entityMessagePollInterval` is 1 second, so cluster reads its message table every second. An idle daemon uses 0.2 to 0.3 percent of one core doing so. See 13-timers-and-cron.md for why.
 - **STO-150** chad's own tables are created `STRICT`, because a table cannot be made strict afterwards without a rebuild.
@@ -378,8 +380,13 @@ chad db check
 - **STO-82** `chad db check` runs an integrity check on request. Nothing checks integrity at boot.
 - **STO-174** `chad db check` prints SQLite's own lines.
 - **STO-175** `chad db query` exits 1 on a failed statement, and `chad db check` exits 1 on a failed check.
-- **STO-83** The agent may run `chad db query` and `chad db check`. `chad db query` is the way to read the database that the bundled `self-edit` skill teaches. See 14-self-edit-skill.md.
-- **STO-133** There is no `chad turns` command. `chad db query` reads the `turns` table with a daemon running or with none, and the bundled `diagnose` skill carries the queries. See 16-failures-logs-status.md.
+- **STO-199** With `--json`, `chad db query` prints one line that holds a JSON array, with one object for each row, keyed by column name. A null is `null`, and an integer that a JSON number cannot hold exactly is a string of its digits.
+- **STO-200** In the tab-separated output a tab is written `\t`, a newline `\n` and a backslash `\\`, in a column name as in a value, and a null is written `NULL`. A blob is written `x'<hex>'` in both outputs.
+- **STO-201** When the statement has more rows than the limit, `chad db query` prints the rows up to the limit, exits 0 and says so in one line on stderr, which names the limit it used: `chad db query: stopped at 200 rows and the statement has more. Pass --limit <n> for more rows.` `--limit` takes a whole number from 1 up, and anything else is a usage error.
+- **STO-202** A statement that fails prints nothing on stdout and one line on stderr, which carries SQLite's own message: `chad db query: <SQLite's message>`. On a volume with no database file the line is `chad db query: no database at <path>`, and the command exits 1 too. `chad db check` prints the same two lines under its own name when it cannot run its check.
+- **STO-203** `chad db query` runs the first statement of its argument and ignores what follows it.
+- **STO-83** (a) The agent may run `chad db query` and `chad db check`. (b) `chad db query` is the way to read the database that the bundled `self-edit` skill teaches. See 14-self-edit-skill.md.
+- **STO-133** (a) There is no `chad turns` command. (b) `chad db query` reads the `turns` table with a daemon running or with none, and (c) the bundled `diagnose` skill carries the queries. See 16-failures-logs-status.md.
 - **STO-84** The `sqlite3` binary ships in the image for the owner's repairs. chad does not stop the agent from writing to the database through it.
 
 ## Backup and restore
@@ -681,3 +688,10 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-194 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `harness` |
 | STO-195 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `harness` |
 | STO-196 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
+| STO-197 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
+| STO-198 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
+| STO-199 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
+| STO-200 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
+| STO-201 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
+| STO-202 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
+| STO-203 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |

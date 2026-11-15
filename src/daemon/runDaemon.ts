@@ -6,6 +6,7 @@ import * as Agent from "clanka/Agent"
 import {
   Cause,
   Context,
+  Deferred,
   Duration,
   Effect,
   Exit,
@@ -13,22 +14,25 @@ import {
   Option,
   Scope,
 } from "effect"
-import { Chat, type ChatAdapter, type ChatHandler } from "effect/chat"
+import type { ChatAdapter, ChatHandler } from "effect/chat"
 import { SingleRunner } from "effect/cluster"
 import type { HttpClient } from "effect/http"
 import type { Socket } from "effect/socket"
 import type { SqlClient } from "effect/sql"
+import * as StoredConnections from "../Connections.ts"
 import * as Lock from "../Lock.ts"
 import * as Messages from "../Messages.ts"
 import { Timings } from "../Timings.ts"
 import { version } from "../Version.ts"
 import type { Connection } from "./Connection.ts"
+import * as Connections from "./Connections.ts"
 import * as Environment from "./Environment.ts"
 import * as Chats from "./Chats.ts"
 import * as Filesystem from "./Filesystem.ts"
 import * as Handler from "./Handler.ts"
 import * as Logger from "./Logger.ts"
 import * as Model from "./Model.ts"
+import * as Queue from "./Queue.ts"
 import * as Server from "./Server.ts"
 import * as SessionEntity from "./SessionEntity.ts"
 import * as Storage from "./Storage.ts"
@@ -58,8 +62,6 @@ export interface DaemonInputs {
   readonly webSocketConstructor: Layer.Layer<Socket.WebSocketConstructor>
   /** One complete set of durations. */
   readonly timings: Timings
-  /** The chat connections and their owner ids, until the `cli` slice stores them. */
-  readonly connections: ReadonlyArray<Connection>
 }
 
 /** Resolves on the first SIGTERM or SIGINT, and takes its handlers off the process when it is done with. */
@@ -89,10 +91,6 @@ const boot = Effect.fnUntraced(function* (
 ) {
   const started = Date.now()
   const volume = Volume.make(environment.data, environment.socket)
-  state.connections = inputs.connections.map(({ name, kind }) => ({
-    name,
-    kind,
-  }))
   if (environment.unknownLogLevel !== undefined) {
     yield* Logger.event(
       "boot.log-level-unknown",
@@ -134,6 +132,18 @@ const boot = Effect.fnUntraced(function* (
 
   // Steps 3 and 4, the check for a newer state/version and the boot counter, belong here.
   Volume.prepare(volume)
+
+  // The stored connections are read before the socket listens, so that status names them from its first answer.
+  const stored = yield* StoredConnections.read(volume.data).pipe(
+    Effect.map(Option.some),
+    Effect.catch((error) =>
+      Logger.event("boot.refused", Messages.connectionsRefused(error), {
+        reason: "connections",
+      }).pipe(Effect.as(Option.none<ReadonlyArray<Connection>>())),
+    ),
+  )
+  if (Option.isNone(stored)) return 1
+  state.connections = StoredConnections.listed(stored.value)
 
   // Step 5. The socket listens before the database is opened, so status and health answer during the rest.
   const scope = yield* Effect.scope
@@ -211,24 +221,16 @@ const boot = Effect.fnUntraced(function* (
   })
   // Each connection has a `Chat` and an adapter registry of its own, because the registry is keyed by platform and
   // two connections can share one. A session finds the `Chat` of a connection by the connection's name.
-  const chats = yield* Chats.make(inputs.connections)
-  const connections = inputs.connections.map((connection) =>
-    Layer.mergeAll(
-      Layer.effectDiscard(
-        Effect.flatMap(Chat.Chat, (chat) =>
-          chats.register(connection.name, chat),
-        ),
-      ),
-      inputs.chat(connection).pipe(Layer.provide(Handler.layer(connection))),
-    ).pipe(Layer.provide(Layer.fresh(Chat.layer))),
+  const running = yield* Chats.make((connection, live) =>
+    inputs.chat(connection).pipe(Layer.provide(Handler.layer(live))),
   )
-  yield* Layer.buildWithScope(
-    Layer.mergeAll(SessionEntity.layer, ...connections).pipe(
-      Layer.provide(cluster),
-      Layer.provide(
+  const sessions = yield* Layer.buildWithScope(
+    SessionEntity.layer.pipe(
+      Layer.provideMerge(cluster),
+      Layer.provideMerge(
         Layer.mergeAll(
           Layer.succeed(SessionEntity.Model, model),
-          Layer.succeed(Chats.Chats, chats),
+          Layer.succeed(Chats.Chats, running.chats),
           Layer.succeed(Volume.Volume, volume),
           Layer.succeed(Timings, inputs.timings),
           Agent.ConversationMode.layer(true),
@@ -238,10 +240,19 @@ const boot = Effect.fnUntraced(function* (
     ),
     scope,
   )
+  // The rows of Discord shard state that a connection removed with no daemon left behind go before any gateway dials.
+  yield* Connections.forget(stored.value).pipe(Effect.provide(sessions))
+  yield* running.set(stored.value).pipe(Effect.provide(sessions))
+  yield* Deferred.succeed(
+    state.commands,
+    yield* Connections.make(volume, state, running, Queue.make()).pipe(
+      Effect.provide(sessions),
+    ),
+  )
   state.phase = "ready"
   yield* Logger.event("boot.ready", "chad is ready", {
     duration_ms: Date.now() - started,
-    connections: inputs.connections.length,
+    connections: stored.value.length,
   })
   return yield* Effect.never
 })

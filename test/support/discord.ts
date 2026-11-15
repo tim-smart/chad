@@ -8,6 +8,9 @@ import { Socket } from "effect/socket"
 /** The id of chad's bot user, which the fake REST server answers `/users/@me` with. */
 export const bot = "900000000000000001"
 
+/** The id of the bot's application, which the fake REST server answers `/applications/@me` with. */
+export const application = "900000000000000002"
+
 /** The URL dfx dials first. It is fixed in dfx, which does not dial the URL that `/gateway/bot` gives. */
 export const gatewayUrl = "wss://gateway.discord.gg/"
 
@@ -244,6 +247,13 @@ export interface Rest {
   ) => Promise<ReadonlyArray<RestCall>>
   /** Says what kind of channel an id is, for the adapter's `getChannel`. An unknown id is a DM. */
   readonly channel: (id: string, type: number) => void
+  /** Makes a token one that Discord refuses: a request that carries it is answered with the status, which is 401. */
+  readonly refuse: (token: string, status?: number) => void
+  /**
+   * Keeps every request that carries the token waiting, and gives what lets them go. A waiting request is among the
+   * calls from the moment it arrives.
+   */
+  readonly hold: (token: string) => () => void
   readonly close: () => Promise<void>
 }
 
@@ -253,12 +263,21 @@ export const rest = async (): Promise<Rest> => {
   const channels = new Map<string, number>()
   const threads = new Set<string>()
   const messages = new Map<string, Data>()
+  const refused = new Map<string, number>()
+  const held = new Map<string, Promise<void>>()
+  const tokenOf = (call: RestCall) =>
+    String(call.headers["authorization"]).replace("Bot ", "")
   let next = BigInt("1000000000000000000")
   const user = { id: bot, username: "chad", discriminator: "0", bot: true }
 
   const answer = (call: RestCall): readonly [number, unknown] => {
     const path = call.path.replace(/\?.*$/, "")
     const route = `${call.method} ${path}`
+    const status = refused.get(tokenOf(call))
+    if (status !== undefined) {
+      return [status, { code: 0, message: `${status}: refused` }]
+    }
+    if (route === "GET /applications/@me") return [200, { id: application }]
     if (route === "GET /gateway/bot") {
       return [
         200,
@@ -361,11 +380,24 @@ export const rest = async (): Promise<Rest> => {
         headers: request.headers,
         body,
       }
-      const [status, json] = answer(call)
-      calls.push(call)
-      response.writeHead(status, { "content-type": "application/json" })
-      response.end(JSON.stringify(json))
-      changes.changed()
+      const respond = () => {
+        const [status, json] = answer(call)
+        response.writeHead(status, { "content-type": "application/json" })
+        response.end(JSON.stringify(json))
+        changes.changed()
+      }
+      const waiting = held.get(tokenOf(call))
+      if (waiting === undefined) {
+        const [status, json] = answer(call)
+        calls.push(call)
+        response.writeHead(status, { "content-type": "application/json" })
+        response.end(JSON.stringify(json))
+        changes.changed()
+      } else {
+        calls.push(call)
+        changes.changed()
+        void waiting.then(respond)
+      }
     })
   })
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
@@ -381,6 +413,15 @@ export const rest = async (): Promise<Rest> => {
         return found.length >= count ? found : undefined
       }),
     channel: (id, type) => void channels.set(id, type),
+    refuse: (token, status = 401) => void refused.set(token, status),
+    hold: (token) => {
+      let release = () => {}
+      held.set(token, new Promise<void>((resolve) => (release = resolve)))
+      return () => {
+        held.delete(token)
+        release()
+      }
+    },
     close: () =>
       new Promise((resolve) => {
         server.closeAllConnections()

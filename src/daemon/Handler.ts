@@ -1,15 +1,16 @@
 import { Effect } from "effect"
 import { ChatHandler, ChatThread } from "effect/chat"
-import type { Connection } from "./Connection.ts"
+import type { Live } from "./Chats.ts"
 import * as Logger from "./Logger.ts"
 import { Message, Session } from "./SessionEntity.ts"
 
 /**
  * What chad does with an inbound event of one connection. A message of chad's own bot is dropped first, then a
  * message whose author is not on the connection's owner list, and an owner's message is saved as a request to the
- * session of its thread. The allowlist is by user id and nothing else.
+ * session of its thread. The allowlist is by user id and nothing else, and it is read at each message, so an owner
+ * change holds from the next one on.
  */
-export const layer = (connection: Connection) =>
+export const layer = (connection: Live) =>
   ChatHandler.layer(
     Effect.fnUntraced(function* (event) {
       if (event._tag !== "MessageCreated") return
@@ -21,7 +22,7 @@ export const layer = (connection: Connection) =>
           connection: connection.name,
         })
       if (author.isSelf) return yield* ignored("own")
-      if (!connection.owners.includes(author.id)) {
+      if (!connection.owners().includes(author.id)) {
         return yield* ignored("not-owner")
       }
       // A message in a channel belongs to no session until a later slice opens a thread for it.

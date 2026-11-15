@@ -28,8 +28,8 @@ import * as Lock from "../../src/Lock.ts"
 import * as Messages from "../../src/Messages.ts"
 import * as Paths from "../../src/Paths.ts"
 import {
+  OpenRpcs,
   Refused,
-  Rpcs,
   VersionCheck,
   layerVersionCheck,
   versionHeader,
@@ -279,9 +279,9 @@ it("CLI-42a a command waits for the daemon's first answer no longer than the CLI
   const command = (late: "Ping" | "Status") =>
     Effect.gen(function* () {
       yield* Layer.build(
-        RpcServer.layer(Rpcs).pipe(
+        RpcServer.layer(OpenRpcs).pipe(
           Layer.provide(
-            Rpcs.toLayer({
+            OpenRpcs.toLayer({
               Ping: () =>
                 Effect.as(late === "Ping" ? slow : Effect.void, "pong"),
               Status: () =>

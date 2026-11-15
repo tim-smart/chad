@@ -7,6 +7,8 @@ import type { AddressInfo } from "node:net"
 export interface Reply {
   /** The answer's text, sent as one streamed chunk. */
   readonly text?: string
+  /** A tool the model calls in place of an answer. clanka offers one, `execute`, whose argument is a script. */
+  readonly tool?: { readonly name: string; readonly arguments: unknown }
   /** An HTTP status other than 200, sent with no body of a completion. */
   readonly status?: number
   /** Whether the response waits until the test releases it. */
@@ -41,6 +43,21 @@ const chunk = (delta: object, finish: string | null) => ({
   model: "fake",
   choices: [{ index: 0, delta, finish_reason: finish }],
 })
+
+/** The reply that makes the model run a script, which is how the agent runs a command. */
+export const runs = (script: string): Reply => ({
+  tool: { name: "execute", arguments: { script } },
+})
+
+/** What a call carries as the results of the tools the model called before it, oldest first. */
+export const results = (call: Call | undefined): ReadonlyArray<string> => {
+  const body = call?.body as
+    | { messages?: ReadonlyArray<{ role?: string; content?: unknown }> }
+    | undefined
+  return (body?.messages ?? [])
+    .filter((message) => message.role === "tool")
+    .map((message) => String(message.content))
+}
 
 export const start = async (): Promise<FakeModel> => {
   let replies: ReadonlyArray<Reply> = []
@@ -86,9 +103,31 @@ export const start = async (): Promise<FakeModel> => {
         return
       }
       response.writeHead(200, { "content-type": "text/event-stream" })
+      // A tool call is one entry of the delta's `tool_calls`, with its arguments as JSON text, and it ends the
+      // response with `tool_calls` where an answer ends it with `stop`.
+      const { tool } = reply
       const events = [
-        chunk({ role: "assistant", content: reply.text ?? "" }, null),
-        chunk({}, "stop"),
+        tool === undefined
+          ? chunk({ role: "assistant", content: reply.text ?? "" }, null)
+          : chunk(
+              {
+                role: "assistant",
+                content: null,
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: `call_${index}`,
+                    type: "function",
+                    function: {
+                      name: tool.name,
+                      arguments: JSON.stringify(tool.arguments),
+                    },
+                  },
+                ],
+              },
+              null,
+            ),
+        chunk({}, tool === undefined ? "stop" : "tool_calls"),
         {
           ...chunk({}, null),
           choices: [],

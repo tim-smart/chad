@@ -2,9 +2,12 @@
 // over a gateway socket the scenario scripts and a fake Discord REST server.
 import { Effect, Layer } from "effect"
 import { Chat } from "effect/chat"
+import { writeFileSync } from "node:fs"
+import { join } from "node:path"
 import { expect, test } from "vitest"
 import type { Connection } from "../../dist/daemon/Connection.js"
 import * as DiscordLayer from "../../dist/daemon/Discord.js"
+import * as Messages from "../../dist/Messages.js"
 import { execute, query } from "../support/database.ts"
 import * as Discord from "../support/discord.ts"
 import { httpClient, type Scenario, scenario } from "../support/driver.ts"
@@ -338,6 +341,113 @@ test("SES-38 a resume that Discord turns down ends in a fresh identify, and chat
       { sessionId: "session-2", resumeUrl: Discord.resumeUrl, sequence: 2 },
     ],
   ])
+})
+
+test("TST-198 CLI-206 a bot that is removed and another that is added under the same name while no daemon runs starts with the old bot's stored resume state, Discord turns the resume down, and dfx identifies again", async () => {
+  const first = await scenario({ connections: [home] })
+  await first.fakes.model.script([{ text: "one" }])
+  const { socket } = await identify(first)
+  socket.receive(direct(2, "1", "hello"))
+  await answers(first, 1)
+  expect(await first.stop()).toBe(0)
+  const old = [
+    "home/dfx-shard-state-0-1",
+    { sessionId: "session-1", resumeUrl: Discord.resumeUrl, sequence: 2 },
+  ]
+  expect(shards(first)).toEqual([old])
+
+  // With no daemon the removal needs no database, so the old bot's row stays where it is.
+  expect(await first.chad(["connection", "remove", "home", "--force"])).toEqual(
+    { stdout: Messages.connectionRemoved("home") + "\n", stderr: "", code: 0 },
+  )
+  expect(shards(first)).toEqual([old])
+  const file = join(first.directory, "token")
+  writeFileSync(file, "other-token\n")
+  const added = await first.cli([
+    "connection",
+    "add",
+    "discord",
+    "--name",
+    "home",
+    "--token-file",
+    file,
+  ])
+  expect(added.code).toBe(0)
+  expect((await first.chad(["owner", "add", "home", owner])).code).toBe(0)
+
+  const second = await scenario({ directory: first.directory })
+  const stale = await second.discord.gateway.socket(0)
+  stale.receive(Discord.hello)
+  // The new bot resumes the old bot's session, which is not its own.
+  const [resume] = await stale.sent(Discord.Op.resume, 1)
+  expect(resume).toEqual({
+    token: "other-token",
+    session_id: "session-1",
+    seq: 2,
+  })
+  stale.receive({ op: Discord.Op.invalidSession, d: false })
+  const { identified } = await identify(second, 1, "session-2")
+  expect(identified).toMatchObject({ token: "other-token" })
+})
+
+test("CLI-190 CLI-207 STO-149 STO-198 the running daemon deletes a removed connection's shard state at once and leaves the rows of a connection whose name only begins with the same letters, a removal made with no daemon leaves the rows, and the next boot deletes those of every connection that is no longer stored", async () => {
+  // The second name begins with the first, so only the separator tells their rows apart.
+  const home2: Connection = { ...home, name: "home2", token: "home2-token" }
+  const first = await scenario({ connections: [home, home2] })
+  await first.fakes.model.script([{ text: "one" }, { text: "two" }])
+  const sockets = await identifyAll(first, 2)
+  for (const name of ["home", "home2"]) {
+    const channel = name === "home" ? dm : otherDm
+    sockets.get(name)?.receive(
+      Discord.messageCreate(2, {
+        id: channel,
+        channel,
+        author: owner,
+        content: `from ${name}`,
+      }),
+    )
+    await answers(first, 1, channel)
+  }
+  expect(await first.stop()).toBe(0)
+  const keys = (chad: Scenario) => shards(chad).map(([key]) => key)
+  expect(keys(first)).toEqual([
+    "home/dfx-shard-state-0-1",
+    "home2/dfx-shard-state-0-1",
+  ])
+
+  // The second daemon resumes both, so both rows were there when the command came.
+  const second = await scenario({ directory: first.directory })
+  const resumed = new Map<string, Discord.GatewaySocket>()
+  await Promise.all(
+    [0, 1].map(async (index) => {
+      const socket = await second.discord.gateway.socket(index)
+      socket.receive(Discord.hello)
+      const [resume] = await socket.sent(Discord.Op.resume, 1)
+      socket.receive(Discord.resumed(3))
+      resumed.set(String(resume?.["token"]).replace("-token", ""), socket)
+    }),
+  )
+  expect(await second.chad(["connection", "remove", "home"])).toEqual({
+    stdout: Messages.connectionRemoved("home") + "\n",
+    stderr: "",
+    code: 0,
+  })
+  expect(keys(second)).toEqual(["home2/dfx-shard-state-0-1"])
+  expect((await resumed.get("home")!.ended()).by).toBe("chad")
+  expect(resumed.get("home2")?.closed).toBeUndefined()
+  expect(await second.stop()).toBe(0)
+
+  // With no daemon the row of the removed connection stays, and the boot that follows deletes it.
+  expect(
+    (await second.chad(["connection", "remove", "home2", "--force"])).code,
+  ).toBe(0)
+  expect(keys(second)).toEqual(["home2/dfx-shard-state-0-1"])
+  const third = await scenario({ directory: first.directory })
+  await third.logged(
+    "boot.ready",
+    (line) => line.annotations["connections"] === 0,
+  )
+  expect(keys(third)).toEqual([])
 })
 
 test("DIS-110 DIS-115 FAIL-298 FAIL-299 FAIL-300 FAIL-323 TST-196 chad logs the gateway session coming up, each close with its code, and the close that is for good, after which that connection dials no more and the daemon carries on", async () => {
