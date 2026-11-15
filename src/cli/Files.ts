@@ -56,6 +56,8 @@ export const writable = Effect.fn("Files.writable")(function* (
  * Runs a write while this CLI holds the daemon lock, so no daemon can start between the lock test and the write and
  * miss the change. The lock is taken only now, after anything the command waited on. A daemon that started in the
  * meantime holds it, and the command then fails and writes nothing.
+ * Interruption waits for the write: submitted native file operations cannot be cancelled, so releasing the lock
+ * before they finish would let a new daemon read stale files.
  */
 export const locked = <A, E, R>(
   command: string,
@@ -75,4 +77,4 @@ export const locked = <A, E, R>(
       })
     }
     return yield* Effect.ensuring(write, Effect.sync(release))
-  })
+  }).pipe(Effect.uninterruptible)
