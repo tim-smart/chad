@@ -34,6 +34,10 @@ export const logFiles = (data: string): ReadonlyArray<string> => [
   log(data),
 ]
 
+/** The thread a notice outside a turn is posted in, as one JSON line (STO-121, FAIL-159). */
+export const noticeThread = (data: string): string =>
+  join(data, "state/notice-thread")
+
 /** The file that holds the chad version that last wrote the volume. */
 export const version = (data: string): string => join(data, "state/version")
 

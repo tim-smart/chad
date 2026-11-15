@@ -427,6 +427,17 @@ const megabytes = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`
 export const fileSkipped = (name: string, bytes: number) =>
   subtext(`Skipped \`${name}\` (${megabytes(bytes)}). The limit is 25 MB.`)
 
+/** The data volume is short of space, the notice of the key `disk-low` (FAIL-171). */
+export const diskLow = (bytes: number) =>
+  `The data volume has ${megabytes(bytes)} free.`
+
+/**
+ * The line "Problems" prints for a table key: the row's text, and when chad recorded the condition as holding, in UTC
+ * to the second (FAIL-320, FAIL-336).
+ */
+export const heldProblem = (text: string, recorded: number) =>
+  `${text} (recorded ${new Date(recorded).toISOString().slice(0, 19)}Z)`
+
 /** A file could not be downloaded and was skipped. */
 export const fileFailed = (name: string) =>
   subtext(`Skipped \`${name}\`. I couldn't download it.`)

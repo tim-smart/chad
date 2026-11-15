@@ -84,6 +84,11 @@ export const current = Effect.fnUntraced(function* (thread: string) {
   return rows[0]
 })
 
+/** The kind of the session a thread has now, or `undefined` when it has none. */
+export const kindOf = Effect.fnUntraced(function* (thread: string) {
+  return (yield* current(thread))?.kind ?? undefined
+})
+
 /** Whether a thread has ever had a session. */
 export const known = Effect.fnUntraced(function* (thread: string) {
   const sql = yield* SqlClient.SqlClient

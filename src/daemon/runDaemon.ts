@@ -32,6 +32,7 @@ import * as Filesystem from "./Filesystem.ts"
 import * as Handler from "./Handler.ts"
 import * as Logger from "./Logger.ts"
 import * as Model from "./Model.ts"
+import * as Notices from "./Notices.ts"
 import * as Queue from "./Queue.ts"
 import * as Server from "./Server.ts"
 import * as SessionEntity from "./SessionEntity.ts"
@@ -241,6 +242,14 @@ const boot = Effect.fnUntraced(function* (
   const running = yield* Chats.make((connection, live) =>
     inputs.chat(connection).pipe(Layer.provide(Handler.layer(live))),
   )
+  // The notices outside a turn post through the connections, and "Problems" lists their keys from here on.
+  const notices = yield* Notices.make({
+    data: volume.data,
+    quiet: inputs.timings.noticeQuiet,
+    post: Notices.post(running.chats, running.list),
+  }).pipe(Effect.provideContext(base))
+  state.problems.push(notices.problems)
+  state.held = notices.held
   // Cluster deletes a completed request of a session once it is a day old. The `turns` row is what is left of it.
   const retention = MessageRetention.make({
     entity: SessionEntity.Session,
@@ -269,6 +278,7 @@ const boot = Effect.fnUntraced(function* (
             text: Server.statusText(state),
           }),
           Layer.succeed(Chats.Chats, running.chats),
+          Layer.succeed(Notices.Notices, notices),
           Layer.succeed(Volume.Volume, volume),
           Layer.succeed(Timings, inputs.timings),
           Agent.ConversationMode.layer(true),

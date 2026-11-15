@@ -42,6 +42,8 @@ export interface State {
    * the database, so `/status` shows them when it cannot be used (FAIL-112, FAIL-213, CLI-211).
    */
   readonly problems: Array<() => ReadonlyArray<string>>
+  /** The lines "Problems" reads from the `notices` table for the table keys, once the database is open (FAIL-308). */
+  held: Effect.Effect<ReadonlyArray<string>, unknown> | undefined
   /** What "Recent" reads from the `turns` table, once the database is open (FAIL-114). */
   recent: Effect.Effect<RecentTurns, unknown> | undefined
 }
@@ -57,6 +59,7 @@ export const makeState = (): State => ({
   calls: new Set(),
   started: Date.now(),
   problems: [],
+  held: undefined,
   recent: undefined,
 })
 
@@ -81,15 +84,21 @@ const recent = (state: State): Effect.Effect<Recent> =>
         ),
       )
 
+/** The table keys' lines. With no database to read, "Problems" has the live keys alone (FAIL-309). */
+const held = (state: State): Effect.Effect<ReadonlyArray<string>> =>
+  state.held === undefined
+    ? Effect.succeed([])
+    : state.held.pipe(Effect.orElseSucceed((): ReadonlyArray<string> => []))
+
 const report = (state: State): Effect.Effect<Report> =>
-  Effect.map(recent(state), (recent) => ({
+  Effect.map(Effect.all([recent(state), held(state)]), ([recent, held]) => ({
     version: Version.version,
     effect: Version.effect() ?? "unknown",
     phase: state.phase,
     filesystem: state.filesystem,
     connections: state.connections,
     started: state.started,
-    problems: state.problems.flatMap((check) => check()),
+    problems: [...state.problems.flatMap((check) => check()), ...held],
     recent,
   }))
 

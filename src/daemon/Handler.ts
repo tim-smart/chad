@@ -17,6 +17,7 @@ import * as Messages from "../Messages.ts"
 import type { Live } from "./Chats.ts"
 import * as Logger from "./Logger.ts"
 import { Message, Session } from "./SessionEntity.ts"
+import * as Notices from "./Notices.ts"
 import * as Sessions from "./Sessions.ts"
 
 /** What `/status` prints, which is the text `chad status` prints for the same daemon call. */
@@ -150,6 +151,13 @@ export const layer = (connection: Live) =>
         }
 
         const key = ChatThread.toString(thread)
+        // Every owner's message in a thread counts for where a notice outside a turn goes, a chat command included,
+        // and it is worked out here so that no query finds it (FAIL-158, FAIL-231, REC-145).
+        yield* (yield* Notices.Notices).arrived({
+          connection: connection.name,
+          thread: key,
+          direct: event.kind === "direct",
+        })
         // The kind of a session is read from effect/chat for its thread, because the event of a mention in a plain
         // channel has the kind of the channel. A session that an owner's message opens in a server is a thread.
         const kind = chat.getThread(thread).pipe(
