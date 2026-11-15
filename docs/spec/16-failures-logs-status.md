@@ -41,7 +41,7 @@ The status message is removed when a turn ends (see 04-discord.md), so the log i
 - **FAIL-326** The first start of a turn writes `turn.started`. Each later start writes `turn.resumed` and no `turn.started`, and the delivery that gives up (SES-106) writes only `turn.failed`.
 - **FAIL-13** A script's source is logged cut at 2,000 characters.
 - **FAIL-14** A script's output is logged with its first 1,000 and its last 1,000 characters, and the cut is marked. A failing script's error is at the end of its output.
-- **FAIL-15** A retry of a model call by the root agent or by a foreground sub-agent is logged at Warn. A background sub-agent's retries are not logged.
+- **FAIL-15** A retry of a model call by the root agent, or by a foreground sub-agent with no background sub-agent above it, is logged at Warn. The retries of a background sub-agent and of every sub-agent under it are not logged.
 - **FAIL-16** A failed turn is logged as `turn.failed` at Error, with the full cause. The thread gets only the first line of it.
 - **FAIL-241** The log lines of a script that a sub-agent ran carry the sub-agent's id.
 - **FAIL-328** A sub-agent's id on a line is the annotation `subagent`, the number in the task id `subagent_<n>` that clanka gives it. A line of the root agent carries no `subagent`. The line of a sub-agent's start carries the first 200 characters of its prompt as `prompt`.
@@ -67,7 +67,7 @@ A line chad itself writes carries an `event` annotation from this list. The copy
 | **FAIL-247** | `turn.subagent-started` | Info (decided) | A sub-agent started. Carries its id and the start of its prompt. |
 | **FAIL-248** | `turn.subagent-ended` | Info (decided) | A sub-agent ended. Carries its id and the duration. |
 | **FAIL-249** | `turn.compaction` | Info (decided) | The history was compacted. |
-| **FAIL-250** | `turn.retry` | Warn (decided) | clanka retries a model call of the root agent or of a foreground sub-agent. Carries the error's reason tag, its message and the count. A background sub-agent's retries get no line. |
+| **FAIL-250** | `turn.retry` | Warn (decided) | clanka retries a model call of the root agent, or of a foreground sub-agent with no background sub-agent above it. Carries the error's reason tag, its message and the count. The retries of a background sub-agent and of every sub-agent under it get no line. |
 | **FAIL-251** | `turn.login-wait` | Info (decided) | The turn waits for a login. |
 | **FAIL-252** | `turn.steered` | Info (decided) | The agent read a message that steered the turn (see 03-sessions-and-turns.md). |
 | **FAIL-253** | `turn.resumed` | Info (decided) | The turn was resumed after a restart. |
@@ -852,7 +852,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-12 | TIM-557 item 4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-13 | TIM-557 item 4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-14 | TIM-557 item 4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-15 | TIM-557 item 4, amended by Tim's ruling that a background sub-agent's retries are not logged, TIM-560 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| FAIL-15 | TIM-557 item 4, amended by Tim's ruling that a background sub-agent's retries are not logged, TIM-560 2026-11-15, and by his ruling that every sub-agent under it is exempt too, TIM-560 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-16 | TIM-557 item 4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-17 | TIM-541 item 18, TIM-557 item 5 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | FAIL-18 | TIM-557 item 5, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
@@ -1087,7 +1087,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-247 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-248 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-249 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-250 | TIM-557 items 2 and 4, TIM-559 round 2 R4, amended by Tim's ruling that a background sub-agent's retries are not logged, TIM-560 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| FAIL-250 | TIM-557 items 2 and 4, TIM-559 round 2 R4, amended by Tim's ruling that a background sub-agent's retries are not logged, TIM-560 2026-11-15, and by his ruling that every sub-agent under it is exempt too, TIM-560 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-251 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | FAIL-252 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
 | FAIL-253 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
