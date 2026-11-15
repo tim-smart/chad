@@ -416,13 +416,18 @@ const boot = Effect.fnUntraced(function* (
     duration_ms: Date.now() - started,
     connections: stored.value.length,
   })
-  // The check at start runs once chad is connected, and nothing waits for it (MOD-95).
-  yield* Model.check({
-    settings,
-    endpoint: environment,
-    requirements,
-    deadline: inputs.timings.modelTrial,
-    notices,
+  // The check at start runs once chad is connected, which is when the first connection's platform has answered, and
+  // nothing waits for it (MOD-95). With no connection there is nobody to tell, so it runs at once.
+  const connected = stored.value.map(({ name }) => running.chats.ready(name))
+  yield* Effect.gen(function* () {
+    if (connected.length > 0) yield* Effect.raceAll(connected)
+    yield* Model.check({
+      settings,
+      endpoint: environment,
+      requirements,
+      deadline: inputs.timings.modelTrial,
+      notices,
+    })
   }).pipe(Effect.forkIn(scope))
   return yield* Effect.never
 })
