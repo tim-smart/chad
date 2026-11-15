@@ -364,21 +364,40 @@ export const firstLine = (text: string): string =>
 /** The reasons whose failed turn posts the failed-turn message, and what that message says of each (FAIL-55 to FAIL-58). */
 export type Posted = Extract<
   Failed.Reason,
-  { readonly _tag: "ModelError" | "Internal" | "LoginFailed" }
+  { readonly _tag: "ModelError" | "Internal" | "LoginFailed" | "UsageLimit" }
 >
 
+/** The reason of a turn chad ended at the silence bound (FAIL-57). */
+export const silenceReason = "the model did not answer for 15 minutes"
+
 const failedReason = (
-  reason: Exclude<Posted, { readonly _tag: "LoginFailed" }>,
+  reason: Extract<Posted, { readonly _tag: "ModelError" | "Internal" }>,
 ) =>
   reason._tag === "Internal"
     ? `chad hit an error (${firstLine(reason.message)})`
-    : reason.retries === 0
-      ? `the model request failed (${reason.reason}: ${firstLine(reason.message)})`
-      : `the model kept failing after ${reason.retries} retries (${reason.reason}: ${firstLine(reason.message)})`
+    : reason.reason === "TurnTimeout"
+      ? silenceReason
+      : reason.retries === 0
+        ? `the model request failed (${reason.reason}: ${firstLine(reason.message)})`
+        : `the model kept failing after ${reason.retries} retries (${reason.reason}: ${firstLine(reason.message)})`
 
 /**
- * A failed turn, as a normal message in its thread (FAIL-54, FAIL-65). A failed login has its own message in place of
- * it (MOD-75, MOD-76).
+ * The message of a turn that hit the usage limit, in place of the failed-turn message (FAIL-60). The reset time is a
+ * timestamp of the platform, which takes seconds (FAIL-209), and it is left out when the error carried none (FAIL-90).
+ */
+export const usageLimitReached = (format: Format, resetsAt?: number) =>
+  `You've reached the usage limit on this login.${resetsAt === undefined ? "" : ` It resets ${format.relativeTime(resetsAt)}.`} Wait, or move to another provider with \`/model\`.`
+
+/**
+ * The text of the `usage-limit` row, which its notice and its line under "Problems" both print (FAIL-174, FAIL-310,
+ * FAIL-321, FAIL-342). The reset time is in UTC to the second, as the line's recorded time is (FAIL-336).
+ */
+export const usageLimitNotice = (resetsAt?: number) =>
+  `This login has reached its usage limit. Scheduled runs are skipped until it resets.${resetsAt === undefined ? "" : ` It resets at ${new Date(resetsAt).toISOString().slice(0, 19)}Z.`}`
+
+/**
+ * A failed turn, as a normal message in its thread (FAIL-54, FAIL-65, DIS-104). A failed login and a usage limit have
+ * their own messages in place of it (FAIL-60 to FAIL-62).
  */
 export const failedTurn = (
   format: Format,
@@ -386,11 +405,13 @@ export const failedTurn = (
   reason: Posted,
   turn: string,
 ) =>
-  reason._tag === "LoginFailed"
-    ? reason.reason === "TimedOut"
-      ? loginTimedOut
-      : loginFailed(reason.reason)
-    : `That turn failed after ${duration(milliseconds)}: ${failedReason(reason)}. The conversation is intact, send a message to carry on.\n${turnLine(format, turn)}`
+  reason._tag === "UsageLimit"
+    ? usageLimitReached(format, reason.resetsAt)
+    : reason._tag === "LoginFailed"
+      ? reason.reason === "TimedOut"
+        ? loginTimedOut
+        : loginFailed(reason.reason)
+      : `That turn failed after ${duration(milliseconds)}: ${failedReason(reason)}. The conversation is intact, send a message to carry on.\n${turnLine(format, turn)}`
 
 /** One line of `session_updates`, as the update message reads it (STO-170). */
 export type Update =

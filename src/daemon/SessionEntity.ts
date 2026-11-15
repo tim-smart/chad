@@ -34,6 +34,7 @@ import type { Format } from "./Format.ts"
 import * as Logger from "./Logger.ts"
 import * as Login from "./Login.ts"
 import * as Model from "./Model.ts"
+import * as Notices from "./Notices.ts"
 import * as Post from "./Post.ts"
 import * as Queue from "./Queue.ts"
 import * as Sessions from "./Sessions.ts"
@@ -221,6 +222,10 @@ interface Turn {
    * change while the turn runs reaches its session's next turn and leaves this one as it is (MOD-117, MOD-18).
    */
   readonly settings: Model.Settings
+  /** What the turn's steps have seen, which a wait on a login resets the silence count of (MOD-103). */
+  steps: TurnLog.Steps
+  /** Whether a model call of the turn has succeeded, which clears the model's conditions (FAIL-94, FAIL-235). */
+  succeeded: boolean
 }
 
 /** What the entity holds for the thread's current session. A `/new` puts a fresh one in its place. */
@@ -252,6 +257,7 @@ export const layer = Layer.unwrap(
         const volume = yield* Volume
         const models = yield* Model.Models
         const login = yield* Login.Login
+        const notices = yield* Notices.Notices
         const chats = yield* Chats
         const fs = yield* FileSystem.FileSystem
         const services = yield* Effect.context<
@@ -681,6 +687,7 @@ export const layer = Layer.unwrap(
           })
           yield* saveFrozen(live)
           const steps = TurnLog.steps()
+          turn.steps = steps
           const ids = { session: live.id, turn: turn.id }
           return yield* output.pipe(
             Stream.runForEach((part) =>
@@ -714,7 +721,20 @@ export const layer = Layer.unwrap(
                     part.messages,
                     live.agent.environment.current,
                   )
-                } else if (part._tag === "Usage") {
+                }
+                if (
+                  !turn.succeeded &&
+                  (part._tag === "Usage" ||
+                    (part._tag === "SubagentPart" &&
+                      part.part._tag === "Usage"))
+                ) {
+                  // A model call that succeeds clears the conditions a model call or the check at start began (FAIL-94,
+                  // FAIL-235).
+                  turn.succeeded = true
+                  yield* notices.clear(Notices.usageLimitKey)
+                  yield* notices.clear(Model.checkKey)
+                }
+                if (part._tag === "Usage") {
                   // A part holds the running totals of this `send`, and the context size of the latest call.
                   turn.usage = {
                     inputTokens: turn.earlier.inputTokens + part.inputTokens,
@@ -770,6 +790,7 @@ export const layer = Layer.unwrap(
             // A turn's wait gets one status line and one log line, however often clanka retries its call (MOD-51).
             waiting: Effect.suspend(() => {
               const now = asking
+              if (now !== undefined) TurnLog.loginWaited(now.turn.steps)
               if (now === undefined || now.waited) return Effect.void
               now.waited = true
               return Effect.andThen(
@@ -905,7 +926,8 @@ export const layer = Layer.unwrap(
         const posted = (reason: Failed.Reason): reason is Messages.Posted =>
           reason._tag === "ModelError" ||
           reason._tag === "Internal" ||
-          reason._tag === "LoginFailed"
+          reason._tag === "LoginFailed" ||
+          reason._tag === "UsageLimit"
 
         /** What a failed turn's row records of its reason: the tag and the whole reason (STO-76). */
         const recorded = (reason: Failed.Reason) => ({
@@ -1184,6 +1206,15 @@ export const layer = Layer.unwrap(
             reconciled,
           }
           if (outcome._tag === "Failed") {
+            const reason = outcome.reason
+            // The owner is told in the thread, so the condition's row records the limit and no notice goes (FAIL-94,
+            // FAIL-319).
+            if (reason._tag === "UsageLimit") {
+              yield* notices.record({
+                key: Notices.usageLimitKey,
+                text: Messages.usageLimitNotice(reason.resetsAt),
+              })
+            }
             if (posted(outcome.reason)) {
               yield* post(
                 chat,
@@ -1199,8 +1230,12 @@ export const layer = Layer.unwrap(
             }
             yield* TurnLog.failed(
               fields,
-              outcome.reason._tag,
+              reason._tag,
               Exit.isFailure(exit) ? exit.cause : undefined,
+              // The reset time of a usage limit is on the turn's one line (FAIL-242, MOD-114).
+              reason._tag === "UsageLimit" && reason.resetsAt !== undefined
+                ? { resets_at: new Date(reason.resetsAt).toISOString() }
+                : {},
             )
             return outcome
           }
@@ -1487,6 +1522,8 @@ export const layer = Layer.unwrap(
                     resumed: false,
                     status: undefined,
                     settings: models.settings(),
+                    steps: TurnLog.steps(),
+                    succeeded: false,
                   }
                   own.turn = turn
                   yield* take(payload.key)

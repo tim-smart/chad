@@ -18,6 +18,11 @@ export interface Reply {
   readonly tool?: { readonly name: string; readonly arguments: unknown }
   /** An HTTP status other than 200, sent with no body of a completion. */
   readonly status?: number
+  /**
+   * The provider's error object, sent with `status` in place of the fake's own: the body of an HTTP refusal, or the
+   * `error` of a WebSocket error frame, such as a usage limit's (FAIL-88).
+   */
+  readonly error?: Refusal["error"]
   /** Whether the response waits until the test releases it. */
   readonly hold?: boolean
   /**
@@ -217,8 +222,18 @@ const completion = (index: number, reply: Reply): ReadonlyArray<object> => {
   return events
 }
 
-/** The events of a Responses stream, which Codex sends as server-sent events and as WebSocket frames alike. */
-const responses = (
+/** A refusal on the Codex socket, as an `error` frame with the status and the provider's error (TST-41, FAIL-88). */
+export const refusalFrame = (refusal: Refusal) => ({
+  type: "error",
+  status: refusal.status,
+  error: refusal.error,
+})
+
+/**
+ * The events of a Responses stream, which Codex sends as server-sent events and as WebSocket frames alike. Their shape
+ * is the kept recording's (TST-41).
+ */
+export const responses = (
   index: number,
   reply: Reply,
   model: string,
@@ -294,12 +309,14 @@ const responses = (
 }
 
 /** A refusal: its HTTP status and the error object Codex sends. */
-interface Refusal {
+export interface Refusal {
   readonly status: number
   readonly error: {
     readonly type?: string
     readonly code?: string
     readonly message: string
+    /** When a usage limit resets, in epoch seconds, as Codex's HTTP body has it. */
+    readonly resets_at?: number
   }
 }
 
@@ -422,7 +439,10 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
       await new Promise<void>((resolve) => held.set(index, resolve))
     }
     if (reply.status !== undefined && reply.status !== 200) {
-      return { status: reply.status, error: { message: "scripted failure" } }
+      return {
+        status: reply.status,
+        error: reply.error ?? { message: "scripted failure" },
+      }
     }
     return { index, reply }
   }
@@ -550,13 +570,7 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
                 { path: opening.path, headers: opening.headers, body },
                 true,
               ).then(async (result) => {
-                if ("status" in result) {
-                  return send({
-                    type: "error",
-                    status: result.status,
-                    error: result.error,
-                  })
-                }
+                if ("status" in result) return send(refusalFrame(result))
                 for (const event of responses(
                   result.index,
                   result.reply,

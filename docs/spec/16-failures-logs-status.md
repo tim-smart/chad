@@ -735,6 +735,7 @@ The keys, with the class of each, what begins each condition and the check that 
 - **FAIL-320** The line "Problems" prints for a table key says when the row was recorded, which is the time chad wrote the row as holding. The held row may describe something that has already passed, as on an idle chad whose usage limit has lifted with no model call made since, and the time lets the owner judge that. The row keeps this time apart from the time its notice was last sent, because a condition can begin with no notice sent, as `usage-limit` does when an owner was present (FAIL-94) and as any condition does within 24 hours of its last notice (FAIL-152).
 - **FAIL-336** The line "Problems" prints for a table key is the row's text followed by `(recorded <time>)`, with the time in UTC to the second as `YYYY-MM-DDTHH:MM:SSZ`.
 - **FAIL-321** The `usage-limit` line under "Problems" also prints the reset time when its row holds one. On the WebSocket transport, which v1 runs on, the error carries no reset time (FAIL-97), so there the line has the recorded time only.
+- **FAIL-342** The `usage-limit` row keeps a reset time in its text, which is the one renderer's (FAIL-310): after the text of FAIL-174 comes "It resets at <time>.", with `<time>` in UTC to the second as the recorded time is printed. A turn that hits the limit while the row already holds writes the text of its own error, with its reset time or none, and leaves the recorded time as it was (FAIL-320).
 - **FAIL-315** `plugin-skipped:<name>` clears when the plugin loads, when it is no longer in the applied repo, and when the plugin is turned off (see 11-settings.md).
 - **FAIL-316** `mcp-needs-login:<server>` clears when a login for the server succeeds, or when the server is no longer in the applied `mcp.json`.
 - **FAIL-317** `safe-mode-auto` clears when safe mode is turned off.
@@ -1179,3 +1180,4 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-339 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-340 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-341 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
+| FAIL-342 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |

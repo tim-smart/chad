@@ -1,5 +1,5 @@
 import type { RetriesExhausted } from "clanka/AgentOutput"
-import { Cause, Schema } from "effect"
+import { Cause, Data, Schema } from "effect"
 import { AiError } from "effect/ai"
 
 /**
@@ -73,6 +73,99 @@ export const fromRow = (
   }
 }
 
+/**
+ * chad's own end of a turn's model part, for the two cases clanka would keep retrying: the silence bound and a usage
+ * limit (SES-133). It carries the reason the turn ends with, which `classify` gives as it is.
+ */
+export class Ended extends Data.TaggedError("TurnEnded")<{
+  readonly reason: Reason
+}> {}
+
+/**
+ * Whether an error is clanka's turn timeout, which is how clanka reports a model call that sent nothing for
+ * `Agent.TurnTimeout`. This is the one place chad matches clanka's wording (FAIL-204), and a test runs it against real
+ * clanka and a silent model (FAIL-205, TST-181).
+ */
+export const isTurnTimeout = (error: AiError.AiError): boolean =>
+  error.module === "clanka/Agent" &&
+  error.method === "send" &&
+  error.reason._tag === "UnknownError" &&
+  error.reason.description === "TurnTimeout was reached"
+
+/** The codes that end a turn as `UsageLimit` with no reset time, on either transport (FAIL-88). */
+const limitCodes: ReadonlySet<unknown> = new Set([
+  "insufficient_quota",
+  "credit_balance_exhausted",
+  "organization_spend_limit_exceeded",
+])
+
+type Metadata = Readonly<Record<string, unknown>>
+
+const record = (value: unknown): Metadata | undefined =>
+  typeof value === "object" && value !== null ? (value as Metadata) : undefined
+
+/** The provider's fields of an error: the WebSocket frame's `error` as it is, and the HTTP body's under `openai`. */
+const fieldsOf = (error: AiError.AiError) => {
+  const reason = error.reason as unknown as {
+    readonly metadata?: unknown
+    readonly http?: { readonly body?: unknown }
+  }
+  const socket = record(reason.metadata)
+  const http = record(socket?.["openai"])
+  return { socket, http, body: reason.http?.body }
+}
+
+/** The reset time an HTTP body holds as `resets_at` in epoch seconds, in epoch milliseconds (FAIL-90, FAIL-206). */
+const resetOf = (body: unknown): number | undefined => {
+  if (typeof body !== "string") return undefined
+  try {
+    const seconds = record(record(JSON.parse(body))?.["error"])?.["resets_at"]
+    return typeof seconds === "number" && Number.isFinite(seconds)
+      ? Math.round(seconds * 1000)
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The `UsageLimit` an error names, or nothing (FAIL-46, FAIL-88). Only an HTTP body carries a reset time, because
+ * effect's WebSocket decoder drops `resets_at` (FAIL-90, FAIL-97).
+ */
+export const usageLimit = (
+  error: AiError.AiError,
+): Extract<Reason, { readonly _tag: "UsageLimit" }> | undefined => {
+  const reason = error.reason
+  if (reason._tag === "QuotaExhaustedError") return { _tag: "UsageLimit" }
+  const { socket, http, body } = fieldsOf(error)
+  if (http?.["errorType"] === "usage_limit_reached") {
+    const resetsAt = resetOf(body)
+    return resetsAt === undefined
+      ? { _tag: "UsageLimit" }
+      : { _tag: "UsageLimit", resetsAt }
+  }
+  if (
+    socket?.["type"] === "usage_limit_reached" &&
+    (reason._tag === "RateLimitError" ||
+      reason._tag === "InternalProviderError")
+  ) {
+    return { _tag: "UsageLimit" }
+  }
+  if (limitCodes.has(socket?.["code"]) || limitCodes.has(http?.["errorCode"])) {
+    return { _tag: "UsageLimit" }
+  }
+  return undefined
+}
+
+/** Whether an error says the plan does not include the usage, which ends the turn at once as `ModelError` (FAIL-89). */
+export const notIncluded = (error: AiError.AiError): boolean => {
+  const { socket, http } = fieldsOf(error)
+  return (
+    socket?.["type"] === "usage_not_included" ||
+    http?.["errorType"] === "usage_not_included"
+  )
+}
+
 const isRetriesExhausted = (error: unknown): error is RetriesExhausted =>
   typeof error === "object" &&
   error !== null &&
@@ -115,10 +208,16 @@ const loginReason = (defect: unknown): LoginReason | undefined => {
 }
 
 /**
- * The reason a turn failed with, from the cause its model part or chad's own code ended with. clanka's two model
- * failures are `ModelError`, a failed login is `LoginFailed`, and anything else is `Internal`.
+ * The reason a turn failed with, from the cause its model part or chad's own code ended with. chad's own end gives its
+ * reason, a failed login is `LoginFailed`, a usage limit is `UsageLimit`, clanka's other model failures are
+ * `ModelError`, and anything else is `Internal`.
  */
 export const classify = (cause: Cause.Cause<unknown>): Reason => {
+  for (const reason of cause.reasons) {
+    if (reason._tag === "Fail" && reason.error instanceof Ended) {
+      return reason.error.reason
+    }
+  }
   for (const reason of cause.reasons) {
     const login =
       reason._tag === "Die"
@@ -132,6 +231,8 @@ export const classify = (cause: Cause.Cause<unknown>): Reason => {
     if (reason._tag !== "Fail") continue
     const error = reason.error
     if (isRetriesExhausted(error)) {
+      const limit = usageLimit(error.error)
+      if (limit !== undefined) return limit
       return {
         _tag: "ModelError",
         reason: error.error.reason._tag,
@@ -140,6 +241,9 @@ export const classify = (cause: Cause.Cause<unknown>): Reason => {
       }
     }
     if (AiError.isAiError(error)) {
+      // A usage limit is also recognised in a final error, such as the API key path's `QuotaExhaustedError` (FAIL-87).
+      const limit = usageLimit(error)
+      if (limit !== undefined) return limit
       return {
         _tag: "ModelError",
         reason: error.reason._tag,

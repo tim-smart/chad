@@ -45,7 +45,7 @@ describe("the durations", () => {
     Duration.toMillis(length) / 1000
 
   it("TST-70 TST-71 STO-36 SES-126 CLI-152 IMG-116 each default of Timings is the value of the durations table", () => {
-    const { pruneAt, ...lengths } = defaults
+    const { pruneAt, turnTimeout, ...lengths } = defaults
     expect(
       Object.fromEntries(
         Object.entries(lengths).map(([name, length]) => [
@@ -90,6 +90,8 @@ describe("the durations", () => {
       statusTokenWindow: 7 * 24 * 3600,
     })
     expect(pruneAt).toEqual({ hour: 4, minute: 0 })
+    // clanka's turn timeout is not chad's to set, and clanka keeps its default (FAIL-79, TST-215).
+    expect(turnTimeout).toBeUndefined()
     // The longest wait of a turn that starts during a swap has no value of its own.
     expect(seconds(defaults.swapDrain) + seconds(defaults.swapClose)).toBe(40)
   })
@@ -98,8 +100,8 @@ describe("the durations", () => {
     expect(factor).toBeLessThan(1)
     const scaled = scale(defaults, factor)
     const names = Object.keys(defaults).filter(
-      (name) => name !== "pruneAt",
-    ) as ReadonlyArray<Exclude<keyof Timings, "pruneAt">>
+      (name) => name !== "pruneAt" && name !== "turnTimeout",
+    ) as ReadonlyArray<Exclude<keyof Timings, "pruneAt" | "turnTimeout">>
     for (const name of names) {
       expect(Duration.toMillis(scaled[name])).toBeCloseTo(
         Duration.toMillis(defaults[name]) * factor,

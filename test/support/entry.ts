@@ -6,10 +6,13 @@ import { factor } from "./factor.ts"
 
 /**
  * The lengths a scenario may set by itself, apart from the factor (docs/spec/17-testing.md, TST-212, TST-214). Each is
- * still too long for a test once it is scaled, and no ordering with another length rests on it.
+ * still too long for a test once it is scaled, and no ordering with another length rests on it (TST-215).
  */
 export type Own = Partial<
-  Pick<Timings, "sessionIdle" | "messageRetention" | "modelLogin">
+  Pick<
+    Timings,
+    "sessionIdle" | "messageRetention" | "modelLogin" | "turnTimeout"
+  >
 >
 
 export const start = (world: Omit<DaemonInputs, "timings">, own: Own = {}) =>

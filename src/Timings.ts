@@ -70,6 +70,12 @@ export interface Timings {
   readonly statusFailedWindow: Duration.Duration
   /** Status, the "Recent" block's longer window for tokens. */
   readonly statusTokenWindow: Duration.Duration
+  /**
+   * clanka's `Agent.TurnTimeout`, a duration of the second table that chad does not set: it is unset, so clanka keeps
+   * its default (FAIL-79), and no scale factor changes it. A test of the silence bound gives it a length of its own,
+   * because three of them at the real length are 15 minutes (TST-215).
+   */
+  readonly turnTimeout: Duration.Duration | undefined
 }
 
 export const defaults: Timings = {
@@ -108,18 +114,22 @@ export const defaults: Timings = {
   noticeQuiet: Duration.hours(24),
   statusFailedWindow: Duration.hours(24),
   statusTokenWindow: Duration.days(7),
+  turnTimeout: undefined,
 }
 
-/** Every length multiplied by one factor, so the orderings between them hold. The prune's time of day is left alone. */
+/**
+ * Every length multiplied by one factor, so the orderings between them hold. The prune's time of day is left alone, and
+ * so is clanka's turn timeout, which is not chad's (TST-215).
+ */
 export const scale = (timings: Timings, factor: number): Timings => {
-  const { pruneAt, ...lengths } = timings
+  const { pruneAt, turnTimeout, ...lengths } = timings
   const scaled = Object.fromEntries(
     Object.entries(lengths).map(([name, length]) => [
       name,
       Duration.times(length, factor),
     ]),
-  ) as Omit<Timings, "pruneAt">
-  return { ...scaled, pruneAt }
+  ) as Omit<Timings, "pruneAt" | "turnTimeout">
+  return { ...scaled, pruneAt, turnTimeout }
 }
 
 /** The durations the daemon runs on. `runDaemon` sets it from its input. */

@@ -1,0 +1,101 @@
+{
+  "source": "Hand-made from the Responses event schema clanka decodes, standing in until the first recording is made on Tim's Codex login (TST-43). Replace it with: node scripts/strip-recording.ts <recording.json>",
+  "opening": {
+    "headers": {
+      "authorization": "<stripped>",
+      "chatgpt-account-id": "<stripped>",
+      "session-id": "00000000-0000-4000-8000-000000000000"
+    }
+  },
+  "answer": [
+    {
+      "type": "response.created",
+      "response": {
+        "id": "resp_0",
+        "object": "response",
+        "model": "gpt-6-astra",
+        "created_at": 0,
+        "output": []
+      }
+    },
+    {
+      "type": "response.output_item.added",
+      "output_index": 0,
+      "item": {
+        "type": "message",
+        "id": "msg_0",
+        "role": "assistant",
+        "content": [],
+        "status": "in_progress"
+      }
+    },
+    {
+      "type": "response.output_text.delta",
+      "item_id": "msg_0",
+      "output_index": 0,
+      "content_index": 0,
+      "delta": "Hello"
+    },
+    {
+      "type": "response.output_item.done",
+      "output_index": 0,
+      "item": {
+        "type": "message",
+        "id": "msg_0",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "output_text",
+            "text": "Hello",
+            "annotations": []
+          }
+        ],
+        "status": "completed"
+      }
+    },
+    {
+      "type": "response.completed",
+      "response": {
+        "id": "resp_0",
+        "object": "response",
+        "model": "gpt-6-astra",
+        "created_at": 0,
+        "output": [
+          {
+            "type": "message",
+            "id": "msg_0",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "output_text",
+                "text": "Hello",
+                "annotations": []
+              }
+            ],
+            "status": "completed"
+          }
+        ],
+        "usage": {
+          "input_tokens": 1,
+          "output_tokens": 1,
+          "total_tokens": 2,
+          "input_tokens_details": {
+            "cached_tokens": 0
+          },
+          "output_tokens_details": {
+            "reasoning_tokens": 0
+          }
+        }
+      }
+    }
+  ],
+  "refusal": {
+    "type": "error",
+    "status": 429,
+    "error": {
+      "type": "usage_limit_reached",
+      "message": "The usage limit has been reached",
+      "resets_at": 1900000000
+    }
+  }
+}

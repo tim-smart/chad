@@ -327,6 +327,7 @@ const boot = Effect.fnUntraced(function* (
         ),
         Effect.orElseSucceed(() => undefined),
       ),
+    loggedIn: notices.clear(Notices.usageLimitKey),
   }).pipe(Effect.provide(Context.merge(world, tokens)))
   const requirements = Context.mergeAll(
     world,
@@ -340,6 +341,7 @@ const boot = Effect.fnUntraced(function* (
     inputs: environment,
     requirements,
     deadline: inputs.timings.modelTrial,
+    changed: notices.clear(Model.checkKey),
   })
   const account: Server.Account = {
     login,
@@ -390,6 +392,10 @@ const boot = Effect.fnUntraced(function* (
           Layer.succeed(Volume.Volume, volume),
           Layer.succeed(Timings, inputs.timings),
           Agent.ConversationMode.layer(true),
+          // Only a test sets clanka's turn timeout, and the shipped daemon leaves clanka's default (FAIL-79, TST-215).
+          inputs.timings.turnTimeout === undefined
+            ? Layer.empty
+            : Agent.TurnTimeout.layer(inputs.timings.turnTimeout),
           Layer.succeedContext(base),
         ),
       ),

@@ -40,6 +40,9 @@ const tableKeys: ReadonlySet<string> = new Set(["usage-limit", "prune-failed"])
 
 export const isTableKey = (key: string) => tableKeys.has(key)
 
+/** The key of "the last model call hit the usage limit" (FAIL-94, FAIL-319). */
+export const usageLimitKey = "usage-limit"
+
 /** The notice of `disk-low`, a live key (FAIL-171, STO-115). */
 export const diskLow = (bytes: number): Notice => ({
   key: "disk-low",
@@ -191,6 +194,11 @@ export class Notices extends Context.Service<
   {
     /** A condition holds: its row records it, and its notice is sent unless the rules say otherwise. */
     readonly raise: (notice: Notice) => Effect.Effect<void>
+    /**
+     * A condition holds and its row records it, but no notice is owed, because the owner was told where it happened, as
+     * a usage limit in a turn an owner started is (FAIL-94). A row that holds already keeps its times.
+     */
+    readonly record: (notice: Notice) => Effect.Effect<void>
     /** A condition cleared. Nothing is posted, and the row keeps the time its notice was last sent (FAIL-151). */
     readonly clear: (key: string) => Effect.Effect<void>
     /** An owner's message arrived in a thread, which may move the destination (FAIL-158, FAIL-231, REC-145). */
@@ -462,6 +470,27 @@ export const make = Effect.fnUntraced(function* (options: {
       }),
     )
 
+  const record = (notice: Notice) =>
+    rows.withPermits(1)(
+      Effect.gen(function* () {
+        const { key, text } = notice
+        if (!isTableKey(key)) live.set(key, text)
+        const row = yield* read(key)
+        if (row?.holds === true) {
+          if (row.text !== text) yield* write(key, { ...row, text })
+          return
+        }
+        // Nothing is owed, so the resend of FAIL-160 finds nothing to post.
+        yield* write(key, {
+          holds: true,
+          recorded: Date.now(),
+          sent: row?.sent ?? null,
+          text,
+          delivered: true,
+        })
+      }),
+    )
+
   const clear = (key: string) =>
     rows.withPermits(1)(
       Effect.gen(function* () {
@@ -545,6 +574,7 @@ export const make = Effect.fnUntraced(function* (options: {
 
   return Notices.of({
     raise,
+    record,
     clear,
     arrived,
     problems: () => [...live.values()],

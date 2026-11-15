@@ -125,6 +125,8 @@ export const make = (options: {
   readonly requirements: Context.Context<Requirements | FileSystem.FileSystem>
   /** How long a trial request may take (MOD-88). */
   readonly deadline: Duration.Duration
+  /** What a change that is stored clears: the failed check of a model nobody runs any more (FAIL-235). */
+  readonly changed: Effect.Effect<void>
 }): Models["Service"] => {
   const { data, inputs, requirements, deadline } = options
   let current = options.initial
@@ -185,6 +187,7 @@ export const make = (options: {
               ),
             ),
           )
+          yield* options.changed
           return planned.text
         }).pipe(Effect.provideContext(requirements)),
       ),

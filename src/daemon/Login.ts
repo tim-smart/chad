@@ -103,6 +103,11 @@ interface Flow {
   /** The link to the thread the code went to, which the other threads' notice names (MOD-42, MOD-118). */
   link: string | undefined
   readonly waiters: Set<Waiter>
+  /**
+   * The sessions that have waited on this login. A model call that clanka's turn timeout cuts leaves the wait before
+   * its retry is reported, so the login stays pending for the session until it ends (MOD-50, MOD-102).
+   */
+  readonly sessions: Set<string>
   /** The sessions told of this login already, which get no second notice. */
   readonly noticed: Set<string>
 }
@@ -140,6 +145,8 @@ export const make = Effect.fnUntraced(function* (options: {
   readonly timeout: Duration.Duration
   /** Posts a text by the notice route and gives the link of the thread it went to, or nothing (MOD-36). */
   readonly announce: (text: string) => Effect.Effect<string | undefined>
+  /** What a login that completes clears, which is the usage limit's condition (FAIL-94). */
+  readonly loggedIn: Effect.Effect<void>
 }) {
   const scope = yield* Effect.scope
   let flow: Flow | undefined
@@ -207,6 +214,7 @@ export const make = Effect.fnUntraced(function* (options: {
         prompt: undefined,
         link: undefined,
         waiters: new Set(),
+        sessions: new Set(),
         noticed: new Set(),
       }
       flow = created
@@ -227,6 +235,7 @@ export const make = Effect.fnUntraced(function* (options: {
           if (exit._tag === "Success" && started === epoch) token = exit.value
           if (exit._tag === "Success" && current.prompt !== undefined) {
             yield* Logger.event("model.logged-in", "A login completed", {})
+            yield* options.loggedIn
           }
           yield* Deferred.done(current.done, exit)
         }),
@@ -239,6 +248,7 @@ export const make = Effect.fnUntraced(function* (options: {
   const join = (current: Flow, waiter: Waiter) =>
     Effect.suspend(() => {
       current.waiters.add(waiter)
+      if (waiter.session !== undefined) current.sessions.add(waiter.session.id)
       return greet(current, waiter)
     }).pipe(
       Effect.andThen(Deferred.await(current.done)),
@@ -292,8 +302,7 @@ export const make = Effect.fnUntraced(function* (options: {
       }),
     logout: logout,
     pendingFor: (session) =>
-      flow?.prompt !== undefined &&
-      [...flow.waiters].some((waiter) => waiter.session?.id === session),
+      flow?.prompt !== undefined && flow.sessions.has(session),
     pending: () => flow?.prompt !== undefined,
   })
 })

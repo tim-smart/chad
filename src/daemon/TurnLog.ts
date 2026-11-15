@@ -1,7 +1,9 @@
 import * as Agent from "clanka/Agent"
 import type * as AgentOutput from "clanka/AgentOutput"
 import { type Cause, Context, Effect } from "effect"
+import type { AiError } from "effect/ai"
 import * as Messages from "../Messages.ts"
+import * as Failed from "./Failed.ts"
 import * as Logger from "./Logger.ts"
 import * as Sessions from "./Sessions.ts"
 import type { Lines } from "./StatusMessage.ts"
@@ -39,13 +41,67 @@ const promptChars = 200
 /** What one turn's steps have seen so far, per agent. The root agent is `undefined`, and a sub-agent is its id. */
 export interface Steps {
   readonly subagents: Map<number, number>
+  /** The `ErrorRetry` parts since the agent's last `Usage`, which the status line shows (FAIL-81). */
   readonly retries: Map<number | undefined, number>
+  /** The turn timeouts in a row on the agent's current model call, which the silence bound counts (FAIL-84). */
+  readonly timeouts: Map<number | undefined, number>
 }
 
 export const steps = (): Steps => ({
   subagents: new Map(),
   retries: new Map(),
+  timeouts: new Map(),
 })
+
+/**
+ * The turn timeouts in a row after which chad ends the turn: 15 minutes of a provider saying nothing at clanka's
+ * default turn timeout (FAIL-84).
+ */
+export const silenceBound = 3
+
+/**
+ * The turn waits on a login: the count toward the silence bound starts again from zero, because the login's own
+ * timeout is what ends that wait (MOD-102, MOD-103, FAIL-212).
+ */
+export const loginWaited = (state: Steps) => state.timeouts.clear()
+
+/**
+ * chad's own end of the turn at an `ErrorRetry` part, for what clanka would keep retrying: a usage limit, a plan that
+ * does not include the usage, and the third turn timeout in a row on one model call (SES-133, FAIL-84, FAIL-87,
+ * FAIL-89). A timeout while a login is pending for the session does not count (FAIL-212).
+ */
+const ends = (
+  state: Steps,
+  agent: number | undefined,
+  error: AiError.AiError,
+  retry: number,
+  loginPending: boolean,
+): Failed.Reason | undefined => {
+  const limit = Failed.usageLimit(error)
+  if (limit !== undefined) return limit
+  if (Failed.notIncluded(error)) {
+    return {
+      _tag: "ModelError",
+      reason: error.reason._tag,
+      message: error.reason.message,
+      retries: retry - 1,
+    }
+  }
+  if (!Failed.isTurnTimeout(error) || loginPending) {
+    state.timeouts.set(agent, 0)
+    return undefined
+  }
+  const silent = (state.timeouts.get(agent) ?? 0) + 1
+  state.timeouts.set(agent, silent)
+  if (silent < silenceBound) return undefined
+  // `TurnTimeout` is chad's own reason, with clanka's text as it arrived (API-113, FAIL-203).
+  return {
+    _tag: "ModelError",
+    reason: "TurnTimeout",
+    message: error.reason.message,
+    retries: retry,
+  }
+}
 
 const subagentOf = (agent: number | undefined) =>
   agent === undefined ? {} : { subagent: agent }
@@ -102,13 +158,17 @@ export const step = Effect.fnUntraced(function* (
       })
     }
     case "Usage": {
-      // A retry is counted per agent, since that agent's last usage.
+      // A retry is counted per agent, since that agent's last usage, and a call that succeeded ends the timeouts in a row.
       state.retries.set(agent, 0)
+      state.timeouts.set(agent, 0)
       return
     }
     case "ErrorRetry": {
       const retry = (state.retries.get(agent) ?? 0) + 1
       state.retries.set(agent, retry)
+      // A turn chad ends here gets no retry line, so its one event is `turn.failed` (FAIL-242, MOD-114).
+      const reason = ends(state, agent, inner.error, retry, loginPending())
+      if (reason !== undefined) return yield* new Failed.Ended({ reason })
       const of = yield* Agent.MaxRetries
       // The line shows the highest count of every agent of the turn (DIS-28, FAIL-80, FAIL-81).
       if (!loginPending()) {
