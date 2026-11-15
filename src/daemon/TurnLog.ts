@@ -1,7 +1,8 @@
 import * as Agent from "clanka/Agent"
 import type * as AgentOutput from "clanka/AgentOutput"
-import type { Cause } from "effect"
-import { Effect } from "effect"
+import * as Compaction from "clanka/Compaction"
+import { Cause, Context, Effect, Exit, Stream } from "effect"
+import { AiError, LanguageModel } from "effect/ai"
 import * as Logger from "./Logger.ts"
 import * as Sessions from "./Sessions.ts"
 
@@ -119,6 +120,219 @@ export const step = Effect.fnUntraced(function* (
     }
   }
 })
+
+/**
+ * The end lines of the sub-agents whose end the Agent's output did not carry, because the turn was stopped or failed
+ * while they ran and their `SubagentComplete` was never read (FAIL-193, FAIL-248). Each start gets one end.
+ */
+export const unended = (state: Steps, ids: Ids) =>
+  Effect.suspend(() => {
+    const now = Date.now()
+    const open = [...state.subagents]
+    state.subagents.clear()
+    return Effect.forEach(
+      open,
+      ([subagent, at]) =>
+        Logger.event("turn.subagent-ended", "A sub-agent ended", {
+          ...ids,
+          subagent,
+          status: "cancelled",
+          duration_ms: now - at,
+        }),
+      { discard: true },
+    )
+  })
+
+/**
+ * The agent a fiber runs for, as chad marks it where a sub-agent starts. `hidden` is whether the Agent's output leaves
+ * out the agent's steps, as it does for a background sub-agent and every agent under one (clanka's `Agent.ts:552,602`).
+ */
+export interface Marked {
+  readonly id: number
+  readonly hidden: boolean
+}
+
+/**
+ * One key per depth. clanka runs a sub-agent with the context of the agent that started it (`Agent.ts:618-622`), which
+ * replaces a key the sub-agent's fiber had under the same name, so a sub-agent's mark is kept under a key of its own
+ * depth, and the deepest one set is the agent's.
+ */
+const marks: Array<Context.Reference<Marked | undefined>> = []
+const markAt = (depth: number) =>
+  (marks[depth] ??= Context.Reference<Marked | undefined>(
+    `chad/TurnLog/Agent/${depth}`,
+    { defaultValue: () => undefined },
+  ))
+
+/** The marks of the current fiber, the root agent's first. The root agent has none. */
+export const chain = Effect.map(
+  Effect.context<never>(),
+  (context): ReadonlyArray<Marked> => {
+    const found: Array<Marked> = []
+    for (let depth = 1; depth < marks.length; depth++) {
+      const mark = Context.get(context, markAt(depth))
+      if (mark === undefined) break
+      found.push(mark)
+    }
+    return found
+  },
+)
+
+/** Runs `effect` with the mark of a sub-agent that the agent with `parent` as its marks starts in it. */
+export const mark =
+  (parent: ReadonlyArray<Marked>, marked: Marked) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Effect.provideService(effect, markAt(parent.length + 1), marked)
+
+/** The mark of the agent the current fiber runs for, when it is a sub-agent whose steps the Agent's output leaves out. */
+const hidden = Effect.map(chain, (found) => {
+  const last = found.at(-1)
+  return last?.hidden === true ? last : undefined
+})
+
+/** An error as clanka's agent makes one (`Agent.ts:1683-1697`). */
+const agentError = (reason: AiError.AiErrorReason) =>
+  AiError.make({ module: "clanka/Agent", method: "send", reason })
+
+/** The error clanka retries a model call with after `TurnTimeout` (`Agent.ts:1683-1689`). */
+const turnTimeout = agentError(
+  new AiError.UnknownError({ description: "TurnTimeout was reached" }),
+)
+
+/** The error clanka retries a response with that it does not take as complete (`Agent.ts:1215-1240`). */
+const incomplete = (description: string) =>
+  agentError(new AiError.InternalProviderError({ description }))
+
+/** What a hidden agent's last model call came to. */
+interface Last {
+  readonly prompt: unknown
+  readonly retry: number
+  /** The error of a call that failed or was cut by `TurnTimeout`, which clanka retries when it can. */
+  readonly error: AiError.AiError | undefined
+  /** The error clanka gives a response that came back whole, when it does not take the response. */
+  readonly rejected: AiError.AiError
+}
+
+/** The parts of a response that decide whether clanka takes it, as `Agent.ts:1273-1344` reads them. */
+interface Seen {
+  toolCall: boolean
+  failure: string | undefined
+}
+
+const errorText = (error: unknown) =>
+  typeof error === "string"
+    ? error
+    : error instanceof Error
+      ? error.message
+      : (JSON.stringify(error) ?? String(error))
+
+/**
+ * The model of a turn, with the retries of an agent whose `ErrorRetry` the Agent's output leaves out logged as they
+ * start (FAIL-15, FAIL-250). An agent's next call after a failed one is a retry of it, as clanka calls the model again
+ * after an error only to retry it (`Agent.ts:1353-1395`). A context-length error is the exception: clanka compacts and
+ * calls again on the compacted history without reporting a retry. A call that `TurnTimeout` cut is interrupted, and a
+ * response clanka did not take is sent again with the same prompt, which any other next call has added to. A
+ * sub-agent's every turn has its own mark, so a later turn starts its count again. The other agents' retries are
+ * logged by `step`.
+ */
+export const retries =
+  (ids: Logger.SessionLogIds) =>
+  (model: LanguageModel.LanguageModel): LanguageModel.LanguageModel => {
+    const lasts = new WeakMap<Marked, Last>()
+    const streamText = model.streamText
+    const observed = (options: { readonly prompt: unknown }) =>
+      Stream.unwrap(
+        Effect.gen(function* () {
+          const stream = streamText(options as never)
+          const agent = yield* hidden
+          if (agent === undefined) return stream
+          const before = lasts.get(agent)
+          const error =
+            before === undefined
+              ? undefined
+              : (before.error ??
+                (before.prompt === options.prompt
+                  ? before.rejected
+                  : undefined))
+          const retry = error === undefined ? 0 : (before?.retry ?? 0) + 1
+          if (error !== undefined) {
+            yield* Logger.event("turn.retry", "Model error, retrying", {
+              ...scriptIds(ids, agent.id),
+              reason: error.reason._tag,
+              error: error.message,
+              retry,
+              of: yield* Agent.MaxRetries,
+            }).pipe(Logger.ownConsole)
+          }
+          const seen: Seen = {
+            toolCall: false,
+            failure: undefined,
+          }
+          const end = (failed: AiError.AiError | undefined) =>
+            Effect.sync(() => {
+              lasts.set(agent, {
+                prompt: options.prompt,
+                retry,
+                error: failed,
+                rejected: incomplete(
+                  seen.failure !== undefined && !seen.toolCall
+                    ? `The model response failed: ${seen.failure}`
+                    : "The model response ended before it finished",
+                ),
+              })
+            })
+          return stream.pipe(
+            Stream.tap((part) =>
+              Effect.sync(() => {
+                const read = part as {
+                  readonly type: string
+                  readonly reason?: unknown
+                  readonly error?: unknown
+                }
+                if (read.type === "finish" && read.reason === "error") {
+                  seen.failure ??= "finish reason error"
+                } else if (read.type === "tool-call") {
+                  seen.toolCall = true
+                } else if (read.type === "error") {
+                  seen.failure ??= errorText(read.error)
+                }
+              }),
+            ),
+            Stream.onExit((exit) => {
+              if (Exit.isSuccess(exit)) return end(undefined)
+              if (Cause.hasInterruptsOnly(exit.cause)) return end(turnTimeout)
+              const failure = Cause.squash(exit.cause)
+              return end(
+                AiError.isAiError(failure) &&
+                  !Compaction.isContextLengthError(failure)
+                  ? failure
+                  : undefined,
+              )
+            }),
+          )
+        }),
+      )
+    return LanguageModel.LanguageModel.of({
+      ...model,
+      streamText: observed as LanguageModel.LanguageModel["streamText"],
+    })
+  }
+
+/**
+ * The compaction line of an agent whose `CompactionEnded` the Agent's output leaves out (FAIL-249). clanka renders the
+ * environment with `reset` right before it puts a compacted history in place, and for nothing else
+ * (`Agent.ts:876-879,1025-1030`, `AgentExecutor.ts:90-93`). clanka keeps the reason and the token counts to itself
+ * for such an agent, so the line has neither. The other agents' compactions are logged by `step`.
+ */
+export const compacted = (ids: Logger.SessionLogIds, reset: boolean) =>
+  Effect.gen(function* () {
+    if (!reset) return
+    const agent = yield* hidden
+    if (agent === undefined) return
+    yield* Logger.event("turn.compaction", "The history was compacted", {
+      ...scriptIds(ids, agent.id),
+    }).pipe(Logger.ownConsole)
+  })
 
 /**
  * The ids of a script's lines. chad logs a script where the executor runs it, which sees every agent's scripts, as the

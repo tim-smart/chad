@@ -2,7 +2,7 @@ import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
 import { type LogLine, scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
-import { says } from "../support/owner.ts"
+import { lines, says } from "../support/owner.ts"
 
 /** A line of the log with a message, once it is there. */
 const message = (log: ReadonlyArray<LogLine>, text: string) =>
@@ -130,7 +130,8 @@ await waitTasks({ ids: [behind.id] })`),
       }),
     )
   }
-  // Both children's scripts start and end, and so does the root's, which carries no sub-agent.
+  // Both children's scripts start and end, and so does the root's, which carries no sub-agent. Each child ends once.
+  expect(events("turn.subagent-ended")).toHaveLength(2)
   expect(events("turn.script-started")).toHaveLength(5)
   expect(events("turn.script-ended")).toHaveLength(5)
   expect(events("turn.script-started")[0]?.annotations).not.toHaveProperty(
@@ -148,6 +149,129 @@ await waitTasks({ ids: [behind.id] })`),
   expect(root.length).toBeGreaterThan(0)
   for (const line of root)
     expect(line.annotations).not.toHaveProperty("subagent")
+})
+
+test("FAIL-15 FAIL-250 FAIL-241 a background sub-agent's retried model call gets its turn.retry line with the sub-agent's id, and the root's and a foreground sub-agent's retries get one line each", async () => {
+  const running = await scenario()
+  const { fakes } = running
+  await fakes.model.script([
+    // The root's call fails once, and so does each sub-agent's first call.
+    { status: 500 },
+    runs(`await subagent({ prompt: "In front." })
+const behind = await subagent({ prompt: "Behind.", background: true })
+await waitTasks({ ids: [behind.id] })`),
+    { status: 500 },
+    runs('await taskComplete("done")'),
+    { status: 500 },
+    runs('await taskComplete("done")'),
+    { text: "done" },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+  await fakes.chat.answers(thread, 1)
+  await running.logged("turn.ended")
+
+  const log = running.log()
+  const events = (name: string) =>
+    log.filter((line) => line.annotations["event"] === name)
+  const started = events("turn.subagent-started")
+  const front = started.find((line) => line.annotations["background"] === false)
+    ?.annotations["subagent"]
+  const behind = started.find((line) => line.annotations["background"] === true)
+    ?.annotations["subagent"]
+  expect(typeof front).toBe("number")
+  expect(typeof behind).toBe("number")
+  const retries = events("turn.retry")
+  expect(retries).toHaveLength(3)
+  expect(retries[0]?.annotations).not.toHaveProperty("subagent")
+  expect(retries[1]?.annotations).toMatchObject({ subagent: front, retry: 1 })
+  expect(retries[2]?.annotations).toMatchObject({ subagent: behind, retry: 1 })
+  for (const line of retries) {
+    expect(line.level).toBe("WARN")
+    expect(typeof line.annotations["reason"]).toBe("string")
+    expect(typeof line.annotations["error"]).toBe("string")
+  }
+  expect(events("turn.subagent-ended")).toHaveLength(2)
+})
+
+test("FAIL-249 FAIL-241 a background sub-agent that compacts its history gets its turn.compaction line with the sub-agent's id", async () => {
+  const running = await scenario()
+  const { fakes } = running
+  // The sub-agent's calls after its first carry a tool result, and its summarizer's do not, so either can take them.
+  const step = {
+    ...runs('console.log("more")'),
+    summary: { text: "The story so far." },
+  }
+  await fakes.model.script([
+    runs(`const behind = await subagent({ prompt: "a long story. ".repeat(8_000), background: true })
+await waitTasks({ ids: [behind.id] })`),
+    // The sub-agent's context is over clanka's threshold after its first call, which starts a compaction.
+    { ...runs('console.log("ran")'), usage: { input: 250_000, output: 10 } },
+    // Its next call and its summarizer's, in either order. Its own is held until the summarizer has been called.
+    { ...step, hold: true },
+    { ...step, hold: true },
+    step,
+    step,
+    step,
+    runs('await taskComplete("done")'),
+    { text: "done" },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+  await fakes.model.received(4)
+  await fakes.model.release(2)
+  await fakes.model.release(3)
+  await fakes.chat.answers(thread, 1)
+  await running.logged("turn.ended")
+
+  const log = running.log()
+  const events = (name: string) =>
+    log.filter((line) => line.annotations["event"] === name)
+  const behind = events("turn.subagent-started")[0]?.annotations["subagent"]
+  expect(typeof behind).toBe("number")
+  expect(events("turn.compaction")).toMatchObject([
+    { annotations: { subagent: behind } },
+  ])
+  // Its calls after one that was taken, the one on the compacted history included, are no retries.
+  expect(events("turn.retry")).toHaveLength(0)
+})
+
+test("FAIL-192 FAIL-193 FAIL-246 FAIL-248 a /stop while a script waits on its sub-agent logs one script end with the output so far and one sub-agent end, each with its duration", async () => {
+  const running = await scenario()
+  const { fakes } = running
+  await fakes.model.script([
+    runs('console.log("PARTIAL"); await subagent({ prompt: "Wait." })'),
+    // The sub-agent's call never comes back, so the script waits.
+    { text: "never", hold: true },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+  await fakes.model.received(2)
+  await running.logged("turn.subagent-started")
+  await says(running, thread, "/stop")
+  const ended = await running.logged("turn.ended")
+  expect(ended.annotations["outcome"]).toBe("stopped")
+
+  const log = running.log()
+  const events = (name: string) =>
+    log.filter((line) => line.annotations["event"] === name)
+  const subagent = events("turn.subagent-started")[0]?.annotations["subagent"]
+  const scripts = await lines(running, "turn.script-ended", 1)
+  const children = await lines(running, "turn.subagent-ended", 1)
+  expect(scripts).toHaveLength(1)
+  expect(String(scripts[0]?.annotations["output"])).toContain("PARTIAL")
+  expect(typeof scripts[0]?.annotations["duration_ms"]).toBe("number")
+  expect(children).toHaveLength(1)
+  expect(children[0]?.annotations).toMatchObject({ subagent })
+  expect(typeof children[0]?.annotations["duration_ms"]).toBe("number")
+  await running.stop()
+  const after = running.log()
+  expect(
+    after.filter((line) => line.annotations["event"] === "turn.script-ended"),
+  ).toHaveLength(1)
+  expect(
+    after.filter((line) => line.annotations["event"] === "turn.subagent-ended"),
+  ).toHaveLength(1)
 })
 
 /** Takes out what differs between two runs of one script: the clock and the fiber ids of effect's default format. */

@@ -20,7 +20,7 @@ import {
   Scope,
   Stream,
 } from "effect"
-import type { LanguageModel, Model as AiModel } from "effect/ai"
+import { LanguageModel, type Model as AiModel } from "effect/ai"
 import { Prompt } from "effect/ai"
 import {
   Chat,
@@ -402,18 +402,34 @@ export const layer = Layer.unwrap(
             }
             return first
           }
+          // A sub-agent's fiber is marked with its number where it starts, so that its model calls and its compactions,
+          // which the Agent's output leaves out for a background sub-agent, are logged with it (FAIL-15, FAIL-249).
+          // `messageAgent` starts a new turn only for a sub-agent that is not running, and clanka runs that turn in the
+          // background (`Agent.ts:712-725`).
           const agentTasks = (
             tasks: AgentExecutor.ExecuteAgentTasks,
+            parent: ReadonlyArray<TurnLog.Marked>,
           ): AgentExecutor.ExecuteAgentTasks => ({
             ...tasks,
             subagent: (options) =>
               Effect.suspend(() => {
-                starting.set(
-                  options.environment.environment,
-                  Number(options.id.slice("subagent_".length)),
+                const subagent = Number(options.id.slice("subagent_".length))
+                starting.set(options.environment.environment, subagent)
+                return tasks.subagent(options).pipe(
+                  TurnLog.mark(parent, {
+                    id: subagent,
+                    hidden:
+                      options.background || parent.at(-1)?.hidden === true,
+                  }),
                 )
-                return tasks.subagent(options)
               }),
+            messageAgent: (options) =>
+              tasks.messageAgent(options).pipe(
+                TurnLog.mark(parent, {
+                  id: Number(options.id.slice("subagent_".length)),
+                  hidden: true,
+                }),
+              ),
           })
           const render = inner.renderEnvironment
           const executor = AgentExecutor.AgentExecutor.of({
@@ -432,33 +448,39 @@ export const layer = Layer.unwrap(
                           }
                         }),
                       ),
+                      Effect.tap(() =>
+                        TurnLog.compacted(ids, options?.reset === true),
+                      ),
                     ),
             // A script is logged here, where every agent's script runs, a background sub-agent's included (FAIL-13,
             // FAIL-14, FAIL-192). clanka reports a script's failure through the logger, with the script's own output
             // as the console, and chad's logger prints such a line into the script's output (FAIL-23).
             execute: (options) => {
               const subagent = subagentOf(options)
-              const ran = inner.execute({
-                ...options,
-                agentTasks: agentTasks(options.agentTasks),
-                onTask: (task) =>
-                  Effect.andThen(
-                    track(task),
-                    options.onTask?.(task) ?? Effect.void,
-                  ),
-              })
               return Stream.unwrap(
                 Effect.gen(function* () {
+                  // `execute` runs on the fiber of the agent whose script it is.
+                  const parent = yield* TurnLog.chain
+                  const ran = inner.execute({
+                    ...options,
+                    agentTasks: agentTasks(options.agentTasks, parent),
+                    onTask: (task) =>
+                      Effect.andThen(
+                        track(task),
+                        options.onTask?.(task) ?? Effect.void,
+                      ),
+                  })
                   yield* TurnLog.scriptStarted(ids, subagent, options.script)
                   const at = Date.now()
                   let text = ""
+                  // The end is logged however the script ends, a stop included, with what it printed so far (FAIL-192).
                   return ran.pipe(
                     Stream.tap((chunk) =>
                       Effect.sync(() => {
                         text += chunk
                       }),
                     ),
-                    Stream.onEnd(
+                    Stream.ensuring(
                       Effect.suspend(() =>
                         TurnLog.scriptEnded(
                           ids,
@@ -678,6 +700,9 @@ export const layer = Layer.unwrap(
                 }
               }),
             ),
+            // A sub-agent whose end the output did not carry, because the turn stopped or failed while it ran, gets its
+            // end line here (FAIL-193).
+            Effect.ensuring(TurnLog.unended(steps, ids)),
             Effect.as(""),
             Effect.catchTag("AgentFinished", (finished) =>
               Effect.succeed(finished.summary),
@@ -694,6 +719,15 @@ export const layer = Layer.unwrap(
         ) {
           const chosen = yield* Effect.fromOption(model)
           return yield* converse(live, turn, request, chat).pipe(
+            // The agents' model calls go through a model that logs the retries the Agent's output leaves out (FAIL-15,
+            // FAIL-250). The summarizer has a model of its own.
+            Effect.provideServiceEffect(
+              LanguageModel.LanguageModel,
+              Effect.map(
+                LanguageModel.LanguageModel,
+                TurnLog.retries(live.ids),
+              ),
+            ),
             Effect.provide(
               Layer.merge(
                 chosen.layer,
