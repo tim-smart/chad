@@ -54,6 +54,8 @@ test("FAIL-23 FAIL-25 FAIL-26 FAIL-29 FAIL-241 FAIL-245 FAIL-246 FAIL-247 FAIL-2
   expect(events("turn.subagent-ended")).toMatchObject([
     { annotations: { ...ids, subagent, status: "completed" } },
   ])
+  // The failing script is the sub-agent's, so clanka's line of its failure carries the sub-agent's id.
+  expect(failure?.annotations["subagent"]).toBe(subagent)
   // The root's script carries no sub-agent, and the sub-agent's carry its id.
   expect(events("turn.script-started")).toMatchObject([
     { annotations: { ...ids, source: expect.stringContaining('ls(".")') } },
@@ -78,6 +80,74 @@ test("FAIL-23 FAIL-25 FAIL-26 FAIL-29 FAIL-241 FAIL-245 FAIL-246 FAIL-247 FAIL-2
     "the script failed",
   )
   expect(typeof scripts[0]?.annotations["duration_ms"]).toBe("number")
+})
+
+test("FAIL-13 FAIL-14 FAIL-192 FAIL-241 FAIL-328 the scripts of a foreground and of a background sub-agent get their source, output, start and end lines, and every line of those scripts carries the sub-agent's id, the copied tool lines included", async () => {
+  const running = await scenario()
+  const { fakes } = running
+  const child = 'console.log("SUB-OUTPUT"); await ls(".")'
+  await fakes.model.script([
+    runs(`await subagent({ prompt: "In front." })
+const behind = await subagent({ prompt: "Behind.", background: true })
+await waitTasks({ ids: [behind.id] })`),
+    // Each sub-agent runs its script, and then it is done.
+    runs(child),
+    runs('await taskComplete("done")'),
+    runs(child),
+    runs('await taskComplete("done")'),
+    { text: "done" },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+  await fakes.chat.answers(thread, 1)
+  await running.logged("turn.ended")
+
+  const log = running.log()
+  const events = (name: string) =>
+    log.filter((line) => line.annotations["event"] === name)
+  const started = events("turn.subagent-started")
+  const front = started.find((line) => line.annotations["background"] === false)
+    ?.annotations["subagent"]
+  const behind = started.find((line) => line.annotations["background"] === true)
+    ?.annotations["subagent"]
+  expect(typeof front).toBe("number")
+  expect(typeof behind).toBe("number")
+  for (const subagent of [front, behind]) {
+    expect(events("turn.script-started")).toContainEqual(
+      expect.objectContaining({
+        annotations: expect.objectContaining({
+          subagent,
+          source: expect.stringContaining("SUB-OUTPUT"),
+        }),
+      }),
+    )
+    expect(events("turn.script-ended")).toContainEqual(
+      expect.objectContaining({
+        annotations: expect.objectContaining({
+          subagent,
+          output: expect.stringContaining("SUB-OUTPUT"),
+        }),
+      }),
+    )
+  }
+  // Both children's scripts start and end, and so does the root's, which carries no sub-agent.
+  expect(events("turn.script-started")).toHaveLength(5)
+  expect(events("turn.script-ended")).toHaveLength(5)
+  expect(events("turn.script-started")[0]?.annotations).not.toHaveProperty(
+    "subagent",
+  )
+  const calls = log.filter((line) => line.message === 'Calling "ls"')
+  expect(calls.map((line) => line.annotations["subagent"]).sort()).toEqual(
+    [front, behind].sort(),
+  )
+  // The root's script output, which the model reads, has none of the children's lines.
+  const read = String(results((await fakes.model.calls())[5])[0])
+  expect(read).toContain('Calling "subagent"')
+  expect(read).not.toContain("SUB-OUTPUT")
+  const root = log.filter((line) => line.message === 'Calling "subagent"')
+  expect(root.length).toBeGreaterThan(0)
+  for (const line of root)
+    expect(line.annotations).not.toHaveProperty("subagent")
 })
 
 /** Takes out what differs between two runs of one script: the clock and the fiber ids of effect's default format. */

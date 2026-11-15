@@ -1,10 +1,12 @@
 import {
   Console,
   Effect,
+  Exit,
   FileSystem,
   LogLevel,
   Option,
   type PlatformError,
+  Scope,
 } from "effect"
 import { Command, Flag } from "effect/cli"
 import { logLevelNamed } from "../../Events.ts"
@@ -242,16 +244,27 @@ export const logs = Command.make(
   }),
 ).pipe(Command.withDescription("Print the daemon's log"))
 
+/** A log file `-f` has open, and its inode. */
+interface Open {
+  readonly name: string
+  readonly file: FileSystem.File
+  readonly ino: bigint
+  readonly scope: Scope.Closeable
+}
+
 /**
- * `-f`: what is there, and then each line as it is written. A rotation renames the file, so the open file is read to
- * its end before `chad.log` is opened again, and no line is lost (FAIL-199).
+ * `-f`: what is there, and then each line as it is written (FAIL-199). A rotation renames the files, so a file is
+ * known by its inode and not by its name. The open file is read to its end, then each kept file that later rotations
+ * left is read whole, oldest first, and then the newest is followed. The file read last stays open until the next one
+ * is, so its inode cannot name another file in between.
  */
-const followed = Effect.fnUntraced(function* (
+export const followed = Effect.fnUntraced(function* (
   files: ReadonlyArray<string>,
   print: (lines: ReadonlyArray<string>) => Effect.Effect<void>,
   start: number,
 ) {
   const fs = yield* FileSystem.FileSystem
+  const outer = yield* Effect.scope
   const path = files[files.length - 1]!
   const decoder = new TextDecoder()
   let rest = ""
@@ -267,41 +280,71 @@ const followed = Effect.fnUntraced(function* (
   }
   const inode = (file: string) =>
     fs.stat(file).pipe(
-      Effect.map((info) => info.ino),
-      Effect.catchIf(isNotFound, () => Effect.succeedNone),
+      Effect.map((info) => Option.getOrUndefined(info.ino)),
+      Effect.catchIf(isNotFound, () => Effect.undefined),
       Effect.mapError(unreadable(file)),
     )
-  // Reads one file from the start until the path names another file.
-  const one = Effect.gen(function* () {
-    const file = yield* fs.open(path).pipe(Effect.mapError(unreadable(path)))
-    const own = (yield* file.stat.pipe(Effect.mapError(unreadable(path)))).ino
+  // Opens the file that comes after `after` in the rotation: `chad.log` at the start, else the next kept file newer
+  // than `after`, or the oldest kept file when `after` is no longer kept. It waits while there is none.
+  const next = Effect.fnUntraced(function* (after: bigint | undefined) {
     for (;;) {
-      // What the file holds now. Checking the path first means that a rotation found below leaves nothing unread.
+      const kept = yield* Effect.forEach(files, (name) =>
+        Effect.map(inode(name), (ino) => ({ name, ino })),
+      )
+      const at = kept.findIndex(
+        (file) => file.ino !== undefined && file.ino === after,
+      )
+      const target = kept
+        .slice(after === undefined ? files.length - 1 : at + 1)
+        .find((file) => file.ino !== undefined)
+      if (target === undefined) {
+        yield* emit([])
+        yield* Effect.sleep(pollMillis)
+        continue
+      }
+      const scope = yield* Scope.fork(outer)
+      const opened = yield* Effect.gen(function* () {
+        const file = yield* fs.open(target.name)
+        const info = yield* file.stat
+        return { file, ino: Option.getOrUndefined(info.ino) }
+      }).pipe(
+        Scope.provide(scope),
+        Effect.catchIf(isNotFound, () => Effect.undefined),
+        Effect.mapError(unreadable(target.name)),
+        Effect.onError(() => Scope.close(scope, Exit.void)),
+      )
+      const ino = opened?.ino
+      if (opened !== undefined && ino !== undefined && ino === target.ino) {
+        return { name: target.name, file: opened.file, ino, scope }
+      }
+      // A rotation moved the name to another file between the two looks.
+      yield* Scope.close(scope, Exit.void)
+    }
+  })
+  // Reads a file to its end, and on for as long as it is the one named `chad.log`.
+  const read = Effect.fnUntraced(function* (open: Open) {
+    for (;;) {
+      // What the path names now. Looking first means that a rotation found below leaves nothing unread.
       const current = yield* inode(path)
       for (;;) {
-        const chunk = yield* file
+        const chunk = yield* open.file
           .readAlloc(64 * 1024)
-          .pipe(Effect.mapError(unreadable(path)))
+          .pipe(Effect.mapError(unreadable(open.name)))
         if (Option.isNone(chunk) || chunk.value.length === 0) break
         rest += decoder.decode(chunk.value, { stream: true })
       }
       const complete = rest.lastIndexOf("\n")
       yield* emit(complete === -1 ? [] : lines(rest.slice(0, complete)))
       rest = rest.slice(complete + 1)
-      const same =
-        Option.isSome(current) &&
-        Option.isSome(own) &&
-        current.value === own.value
-      if (!same) return
+      if (current !== open.ino) return
       yield* Effect.sleep(pollMillis)
     }
-  }).pipe(Effect.scoped)
+  })
+  let previous: Open | undefined
   for (;;) {
-    const there = yield* fs.exists(path).pipe(Effect.mapError(unreadable(path)))
-    if (there) yield* one
-    else {
-      yield* emit([])
-      yield* Effect.sleep(pollMillis)
-    }
+    const open = yield* next(previous?.ino)
+    if (previous !== undefined) yield* Scope.close(previous.scope, Exit.void)
+    previous = open
+    yield* read(open)
   }
-})
+}, Effect.scoped)

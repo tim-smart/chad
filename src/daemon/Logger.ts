@@ -9,6 +9,7 @@ import {
   LogLevel,
   References,
 } from "effect"
+import { TaskOwner } from "clanka/AgentTools"
 import { type EventName, levelOf } from "../Events.ts"
 import * as Paths from "../Paths.ts"
 
@@ -108,10 +109,21 @@ export const makeFileSink = (
 export interface SessionLogIds {
   readonly session: string
   turn: string | undefined
+  /**
+   * The number of each of the session's sub-agents, by the task owner clanka runs its scripts' tool calls under
+   * (FAIL-241, FAIL-328). The root agent's owner is never in it.
+   */
+  readonly subagents: Map<string, number>
 }
 
 export const CurrentLogIds = Context.Reference<SessionLogIds | undefined>(
   "chad/CurrentLogIds",
+  { defaultValue: () => undefined },
+)
+
+/** The number of the sub-agent whose script a fiber runs, where chad runs the script (FAIL-241, FAIL-328). */
+export const CurrentSubagent = Context.Reference<number | undefined>(
+  "chad/CurrentSubagent",
   { defaultValue: () => undefined },
 )
 
@@ -124,16 +136,29 @@ export const PluginName = Context.Reference<string | undefined>(
 /** The console a fiber sees when nothing provided one. clanka provides a script's own console to its fibers. */
 const daemonConsole = Effect.runSync(Console.consoleWith(Effect.succeed))
 
+/**
+ * Runs `effect` with the daemon's console, so its lines go to the sinks only. A sub-agent's fibers can have the
+ * console of the script that started it, which would print chad's own lines into what the model reads.
+ */
+export const ownConsole = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  Effect.provideService(effect, Console.Console, daemonConsole)
+
 type Entry = Logger.Options<unknown>
 type Fiber = Entry["fiber"]
 
 /** The ids of a line, from the fiber that logged it. */
-const idsOf = (fiber: Fiber): Readonly<Record<string, string>> => {
+const idsOf = (fiber: Fiber): Readonly<Record<string, string | number>> => {
   const cell = fiber.getRef(CurrentLogIds)
   const plugin = fiber.getRef(PluginName)
+  // A tool call runs on a fiber clanka makes, which carries the task owner of the agent whose script called it.
+  const owner = fiber.getRef(TaskOwner)
+  const subagent =
+    fiber.getRef(CurrentSubagent) ??
+    (owner === undefined ? undefined : cell?.subagents.get(owner))
   return {
     ...(cell === undefined ? {} : { session: cell.session }),
     ...(cell?.turn === undefined ? {} : { turn: cell.turn }),
+    ...(subagent === undefined ? {} : { subagent }),
     ...(plugin === undefined ? {} : { plugin }),
   }
 }
@@ -142,7 +167,10 @@ const idsOf = (fiber: Fiber): Readonly<Record<string, string>> => {
  * The entry as chad's sinks see it: the fiber's annotations with the ids added after `event`. effect's formatters read
  * the annotations from the fiber, so the fiber is wrapped. An annotation the line set itself is kept.
  */
-const withIds = (entry: Entry, ids: Readonly<Record<string, string>>) => {
+const withIds = (
+  entry: Entry,
+  ids: Readonly<Record<string, string | number>>,
+) => {
   if (Object.keys(ids).length === 0) return entry
   const own = entry.fiber.getRef(References.CurrentLogAnnotations)
   const annotations = {

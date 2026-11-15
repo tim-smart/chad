@@ -8,7 +8,8 @@ import * as Sessions from "./Sessions.ts"
 /**
  * What a turn writes to the log: its start, its steps and its end (FAIL-11, FAIL-12). The steps are read from the
  * Agent's output, which is also what the status message is made from, so a step's status line and its log line are
- * written by the one function here.
+ * written by the one function here. A script's own lines are the exception: they are written where the executor runs
+ * the script, which also sees a background sub-agent's scripts (FAIL-241).
  */
 
 /** The ids every line of a turn carries. */
@@ -36,13 +37,11 @@ const promptChars = 200
 
 /** What one turn's steps have seen so far, per agent. The root agent is `undefined`, and a sub-agent is its id. */
 export interface Steps {
-  readonly scripts: Map<number | undefined, { source: string; at: number }>
   readonly subagents: Map<number, number>
   readonly retries: Map<number | undefined, number>
 }
 
 export const steps = (): Steps => ({
-  scripts: new Map(),
   subagents: new Map(),
   retries: new Map(),
 })
@@ -52,7 +51,8 @@ const subagentOf = (agent: number | undefined) =>
 
 /**
  * One part of the Agent's output. A part that is a step of the turn gets its line here (FAIL-245 to FAIL-250), and a
- * part of a sub-agent carries the sub-agent's id (FAIL-241).
+ * part of a sub-agent carries the sub-agent's id (FAIL-241). A script's own lines are not read from here: see
+ * `scriptStarted`.
  */
 export const step = Effect.fnUntraced(function* (
   state: Steps,
@@ -63,40 +63,6 @@ export const step = Effect.fnUntraced(function* (
   const inner = part._tag === "SubagentPart" ? part.part : part
   const now = Date.now()
   switch (inner._tag) {
-    case "ScriptStart": {
-      state.scripts.set(agent, { source: "", at: now })
-      return
-    }
-    case "ScriptDelta": {
-      const script = state.scripts.get(agent) ?? { source: "", at: now }
-      script.source += inner.delta
-      state.scripts.set(agent, script)
-      return
-    }
-    case "ScriptEnd": {
-      // The model has finished writing the script, which runs from here.
-      const script = state.scripts.get(agent) ?? { source: "", at: now }
-      script.at = now
-      state.scripts.set(agent, script)
-      return yield* Logger.event("turn.script-started", "A script started", {
-        ...ids,
-        ...subagentOf(agent),
-        source: source(script.source),
-        source_chars: script.source.length,
-      })
-    }
-    case "ScriptOutput": {
-      // A script's end gets its line whether or not the status message has one for it (FAIL-192).
-      const script = state.scripts.get(agent)
-      state.scripts.delete(agent)
-      return yield* Logger.event("turn.script-ended", "A script ended", {
-        ...ids,
-        ...subagentOf(agent),
-        output: output(inner.output),
-        output_chars: inner.output.length,
-        duration_ms: script === undefined ? 0 : now - script.at,
-      })
-    }
     case "SubagentStart": {
       state.subagents.set(inner.id, now)
       return yield* Logger.event(
@@ -153,6 +119,42 @@ export const step = Effect.fnUntraced(function* (
     }
   }
 })
+
+/**
+ * The ids of a script's lines. chad logs a script where the executor runs it, which sees every agent's scripts, as the
+ * Agent's output does not show a background sub-agent's (FAIL-241).
+ */
+const scriptIds = (ids: Logger.SessionLogIds, agent: number | undefined) => ({
+  session: ids.session,
+  ...(ids.turn === undefined ? {} : { turn: ids.turn }),
+  ...subagentOf(agent),
+})
+
+/** A script starts to run (FAIL-13). */
+export const scriptStarted = (
+  ids: Logger.SessionLogIds,
+  agent: number | undefined,
+  script: string,
+) =>
+  Logger.event("turn.script-started", "A script started", {
+    ...scriptIds(ids, agent),
+    source: source(script),
+    source_chars: script.length,
+  }).pipe(Logger.ownConsole)
+
+/** A script ended, whether or not the status message has a line for it (FAIL-14, FAIL-192). */
+export const scriptEnded = (
+  ids: Logger.SessionLogIds,
+  agent: number | undefined,
+  text: string,
+  duration: number,
+) =>
+  Logger.event("turn.script-ended", "A script ended", {
+    ...scriptIds(ids, agent),
+    output: output(text),
+    output_chars: text.length,
+    duration_ms: duration,
+  }).pipe(Logger.ownConsole)
 
 /** Where a turn came from. Only an owner's message starts one so far. */
 export type Origin = "message"

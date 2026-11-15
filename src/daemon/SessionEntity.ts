@@ -373,7 +373,11 @@ export const layer = Layer.unwrap(
 
           // Every process the session starts carries the session id, through a spawner of the session's own. A tool
           // call runs on a fiber made from the context of this build, so the session's ids are provided to it.
-          const ids: Logger.SessionLogIds = { session: id, turn: undefined }
+          const ids: Logger.SessionLogIds = {
+            session: id,
+            turn: undefined,
+            subagents: new Map(),
+          }
           const built = yield* Layer.buildWithScope(
             AgentExecutor.layerLocal({ directory }).pipe(
               Layer.provide(Spawner.layer(id, volume.home)),
@@ -381,21 +385,93 @@ export const layer = Layer.unwrap(
             own,
           ).pipe(Effect.provideService(Logger.CurrentLogIds, ids))
           const inner = Context.get(built, AgentExecutor.AgentExecutor)
+          // A sub-agent's number by the environment clanka starts it in, until its first script ties the number to its
+          // task owner (FAIL-241, FAIL-328). An environment rendered from a numbered one keeps the number.
+          const starting = new WeakMap<
+            AgentExecutor.ExecutionEnvironment,
+            number
+          >()
+          const subagentOf = (options: AgentExecutor.ExecuteOptions) => {
+            const owner = options.agentId
+            const known =
+              owner === undefined ? undefined : ids.subagents.get(owner)
+            if (known !== undefined) return known
+            const first = starting.get(options.environment)
+            if (first !== undefined && owner !== undefined) {
+              ids.subagents.set(owner, first)
+            }
+            return first
+          }
+          const agentTasks = (
+            tasks: AgentExecutor.ExecuteAgentTasks,
+          ): AgentExecutor.ExecuteAgentTasks => ({
+            ...tasks,
+            subagent: (options) =>
+              Effect.suspend(() => {
+                starting.set(
+                  options.environment.environment,
+                  Number(options.id.slice("subagent_".length)),
+                )
+                return tasks.subagent(options)
+              }),
+          })
+          const render = inner.renderEnvironment
           const executor = AgentExecutor.AgentExecutor.of({
             capabilities: inner.capabilities,
             executeUnsafe: inner.executeUnsafe.bind(inner),
-            renderEnvironment: inner.renderEnvironment,
-            // clanka reports a script's failure through the logger, with the script's own output as the console,
-            // and chad's logger prints such a line into the script's output (FAIL-23).
-            execute: (options) =>
-              inner.execute({
+            renderEnvironment:
+              render === undefined
+                ? undefined
+                : (environment, options) =>
+                    render(environment, options).pipe(
+                      Effect.tap((update) =>
+                        Effect.sync(() => {
+                          const subagent = starting.get(environment)
+                          if (subagent !== undefined) {
+                            starting.set(update.environment, subagent)
+                          }
+                        }),
+                      ),
+                    ),
+            // A script is logged here, where every agent's script runs, a background sub-agent's included (FAIL-13,
+            // FAIL-14, FAIL-192). clanka reports a script's failure through the logger, with the script's own output
+            // as the console, and chad's logger prints such a line into the script's output (FAIL-23).
+            execute: (options) => {
+              const subagent = subagentOf(options)
+              const ran = inner.execute({
                 ...options,
+                agentTasks: agentTasks(options.agentTasks),
                 onTask: (task) =>
                   Effect.andThen(
                     track(task),
                     options.onTask?.(task) ?? Effect.void,
                   ),
-              }),
+              })
+              return Stream.unwrap(
+                Effect.gen(function* () {
+                  yield* TurnLog.scriptStarted(ids, subagent, options.script)
+                  const at = Date.now()
+                  let text = ""
+                  return ran.pipe(
+                    Stream.tap((chunk) =>
+                      Effect.sync(() => {
+                        text += chunk
+                      }),
+                    ),
+                    Stream.onEnd(
+                      Effect.suspend(() =>
+                        TurnLog.scriptEnded(
+                          ids,
+                          subagent,
+                          text,
+                          Date.now() - at,
+                        ),
+                      ),
+                    ),
+                  )
+                }),
+              ).pipe(Stream.provideService(Logger.CurrentSubagent, subagent))
+            },
           })
           const agent = yield* Agent.make.pipe(
             Effect.provideService(AgentExecutor.AgentExecutor, executor),
