@@ -21,6 +21,7 @@ DIS-3 and DIS-4 are facts about Discord itself. A scripted gateway answers as it
 - **DIS-80** chad drops its own messages before it checks for an owner, and an id on the allowlist is an owner whether or not it belongs to a bot. Both rules are in 03-sessions-and-turns.md.
 - **DIS-7** chad posts only in threads it already knows, because effect/chat cannot open a DM from a user id.
 - **DIS-110** chad writes the log line `chat.connected` when the gateway session is up or resumed, `chat.disconnected` with the close code when the gateway closes, and `chat.refused` when Discord closes the gateway for good, as it does for a bad token or for intents the bot may not use. What dfx exposes for these three is found out in the wire slice, and the event table is in 16-failures-logs-status.md.
+- **DIS-115** When Discord closes a connection's gateway for good, chad takes that connection's gateway down and does not dial Discord for it again until the daemon restarts. The daemon stays up, and it keeps serving its other connections and its socket. A close is for good when its code is 4004, 4010, 4011, 4012, 4013 or 4014, which Discord sends for a bad token, a wrong shard, a wrong API version, and intents that are not valid or not allowed.
 - **DIS-111** chad writes the log line `message.ignored` for a message it drops under DIS-6 or DIS-80, with the reason `not-owner` or `own` and the author's id, and never the message's content. The `not-owner` line is at Info level, because it is how a wrong owner id shows up at first setup. The other reasons for this line are in 16-failures-logs-status.md.
 
 ## Limits of the Discord adapter
@@ -385,3 +386,4 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-112 | TIM-559 round 3 on DIS-G25 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | DIS-113 | TIM-559 round 3 on DIS-G25 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | DIS-114 | TIM-559 round 3 on DIS-G25 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
+| DIS-115 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `wire` |

@@ -1,4 +1,5 @@
 import { Effect, Layer } from "effect"
+import * as Discord from "./Discord.ts"
 import type { DaemonInputs } from "./runDaemon.ts"
 import * as LocalChat from "./LocalChat.ts"
 import { Volume } from "./Volume.ts"
@@ -13,8 +14,7 @@ export const layer: DaemonInputs["chat"] = (connection) => {
           return LocalChat.layerClient(volume.localSocket)
         }),
       )
-    // The Discord adapter arrives with the `wire` slice.
     case "discord":
-      return Layer.empty
+      return Discord.layer(connection)
   }
 }

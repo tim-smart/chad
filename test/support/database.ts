@@ -2,6 +2,16 @@
 import { join } from "node:path"
 import { DatabaseSync } from "node:sqlite"
 
+/** Runs one statement that writes, for a scenario that breaks the database on purpose. */
+export const execute = (data: string, sql: string): void => {
+  const database = new DatabaseSync(join(data, "db/chad.db"))
+  try {
+    database.exec(sql)
+  } finally {
+    database.close()
+  }
+}
+
 /** Runs one read-only query on the database of a volume. Integers come back as bigint, because cluster's ids are wide. */
 export const query = (
   data: string,

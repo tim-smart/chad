@@ -124,6 +124,8 @@ A line chad itself writes carries an `event` annotation from this list. The copy
 
 The `not-owner` line is at Info because it is how a wrong owner id shows up at first setup. What the three `chat.` events can carry depends on what dfx exposes (see 04-discord.md).
 
+- **FAIL-323** The three `chat.` lines carry `connection`, the name of the chat connection. `chat.connected` carries `resumed`, which is true for a resume and false for a fresh identify. Every close of a gateway socket writes `chat.disconnected` with `code`, the close code or null when the close had none, and `by`, which is `chad` when chad's side closed the socket and `discord` when it did not. A close for good (DIS-115) writes `chat.refused` with the code as well as `chat.disconnected`.
+
 ## CHAD_LOG_LEVEL
 
 - **FAIL-17** `CHAD_LOG_LEVEL` takes `all`, `trace`, `debug`, `info`, `warn`, `error`, `fatal` or `none`, in any letter case. The default is `info`.
@@ -1147,3 +1149,4 @@ Tim has not read the decisions in this part. Twelve of them change something he 
 | FAIL-320 | TIM-559 round 4 item 9 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-321 | TIM-559 round 4 item 9 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | FAIL-322 | TIM-559 cold read, cli reader and harness reader, TIM-559 round 5 item 6 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
+| FAIL-323 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `wire` |

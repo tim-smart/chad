@@ -7,6 +7,7 @@ import { Chat, type ChatAdapter, type ChatHandler } from "effect/chat"
 import { SingleRunner } from "effect/cluster"
 import type { HttpClient } from "effect/http"
 import type { Socket } from "effect/socket"
+import type { SqlClient } from "effect/sql"
 import * as Messages from "../Messages.ts"
 import { Timings } from "../Timings.ts"
 import { version } from "../Version.ts"
@@ -30,11 +31,16 @@ export interface DaemonInputs {
   ) => Layer.Layer<
     never,
     never,
-    ChatAdapter.Registry | ChatHandler.ChatHandler | Volume.Volume
+    | ChatAdapter.Registry
+    | ChatHandler.ChatHandler
+    | Volume.Volume
+    | HttpClient.HttpClient
+    | Socket.WebSocketConstructor
+    | SqlClient.SqlClient
   >
-  /** The client every model request and login request goes through. */
+  /** The client every model request, login request and Discord REST request goes through. */
   readonly httpClient: Layer.Layer<HttpClient.HttpClient>
-  /** The constructor the WebSocket transport of a model uses. */
+  /** The constructor the Discord gateway and the WebSocket transport of a model dial with. */
   readonly webSocketConstructor: Layer.Layer<Socket.WebSocketConstructor>
   /** One complete set of durations. */
   readonly timings: Timings

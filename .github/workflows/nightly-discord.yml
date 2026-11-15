@@ -1,0 +1,55 @@
+# The nightly Discord job of docs/spec/17-testing.md: chad's test bot on the real gateway, driven by a second bot. It
+# is the one job that reads the bot tokens. Without them it fails and names the secret. It gates no pull request.
+name: nightly discord
+
+on:
+  schedule:
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+  # A schedule fires only from the default branch. Until the build's pull request is merged, a push to the shared
+  # branch that changes the trigger file runs the job. The last stage removes this trigger.
+  push:
+    branches: [chad-v1]
+    paths: [.github/triggers/nightly-discord]
+
+permissions:
+  contents: read
+  issues: write
+
+# Two gateway sessions on one token take each other's events, so every workflow that uses the bot tokens waits here.
+concurrency:
+  group: discord-bots
+  cancel-in-progress: false
+
+jobs:
+  discord:
+    name: real Discord gateway
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: node scripts/discord.ts
+        env:
+          DISCORD_CHAD_TOKEN: ${{ secrets.DISCORD_CHAD_TOKEN }}
+          DISCORD_DRIVER_TOKEN: ${{ secrets.DISCORD_DRIVER_TOKEN }}
+      # One open issue for this job, with a comment for each failed night.
+      - if: failure()
+        run: |
+          title="The nightly Discord job failed"
+          body="The nightly Discord job failed: $RUN"
+          number=$(gh issue list --state open --search "in:title $title" --json number --jq '.[0].number')
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

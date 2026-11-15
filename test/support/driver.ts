@@ -1,18 +1,24 @@
 // The scenario driver of layer 3. It starts the fakes and one daemon in the test's own process, through the test
 // entry, and gives a scenario its volume, the fakes and the daemon's log.
-import { appendFileSync, mkdirSync, readFileSync, rmSync } from "node:fs"
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+} from "node:fs"
 import { join } from "node:path"
 import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient"
 import * as NodeSocket from "@effect/platform-node/NodeSocket"
 import { Effect, Exit, Layer, Scope } from "effect"
 import type { ChatTest } from "effect/chat"
-import { HttpClient } from "effect/http"
+import { HttpClient, HttpClientRequest } from "effect/http"
 import { RpcClient, RpcSerialization } from "effect/rpc"
-import { Socket } from "effect/socket"
 import { onTestFinished } from "vitest"
 import * as Chat from "../../dist/daemon/Chat.js"
 import type { Connection } from "../../dist/daemon/Connection.js"
 import * as LocalChat from "../../dist/daemon/LocalChat.js"
+import * as Discord from "./discord.ts"
 import { start } from "./entry.ts"
 import * as Fakes from "./fakes.ts"
 import * as Model from "./model.ts"
@@ -49,6 +55,11 @@ export interface Options {
   readonly transport?: "direct" | "socket" | "client"
   /** Environment variables for this daemon, over the driver's own. `undefined` unsets one. */
   readonly env?: Readonly<Record<string, string | undefined>>
+  /**
+   * Set by a live item only. A `discord` connection then reaches the real Discord: the real WebSocket constructor, and
+   * Discord's own REST root in place of the fake REST server.
+   */
+  readonly live?: boolean
   /** A directory from `fresh` that the scenario prepared, or an earlier scenario's, to boot on its volume. */
   readonly directory?: string
 }
@@ -61,6 +72,11 @@ export interface Scenario {
   readonly fakes: Fakes.Fakes
   /** The chat fake itself, for what needs no verb in the interface, such as `failNext` and `calls`. */
   readonly chat: ChatTest.ChatTest["Service"]
+  /** Discord's two ends for a `discord` connection: the scripted gateway and the fake REST server. */
+  readonly discord: {
+    readonly gateway: Discord.Gateway
+    readonly rest: Discord.Rest
+  }
   /** The URL of every request the daemon has made through the `HttpClient` it was given. */
   readonly requests: () => ReadonlyArray<string>
   /** The lines the daemon has logged so far. */
@@ -83,32 +99,42 @@ let count = 0
 /** A new scenario directory, for a scenario that puts something on the volume before the daemon starts. */
 export const fresh = () => join(runs, `${process.pid}-${++count}`)
 
-/** A client that reaches the fake model server and fails a request to any other host. It notes every request. */
-const httpClient = (fake: string, requests: Array<string>) =>
+/**
+ * A client that reaches the fakes and fails a request to any other host. A request to Discord's REST root goes to the
+ * fake Discord REST server. It notes every request by the URL the daemon asked for.
+ */
+export const httpClient = (
+  fakes: { readonly model: string; readonly discord: string },
+  requests: Array<string> = [],
+  live = false,
+) =>
   Layer.effect(
     HttpClient.HttpClient,
     Effect.gen(function* () {
       const client = yield* HttpClient.HttpClient
-      return HttpClient.transform(client, (response, request) =>
-        requests.push(request.url) > 0 &&
-        new URL(request.url).host === new URL(fake).host
-          ? response
+      const hosts = [fakes.model, live ? Discord.restRoot : fakes.discord].map(
+        (url) => new URL(url).host,
+      )
+      // This runs on the request as it leaves, after the base URL a caller prepends.
+      return HttpClient.make((request) => {
+        requests.push(request.url)
+        const sent =
+          !live && request.url.startsWith(Discord.restRoot)
+            ? HttpClientRequest.setUrl(
+                request,
+                fakes.discord + request.url.slice(Discord.restRoot.length),
+              )
+            : request
+        return hosts.includes(new URL(sent.url).host)
+          ? client.execute(sent)
           : Effect.die(
               new Error(
                 `the daemon asked for ${request.url}, which is no fake`,
               ),
-            ),
-      )
+            )
+      })
     }),
   ).pipe(Layer.provide(NodeHttpClient.layerUndici))
-
-/** No scenario has a WebSocket to reach until the fake model server gets its Codex side. */
-const webSocketConstructor = Layer.succeed(
-  Socket.WebSocketConstructor,
-  (url) => {
-    throw new Error(`the daemon opened a WebSocket to ${url}, which is no fake`)
-  },
-)
 
 export const scenario = async (options: Options = {}): Promise<Scenario> => {
   const directory = options.directory ?? fresh()
@@ -145,11 +171,24 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
   }
   for (const [name, value] of Object.entries(variables)) set(name, value)
   const requests: Array<string> = []
+  const discord = { gateway: Discord.gateway(), rest: await Discord.rest() }
   record("daemon", { state: "starting", transport })
   const exit = start({
-    chat: transport === "direct" ? () => platform.layer : Chat.layer,
-    httpClient: httpClient(model.url, requests),
-    webSocketConstructor,
+    // A `discord` connection always gets the product's adapter, over the scripted gateway and the fake REST server.
+    chat: (connection) =>
+      transport === "direct" && connection.kind === "local"
+        ? platform.layer
+        : Chat.layer(connection),
+    httpClient: httpClient(
+      { model: model.url, discord: discord.rest.url },
+      requests,
+      options.live === true,
+    ),
+    // The one WebSocket a daemon opens so far is the gateway's. A Codex model's arrives with its slice.
+    webSocketConstructor:
+      options.live === true
+        ? NodeSocket.layerWebSocketConstructor
+        : discord.gateway.layer,
     connections: options.connections ?? [
       { name: "local", kind: "local", owners: [owner] },
     ],
@@ -221,8 +260,13 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
   onTestFinished(async ({ task }) => {
     await stop()
     await Effect.runPromise(Scope.close(scope, Exit.void))
-    record("model", { calls: model.calls() })
+    // A later scenario on the same directory has removed it by now, if the test passed.
+    if (existsSync(directory)) {
+      record("model", { calls: model.calls() })
+      record("discord", { calls: discord.rest.calls() })
+    }
     await model.close()
+    await discord.rest.close()
     // A scenario that failed keeps its directory, database included, for CI to upload.
     if (task.result?.state === "pass") {
       rmSync(directory, { recursive: true, force: true })
@@ -234,6 +278,7 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
     data,
     fakes,
     chat: platform.chat,
+    discord,
     requests: () => requests,
     log,
     logged,

@@ -9,7 +9,7 @@ A session is one conversation between an owner and the agent. It has one history
 - **SES-1** A DM is one session per DM channel.
 - **SES-2** A message inside an existing Discord thread belongs to the session of that thread.
 - **SES-3** A mention of chad in a plain server channel opens a Discord thread on that message with `startThread`, and the session is that thread.
-- **SES-4** `startThread` is get-or-create. The gateway handler opens the thread before it saves the message, so a replayed event lands on the same thread.
+- **SES-4** (a) `startThread` is get-or-create. (b) The gateway handler opens the thread before it saves the message, so a replayed event lands on the same thread.
 - **SES-5** If opening the thread fails, chad says so in the channel and drops the event. The wording is in 04-discord.md.
 - **SES-6** Only an owner's message can start or steer a turn. A message from anyone else is ignored and never enters the history.
 - **SES-122** chad drops a message that is `isSelf`, which is a message that chad's own bot sent, before the owner check.
@@ -131,7 +131,7 @@ chad serve: this database was made with 300 shards and this chad uses 1. Message
 
 effect/chat runs chad's handler inline, one event at a time for the whole bot. Under `layerDispatchHook` a handler slower than about 41 seconds makes the Discord shard reconnect. So the handler does as little as it can, and the turn runs in the entity.
 
-- **SES-30** Discord events arrive through `layerDispatchHook`, with dfx's shard state stored in the same SQLite file. This is the at-least-once path. It resumes after a restart and replays an event that was refused or was in flight.
+- **SES-30** (a) Discord events arrive through `layerDispatchHook`, with dfx's shard state stored in the same SQLite file. This is the at-least-once path. It resumes after a restart and replays an event that was refused (b) or was in flight.
 - **SES-31** For a message, the gateway handler checks the owner and the mention, opens the thread if one is needed, saves the message as a request to the session's entity and returns. It does not wait for the turn.
 - **SES-32** The handler refuses an event only when the save fails. A save that fails because the data volume is full has its own rule (SES-127). An event that chad drops under SES-180 is accepted and not refused, because a refused event blocks the shard (SES-128).
 - **SES-127** When the save fails because the data volume is full, chad answers in the thread and accepts the event once the reply is posted, so the event is not replayed. If the reply cannot be posted either, chad refuses the event. The wording of the reply is in 16-failures-logs-status.md.

@@ -26,10 +26,17 @@ export const layer = (connection: Connection) =>
       }
       // A message in a channel belongs to no session until a later slice opens a thread for it.
       if (event.kind === "channel") return
+      // The event is refused only when the save fails, so that the platform sends it again.
       const session = yield* Session.client
       yield* session(ChatThread.toString(event.thread))
         .message(Message.fromEvent(event), { discard: true })
-        .pipe(Effect.orDie)
+        .pipe(
+          Effect.catchCause((cause) =>
+            Effect.logError("A message could not be saved", cause).pipe(
+              Effect.andThen(Effect.fail(new ChatHandler.NotAccepted())),
+            ),
+          ),
+        )
     }),
     // effect/chat would drop chad's own messages without a word, and chad logs the drop.
     { deliverSelf: true },

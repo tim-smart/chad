@@ -1,0 +1,177 @@
+import { DiscordChat } from "@effect/chat-discord"
+import * as DiscordConfig from "dfx/DiscordConfig"
+import { DiscordGatewayLive } from "dfx/DiscordGateway"
+import { JsonDiscordWSCodecLive } from "dfx/DiscordGateway/DiscordWS"
+import { DispatchHook } from "dfx/DiscordGateway/Shard/DispatchHook"
+import { ShardStateStore } from "dfx/DiscordGateway/Shard/StateStore"
+import { MemoryShardStoreLive } from "dfx/DiscordGateway/ShardStore"
+import { DiscordRESTLive } from "dfx/DiscordREST"
+import { MemoryRateLimitStoreLive } from "dfx/RateLimit"
+import { GatewayIntentBits, Permissions } from "dfx/types"
+import { Deferred, Effect, Exit, Layer, Redacted, Scope } from "effect"
+import { KeyValueStore } from "effect/persistence"
+import { Socket } from "effect/socket"
+import type { Connection } from "./Connection.ts"
+import * as Logger from "./Logger.ts"
+
+/** effect's Discord adapter module, for the address of a channel and for what a caller sets on a post. */
+export { DiscordChat }
+
+/**
+ * The gateway intents chad identifies with: guilds, guild messages, direct messages and message content. The invite
+ * URL of `chad connection add discord` is built from this same list.
+ */
+export const intents =
+  GatewayIntentBits.Guilds |
+  GatewayIntentBits.GuildMessages |
+  GatewayIntentBits.DirectMessages |
+  GatewayIntentBits.MessageContent
+
+/** The intents of the list that Discord calls privileged, which no invite URL can grant. */
+export const privilegedIntents = GatewayIntentBits.MessageContent
+
+/** The permissions the bot needs in a server channel. */
+export const permissions =
+  Permissions.ViewChannel |
+  Permissions.SendMessages |
+  Permissions.SendMessagesInThreads |
+  Permissions.CreatePublicThreads |
+  Permissions.ReadMessageHistory |
+  Permissions.AttachFiles
+
+/** The table that holds dfx's shard state. The key-value layer creates it, and no migration does. */
+export const shardTable = "core_discord_shards"
+
+/**
+ * The close codes after which Discord takes no new session from the same bot: a bad token, a wrong shard, a wrong
+ * API version, and intents that are not valid or not allowed.
+ */
+export const closedForGood: ReadonlyArray<number> = [
+  4004, 4010, 4011, 4012, 4013, 4014,
+]
+
+/**
+ * The WebSocket constructor the gateway dials with. dfx reconnects whatever the close code and tells nobody, so this
+ * is where chad sees a close: it logs each one, and completes `refused` with the code of one that is for good.
+ */
+const watched = (connection: Connection, refused: Deferred.Deferred<number>) =>
+  Layer.effect(
+    Socket.WebSocketConstructor,
+    Effect.gen(function* () {
+      const make = yield* Socket.WebSocketConstructor
+      const run = Effect.runForkWith(yield* Effect.context<never>())
+      return (url, protocols) => {
+        const socket = make(url, protocols)
+        let closedByChad = false
+        const close = socket.close.bind(socket)
+        socket.close = (code, reason) => {
+          closedByChad = true
+          close(code, reason)
+        }
+        socket.addEventListener(
+          "close",
+          (event) => {
+            const code = typeof event.code === "number" ? event.code : null
+            const forGood = code !== null && closedForGood.includes(code)
+            run(
+              Effect.gen(function* () {
+                yield* Logger.event("chat.disconnected", "The gateway closed", {
+                  connection: connection.name,
+                  code,
+                  by: closedByChad ? "chad" : "discord",
+                })
+                if (!forGood) return
+                yield* Logger.event(
+                  "chat.refused",
+                  "Discord closed the gateway for good",
+                  { connection: connection.name, code },
+                )
+                yield* Deferred.succeed(refused, code)
+              }),
+            )
+          },
+          { once: true },
+        )
+        return socket
+      }
+    }),
+  )
+
+/**
+ * dfx's dispatch hook with chad's own line in front of it. The shard hands the hook every dispatch, `READY` and
+ * `RESUMED` among them, which is the one place that tells a fresh identify from a resume.
+ */
+const connected = (connection: Connection) =>
+  Layer.effect(
+    DispatchHook,
+    Effect.gen(function* () {
+      const hook = yield* DispatchHook
+      return (payload, context) =>
+        payload.t === "READY" || payload.t === "RESUMED"
+          ? Logger.event("chat.connected", "The gateway session is up", {
+              connection: connection.name,
+              resumed: payload.t === "RESUMED",
+            }).pipe(Effect.andThen(hook(payload, context)))
+          : hook(payload, context)
+    }),
+  ).pipe(Layer.provide(DiscordChat.layerDispatchHook))
+
+const config = (connection: Connection) =>
+  DiscordConfig.layer({
+    token: Redacted.make(connection.token ?? ""),
+    gateway: { intents },
+  })
+
+/** effect's Discord adapter for one connection, over dfx's REST client. It registers the platform `discord`. */
+export const adapter = (connection: Connection) =>
+  DiscordChat.layer.pipe(
+    Layer.provide(DiscordRESTLive),
+    Layer.provide(MemoryRateLimitStoreLive),
+    Layer.provide(config(connection)),
+  )
+
+/**
+ * The chat platform of a Discord connection: the adapter, and dfx's gateway with the at-least-once dispatch hook and
+ * its shard state in the database, under the connection's name.
+ *
+ * When Discord closes the gateway for good the gateway is taken down and stays down, and the rest of the daemon
+ * carries on.
+ */
+export const layer = (connection: Connection) => {
+  const shardState = ShardStateStore.KVSLive.pipe(
+    Layer.provide(
+      Layer.effect(
+        KeyValueStore.KeyValueStore,
+        Effect.map(
+          KeyValueStore.KeyValueStore,
+          KeyValueStore.prefix(`${connection.name}/`),
+        ),
+      ),
+    ),
+    Layer.provide(KeyValueStore.layerSql({ table: shardTable })),
+  )
+  const gateway = (refused: Deferred.Deferred<number>) =>
+    DiscordGatewayLive.pipe(
+      Layer.provide([
+        connected(connection),
+        shardState,
+        MemoryShardStoreLive,
+        MemoryRateLimitStoreLive,
+        JsonDiscordWSCodecLive,
+        watched(connection, refused),
+        config(connection),
+      ]),
+    )
+  return Layer.effectDiscard(
+    Effect.gen(function* () {
+      const refused = yield* Deferred.make<number>()
+      const scope = yield* Scope.make()
+      yield* Effect.addFinalizer(() => Scope.close(scope, Exit.void))
+      yield* Layer.buildWithScope(gateway(refused), scope)
+      yield* Deferred.await(refused).pipe(
+        Effect.andThen(Scope.close(scope, Exit.void)),
+        Effect.forkScoped,
+      )
+    }),
+  ).pipe(Layer.provide(adapter(connection)))
+}
