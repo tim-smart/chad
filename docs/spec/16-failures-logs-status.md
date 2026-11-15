@@ -764,14 +764,14 @@ A command that changes chad leaves a line in the thread of the session it ran fr
 
 ## Follow-ups outside chad
 
-v1 does not wait for any of these. The build takes a fix if the effect snapshot it pins already has it. Each is to be raised as an issue on Effect-TS/effect or Effectful-Tech/clanka. That was a question for Tim, which Jarvis answered for him on 2026-11-15.
+v1 does not wait for any of these. The build takes a fix if the effect snapshot it pins already has it. Tim ruled in chat on 2026-11-15 that only the first, FAIL-186, is fixed upstream, and that the other three are left alone. The fix is "Fix effect's OpenAI WebSocket client dropping error frames and resets_at" (TIM-566).
 
 - **FAIL-186** effect's OpenAI WebSocket decoder drops an error frame that has no `error.message`, and drops `resets_at`. Both are follow-ups for effect.
 - **FAIL-187** effect's cluster gives up on a reply it cannot save without a log line. This is a follow-up for effect.
 - **FAIL-188** clanka's `Usage` part does not count the summarizer's tokens. This is a follow-up for clanka.
 - **FAIL-239** clanka's `ErrorRetry` part carries no typed marker for its turn timeout, so chad matches it in the predicate of FAIL-204. A typed marker is a follow-up for clanka.
 
-None of the four has been raised as an issue.
+FAIL-187, FAIL-188 and FAIL-239 are not raised as issues, and chad keeps what it does about each.
 
 ## What this part changes in what Tim agreed himself
 
