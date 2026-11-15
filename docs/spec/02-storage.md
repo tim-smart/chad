@@ -154,6 +154,7 @@ effect's `Migrator` records applied migrations in a table and runs the pending o
 - **STO-42** A boot touches storage in this order: take the lock on `state/daemon.lock`, check `state/version` (STO-48), raise `state/boot-count`, start listening on the socket, check the shard count row, copy the database when STO-44 asks for it, with the copy's version beside it (STO-192), and write `state/migrating`, run the migrations, write `state/version` and remove `state/migrating`, start sessions.
 - **STO-155** The full boot order, with the start-up check, the boot counter and what puts the counter back after a refused boot, is the numbered list in 01-image-and-volume.md.
 - **STO-43** The daemon listens on its socket before it opens, copies or migrates the database, so `chad status` and `chad health` answer while a long copy runs.
+- **STO-196** `chad serve` creates `state/` when it takes the lock, because the lock file is in it, and `logs/` when it opens the log file (see 01-image-and-volume.md). It creates the other directories it finds missing (STO-2) after the check of `state/version` (STO-48) and before it listens. A boot that is refused the lock creates nothing.
 - **STO-44** The first boot of a new image copies the database to `db/chad.db.before-migration` before anything migrates. A boot is such a boot when `db/chad.db` exists and `state/version` is older than the running version or is absent.
 - **STO-156** The copy is written under a temporary name and renamed to `db/chad.db.before-migration` when it is complete, so a kill during the copy cannot leave a truncated file under the fixed name.
 - **STO-157** The boot writes `state/migrating` once the copy is in place, and removes it when it writes `state/version`.
@@ -679,3 +680,4 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-193 | TIM-559 round 3 on IMG-G19 and STO-G28 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | STO-194 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `harness` |
 | STO-195 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `harness` |
+| STO-196 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |

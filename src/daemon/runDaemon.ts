@@ -1,22 +1,35 @@
-import { writeFileSync } from "node:fs"
+import { mkdirSync, writeFileSync } from "node:fs"
+import { dirname } from "node:path"
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Agent from "clanka/Agent"
-import { Cause, Duration, Effect, Exit, Layer, Option, Scope } from "effect"
+import {
+  Cause,
+  Context,
+  Duration,
+  Effect,
+  Exit,
+  Layer,
+  Option,
+  Scope,
+} from "effect"
 import { Chat, type ChatAdapter, type ChatHandler } from "effect/chat"
 import { SingleRunner } from "effect/cluster"
 import type { HttpClient } from "effect/http"
 import type { Socket } from "effect/socket"
 import type { SqlClient } from "effect/sql"
+import * as Lock from "../Lock.ts"
 import * as Messages from "../Messages.ts"
 import { Timings } from "../Timings.ts"
 import { version } from "../Version.ts"
 import type { Connection } from "./Connection.ts"
 import * as Environment from "./Environment.ts"
 import * as Chats from "./Chats.ts"
+import * as Filesystem from "./Filesystem.ts"
 import * as Handler from "./Handler.ts"
 import * as Logger from "./Logger.ts"
 import * as Model from "./Model.ts"
+import * as Server from "./Server.ts"
 import * as SessionEntity from "./SessionEntity.ts"
 import * as Storage from "./Storage.ts"
 import * as Volume from "./Volume.ts"
@@ -64,14 +77,22 @@ const signalled = Effect.callback<void>((resume) => {
   return Effect.sync(off)
 })
 
-/** The steps of a boot. It gives the exit code of a boot that was refused, and never returns from one that was not. */
+/**
+ * The steps of a boot, in the order of the numbered list in docs/spec/01-image-and-volume.md. It gives the exit code
+ * of a boot that was refused, and never returns from one that was not.
+ */
 const boot = Effect.fnUntraced(function* (
   inputs: DaemonInputs,
   environment: Environment.Environment,
   file: Logger.FileSink,
+  state: Server.State,
 ) {
   const started = Date.now()
-  const volume = Volume.make(environment.data)
+  const volume = Volume.make(environment.data, environment.socket)
+  state.connections = inputs.connections.map(({ name, kind }) => ({
+    name,
+    kind,
+  }))
   if (environment.unknownLogLevel !== undefined) {
     yield* Logger.event(
       "boot.log-level-unknown",
@@ -80,24 +101,62 @@ const boot = Effect.fnUntraced(function* (
     )
   }
 
-  // The start-up check writes nothing, so a boot refused here leaves the volume and the log file as they were.
+  // Step 1. The two checks write nothing, and no lock is held, so their lines are on stdout only until step 2.
   const unwritable = Volume.check(volume)
   if (unwritable !== undefined) {
     yield* Logger.event("boot.refused", unwritable, { reason: "volume" })
     return 1
   }
-  Volume.prepare(volume)
+  state.filesystem = Filesystem.check(volume.data, environment.installs)
+  for (const warning of state.filesystem) {
+    yield* Logger.event("boot.filesystem", warning)
+  }
+
+  // Step 2. A boot that is refused the lock has touched nothing but `state/`, which holds the lock file.
+  mkdirSync(dirname(volume.lock), { recursive: true })
+  const release = Lock.take(volume.lock, inputs.timings.lockBusy)
+  if (release === undefined) {
+    yield* Logger.event("boot.refused", Messages.lockHeld(volume.data), {
+      reason: "lock",
+    })
+    return 1
+  }
+  // The scope's first finalizer runs last, so the lock outlives everything else the daemon closes.
+  yield* Effect.addFinalizer(() => Effect.sync(release))
+  // The log file is the daemon's from here on, and the lines stdout already has go into it first.
+  mkdirSync(dirname(volume.log), { recursive: true })
   file.open(volume.log)
-  yield* Logger.event("boot.started", "chad serve started", {
+  yield* Logger.event("boot.started", "chad serve holds the lock", {
     version,
     node: process.version,
     data: volume.data,
   })
 
+  // Steps 3 and 4, the check for a newer state/version and the boot counter, belong here.
+  Volume.prepare(volume)
+
+  // Step 5. The socket listens before the database is opened, so status and health answer during the rest.
   const scope = yield* Effect.scope
-  const base = yield* Layer.buildWithScope(
+  const socket = yield* Layer.buildWithScope(
+    Server.layer(volume, state),
+    scope,
+  ).pipe(
+    Effect.as(Option.none<Server.SocketRefused>()),
+    Effect.catchTag("SocketRefused", (error) =>
+      Effect.succeed(Option.some(error)),
+    ),
+  )
+  if (Option.isSome(socket)) {
+    yield* Logger.event("boot.refused", socket.value.message, {
+      reason: "socket",
+    })
+    return 1
+  }
+  state.phase = "listening"
+
+  // The outside world comes before the database, which is opened for step 6.
+  const world = yield* Layer.buildWithScope(
     Layer.mergeAll(
-      Storage.layer(volume),
       NodeServices.layer,
       NodeCrypto.layerDigest,
       inputs.httpClient,
@@ -105,8 +164,12 @@ const boot = Effect.fnUntraced(function* (
     ),
     scope,
   )
+  const base = Context.merge(
+    world,
+    yield* Layer.buildWithScope(Storage.layer(volume), scope),
+  )
 
-  // The guard runs before the migrations, so a boot it refuses changes nothing in the database.
+  // Step 6. The guard runs before the migrations, so a boot it refuses changes nothing in the database.
   const changed = yield* Storage.guard.pipe(
     Effect.as(Option.none<Storage.ShardCountChanged>()),
     Effect.catchTag("ShardCountChanged", (error) =>
@@ -123,6 +186,9 @@ const boot = Effect.fnUntraced(function* (
     )
     return 1
   }
+
+  // Steps 7 and 8.
+  state.phase = "database"
   const migrated = yield* Storage.migrate.pipe(Effect.provide(base))
   if (migrated.length > 0) {
     yield* Logger.event("database.migrated", "The database was migrated", {
@@ -131,6 +197,8 @@ const boot = Effect.fnUntraced(function* (
   }
   writeFileSync(volume.version, version + "\n")
 
+  // Step 9.
+  state.phase = "loading"
   const model = Model.layer(environment).pipe(
     Option.map(Layer.provide(inputs.httpClient)),
   )
@@ -170,6 +238,7 @@ const boot = Effect.fnUntraced(function* (
     ),
     scope,
   )
+  state.phase = "ready"
   yield* Logger.event("boot.ready", "chad is ready", {
     duration_ms: Date.now() - started,
     connections: inputs.connections.length,
@@ -187,10 +256,11 @@ export const runDaemon = (inputs: DaemonInputs): Promise<number> => {
   const session = process.env["CHAD_SESSION"]
   process.env["CHAD_SESSION"] = "daemon"
   const file = Logger.makeFileSink()
+  const state = Server.makeState()
 
   const program = Effect.gen(function* () {
     const scope = yield* Scope.make()
-    const code = yield* boot(inputs, environment, file).pipe(
+    const code = yield* boot(inputs, environment, file, state).pipe(
       Scope.provide(scope),
       Effect.catchCause((cause) =>
         Logger.event("boot.refused", "chad serve failed", {
@@ -200,6 +270,7 @@ export const runDaemon = (inputs: DaemonInputs): Promise<number> => {
       ),
       Effect.raceFirst(Effect.as(signalled, 0)),
     )
+    state.phase = "stopping"
     // From here the stop has until the deadline, and then the process exits whatever is still open.
     const deadline = setTimeout(
       () => process.exit(1),

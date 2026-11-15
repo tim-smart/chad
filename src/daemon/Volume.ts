@@ -2,6 +2,7 @@ import { accessSync, chmodSync, constants, mkdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { Context } from "effect"
 import * as Messages from "../Messages.ts"
+import * as Paths from "../Paths.ts"
 
 /** The paths of the data volume, as the tree in docs/spec/01-image-and-volume.md lays them out. */
 export interface Volume {
@@ -11,32 +12,42 @@ export interface Volume {
   readonly sessions: string
   readonly version: string
   readonly log: string
+  /** The daemon lock's file. */
+  readonly lock: string
+  /** The unix socket the CLI reaches the daemon on. */
+  readonly socket: string
   /** The fixed path at which the local adapter looks for its chat platform. */
   readonly localSocket: string
 }
 
 export const Volume = Context.Service<Volume>("chad/Volume")
 
-export const make = (data: string): Volume => ({
+export const make = (
+  data: string,
+  socket: string = join(data, "run/chad.sock"),
+): Volume => ({
   data,
+  lock: Paths.lock(data),
+  socket,
   database: join(data, "db/chad.db"),
   repo: join(data, "repo"),
   sessions: join(data, "sessions"),
-  version: join(data, "state/version"),
+  version: Paths.version(data),
   log: join(data, "logs/chad.log"),
   localSocket: join(data, "run/local.sock"),
 })
 
-/** The directories `chad serve` creates when it finds them missing, with the mode of the two that are private. */
+/**
+ * The directories `chad serve` creates when it finds them missing, with the mode of the two that are private.
+ * `state/` and `logs/` are not here: the first is made when the lock is taken and the second with the log file.
+ */
 const directories: ReadonlyArray<readonly [name: string, mode?: number]> = [
   ["db"],
   ["secrets", 0o700],
-  ["state"],
   ["run", 0o700],
   ["sessions"],
   ["home"],
   ["cache"],
-  ["logs"],
 ]
 
 const ownership = (path: string): Messages.Ownership => {

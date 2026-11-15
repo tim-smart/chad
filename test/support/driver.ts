@@ -18,6 +18,7 @@ import { onTestFinished } from "vitest"
 import * as Chat from "../../dist/daemon/Chat.js"
 import type { Connection } from "../../dist/daemon/Connection.js"
 import * as LocalChat from "../../dist/daemon/LocalChat.js"
+import * as Cli from "./cli.ts"
 import * as Discord from "./discord.ts"
 import { start } from "./entry.ts"
 import * as Fakes from "./fakes.ts"
@@ -62,6 +63,8 @@ export interface Options {
   readonly live?: boolean
   /** A directory from `fresh` that the scenario prepared, or an earlier scenario's, to boot on its volume. */
   readonly directory?: string
+  /** A chat platform that is slow to come up: no connection loads before this resolves, so the boot stays loading. */
+  readonly loading?: Promise<void>
 }
 
 export interface Scenario {
@@ -92,6 +95,14 @@ export interface Scenario {
   readonly stop: () => Promise<number>
   /** The environment a `chad` command of this scenario runs in, which never carries the daemon's `CHAD_SESSION`. */
   readonly environment: () => NodeJS.ProcessEnv
+  /**
+   * Runs the built `chad` on this scenario's volume as the owner at a shell does, and gives what it printed and its
+   * exit code. `env` goes over the owner's environment.
+   */
+  readonly chad: (
+    args: ReadonlyArray<string>,
+    env?: Readonly<Record<string, string | undefined>>,
+  ) => Promise<Cli.Ran>
 }
 
 let count = 0
@@ -175,10 +186,21 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
   record("daemon", { state: "starting", transport })
   const exit = start({
     // A `discord` connection always gets the product's adapter, over the scripted gateway and the fake REST server.
-    chat: (connection) =>
-      transport === "direct" && connection.kind === "local"
-        ? platform.layer
-        : Chat.layer(connection),
+    chat: (connection) => {
+      const layer =
+        transport === "direct" && connection.kind === "local"
+          ? platform.layer
+          : Chat.layer(connection)
+      const { loading } = options
+      return loading === undefined
+        ? layer
+        : Layer.unwrap(
+            Effect.as(
+              Effect.promise(() => loading),
+              layer,
+            ),
+          )
+    },
     httpClient: httpClient(
       { model: model.url, discord: discord.rest.url },
       requests,
@@ -284,9 +306,7 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
     logged,
     exit,
     stop,
-    environment: () => {
-      const { CHAD_SESSION: _, ...rest } = process.env
-      return rest
-    },
+    environment: () => Cli.owner(),
+    chad: (args, env = {}) => Cli.chad(args, { CHAD_DATA: data, ...env }),
   }
 }

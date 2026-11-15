@@ -388,6 +388,8 @@ In the image run the socket listened 0.8 to 1.3 s after the container started, a
 - **IMG-61** The daemon keeps the lock's handle until the process exits and closes it only then. The test suite has a check that forces garbage collections and then tries the lock.
 - **IMG-62** The daemon listens on the socket once it holds the lock, has passed the check for a newer `state/version` and has raised the boot counter. That is before it opens, copies or migrates the database and before it loads plugins, MCP servers and connections. `chad status` answers during boot and says which phase the boot is in, and `chad health` passes during boot.
 - **IMG-128** `chad status` names the phase of the boot as one of `starting`, `listening`, `database`, `loading`, `ready` and `stopping`.
+- **IMG-141** The phases of IMG-128 cover the boot list above as the stand-in daemon used them. The phase is `starting` until the socket listens, which no client sees, `listening` for steps 5 and 6, `database` for steps 7 and 8, `loading` for step 9, `ready` once step 9 is done, and `stopping` from the signal that stops the daemon.
+- **IMG-142** The daemon opens `logs/chad.log` straight after it has taken the lock, and makes `logs/` then when it is missing. A boot that is refused at a later step therefore leaves its lines in the file.
 - **IMG-63** The socket error has two forms. A socket path longer than the platform's limit is refused with a message that gives the length and the limit and names `CHAD_SOCKET` as the fix. A filesystem that cannot hold a socket is named as unsupported. The limit is the one of the platform chad runs on, which is 107 bytes on Linux and 103 bytes on macOS, and never a fixed 107.
 - **IMG-64** `chad serve` runs effect cluster's `SingleRunner` with `shardsPerGroup: 1`, from the first release. The count is kept in a database row. A daemon that finds another count refuses to start and names both numbers (see 02-storage.md and 03-sessions-and-turns.md).
 - **IMG-65** The shard count guard runs before the database copy and the migrations, so a boot it refuses leaves the database as it was. That boot holds the lock, so its log lines go to both sinks.
@@ -749,3 +751,5 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-138 | TIM-559 ruling on CLI-G3 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | IMG-139 | TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `skills-mcp` |
 | IMG-140 | TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `kills` |
+| IMG-141 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
+| IMG-142 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |

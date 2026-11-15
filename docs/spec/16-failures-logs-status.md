@@ -100,7 +100,7 @@ A line chad itself writes carries an `event` annotation from this list. The copy
 | **FAIL-283** | `database.migrated` | Builder's | A boot migrated the database. Carries both versions and the path of the copy (see 02-storage.md). |
 | **FAIL-284** | `prune.failed` | Error | The nightly prune failed. |
 | **FAIL-285** | `backup.failed` | Builder's | `chad backup` failed. |
-| **FAIL-286** | `boot.started` | Builder's | `chad serve` holds the lock. Carries the version, Node's version, the data path, whether safe mode is on and why. |
+| **FAIL-286** | `boot.started` | Builder's | (a) `chad serve` holds the lock. Carries the version, Node's version, the data path, (b) whether safe mode is on and why. |
 | **FAIL-287** | `boot.ready` | Builder's | The boot finished. Carries the duration and what loaded. |
 | **FAIL-288** | `boot.setup-needed` | Warn | `chad serve` started on a volume with no chat connection. |
 | **FAIL-289** | `boot.moved-aside` | Warn | Something at `repo/examples` or `repo/node_modules` was moved aside. |

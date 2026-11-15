@@ -138,17 +138,19 @@ describe("the durations", () => {
     expect(serve).toContain("runDaemon(")
     expect(Object.keys(Environment.read({})).sort()).toEqual([
       "data",
+      "installs",
       "logLevel",
       "model",
       "openaiApiKey",
       "openaiApiUrl",
+      "socket",
       "unknownLogLevel",
     ])
-    // The environment is read in one place, and one module each holds the durations and the messages.
+    // Each side reads the environment in one place, and one module each holds the durations and the messages.
     const readers = sources("src").filter((file) =>
       /process\.env\b(?!\["CHAD_SESSION"\])/.test(read(file)),
     )
-    expect(readers).toEqual(["src/daemon/runDaemon.ts"])
+    expect(readers).toEqual(["src/cli/runCli.ts", "src/daemon/runDaemon.ts"])
     const top = readdirSync(path("src"))
     expect(top).toContain("Timings.ts")
     expect(top).toContain("Messages.ts")

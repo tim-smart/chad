@@ -1,4 +1,5 @@
 import type { LogLevel } from "effect"
+import * as Paths from "../Paths.ts"
 
 /** The values of `CHAD_LOG_LEVEL`, each with effect's level of the same name. */
 const levels: Record<string, LogLevel.LogLevel> = {
@@ -19,6 +20,10 @@ const levels: Record<string, LogLevel.LogLevel> = {
 export interface Environment {
   /** `CHAD_DATA`, the data directory. */
   readonly data: string
+  /** `CHAD_SOCKET`, the unix socket, which is `run/chad.sock` on the volume without it. */
+  readonly socket: string
+  /** `HOME`, `NPM_CONFIG_PREFIX` and `XDG_CACHE_HOME`, which the filesystem check follows. */
+  readonly installs: Readonly<Record<string, string | undefined>>
   /** `CHAD_MODEL`, the default model setting. */
   readonly model: string | undefined
   readonly openaiApiUrl: string | undefined
@@ -39,7 +44,13 @@ export const read = (env: NodeJS.ProcessEnv): Environment => {
         ? levels[key]
         : undefined
   return {
-    data: env["CHAD_DATA"] ?? "/data",
+    data: Paths.data(env),
+    socket: Paths.socket(env),
+    installs: {
+      HOME: env["HOME"],
+      NPM_CONFIG_PREFIX: env["NPM_CONFIG_PREFIX"],
+      XDG_CACHE_HOME: env["XDG_CACHE_HOME"],
+    },
     model: env["CHAD_MODEL"],
     openaiApiUrl: env["CHAD_OPENAI_API_URL"],
     openaiApiKey: env["CHAD_OPENAI_API_KEY"],
