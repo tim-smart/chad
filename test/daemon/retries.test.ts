@@ -4,6 +4,7 @@ import * as Failed from "../../dist/daemon/Failed.js"
 import * as Format from "../../dist/daemon/Format.js"
 import * as Messages from "../../dist/Messages.js"
 import { type Options, type Scenario, scenario } from "../support/driver.ts"
+import { runs } from "../support/model.ts"
 import { eventually, lines, posted, rows, says } from "../support/owner.ts"
 
 /** A daemon on the Codex login, which runs on the WebSocket transport. */
@@ -213,4 +214,116 @@ test("FAIL-90 FAIL-206 FAIL-209 FAIL-321 FAIL-342 FAIL-G38 a usage limit over HT
   ).toEqual([Messages.usageLimitReached(Format.local, seconds * 1000)])
   const status = await running.chad(["status"])
   expect(status.stdout).toContain(Messages.usageLimitNotice(seconds * 1000))
+})
+
+/** The root agent starts a background sub-agent and waits for it, so the sub-agent's calls are the next ones. */
+const behind =
+  runs(`const behind = await subagent({ prompt: "Behind.", background: true })
+await waitTasks({ ids: [behind.id] })`)
+
+/** What the turn would do if chad let a background sub-agent's call go on: the sub-agent ends and the root answers. */
+const carriedOn = [runs('await taskComplete("done")'), { text: "answered" }]
+
+/** The outcome of the scenario's only turn, once it has one. */
+const outcome = async (running: Scenario) => {
+  const [turn] = await eventually(
+    () => rows(running, "SELECT outcome FROM turns"),
+    (all) => all[0]?.["outcome"] != null,
+  )
+  return turn?.["outcome"]
+}
+
+const retried = (running: Scenario) =>
+  running.log().filter((line) => line.annotations["event"] === "turn.retry")
+
+test("FAIL-84 FAIL-57 a background sub-agent's model call that says nothing for three turn timeouts in a row ends the owner's turn as TurnTimeout before a fourth attempt, with no retry line", async () => {
+  const running = await scenario({
+    timings: { turnTimeout: Duration.millis(400) },
+  })
+  const { fakes } = running
+  await fakes.model.script([
+    behind,
+    { hold: true },
+    { hold: true },
+    { hold: true },
+    ...carriedOn,
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+
+  expect(await outcome(running)).toBe("failed")
+  const [failed] = await lines(running, "turn.failed", 1)
+  expect(failed!.annotations["reason"]).toBe("ModelError")
+  expect(recorded(running)).toMatchObject({
+    _tag: "ModelError",
+    reason: "TurnTimeout",
+    retries: 3,
+  })
+  // The root's call and the sub-agent's three: chad ended the turn where clanka would have sent the fourth.
+  expect(running.model.calls()).toHaveLength(4)
+  expect(retried(running)).toEqual([])
+  const [message] = await eventually(
+    () => posted(running, thread),
+    (texts) => texts.length > 0,
+  )
+  expect(message).toContain(Messages.silenceReason)
+})
+
+test("FAIL-87 FAIL-88 a background sub-agent's usage limit on the Codex socket ends the owner's turn as UsageLimit at once, with no retry", async () => {
+  const running = await scenario({ ...codex, codex: "token" })
+  const { fakes } = running
+  await fakes.model.script([
+    behind,
+    {
+      status: 429,
+      error: {
+        type: "usage_limit_reached",
+        message: "The usage limit has been reached",
+      },
+    },
+    ...carriedOn,
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+
+  expect(await outcome(running)).toBe("failed")
+  const [failed] = await lines(running, "turn.failed", 1)
+  expect(failed!.annotations["reason"]).toBe("UsageLimit")
+  expect(recorded(running)).toEqual({ _tag: "UsageLimit" })
+  expect(running.model.calls()).toHaveLength(2)
+  expect(retried(running)).toEqual([])
+  expect(
+    await eventually(
+      () => posted(running, thread),
+      (texts) => texts.length > 0,
+    ),
+  ).toEqual([Messages.usageLimitReached(Format.local)])
+})
+
+test("FAIL-89 a background sub-agent's usage_not_included error ends the owner's turn at once as ModelError with its message", async () => {
+  const running = await scenario({ ...codex, codex: "token" })
+  const { fakes } = running
+  await fakes.model.script([
+    behind,
+    {
+      status: 403,
+      error: {
+        type: "usage_not_included",
+        message: "The plan does not include the usage",
+      },
+    },
+    ...carriedOn,
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+
+  expect(await outcome(running)).toBe("failed")
+  const [failed] = await lines(running, "turn.failed", 1)
+  expect(failed!.annotations["reason"]).toBe("ModelError")
+  const reason = recorded(running)
+  expect(reason).toMatchObject({ _tag: "ModelError" })
+  if (reason._tag !== "ModelError") throw new Error("not a ModelError")
+  expect(reason.message).toContain("The plan does not include the usage")
+  expect(running.model.calls()).toHaveLength(2)
+  expect(retried(running)).toEqual([])
 })

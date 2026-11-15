@@ -678,16 +678,30 @@ export const layer = Layer.unwrap(
           turn.size = messages.length
           const known = new Set(live.agent.history.current.content)
           turn.known = known
-          const output = yield* live.agent.send({
-            prompt:
-              read === undefined && update.length === 0
-                ? Messages.restartNote()
-                : Prompt.fromMessages(messages),
-            system: frozen(live),
-          })
-          yield* saveFrozen(live)
           const steps = TurnLog.steps()
           turn.steps = steps
+          // chad's end of the turn at a model call of an agent whose parts the output leaves out (FAIL-84, FAIL-87).
+          const ended = Deferred.makeUnsafe<never, Failed.Ended>()
+          const owner: TurnLog.Owner = {
+            steps,
+            loginPending: () => login.pendingFor(live.id),
+            end: (reason) =>
+              Deferred.doneUnsafe(
+                ended,
+                Effect.fail(new Failed.Ended({ reason })),
+              ),
+          }
+          // The agents of the turn run with the context `send` starts in, so each of them has the owner.
+          const output = yield* live.agent
+            .send({
+              prompt:
+                read === undefined && update.length === 0
+                  ? Messages.restartNote()
+                  : Prompt.fromMessages(messages),
+              system: frozen(live),
+            })
+            .pipe(Effect.provideService(TurnLog.CurrentOwner, owner))
+          yield* saveFrozen(live)
           const ids = { session: live.id, turn: turn.id }
           return yield* output.pipe(
             Stream.runForEach((part) =>
@@ -747,6 +761,7 @@ export const layer = Layer.unwrap(
                 }
               }),
             ),
+            Effect.raceFirst(Deferred.await(ended)),
             // A sub-agent whose end the output did not carry, because the turn stopped or failed while it ran, gets its
             // end line here (FAIL-193).
             Effect.ensuring(TurnLog.unended(steps, ids)),

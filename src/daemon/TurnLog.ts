@@ -1,7 +1,17 @@
 import * as Agent from "clanka/Agent"
 import type * as AgentOutput from "clanka/AgentOutput"
-import { type Cause, Context, Effect } from "effect"
-import type { AiError } from "effect/ai"
+import {
+  Cause,
+  Clock,
+  Context,
+  Duration,
+  Effect,
+  Exit,
+  Layer,
+  Result,
+  Stream,
+} from "effect"
+import { AiError, LanguageModel, Model as AiModel } from "effect/ai"
 import * as Messages from "../Messages.ts"
 import * as Failed from "./Failed.ts"
 import * as Logger from "./Logger.ts"
@@ -267,6 +277,123 @@ const hidden = Effect.map(chain, (found) => {
   const last = found.at(-1)
   return last?.hidden === true ? last : undefined
 })
+
+/**
+ * The turn that runs now, as the model calls of a sub-agent whose steps the Agent's output leaves out see it: its
+ * steps, whether a login is pending for its session, and chad's own end of it.
+ */
+export interface Owner {
+  readonly steps: Steps
+  readonly loginPending: () => boolean
+  /** Ends the turn as `step` ends it at an `ErrorRetry` part, with `Failed.Ended`. */
+  readonly end: (reason: Failed.Reason) => void
+}
+
+/** The turn that runs on a fiber. The session provides it where the turn's `send` starts, so every agent has it. */
+export const CurrentOwner = Context.Reference<Owner | undefined>(
+  "chad/TurnLog/Owner",
+  { defaultValue: () => undefined },
+)
+
+type Provided =
+  LanguageModel.LanguageModel | AiModel.ProviderName | AiModel.ModelName
+
+/**
+ * A sub-agent's model, watched for the ends that `step` makes at an `ErrorRetry` part: a usage limit, a plan that does
+ * not include the usage, and the third turn timeout in a row on one model call (FAIL-84, FAIL-87, FAIL-89). The Agent's
+ * output leaves out the parts of a background sub-agent and of every agent under one, so for such an agent the model
+ * calls are where the errors are seen. Nothing is logged and no status line is added for them (ruling 98c53ea). Each
+ * sub-agent builds its own copy of the layer, so the counts here are one agent's.
+ */
+export const watched = <E, R>(
+  layer: Layer.Layer<Provided, E, R>,
+): Layer.Layer<Provided, E, R> =>
+  Layer.effectContext(
+    Effect.gen(function* () {
+      const model = yield* LanguageModel.LanguageModel
+      return Context.make(LanguageModel.LanguageModel, watch(model)).pipe(
+        Context.add(AiModel.ProviderName, yield* AiModel.ProviderName),
+        Context.add(AiModel.ModelName, yield* AiModel.ModelName),
+      )
+    }),
+  ).pipe(Layer.provide(layer))
+
+const watch = (
+  model: LanguageModel.LanguageModel,
+): LanguageModel.LanguageModel => {
+  // The `ErrorRetry` parts of the agent's current model call, as `Steps.retries` counts a shown agent's.
+  let retry = 0
+  // Whether clanka's turn timeout cut the last attempt. clanka cuts an attempt that way only to retry it.
+  let timedOut = false
+  let first = true
+  const streamText = (...options: Parameters<typeof model.streamText>) =>
+    Stream.unwrap(
+      Effect.gen(function* () {
+        const owner = yield* CurrentOwner
+        const agent = yield* hidden
+        if (owner === undefined || agent === undefined) {
+          return model.streamText(...options)
+        }
+        const { steps } = owner
+        if (first) {
+          first = false
+          steps.timeouts.set(agent.id, 0)
+        }
+        const ended = (error: AiError.AiError) => {
+          retry++
+          const reason = ends(
+            steps,
+            agent.id,
+            error,
+            retry,
+            owner.loginPending(),
+          )
+          if (reason !== undefined) owner.end(reason)
+          return reason !== undefined
+        }
+        // This call is clanka's retry of the one its turn timeout cut, which is where its `ErrorRetry` part was made.
+        if (timedOut) {
+          timedOut = false
+          if (ended(Failed.turnTimeout)) return Stream.never
+        }
+        const clock = yield* Clock.Clock
+        const timeout = Duration.toMillis(yield* Agent.TurnTimeout)
+        let last = clock.currentTimeMillisUnsafe()
+        return model.streamText(...options).pipe(
+          Stream.tap((part) =>
+            Effect.sync(() => {
+              last = clock.currentTimeMillisUnsafe()
+              // A call that finished ends the count, as a shown agent's `Usage` part does.
+              if (part.type === "finish") {
+                retry = 0
+                steps.timeouts.set(agent.id, 0)
+              }
+            }),
+          ),
+          Stream.onExit((exit) =>
+            Effect.sync(() => {
+              if (Exit.isSuccess(exit)) return
+              if (Cause.hasInterruptsOnly(exit.cause)) {
+                // clanka's timer runs from the start of the call and from each part, so its cut comes after a whole
+                // timeout of silence, and a cut at a steer comes right after a part.
+                timedOut = clock.currentTimeMillisUnsafe() - last >= timeout / 2
+                return
+              }
+              const error = Cause.findError(exit.cause)
+              if (Result.isSuccess(error) && AiError.isAiError(error.success)) {
+                ended(error.success)
+              }
+            }),
+          ),
+        )
+      }),
+    )
+  return {
+    ...model,
+    streamText:
+      streamText as unknown as LanguageModel.LanguageModel["streamText"],
+  }
+}
 
 /**
  * The compaction line of an agent whose `CompactionEnded` the Agent's output leaves out (FAIL-249). clanka renders the

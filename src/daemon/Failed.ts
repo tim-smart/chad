@@ -83,7 +83,7 @@ export class Ended extends Data.TaggedError("TurnEnded")<{
 
 /**
  * Whether an error is clanka's turn timeout, which is how clanka reports a model call that sent nothing for
- * `Agent.TurnTimeout`. This is the one place chad matches clanka's wording (FAIL-204), and a test runs it against real
+ * `Agent.TurnTimeout`. This and `turnTimeout` are the one place chad matches clanka's wording (FAIL-204), and a test runs it against real
  * clanka and a silent model (FAIL-205, TST-181).
  */
 export const isTurnTimeout = (error: AiError.AiError): boolean =>
@@ -91,6 +91,16 @@ export const isTurnTimeout = (error: AiError.AiError): boolean =>
   error.method === "send" &&
   error.reason._tag === "UnknownError" &&
   error.reason.description === "TurnTimeout was reached"
+
+/**
+ * clanka's turn timeout as its `ErrorRetry` part carries it (`Agent.ts:1683`), for an agent whose parts the Agent's
+ * output leaves out and whose timeout chad sees only as a cut model call (FAIL-84).
+ */
+export const turnTimeout: AiError.AiError = AiError.make({
+  module: "clanka/Agent",
+  method: "send",
+  reason: new AiError.UnknownError({ description: "TurnTimeout was reached" }),
+})
 
 /** The codes that end a turn as `UsageLimit` with no reset time, on either transport (FAIL-88). */
 const limitCodes: ReadonlySet<unknown> = new Set([

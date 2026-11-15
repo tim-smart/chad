@@ -243,68 +243,91 @@ const sessionHttp = (session: string | undefined) =>
 const effortOf = (spec: Spec) =>
   spec.effort === undefined ? {} : { reasoning: { effort: spec.effort } }
 
+/** The models a session's layer gives. */
+type Provided =
+  LanguageModel.LanguageModel | AiModel.ProviderName | AiModel.ModelName
+
 /**
- * One model of a session, with a client of its own (MOD-29, MOD-96). The session's id is its `prompt_cache_key` and
- * its header on a Codex login and on `openai` with a key, and `openai-compat` gets neither (MOD-31, MOD-32, MOD-97,
- * MOD-98). A model built for no session, as a check or a trial is, gets clanka's own random key and no header.
+ * The models of one session over the session's one client (MOD-29, MOD-81, MOD-96). `over` builds the layers that
+ * `build` makes from `model` with the client provided once under them, so a layer that clanka builds afresh for each
+ * sub-agent and each summary rebuilds the model and not the client. An override names the main model's provider
+ * (MOD-81), so it runs on the same client.
  */
+export interface Models {
+  readonly over: <A, E>(
+    build: <C>(
+      model: (spec: Spec) => Layer.Layer<Provided, never, C | Requirements>,
+    ) => Layer.Layer<A, E, C | Requirements>,
+  ) => Layer.Layer<A, E, Requirements>
+}
+
+const models = <C>(
+  client: Layer.Layer<C, never, Requirements>,
+  model: (spec: Spec) => Layer.Layer<Provided, never, C | Requirements>,
+): Models => ({
+  over: (build) => build(model).pipe(Layer.provide(client)),
+})
+
+/**
+ * The client of a session on `main`'s path, and its models. The session's id is its `prompt_cache_key` and its header
+ * on a Codex login and on `openai` with a key, and `openai-compat` gets neither (MOD-31, MOD-32, MOD-97, MOD-98). A
+ * model built for no session, as a check or a trial is, gets clanka's own random key and no header.
+ */
+export const sessionModels = (
+  main: Spec,
+  session: string | undefined,
+  endpoint: Endpoint,
+): Models => {
+  const options = (spec: Spec) => ({
+    ...effortOf(spec),
+    prompt_cache_key: session,
+  })
+  const apiKey =
+    endpoint.openaiApiKey === undefined
+      ? undefined
+      : Redacted.make(endpoint.openaiApiKey)
+  switch (main.path) {
+    case "codex":
+      // `layerClientNoDeps` takes the shared `CodexAuth` from context, so this client holds no login of its own
+      // (MOD-27, MOD-28).
+      return models(
+        OpenAiClient.layer({ apiUrl: codexUrl }).pipe(
+          Layer.provide(CodexAuth.layerClientNoDeps),
+          Layer.provide(sessionHttp(session)),
+        ),
+        (spec) => Codex.modelWebSocket(spec.model, options(spec)),
+      )
+    case "openai":
+      return models(
+        OpenAiClient.layer({ apiUrl: endpoint.openaiApiUrl, apiKey }).pipe(
+          Layer.provide(sessionHttp(session)),
+        ),
+        (spec) => Codex.model(spec.model, options(spec)),
+      )
+    case "compat":
+      return models(
+        OpenAiCompat.layerClient({ apiUrl: endpoint.openaiApiUrl, apiKey }),
+        (spec) => OpenAiCompat.model(spec.model, effortOf(spec)),
+      )
+    case "other":
+      // clanka's own clients, with their own logins over the token store and no key or header (MOD-7, MOD-G34).
+      return main.provider === "xai"
+        ? models(Xai.layerClient, (spec) =>
+            Xai.modelWebSocket(spec.model, effortOf(spec)),
+          )
+        : models(Copilot.layerClient, (spec) =>
+            Copilot.model(spec.model, effortOf(spec)),
+          )
+  }
+}
+
+/** One model with a client of its own, as a check or a trial runs it. */
 export const languageModel = (
   spec: Spec,
   session: string | undefined,
   endpoint: Endpoint,
-): Layer.Layer<
-  LanguageModel.LanguageModel | AiModel.ProviderName | AiModel.ModelName,
-  never,
-  Requirements
-> => {
-  const options = { ...effortOf(spec), prompt_cache_key: session }
-  switch (spec.path) {
-    case "codex":
-      // `layerClientNoDeps` takes the shared `CodexAuth` from context, so this client holds no login of its own
-      // (MOD-27, MOD-28).
-      return Codex.modelWebSocket(spec.model, options).pipe(
-        Layer.provide(
-          OpenAiClient.layer({ apiUrl: codexUrl }).pipe(
-            Layer.provide(CodexAuth.layerClientNoDeps),
-            Layer.provide(sessionHttp(session)),
-          ),
-        ),
-      )
-    case "openai":
-      return Codex.model(spec.model, options).pipe(
-        Layer.provide(
-          OpenAiClient.layer({
-            apiUrl: endpoint.openaiApiUrl,
-            apiKey:
-              endpoint.openaiApiKey === undefined
-                ? undefined
-                : Redacted.make(endpoint.openaiApiKey),
-          }).pipe(Layer.provide(sessionHttp(session))),
-        ),
-      )
-    case "compat":
-      return OpenAiCompat.model(spec.model, effortOf(spec)).pipe(
-        Layer.provide(
-          OpenAiCompat.layerClient({
-            apiUrl: endpoint.openaiApiUrl,
-            apiKey:
-              endpoint.openaiApiKey === undefined
-                ? undefined
-                : Redacted.make(endpoint.openaiApiKey),
-          }),
-        ),
-      )
-    case "other":
-      // clanka's own clients, with their own logins over the token store and no key or header (MOD-7, MOD-G34).
-      return spec.provider === "xai"
-        ? Xai.modelWebSocket(spec.model, effortOf(spec)).pipe(
-            Layer.provide(Xai.layerClient),
-          )
-        : Copilot.model(spec.model, effortOf(spec)).pipe(
-            Layer.provide(Copilot.layerClient),
-          )
-  }
-}
+): Layer.Layer<Provided, never, Requirements> =>
+  sessionModels(spec, session, endpoint).over((model) => model(spec))
 
 /** The text of a failed check or trial: the model error's reason and message, or the defect's message. */
 const failure = (cause: Cause.Cause<unknown>) => {

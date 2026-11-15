@@ -25,10 +25,10 @@ import {
   type Inputs,
   needsLogin,
   prepare,
-  languageModel,
   read,
   type Request,
   type Requirements,
+  sessionModels,
   type Settings,
   type Spec,
   store,
@@ -37,6 +37,7 @@ import {
 } from "../ModelSpec.ts"
 import * as Logger from "./Logger.ts"
 import * as Login from "./Login.ts"
+import * as TurnLog from "./TurnLog.ts"
 import type { Notices } from "./Notices.ts"
 
 /**
@@ -69,22 +70,25 @@ export type Provided =
   | Compaction.SummarizerModel
 
 /**
- * The model layer of one session: the main model, the sub-agents' and the summarizer's. Without an override the
- * sub-agents and the summarizer run on their own copies of the main model (MOD-13). The summarizer layer is always
- * there, so a summary still running when its turn ends keeps a working client (MOD-14, SES-116).
+ * The model layer of one session: the main model, the sub-agents' and the summarizer's, over the session's one client
+ * (MOD-81, MOD-96). Without an override the sub-agents and the summarizer run on their own copies of the main model
+ * (MOD-13). The summarizer layer is always there, so a summary still running when its turn ends keeps a working model
+ * (MOD-14, SES-116). The sub-agents' model is watched for the ends their hidden calls make (FAIL-84, FAIL-87, FAIL-89).
  */
 export const session = (
   settings: Settings & { readonly main: Result.Success<Spec, unknown> },
   id: string | undefined,
   endpoint: Endpoint,
 ): Layer.Layer<Provided, never, Requirements> => {
-  const main = languageModel(settings.main.success, id, endpoint)
-  const of = (spec: Spec | undefined) =>
-    spec === undefined ? main : languageModel(spec, id, endpoint)
-  return Layer.mergeAll(
-    main,
-    Agent.layerSubagentModel(of(settings.subagent)),
-    Compaction.layerSummarizerModel(of(settings.summarizer)),
+  const main = settings.main.success
+  return sessionModels(main, id, endpoint).over((model) =>
+    Layer.mergeAll(
+      model(main),
+      Agent.layerSubagentModel(
+        TurnLog.watched(model(settings.subagent ?? main)),
+      ),
+      Compaction.layerSummarizerModel(model(settings.summarizer ?? main)),
+    ),
   )
 }
 
