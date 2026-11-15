@@ -1,4 +1,4 @@
-import type { Report } from "./Rpcs.ts"
+import type { ModelState, Report } from "./Rpcs.ts"
 
 /**
  * The text of `chad status`. It is one fact to a line, as `<name>: <value>`, so that a model reads it as easily as a
@@ -19,6 +19,8 @@ export type View =
       readonly volume: string | undefined
       /** The connections `secrets/connections.json` holds. */
       readonly connections?: ReadonlyArray<Connection>
+      /** The main model and the login state, as the files and the environment give them (CLI-125). */
+      readonly model?: ModelState
     }
   /** The lock is held and the daemon gave no answer in time. */
   | {
@@ -28,6 +30,7 @@ export type View =
       readonly version: string
       readonly volume: string | undefined
       readonly connections?: ReadonlyArray<Connection>
+      readonly model?: ModelState
     }
 
 interface Connection {
@@ -44,6 +47,17 @@ const connections = (list: ReadonlyArray<Connection> = []) =>
     (connection) => `connection: ${connection.name} (${connection.kind})`,
   )
 
+const logins: Record<ModelState["login"], string> = {
+  "logged-in": "logged in",
+  "logged-out": "not logged in",
+  pending: "login pending",
+  "not-needed": "needs no login",
+}
+
+/** The model and the login state, as one line (CLI-125). */
+const model = (state: ModelState | undefined) =>
+  state === undefined ? [] : [`model: ${state.spec} (${logins[state.login]})`]
+
 const files = (version: string, volume: string | undefined) =>
   `version: chad ${version}, volume ${volume === undefined ? "not written yet" : `written by chad ${volume}`}`
 
@@ -52,6 +66,7 @@ export const render = (view: View): string => {
     return [
       `daemon: not running (lock ${view.lock} is free)`,
       files(view.version, view.volume),
+      ...model(view.model),
       ...connections(view.connections),
     ].join("\n")
   }
@@ -59,6 +74,7 @@ export const render = (view: View): string => {
     return [
       `daemon: starting or frozen (lock held, no answer on ${view.socket} in ${view.seconds}s)`,
       files(view.version, view.volume),
+      ...model(view.model),
       ...connections(view.connections),
     ].join("\n")
   }
@@ -67,6 +83,7 @@ export const render = (view: View): string => {
     `daemon: up (${report.phase})`,
     `version: chad ${report.version}, effect ${report.effect}`,
     ...report.filesystem.map((warning) => `filesystem: ${warning}`),
+    ...model(report.model),
     ...connections(report.connections),
     ...blocks(report),
   ].join("\n")

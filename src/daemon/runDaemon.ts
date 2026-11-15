@@ -3,6 +3,7 @@ import * as NodeCrypto from "@effect/platform-node/NodeCrypto"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Agent from "clanka/Agent"
 import { CodexAuth } from "clanka/CodexAuth"
+import { DeviceCodeHandler } from "clanka/DeviceCodeHandler"
 import {
   Cause,
   Context,
@@ -13,9 +14,15 @@ import {
   FileSystem,
   Layer,
   Option,
+  Result,
   Scope,
 } from "effect"
-import type { ChatAdapter, ChatHandler, ChatInteraction } from "effect/chat"
+import {
+  type ChatAdapter,
+  type ChatHandler,
+  type ChatInteraction,
+  ChatThread,
+} from "effect/chat"
 import { MessageRetention, SingleRunner } from "effect/cluster"
 import type { HttpClient } from "effect/http"
 import type { Socket } from "effect/socket"
@@ -273,19 +280,10 @@ const boot = Effect.fnUntraced(function* (
     TokenStore.layer(volume.data),
     scope,
   ).pipe(Effect.provide(world), Effect.orDie)
-  const logins = yield* Layer.buildWithScope(
-    CodexAuth.layer.pipe(
-      Layer.provide(Login.client),
-      Layer.provideMerge(Login.handler),
-    ),
-    scope,
-  ).pipe(Effect.provide(Context.merge(world, tokens)))
-  const requirements = Context.mergeAll(world, tokens, logins)
   const settings = yield* Model.read(volume.data, environment).pipe(
     Effect.provide(world),
     Effect.orDie,
   )
-  const models = Model.make(settings, environment, requirements)
   const cluster = SingleRunner.layer({
     shardingConfig: {
       shardsPerGroup: Storage.shards,
@@ -308,6 +306,49 @@ const boot = Effect.fnUntraced(function* (
     direct: Notices.directMessage(running.chats, running.list),
   }).pipe(Effect.provideContext(base))
   state.problems.push(notices.problems)
+  // The one Codex login of the process. Its code goes to the thread of the turn that asked, or by the notice route,
+  // and its wait is the daemon's, so a turn or a CLI that goes does not end it (MOD-36, MOD-41, MOD-101).
+  const login = yield* Login.make({
+    timeout: inputs.timings.modelLogin,
+    announce: (text) =>
+      notices.announce(text).pipe(
+        Effect.flatMap((destination) =>
+          destination === undefined
+            ? Effect.succeed(undefined)
+            : Effect.map(
+                running.chats.format(destination.connection),
+                (format) =>
+                  Option.match(ChatThread.fromString(destination.thread), {
+                    onNone: () => undefined,
+                    onSome: format.link,
+                  }),
+              ),
+        ),
+        Effect.orElseSucceed(() => undefined),
+      ),
+  }).pipe(Effect.provide(Context.merge(world, tokens)))
+  const requirements = Context.mergeAll(
+    world,
+    tokens,
+    Context.make(CodexAuth, login.auth),
+    Context.make(DeviceCodeHandler, Login.otherLogins),
+  )
+  const models = Model.make(settings, environment, requirements)
+  yield* Deferred.succeed(state.account, {
+    login,
+    model: () => {
+      const current = models.settings()
+      return {
+        spec: Model.text(current),
+        needsLogin:
+          Result.isSuccess(current.main) &&
+          Model.needsLogin(current.main.success),
+      }
+    },
+    stored: TokenStore.codexStored(volume.data).pipe(
+      Effect.provideContext(world),
+    ),
+  })
   state.held = notices.held
   yield* Disk.start(volume.data, inputs.timings.freeSpaceInterval, notices)
   // Cluster deletes a completed request of a session once it is a day old. The `turns` row is what is left of it.
@@ -325,6 +366,7 @@ const boot = Effect.fnUntraced(function* (
       Layer.provideMerge(
         Layer.mergeAll(
           Layer.succeed(Model.Models, models),
+          Layer.succeed(Login.Login, login),
           Layer.succeed(SessionEntity.Stopping, {
             stopping: () => state.phase === "stopping",
           }),

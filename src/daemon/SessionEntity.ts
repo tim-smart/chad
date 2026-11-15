@@ -32,6 +32,7 @@ import * as Disk from "./Disk.ts"
 import * as Failed from "./Failed.ts"
 import type { Format } from "./Format.ts"
 import * as Logger from "./Logger.ts"
+import * as Login from "./Login.ts"
 import * as Model from "./Model.ts"
 import * as Post from "./Post.ts"
 import * as Queue from "./Queue.ts"
@@ -729,11 +730,79 @@ export const layer = Layer.unwrap(
           )
         }, Effect.scoped)
 
+        /** The turn that asks the login for a token now, which the session's reference reads. */
+        let asking:
+          | {
+              readonly turn: Turn
+              readonly chat: ChatService
+              readonly format: Format
+              waited: boolean
+            }
+          | undefined
+        let reference:
+          { readonly live: Live; readonly ref: Login.SessionRef } | undefined
+
+        /**
+         * The session as the login sees it. It stays the same for the session's life, because the model layer keeps the
+         * one it was built with, and it reads the turn that runs now (MOD-34, MOD-35).
+         */
+        const sessionRef = (live: Live, format: Format): Login.SessionRef => {
+          if (reference?.live === live) return reference.ref
+          const say = (markdown: (format: Format) => string) =>
+            Effect.suspend(() =>
+              asking === undefined
+                ? Effect.void
+                : post(asking.chat, asking.format, markdown(asking.format)),
+            ).pipe(Effect.asVoid)
+          const ref: Login.SessionRef = {
+            id: live.id,
+            ownerPresent: true,
+            link: format.link(thread),
+            post: (markdown) => say(() => markdown),
+            notice: (line) => say((format) => format.subtext(line)),
+            // A turn's wait gets one status line and one log line, however often clanka retries its call (MOD-51).
+            waiting: Effect.suspend(() => {
+              const now = asking
+              if (now === undefined || now.waited) return Effect.void
+              now.waited = true
+              return Effect.andThen(
+                (now.turn.status ?? StatusMessage.none).add(
+                  Messages.statusLoginWait,
+                ),
+                Logger.event("turn.login-wait", "The turn waits for a login", {
+                  session: live.id,
+                  turn: now.turn.id,
+                }),
+              )
+            }),
+          }
+          reference = { live, ref }
+          return ref
+        }
+
         /**
          * The model's part on the session's model layer. The token check comes first, then the layer is built when the
-         * session has none for the settings in force (SES-56, MOD-30).
+         * session has none for the settings in force (SES-56, MOD-30). The session is set around both, so a login either
+         * asks for posts its code in this thread (MOD-33, MOD-34).
          */
-        const ask = Effect.fnUntraced(function* (
+        const ask = (
+          live: Live,
+          turn: Turn,
+          request: Request,
+          chat: ChatService,
+          format: Format,
+        ) =>
+          Effect.suspend(() => {
+            asking = { turn, chat, format, waited: false }
+            return modelPart(live, turn, request, chat, format)
+          }).pipe(
+            Effect.provideService(
+              Login.CurrentSession,
+              sessionRef(live, format),
+            ),
+          )
+
+        const modelPart = Effect.fnUntraced(function* (
           live: Live,
           turn: Turn,
           request: Request,
@@ -827,7 +896,9 @@ export const layer = Layer.unwrap(
 
         /** Whether a reason's turn posts the failed-turn message. The others post a message of their own or nothing. */
         const posted = (reason: Failed.Reason): reason is Messages.Posted =>
-          reason._tag === "ModelError" || reason._tag === "Internal"
+          reason._tag === "ModelError" ||
+          reason._tag === "Internal" ||
+          reason._tag === "LoginFailed"
 
         /** What a failed turn's row records of its reason: the tag and the whole reason (STO-76). */
         const recorded = (reason: Failed.Reason) => ({

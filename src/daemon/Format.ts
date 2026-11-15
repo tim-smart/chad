@@ -1,5 +1,6 @@
 import { DiscordChat } from "@effect/chat-discord"
 import type { Effect } from "effect"
+import type { ChatThread } from "effect/chat"
 import type * as Connections from "../Connections.ts"
 
 /**
@@ -9,6 +10,8 @@ import type * as Connections from "../Connections.ts"
 export interface Format {
   /** A notice inside a turn's flow, as the platform writes it (docs/spec/04-discord.md, DIS-22, DIS-74). */
   readonly subtext: (line: string) => string
+  /** A link to a thread, as the platform writes one (MOD-42). */
+  readonly link: (thread: ChatThread.ChatThread) => string
   /** A moment, shown relative to the reader's now (DIS-20). */
   readonly relativeTime: (at: number) => string
   /**
@@ -23,6 +26,8 @@ export interface Format {
 /** Discord's markup: `-#` subtext and a `<t:…:R>` timestamp. */
 export const discord: Format = {
   subtext: (line) => `-# ${line}`,
+  // A Discord thread's id is its channel's.
+  link: (thread) => `<#${thread.id}>`,
   relativeTime: (at) => `<t:${Math.floor(at / 1000)}:R>`,
   // Discord posts a reply to a message that is gone as a plain message, and does not refuse it (DIS-100).
   reply: DiscordChat.withPostOptions({
@@ -37,6 +42,7 @@ export const discord: Format = {
  */
 export const local: Format = {
   subtext: discord.subtext,
+  link: discord.link,
   relativeTime: discord.relativeTime,
   reply: (effect) => effect,
 }

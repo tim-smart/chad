@@ -65,3 +65,38 @@ export const layer = (
       })
     }),
   )
+
+/** The file that holds the Codex login's token, under clanka's key `codex.auth/token`. */
+export const codexFile = (data: string): string =>
+  join(Paths.auth(data), encodeURIComponent("codex.auth/token"))
+
+/** Whether a Codex token is stored, which is what `chad status` calls logged in (CLI-125). It opens no store. */
+export const codexStored = (data: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    return yield* fs.exists(codexFile(data))
+  }).pipe(Effect.orElseSucceed(() => false))
+
+/**
+ * The store over another whose every write first runs `before`, as a login with no daemon takes the lock only when
+ * it stores the token (MOD-58). `before` gives what releases the lock once the write is done.
+ */
+export const guarded = (
+  store: KeyValueStore.KeyValueStore,
+  before: Effect.Effect<() => void>,
+): KeyValueStore.KeyValueStore =>
+  KeyValueStore.make({
+    get: store.get,
+    getUint8Array: store.getUint8Array,
+    set: (key, value) =>
+      Effect.acquireUseRelease(
+        before,
+        () => store.set(key, value),
+        (release) => Effect.sync(release),
+      ),
+    remove: store.remove,
+    clear: store.clear,
+    clearPrefix: store.clearPrefix,
+    size: store.size,
+    keys: store.keys,
+  })

@@ -13,7 +13,7 @@ import {
 import { type Server, createServer } from "node:net"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { Duration, Effect, Exit, Layer, Scope } from "effect"
+import { Duration, Effect, Exit, Layer, Scope, Stream } from "effect"
 import { expect, it, onTestFinished } from "vitest"
 import * as Lock from "../../dist/Lock.js"
 import * as Messages from "../../dist/Messages.js"
@@ -345,6 +345,8 @@ it("CLI-59 CLI-218 the CLI sends its CHAD_SESSION with every request, and a daem
               ),
             ConnectionCheck: () => Effect.succeed([]),
             ConnectionChange: () => Effect.succeed({ changed: false }),
+            Login: () => Stream.empty,
+            Logout: () => Effect.succeed({ spec: "openai-compat/fake" }),
           }),
           layerVersionCheck(version),
         ),

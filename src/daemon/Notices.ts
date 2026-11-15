@@ -201,6 +201,11 @@ export class Notices extends Context.Service<
     readonly problems: () => ReadonlyArray<string>
     /** The lines "Problems" shows for the table keys whose row holds, with the time each was recorded (FAIL-320). */
     readonly held: Effect.Effect<ReadonlyArray<string>, unknown>
+    /**
+     * Posts a text once in the destination, and gives the destination, or nothing when there is none or the post
+     * failed. It keeps no row and logs no text, because a login's code is what it carries (MOD-36, MOD-118).
+     */
+    readonly announce: (text: string) => Effect.Effect<Destination | undefined>
   }
 >()("chad/Notices") {}
 
@@ -520,11 +525,30 @@ export const make = Effect.fnUntraced(function* (options: {
     }),
   )
 
+  const announce = Effect.fnUntraced(function* (text: string) {
+    const target = destination
+    if (target === undefined) return undefined
+    const direct = (yield* directOf(target)) ?? false
+    const posted = yield* Effect.exit(
+      Effect.suspend(() => options.post(target, direct, text)),
+    )
+    if (Exit.isFailure(posted)) {
+      yield* Logger.event(
+        "notice.undelivered",
+        "A login's code could not be posted",
+        { key: "login", connection: target.connection, thread: target.thread },
+      )
+      return undefined
+    }
+    return { connection: target.connection, thread: target.thread }
+  })
+
   return Notices.of({
     raise,
     clear,
     arrived,
     problems: () => [...live.values()],
     held,
+    announce,
   })
 })

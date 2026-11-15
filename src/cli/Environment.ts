@@ -14,6 +14,10 @@ export interface Environment {
   readonly lock: string
   /** `CHAD_SESSION`, which marks a command that the agent or the daemon runs. The owner's shell has none. */
   readonly session: string | undefined
+  /** `CHAD_MODEL`, the main model when no override is stored. */
+  readonly model?: string | undefined
+  /** Whether `CHAD_OPENAI_API_KEY` is set, which puts `openai` on the API and off the Codex login (MOD-2). */
+  readonly openaiApiKey?: string | undefined
 }
 
 export const Environment = Context.Service<Environment>("chad/cli/Environment")
@@ -25,5 +29,7 @@ export const read = (env: NodeJS.ProcessEnv): Environment => {
     socket: Paths.socket(env),
     lock: Paths.lock(data),
     session: env["CHAD_SESSION"],
+    model: env["CHAD_MODEL"],
+    openaiApiKey: env["CHAD_OPENAI_API_KEY"],
   }
 }

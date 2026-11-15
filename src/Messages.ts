@@ -360,24 +360,33 @@ export const firstLine = (text: string): string =>
 /** The reasons whose failed turn posts the failed-turn message, and what that message says of each (FAIL-55 to FAIL-58). */
 export type Posted = Extract<
   Failed.Reason,
-  { readonly _tag: "ModelError" | "Internal" }
+  { readonly _tag: "ModelError" | "Internal" | "LoginFailed" }
 >
 
-const failedReason = (reason: Posted) =>
+const failedReason = (
+  reason: Exclude<Posted, { readonly _tag: "LoginFailed" }>,
+) =>
   reason._tag === "Internal"
     ? `chad hit an error (${firstLine(reason.message)})`
     : reason.retries === 0
       ? `the model request failed (${reason.reason}: ${firstLine(reason.message)})`
       : `the model kept failing after ${reason.retries} retries (${reason.reason}: ${firstLine(reason.message)})`
 
-/** A failed turn, as a normal message in its thread (FAIL-54, FAIL-65). */
+/**
+ * A failed turn, as a normal message in its thread (FAIL-54, FAIL-65). A failed login has its own message in place of
+ * it (MOD-75, MOD-76).
+ */
 export const failedTurn = (
   format: Format,
   milliseconds: number,
   reason: Posted,
   turn: string,
 ) =>
-  `That turn failed after ${duration(milliseconds)}: ${failedReason(reason)}. The conversation is intact, send a message to carry on.\n${turnLine(format, turn)}`
+  reason._tag === "LoginFailed"
+    ? reason.reason === "TimedOut"
+      ? loginTimedOut
+      : loginFailed(reason.reason)
+    : `That turn failed after ${duration(milliseconds)}: ${failedReason(reason)}. The conversation is intact, send a message to carry on.\n${turnLine(format, turn)}`
 
 /** One line of `session_updates`, as the update message reads it (STO-170). */
 export type Update =
@@ -549,3 +558,46 @@ export const modelCheckFailed = (spec: string, error: string) =>
 
 /** A model call needed a Codex login while chad has none and cannot post a code for one (MOD-2). */
 export const loginUnavailable = "chad is not logged in to Codex."
+
+/** The login prompt, in a thread and in the terminal (MOD-38, MOD-55, MOD-120). */
+export const loginPrompt = (verifyUrl: string, code: string) =>
+  `To log chad in to Codex, open ${verifyUrl} and enter the code ${code}. The code is good for 15 minutes.`
+
+/** The notice in a thread whose turn waits on a login another thread has the code of (MOD-42, DIS-72). */
+export const loginWaitingIn = (link: string) =>
+  `Waiting for the login in ${link}`
+
+/** The status line of a turn that waits on a login (MOD-100, DIS-29). */
+export const statusLoginWait = "Waiting for login"
+
+/** A waiting turn's message when the login's time ran out (MOD-45, MOD-49, MOD-75). */
+export const loginTimedOut = "Login timed out. Send a message to try again."
+
+/** A waiting turn's message when the login failed in any other way (MOD-76). */
+export const loginFailed = (reason: string) =>
+  `Login failed (${reason}). Send a message to try again.`
+
+/** `chad login` with no daemon, when a daemon took the lock while the owner logged in (MOD-58, CLI-34). */
+export const loginRaced =
+  "a daemon started during the login, run chad login again"
+
+/** `chad login` when the model in force needs no login (MOD-109). */
+export const loginNotNeeded = (spec: string) =>
+  `The model ${spec} needs no login.`
+
+/** `chad login` when the login did not complete (MOD-108). */
+export const loginCliFailed = (reason: string) =>
+  reason === "TimedOut"
+    ? "chad login: the login timed out, run chad login again"
+    : `chad login: the login failed (${reason}), run chad login again`
+
+/** `chad login` once the login completed (MOD-55). */
+export const loggedIn = "chad is logged in to Codex."
+
+/** `chad login` when the stored token is good, which a new login does not replace (MOD-119). */
+export const alreadyLoggedIn =
+  "chad is already logged in to Codex. To log in with another account, run chad logout and then chad login."
+
+/** `chad logout`, which stops no running turn (MOD-61, CLI-111, MOD-121). */
+export const loggedOut =
+  "chad is logged out of Codex. A turn that is running is not stopped: it finishes on the connection it has, and the next one asks for a login."

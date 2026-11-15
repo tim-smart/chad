@@ -87,11 +87,47 @@ const messageOf = (value: unknown): string =>
       ? value
       : String(value)
 
+type LoginReason = Extract<Reason, { readonly _tag: "LoginFailed" }>["reason"]
+
+/**
+ * The reason of a failed login that a defect carries, or nothing. clanka's client dies with its `CodexAuthError`, and
+ * chad's own timeout dies with `LoginTimedOut` (MOD-46, MOD-75, MOD-76). A defect that wraps one in its `cause`
+ * counts too.
+ */
+const loginReason = (defect: unknown): LoginReason | undefined => {
+  for (let value = defect, depth = 0; depth < 5; depth++) {
+    if (typeof value !== "object" || value === null) return undefined
+    const tag = (value as { readonly _tag?: unknown })._tag
+    if (tag === "LoginTimedOut") return "TimedOut"
+    if (tag === "CodexAuthError") {
+      const reason = (value as { readonly reason?: unknown }).reason
+      if (
+        reason === "DeviceFlowFailed" ||
+        reason === "TokenExchangeFailed" ||
+        reason === "RefreshFailed"
+      ) {
+        return reason
+      }
+    }
+    value = (value as { readonly cause?: unknown }).cause
+  }
+  return undefined
+}
+
 /**
  * The reason a turn failed with, from the cause its model part or chad's own code ended with. clanka's two model
- * failures are `ModelError`, and anything else is `Internal`.
+ * failures are `ModelError`, a failed login is `LoginFailed`, and anything else is `Internal`.
  */
 export const classify = (cause: Cause.Cause<unknown>): Reason => {
+  for (const reason of cause.reasons) {
+    const login =
+      reason._tag === "Die"
+        ? loginReason(reason.defect)
+        : reason._tag === "Fail"
+          ? loginReason(reason.error)
+          : undefined
+    if (login !== undefined) return { _tag: "LoginFailed", reason: login }
+  }
   for (const reason of cause.reasons) {
     if (reason._tag !== "Fail") continue
     const error = reason.error

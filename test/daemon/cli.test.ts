@@ -39,7 +39,7 @@ const facts = (stdout: string) =>
 const events = (lines: ReadonlyArray<string>) =>
   lines.map((line) => / event=(\S+)/.exec(line)?.[1])
 
-test("OV-19 CLI-8 IMG-74 CLI-125a CLI-125h CLI-125i SELF-8 IMG-17 CLI-55 FAIL-286a FAIL-287 chad health and chad status reach the running daemon over the socket at run/chad.sock, as the owner's shell does", async () => {
+test("OV-19 CLI-8 IMG-74 CLI-125a CLI-125g CLI-125h CLI-125i SELF-8 IMG-17 CLI-55 FAIL-286a FAIL-287 chad health and chad status reach the running daemon over the socket at run/chad.sock, as the owner's shell does", async () => {
   const running = await scenario()
   const { data } = running
   const ready = await running.logged("boot.ready")
@@ -58,9 +58,10 @@ test("OV-19 CLI-8 IMG-74 CLI-125a CLI-125h CLI-125i SELF-8 IMG-17 CLI-55 FAIL-28
   const status = await running.chad(["status"])
   expect(status.code).toBe(0)
   expect(status.stderr).toBe("")
-  expect(facts(status.stdout).slice(0, 4)).toEqual([
+  expect(facts(status.stdout).slice(0, 5)).toEqual([
     "daemon: up (ready)",
     `version: chad ${json("package.json").version}, effect ${json("node_modules/effect/package.json").version}`,
+    "model: openai-compat/fake (needs no login)",
     "connection: local (local)",
     "",
   ])
@@ -285,7 +286,7 @@ test("CLI-22 IMG-97 the calls behind chad health and chad status are answered fo
   expect(answers).toEqual({ ping: "pong", daemon: version })
 })
 
-test("CLI-23a CLI-125i CLI-125j CLI-128 CLI-230 IMG-75 with the daemon stopped the lock is free: chad health exits 4, and chad status exits 4 and prints what the files say, state/version and the stored connections included", async () => {
+test("CLI-23a CLI-125g CLI-125i CLI-125j CLI-128 CLI-230 IMG-75 with the daemon stopped the lock is free: chad health exits 4, and chad status exits 4 and prints what the files say, state/version and the stored connections included", async () => {
   const running = await scenario()
   const { data } = running
   await running.logged("boot.ready")
@@ -301,6 +302,7 @@ test("CLI-23a CLI-125i CLI-125j CLI-128 CLI-230 IMG-75 with the daemon stopped t
     stdout: [
       `daemon: not running (lock ${lock} is free)`,
       `version: chad ${version}, volume written by chad ${version}`,
+      "model: openai/gpt-6-astra/medium (not logged in)",
       "connection: local (local)",
       "",
     ].join("\n"),

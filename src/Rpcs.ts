@@ -48,6 +48,22 @@ export const Recent = Schema.Union([
 ])
 export type Recent = typeof Recent.Type
 
+/** The login state `chad status` shows beside the model (CLI-125). */
+export const LoginState = Schema.Literals([
+  "logged-in",
+  "logged-out",
+  "pending",
+  "not-needed",
+])
+export type LoginState = typeof LoginState.Type
+
+/** The main model in force and its login state (CLI-125). */
+export const ModelState = Schema.Struct({
+  spec: Schema.String,
+  login: LoginState,
+})
+export type ModelState = typeof ModelState.Type
+
 /** What the daemon knows about itself, which is what `chad status` prints when the daemon answers. */
 export const Report = Schema.Struct({
   /** The daemon's chad version. */
@@ -66,6 +82,8 @@ export const Report = Schema.Struct({
   problems: Schema.optionalKey(Schema.Array(Schema.String)),
   /** The "Recent" block, from the `turns` table, or why it could not be read (FAIL-114). */
   recent: Schema.optionalKey(Recent),
+  /** The main model and the login state, once the models are loaded (CLI-125). */
+  model: Schema.optionalKey(ModelState),
 })
 export type Report = typeof Report.Type
 
@@ -103,6 +121,32 @@ export const OpenRpcs = RpcGroup.make(
   Rpc.make("Status", { success: Report }),
 )
 
+/** What a `chad login` through the daemon hears: the code to show, then how it ended (MOD-55, MOD-56, MOD-107). */
+export const LoginEvent = Schema.Union([
+  Schema.TaggedStruct("Code", {
+    verifyUrl: Schema.String,
+    code: Schema.String,
+  }),
+  Schema.TaggedStruct("Ended", {
+    outcome: Schema.Literals(["logged-in", "already", "not-needed"]),
+    /** The model in force. */
+    spec: Schema.String,
+  }),
+])
+export type LoginEvent = typeof LoginEvent.Type
+
+/** A login the daemon ran that did not complete, with the reason a waiting turn gets too (MOD-75, MOD-76). */
+export class LoginFailed extends Schema.TaggedError<LoginFailed>(
+  "chad/Rpcs/LoginFailed",
+)("LoginFailed", {
+  reason: Schema.Literals([
+    "TimedOut",
+    "DeviceFlowFailed",
+    "TokenExchangeFailed",
+    "RefreshFailed",
+  ]),
+}) {}
+
 /**
  * Every other call. A call is declared here, and is then refused to a CLI of another version. No call returns a
  * stored secret: a connection comes back without its token.
@@ -122,6 +166,10 @@ const checked = RpcGroup.make(
     success: Schema.Array(Connections.Checked),
     error: Connections.Rejected,
   }),
+  /** `chad login`. It takes no place in the queue (CLI-159), and the daemon's timeout is its only one (MOD-59). */
+  Rpc.make("Login", { success: LoginEvent, error: LoginFailed, stream: true }),
+  /** `chad logout`, which says whether the model in force needs the login. */
+  Rpc.make("Logout", { success: Schema.Struct({ spec: Schema.String }) }),
 ).middleware(VersionCheck)
 
 export const Rpcs = OpenRpcs.merge(checked)

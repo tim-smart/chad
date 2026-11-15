@@ -1,6 +1,16 @@
 import { dirname } from "node:path"
 import * as NodeSocketServer from "@effect/platform-node/NodeSocketServer"
-import { Cause, Data, Deferred, Effect, Fiber, FileSystem, Layer } from "effect"
+import {
+  Cause,
+  Data,
+  Deferred,
+  Effect,
+  Fiber,
+  FileSystem,
+  Layer,
+  Stream,
+} from "effect"
+import * as Mailbox from "effect/Queue"
 import {
   type Rpc,
   type RpcGroup,
@@ -11,6 +21,9 @@ import { SocketServer } from "effect/socket"
 import * as Messages from "../Messages.ts"
 import * as Paths from "../Paths.ts"
 import {
+  type LoginEvent,
+  LoginFailed,
+  type ModelState,
   type Phase,
   type Recent,
   type Report,
@@ -23,6 +36,7 @@ import * as Version from "../Version.ts"
 import type { Commands } from "./Connections.ts"
 import * as Filesystem from "./Filesystem.ts"
 import * as Logger from "./Logger.ts"
+import type * as Login from "./Login.ts"
 import * as Queue from "./Queue.ts"
 import type { Volume } from "./Volume.ts"
 
@@ -46,7 +60,30 @@ export interface State {
   held: Effect.Effect<ReadonlyArray<string>, unknown> | undefined
   /** What "Recent" reads from the `turns` table, once the database is open (FAIL-114). */
   recent: Effect.Effect<RecentTurns, unknown> | undefined
+  /** The model and the login, which the boot hands over once it has loaded them. */
+  readonly account: Deferred.Deferred<Account>
 }
+
+/** What `chad login`, `chad logout` and `chad status` reach of the model in the daemon. */
+export interface Account {
+  readonly login: Login.Login["Service"]
+  /** The main setting in force, and whether its provider needs the Codex login. */
+  readonly model: () => { readonly spec: string; readonly needsLogin: boolean }
+  /** Whether a Codex token is stored. */
+  readonly stored: Effect.Effect<boolean>
+}
+
+/** The model and its login state, as `chad status` shows them (CLI-125). */
+export const modelState = (account: Account): Effect.Effect<ModelState> =>
+  Effect.gen(function* () {
+    const { spec, needsLogin } = account.model()
+    if (!needsLogin) return { spec, login: "not-needed" } as const
+    if (account.login.pending()) return { spec, login: "pending" } as const
+    return {
+      spec,
+      login: (yield* account.stored) ? "logged-in" : "logged-out",
+    } as const
+  })
 
 /** What "Recent" reads from the database. */
 export type RecentTurns = Exclude<Recent, { readonly unavailable: string }>
@@ -56,6 +93,7 @@ export const makeState = (): State => ({
   filesystem: [],
   connections: [],
   commands: Deferred.makeUnsafe(),
+  account: Deferred.makeUnsafe(),
   calls: new Set(),
   started: Date.now(),
   problems: [],
@@ -90,17 +128,27 @@ const held = (state: State): Effect.Effect<ReadonlyArray<string>> =>
     ? Effect.succeed([])
     : state.held.pipe(Effect.orElseSucceed((): ReadonlyArray<string> => []))
 
+/** The model's line, once the boot has loaded the models. */
+const model = (state: State): Effect.Effect<ModelState | undefined> =>
+  Deferred.isDoneUnsafe(state.account)
+    ? Effect.flatMap(Deferred.await(state.account), modelState)
+    : Effect.succeed(undefined)
+
 const report = (state: State): Effect.Effect<Report> =>
-  Effect.map(Effect.all([recent(state), held(state)]), ([recent, held]) => ({
-    version: Version.version,
-    effect: Version.effect() ?? "unknown",
-    phase: state.phase,
-    filesystem: state.filesystem,
-    connections: state.connections,
-    started: state.started,
-    problems: [...state.problems.flatMap((check) => check()), ...held],
-    recent,
-  }))
+  Effect.map(
+    Effect.all([recent(state), held(state), model(state)]),
+    ([recent, held, model]) => ({
+      version: Version.version,
+      effect: Version.effect() ?? "unknown",
+      phase: state.phase,
+      filesystem: state.filesystem,
+      connections: state.connections,
+      started: state.started,
+      problems: [...state.problems.flatMap((check) => check()), ...held],
+      recent,
+      ...(model === undefined ? {} : { model }),
+    }),
+  )
 
 /** The text `chad status` prints for a daemon that answers, which `/status` posts as it is. */
 export const statusText = (state: State): Effect.Effect<string> =>
@@ -212,8 +260,65 @@ const handlers = (state: State) => {
         Effect.ensuring(Effect.sync(() => state.calls.delete(fiber))),
       )
     })
+  const account = Deferred.await(state.account)
+  /** A call that takes no place in the queue, which a stop still interrupts (CLI-159, CLI-19). */
+  const tracked = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Effect.withFiber<A, E, R>((fiber) => {
+      state.calls.add(fiber)
+      return effect.pipe(
+        Effect.ensuring(Effect.sync(() => state.calls.delete(fiber))),
+      )
+    })
   return Rpcs.toLayer({
     Ping: () => Effect.succeed("pong"),
+    // A killed CLI ends this stream and its wait with it, and the login runs on in the daemon (MOD-59, MOD-101).
+    Login: (_, { headers }) =>
+      Stream.callback<LoginEvent, LoginFailed>((queue) =>
+        tracked(
+          Effect.gen(function* () {
+            const { login, model } = yield* account
+            const { spec, needsLogin } = model()
+            const outcome = needsLogin
+              ? yield* login.login((prompt) =>
+                  Mailbox.offer(queue, { _tag: "Code", ...prompt }).pipe(
+                    Effect.asVoid,
+                  ),
+                )
+              : "not-needed"
+            yield* Queue.ran(
+              "login",
+              Queue.caller(headers[sessionHeader]),
+              outcome === "logged-in" ? "changed" : "unchanged",
+            )
+            yield* Mailbox.offer(queue, { _tag: "Ended", outcome, spec })
+            yield* Mailbox.end(queue)
+          }).pipe(
+            Effect.catch((error) =>
+              Mailbox.fail(
+                queue,
+                new LoginFailed({
+                  reason:
+                    error._tag === "LoginTimedOut" ? "TimedOut" : error.reason,
+                }),
+              ),
+            ),
+          ),
+        ),
+      ),
+    Logout: (_, { headers }) =>
+      tracked(
+        Effect.gen(function* () {
+          const { login, model } = yield* account
+          // A stored token is cleared whatever the model in force is (MOD-110).
+          yield* login.logout
+          yield* Queue.ran(
+            "logout",
+            Queue.caller(headers[sessionHeader]),
+            "changed",
+          )
+          return { spec: model().spec }
+        }),
+      ),
     Status: () => report(state),
     ConnectionChange: ({ change }, { headers }) =>
       command((commands) =>

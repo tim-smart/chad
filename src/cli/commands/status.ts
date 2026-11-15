@@ -1,6 +1,7 @@
 import { Console, Duration, Effect, FileSystem } from "effect"
 import { Command } from "effect/cli"
 import * as Connections from "../../Connections.ts"
+import * as Account from "../Account.ts"
 import * as Messages from "../../Messages.ts"
 import * as Paths from "../../Paths.ts"
 import * as Status from "../../Status.ts"
@@ -34,6 +35,7 @@ export const status = Command.make(
       volume: yield* volumeVersion(environment.data),
       connections:
         stored._tag === "Success" ? Connections.listed(stored.success) : [],
+      model: yield* Account.fromFiles,
     }
     const unread =
       stored._tag === "Failure"

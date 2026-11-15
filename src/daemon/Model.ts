@@ -34,6 +34,7 @@ import { HttpClient, HttpClientRequest } from "effect/http"
 import type { PlatformError } from "effect/PlatformError"
 import type { Socket } from "effect/socket"
 import * as Messages from "../Messages.ts"
+import { fallback, readLine } from "../ModelText.ts"
 import * as Paths from "../Paths.ts"
 import type { Environment } from "./Environment.ts"
 import * as Failed from "./Failed.ts"
@@ -53,8 +54,7 @@ import type { Notices } from "./Notices.ts"
  * Every path is composed by hand in the same shape, with one client per session (MOD-96).
  */
 
-/** The model chad runs when `CHAD_MODEL` is unset and no override is stored (MOD-79). */
-export const fallback = "openai/gpt-6-astra/medium"
+export { fallback } from "../ModelText.ts"
 
 /** The URL of the Codex model endpoint. clanka hardcodes it, and a test rewrites its host (TST-38). */
 export const codexUrl = "https://chatgpt.com/backend-api/codex"
@@ -125,22 +125,6 @@ export interface Settings {
    */
   readonly generation: number
 }
-
-/** The text of an override file: its one line, or nothing when the file is missing or empty (STO-142). */
-const readLine = Effect.fnUntraced(function* (path: string) {
-  const fs = yield* FileSystem.FileSystem
-  const text = yield* fs
-    .readFileString(path)
-    .pipe(
-      Effect.catchTag("PlatformError", (error) =>
-        error.reason._tag === "NotFound"
-          ? Effect.succeed("")
-          : Effect.fail(error),
-      ),
-    )
-  const line = text.split("\n")[0]?.trim() ?? ""
-  return line === "" ? undefined : line
-})
 
 /**
  * Writes an override file as one line of plain text, by a temporary file and a rename, so that a crash leaves the old

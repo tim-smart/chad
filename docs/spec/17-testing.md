@@ -211,6 +211,7 @@ The allowlist of owners is chad's one security rule, so each way in gets a test 
 - **TST-72** The shipped binary has no setting, flag or environment variable that changes a `Timings` value.
 - **TST-73** Tests shorten the `Timings` values by one scale factor, so the orderings between them hold. The 30 second drain stays longer than the 10 second close, and the 15, 35 and 10 seconds of a stop stay inside its 60. The two points of a stop that are measured from SIGTERM are multiplied like every length. The prune's time of day is not a length, so the factor leaves it alone, and a scenario that tests the prune passes a time of day of its own.
 - **TST-212** A scenario may give the session idle time or the message retention a length of its own, apart from the factor. At the factor they are 90 seconds and 72 minutes, which no test can wait for, and no ordering with another length rests on either.
+- **TST-214** A scenario may also give the Codex login timeout a length of its own, apart from the factor. At the factor it is 45 seconds, and the test of MOD-45 waits it out with every polling interval of the fake's device flow.
 - **TST-74** clanka's own timeouts stay at their real length in every layer. They are the 30 second MCP connect and the 4 seconds per stdio server.
 - **TST-75** Layers 3 and 4 run on live time with shortened durations.
 
@@ -771,3 +772,4 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-211 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | TST-212 | Build, stage 2 | Builder (Tim has not read) | run |  | `definition` | - |
 | TST-213 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `plugin-api` |
+| TST-214 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |

@@ -102,6 +102,7 @@ test("CLI-46a CLI-237 chad status --json prints the facts as one JSON object on 
     started: answered.started,
     problems: [],
     recent: { failed: [], last: [], today: 0, week: 0 },
+    model: { spec: "openai-compat/fake", login: "not-needed" },
   })
   expect(Array.isArray(answered.filesystem)).toBe(true)
 
@@ -116,5 +117,6 @@ test("CLI-46a CLI-237 chad status --json prints the facts as one JSON object on 
     version,
     volume: version,
     connections: [{ name: "local", kind: "local" }],
+    model: { spec: "openai/gpt-6-astra/medium", login: "logged-out" },
   })
 })

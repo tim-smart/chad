@@ -330,6 +330,11 @@ A running daemon does not see a token that another process wrote, because its `C
 - **MOD-108** With no daemon, the login that `chad login` runs itself ends after the same 15 minutes from the `Timings` service. The device code expires then, and nothing else ends clanka's polling.
 - **MOD-109** When the provider needs no login, `chad login` says that the provider needs no login and exits with code 0.
 - **MOD-110** `chad logout` clears a stored token also when the provider needs no login.
+- **MOD-118** A login that the daemon runs for `chad login` with no turn waiting prints the code in the terminal and also posts it by the notice route of MOD-36. The notice "Waiting for the login in <thread link>" then names the thread that the code went to, and that thread gets no such notice itself.
+- **MOD-119** When the stored token is good, `chad login` starts no device flow. It says that chad is already logged in and exits with code 0, and a change of account is `chad logout` followed by `chad login`.
+- **MOD-120** The login prompt is one line, the same in a thread and in the terminal: "To log chad in to Codex, open <verify URL> and enter the code <code>. The code is good for 15 minutes."
+- **MOD-121** `chad logout` prints one line that says chad is logged out of Codex and that a running turn is not stopped, and exits with code 0. It prints the same whether or not a token was stored.
+- **MOD-122** `chad login` and `chad logout` write the log event `command.ran` only when the daemon runs them. With no daemon they write no log line.
 
 In the run behind MOD-61, after a logout during a turn on the WebSocket transport the turn finished normally, and the login was asked for 72 seconds into a later turn, when the socket was opened again. On the HTTP transport the next model call asked at once.
 
@@ -378,6 +383,9 @@ The prices are what models.dev listed on 2026-11-14.
 | ``chad is logged out. Send a message or run `chad login`. Scheduled runs are skipped until then.`` | One notice to the owner | A turn with no owner present found chad logged out (MOD-53) |
 | ``The model `<spec>` failed its check at start (<error>). If turns fail, set another with `/model`.`` | Notice to the owner | A model failed its check at startup (MOD-25) |
 | `a daemon started during the login, run chad login again` | CLI, exit code 1 | A daemon took the lock during a login with no daemon (MOD-58) |
+| `To log chad in to Codex, open <verify URL> and enter the code <code>. The code is good for 15 minutes.` | The thread of the turn that asked, the notice route, or the terminal | A login has its code (MOD-38, MOD-55, MOD-118, MOD-120) |
+| `chad is already logged in to Codex. To log in with another account, run chad logout and then chad login.` | CLI, exit code 0 | `chad login` with a good token stored (MOD-119) |
+| `chad is logged out of Codex. A turn that is running is not stopped: it finishes on the connection it has, and the next one asks for a login.` | CLI, exit code 0 | `chad logout` (MOD-61, MOD-121) |
 
 ## Gaps
 
@@ -522,3 +530,8 @@ The prices are what models.dev listed on 2026-11-14.
 | MOD-115 | TIM-559 round 3 on DIS-G25 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | MOD-116 | TIM-559 round 3 on DIS-G25 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | MOD-117 | TIM-559 round 3 L1 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
+| MOD-118 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
+| MOD-119 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
+| MOD-120 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
+| MOD-121 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
+| MOD-122 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
