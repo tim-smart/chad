@@ -235,3 +235,61 @@ test("SES-152 SES-153 SES-205 TST-182 a stored request that the next start canno
   // The boot went on past the request it could not decode.
   await lines(running, "boot.ready", 2)
 }, 20_000)
+
+test("FAIL-135 FAIL-140 SES-99 SES-101 SES-103 SES-200 a turn whose end the full volume cannot write gets the ordinary failed-turn message and no reply, the thread's later messages still answer, and a restart resumes it as a turn a crash cut", async () => {
+  const running = await daemon()
+  const { fakes } = running
+  await fakes.model.script([
+    { text: "never posted", hold: true },
+    { text: "second answer" },
+    { text: "resumed answer" },
+    { text: "later answer" },
+  ])
+  const first = await running.start()
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "first")
+  await fakes.model.received(1)
+  // No test can fill the volume, so a trigger fails the turn's end with SQLite's full text.
+  execute(
+    running.data,
+    "CREATE TRIGGER full BEFORE UPDATE OF outcome ON turns WHEN NEW.outcome IS NOT NULL BEGIN SELECT RAISE(ABORT, 'database or disk is full'); END",
+  )
+  await fakes.model.release(0)
+  const [failed] = await lines(running, "turn.failed", 1)
+  expect(failed!.annotations["reason"]).toBe("Internal")
+  await fakes.chat.answers(thread, 1)
+  const turn = String(failed!.annotations["turn"])
+  const [told] = await posted(running, thread)
+  expect(told).toContain(Messages.turnLine(turn))
+  execute(running.data, "DROP TRIGGER full")
+  expect(
+    rows(running, "SELECT turn_id, starts, outcome, ended_at FROM turns"),
+  ).toEqual([{ turn_id: turn, starts: 1, outcome: null, ended_at: null }])
+
+  // The thread's next message does not wait behind the turn that has no end.
+  await says(running, thread, "second")
+  await fakes.chat.answers(thread, 2)
+  await first.kill()
+
+  await running.start()
+  const calls = await fakes.model.received(3)
+  expect(prompted(calls[2])).toBe(Messages.restartNote())
+  await fakes.chat.answers(thread, 3)
+  const [resumed] = await lines(running, "turn.resumed", 1)
+  expect(resumed!.annotations["turn"]).toBe(turn)
+  expect(resumed!.annotations["starts"]).toBe(2)
+  await says(running, thread, "later")
+  await fakes.chat.answers(thread, 4)
+  expect((await posted(running, thread)).slice(1)).toEqual([
+    "second answer",
+    "resumed answer",
+    "later answer",
+  ])
+  expect(
+    rows(running, "SELECT starts, outcome FROM turns ORDER BY started_at"),
+  ).toEqual([
+    { starts: 2, outcome: "answered" },
+    { starts: 1, outcome: "answered" },
+    { starts: 1, outcome: "answered" },
+  ])
+}, 20_000)

@@ -242,6 +242,9 @@ interface State {
   readonly ready: Deferred.Deferred<void> | undefined
 }
 
+/** What a turn whose end could not be written gives in place of an outcome. */
+const unrecorded = "unrecorded" as const
+
 const lower = {
   Answered: "answered",
   Failed: "failed",
@@ -699,7 +702,11 @@ export const layer = Layer.unwrap(
           detail: Failed.detail(reason),
         })
 
-        /** Ends a turn that a defect outside the model's part cut: its row, the failed-turn message and its log line. */
+        /**
+         * Ends a turn that a defect outside the model's part cut: its row, the failed-turn message and its log line. A
+         * turn whose end cannot be written either is `unrecorded`: its request gets no reply, so that the next start
+         * delivers it again and resumes the turn as one a crash cut (FAIL-135).
+         */
         const failed = (turn: Turn, own: State, connection: string) =>
           Effect.fnUntraced(function* (cause: Cause.Cause<unknown>) {
             const at = Date.now()
@@ -714,14 +721,22 @@ export const layer = Layer.unwrap(
               )
             }
             const session = own.live?.id
-            yield* Sessions.ended({
+            const written = yield* Sessions.ended({
               key: turn.key,
               outcome: "failed",
               failure: recorded(reason),
               at,
               tell:
                 session === undefined ? undefined : { session, turn: turn.id },
-            }).pipe(Effect.ignore)
+            }).pipe(
+              Effect.as(true),
+              Effect.catchCause((cause) =>
+                Effect.logError(
+                  "A turn's end could not be recorded",
+                  cause,
+                ).pipe(Effect.as(false)),
+              ),
+            )
             if (posted(reason)) {
               yield* chats.get(connection).pipe(
                 Effect.flatMap((chat) =>
@@ -746,7 +761,7 @@ export const layer = Layer.unwrap(
               reason._tag,
               cause,
             )
-            return { _tag: "Failed", reason } as const
+            return written ? ({ _tag: "Failed", reason } as const) : unrecorded
           })
 
         /** One turn, from the request that takes the session to the reply. */
@@ -904,12 +919,18 @@ export const layer = Layer.unwrap(
           // FAIL-64).
           if (delivered === "gone" && outcome._tag === "Answered") {
             const reason: Failed.Reason = { _tag: "ThreadGone" }
+            // The row holds the turn's end already, so a rewrite that fails leaves it `Answered` and the request
+            // may be answered.
             yield* Sessions.ended({
               key: turn.key,
               outcome: "failed",
               failure: recorded(reason),
               at,
-            })
+            }).pipe(
+              Effect.catchCause((cause) =>
+                Effect.logError("A gone thread could not be recorded", cause),
+              ),
+            )
             yield* TurnLog.failed(fields, reason._tag)
             return { _tag: "Failed", reason } as const
           }
@@ -1161,10 +1182,14 @@ export const layer = Layer.unwrap(
                   }
                   own.turn = turn
                   yield* take(payload.key)
-                  return yield* run(own, turn, request).pipe(
+                  const outcome = yield* run(own, turn, request).pipe(
                     Effect.catchCause(failed(turn, own, request.connection)),
                     Effect.ensuring(close(own, turn)),
                   )
+                  // A turn whose end could not be written leaves its request unprocessed, as a crash would, and
+                  // cluster delivers it at the next start (FAIL-135). The turn is closed, so the thread goes on.
+                  if (outcome === unrecorded) return yield* Effect.never
+                  return outcome
                 }
                 const outcome = yield* steer(running, request)
                 if (outcome !== "next") return outcome

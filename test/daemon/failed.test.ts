@@ -166,3 +166,31 @@ test("FAIL-110 FAIL-111 FAIL-114a CLI-149 chad status gives Problems and Recent,
   expect(broken.phase).toBe("ready")
   expect(broken.recent.unavailable).toBeTypeOf("string")
 })
+
+test("FAIL-127 FAIL-215 FAIL-332 after two failed turns in a row the third turn's update message gives the latest in full and counts the older one by its reason, though the second turn's history cleared its line", async () => {
+  const running = await scenario()
+  const { fakes } = running
+  await fakes.model.script([{ status: 400 }, { status: 400 }, { text: "back" }])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+  await fakes.chat.answers(thread, 1)
+  await says(running, thread, "again")
+  await fakes.chat.answers(thread, 2)
+  const failed = await lines(running, "turn.failed", 2)
+  const [one, two] = failed.map((line) => String(line.annotations["turn"]))
+  // The second turn's history holds the first failure's line, so the line is gone.
+  expect(rows(running, "SELECT turn_id FROM session_updates")).toEqual([
+    { turn_id: two },
+  ])
+
+  await says(running, thread, "and again")
+  await fakes.chat.answers(thread, 3)
+  const update = Messages.update([
+    { turn: one!, outcome: "failed", failure: "ModelError" },
+    { turn: two!, outcome: "failed", failure: "ModelError" },
+  ])
+  const sent = userTexts((await fakes.model.calls())[2])
+  expect(sent.at(-2)).toBe(update)
+  expect(sent.at(-1)).toContain("and again")
+  expect(rows(running, "SELECT * FROM session_updates")).toEqual([])
+})

@@ -530,7 +530,12 @@ export const tell = Effect.fnUntraced(function* (session: string, line: Line) {
   yield* sql.withTransaction(insertLine(session, line))
 })
 
-/** The lines that wait to be told to a session's model, oldest first, with the sequence number of the last. */
+/**
+ * The lines that wait to be told to a session's model, oldest first, with the sequence number of the last. When a turn
+ * waits to be told, the lines start with the session's other turns since the last answer the owner read, whose lines
+ * an earlier update message told and cleared (FAIL-127). Those come from `turns`, so the clearing stays one
+ * transaction with the history (FAIL-215).
+ */
 export const updates = Effect.fnUntraced(function* (session: string) {
   const sql = yield* SqlClient.SqlClient
   const rows = yield* sql<{
@@ -553,7 +558,35 @@ export const updates = Effect.fnUntraced(function* (session: string) {
         }
       : { notice: row.notice_key ?? "", text: row.text ?? "" },
   )
-  return { lines, last: rows.at(-1)?.seq }
+  const last = rows.at(-1)?.seq
+  const waiting = new Set(
+    lines.flatMap((line) => ("turn" in line ? [line.turn] : [])),
+  )
+  if (waiting.size === 0) return { lines, last }
+  // The last answer the owner read: the latest answered turn that is not an unposted answer still to be told.
+  const answered = yield* sql<{ turn_id: string; ended_at: number }>`
+    SELECT turn_id, ended_at FROM turns WHERE session_id = ${session} AND outcome = 'answered'
+    ORDER BY ended_at DESC, rowid DESC LIMIT ${waiting.size + 1}
+  `
+  const read = answered.find((row) => !waiting.has(row.turn_id))
+  const earlier = yield* sql<{
+    turn_id: string
+    outcome: "failed" | "stopped"
+    failure: string | null
+  }>`
+    SELECT turn_id, outcome, failure FROM turns
+    WHERE session_id = ${session} AND outcome IN ('failed', 'stopped') AND ended_at > ${read?.ended_at ?? -1}
+    ORDER BY ended_at, rowid
+  `
+  // A turn whose thread was gone had nothing posted, so it was never told.
+  const older = earlier
+    .filter((row) => !waiting.has(row.turn_id) && row.failure !== "ThreadGone")
+    .map((row): Line => ({
+      turn: row.turn_id,
+      outcome: row.outcome,
+      failure: row.failure ?? undefined,
+    }))
+  return { lines: [...older, ...lines], last }
 })
 
 /**
