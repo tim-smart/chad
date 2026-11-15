@@ -91,7 +91,9 @@ Anything chad has to read before the database is open, or write with no daemon r
 - **STO-146** `chad secret` and the `${NAME}` expansion never read or list what `secrets/mcp-oauth.json` holds.
 - **STO-20** A session works in `sessions/<session-id>/`, which is the startup directory of that session's clanka Agent.
 - **STO-194** A session id is a UUID from `crypto.randomUUID()`, in its lowercase text form. It is the name of the session's directory under `sessions/` and the `session` key of the session's log lines.
+- **STO-206** A turn id is `t_` followed by 12 lowercase hexadecimal digits.
 - **STO-21** Files the owner sends in a session are saved under `inbox/` inside that session's directory. Which attachments are saved and which go to the model as images is in 03-sessions-and-turns.md.
+- **STO-204** A file is saved as `inbox/<message id>-<name>`. Every character of the name other than a letter, a digit, `.`, `_` and `-` becomes `_`, leading dots are removed, and a file with no name left is called `file`.
 - **STO-22** `$HOME` is `home/` on the volume. It is shared by every session and is the place for work that should outlast one session.
 - **STO-23** A direct message session that is never reset keeps its directory under `sessions/` for good.
 - **STO-24** A plugin has no directory of its own on the volume.
@@ -215,6 +217,7 @@ A plugin's only storage is `PluginContext.store`, an Effect `KeyValueStore` that
 A session's row and its history are what let a session be restored after a restart or after it was unloaded for being idle. The rules for when they are written are in 03-sessions-and-turns.md. This section fixes what is stored.
 
 - **STO-62** `sessions` has one row per session: its id, its chat thread, its kind, its created and ended times, clanka's environment, the system prompt last sent, the prompt chunk text last seen, the generation, a fingerprint, and a mark of the last message chad handled in the thread. The fingerprint is a hash of the system prompt as chad would render it, with the plugin chunks left out (see 08-apply-and-swap.md). The mark is what the catch-up after a restart reads forward from (see 03-sessions-and-turns.md).
+- **STO-205** The `sessions` table has the columns `id`, `thread`, `created_at`, `kind`, `ended_at`, `environment`, `system`, `chunks`, `generation`, `fingerprint`, `last_message_id`, `last_message_at` and `tasks`. `last_message_at` is the time of the message that `last_message_id` names, in milliseconds since the epoch, and `tasks` is the JSON list of the session's running background tasks (see 03-sessions-and-turns.md). `session_messages` has `seq`, which orders a session's history, `session_id`, and `message`, which is one history message as JSON.
 - **STO-163** The `kind` of a `sessions` row is the plugin API's value for the session's thread, one of `direct`, `channel` or `thread` (see 06-plugin-api.md), so the row and what a plugin sees agree. Which session gets which value is in 03-sessions-and-turns.md.
 - **STO-63** A session id is a fresh id for each reset, so one chat thread has one `sessions` row per reset.
 - **STO-64** A `sessions` row is never deleted.
@@ -695,3 +698,6 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-201 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | STO-202 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | STO-203 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
+| STO-204 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| STO-205 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| STO-206 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |

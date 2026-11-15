@@ -72,6 +72,8 @@ A line chad itself writes carries an `event` annotation from this list. The copy
 | **FAIL-255** | `turn.failed` | Error (decided) | A turn ended as failed. Carries the reason tag, the duration, the usage, the number of messages the reconcile wrote and the full cause. For `UsageLimit` it also carries the reset time when the error held one. |
 | **FAIL-256** | `turn.answer-unposted` | Error | Posting the answer failed twice (see 04-discord.md). |
 | **FAIL-257** | `history.reconciled` | Info | The reconcile at the end of a turn wrote at least one message. Carries the number of messages it wrote. |
+| **FAIL-324** | `session.passivated` | Info | A session's entity left memory, after the idle time or at a stop (see 03-sessions-and-turns.md). |
+| **FAIL-325** | `session.restored` | Info | chad built the Agent of a session from its stored history. Carries the number of messages it loaded. |
 | **FAIL-258** | `model.check-failed` | Warn | A model failed its check at start. |
 | **FAIL-259** | `model.logged-in` | Builder's | A login completed. |
 | **FAIL-260** | `hook.failed` | Warn | A hook failed, died, ran past its budget or was interrupted at a swap's drain deadline, and was skipped. |
@@ -1143,3 +1145,5 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-321 | TIM-559 round 4 item 9 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | FAIL-322 | TIM-559 cold read, cli reader and harness reader, TIM-559 round 5 item 6 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | FAIL-323 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `wire` |
+| FAIL-324 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| FAIL-325 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |

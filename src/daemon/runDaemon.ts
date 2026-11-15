@@ -15,7 +15,7 @@ import {
   Scope,
 } from "effect"
 import type { ChatAdapter, ChatHandler } from "effect/chat"
-import { SingleRunner } from "effect/cluster"
+import { MessageRetention, SingleRunner } from "effect/cluster"
 import type { HttpClient } from "effect/http"
 import type { Socket } from "effect/socket"
 import type { SqlClient } from "effect/sql"
@@ -224,12 +224,30 @@ const boot = Effect.fnUntraced(function* (
   const running = yield* Chats.make((connection, live) =>
     inputs.chat(connection).pipe(Layer.provide(Handler.layer(live))),
   )
+  // Cluster deletes a completed request of a session once it is a day old. The `turns` row is what is left of it.
+  const retention = MessageRetention.make({
+    entity: SessionEntity.Session,
+    retention: inputs.timings.messageRetention,
+    interval: Duration.min(
+      inputs.timings.messageRetention,
+      Duration.minutes(1),
+    ),
+  })
   const sessions = yield* Layer.buildWithScope(
-    SessionEntity.layer.pipe(
+    Layer.merge(SessionEntity.layer, retention).pipe(
       Layer.provideMerge(cluster),
       Layer.provideMerge(
         Layer.mergeAll(
-          Layer.succeed(SessionEntity.Model, model),
+          Layer.succeed(
+            SessionEntity.Model,
+            Option.map(model, (layer) => ({
+              name: environment.model ?? "",
+              layer,
+            })),
+          ),
+          Layer.succeed(Handler.Status, {
+            text: Effect.sync(() => Server.statusText(state)),
+          }),
           Layer.succeed(Chats.Chats, running.chats),
           Layer.succeed(Volume.Volume, volume),
           Layer.succeed(Timings, inputs.timings),

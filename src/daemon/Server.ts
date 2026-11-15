@@ -18,6 +18,7 @@ import {
   layerVersionCheck,
   sessionHeader,
 } from "../Rpcs.ts"
+import * as Status from "../Status.ts"
 import * as Version from "../Version.ts"
 import type { Commands } from "./Connections.ts"
 import * as Filesystem from "./Filesystem.ts"
@@ -48,6 +49,10 @@ const report = (state: State): Report => ({
   filesystem: state.filesystem,
   connections: state.connections,
 })
+
+/** The text `chad status` prints for a daemon that answers, which `/status` posts as it is. */
+export const statusText = (state: State): string =>
+  Status.render({ daemon: "up", report: report(state) })
 
 /** The daemon could not listen on its socket. The message is the exit message. */
 export class SocketRefused extends Data.TaggedError("SocketRefused")<{

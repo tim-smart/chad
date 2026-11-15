@@ -261,3 +261,61 @@ export const connectionChecked = (
       return `${name} (${kind}): failed: nothing accepts a connection on ${detail}`
   }
 }
+
+/** A line of Discord subtext, which is how a notice inside a turn's flow is written. */
+const subtext = (line: string) => `-# ${line}`
+
+/** A length of time as a notice shows it: `48s`, and `2m 5s` from a minute on. */
+export const duration = (milliseconds: number) => {
+  const seconds = Math.max(0, Math.round(milliseconds / 1000))
+  return seconds < 60
+    ? `${seconds}s`
+    : `${Math.floor(seconds / 60)}m ${seconds % 60}s`
+}
+
+/** A turn was stopped (docs/spec/04-discord.md, DIS-59). */
+export const stopped = (milliseconds: number) =>
+  subtext(`Stopped after ${duration(milliseconds)}.`)
+
+/** `/stop` found nothing running (DIS-76). */
+export const nothingRunning = () => subtext("Nothing is running.")
+
+/** `/new` started a session (DIS-75). */
+export const newSession = () =>
+  subtext(
+    "New session started. Nothing from the earlier conversation carries over.",
+  )
+
+/** `/new` or `/stop` in a plain channel, where there is no session (docs/spec/03-sessions-and-turns.md, SES-148). */
+export const noSession = () =>
+  subtext(
+    "There is no session in this channel. Mention me with a message and I'll open a thread for it.",
+  )
+
+/** chad could not open a thread on a mention (DIS-77). It is a normal message. */
+export const threadFailed = (reason: string) =>
+  `I couldn't open a thread on that message (${reason}). I need Create Public Threads here, or you can DM me.`
+
+/** A size in whole binary megabytes, as a notice shows it. */
+const megabytes = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`
+
+/** A file over the limit was skipped (DIS-64). */
+export const fileSkipped = (name: string, bytes: number) =>
+  subtext(`Skipped \`${name}\` (${megabytes(bytes)}). The limit is 25 MB.`)
+
+/** A file could not be downloaded and was skipped. */
+export const fileFailed = (name: string) =>
+  subtext(`Skipped \`${name}\`. I couldn't download it.`)
+
+/** What `/status` posts: the text of `chad status`, kept as it is. */
+export const status = (text: string) => `\`\`\`\n${text}\n\`\`\``
+
+/** The lines a prompt gets about the files on the owner's message. The model reads them. */
+export const promptFileSaved = (name: string, path: string) =>
+  `The owner attached the file ${name}. It is saved at ${path} in your working directory.`
+
+export const promptFileSkipped = (name: string, bytes: number) =>
+  `The owner attached the file ${name} (${megabytes(bytes)}). It is over the 25 MB limit and was not saved.`
+
+export const promptFileFailed = (name: string) =>
+  `The owner attached the file ${name}. It could not be downloaded and was not saved.`

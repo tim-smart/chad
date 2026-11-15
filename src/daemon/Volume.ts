@@ -10,6 +10,8 @@ export interface Volume {
   readonly database: string
   readonly repo: string
   readonly sessions: string
+  /** `$HOME` of every session, for work that should outlast one. */
+  readonly home: string
   readonly version: string
   readonly log: string
   /** The daemon lock's file. */
@@ -32,6 +34,7 @@ export const make = (
   database: Paths.database(data),
   repo: join(data, "repo"),
   sessions: join(data, "sessions"),
+  home: join(data, "home"),
   version: Paths.version(data),
   log: join(data, "logs/chad.log"),
   localSocket: join(data, "run/local.sock"),

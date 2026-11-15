@@ -10,6 +10,7 @@ The slices that are delivered, in build order. The builder who finishes a slice 
 - `harness`
 - `wire`
 - `cli`
+- `turns`
 
 ## Held rules
 
@@ -18,7 +19,6 @@ A rule, or one letter of a rule, whose slice is delivered and whose test cannot 
 | Rule      | Slice            | Reason                                                                                                                                                                                   |
 | --------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | MOD-11b   | `models`         | The stored override is the file `state/model`, which the `models` slice delivers.                                                                                                        |
-| SES-4b    | `turns`          | The handler opens a thread for a mention in a channel, which the `turns` slice builds (SES-3).                                                                                           |
 | SES-30b   | `kills`          | An event is in flight only when the daemon is killed while it handles it, and the `kills` slice delivers the process driver that kills it.                                               |
 | TST-60b   | `kills`          | The wire slice runs in layer 4, and its scenarios with kills run there, on the process driver, which the `kills` slice delivers.                                                         |
 | TST-61c   | `kills`          | The catch-up after a resume or a fresh identify is SES-37, which the `kills` slice builds.                                                                                               |
@@ -51,22 +51,17 @@ A rule, or one letter of a rule, whose slice is delivered and whose test cannot 
 | CLI-125e  | `loader`         | Plugins are loaded from the repo, and skipped with a reason, by the `loader` slice.                                                                                                      |
 | CLI-125f  | `skills-mcp`     | MCP servers arrive with the `skills-mcp` slice.                                                                                                                                          |
 | CLI-125g  | `models`         | The stored model and the login state arrive with the `models` slice.                                                                                                                     |
-| CLI-205b  | `turns`          | Chat commands arrive with the `turns` slice.                                                                                                                                             |
 | CLI-205c  | `settings`       | The Enter modal, which saves a secret, arrives with the `settings` slice.                                                                                                                |
 | FAIL-286b | `apply`          | Safe mode, and why it is on, arrive with the `apply` slice.                                                                                                                              |
-| FAIL-302b | `turns`          | Chat commands arrive with the `turns` slice.                                                                                                                                             |
 | FAIL-302c | `settings`       | The Enter modal, which saves a secret, arrives with the `settings` slice.                                                                                                                |
 | CLI-46b   | `apply`          | `chad log` arrives with the `apply` slice (CLI-80).                                                                                                                                      |
 | CLI-46c   | `failures`       | `chad logs` arrives with the `failures` slice.                                                                                                                                           |
 | CLI-46d   | `settings`       | `chad secret list` arrives with the `settings` slice (CLI-101).                                                                                                                          |
 | CLI-137b  | `settings`       | `chad.json` and its `"enabled": false` arrive with the `settings` slice (SET-34).                                                                                                        |
 | CLI-137c  | `timers-cron`    | The cron plugin and its tools arrive with the `timers-cron` slice.                                                                                                                       |
-| CLI-137d  | `turns`          | The `turns` table arrives with the `turns` slice (FAIL-99).                                                                                                                              |
 | CLI-137e  | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                                                            |
 | STO-83b   | `bundled-skills` | The `self-edit` skill arrives with the `bundled-skills` slice.                                                                                                                           |
-| STO-133b  | `turns`          | The `turns` table arrives with the `turns` slice (FAIL-99).                                                                                                                              |
 | STO-133c  | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                                                            |
-| FAIL-108b | `turns`          | The `turns` table arrives with the `turns` slice (FAIL-99).                                                                                                                              |
 | FAIL-108c | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                                                            |
 
 ## Stopped rules

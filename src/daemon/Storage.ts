@@ -2,6 +2,7 @@ import { SqliteClient, SqliteMigrator } from "@effect/sql-sqlite-node"
 import { Data, Effect } from "effect"
 import { SqlClient } from "effect/sql"
 import sessions from "./migrations/0001_sessions.ts"
+import turns from "./migrations/0002_turns.ts"
 import type { Volume } from "./Volume.ts"
 
 /** The number of cluster shards chad runs with, from the first release. */
@@ -10,6 +11,7 @@ export const shards = 1
 /** chad's migrations, compiled in. They only go forward, and a delivered one is never edited. */
 export const migrations = {
   "0001_sessions": sessions,
+  "0002_turns": turns,
 }
 
 /** The one connection to `db/chad.db`, serialized, in WAL mode and with the driver's 5 second busy timeout. */

@@ -22,6 +22,8 @@ export const events = {
   "turn.failed": "Error",
   "turn.answer-unposted": "Error",
   "history.reconciled": "Info",
+  "session.passivated": "Info",
+  "session.restored": "Info",
   "model.check-failed": "Warn",
   "model.logged-in": "Info",
   "hook.failed": "Warn",

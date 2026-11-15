@@ -13,6 +13,13 @@ export interface Reply {
   readonly status?: number
   /** Whether the response waits until the test releases it. */
   readonly hold?: boolean
+  /** What the call used, in place of one token in and one out. `reasoning` is a part of `output`. */
+  readonly usage?: {
+    readonly input: number
+    readonly output: number
+    readonly cached?: number
+    readonly reasoning?: number
+  }
 }
 
 /** A call the fake received. */
@@ -143,7 +150,16 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
         {
           ...chunk({}, null),
           choices: [],
-          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+          usage: {
+            prompt_tokens: reply.usage?.input ?? 1,
+            completion_tokens: reply.usage?.output ?? 1,
+            total_tokens:
+              (reply.usage?.input ?? 1) + (reply.usage?.output ?? 1),
+            prompt_tokens_details: { cached_tokens: reply.usage?.cached ?? 0 },
+            completion_tokens_details: {
+              reasoning_tokens: reply.usage?.reasoning ?? 0,
+            },
+          },
         },
       ]
       for (const event of events) {

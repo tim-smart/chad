@@ -16,6 +16,7 @@ A session is one conversation between an owner and the agent. It has one history
 - **SES-123** Apart from that drop, the allowlist is by user id and nothing else. An id on the list is an owner whether or not it is a bot, and there is no flag for bots. What `chad owner add` says for a bot's id is in 10-cli.md.
 - **SES-124** The docs, which are the user documentation that 00-overview.md defines, say in one sentence that a webhook id on the list makes everyone who holds the webhook URL an owner.
 - **SES-7** A DM never needs a mention. A plain server channel always needs one. In a thread that already has a session, any owner message triggers chad without a mention.
+- **SES-187** An owner's first message in an existing Discord thread that has no session needs a mention. Without one it is dropped with the reason `not-mentioned`. With one, the session is that thread itself and chad opens no new thread.
 - **SES-167** A plugin turn addressed to a plain server channel runs in a session of kind `channel` that only plugin turns run in, and its answer is posted in the channel. Owner messages in that channel still follow SES-3 and SES-7 (see 06-plugin-api.md).
 - **SES-183** `/stop`, the Stop button and `/new` act on a session of kind `channel` as they act on any other session. A `/stop` or a `/new` sent as a mention in a channel that has such a session acts on that session and opens no thread. SES-148 covers a channel that has no session.
 - **SES-8** Seeing thread messages that do not mention chad needs Discord's privileged message content intent. How the intent is turned on is in 10-cli.md.
@@ -139,11 +140,14 @@ effect/chat runs chad's handler inline, one event at a time for the whole bot. U
 - **SES-128** A refused event is not held for a restart. dfx reconnects and resumes in the same process after 1 second, doubling up to 2 minutes, and it blocks later events on the shard while it does. That backoff is dfx's own and runs at its real length. It is not a duration of the `Timings` service.
 - **SES-33** An event that is delivered a second time is dropped by its primary key while cluster still holds the request.
 - **SES-180** A message that chad drops writes the log event `message.ignored`, which carries a reason and the author's id and never the content. The reason is `not-owner` under SES-6, `own` under SES-122, `not-mentioned` under SES-7 and `duplicate` for an event that is delivered a second time. The event's row, with its level, is in 16-failures-logs-status.md.
+- **SES-194** A second delivery of an event is logged as `message.ignored` with the reason `duplicate` in two places. The gateway handler writes it when cluster still holds a request with the event's key, and the entity writes it when it answers a request from a `turns` row or a `steers` row. An event that Discord sends again because its first save failed is not a duplicate.
 - **SES-34** Chat commands are plain text, matched after the mention is stripped. There are no Discord slash commands.
 - **SES-145** A chat command is matched on the first word of the trimmed message, without regard to case. The rest of the message is the command's arguments, and any other text goes to the model.
 - **SES-146** `/new`, `/stop` and `/status` ignore trailing text and still run. A "/stop please" that reached the model as a steering message would be the worst outcome available.
 - **SES-147** A mentioned command in a plain channel with no session is answered in the channel and opens no thread, because a thread would create a session that nothing has been said in.
 - **SES-148** In a plain channel with no session, `/new` and `/stop` create nothing and say that there is no session there.
+- **SES-186** The reply of SES-148 is the subtext notice "There is no session in this channel. Mention me with a message and I'll open a thread for it.", posted in the channel.
+- **SES-188** `/stop` as the first message in a DM or a thread that has no `sessions` row posts "Nothing is running." and creates no row. `/new` there creates the thread's first row and posts its notice.
 - **SES-35** `/new` and `/stop` are specified in this part. `/status`, `/safe` and `/model` run the same daemon calls as the CLI, print the same text and do not go through the model (see 10-cli.md).
 - **SES-36** `/secret NAME`, `/secret NAME totp` and `/secret` are plain text like `/new`, follow the same mention rule and never reach the session (see 15-credentials.md).
 - **SES-37** When dfx has to identify again instead of resuming, chad reads forward with `Chat.history` from the last message it saw in each session that was active in the past 7 days, and sends what it finds through the normal persisted path.
@@ -157,6 +161,9 @@ effect/chat runs chad's handler inline, one event at a time for the whole bot. U
 - **SES-41** Every other file is saved under `inbox/` in the session's working directory, and the prompt names its path.
 - **SES-42** A file over 25 MB is skipped with a line in the prompt. The notice the owner sees is in 04-discord.md.
 - **SES-43** The entity downloads attachments when the turn starts, so the stored request holds attachment ids only.
+- **SES-189** An attachment id in a stored request is the attachment's id in the stored chat message. chad turns it into bytes with the chat adapter's `download` operation on every platform, the local one included, and reads a file's size from the message before it downloads anything.
+- **SES-190** When a download fails, the turn carries on. The prompt gets a line about the file, and the owner sees the subtext notice "Skipped `<name>`. I couldn't download it."
+- **SES-191** An attachment is an image when its declared content type is `image/png`, `image/jpeg`, `image/gif` or `image/webp`. The 10 MB and 25 MB limits are binary, so they are 10 × 1024 × 1024 and 25 × 1024 × 1024 bytes. An image over 10 MB and up to 25 MB is saved under `inbox/` like any other file.
 - **SES-154** For a message that steers a running turn, chad downloads the attachments before it calls `steer` and saves every one of them, images included, under `inbox/` with its path in the steering text. SES-42 applies. clanka's `steer` takes a string, so a steering message is poorer than a first message, because the model gets the path of an image and not the image.
 - **SES-155** A message that was waiting to steer and starts the next turn under SES-46 is handled as a first message, so its image goes to the model as a `FilePart` under SES-40. How a message's attachments are handled is therefore decided when the message joins a running turn or starts one, and not when it arrives.
 
@@ -260,6 +267,7 @@ The two session tables and the `turns` table live in `db/chad.db`. Their columns
 - **SES-163** chad writes clanka's environment to the `sessions` row in the same transaction as each batch of history rows, and again in the end-of-turn reconcile of SES-134. clanka changes the environment in the middle of a turn when a script changes directory, so a kill there would otherwise restore a history and an environment that disagree.
 - **SES-85** `session_messages` is append-only. chad writes to it on every `HistoryAppended` part of the `send` stream. On `HistoryReplaced` it swaps the session's rows in one transaction.
 - **SES-134** At the end of every turn, however it ends, chad also makes the stored history equal to the Agent's history, before it records the turn's end. The compare covers the session's whole history, not only what the turn added (see 16-failures-logs-status.md).
+- **SES-195** The end-of-turn reconcile matches the messages it writes against the turn's outstanding steers, in order and by text. For each match it writes the `steers` row in the reconcile's transaction, writes `turn.steered` after it and answers the request `Steered`. A steer with no match is answered `Dropped` when the turn was stopped, and starts the next turn otherwise.
 - **SES-86** History rows are stored as clanka produced them. chad masks no secret values in them.
 - **SES-87** chad keeps the system prompt it last sent, because with Codex the system prompt is not in the history. It sends that text again through the function form of `send({ system })`.
 - **SES-88** `turns` has one row per turn request, keyed by the request's key in the column `request_key`. It holds the first attempt's turn id, the session, the origin, the start and end times, the outcome, the failure reason, the status message id, the number of starts, the number of starts that a graceful stop cut, the model and the token usage. The end time and the outcome are null while the turn runs. The usage columns and when chad writes them are in 16-failures-logs-status.md.
@@ -276,11 +284,13 @@ Passivation is cluster closing an idle entity's activation. Nothing is deleted. 
 - **SES-93** `Entity.keepAlive` holds a session while it has a background task running.
 - **SES-94** A turn in flight needs no hold. A turn that runs longer than the idle time is not passivated.
 - **SES-95** The next message restores the session from SQLite. chad builds a new Agent, sets its history from `session_messages` and sets its environment from the `sessions` row.
+- **SES-192** chad writes the log event `session.passivated` when a session's entity leaves memory, which is after the idle time or when the daemon stops, and `session.restored` when it builds the Agent of a session that has stored history. `session.restored` carries the number of history messages it loaded (see 16-failures-logs-status.md).
 - **SES-96** On restore, a fingerprint that matches reuses the frozen system prompt, so the restored session sends the same bytes as before. Reading the cached history on a new connection also needs the session id that chad sends as the `prompt_cache_key` and in the `session-id` header (see 05-model-and-login.md).
 - **SES-97** A fingerprint that differs counts as a tool change, and the system prompt is rendered again. The fingerprint differs whenever the render without the chunks differs, which includes a persona change, a safe mode flip and a new image that changes the core block.
 - **SES-98** The same restore runs after a restart. A restart also builds a new model layer for the session (see 05-model-and-login.md).
 - **SES-168** On the first turn after a restore, the update message of SES-130 carries one line that names the background tasks that died with the process, because the model otherwise waits on tasks that no longer exist.
 - **SES-169** chad records which background tasks a session has running, so that a restore can name them.
+- **SES-193** chad learns of a background task through the `onTask` callback of the session's `AgentExecutor`, which it wraps. The running tasks are a JSON list of `{ id, kind }` in the `tasks` column of the `sessions` row. A task leaves the list when it ends, and the session holds `Entity.keepAlive` while the list is not empty.
 
 ## A turn cut by a restart
 
@@ -582,3 +592,13 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-183 | TIM-559 round 3 C6, TIM-559 round 4 item 5 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | SES-184 | TIM-559 round 3 C1 for what holds before the new session's first `beforeTurn`, TIM-559 round 4 item 4 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | SES-185 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `wire` |
+| SES-186 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| SES-187 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| SES-188 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| SES-189 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| SES-190 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| SES-191 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| SES-192 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| SES-193 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| SES-194 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| SES-195 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |

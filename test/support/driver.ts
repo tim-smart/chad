@@ -24,7 +24,7 @@ import * as LocalChat from "../../dist/daemon/LocalChat.js"
 import { defaults, scale } from "../../dist/Timings.js"
 import * as Cli from "./cli.ts"
 import * as Discord from "./discord.ts"
-import { factor, start } from "./entry.ts"
+import { factor, type Own, start } from "./entry.ts"
 import * as Fakes from "./fakes.ts"
 import * as Model from "./model.ts"
 import * as Platform from "./platform.ts"
@@ -68,6 +68,8 @@ export interface Options {
   readonly directory?: string
   /** A chat platform that is slow to come up: no connection loads before this resolves, so the boot stays loading. */
   readonly loading?: Promise<void>
+  /** The session idle time or the message retention of this daemon, in place of the scaled length (TST-212). */
+  readonly timings?: Own
 }
 
 export interface Scenario {
@@ -291,27 +293,30 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
     }
   }
   record("daemon", { state: "starting", transport })
-  const exit = start({
-    // A `discord` connection always gets the product's adapter, over the scripted gateway and the fake REST server.
-    chat: (connection) => {
-      const layer =
-        transport === "direct" && connection.kind === "local"
-          ? platform.layer
-          : Chat.layer(connection)
-      const { loading } = options
-      return loading === undefined
-        ? layer
-        : Layer.unwrap(
-            Effect.as(
-              Effect.promise(() => loading),
-              layer,
-            ),
-          )
+  const exit = start(
+    {
+      // A `discord` connection always gets the product's adapter, over the scripted gateway and the fake REST server.
+      chat: (connection) => {
+        const layer =
+          transport === "direct" && connection.kind === "local"
+            ? platform.layer
+            : Chat.layer(connection)
+        const { loading } = options
+        return loading === undefined
+          ? layer
+          : Layer.unwrap(
+              Effect.as(
+                Effect.promise(() => loading),
+                layer,
+              ),
+            )
+      },
+      httpClient: client,
+      // The one WebSocket a daemon opens so far is the gateway's. A Codex model's arrives with its slice.
+      webSocketConstructor: discord.gateway.layer,
     },
-    httpClient: client,
-    // The one WebSocket a daemon opens so far is the gateway's. A Codex model's arrives with its slice.
-    webSocketConstructor: discord.gateway.layer,
-  })
+    options.timings,
+  )
   for (const [name, value] of saved) set(name, value)
   void exit.then((code) => record("daemon", { state: "ended", code }))
 

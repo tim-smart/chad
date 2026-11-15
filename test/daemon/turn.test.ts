@@ -10,8 +10,13 @@ const ask = async (
   { fakes }: Scenario,
   thread: ChatThread.ChatThread,
   text: string,
+  mentionsSelf = false,
 ) => {
-  const event = await fakes.chat.userPosts(thread, { text, authorId: owner })
+  const event = await fakes.chat.userPosts(thread, {
+    text,
+    authorId: owner,
+    mentionsSelf,
+  })
   expect(await fakes.chat.deliver(event)).toBe(true)
   return event
 }
@@ -58,18 +63,22 @@ test("SES-17 SES-44 SES-50 DIS-7 DIS-11 DIS-50 TST-56 the entity posts the clean
   await fakes.chat.answers(thread, 1)
 
   // The driver holds ChatTest itself, so it reads the adapter's calls with no verb in the product.
-  const calls = await Effect.runPromise(chat.calls)
+  // The one read is for the kind of the session's thread, and the one write is the answer.
+  const calls = (await Effect.runPromise(chat.calls)).filter(
+    (call) => call.op !== "getThread",
+  )
   expect(calls.map((call) => [call.op, call.thread, call.markdown])).toEqual([
     ["post", thread, "The **final** answer."],
   ])
   // The turn ended at the text reply, with nothing waiting, so the model was asked once.
   expect(await fakes.model.calls()).toHaveLength(1)
-  // The reply to the request is its outcome and not the answer.
+  // The reply to the request is its outcome, and the entity has posted the answer by then.
   await running.stop()
   const replies = query(data, "SELECT payload FROM cluster_replies")
   expect(replies).toHaveLength(1)
-  expect(String(replies[0]?.["payload"])).toContain("answered")
-  expect(String(replies[0]?.["payload"])).not.toContain("final")
+  expect(JSON.parse(String(replies[0]?.["payload"]))).toMatchObject({
+    value: { _tag: "Answered" },
+  })
 })
 
 test("SES-1 SES-2 SES-13 SES-149 STO-194 each DM and each thread is one Session entity, keyed by the thread string, with a session id of its own", async () => {
@@ -82,7 +91,8 @@ test("SES-1 SES-2 SES-13 SES-149 STO-194 each DM and each thread is one Session 
   const second = await fakes.chat.makeThread("direct")
   const third = await fakes.chat.makeThread("thread")
   for (const thread of [first, second, third]) {
-    await ask(running, thread, "hello")
+    // The first message in a Discord thread needs a mention, and a DM never does.
+    await ask(running, thread, "hello", thread === third)
     await fakes.chat.answers(thread, 1)
   }
   // A second message in a thread belongs to the session the thread already has.

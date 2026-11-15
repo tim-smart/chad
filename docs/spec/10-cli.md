@@ -36,6 +36,7 @@ A client talks to the daemon over a unix socket on the volume, using effect's RP
 - **CLI-19** The RPC client's ping stays at its default of 5 seconds. When the daemon stops answering during a call, or is stopped during one, the CLI exits 4 with a message to run `chad status` and `chad logs`.
 - **CLI-20** (a) The daemon logs no RPC request body, no RPC response body and no chat interaction payload. (b) No RPC call returns a stored secret value. (c) The one call that returns something typed by the owner is the one behind `chad secret request --code`, and that value is never stored (see 15-credentials.md).
 - **CLI-205** (a) When a CLI command or (b) a chat command (a) that changes something finishes in the daemon, the daemon writes the log event `command.ran`. The line carries the command, the caller and the outcome, and never a secret's value. The caller is the owner, a session id or the daemon, as `CHAD_SESSION` gives it. (c) A secret saved through the Enter modal writes the same event with no command behind it, and its caller is the owner who submitted the modal (see 15-credentials.md and 16-failures-logs-status.md).
+- **CLI-238** `/new` is a chat command that changes something. It writes `command.ran` with the command `/new`, the owner as the caller and the new session's id. `/stop` and `/status` write no `command.ran`.
 
 The wiring the prototypes ran is below. The serialization (newline-delimited JSON) and the header names are the prototypes' choices.
 
@@ -802,3 +803,4 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-235 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-236 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-237 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
+| CLI-238 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |

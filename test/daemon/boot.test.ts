@@ -60,7 +60,10 @@ test("STO-30 STO-31 STO-37 STO-38 STO-40 STO-150 STO-151 STO-154 STO-195 the dat
   expect(query(data, "PRAGMA journal_mode")).toEqual([{ journal_mode: "wal" }])
   expect(
     query(data, "SELECT migration_id, name FROM effect_sql_migrations"),
-  ).toEqual([{ migration_id: 1n, name: "sessions" }])
+  ).toEqual([
+    { migration_id: 1n, name: "sessions" },
+    { migration_id: 2n, name: "turns" },
+  ])
   const [table] = query(
     data,
     "SELECT strict FROM pragma_table_list WHERE name = 'sessions'",
@@ -70,10 +73,21 @@ test("STO-30 STO-31 STO-37 STO-38 STO-40 STO-150 STO-151 STO-154 STO-195 the dat
     data,
     "SELECT name, type FROM pragma_table_info('sessions')",
   )
+  // A name is snake_case, a time is an integer and ends in _at, and JSON is TEXT.
   expect(columns).toEqual([
     { name: "id", type: "TEXT" },
     { name: "thread", type: "TEXT" },
     { name: "created_at", type: "INTEGER" },
+    { name: "kind", type: "TEXT" },
+    { name: "ended_at", type: "INTEGER" },
+    { name: "environment", type: "TEXT" },
+    { name: "system", type: "TEXT" },
+    { name: "chunks", type: "TEXT" },
+    { name: "generation", type: "INTEGER" },
+    { name: "fingerprint", type: "TEXT" },
+    { name: "last_message_id", type: "TEXT" },
+    { name: "last_message_at", type: "INTEGER" },
+    { name: "tasks", type: "TEXT" },
   ])
   // Cluster made its own tables, and no migration of chad's stands for them.
   const cluster = query(

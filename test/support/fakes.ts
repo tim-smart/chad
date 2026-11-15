@@ -14,6 +14,14 @@ export interface UserMessage {
   readonly authorId?: string | undefined
   readonly isBot?: boolean | undefined
   readonly mentionsSelf?: boolean | undefined
+  readonly files?: ReadonlyArray<File> | undefined
+}
+
+/** A file on a user's message. */
+export interface File {
+  readonly name: string
+  readonly contentType: string
+  readonly content: Uint8Array
 }
 
 export interface Fakes {
@@ -96,6 +104,14 @@ const Reply = Schema.Struct({
   ),
   status: Schema.optionalKey(Schema.Number),
   hold: Schema.optionalKey(Schema.Boolean),
+  usage: Schema.optionalKey(
+    Schema.Struct({
+      input: Schema.Number,
+      output: Schema.Number,
+      cached: Schema.optionalKey(Schema.Number),
+      reasoning: Schema.optionalKey(Schema.Number),
+    }),
+  ),
 })
 
 const Call = Schema.Struct({
@@ -118,6 +134,15 @@ export class Rpcs extends RpcGroup.make(
       authorId: Schema.optional(Schema.String),
       isBot: Schema.optional(Schema.Boolean),
       mentionsSelf: Schema.optional(Schema.Boolean),
+      files: Schema.optional(
+        Schema.Array(
+          Schema.Struct({
+            name: Schema.String,
+            contentType: Schema.String,
+            content: Schema.Uint8Array,
+          }),
+        ),
+      ),
     },
     success: ChatEvent.ChatEvent,
   }),
