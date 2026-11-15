@@ -319,6 +319,7 @@ CREATE TABLE steers (
 - **STO-207** chad records each turn whose prompt the stored history took as one row of the table `prompts`, keyed by the turn's request key, in the same transaction as the batch that stores the prompt. A compaction that takes the prompt out of the history leaves the row, and the row is what tells a resume after a kill before the prompt was stored (SES-161) from one after it. `prompts` rows are never deleted.
 - **STO-208** chad records each chat command it runs as one row of the table `commands`, keyed by the dedupe key of the chat event that carried it, and writes the row before the command runs. `commands` rows are never deleted.
 - **STO-209** The migration after the one that adds `prompts` fills it from what a volume stored before: a row for each stored message that carries a turn's request key, and a row for each unfinished turn that has started once or more, whose session has a stored history in which no message carries a key. Such a history was written before prompts carried their key, and its prompt was stored with the rest.
+- **STO-210** The migration after STO-209's leaves a `prompts` row only where the volume shows that the turn's prompt was stored. It adds a row for each unfinished turn with recorded usage, because clanka puts a send's prompt batch on its output before any of its usage and chad stores each part before it reads the next. It removes the row of each unfinished turn that was already there when STO-209's migration ran, that has no recorded usage and whose key no stored message carries. Such a turn resumes as one whose prompt was not stored (SES-161), and the restart note asks the model to check before it repeats anything.
 
 ```sql
 CREATE TABLE prompts (
@@ -720,3 +721,4 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-207 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | STO-208 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | STO-209 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| STO-210 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |

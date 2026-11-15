@@ -71,6 +71,34 @@ describe("the driver's process records", () => {
     expect(killed).toEqual([])
   })
 
+  it("TST-87 a poll's table that comes back after a newer look does not retire a process the look recorded", async () => {
+    const ticks: Array<() => void> = []
+    const pending: Array<(rows: ReadonlyArray<Row> | Error) => void> = []
+    const tables: Array<ReadonlyArray<Row>> = [
+      // The look before the kill sees the child.
+      [daemon, row(200, 100, 200, 1_001)],
+      // After the kill the child is init's, with the same pid, group and start time.
+      [row(200, 1, 200, 1_001)],
+    ]
+    const killed: Array<number> = []
+    const tracked = tracker("/nowhere", {
+      bound: 0,
+      kill: (pid) => void killed.push(pid),
+      table: () => (tables.length > 1 ? tables.shift()! : tables[0]!),
+      tableLater: (done) => void pending.push(done),
+      poll: (tick) => (ticks.push(tick), () => {}),
+    })
+    tracked.root(100, () => true)
+    // A poll starts while only the daemon runs, and its table comes back after the look.
+    ticks[0]!()
+    tracked.look()
+    pending[0]!([daemon])
+    await expect(tracked.reap(async () => {})).rejects.toThrow(
+      "processes outlived the scenario: 200",
+    )
+    expect(killed).toEqual([200])
+  })
+
   it("TST-87 a look that fails is not thrown at the caller, and the reap reports it", async () => {
     const { tracked } = watch([new Error("ps exited with 2")])
     tracked.root(100, () => true)

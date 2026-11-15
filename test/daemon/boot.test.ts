@@ -65,6 +65,7 @@ test("STO-30 STO-31 STO-37 STO-38 STO-40 STO-150 STO-151 STO-154 STO-195 the dat
     { migration_id: 2n, name: "turns" },
     { migration_id: 3n, name: "kills" },
     { migration_id: 4n, name: "prompts" },
+    { migration_id: 5n, name: "evidence" },
   ])
   const [table] = query(
     data,

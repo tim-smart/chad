@@ -101,9 +101,28 @@ export interface Tracker {
 
 export interface Seams {
   readonly table?: () => ReadonlyArray<Row>
+  /** Reads the table without blocking, for the poll. */
+  readonly tableLater?: (
+    done: (rows: ReadonlyArray<Row> | Error) => void,
+  ) => void
   readonly kill?: (pid: number) => void
-  readonly poll?: boolean
+  /** Runs `tick`, which starts one read of the poll, on a schedule, and gives what stops it. `false` is no poll. */
+  readonly poll?: false | ((tick: () => void) => () => void)
   readonly bound?: number
+}
+
+const tableLater = (done: (rows: ReadonlyArray<Row> | Error) => void) =>
+  void execFile(
+    "ps",
+    ["-A", ...columns],
+    { encoding: "utf8", env },
+    (error, out) => done(error === null ? parse(out) : error),
+  )
+
+const every = (tick: () => void) => {
+  const timer = setInterval(tick, 250)
+  timer.unref()
+  return () => clearInterval(timer)
 }
 
 const key = (row: Row) => `${row.pid}/${row.started}`
@@ -155,48 +174,60 @@ export const tracker = (directory: string, seams: Seams = {}): Tracker => {
     for (const entry of known) if (!shown.has(entry)) known.delete(entry)
   }
 
+  // Each read takes a number when it starts, and a table is taken only when no later read was taken first. A poll's
+  // table that comes back after a newer look would retire a process the look recorded while it is still there.
+  let issued = 0
+  let applied = 0
+  const apply = (
+    read: number,
+    rows: ReadonlyArray<Row>,
+    marks: ReadonlySet<number>,
+  ) => {
+    if (read <= applied) return
+    applied = read
+    take(rows, marks)
+  }
+
   const look = () => {
+    const number = ++issued
     try {
-      take(read(), new Set())
+      apply(number, read(), new Set())
     } catch (error) {
       failures.push(String(error))
     }
   }
 
   // The table is read while the daemons run as well, for a parent that ends before a kill does.
-  const poll =
+  const later = seams.tableLater ?? tableLater
+  const stop =
     seams.poll === false
-      ? undefined
-      : setInterval(() => {
-          execFile(
-            "ps",
-            ["-A", ...columns],
-            { encoding: "utf8", env },
-            (error, out) => {
-              if (error === null) take(parse(out), new Set())
-              else failures.push(String(error))
-            },
-          )
-        }, 250)
-  poll?.unref()
+      ? () => {}
+      : (seams.poll ?? every)(() => {
+          const number = ++issued
+          later((rows) => {
+            if (rows instanceof Error) failures.push(String(rows))
+            else apply(number, rows, new Set())
+          })
+        })
 
   return {
     root: (pid, running) => void roots.set(pid, { running }),
     look,
     reap: async (wait) => {
-      clearInterval(poll)
+      stop()
       const left = Date.now() + (seams.bound ?? 5_000)
       let living: ReadonlyArray<Row> = []
       try {
         for (;;) {
           let rows: ReadonlyArray<Row> | undefined
+          const number = ++issued
           try {
             rows = read()
           } catch (error) {
             failures.push(String(error))
           }
           if (rows !== undefined) {
-            take(rows, marked(directory))
+            apply(number, rows, marked(directory))
             living = rows.filter(
               (row) =>
                 !row.zombie && !roots.has(row.pid) && known.has(key(row)),
@@ -214,7 +245,7 @@ export const tracker = (directory: string, seams: Seams = {}): Tracker => {
           await wait()
         }
       } finally {
-        clearInterval(poll)
+        stop()
       }
       const errors = failures.splice(0)
       if (living.length > 0) {

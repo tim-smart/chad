@@ -197,7 +197,7 @@ test.each([
   ["whose prompts carry their request key", false],
   ["written before prompts carried a key", true],
 ])(
-  "SES-161 SES-101 STO-209 a turn that a kill cut on a volume %s, after its prompt was stored, resumes after the upgrade with the restart note alone",
+  "SES-161 SES-101 STO-210 a turn that a kill cut on a volume %s, after its prompt was stored, resumes after the upgrade with the restart note alone",
   async (_, untagged) => {
     const running = await daemon()
     const { fakes } = running
@@ -236,6 +236,72 @@ test.each([
     expect(prompted(calls[2])).toBe(Messages.restartNote())
     await fakes.chat.answers(thread, 1)
     expect(await posted(running, thread)).toEqual(["finished"])
+  },
+  20_000,
+)
+
+test.each([
+  ["that had not run the migration that filled prompts", false],
+  ["that had run it already", true],
+])(
+  "SES-161 SES-101 STO-210 a turn that a kill cut before its prompt was stored, on a volume %s, with an earlier history that carries no key, resumes after the upgrade with the owner's message and its files",
+  async (_, ran) => {
+    const running = await daemon()
+    const { fakes } = running
+    await fakes.model.script([{ text: "first answer" }, { text: "finished" }])
+    const first = await running.start()
+    const thread = await fakes.chat.makeThread("direct")
+    await says(running, thread, "hello")
+    await fakes.chat.answers(thread, 1)
+    await found(running, "SELECT 1 FROM turns WHERE outcome = 'answered'")
+    const held = running.holdDownloads()
+    await says(running, thread, "read my notes", {
+      files: [
+        {
+          name: "notes.txt",
+          contentType: "text/plain",
+          content: new TextEncoder().encode("the notes"),
+        },
+      ],
+    })
+    await held.reached
+    await found(
+      running,
+      "SELECT 1 FROM turns WHERE ended_at IS NULL AND starts = 1",
+    )
+    await first.kill()
+    held.release()
+
+    // The earlier turn's history carries no key, as after a compaction or from a build before keys. The volume is at
+    // schema 3, or at schema 4 with the row that migration 4 inferred for the cut turn.
+    const db = new DatabaseSync(join(running.data, "db/chad.db"))
+    db.exec(`
+      UPDATE session_messages SET message = json_remove(message, '$.options.chad');
+      DELETE FROM effect_sql_migrations WHERE migration_id > ${ran ? 4 : 3};
+    `)
+    if (ran) {
+      db.exec(`
+        UPDATE effect_sql_migrations SET created_at = current_timestamp WHERE migration_id = 4;
+        INSERT INTO prompts (request_key, session_id)
+          SELECT request_key, session_id FROM turns WHERE ended_at IS NULL;
+      `)
+    }
+    db.close()
+
+    await running.start()
+    const calls = await fakes.model.received(2)
+    const users = (
+      calls[1]!.body as {
+        messages: ReadonlyArray<{ role: string; content: unknown }>
+      }
+    ).messages
+      .filter((message) => message.role === "user")
+      .map((message) => JSON.stringify(message.content))
+    expect(users.at(-2)).toContain("read my notes")
+    expect(users.at(-2)).toContain("notes.txt")
+    expect(prompted(calls[1])).toBe(Messages.restartNote())
+    await fakes.chat.answers(thread, 2)
+    expect(await posted(running, thread)).toEqual(["first answer", "finished"])
   },
   20_000,
 )
