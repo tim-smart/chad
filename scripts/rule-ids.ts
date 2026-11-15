@@ -267,7 +267,14 @@ const unitsOf = (rule: Rule) =>
     ? [rule.id]
     : rule.letters.map((letter) => rule.id + letter)
 
-const skips = /\.(skip|todo|only|skipIf|runIf)\s*[(.`]/
+// A skip, a todo or an only is written as a modifier, `it.skip(...)`, or as a key of the options a test or a suite
+// takes, `it("...", { skip: true }, ...)`. vitest lists neither, so both are found in the source. A key is a name
+// before a colon, quoted or not, or a bare name that stands as a shorthand property.
+const skips = [
+  /\.(skip|todo|only|skipIf|runIf)\s*[(.`]/,
+  /(?:^|[{,])\s*["'](skip|todo|only)["']\s*:/,
+  /(?:^|[{,])\s*(skip|todo|only)\s*(?:[:,}]|$)/,
+]
 
 /** Compares the rule ids of the spec with the ids the tests name. */
 export const evaluate = (inputs: Inputs): Report => {
@@ -321,7 +328,9 @@ export const evaluate = (inputs: Inputs): Report => {
 
   for (const [file, source] of Object.entries(inputs.sources)) {
     source.split("\n").forEach((line, index) => {
-      const match = skips.exec(line)
+      const match = skips
+        .map((pattern) => pattern.exec(line))
+        .find((found) => found !== null)
       if (match)
         failures.push(
           `${file}:${index + 1} uses ${match[1]}, and no test is skipped, todo or only`,
@@ -369,15 +378,20 @@ export const evaluate = (inputs: Inputs): Report => {
       )
       continue
     }
-    const fact = spec.rules.get(entry.coveredBy)
-    if (fact) {
+    // A fact may name a rule in place of an item, and that rule's own test is what covers the fact. A rule that is
+    // itself only waived, held or pending has no test, which also rules out two facts that name each other.
+    const covering = resolve(entry.coveredBy)
+    if (covering) {
       if (target.rule.kind !== "fact") {
         failures.push(
-          `the waiver ${entry.unit} names the rule ${fact.id} in place of an item, and only a fact may`,
+          `the waiver ${entry.unit} names the rule ${entry.coveredBy} in place of an item, and only a fact may`,
         )
-      } else if (fact.slice === "-" || fact.id === target.rule.id) {
+      } else if (
+        covering.rule.id === target.rule.id ||
+        !covering.units.some((unit) => gateTests.has(unit))
+      ) {
         failures.push(
-          `the waiver ${entry.unit} names ${fact.id}, which has no test that could fail`,
+          `the waiver ${entry.unit} names ${entry.coveredBy}, which has no test that could fail`,
         )
       } else {
         for (const unit of target.units) waivers.set(unit, "fact")

@@ -229,6 +229,8 @@ describe("the comparison of the spec's ids with the tests' ids", () => {
     // The modifier is spliced in, so that this file does not itself hold one.
     const call = (test: string, modifier: string, title: string) =>
       `${test}.${modifier}("${title}", () => {})`
+    const option = (test: string, key: string, title: string) =>
+      `${test}("${title}", { ${key}: true }, () => {})`
     const report = run({
       rules: [early],
       tests: [["AA-1 holds"]],
@@ -239,12 +241,23 @@ describe("the comparison of the spec's ids with the tests' ids", () => {
           call("it", "todo", "AA-1 soon"),
         ].join("\n"),
         "test/b.test.ts": call("describe", "only", "AA-1"),
+        "test/c.test.ts": [
+          option("it", "skip", "AA-1 later"),
+          option("describe", "todo", "AA-1"),
+          'it("AA-1 soon", {',
+          "  timeout: 1000,",
+          `  ${"only"},`,
+          "}, () => {})",
+        ].join("\n"),
       },
     })
     expect(report.failures).toEqual([
       "test/a.test.ts:2 uses skip, and no test is skipped, todo or only",
       "test/a.test.ts:3 uses todo, and no test is skipped, todo or only",
       "test/b.test.ts:1 uses only, and no test is skipped, todo or only",
+      "test/c.test.ts:1 uses skip, and no test is skipped, todo or only",
+      "test/c.test.ts:2 uses todo, and no test is skipped, todo or only",
+      "test/c.test.ts:5 uses only, and no test is skipped, todo or only",
     ])
   })
 
@@ -349,6 +362,31 @@ describe("the comparison of the spec's ids with the tests' ids", () => {
     ])
     expect(failures([["AA-3", "AA-4"]])).toEqual([
       "the waiver AA-3 names AA-4, which has no test that could fail",
+    ])
+    // Two facts with no test, each waived against the other, cover nothing.
+    const facts = [
+      early,
+      { id: "AA-5", slice: "early", kind: "fact" },
+      { id: "AA-6", slice: "early", kind: "fact" },
+    ]
+    const each = (waivers: NonNullable<Fixture["waivers"]>) =>
+      run({ rules: facts, waivers, tests: [["AA-1 holds"]] })
+    expect(
+      each([
+        ["AA-5", "AA-1"],
+        ["AA-6", "AA-1"],
+      ]),
+    ).toMatchObject({ failures: [], waived: { fact: 2 } })
+    expect(
+      each([
+        ["AA-5", "AA-6"],
+        ["AA-6", "AA-5"],
+      ]).failures,
+    ).toEqual([
+      "the waiver AA-5 names AA-6, which has no test that could fail",
+      "the waiver AA-6 names AA-5, which has no test that could fail",
+      "AA-5 (01-a-part.md, slice early) has no test, is not pending and is not on the waiver list",
+      "AA-6 (01-a-part.md, slice early) has no test, is not pending and is not on the waiver list",
     ])
   })
 
