@@ -6,7 +6,11 @@ import * as SqliteClient from "@effect/sql-sqlite-node/SqliteClient"
 import { Effect, Exit, Layer, Queue, Schema, Scope } from "effect"
 import { ClusterSchema, Entity, SingleRunner } from "effect/cluster"
 import { Rpc } from "effect/rpc"
-import { expect, it } from "vitest"
+import { expect, it, vi } from "vitest"
+
+// Each test starts a cluster on SQLite and waits on what it does, never on a clock (TST-76), so its time limit only bounds a
+// hang, as in the daemon and process layers. Alone one takes about 2 seconds, and a loaded runner has taken over 8.
+vi.setConfig({ testTimeout: 20_000 })
 
 it("SES-23 a persisted request reaches the local entity straight after it is saved, with cluster's storage poll an hour away", async () => {
   const directory = mkdtempSync(join(tmpdir(), "chad-cluster-"))
