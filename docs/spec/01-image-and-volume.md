@@ -475,7 +475,7 @@ A graceful stop starts when the daemon gets SIGTERM, which `docker stop` and Kub
 | 4 | Close the plugins' scopes, then the MCP layer. | Until 60 seconds from SIGTERM |
 
 - **IMG-84** The stop closes plugin scopes before the MCP layer, so the deadline only ever cuts MCP servers.
-- **IMG-85** A stop the daemon finished exits 0. A stop cut by chad's own deadline exits 1, and its log line, the event `stop.cut`, names what was still open.
+- **IMG-85** (a) A stop the daemon finished exits 0. (b) A stop cut by chad's own deadline exits 1, and its log line, the event `stop.cut`, names what was still open.
 - **IMG-86** The daemon logs what a stop dropped, as the event `stop.dropped`. Hooks dropped in a stop and a stop cut by the deadline are log lines only, and no notice is sent for them (see 16-failures-logs-status.md).
 - **IMG-87** The examples set a 90 second grace period.
 - **IMG-120** The log writer flushes on every exit path chad controls (see 16-failures-logs-status.md).

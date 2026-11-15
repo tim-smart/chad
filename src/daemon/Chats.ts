@@ -59,7 +59,9 @@ export const make = <R>(
   ) => Layer.Layer<never, never, R | Layer.Success<typeof Chat.layer>>,
 ) =>
   Effect.gen(function* () {
-    const parent = yield* Effect.scope
+    // The connections' scope is taken now, before the sessions are built, so that it closes after them: a graceful
+    // stop waits for the turns in flight (SES-110), and they still post through their connection meanwhile.
+    const parent = yield* Scope.fork(yield* Effect.scope)
     const entries = new Map<string, Entry>()
 
     // The entry is in place before the platform is built, so a session that answers meanwhile waits for it.

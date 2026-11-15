@@ -269,9 +269,23 @@ export const turn = Effect.fnUntraced(function* (key: string) {
 /** A turn id: `t_` and twelve hex digits. */
 export const turnId = () => `t_${randomUUID().replaceAll("-", "").slice(0, 12)}`
 
+/** A start of a turn as its row records it, with what the request's earlier attempts used. */
+export interface Start {
+  /** The turn id of the request's first attempt, which every later attempt keeps. */
+  readonly turn: string
+  /** How many times chad has started the turn, this start included. */
+  readonly starts: number
+  /** How many of the earlier starts a graceful stop cut. */
+  readonly cuts: number
+  readonly earlier: Usage
+}
+
+/** How many of a turn's earlier starts ended in a kill: every one that neither finished nor was cut gracefully. */
+export const kills = (start: Start) => start.starts - 1 - start.cuts
+
 /**
- * Records that a turn starts, and gives what the request's earlier attempts used. The row keeps the id of the
- * request's first attempt, and a later attempt counts one more start and takes the session and the model it runs with.
+ * Records that a turn starts, and gives what the row holds after it. The row keeps the id and origin of the request's
+ * first attempt, and a later attempt counts one more start and takes the session and the model it runs with.
  */
 export const started = Effect.fnUntraced(function* (start: {
   readonly key: string
@@ -286,13 +300,60 @@ export const started = Effect.fnUntraced(function* (start: {
       cache_write_tokens AS cacheWrite, context_tokens AS contextTokens
     FROM turns WHERE request_key = ${start.key}
   `
-  yield* sql`
+  const rows = yield* sql<{
+    turn_id: string
+    starts: number
+    graceful_cuts: number
+  }>`
     INSERT INTO turns (request_key, turn_id, session_id, origin, started_at, starts, model)
     VALUES (${start.key}, ${start.turn}, ${start.session}, 'message', ${start.at}, 1, ${start.model ?? null})
     ON CONFLICT (request_key) DO UPDATE SET
       starts = starts + 1, session_id = excluded.session_id, model = excluded.model
+    RETURNING turn_id, starts, graceful_cuts
   `
-  return earlier[0] ?? noUsage
+  const row = rows[0]!
+  return {
+    turn: row.turn_id,
+    starts: row.starts,
+    cuts: row.graceful_cuts,
+    earlier: earlier[0] ?? noUsage,
+  } satisfies Start
+})
+
+/** Records that a graceful stop cut a turn's start, which then does not count as a kill. */
+export const cut = Effect.fnUntraced(function* (key: string) {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql`UPDATE turns SET graceful_cuts = graceful_cuts + 1 WHERE request_key = ${key}`
+})
+
+/**
+ * The request of a turn that a restart cut in a thread's current session: a `turns` row that has no outcome. It takes
+ * the session before any other request of the thread (SES-200).
+ */
+export const unfinished = Effect.fnUntraced(function* (thread: string) {
+  const sql = yield* SqlClient.SqlClient
+  const rows = yield* sql<{ request_key: string }>`
+    SELECT t.request_key FROM turns t JOIN sessions s ON s.id = t.session_id
+    WHERE s.thread = ${thread} AND s.ended_at IS NULL AND t.outcome IS NULL
+    ORDER BY t.started_at LIMIT 1
+  `
+  return rows[0]?.request_key
+})
+
+/**
+ * The sessions that the catch-up after a fresh identify reads forward in: each one that has not ended and whose last
+ * handled owner message is younger than `window`, with the kind of its thread and that message's id (SES-37, SES-199).
+ */
+export const active = Effect.fnUntraced(function* (since: number) {
+  const sql = yield* SqlClient.SqlClient
+  return yield* sql<{
+    thread: string
+    kind: Kind | null
+    last_message_id: string
+  }>`
+    SELECT thread, kind, last_message_id FROM sessions
+    WHERE ended_at IS NULL AND last_message_id IS NOT NULL AND last_message_at >= ${since}
+  `
 })
 
 /** Whether a message joined a running turn, which its `steers` row says. */

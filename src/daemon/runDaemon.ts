@@ -249,6 +249,9 @@ const boot = Effect.fnUntraced(function* (
               layer,
             })),
           ),
+          Layer.succeed(SessionEntity.Stopping, {
+            stopping: () => state.phase === "stopping",
+          }),
           Layer.succeed(Handler.Status, {
             text: Effect.sync(() => Server.statusText(state)),
           }),
@@ -303,17 +306,26 @@ export const runDaemon = (inputs: DaemonInputs): Promise<number> => {
           cause: Cause.pretty(cause),
         }).pipe(Effect.as(1)),
       ),
-      Effect.raceFirst(Effect.as(signalled, 0)),
+      Effect.raceFirst(Effect.as(signalled, "signal" as const)),
     )
+    const at = Date.now()
     state.phase = "stopping"
+    if (code === "signal") {
+      yield* Logger.event("stop.started", "chad is stopping", {})
+    }
     // From here the stop has until the deadline, and then the process exits whatever is still open.
     const deadline = setTimeout(
       () => process.exit(1),
       Duration.toMillis(inputs.timings.stopDeadline),
     )
+    yield* Server.interruptCalls(state)
     yield* Scope.close(scope, Exit.void)
     clearTimeout(deadline)
-    return code
+    if (code !== "signal") return code
+    yield* Logger.event("stop.ended", "chad stopped", {
+      duration_ms: Date.now() - at,
+    })
+    return 0
   })
 
   return Effect.runPromise(

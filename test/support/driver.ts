@@ -11,11 +11,10 @@ import {
 } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient"
 import * as NodeSocket from "@effect/platform-node/NodeSocket"
 import { Effect, Exit, Layer, Scope } from "effect"
 import type { ChatTest } from "effect/chat"
-import { HttpClient, HttpClientRequest } from "effect/http"
+import type { HttpClient } from "effect/http"
 import { onTestFinished, vi } from "vitest"
 import { runCli } from "../../dist/cli/runCli.js"
 import * as Chat from "../../dist/daemon/Chat.js"
@@ -26,6 +25,7 @@ import * as Cli from "./cli.ts"
 import * as Discord from "./discord.ts"
 import { factor, type Own, start } from "./entry.ts"
 import * as Fakes from "./fakes.ts"
+import { httpClient } from "./http.ts"
 import * as Model from "./model.ts"
 import * as Platform from "./platform.ts"
 
@@ -121,38 +121,7 @@ let count = 0
 /** A new scenario directory, for a scenario that puts something on the volume before the daemon starts. */
 export const fresh = () => join(runs, `${process.pid}-${++count}`)
 
-/**
- * A client that reaches the fakes and fails a request to any other host. A request to Discord's REST root goes to the
- * fake Discord REST server. It notes every request by the URL the daemon asked for.
- */
-export const httpClient = (
-  fakes: { readonly model: string; readonly discord: string },
-  requests: Array<string> = [],
-) =>
-  Layer.effect(
-    HttpClient.HttpClient,
-    Effect.gen(function* () {
-      const client = yield* HttpClient.HttpClient
-      const hosts = [fakes.model, fakes.discord].map((url) => new URL(url).host)
-      // This runs on the request as it leaves, after the base URL a caller prepends.
-      return HttpClient.make((request) => {
-        requests.push(request.url)
-        const sent = request.url.startsWith(Discord.restRoot)
-          ? HttpClientRequest.setUrl(
-              request,
-              fakes.discord + request.url.slice(Discord.restRoot.length),
-            )
-          : request
-        return hosts.includes(new URL(sent.url).host)
-          ? client.execute(sent)
-          : Effect.die(
-              new Error(
-                `the daemon asked for ${request.url}, which is no fake`,
-              ),
-            )
-      })
-    }),
-  ).pipe(Layer.provide(NodeHttpClient.layerUndici))
+export { httpClient }
 
 /**
  * Runs a command through `runCli` in the test's own process, for one that reaches the network: its requests go
@@ -212,7 +181,7 @@ const tokenFile = (token: string) => {
  * connection's token is checked over the network, so that command runs in the test's process, on the client it is
  * given. The rest run the real bin.
  */
-const store = async (
+export const store = async (
   data: string,
   connection: Connection,
   client: Layer.Layer<HttpClient.HttpClient>,

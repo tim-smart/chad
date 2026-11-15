@@ -7,10 +7,11 @@ import { ShardStateStore } from "dfx/DiscordGateway/Shard/StateStore"
 import { MemoryShardStoreLive } from "dfx/DiscordGateway/ShardStore"
 import { DiscordRESTLive } from "dfx/DiscordREST"
 import { MemoryRateLimitStoreLive } from "dfx/RateLimit"
-import { Deferred, Effect, Exit, Layer, Redacted, Scope } from "effect"
+import { Deferred, Effect, Exit, Layer, Queue, Redacted, Scope } from "effect"
 import { KeyValueStore } from "effect/persistence"
 import { Socket } from "effect/socket"
 import { intents } from "../Discord.ts"
+import * as CatchUp from "./CatchUp.ts"
 import type { Connection } from "./Connection.ts"
 import * as Logger from "./Logger.ts"
 
@@ -83,19 +84,36 @@ const watched = (connection: Connection, refused: Deferred.Deferred<number>) =>
 
 /**
  * dfx's dispatch hook with chad's own line in front of it. The shard hands the hook every dispatch, `READY` and
- * `RESUMED` among them, which is the one place that tells a fresh identify from a resume.
+ * `RESUMED` among them, which is the one place that tells a fresh identify from a resume. After a fresh identify
+ * the catch-up reads what the gateway did not replay (SES-37), off the dispatch path.
  */
 const connected = (connection: Connection) =>
   Layer.effect(
     DispatchHook,
     Effect.gen(function* () {
       const hook = yield* DispatchHook
+      const identified = yield* Queue.unbounded<void>()
+      yield* Queue.take(identified).pipe(
+        Effect.andThen(CatchUp.run("discord")),
+        Effect.catchCause((cause) =>
+          Effect.logWarning("The catch-up failed", cause),
+        ),
+        Effect.forever,
+        Effect.forkScoped,
+      )
       return (payload, context) =>
         payload.t === "READY" || payload.t === "RESUMED"
           ? Logger.event("chat.connected", "The gateway session is up", {
               connection: connection.name,
               resumed: payload.t === "RESUMED",
-            }).pipe(Effect.andThen(hook(payload, context)))
+            }).pipe(
+              Effect.andThen(hook(payload, context)),
+              Effect.andThen(
+                payload.t === "READY"
+                  ? Queue.offer(identified, undefined)
+                  : Effect.void,
+              ),
+            )
           : hook(payload, context)
     }),
   ).pipe(Layer.provide(DiscordChat.layerDispatchHook))

@@ -7,7 +7,7 @@ import type { File } from "./fakes.ts"
 
 /** An owner's message, delivered to the daemon, which accepts it. */
 export const says = async (
-  { fakes }: Scenario,
+  { fakes }: Pick<Scenario, "fakes">,
   thread: ChatThread.ChatThread,
   text: string,
   options: {
@@ -28,7 +28,7 @@ export const says = async (
 
 /** The rows of a read-only statement, with every integer as a number. */
 export const rows = (
-  { data }: Scenario,
+  { data }: Pick<Scenario, "data">,
   sql: string,
 ): ReadonlyArray<Record<string, unknown>> =>
   query(data, sql).map((row) =>
@@ -41,7 +41,7 @@ export const rows = (
   )
 
 /** The `sessions` rows of a scenario, oldest first. */
-export const sessions = (running: Scenario) =>
+export const sessions = (running: Pick<Scenario, "data">) =>
   rows(running, "SELECT * FROM sessions ORDER BY created_at, rowid")
 
 /** The thread a `sessions` row names. */
@@ -53,7 +53,7 @@ export const threadOf = (row: Record<string, unknown> | undefined) => {
 
 /** The text of every message chad has posted in a thread. */
 export const posted = async (
-  { fakes }: Scenario,
+  { fakes }: Pick<Scenario, "fakes">,
   thread: ChatThread.ChatThread,
 ) =>
   (await fakes.chat.messages(thread))
@@ -86,14 +86,22 @@ export const eventually = async <A>(
 }
 
 /** Waits until a statement gives at least a number of rows, and gives them. */
-export const found = (running: Scenario, sql: string, count = 1) =>
+export const found = (
+  running: Pick<Scenario, "data">,
+  sql: string,
+  count = 1,
+) =>
   eventually(
     () => rows(running, sql),
     (all) => all.length >= count,
   )
 
 /** Waits until a number of lines of one event are logged, and gives them. */
-export const lines = (running: Scenario, event: string, count: number) =>
+export const lines = (
+  running: Pick<Scenario, "log">,
+  event: string,
+  count: number,
+) =>
   eventually(
     () => running.log().filter((line) => line.annotations["event"] === event),
     (all) => all.length >= count,

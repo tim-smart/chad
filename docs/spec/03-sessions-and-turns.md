@@ -153,6 +153,7 @@ effect/chat runs chad's handler inline, one event at a time for the whole bot. U
 - **SES-37** When dfx has to identify again instead of resuming, chad reads forward with `Chat.history` from the last message it saw in each session that was active in the past 7 days, and sends what it finds through the normal persisted path.
 - **SES-38** effect/chat does not say whether the gateway resumed or identified again. chad watches the gateway dispatch itself, where dfx's shard tells `READY` from `RESUMED`, to know when to catch up.
 - **SES-170** The last message chad saw in a session is a column on its `sessions` row, and the catch-up of SES-37 reads forward from it (see 02-storage.md).
+- **SES-199** A session is active for the catch-up of SES-37 when it has not ended and the owner message of its mark (SES-170) was sent less than 7 days ago. The `sessions` row keeps that message's time beside the mark, so a session that `/new` ended is not caught up.
 - **SES-171** The gateway handler writes that mark after the save of the request succeeds, and not in one transaction with the save. A mark that lags is harmless, because SES-33 and SES-90 drop a message that is read twice.
 - **SES-172** The mark only moves forward, and it advances for every message chad handled in that thread, chat commands included, so the catch-up never replays a `/new` or a `/stop`.
 - **SES-196** The mark orders two messages by their times, and two messages of one time by their ids: a longer id is later, and ids of one length compare as text. Discord's ids and the local platform's both count up that way. `/new` gives the new row the later of the old row's mark and the command's own, by that order.
@@ -308,9 +309,11 @@ A kill is the process ending with no warning, such as SIGKILL, a crash or a powe
 - **SES-161** When the stored history does not hold the turn's prompt, because the kill came before the prompt was stored, a resumed turn sends the original prompt and then the restart note in the same `send`, so that the note is true in every case.
 - **SES-102** The restart note says that the process restarted and that a cut-off script's side effects already happened. Given SES-91, it is the only thing that tells the model.
 - **SES-103** A resume needs nothing from the owner. Cluster redelivers the request when the daemon starts.
+- **SES-200** After a restart, the request of a turn that a kill or a graceful stop cut takes its session first. While a session has a `turns` row with no outcome, every other request waits until that row's request has taken the session, so a message that waited to steer the cut turn steers its resumed start (SES-160).
 - **SES-104** A resumed turn edits the status message whose id is stored in the `turns` row (see 04-discord.md).
 - **SES-105** A start that a graceful stop cut is recorded in the row before the process exits, and it does not count against the turn. There is no limit on graceful cuts.
 - **SES-106** chad gives up on a turn after two starts that ended in a kill. On the next delivery it does not run the model. It ends the turn as `Failed` with the reason `GaveUp`, posts the give-up message below and waits for the owner.
+- **SES-202** A start that SIGTERM began to stop and a kill ended before the cut at 15 seconds counts as a kill, so two such restarts in the middle of one turn end it with the give-up of SES-106.
 - **SES-107** `beforeTurn` runs again for every resumed start, and the plugin decides what to do with `resumed: true`. `afterTurn` runs once, for the attempt that finishes.
 - **SES-108** When chad gives up, `afterTurn` runs once with `Failed`, the first attempt's id and `resumed: true`. `beforeTurn` does not run for the give-up.
 - **SES-109** A timer's turn that is cut is resumed like any other turn, as the same scheduled time. It does not start a second turn (see 13-timers-and-cron.md).
@@ -342,6 +345,7 @@ This section covers what a graceful stop does to sessions. The whole stop sequen
 - **SES-110** A graceful stop waits up to 15 seconds, which is cluster's `entityTerminationTimeout`, for requests in flight.
 - **SES-111** A turn that ends inside those 15 seconds finishes normally and is not redelivered.
 - **SES-112** A longer turn is cut at 15 seconds, recorded as a graceful cut (SES-105) and resumed on the next start.
+- **SES-201** No turn starts inside the wait of a graceful stop. A request that would start one, a new owner message or a message that waited to steer a turn that ended in the wait, is left unprocessed, and cluster delivers it at the next start.
 - **SES-113** A timer whose plugin is not loaded is held inside its request until the plugin comes back. The request stays unprocessed, so a kill redelivers it and it is held again (see 13-timers-and-cron.md).
 - **SES-114** A timer held for an unloaded plugin and a plugin turn waiting for an idle session are requests in flight, so a stop with either one takes the full 15 seconds.
 - **SES-115** After the wait, chad runs the hooks queued off the reply path, each inside its budget, before it closes the plugins' scopes. The stop's deadline ends this drain 50 seconds after SIGTERM at the latest, and a hook that is still queued then is dropped and logged. The stop's order and its deadline are in 01-image-and-volume.md.
@@ -608,3 +612,7 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-196 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
 | SES-197 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
 | SES-198 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| SES-199 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| SES-200 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| SES-201 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| SES-202 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |

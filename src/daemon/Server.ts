@@ -1,6 +1,6 @@
 import { dirname } from "node:path"
 import * as NodeSocketServer from "@effect/platform-node/NodeSocketServer"
-import { Data, Deferred, Effect, FileSystem, Layer } from "effect"
+import { Data, Deferred, Effect, Fiber, FileSystem, Layer } from "effect"
 import {
   type Rpc,
   type RpcGroup,
@@ -32,6 +32,8 @@ export interface State {
   connections: ReadonlyArray<{ readonly name: string; readonly kind: string }>
   /** The connection and owner commands, which the boot hands over once it has loaded the connections. */
   readonly commands: Deferred.Deferred<Commands>
+  /** The fibers of the commands in flight, which a stop interrupts before it takes anything down (CLI-19). */
+  readonly calls: Set<Fiber.Fiber<unknown, unknown>>
 }
 
 export const makeState = (): State => ({
@@ -39,7 +41,14 @@ export const makeState = (): State => ({
   filesystem: [],
   connections: [],
   commands: Deferred.makeUnsafe(),
+  calls: new Set(),
 })
+
+/**
+ * Interrupts the commands in flight. A stop does this first, so that a command is cut while the daemon still holds
+ * what it uses, and its CLI is told the daemon went away instead of getting what a half-closed daemon answered.
+ */
+export const interruptCalls = (state: State) => Fiber.interruptAll(state.calls)
 
 const report = (state: State): Report => ({
   version: Version.version,
@@ -152,16 +161,22 @@ export const serve = <Rpcs extends Rpc.Any>(
 const handlers = (state: State) => {
   // A command that arrives while the daemon boots waits for the boot.
   const commands = Deferred.await(state.commands)
+  const command = <A, E>(run: (commands: Commands) => Effect.Effect<A, E>) =>
+    Effect.withFiber((fiber) => {
+      state.calls.add(fiber)
+      return Effect.flatMap(commands, run).pipe(
+        Effect.ensuring(Effect.sync(() => state.calls.delete(fiber))),
+      )
+    })
   return Rpcs.toLayer({
     Ping: () => Effect.succeed("pong"),
     Status: () => Effect.sync(() => report(state)),
     ConnectionChange: ({ change }, { headers }) =>
-      Effect.flatMap(commands, (commands) =>
+      command((commands) =>
         commands.change(change, Queue.caller(headers[sessionHeader])),
       ),
-    ConnectionList: () => Effect.flatMap(commands, (commands) => commands.list),
-    ConnectionCheck: ({ name }) =>
-      Effect.flatMap(commands, (commands) => commands.check(name)),
+    ConnectionList: () => command((commands) => commands.list),
+    ConnectionCheck: ({ name }) => command((commands) => commands.check(name)),
   })
 }
 

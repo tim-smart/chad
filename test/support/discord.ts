@@ -2,7 +2,8 @@
 // what the adapter and dfx ask. dfx's own shard, its socket handling and its REST client all run for real on top.
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
-import { Layer } from "effect"
+import * as NodeSocketServer from "@effect/platform-node/NodeSocketServer"
+import { Effect, Exit, Layer, Scope } from "effect"
 import { Socket } from "effect/socket"
 
 /** The id of chad's bot user, which the fake REST server answers `/users/@me` with. */
@@ -147,6 +148,80 @@ export const gateway = (): Gateway => {
   }
 }
 
+/** The scripted gateway behind a real WebSocket server, for a daemon in a child process (layer 4). */
+export interface Served extends Omit<Gateway, "layer"> {
+  /** Where the child's socket constructor connects. It passes the URL dfx asked for as the `url` parameter. */
+  readonly url: string
+  readonly close: () => Promise<void>
+}
+
+/**
+ * Serves the scripted gateway over WebSocket. Every socket the daemon opens is a `GatewaySocket` here, as in the test's
+ * own process: what the scenario sends goes out on the wire, and what the daemon writes is recorded.
+ */
+export const served = async (): Promise<Served> => {
+  const changes = new Changes()
+  const sockets: Array<GatewaySocket> = []
+  const asked: Array<string> = []
+  const scope = Effect.runSync(Scope.make())
+  const server = await Effect.runPromise(
+    NodeSocketServer.makeWebSocket({
+      host: "127.0.0.1",
+      port: 0,
+      verifyClient: (info, done) => {
+        const url = new URL(info.req.url ?? "/", "ws://gateway")
+        asked.push(url.searchParams.get("url") ?? "")
+        done(true)
+      },
+    }).pipe(Scope.provide(scope)),
+  )
+  const address = server.address
+  const port = address._tag === "UnixPathAddress" ? 0 : address.port
+  const connection = (socket: Socket.Socket) =>
+    Effect.gen(function* () {
+      const gateway = new GatewaySocket(asked.shift() ?? "", changes)
+      sockets.push(gateway)
+      changes.changed()
+      const { write } = yield* socket.writer
+      gateway.addEventListener("message", (event) => {
+        Effect.runFork(write(String((event as MessageEvent).data)))
+      })
+      gateway.addEventListener("close", (event) => {
+        if (gateway.closed?.by !== "discord") return
+        Effect.runFork(write(new Socket.CloseEvent((event as CloseEvent).code)))
+      })
+      const pull = yield* Socket.readerString(socket)
+      const ended = yield* Effect.exit(
+        Effect.forever(
+          Effect.flatMap(pull, (frames) =>
+            Effect.sync(() => {
+              for (const frame of frames) gateway.send(frame)
+            }),
+          ),
+        ),
+      )
+      // The daemon's end closed the socket, or the process holding it died.
+      const reason = Exit.isFailure(ended)
+        ? ended.cause.reasons.find((part) => part._tag === "Fail")
+        : undefined
+      const error = reason?._tag === "Fail" ? reason.error : undefined
+      gateway.close(
+        error !== undefined && error.reason._tag === "SocketCloseError"
+          ? error.reason.code
+          : 1006,
+      )
+    }).pipe(Effect.scoped)
+  Effect.runFork(
+    server.run(connection).pipe(Effect.ignore, Scope.provide(scope)),
+  )
+  return {
+    url: `ws://127.0.0.1:${port}`,
+    sockets: () => sockets,
+    socket: (index) => changes.until(() => sockets[index]),
+    close: () => Effect.runPromise(Scope.close(scope, Exit.void)),
+  }
+}
+
 // Payloads, as Discord sends them.
 
 export const hello = { op: Op.hello, d: { heartbeat_interval: 41_250 } }
@@ -183,6 +258,8 @@ export interface Posted {
   readonly guild?: string
   /** The ids of the users the message mentions. */
   readonly mentions?: ReadonlyArray<string>
+  /** When it was sent, as Discord writes it. Left out, it is midnight UTC on the day the suite was written. */
+  readonly timestamp?: string
 }
 
 /** A `MESSAGE_CREATE` dispatch with sequence `s`. */
@@ -206,7 +283,7 @@ export const messageCreate = (s: number, message: Posted) => ({
       bot: message.bot === true || message.webhook === true,
     },
     content: message.content,
-    timestamp: "2026-11-15T00:00:00+00:00",
+    timestamp: message.timestamp ?? "2026-11-15T00:00:00+00:00",
     edited_timestamp: null,
     tts: false,
     pinned: false,
@@ -254,6 +331,8 @@ export interface Rest {
    * calls from the moment it arrives.
    */
   readonly hold: (token: string) => () => void
+  /** Puts a message in its channel's history, as one that was sent while no gateway carried it, for the catch-up. */
+  readonly sent: (message: Posted) => void
   readonly close: () => Promise<void>
 }
 
@@ -263,6 +342,13 @@ export const rest = async (): Promise<Rest> => {
   const channels = new Map<string, number>()
   const threads = new Set<string>()
   const messages = new Map<string, Data>()
+  // What `GET /channels/:id/messages` reads, by channel: chad's own posts and the messages a scenario put there.
+  const histories = new Map<string, Array<Data>>()
+  const keep = (channel: string, message: Data) => {
+    const history = histories.get(channel) ?? []
+    history.push(message)
+    histories.set(channel, history)
+  }
   const refused = new Map<string, number>()
   const held = new Map<string, Promise<void>>()
   const tokenOf = (call: RestCall) =>
@@ -320,7 +406,21 @@ export const rest = async (): Promise<Rest> => {
         components: [],
       }
       messages.set(message.id, message)
+      keep(post[1]!, message)
       return [200, message]
+    }
+    // Discord's page of a channel's messages after an id, as the adapter's forward `history` asks for it.
+    if (call.method === "GET" && post !== null) {
+      const query = new URL(call.path, "http://rest").searchParams
+      const after = BigInt(query.get("after") ?? "0")
+      const limit = Number(query.get("limit") ?? "50")
+      const page = (histories.get(post[1]!) ?? [])
+        .filter((message) => BigInt(String(message["id"])) > after)
+        .sort((a, b) =>
+          BigInt(String(a["id"])) < BigInt(String(b["id"])) ? -1 : 1,
+        )
+        .slice(0, limit)
+      return [200, page]
     }
     const message = /^\/channels\/(\d+)\/messages\/(\d+)$/.exec(path)
     if (call.method === "GET" && message !== null) {
@@ -414,6 +514,11 @@ export const rest = async (): Promise<Rest> => {
       }),
     channel: (id, type) => void channels.set(id, type),
     refuse: (token, status = 401) => void refused.set(token, status),
+    sent: (message) => {
+      const { d } = messageCreate(0, message)
+      messages.set(message.id, d)
+      keep(message.channel, d)
+    },
     hold: (token) => {
       let release = () => {}
       held.set(token, new Promise<void>((resolve) => (release = resolve)))

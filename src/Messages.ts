@@ -277,6 +277,17 @@ export const duration = (milliseconds: number) => {
 export const stopped = (milliseconds: number) =>
   subtext(`Stopped after ${duration(milliseconds)}.`)
 
+/**
+ * The prompt of a turn that a restart cut, which a resumed start sends in place of the owner's message
+ * (docs/spec/03-sessions-and-turns.md, SES-102). The model reads it, and the owner never sees it.
+ */
+export const restartNote = () =>
+  "[chad restarted while this turn was running. A script that was cut off may already have had its side effects. Check before you repeat anything, then finish the request above.]"
+
+/** chad gave up on a turn that two kills cut (docs/spec/03-sessions-and-turns.md, SES-106). */
+export const gaveUp = () =>
+  "This turn was cut off by a crash twice, so I've stopped retrying it. Whatever its scripts already did is done. Send a message to carry on."
+
 /** `/stop` found nothing running (DIS-76). */
 export const nothingRunning = () => subtext("Nothing is running.")
 

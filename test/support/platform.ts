@@ -208,6 +208,12 @@ export const make = (
                 readonly id: string
                 readonly event: ChatEvent.ChatEvent
               }>()
+              // An event this daemon never acknowledged goes to the next daemon that attaches, as Discord replays an
+              // event whose sequence was not stored (TST-54). The finalizer runs after the handler is detached.
+              const gone = yield* Deferred.make<void>()
+              yield* Effect.addFinalizer(() =>
+                Deferred.succeed(gone, undefined),
+              )
               yield* attach({
                 handle: (event) =>
                   Effect.gen(function* () {
@@ -215,9 +221,17 @@ export const make = (
                     const accepted = yield* Deferred.make<boolean>()
                     pending.set(id, accepted)
                     yield* Queue.offer(queue, { id, event })
-                    if (!(yield* Deferred.await(accepted))) {
-                      return yield* new ChatHandler.NotAccepted()
+                    const answer = yield* Deferred.await(accepted).pipe(
+                      Effect.raceFirst(
+                        Effect.as(Deferred.await(gone), "gone" as const),
+                      ),
+                    )
+                    if (answer === "gone") {
+                      pending.delete(id)
+                      record("redeliver", { event: event._tag })
+                      return yield* (yield* current).handle(event)
                     }
+                    if (!answer) return yield* new ChatHandler.NotAccepted()
                   }),
               })
               return Stream.fromQueue(queue)

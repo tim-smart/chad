@@ -122,6 +122,15 @@ export class Model extends Context.Service<
   }>
 >()("chad/SessionEntity/Model") {}
 
+/**
+ * Whether the daemon is stopping. A request that would start a turn in the wait of a graceful stop starts none, and is
+ * left for the next start (SES-201).
+ */
+export const Stopping = Context.Reference<{ readonly stopping: () => boolean }>(
+  "chad/SessionEntity/Stopping",
+  { defaultValue: () => ({ stopping: () => false }) },
+)
+
 /** The loggers of a running script: the default one, which prints to the console the script was given. */
 const scriptLoggers = new Set([EffectLogger.defaultLogger])
 
@@ -159,7 +168,8 @@ interface Steer {
 }
 
 interface Turn {
-  readonly id: string
+  /** The turn id, which a resumed start takes from the row of the request's first attempt. */
+  id: string
   /** The key of the request that asked for the turn. */
   readonly key: string
   readonly at: number
@@ -184,6 +194,8 @@ interface Turn {
   known: Set<Prompt.Message> | undefined
   /** Whether the batch of the turn's own prompt has come. */
   prompted: boolean
+  /** Whether a restart cut an earlier start of the turn, so that this one sends the restart note. */
+  resumed: boolean
 }
 
 /** What the entity holds for the thread's current session. A `/new` puts a fresh one in its place. */
@@ -221,6 +233,20 @@ export const layer = Layer.unwrap(
           turn: undefined,
           ready: undefined,
         }
+        const stopping = yield* Stopping
+        // The request of a turn that a restart cut takes the session before any other request of the thread, so
+        // that the messages that waited to steer it steer it again (SES-200).
+        const unfinished = yield* Sessions.unfinished(key).pipe(Effect.orDie)
+        let first =
+          unfinished === undefined
+            ? undefined
+            : { key: unfinished, taken: Deferred.makeUnsafe<void>() }
+        const take = (request: string) =>
+          Effect.sync(() => {
+            if (first?.key !== request) return
+            Deferred.doneUnsafe(first.taken, Effect.void)
+            first = undefined
+          })
 
         yield* Effect.addFinalizer(() =>
           state.live === undefined
@@ -448,18 +474,24 @@ export const layer = Layer.unwrap(
           request: Message,
           chat: ChatService,
         ) {
-          const read = yield* Attachments.read({
-            chat,
-            message: request.message,
-            attachments: request.attachments,
-            directory: live.directory,
-            asImages: true,
-          })
-          yield* tell(chat, request, read)
+          // A resumed start sends the restart note in place of the owner's message, which the history holds already.
+          const read = turn.resumed
+            ? undefined
+            : yield* Attachments.read({
+                chat,
+                message: request.message,
+                attachments: request.attachments,
+                directory: live.directory,
+                asImages: true,
+              })
+          if (read !== undefined) yield* tell(chat, request, read)
           const known = new Set(live.agent.history.current.content)
           turn.known = known
           const output = yield* live.agent.send({
-            prompt: Attachments.prompt(read),
+            prompt:
+              read === undefined
+                ? Messages.restartNote()
+                : Attachments.prompt(read),
             system: frozen(live),
           })
           yield* saveFrozen(live)
@@ -623,25 +655,57 @@ export const layer = Layer.unwrap(
             Effect.gen(function* () {
               own.live ??= yield* start()
               const live = own.live
-              turn.usage = turn.earlier = yield* Sessions.started({
+              const started = yield* Sessions.started({
                 key: turn.key,
                 turn: turn.id,
                 session: live.id,
                 model: Option.getOrUndefined(model)?.name,
                 at: turn.at,
               })
-              return live
+              turn.id = started.turn
+              turn.usage = turn.earlier = started.earlier
+              turn.resumed = started.starts > 1
+              return { live, started }
             }),
           )
           if (Exit.isFailure(built)) {
             return yield* failed(turn, own.live?.id)(built.cause)
           }
-          const live = built.value
+          const { live, started } = built.value
           const ids = { session: live.id, turn: turn.id }
-          yield* Logger.event("turn.started", "A turn started", {
-            ...ids,
-            origin: "message",
-          })
+          // After two starts that a kill ended, the model does not run again (SES-106).
+          if (Sessions.kills(started) >= 2) {
+            const at = Date.now()
+            yield* Sessions.ended({
+              key: turn.key,
+              outcome: "failed",
+              failure: "GaveUp",
+              at,
+            })
+            yield* post(chat, Messages.gaveUp())
+            yield* Logger.event("turn.failed", "The turn failed", {
+              ...ids,
+              reason: "GaveUp",
+              duration_ms: at - turn.at,
+              ...Sessions.fields(turn.usage),
+              reconciled: 0,
+              cause: "",
+            })
+            return { _tag: "Failed", reason: "GaveUp" } as const
+          }
+          // The first start writes `turn.started`, and each later one `turn.resumed` (FAIL-326).
+          if (turn.resumed) {
+            yield* Logger.event("turn.resumed", "A turn was resumed", {
+              ...ids,
+              origin: "message",
+              starts: started.starts,
+            })
+          } else {
+            yield* Logger.event("turn.started", "A turn started", {
+              ...ids,
+              origin: "message",
+            })
+          }
           Deferred.doneUnsafe(turn.open, Effect.succeed(live))
 
           // The model's part runs in a fiber of its own, which is what a stop interrupts. A turn that was stopped
@@ -653,7 +717,25 @@ export const layer = Layer.unwrap(
             )
             turn.fiber = fiber
             if (turn.stopped) yield* Fiber.interrupt(fiber)
-            exit = yield* Fiber.await(fiber)
+            // Only a shutdown interrupts the turn itself, at the end of the wait for requests in flight. The cut is
+            // recorded with the reconcile, and the request is left unanswered for the next start (SES-112, FAIL-327).
+            exit = yield* Fiber.await(fiber).pipe(
+              Effect.onInterrupt(() =>
+                Effect.gen(function* () {
+                  turn.closing = true
+                  yield* Fiber.interrupt(fiber)
+                  yield* reconcile(live, turn)
+                  yield* Sessions.cut(turn.key)
+                }).pipe(
+                  Effect.catchCause((cause) =>
+                    Effect.logError(
+                      "A graceful cut could not be recorded",
+                      cause,
+                    ),
+                  ),
+                ),
+              ),
+            )
           }
 
           // Neither a stop nor a shutdown interrupts the reconcile, and the turn's end is recorded after it.
@@ -825,11 +907,16 @@ export const layer = Layer.unwrap(
                 yield* duplicate
                 return { _tag: "Steered" } as const
               }
+              if (first !== undefined && first.key !== payload.key) {
+                yield* Deferred.await(first.taken)
+              }
               while (true) {
                 const own = state
                 const running = joined ?? own.turn
                 joined = undefined
                 if (running === undefined) {
+                  // No turn starts in the wait of a graceful stop. The request stays unanswered for the next start.
+                  if (stopping.stopping()) return yield* Effect.never
                   const turn: Turn = {
                     id: Sessions.turnId(),
                     key: payload.key,
@@ -845,8 +932,10 @@ export const layer = Layer.unwrap(
                     closing: false,
                     known: undefined,
                     prompted: false,
+                    resumed: false,
                   }
                   own.turn = turn
+                  yield* take(payload.key)
                   return yield* run(own, turn, payload).pipe(
                     Effect.catchCause(failed(turn, own.live?.id)),
                     Effect.ensuring(close(own, turn)),
@@ -855,7 +944,7 @@ export const layer = Layer.unwrap(
                 const outcome = yield* steer(running, payload)
                 if (outcome !== "next") return outcome
               }
-            }).pipe(Effect.orDie),
+            }).pipe(Effect.ensuring(take(payload.key)), Effect.orDie),
           stop: ({ payload }) =>
             Effect.gen(function* () {
               if (yield* interrupt(state.turn)) return { stopped: true }
@@ -881,7 +970,12 @@ export const layer = Layer.unwrap(
             }),
         })
       }),
-      { maxIdleTime: timings.sessionIdle, concurrency: "unbounded" },
+      {
+        maxIdleTime: timings.sessionIdle,
+        concurrency: "unbounded",
+        // A defect that escapes a handler fails that one request, and the activation carries on (SES-20).
+        disableFatalDefects: true,
+      },
     )
   }),
 )

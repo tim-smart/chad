@@ -38,6 +38,7 @@ The status message is removed when a turn ends (see 04-discord.md), so the log i
 
 - **FAIL-11** Every action that gets a line in the status message gets a log line at Info, written by the same function that adds the status line.
 - **FAIL-12** chad also logs the start of every turn with its origin, and the end of every turn with its outcome, its duration and its token usage.
+- **FAIL-326** The first start of a turn writes `turn.started`. Each later start writes `turn.resumed` and no `turn.started`, and the delivery that gives up (SES-106) writes only `turn.failed`.
 - **FAIL-13** A script's source is logged cut at 2,000 characters.
 - **FAIL-14** A script's output is logged with its first 1,000 and its last 1,000 characters, and the cut is marked. A failing script's error is at the end of its output.
 - **FAIL-15** A retry of a model call is logged at Warn.
@@ -597,6 +598,7 @@ chad stores a session's history as clanka appends it, one write per `HistoryAppe
 - **FAIL-122** The reconcile runs in a region that neither Stop nor a graceful stop can interrupt.
 - **FAIL-123** The turn's end line carries the number of messages the reconcile wrote, on every turn.
 - **FAIL-214** The reconcile writes a log line of its own, the event `history.reconciled`, only when it wrote at least one message, so the log shows that a gap existed. A line that says it wrote nothing on every turn would be noise.
+- **FAIL-327** A turn that a graceful stop cuts runs the reconcile too, in the region that records the graceful cut, which nothing interrupts, so every step its Agent finished is in the stored history at the next start. Its request stays unanswered.
 - **FAIL-124** After a kill there is no Agent to compare with, and the stored history is what there is. clanka persists nothing itself.
 
 What a cut turn leaves in the history, from the probes. After a Stop during a turn's fourth script, the Agent's history holds the prompt and the three finished steps and nothing from the fourth, and the next `send` gives the model all three. The same holds after `RetriesExhausted`. A script's call and its result are appended together when the script finishes, so a script that was cut leaves no trace, and the output it had printed so far is lost.
@@ -1147,3 +1149,5 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-323 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `wire` |
 | FAIL-324 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
 | FAIL-325 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| FAIL-326 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| FAIL-327 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
