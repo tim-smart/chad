@@ -11,13 +11,12 @@ import config, { layers, live } from "../../vitest.config.ts"
 import { exists, path, read, yaml } from "../support/repo.ts"
 
 describe("what chad asks of Discord", () => {
-  it("DIS-4 DIS-87 the permissions in a server channel are the six of the list, Create Public Threads among them", () => {
+  it("DIS-87 the permissions in a server channel are the six of the list", () => {
     const bit = (n: number) => BigInt(1) << BigInt(n)
     expect(Discord.permissions).toBe(
       // View Channel, Send Messages, Attach Files, Read Message History, Create Public Threads, Send Messages in Threads
       bit(10) | bit(11) | bit(15) | bit(16) | bit(35) | bit(38),
     )
-    expect(Discord.permissions & bit(35)).toBe(bit(35))
     // Message content is the one intent of the list that Discord calls privileged.
     expect(Discord.privilegedIntents).toBe(1 << 15)
     expect(Discord.intents & Discord.privilegedIntents).toBe(1 << 15)
@@ -51,6 +50,8 @@ describe("the nightly Discord job", () => {
     readonly run?: string
     readonly if?: string
     readonly env?: Readonly<Record<string, string>>
+    readonly uses?: string
+    readonly with?: Readonly<Record<string, unknown>>
   }
   const steps: ReadonlyArray<Step> = nightly.jobs.discord.steps
   const workflows = readdirSync(path(".github/workflows")).map(
@@ -106,8 +107,27 @@ describe("the nightly Discord job", () => {
     expect(nightly.concurrency.group).toBe("discord-bots")
   })
 
+  it("TST-81 TST-208 a failed night uploads what its scenario left, database included, and not the volume's secrets", () => {
+    const upload = steps.findIndex((step) =>
+      String(step.uses).startsWith("actions/upload-artifact@"),
+    )
+    expect(steps[upload]).toMatchObject({
+      if: "failure()",
+      with: {
+        path: "/tmp/chad-*/\n!/tmp/chad-*/**/secrets/**\n",
+        "include-hidden-files": true,
+      },
+    })
+    // The upload comes after the scenario, so that there is something to upload.
+    expect(upload).toBeGreaterThan(
+      steps.findIndex((step) => step.run === "node scripts/discord.ts"),
+    )
+  })
+
   it("TST-120 a failed night comments on the job's one open issue, and opens one only when there is none", () => {
-    const report = steps.find((step) => step.if === "failure()")
+    const report = steps.find(
+      (step) => step.if === "failure()" && step.run !== undefined,
+    )
     expect(report?.run).toContain('title="The nightly Discord job failed"')
     expect(report?.run).toMatch(
       /gh issue list --state open --search "in:title \$title"[\s\S]*if \[ -n "\$number" \]; then\s+gh issue comment "\$number"[\s\S]*else\s+gh issue create --title "\$title"/,

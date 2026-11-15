@@ -15,11 +15,18 @@ import {
   Stream,
 } from "effect"
 import type { LanguageModel, Model as AiModel } from "effect/ai"
-import { ChatEvent, ChatMarkdown, ChatMessage, ChatThread } from "effect/chat"
+import {
+  Chat,
+  ChatEvent,
+  ChatMarkdown,
+  ChatMessage,
+  ChatThread,
+} from "effect/chat"
 import { ClusterSchema, Entity } from "effect/cluster"
 import { Rpc } from "effect/rpc"
 import { SqlClient } from "effect/sql"
 import { Timings } from "../Timings.ts"
+import { Chats } from "./Chats.ts"
 import * as Logger from "./Logger.ts"
 import { Volume } from "./Volume.ts"
 
@@ -29,13 +36,16 @@ import { Volume } from "./Volume.ts"
  */
 export class Message extends Schema.Class<Message>("chad/Session/Message")({
   key: Schema.String,
+  /** The name of the chat connection the message arrived on, which is the one the session answers through. */
+  connection: Schema.String,
   /** The whole chat message, in effect/chat's own encoded form. */
   message: ChatMessage.ChatMessage,
   attachments: Schema.Array(Schema.String),
 }) {
-  static fromEvent(event: ChatEvent.MessageCreated) {
+  static fromEvent(event: ChatEvent.MessageCreated, connection: string) {
     return new Message({
       key: ChatEvent.dedupeKey(event),
+      connection,
       message: event.message,
       attachments: event.message.attachments.map((attachment) => attachment.id),
     })
@@ -79,6 +89,7 @@ export const layer = Layer.unwrap(
         const sql = yield* SqlClient.SqlClient
         const volume = yield* Volume
         const model = yield* Model
+        const chats = yield* Chats
         let agent: Agent.Agent | undefined
         // The session id, which is the `session` key of the session's log lines once the session has started.
         let session: string | undefined
@@ -124,7 +135,11 @@ export const layer = Layer.unwrap(
               Effect.scoped,
               Effect.provide(layer),
             )
-          yield* ChatMarkdown.post(thread, answer)
+          // The answer goes out through the connection the message arrived on.
+          const chat = yield* chats.get(request.connection)
+          yield* ChatMarkdown.post(thread, answer).pipe(
+            Effect.provideService(Chat.Chat, chat),
+          )
         })
 
         return Session.of({

@@ -8,7 +8,9 @@ A rule that only a nightly or a live item can cover names that item, which is a 
 
 | Rule     | Covered by |
 | -------- | ---------- |
-| DIS-3    | `discord`  |
+| DIS-3    | TST-207    |
+| DIS-4    | TST-207    |
 | DIS-89   | `discord`  |
-| SES-8    | `discord`  |
+| SES-8    | TST-207    |
 | TST-186a | `discord`  |
+| TST-207  | `discord`  |

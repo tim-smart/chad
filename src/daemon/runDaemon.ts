@@ -13,6 +13,7 @@ import { Timings } from "../Timings.ts"
 import { version } from "../Version.ts"
 import type { Connection } from "./Connection.ts"
 import * as Environment from "./Environment.ts"
+import * as Chats from "./Chats.ts"
 import * as Handler from "./Handler.ts"
 import * as Logger from "./Logger.ts"
 import * as Model from "./Model.ts"
@@ -140,16 +141,26 @@ const boot = Effect.fnUntraced(function* (
       entityTerminationTimeout: inputs.timings.stopRequests,
     },
   })
+  // Each connection has a `Chat` and an adapter registry of its own, because the registry is keyed by platform and
+  // two connections can share one. A session finds the `Chat` of a connection by the connection's name.
+  const chats = yield* Chats.make(inputs.connections)
   const connections = inputs.connections.map((connection) =>
-    inputs.chat(connection).pipe(Layer.provide(Handler.layer(connection))),
+    Layer.mergeAll(
+      Layer.effectDiscard(
+        Effect.flatMap(Chat.Chat, (chat) =>
+          chats.register(connection.name, chat),
+        ),
+      ),
+      inputs.chat(connection).pipe(Layer.provide(Handler.layer(connection))),
+    ).pipe(Layer.provide(Layer.fresh(Chat.layer))),
   )
   yield* Layer.buildWithScope(
     Layer.mergeAll(SessionEntity.layer, ...connections).pipe(
       Layer.provide(cluster),
-      Layer.provide(Chat.layer),
       Layer.provide(
         Layer.mergeAll(
           Layer.succeed(SessionEntity.Model, model),
+          Layer.succeed(Chats.Chats, chats),
           Layer.succeed(Volume.Volume, volume),
           Layer.succeed(Timings, inputs.timings),
           Agent.ConversationMode.layer(true),

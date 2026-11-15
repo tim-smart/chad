@@ -1,5 +1,5 @@
-// The real Discord, for the nightly Discord job: one bot's REST calls with its token, and the permissions a member
-// has in a channel. Nothing on the pull request gate imports this file.
+// The real Discord, for the nightly Discord job: one bot's REST calls with its token, a gateway session that only
+// listens, and the permissions a member has in a channel. Nothing on the pull request gate imports this file.
 import { restRoot } from "./discord.ts"
 
 /** A bot's REST client. A call that Discord refuses throws with the status and the body. */
@@ -45,6 +45,69 @@ export const eventually = async <A>(
     const value = await ready()
     if (value !== undefined) return value
     await new Promise((resolve) => setTimeout(resolve, 1000))
+  }
+}
+
+/** A message as the gateway sends it to a session. */
+export interface Heard {
+  readonly id: string
+  readonly content: string
+}
+
+/**
+ * A gateway session of a bot that only listens, with the intents it is given. It is up once Discord has sent READY.
+ * Discord turns an identify down when another session of the bot identified a moment ago, and the session asks again.
+ */
+export const listen = async (token: string, intents: number) => {
+  const gateway: { url: string } = await bot(token).get("/gateway/bot")
+  const heard: Array<Heard> = []
+  const ready = Promise.withResolvers<void>()
+  const socket = new WebSocket(`${gateway.url}/?v=10&encoding=json`)
+  const send = (op: number, d: unknown) =>
+    socket.send(JSON.stringify({ op, d }))
+  const identify = () =>
+    send(2, {
+      token,
+      intents,
+      properties: { os: "linux", browser: "chad-test", device: "chad-test" },
+    })
+  let sequence: number | null = null
+  let beat: ReturnType<typeof setInterval> | undefined
+  socket.addEventListener("message", (event) => {
+    const payload: {
+      op: number
+      t?: string
+      s?: number | null
+      d?: { heartbeat_interval?: number; id?: string; content?: string }
+    } = JSON.parse(String(event.data))
+    if (typeof payload.s === "number") sequence = payload.s
+    if (payload.op === 10) {
+      beat = setInterval(() => send(1, sequence), payload.d?.heartbeat_interval)
+      identify()
+    } else if (payload.op === 1) {
+      send(1, sequence)
+    } else if (payload.op === 9) {
+      // Invalid session, which is Discord's answer to an identify that came too soon after another.
+      setTimeout(identify, 6000)
+    } else if (payload.op === 0 && payload.t === "READY") {
+      ready.resolve()
+    } else if (payload.op === 0 && payload.t === "MESSAGE_CREATE") {
+      heard.push({
+        id: payload.d?.id ?? "",
+        content: payload.d?.content ?? "",
+      })
+    }
+  })
+  socket.addEventListener("close", (event) => {
+    clearInterval(beat)
+    ready.reject(new Error(`Discord closed the gateway with ${event.code}`))
+  })
+  await ready.promise
+  return {
+    /** The message with this id, once the session has been sent it. */
+    message: (id: string) =>
+      eventually(async () => heard.find((message) => message.id === id)),
+    close: () => socket.close(1000),
   }
 }
 

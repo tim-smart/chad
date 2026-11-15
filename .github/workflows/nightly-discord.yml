@@ -38,6 +38,16 @@ jobs:
         env:
           DISCORD_CHAD_TOKEN: ${{ secrets.DISCORD_CHAD_TOKEN }}
           DISCORD_DRIVER_TOKEN: ${{ secrets.DISCORD_DRIVER_TOKEN }}
+      # A scenario that passed removed its directory, so what is left is each failed one, database included. The
+      # volume's secrets directory holds the bot's token once connections are stored, and it stays on the runner.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: failed-scenarios
+          path: |
+            /tmp/chad-*/
+            !/tmp/chad-*/**/secrets/**
+          include-hidden-files: true
       # One open issue for this job, with a comment for each failed night.
       - if: failure()
         run: |

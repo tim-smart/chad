@@ -31,6 +31,7 @@ chad runs sessions on effect cluster. An entity is an addressable actor that han
 - **SES-13** Each session thread is one `Session` entity, keyed by the chat thread, on `SingleRunner` over the SQLite file.
 - **SES-149** The entity id is the thread string `ChatThread.toString(thread)`, which on Discord is `discord:<channel id>`. effect/chat defines that form and a codec for it, and chad defines no second format.
 - **SES-150** The same thread string is the value of every stored thread column, which covers the `sessions` rows, the `timers` rows, `PluginTurn.thread` and the cron plugin's job records (see 02-storage.md, 06-plugin-api.md and 13-timers-and-cron.md).
+- **SES-185** A session answers through the chat connection its message arrived on. Each connection has its own adapter and its own `Chat` router, because effect/chat's adapter registry holds one adapter for a platform and two connections can share a platform (see 02-storage.md). The `message` request carries the name of its connection, so a reply never goes out with another connection's token.
 - **SES-14** An owner message is a persisted request to that entity. Its primary key is `ChatEvent.dedupeKey` of the event. chad has no hand-written inbox and no dedupe table.
 - **SES-151** The `message` request stores the whole chat message in effect/chat's own encoded form, plus the attachment ids, so that a redelivered request rebuilds `Origin.Message` without asking Discord again.
 - **SES-152** A stored request that no longer decodes ends as `Failed` with the reason `Internal` and a message in the thread. It does not block the boot and is not retried. A deploy is a graceful stop, so a cut turn is redelivered under the new image, and effect/chat's encoding can differ between two images.
@@ -580,3 +581,4 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-182 | TIM-559 round 3 C1, TIM-559 round 4 item 4 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | SES-183 | TIM-559 round 3 C6, TIM-559 round 4 item 5 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | SES-184 | TIM-559 round 3 C1 for what holds before the new session's first `beforeTurn`, TIM-559 round 4 item 4 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
+| SES-185 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `wire` |

@@ -363,6 +363,26 @@ describe("the comparison of the spec's ids with the tests' ids", () => {
     expect(failures([["AA-3", "AA-4"]])).toEqual([
       "the waiver AA-3 names AA-4, which has no test that could fail",
     ])
+    // A fact names a rule and never an item, and the rule may be one that only an item covers.
+    expect(
+      failures([["AA-3", "discord"]], [["AA-3 on a real gateway", "discord"]]),
+    ).toEqual([
+      "the waiver AA-3 is of a fact and names discord, and a fact names the rule whose test would fail if it stopped holding",
+    ])
+    expect(
+      run({
+        rules: [
+          early,
+          { id: "AA-7", slice: "early" },
+          { id: "AA-8", slice: "early", kind: "fact" },
+        ],
+        waivers: [
+          ["AA-8", "AA-7"],
+          ["AA-7", "discord"],
+        ],
+        tests: [["AA-1 holds"], ["AA-7 on a real gateway", "discord"]],
+      }),
+    ).toMatchObject({ failures: [], waived: { fact: 1, discord: 1 } })
     // Two facts with no test, each waived against the other, cover nothing.
     const facts = [
       early,

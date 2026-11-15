@@ -12,6 +12,7 @@ import { httpClient, type Scenario, scenario } from "../support/driver.ts"
 const owner = "700000000000000001"
 const stranger = "700000000000000002"
 const dm = "800000000000000001"
+const otherDm = "800000000000000002"
 const home: Connection = {
   name: "home",
   kind: "discord",
@@ -100,17 +101,31 @@ test("TST-60a OV-45 DIS-1 DIS-8 DIS-15 DIS-86 a DM over the scripted gateway run
   ).toEqual([])
 })
 
-test("STO-35 STO-147 STO-148 SES-30a TST-61b each connection's shard state is a row of core_discord_shards under its name, and a restart on the volume resumes with it", async () => {
+test("STO-35 STO-147 STO-148 SES-30a SES-185 TST-61b each connection answers with its own token and keeps its shard state in a row of core_discord_shards under its name, and a restart on the volume resumes with it", async () => {
   const work: Connection = { ...home, name: "work", token: "work-token" }
   const first = await scenario({ connections: [home, work] })
   await first.fakes.model.script([{ text: "one" }, { text: "two" }])
   // The two connections dial in either order.
   const sockets = await identifyAll(first, 2)
   expect([...sockets.keys()].sort()).toEqual(["home", "work"])
-  // Each DM is saved before its sequence is, and the answer comes after both.
-  for (const [index, name] of ["home", "work"].entries()) {
-    sockets.get(name)?.receive(direct(2, String(index + 1), `from ${name}`))
-    await answers(first, index + 1)
+  // Each connection's owner writes in a DM channel of that connection's bot, and each answer goes out with the
+  // token of the connection the message arrived on.
+  for (const name of ["home", "work"]) {
+    const channel = name === "home" ? dm : otherDm
+    sockets.get(name)?.receive(
+      Discord.messageCreate(2, {
+        id: channel,
+        channel,
+        author: owner,
+        content: `from ${name}`,
+      }),
+    )
+    const [answer] = await first.discord.rest.called(
+      "POST",
+      new RegExp(`^/channels/${channel}/messages$`),
+      1,
+    )
+    expect(answer?.headers["authorization"]).toBe(`Bot ${name}-token`)
   }
   expect(await first.stop()).toBe(0)
   const state = (name: string) => ({

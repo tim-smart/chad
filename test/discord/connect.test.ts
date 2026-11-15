@@ -7,6 +7,7 @@ import { scenario } from "../support/driver.ts"
 import {
   bot,
   eventually,
+  listen,
   type Overwrite,
   permissionsIn,
 } from "../support/live.ts"
@@ -24,7 +25,7 @@ const privileged = {
   messageContent: (1 << 18) | (1 << 19),
 }
 
-test("TST-139 TST-143 TST-186a DIS-89 DIS-3 SES-8 chad's test bot holds exactly the listed intents and permissions, connects to the real gateway with them, and answers the second bot in a thread, with a mention and without one, on the fake model server", async () => {
+test("TST-139 TST-143 TST-186a TST-207 DIS-89 chad's test bot holds exactly the listed intents and permissions, connects to the real gateway with them, and answers the second bot in a thread, with a mention and without one, on the fake model server, while a session without the message content intent reads only the mention and a bot without Create Public Threads opens no thread", async () => {
   const chadBot = bot(token("DISCORD_CHAD_TOKEN"))
   const driver = bot(token("DISCORD_DRIVER_TOKEN"))
   const [chadUser, driverUser] = await Promise.all([
@@ -93,15 +94,41 @@ test("TST-139 TST-143 TST-186a DIS-89 DIS-3 SES-8 chad's test bot holds exactly 
     resumed: false,
   })
 
-  // Until a mention in a channel opens a thread, the second bot opens the thread itself and mentions chad in it.
-  const thread: { id: string } = await driver.post(
-    `/channels/${channel.id}/threads`,
-    { name: `nightly ${new Date().toISOString()}`, type: 11 },
+  // A second session of chad's bot, which identifies without the message content intent and only listens.
+  const deaf = await listen(
+    token("DISCORD_CHAD_TOKEN"),
+    Discord.intents & ~Discord.privilegedIntents,
   )
-  try {
-    await driver.post(`/channels/${thread.id}/messages`, {
-      content: `<@${chadUser.id}> hello from the nightly job`,
+
+  // Until a mention in a channel opens a thread, the test opens one on a message of the second bot. The second bot
+  // lacks Create Public Threads in the channel, and Discord refuses it. chad's bot holds it, and opens the thread.
+  const seed: { id: string } = await driver.post(
+    `/channels/${channel.id}/messages`,
+    { content: `a thread for the nightly job, ${new Date().toISOString()}` },
+  )
+  const open = (as: typeof driver): Promise<{ id: string }> =>
+    as.post(`/channels/${channel.id}/messages/${seed.id}/threads`, {
+      name: "nightly",
     })
+  let thread: { id: string } | undefined
+  try {
+    const refusal = await open(driver).then(
+      (opened) => {
+        thread = opened
+        return "the second bot opened a thread, so it holds Create Public Threads or Discord no longer asks for it"
+      },
+      (error: Error) => error.message,
+    )
+    // 50013 is Discord's code for a missing permission.
+    expect(refusal).toMatch(/^Discord answered 403 .*"code": ?50013/)
+    thread = await open(chadBot)
+    const opened = thread.id
+
+    const mention = `<@${chadUser.id}> hello from the nightly job`
+    const first: { id: string } = await driver.post(
+      `/channels/${opened}/messages`,
+      { content: mention },
+    )
     // chad's bot reads its own answers, because Discord shows a bot the content of its own messages whatever its
     // intents, and the second bot's intents are not part of the set-up.
     const answered = (count: number) =>
@@ -109,7 +136,7 @@ test("TST-139 TST-143 TST-186a DIS-89 DIS-3 SES-8 chad's test bot holds exactly 
         const messages: ReadonlyArray<{
           author: { id: string }
           content: string
-        }> = await chadBot.get(`/channels/${thread.id}/messages?limit=20`)
+        }> = await chadBot.get(`/channels/${opened}/messages?limit=20`)
         const own = messages
           .filter((message) => message.author.id === chadUser.id)
           .map((message) => message.content)
@@ -119,9 +146,11 @@ test("TST-139 TST-143 TST-186a DIS-89 DIS-3 SES-8 chad's test bot holds exactly 
     expect(await answered(1)).toEqual(["an answer from the nightly job"])
 
     // With the message content intent, chad reads a message in the thread that does not mention it.
-    await driver.post(`/channels/${thread.id}/messages`, {
-      content: "and one without a mention",
-    })
+    const plain = "and one without a mention"
+    const second: { id: string } = await driver.post(
+      `/channels/${opened}/messages`,
+      { content: plain },
+    )
     expect(await answered(2)).toEqual([
       "an answer from the nightly job",
       "a second answer",
@@ -130,11 +159,15 @@ test("TST-139 TST-143 TST-186a DIS-89 DIS-3 SES-8 chad's test bot holds exactly 
     expect(JSON.stringify(calls[0]?.body)).toContain(
       "hello from the nightly job",
     )
-    expect(JSON.stringify(calls[1]?.body)).toContain(
-      "and one without a mention",
-    )
+    expect(JSON.stringify(calls[1]?.body)).toContain(plain)
+
+    // Without the intent, the same bot is sent the mention with its content and the other message with none.
+    expect((await deaf.message(first.id)).content).toBe(mention)
+    expect((await deaf.message(second.id)).content).toBe("")
   } finally {
-    // The second bot holds Manage Threads, so that no run leaves a thread behind.
-    await driver.delete(`/channels/${thread.id}`)
+    deaf.close()
+    // The second bot holds Manage Threads, so that no run leaves a thread behind, and it deletes its own message.
+    if (thread !== undefined) await driver.delete(`/channels/${thread.id}`)
+    await driver.delete(`/channels/${channel.id}/messages/${seed.id}`)
   }
 })

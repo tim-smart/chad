@@ -29,7 +29,7 @@ export const layer = (connection: Connection) =>
       // The event is refused only when the save fails, so that the platform sends it again.
       const session = yield* Session.client
       yield* session(ChatThread.toString(event.thread))
-        .message(Message.fromEvent(event), { discard: true })
+        .message(Message.fromEvent(event, connection.name), { discard: true })
         .pipe(
           Effect.catchCause((cause) =>
             Effect.logError("A message could not be saved", cause).pipe(

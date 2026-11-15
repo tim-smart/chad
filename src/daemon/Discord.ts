@@ -122,12 +122,19 @@ const config = (connection: Connection) =>
     gateway: { intents },
   })
 
-/** effect's Discord adapter for one connection, over dfx's REST client. It registers the platform `discord`. */
+/**
+ * effect's Discord adapter for one connection, over dfx's REST client. It registers the platform `discord`.
+ *
+ * The adapter and the REST client are the same layer values for every connection, and a layer is built once for all
+ * who ask for it. So each connection builds them afresh, and the client of one never carries the token of another.
+ */
 export const adapter = (connection: Connection) =>
-  DiscordChat.layer.pipe(
-    Layer.provide(DiscordRESTLive),
-    Layer.provide(MemoryRateLimitStoreLive),
-    Layer.provide(config(connection)),
+  Layer.fresh(
+    DiscordChat.layer.pipe(
+      Layer.provide(DiscordRESTLive),
+      Layer.provide(MemoryRateLimitStoreLive),
+      Layer.provide(config(connection)),
+    ),
   )
 
 /**
@@ -162,7 +169,7 @@ export const layer = (connection: Connection) => {
         config(connection),
       ]),
     )
-  return Layer.effectDiscard(
+  const built = Layer.effectDiscard(
     Effect.gen(function* () {
       const refused = yield* Deferred.make<number>()
       const scope = yield* Scope.make()
@@ -174,4 +181,6 @@ export const layer = (connection: Connection) => {
       )
     }),
   ).pipe(Layer.provide(adapter(connection)))
+  // The gateway's layers are shared values too, so nothing of one connection's build serves another.
+  return Layer.fresh(built)
 }

@@ -370,7 +370,13 @@ export const evaluate = (inputs: Inputs): Report => {
   }
 
   const waivers = new Map<string, string>()
-  for (const entry of parseWaivers(inputs.waivers)) {
+  // The waivers that name an item come first, because a fact may name a rule that only an item covers.
+  const listed = parseWaivers(inputs.waivers)
+  const namesRule = (entry: Waiver) => resolve(entry.coveredBy) !== undefined
+  for (const entry of [
+    ...listed.filter((entry) => !namesRule(entry)),
+    ...listed.filter(namesRule),
+  ]) {
     const target = resolve(entry.unit)
     if (!target || target.rule.slice === "-") {
       failures.push(
@@ -378,8 +384,9 @@ export const evaluate = (inputs: Inputs): Report => {
       )
       continue
     }
-    // A fact may name a rule in place of an item, and that rule's own test is what covers the fact. A rule that is
-    // itself only waived, held or pending has no test, which also rules out two facts that name each other.
+    // A fact names a rule in place of an item, and that rule's own test is what covers the fact. The test is one of
+    // the gate, or one of the item the rule is waived against. A rule that is held, pending or itself a fact waived
+    // against a rule has no test, which also rules out two facts that name each other.
     const covering = resolve(entry.coveredBy)
     if (covering) {
       if (target.rule.kind !== "fact") {
@@ -388,7 +395,11 @@ export const evaluate = (inputs: Inputs): Report => {
         )
       } else if (
         covering.rule.id === target.rule.id ||
-        !covering.units.some((unit) => gateTests.has(unit))
+        !covering.units.some(
+          (unit) =>
+            gateTests.has(unit) ||
+            (waivers.has(unit) && waivers.get(unit) !== "fact"),
+        )
       ) {
         failures.push(
           `the waiver ${entry.unit} names ${entry.coveredBy}, which has no test that could fail`,
@@ -396,6 +407,12 @@ export const evaluate = (inputs: Inputs): Report => {
       } else {
         for (const unit of target.units) waivers.set(unit, "fact")
       }
+      continue
+    }
+    if (target.rule.kind === "fact") {
+      failures.push(
+        `the waiver ${entry.unit} is of a fact and names ${entry.coveredBy}, and a fact names the rule whose test would fail if it stopped holding`,
+      )
       continue
     }
     if (
