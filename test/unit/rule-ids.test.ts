@@ -332,7 +332,7 @@ describe("the comparison of the spec's ids with the tests' ids", () => {
     )
   })
 
-  it("TST-13 takes a waiver that names an item which carries the rule's id, or for a fact a rule with a test", () => {
+  it("TST-13 TST-192 takes a waiver that names an item which carries the rule's id, or for a fact a rule with a test", () => {
     const rules = [
       early,
       { id: "AA-3", slice: "early", kind: "fact" },

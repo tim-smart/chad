@@ -1,0 +1,13 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "Bumps the digest and the tag of the images the Dockerfile pins. The npm packages are vendored or pinned by hand, so no other manager runs."
+  ],
+  "enabledManagers": ["dockerfile"],
+  "packageRules": [
+    {
+      "matchManagers": ["dockerfile"],
+      "pinDigests": true
+    }
+  ]
+}

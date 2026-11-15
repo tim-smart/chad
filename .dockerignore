@@ -1,0 +1,11 @@
+# The build context is only what the Dockerfile copies. Nothing else of the checkout, and so no test support, can
+# reach the image.
+*
+!package.json
+!pnpm-workspace.yaml
+!pnpm-lock.yaml
+!vendor
+!tsconfig.json
+!tsconfig.build.json
+!bin
+!src

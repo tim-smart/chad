@@ -13,6 +13,6 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["scripts", "test", "vitest.config.ts"],
+  "include": ["src", "scripts", "test", "vitest.config.ts"],
   "exclude": ["test/types/fixtures"]
 }

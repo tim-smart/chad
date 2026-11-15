@@ -1,0 +1,4 @@
+A push to the shared branch that changes this file runs the weekly job, until the build's pull request is merged.
+The last stage removes this file and its trigger.
+
+run 1

@@ -66,6 +66,7 @@ The effect snapshots chad vendors include `AGENTS.md`, so the fallback in the se
 - **SELF-26** The image carries effect's `AGENTS.md` and `ai-docs/` for the effect version it pins, reachable at `/data/repo/node_modules/effect/`.
 - **SELF-27** If the vendored effect snapshot lacks `AGENTS.md` or `ai-docs/`, the image build takes effect's source at the commit that the manifest under `vendor/` names, runs the step of effect's own build that puts the two into the effect package before a publish, and copies what that step produces into the effect package in the image's `node_modules`. The image build fails if that step fails, and it fails if either of the two is missing from that package at the end.
 - **SELF-28** The image never takes `AGENTS.md` or `ai-docs/` from another published version of effect, because they would describe another version.
+- **SELF-135** The step of SELF-27 is effect's `scripts/copy-ai-docs.mjs`, which is the last step of the `build` script in the root of effect's repository. The image build gets effect's source as GitHub's tarball of the manifest's commit, `https://codeload.github.com/<repository>/tar.gz/<commit>`, because the build stage holds neither git nor curl. It installs `glob`, the one package the script imports, at the range effect's root `package.json` names, runs the script in that tree, and copies `packages/effect/AGENTS.md` and `packages/effect/ai-docs/` into the effect package. The fallback runs only in the build stage, and nothing of it is in the image.
 
 ## The five moments the AGENTS.md path is shown
 
@@ -747,3 +748,4 @@ export default Plugin.make(NotesTools, Chunk)
 | SELF-132 | TIM-559 round 3 A1 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SELF-133 | TIM-559 round 3 A1, TIM-559 round 4 item 7 | Architect (Tim has not read) | not run | TIM-559 | `definition` | - |
 | SELF-134 | TIM-559 round 3 A2 | Architect (Tim has not read) | not run | TIM-559 | `definition` | - |
+| SELF-135 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `harness` |

@@ -89,6 +89,7 @@ Anything chad has to read before the database is open, or write with no daemon r
 - **STO-19** Tokens and client registrations for MCP servers that sign in with OAuth are kept in `secrets/mcp-oauth.json`, a file of its own apart from `secrets/secrets.json`, outside the repo. The file has one entry for each server, keyed by the server's name, and an entry records the URL it was issued for. See 12-skills-and-mcp.md.
 - **STO-146** `chad secret` and the `${NAME}` expansion never read or list what `secrets/mcp-oauth.json` holds.
 - **STO-20** A session works in `sessions/<session-id>/`, which is the startup directory of that session's clanka Agent.
+- **STO-194** A session id is a UUID from `crypto.randomUUID()`, in its lowercase text form. It is the name of the session's directory under `sessions/` and the `session` key of the session's log lines.
 - **STO-21** Files the owner sends in a session are saved under `inbox/` inside that session's directory. Which attachments are saved and which go to the model as images is in 03-sessions-and-turns.md.
 - **STO-22** `$HOME` is `home/` on the volume. It is shared by every session and is the place for work that should outlast one session.
 - **STO-23** A direct message session that is never reset keeps its directory under `sessions/` for good.
@@ -148,6 +149,7 @@ effect's `Migrator` records applied migrations in a table and runs the pending o
 - **STO-39** Migrations only go forward. There is no down migration.
 - **STO-40** Cluster and the key-value layer create their own tables. chad writes no migration for them.
 - **STO-187** Every build slice that changes the schema appends a new migration, from the first slice on, and a migration that a delivered slice added is never edited. The migrations of the delivered slices are the fixtures for the tests that migrate an older database (see 17-testing.md).
+- **STO-195** The first migration, which the `harness` slice adds, creates the table `sessions` with the columns `id`, `thread` and `created_at` and nothing else, and an index on `thread` and `created_at`. `thread` holds the thread string of the session's chat thread. A row is written on a thread's first message. The other columns and tables of a session arrive with the `turns` slice, in a new migration.
 - **STO-41** chad refuses to start sessions on a database that holds a migration the image does not know. The check is chad's own code.
 - **STO-42** A boot touches storage in this order: take the lock on `state/daemon.lock`, check `state/version` (STO-48), raise `state/boot-count`, start listening on the socket, check the shard count row, copy the database when STO-44 asks for it, with the copy's version beside it (STO-192), and write `state/migrating`, run the migrations, write `state/version` and remove `state/migrating`, start sessions.
 - **STO-155** The full boot order, with the start-up check, the boot counter and what puts the counter back after a refused boot, is the numbered list in 01-image-and-volume.md.
@@ -675,3 +677,5 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-191 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | STO-192 | TIM-559 round 3 on IMG-G19 and STO-G28 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | STO-193 | TIM-559 round 3 on IMG-G19 and STO-G28 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
+| STO-194 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `harness` |
+| STO-195 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `harness` |

@@ -27,7 +27,7 @@ chad reads the provider from the model setting. The provider decides whether a l
 - **MOD-8** The model setting is one value in clanka's format, `<provider>/<model>[/<effort>]`.
 - **MOD-9** v1 runs `openai/gpt-6-astra` at effort `medium` for the agent, for its sub-agents and for the compaction summarizer, which is the model call clanka uses to shorten a long history.
 - **MOD-10** The model setting is global. There is no model per session.
-- **MOD-11** `CHAD_MODEL` supplies the default model setting. A stored override wins over it.
+- **MOD-11** (a) `CHAD_MODEL` supplies the default model setting. (b) A stored override wins over it.
 - **MOD-12** The override is the file `state/model` on the volume, outside the repo and outside the database, written by temp file and rename. See 02-storage.md.
 - **MOD-13** chad keeps two optional overrides, one for the sub-agent model and one for the summarizer model, and passes them to clanka. Without an override, sub-agents and the summarizer run on the main model. If the subscription's limits are reached, the sub-agent model is the first to move to a smaller model.
 - **MOD-14** chad always provides clanka's `SummarizerModel` layer, on the agent's model unless the summarizer override names another, so that a summarizer still running when its turn ends is not cancelled. See 03-sessions-and-turns.md.
