@@ -151,17 +151,13 @@ await waitTasks({ ids: [behind.id] })`),
     expect(line.annotations).not.toHaveProperty("subagent")
 })
 
-test("FAIL-15 FAIL-250 FAIL-241 a background sub-agent's retried model call gets its turn.retry line with the sub-agent's id, and the root's and a foreground sub-agent's retries get one line each", async () => {
+test("FAIL-15 FAIL-250 the root's and a foreground sub-agent's retried model calls get one turn.retry line each, the sub-agent's with its id", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
-    // The root's call fails once, and so does each sub-agent's first call.
+    // The root's call fails once, and so does the sub-agent's first call.
     { status: 500 },
-    runs(`await subagent({ prompt: "In front." })
-const behind = await subagent({ prompt: "Behind.", background: true })
-await waitTasks({ ids: [behind.id] })`),
-    { status: 500 },
-    runs('await taskComplete("done")'),
+    runs('await subagent({ prompt: "In front." })'),
     { status: 500 },
     runs('await taskComplete("done")'),
     { text: "done" },
@@ -174,24 +170,40 @@ await waitTasks({ ids: [behind.id] })`),
   const log = running.log()
   const events = (name: string) =>
     log.filter((line) => line.annotations["event"] === name)
-  const started = events("turn.subagent-started")
-  const front = started.find((line) => line.annotations["background"] === false)
-    ?.annotations["subagent"]
-  const behind = started.find((line) => line.annotations["background"] === true)
-    ?.annotations["subagent"]
+  const front = events("turn.subagent-started")[0]?.annotations["subagent"]
   expect(typeof front).toBe("number")
-  expect(typeof behind).toBe("number")
   const retries = events("turn.retry")
-  expect(retries).toHaveLength(3)
+  expect(retries).toHaveLength(2)
   expect(retries[0]?.annotations).not.toHaveProperty("subagent")
   expect(retries[1]?.annotations).toMatchObject({ subagent: front, retry: 1 })
-  expect(retries[2]?.annotations).toMatchObject({ subagent: behind, retry: 1 })
   for (const line of retries) {
     expect(line.level).toBe("WARN")
     expect(typeof line.annotations["reason"]).toBe("string")
     expect(typeof line.annotations["error"]).toBe("string")
   }
-  expect(events("turn.subagent-ended")).toHaveLength(2)
+  expect(events("turn.subagent-ended")).toHaveLength(1)
+})
+
+test("FAIL-15 FAIL-250 a background sub-agent's empty response that clanka takes, followed by its taskComplete, logs no turn.retry", async () => {
+  const running = await scenario()
+  const { fakes } = running
+  await fakes.model.script([
+    runs(`const behind = await subagent({ prompt: "Behind.", background: true })
+await waitTasks({ ids: [behind.id] })`),
+    { text: "" },
+    runs('await taskComplete("done")'),
+    { text: "done" },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+  await fakes.chat.answers(thread, 1)
+  await running.logged("turn.ended")
+
+  const log = running.log()
+  const events = (name: string) =>
+    log.filter((line) => line.annotations["event"] === name)
+  expect(events("turn.subagent-ended")).toHaveLength(1)
+  expect(events("turn.retry")).toEqual([])
 })
 
 test("FAIL-249 FAIL-241 a background sub-agent that compacts its history gets its turn.compaction line with the sub-agent's id", async () => {

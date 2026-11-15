@@ -20,7 +20,7 @@ import {
   Scope,
   Stream,
 } from "effect"
-import { LanguageModel, type Model as AiModel } from "effect/ai"
+import type { LanguageModel, Model as AiModel } from "effect/ai"
 import { Prompt } from "effect/ai"
 import {
   Chat,
@@ -402,8 +402,8 @@ export const layer = Layer.unwrap(
             }
             return first
           }
-          // A sub-agent's fiber is marked with its number where it starts, so that its model calls and its compactions,
-          // which the Agent's output leaves out for a background sub-agent, are logged with it (FAIL-15, FAIL-249).
+          // A sub-agent's fiber is marked with its number where it starts, so that its compactions, which the Agent's
+          // output leaves out for a background sub-agent, are logged with it (FAIL-249).
           // `messageAgent` starts a new turn only for a sub-agent that is not running, and clanka runs that turn in the
           // background (`Agent.ts:712-725`).
           const agentTasks = (
@@ -719,15 +719,6 @@ export const layer = Layer.unwrap(
         ) {
           const chosen = yield* Effect.fromOption(model)
           return yield* converse(live, turn, request, chat).pipe(
-            // The agents' model calls go through a model that logs the retries the Agent's output leaves out (FAIL-15,
-            // FAIL-250). The summarizer has a model of its own.
-            Effect.provideServiceEffect(
-              LanguageModel.LanguageModel,
-              Effect.map(
-                LanguageModel.LanguageModel,
-                TurnLog.retries(live.ids),
-              ),
-            ),
             Effect.provide(
               Layer.merge(
                 chosen.layer,

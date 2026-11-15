@@ -136,19 +136,19 @@ export const post =
     })
 
 /**
- * Whether a destination's thread is a direct message, as its platform says, or `undefined` while the platform cannot
- * say. A thread on no connection of this daemon, or one its platform refuses for good, is not a direct message chad
- * can post in, and is taken as a server's. It waits for the connection's adapter, as a post does.
+ * Whether a destination's thread is a direct message, as its platform says, or `undefined` while nothing says. Only
+ * an answer that settles it is `false`: a thread of another kind, a thread the platform says is gone, one on no
+ * connection of this daemon, or one that does not parse. Any other failure, one its platform refuses for good
+ * included, says nothing of the thread's kind (FAIL-341). It waits for the connection's adapter, as a post does.
  */
 export const directMessage =
   (chats: Chats["Service"], connections: () => ReadonlyArray<Connection>) =>
-  (destination: Destination): Effect.Effect<boolean | undefined> =>
-    Effect.gen(function* () {
+  (destination: Destination): Effect.Effect<boolean | undefined> => {
+    const known = () =>
+      connections().some(({ name }) => name === destination.connection)
+    return Effect.gen(function* () {
       const thread = ChatThread.fromString(destination.thread)
-      const known = connections().some(
-        ({ name }) => name === destination.connection,
-      )
-      if (Option.isNone(thread) || !known) return false
+      if (Option.isNone(thread) || !known()) return false
       yield* chats.ready(destination.connection)
       const chat = yield* chats.get(destination.connection)
       const info = yield* chat.getThread(thread.value)
@@ -156,17 +156,20 @@ export const directMessage =
     }).pipe(
       Effect.catchCause((cause) =>
         Effect.succeed(
-          cause.reasons.some(
-            (reason) =>
-              reason._tag === "Fail" &&
-              ChatError.isChatError(reason.error) &&
-              reason.error.retry === "denied",
-          )
+          // A connection removed while it was asked dies in `Chats`, and is no connection of this daemon either.
+          !known() ||
+            cause.reasons.some(
+              (reason) =>
+                reason._tag === "Fail" &&
+                ChatError.isChatError(reason.error) &&
+                reason.error.reason._tag === "NotFound",
+            )
             ? false
             : undefined,
         ),
       ),
     )
+  }
 
 /** What a `notices` row holds (STO-169, FAIL-229). Both times are milliseconds since the epoch. */
 interface Row {

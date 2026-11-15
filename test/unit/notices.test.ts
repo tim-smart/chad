@@ -10,7 +10,9 @@ import { join } from "node:path"
 import { DatabaseSync } from "node:sqlite"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import { Duration, Effect, Exit, Layer, Scope } from "effect"
+import { ChatError } from "effect/chat"
 import { expect, it, onTestFinished } from "vitest"
+import type { Chats } from "../../src/daemon/Chats.ts"
 import * as Notices from "../../src/daemon/Notices.ts"
 import * as Storage from "../../src/daemon/Storage.ts"
 import * as Volume from "../../src/daemon/Volume.ts"
@@ -54,6 +56,9 @@ const boot = async (
   posted: Array<string>,
   failing: () => boolean = () => false,
   kind: () => boolean | undefined = () => false,
+  lookup: (
+    destination: Notices.Destination,
+  ) => Effect.Effect<boolean | undefined> = () => Effect.sync(kind),
 ) => {
   const scope = Effect.runSync(Scope.make())
   onTestFinished(() => Effect.runPromise(Scope.close(scope, Exit.void)))
@@ -78,7 +83,7 @@ const boot = async (
           posted.push(text)
           return Effect.void
         }),
-      direct: () => Effect.sync(kind),
+      direct: lookup,
     }).pipe(Effect.provideContext(context), Scope.provide(scope)),
   )
   return {
@@ -251,4 +256,60 @@ it("FAIL-231 REC-101 FAIL-341 a restored destination whose kind the platform can
   kind = false
   await Effect.runPromise(second.notices.arrived(server))
   expect(file()).toEqual({ connection: "local", thread: "local:server" })
+})
+
+it("FAIL-231 REC-101 FAIL-341 a restored command-only DM whose lookup fails with Unauthenticated or Unsupported stays the destination when the owner writes in another connection's server thread", async () => {
+  for (const reason of [
+    new ChatError.Unauthenticated({}),
+    new ChatError.Unsupported({ capability: "getThread" }),
+  ]) {
+    const data = volume()
+    const posted: Array<string> = []
+    const first = await boot(data, posted)
+    // A command reached the DM, so no session row says it is one.
+    const dm = { connection: "home", thread: "discord:dm", direct: true }
+    await Effect.runPromise(first.notices.arrived(dm))
+    await first.stop()
+
+    const connections = ["home", "work"].map((name) => ({
+      name,
+      kind: "discord" as const,
+      owners: ["1"],
+    }))
+    // Only the lookup is reached: it waits for no adapter and the platform refuses it.
+    const chats = {
+      ready: () => Effect.void,
+      get: () =>
+        Effect.succeed({
+          getThread: () =>
+            Effect.fail(
+              new ChatError.ChatError({
+                platform: "discord",
+                op: "getThread",
+                reason,
+              }),
+            ),
+        }),
+    } as unknown as Chats["Service"]
+    const second = await boot(
+      data,
+      posted,
+      undefined,
+      undefined,
+      Notices.directMessage(chats, () => connections),
+    )
+    const server = {
+      connection: "work",
+      thread: "discord:server",
+      direct: false,
+    }
+    await Effect.runPromise(second.notices.arrived(server))
+    expect(
+      JSON.parse(readFileSync(join(data, "state/notice-thread"), "utf8")),
+    ).toEqual({ connection: "home", thread: "discord:dm" })
+    await Effect.runPromise(second.notices.raise(low))
+    await until(() => posted.length === 1)
+    expect(second.posts).toEqual([{ thread: "discord:dm", direct: false }])
+    await second.stop()
+  }
 })
