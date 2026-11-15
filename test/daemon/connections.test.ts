@@ -242,8 +242,8 @@ test("STO-28a CLI-33 CLI-221 the CLI holds no lock while it waits, takes it for 
   expect(stored(data).connections).toHaveLength(2)
 })
 
-test("STO-49 CLI-23b CLI-220 with no daemon, a CLI that is older than the version in state/version refuses to write with exit 1 and still reads", async () => {
-  const { data, chad } = await volume()
+test("STO-49 CLI-23b CLI-220 with no daemon, a CLI that is older than the version in state/version refuses to write with exit 1 and still reads, and it looks again once it holds the lock", async () => {
+  const { directory, data, rest, chad, cli } = await volume()
   expect((await chad(["connection", "add", "local"])).code).toBe(0)
   mkdirSync(join(data, "state"), { recursive: true })
   writeFileSync(join(data, "state/version"), "999.0.0\n")
@@ -269,6 +269,25 @@ test("STO-49 CLI-23b CLI-220 with no daemon, a CLI that is older than the versio
   // The volume's own version writes.
   writeFileSync(join(data, "state/version"), version + "\n")
   expect((await chad(["owner", "add", "local", "ada"])).code).toBe(0)
+
+  // A newer daemon starts and stops while the CLI waits for Discord. The first check passed, and the write is
+  // still refused.
+  const waiting = stored(data)
+  const release = rest.hold("slow-token")
+  const adding = cli([
+    "connection",
+    "add",
+    "discord",
+    "--token-file",
+    tokenFile(directory, "slow-token"),
+  ])
+  await rest.called("GET", /^\/applications\/@me$/)
+  writeFileSync(join(data, "state/version"), "999.0.0\n")
+  release()
+  expect(await adding).toEqual(
+    failed(1, Messages.cliOlder("connection add", version, "999.0.0")),
+  )
+  expect(stored(data)).toEqual(waiting)
 })
 
 test("STO-197 a connections file with a higher format number is refused with exit 1 by every command that reads or writes it, chad status says so and keeps its own exit code, and chad serve refuses the boot", async () => {

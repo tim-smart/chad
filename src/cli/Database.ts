@@ -1,10 +1,34 @@
 import { existsSync } from "node:fs"
-import { DatabaseSync } from "node:sqlite"
+import { constants, DatabaseSync } from "node:sqlite"
 
 /**
  * The database as `chad db` reads it: a connection of the CLI's own, read-only, opened for one statement and closed
  * after it. It never goes through the daemon, and SQLite refuses it a write.
  */
+
+/** What a statement that only reads asks SQLite's authorizer for. */
+const reads: ReadonlySet<number> = new Set([
+  constants.SQLITE_SELECT,
+  constants.SQLITE_READ,
+  constants.SQLITE_FUNCTION,
+  constants.SQLITE_RECURSIVE,
+  constants.SQLITE_PRAGMA,
+])
+
+/**
+ * The read-only open refuses a write to the database itself, and says so in SQLite's words. It does not cover what a
+ * statement writes elsewhere: a temporary table, an attached database, or the file of `VACUUM INTO`. So anything
+ * that is no read and does not name the main database is refused here, before it runs.
+ */
+const authorize = (
+  action: number,
+  _first: string | null,
+  _second: string | null,
+  database: string | null,
+): number =>
+  reads.has(action) || database === "main"
+    ? constants.SQLITE_OK
+    : constants.SQLITE_DENY
 
 /** A value as SQLite gives it. An integer is a bigint, because some of the ids in the database are wider than a number. */
 export type Value = null | number | bigint | string | Uint8Array
@@ -34,6 +58,7 @@ export const query = (path: string, sql: string, limit: number): Rows => {
   if (!existsSync(path)) throw new Missing(path)
   const database = new DatabaseSync(path, { readOnly: true })
   try {
+    database.setAuthorizer(authorize)
     const statement = database.prepare(sql)
     statement.setReadBigInts(true)
     statement.setReturnArrays(true)

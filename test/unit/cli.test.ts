@@ -146,7 +146,16 @@ const warned = (
 it("IMG-70 the filesystem check warns for NFS, CephFS, SMB, FUSE, the container's own layer and tmpfs, and for nothing else", () => {
   const network = (type: string) =>
     `/data is on ${type}. chad needs a local filesystem: SQLite's lock and write-ahead log are not safe on a network or FUSE filesystem.`
-  for (const type of ["nfs", "nfs4", "ceph", "cifs", "smb3", "fuse.sshfs"]) {
+  for (const type of [
+    "nfs",
+    "nfs4",
+    "ceph",
+    "cifs",
+    "smb3",
+    "fuse",
+    "fuse.sshfs",
+    "fuseblk",
+  ]) {
     expect(warned(type)).toEqual([network(type)])
   }
   expect(warned("overlay")).toEqual([

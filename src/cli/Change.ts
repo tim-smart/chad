@@ -25,6 +25,9 @@ export const rejected =
  *
  * `token` reads the token of a change that carries one. It is asked for only once the change is known to go ahead
  * whatever the token is, and never while the lock is held.
+ *
+ * The volume's version is checked twice. The first check refuses before anything is asked for. The second runs under
+ * the lock, because a newer daemon may have started and stopped while the CLI waited for the token or for Discord.
  */
 export const make = <R = never>(
   command: string,
@@ -58,6 +61,7 @@ export const make = <R = never>(
     return yield* Files.locked(
       command,
       Effect.gen(function* () {
+        yield* Files.writable(command)
         const next = yield* Connections.apply(
           yield* Connections.read(environment.data),
           full,

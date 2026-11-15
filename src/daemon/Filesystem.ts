@@ -50,6 +50,8 @@ const network = new Set([
   "glusterfs",
   "lustre",
   "fuse",
+  // A FUSE filesystem over a block device, which is how ntfs-3g mounts.
+  "fuseblk",
 ])
 
 const kind = (type: string): "network" | "container" | "memory" | undefined =>

@@ -140,7 +140,7 @@ it("CLI-15 with the lock held, a socket that is missing, one that refuses the co
   expect(listing()).toEqual(before)
 }, 30_000)
 
-it("CLI-161 a client command that SIGTERM or SIGINT ends exits 130", async () => {
+it("TST-209 CLI-51a runCli owns the signals of a client command: one that SIGTERM or SIGINT ends while it waits for the daemon exits 130", async () => {
   const data = volume()
   hold(data)
   const server = await silent(join(data, "run/chad.sock"))

@@ -94,11 +94,15 @@ const errno = (error: unknown): string | undefined => {
  * Connects and makes the first call, which the daemon has `wait` to answer. The lock is held when this runs, so a
  * socket that is missing, a connection that is refused and an answer that does not come in time all mean a daemon
  * that is starting or frozen. A connect that fails with `EINVAL` gets the path-length message of `chad serve`.
+ *
+ * `silent` is how the command ends when the daemon is starting or frozen. A command that says so in its own output
+ * gives a failure with no line.
  */
 export const answer = <A>(
   command: string,
   wait: Duration.Duration,
   call: (client: Client) => Effect.Effect<A, RpcClientError>,
+  options?: { readonly silent: Failure },
 ): Effect.Effect<
   { readonly client: Client; readonly answer: A },
   Failure,
@@ -106,14 +110,16 @@ export const answer = <A>(
 > =>
   Effect.gen(function* () {
     const environment = yield* Environment
-    const silent = new Failure({
-      code: ExitCode.daemon,
-      message: Messages.daemonSilent(
-        command,
-        environment.socket,
-        Duration.toSeconds(wait),
-      ),
-    })
+    const silent =
+      options?.silent ??
+      new Failure({
+        code: ExitCode.daemon,
+        message: Messages.daemonSilent(
+          command,
+          environment.socket,
+          Duration.toSeconds(wait),
+        ),
+      })
     return yield* Effect.gen(function* () {
       const client = yield* connect
       return { client, answer: yield* call(client) }

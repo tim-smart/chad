@@ -50,8 +50,23 @@ it("STO-80 CLI-31f CLI-130 CLI-131 chad db query and chad db check answer beside
   expect(await db(data, "check")).toEqual(sound)
 })
 
-it("STO-79 STO-175 STO-202 chad db query refuses a statement that writes: it exits 1 with SQLite's own message on stderr and nothing on stdout, as any statement that fails does, and a volume with no database is named", async () => {
+it("STO-79 STO-175 STO-202 chad db query refuses a statement that writes, in the database or anywhere else: it exits 1 with SQLite's own message on stderr and nothing on stdout, as any statement that fails does, and a volume with no database is named", async () => {
   const data = volume(numbered(3))
+  // What the read-only open does not cover: a file beside the database, a temporary table and an attached database.
+  const copy = join(data, "copy.db")
+  for (const [sql, message] of [
+    [`VACUUM INTO '${copy}'`, "authorization denied"],
+    ["VACUUM", "authorization denied"],
+    ["CREATE TEMP TABLE more (n)", "not authorized"],
+    [`ATTACH DATABASE '${copy}' AS more`, "not authorized"],
+  ] as const) {
+    expect(await db(data, "query", sql), sql).toEqual({
+      stdout: "",
+      stderr: `${Messages.dbFailed("query", message)}\n`,
+      code: 1,
+    })
+  }
+  expect(existsSync(copy)).toBe(false)
   for (const sql of [
     "DELETE FROM numbers",
     "INSERT INTO numbers VALUES (4)",

@@ -52,12 +52,15 @@ export const status = Command.make(
       return yield* new Failure({ code: ExitCode.daemon })
     }
     const timings = yield* Timings
+    // The first line says a daemon that is starting or frozen, so that failure carries no line of its own. A socket
+    // path that is too long keeps its line.
     const answered = yield* Daemon.answer(
       "status",
       timings.cliAnswer,
       (client) => client.Status(),
-    ).pipe(Effect.option)
-    if (answered._tag === "None") {
+      { silent: new Failure({ code: ExitCode.daemon }) },
+    ).pipe(Effect.result)
+    if (answered._tag === "Failure") {
       yield* Console.log(
         show({
           daemon: "silent",
@@ -67,8 +70,8 @@ export const status = Command.make(
         }),
       )
       yield* unread
-      return yield* new Failure({ code: ExitCode.daemon })
+      return yield* answered.failure
     }
-    yield* Console.log(show({ daemon: "up", report: answered.value.answer }))
+    yield* Console.log(show({ daemon: "up", report: answered.success.answer }))
   }),
 ).pipe(Command.withDescription("Show what the daemon is doing"))

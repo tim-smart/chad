@@ -231,6 +231,16 @@ test("CLI-9 CLI-12 IMG-30 CHAD_SOCKET moves the socket for the daemon and for th
       Messages.socketPathTooLong(long, Buffer.byteLength(long), 107) + "\n",
     code: 4,
   })
+  // chad status says the same, under what it reads from the files.
+  const status = await running.chad(["status"], { CHAD_SOCKET: long })
+  expect(status.stdout.split("\n")[0]).toBe(
+    `daemon: starting or frozen (lock held, no answer on ${long} in 2s)`,
+  )
+  expect({ stderr: status.stderr, code: status.code }).toEqual({
+    stderr:
+      Messages.socketPathTooLong(long, Buffer.byteLength(long), 107) + "\n",
+    code: 4,
+  })
 })
 
 test("IMG-63 CLI-11 a socket path over the platform's limit ends the start with exit 1 and a line that gives the length, the limit and CHAD_SOCKET as the fix, and nothing is created at the path", async () => {

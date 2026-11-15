@@ -73,5 +73,6 @@ A rule, or one letter of a rule, whose slice is delivered and whose test cannot 
 
 A rule that a builder reported as wrong or impossible to build, with one sentence on what is wrong. Tim rules on each one.
 
-| Rule | What is wrong |
-| ---- | ------------- |
+| Rule    | What is wrong                                                                                                                                                                                                                                                                                                                               |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CLI-161 | A statement of `chad db query` or `chad db check` holds the CLI's one thread until SQLite returns, so no handler can run and SIGTERM ends the command by the signal itself, which a shell reports as 143, and exiting 130 there would take a second process, which STO-80 rules out; every other client command exits 130 for both signals. |
