@@ -12,6 +12,7 @@ The slices that are delivered, in build order. The builder who finishes a slice 
 - `cli`
 - `turns`
 - `kills`
+- `failures`
 
 ## Held rules
 
