@@ -9,14 +9,14 @@ The spec holds 2,882 rule ids in 20 parts, 00-overview.md to 19-build-order.md.
 | Stage | Slices, with their rule ids | Rule ids | Kind `rule` | Kind `fact` |
 | --- | --- | --- | --- | --- |
 | 1 | `repo` 16, `harness` 141, `wire` 30, `cli` 137 | 324 | 314 | 10 |
-| 2 | `turns` 120, `kills` 36, `failures` 181, `discord-ui` 47, `models` 174 | 558 | 529 | 29 |
-| 3 | `plugin-api` 381, `loader` 64, `apply` 349 | 794 | 776 | 18 |
+| 2 | `turns` 120, `kills` 36, `failures` 179, `discord-ui` 46, `models` 174 | 555 | 526 | 29 |
+| 3 | `plugin-api` 380, `loader` 64, `apply` 349 | 793 | 775 | 18 |
 | 4 | `settings` 273, `skills-mcp` 200, `timers-cron` 187 | 660 | 645 | 15 |
-| 5 | `backup` 80, `image` 39, `bundled-skills` 114, `asphodel` 5, `live` 14 | 252 | 248 | 4 |
-| No slice | 232 definitions and 62 withdrawn rules | 294 | 62 | 0 |
+| 5 | `backup` 80, `image` 39, `bundled-skills` 114, `asphodel` 5, `live` 13 | 251 | 247 | 4 |
+| No slice | 232 definitions and 67 withdrawn rules | 299 | 67 | 0 |
 | Total | | 2,882 | 2,574 | 76 |
 
-By kind there are 2,574 rules, 76 facts about a dependency and 232 definitions. 67 of the definitions were rules of 17-testing.md and 19-build-order.md until your fifth ruling of 2026-11-15, which says that a rule about how the suite and the build are run needs no test. The withdrawn rules are SWAP-18, MCP-101, TST-103 and the twenty-one that went with your rulings of 2026-11-15 that chad has no scheduled job, no release list and no budget: TST-115 to TST-118, TST-120, TST-121, TST-123 to TST-132, TST-139, TST-140, TST-142, TST-143 and TST-205. Five definitions were withdrawn with them, TST-114, TST-122, TST-141, TST-195 and ORD-18, and so were TST-206 to TST-208, which the build had added and this table does not count. Your fifth ruling of the same day withdrew thirty-eight more rules and three definitions. They are the bookkeeping checks (TST-20, TST-92, TST-154 to TST-157, TST-159, ASP-109), the skill runs (TST-148 to TST-150, TST-187, SELF-125, SWAP-145), the Compose example (IMG-98 to IMG-100, IMG-135 to IMG-137, CRED-127, CRED-128, TST-184), most of the full disk rules (FAIL-138, FAIL-139, FAIL-142 to FAIL-145, FAIL-172, FAIL-217, FAIL-218, FAIL-220 to FAIL-224, FAIL-280, FAIL-314, TST-167) and the docs' NFS paragraph (IMG-73). The three definitions are TST-157, FAIL-145 and FAIL-224. Nothing without a slice needs a test (TST-172).
+By kind there are 2,574 rules, 76 facts about a dependency and 232 definitions. 67 of the definitions were rules of 17-testing.md and 19-build-order.md until your fifth ruling of 2026-11-15, which says that a rule about how the suite and the build are run needs no test. The withdrawn rules are SWAP-18, MCP-101, TST-103 and the twenty-one that went with your rulings of 2026-11-15 that chad has no scheduled job, no release list and no budget: TST-115 to TST-118, TST-120, TST-121, TST-123 to TST-132, TST-139, TST-140, TST-142, TST-143 and TST-205. Five definitions were withdrawn with them, TST-114, TST-122, TST-141, TST-195 and ORD-18, and so were TST-206 to TST-208, which the build had added and this table does not count. Your fifth ruling of the same day withdrew thirty-eight more rules and three definitions. They are the bookkeeping checks (TST-20, TST-92, TST-154 to TST-157, TST-159, ASP-109), the skill runs (TST-148 to TST-150, TST-187, SELF-125, SWAP-145), the Compose example (IMG-98 to IMG-100, IMG-135 to IMG-137, CRED-127, CRED-128, TST-184), most of the full disk rules (FAIL-138, FAIL-139, FAIL-142 to FAIL-145, FAIL-172, FAIL-217, FAIL-218, FAIL-220 to FAIL-224, FAIL-280, FAIL-314, TST-167) and the docs' NFS paragraph (IMG-73). The three definitions are TST-157, FAIL-145 and FAIL-224. Jarvis's correction to that ruling, on TIM-560 the same day, withdrew five rules that restate two of those cuts in other parts. SWAP-146 is the pass mark of a skill-run task. SES-136, SES-174, SES-175 and STO-127 are the row closed on redelivery. Nothing without a slice needs a test (TST-172).
 
 | "Agreed by" | Rule ids |
 | --- | --- |
@@ -31,7 +31,7 @@ You have not read twelve, which section 5 takes one by one: "Docker image and da
 
 579 rules have "Changed by" filled, and section 3 covers those that state something you agreed in person. TIM-559 is named in that column on 266 rules and TIM-557 on 152. By the first word of the Support cell, 746 rules were run in a prototype, 186 were read from source and 1,950 were not run.
 
-The single largest cost in the build is one test for each rule id. TST-173 sets the minimum at one test for each rule id that has a slice and allows no test that names no rule id. TST-9 has the rule-id script fail when a rule has no test, is not pending and is not on the waiver list. TST-17 has each stage issue ask for tests in words, because the builders' briefs tell them to write none unless asked. That is 2,588 ids to cover, 2,512 rules and 76 facts, though one test may name several ids (TST-7). You were offered the chance to trim this rule and did not, so it stands. Trimming it later changes TST-173 and the rules that carry it to the script, the stage issues and the repo's `AGENTS.md` (TST-9, TST-17, TST-174, ORD-34), and it needs another measure of coverage, because TST-19 makes the rule ids the only one.
+The single largest cost in the build is one test for each rule id. TST-173 sets the minimum at one test for each rule id that has a slice and allows no test that names no rule id. TST-9 has the rule-id script fail when a rule has no test, is not pending and is not on the waiver list. TST-17 has each stage issue ask for tests in words, because the builders' briefs tell them to write none unless asked. That is 2,583 ids to cover, 2,507 rules and 76 facts, though one test may name several ids (TST-7). You were offered the chance to trim this rule and did not, so it stands. Trimming it later changes TST-173 and the rules that carry it to the script, the stage issues and the repo's `AGENTS.md` (TST-9, TST-17, TST-174, ORD-34), and it needs another measure of coverage, because TST-19 makes the rule ids the only one.
 
 Two rulings are your own, made in chat on 2026-11-15, and they override Architect. The repo `tim-smart/chad` exists and is public. The build is five stage issues that share one branch and one pull request (TST-199, ORD-1 to ORD-3), with no pull request per slice and no cap on rule ids per issue (TST-17, ORD-5).
 
@@ -126,7 +126,6 @@ Each bullet gives the rules, what you agreed, what the spec says now and, in bra
 - STO-34. TIM-536: what the database holds. Now also the shard count row [TIM-553], `notices` and `session_updates` [TIM-557] and `steers` [TIM-559].
 - STO-70. TIM-536 item 11: the `turns` row. Now also the failure reason, its detail and the model. [TIM-557]
 - STO-65, STO-123. As OV-29. [TIM-557]
-- STO-127. TIM-532, TIM-543: a turn cut by a crash is resumed. Now a running row with a later row in its session is closed as `Internal`. [TIM-557]
 - STO-50. As IMG-64. [TIM-553]
 - STO-27. TIM-542 item 3: the SQLite lock on `state/daemon.lock`. Now opened with `journal_mode=MEMORY` and referenced until exit. [TIM-550, TIM-553]
 - STO-12. TIM-542 item 14: `secrets/secrets.json` holds the named secrets. Now each has a kind and a note. [TIM-546]
@@ -159,7 +158,6 @@ Each bullet gives the rules, what you agreed, what the spec says now and, in bra
 - SES-131, SES-132. TIM-530, TIM-540 item 15: `Failed` with a free reason, and `[SILENT]` not posted. Now a closed set of reasons, and a `[SILENT]` answer or one that could not be posted ends as `Answered`. [TIM-557]
 - SES-133. As OV-46, and a turn also ends at a usage limit. [TIM-557]
 - SES-134, SES-135. TIM-543 decision 1: a compaction belongs to the turn whose stream carried `HistoryReplaced`. Now also to the turn at whose end the reconcile found it. [TIM-557]
-- SES-136. As STO-127. [TIM-557]
 - Not a change: SES-86, no masking, is your own ruling on TIM-554.
 
 ### 04-discord.md

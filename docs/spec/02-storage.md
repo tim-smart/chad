@@ -249,7 +249,7 @@ A turn is one run of the agent in a session, started by an owner message or by a
 - **STO-126** `turns` has no cost column. A row keeps the token counts and the model value. What the usage columns count and when chad writes them is in 16-failures-logs-status.md.
 - **STO-164** `starts`, `graceful_cuts` and the five token columns are `INTEGER NOT NULL DEFAULT 0`, so sums need no null handling.
 - **STO-165** `model` holds the model value that the turn's Agent was built with, in the full `<provider>/<model>[/<effort>]` form of 05-model-and-login.md. The effort is part of the stored value when one was set, because the column records what ran.
-- **STO-127** After a restart, a row that is still running and has a later row in the same session is closed as failed with the reason `Internal` and is not resumed. See 16-failures-logs-status.md.
+- **STO-127** Withdrawn.
 
 | Column | Holds |
 | --- | --- |
@@ -618,7 +618,7 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-124 | TIM-557 item 23 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
 | STO-125 | TIM-557 item 23 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
 | STO-126 | TIM-557 items 23 to 25, TIM-559 round 3 L1 for the model value | Architect (Tim has not read) | not run |  | `rule` | `turns` |
-| STO-127 | TIM-557 item 34 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
+| STO-127 | TIM-557 item 34, withdrawn by Jarvis's correction to Tim's ruling on a full disk, TIM-560 2026-11-15 | Architect (Tim has not read) | not run | TIM-557 | `rule` | - |
 | STO-128 | TIM-557 item 36, amended by TIM-559 ruling on STO-G13 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | STO-129 | TIM-557 item 36 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | STO-130 | TIM-557 item 36 | Architect (Tim has not read) | not run |  | `rule` | `failures` |

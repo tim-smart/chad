@@ -286,10 +286,10 @@ Passivation is cluster closing an idle entity's activation. Nothing is deleted. 
 
 A kill is the process ending with no warning, such as SIGKILL, a crash or a power cut. A graceful stop is a shutdown that chad's SIGTERM handler runs. In both cases a turn that was running leaves its request unprocessed, and cluster delivers it again on the next start. chad counts those deliveries itself, in the request's `turns` row.
 
-- **SES-136** On a redelivery after a restart, a `turns` row that still says the turn is running and that has a later row in the same session is closed as `Failed` with the reason `Internal` and the message "ended in a process that could not record it". That turn is not resumed. Turns in a session run one at a time, so such a row cannot be a turn that was cut in flight. A running row with no later row in its session is resumed under the rules below. How such a row comes about is in 16-failures-logs-status.md.
-- **SES-174** Closing a row under SES-136 writes the row and a log line, and makes one best-effort delete of the status message whose id is in the row. A process that could not record the end may not have removed that message either, and a leftover one shows a Stop button and a running clock for good.
-- **SES-175** That closure runs no `afterTurn`, posts nothing in the thread and does not count as a start. The turn ended in the earlier process, which is where its hook ran, so a hook that the earlier process did not get to run is never run (see 16-failures-logs-status.md).
-- **SES-99** When a delivery of a request takes the session, chad adds one to the number of starts in the request's `turns` row before it does anything else for the turn, and so before the hooks and before the model runs. The delivery on which chad gives up is counted too, so a turn that chad gave up on after two kills and no graceful cut has three starts. Two deliveries are not counted: the one of SES-175, and one that is answered from the row under SES-90, which starts nothing.
+- **SES-136** Withdrawn.
+- **SES-174** Withdrawn.
+- **SES-175** Withdrawn.
+- **SES-99** When a delivery of a request takes the session, chad adds one to the number of starts in the request's `turns` row before it does anything else for the turn, and so before the hooks and before the model runs. The delivery on which chad gives up is counted too, so a turn that chad gave up on after two kills and no graceful cut has three starts. One delivery is not counted: one that is answered from the row under SES-90, which starts nothing.
 - **SES-100** The row keeps the first attempt's turn id and origin. Every later attempt reports them to hooks.
 - **SES-101** Every start after the first is a resumed turn, and `Turn.resumed` is `true`. Its prompt is the restart note in place of the original prompt, except in the case of SES-161.
 - **SES-161** When the stored history does not hold the turn's prompt, because the kill came before the prompt was stored, a resumed turn sends the original prompt and then the restart note in the same `send`, so that the note is true in every case.
@@ -495,7 +495,7 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-96 | TIM-532 item 11, TIM-543, TIM-544 decision 1 | Tim | run |  | `rule` | `turns` |
 | SES-97 | TIM-532 item 11, amended by TIM-559 ruling on SWAP-G2 | Architect (Tim has not read) | not run | TIM-549, TIM-559 | `rule` | `plugin-api` |
 | SES-98 | TIM-532 item 12, TIM-544 decision 2 | Tim | read |  | `rule` | `kills` |
-| SES-99 | TIM-543, comment on TIM-532, TIM-559 cold read, TIM-559 round 5 item 8 | Tim | run |  | `rule` | `kills` |
+| SES-99 | TIM-543, comment on TIM-532, TIM-559 cold read, TIM-559 round 5 item 8, amended by Jarvis's correction to Tim's ruling on a full disk, TIM-560 2026-11-15 | Tim | run |  | `rule` | `kills` |
 | SES-100 | TIM-539 item 4, TIM-543 | Tim | run |  | `rule` | `plugin-api` |
 | SES-101 | TIM-532 item 13, TIM-543 decision 3, amended by TIM-559 ruling on SES-G9 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `kills` |
 | SES-102 | TIM-532 item 13, TIM-543 "Facts the spec can rely on" | Tim | run |  | `rule` | `kills` |
@@ -532,7 +532,7 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-133 | TIM-557 items 18 and 20 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `models` |
 | SES-134 | TIM-557 item 29 and its comment on TIM-532, TIM-559 cold read | Architect (Tim has not read) | not run | TIM-557 | `rule` | `turns` |
 | SES-135 | TIM-557 item 29 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `plugin-api` |
-| SES-136 | TIM-557 item 34 and its comment on TIM-532 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
+| SES-136 | TIM-557 item 34 and its comment on TIM-532, withdrawn by Jarvis's correction to Tim's ruling on a full disk, TIM-560 2026-11-15 | Architect (Tim has not read) | not run | TIM-557 | `rule` | - |
 | SES-137 | TIM-557 item 33 | Architect (Tim has not read) | not run |  | `definition` | - |
 | SES-138 | TIM-559 ruling on SES-G1 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
 | SES-139 | TIM-559 ruling on SES-G1 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
@@ -570,8 +570,8 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-171 | TIM-559 ruling on SES-G15 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
 | SES-172 | TIM-559 ruling on SES-G15 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
 | SES-173 | TIM-559 ruling on SES-G16, IMG-G8 and STO-G25 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
-| SES-174 | TIM-559 ruling on SES-G17 and FAIL-G6 | Architect (Tim has not read) | not run |  | `rule` | `discord-ui` |
-| SES-175 | TIM-559 ruling on SES-G17 and FAIL-G6 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
+| SES-174 | TIM-559 ruling on SES-G17 and FAIL-G6, withdrawn by Jarvis's correction to Tim's ruling on a full disk, TIM-560 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| SES-175 | TIM-559 ruling on SES-G17 and FAIL-G6, withdrawn by Jarvis's correction to Tim's ruling on a full disk, TIM-560 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | SES-176 | TIM-559 round 2 R3, read at clanka 0.28.0 `src/Agent.ts:1144-1157` and `1529-1535` | Architect (Tim has not read) | read |  | `fact` | `turns` |
 | SES-177 | TIM-559 round 2 R3, read at clanka 0.28.0 `src/Agent.ts:1144-1157` and `1529-1535` | Architect (Tim has not read) | read |  | `fact` | `turns` |
 | SES-178 | TIM-559 round 2 R3 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
