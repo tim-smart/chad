@@ -1010,11 +1010,11 @@ export const layer = Layer.unwrap(
             return { _tag: "Failed", reason } as const
           }
           turn.status = status
-          yield* early.into(status)
-          // The id goes into the row as soon as the post returns (DIS-90, STO-75).
+          // The id goes into the row as soon as the post returns, before anything else of the turn (DIS-90, STO-75).
           if (status.id !== undefined && status.id !== started.status) {
             yield* Sessions.status(turn.key, status.id)
           }
+          yield* early.into(status)
           const built = yield* Effect.exit(
             Effect.gen(function* () {
               own.live ??= yield* start()
