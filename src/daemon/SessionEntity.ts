@@ -216,6 +216,11 @@ interface Turn {
   resumed: boolean
   /** The turn's status message, once it is opened. */
   status: StatusMessage.StatusMessage | undefined
+  /**
+   * The model settings, read once as the turn starts. Its row records them and its model layer is built on them, so a
+   * change while the turn runs reaches its session's next turn and leaves this one as it is (MOD-117, MOD-18).
+   */
+  readonly settings: Model.Settings
 }
 
 /** What the entity holds for the thread's current session. A `/new` puts a fresh one in its place. */
@@ -246,6 +251,7 @@ export const layer = Layer.unwrap(
         const scope = yield* Effect.scope
         const volume = yield* Volume
         const models = yield* Model.Models
+        const login = yield* Login.Login
         const chats = yield* Chats
         const fs = yield* FileSystem.FileSystem
         const services = yield* Effect.context<
@@ -684,6 +690,7 @@ export const layer = Layer.unwrap(
                   ids,
                   part,
                   turn.status ?? StatusMessage.none,
+                  () => login.pendingFor(live.id),
                 )
                 if (part._tag === "HistoryAppended") {
                   yield* saveFrozen(live)
@@ -809,7 +816,7 @@ export const layer = Layer.unwrap(
           chat: ChatService,
           format: Format,
         ) {
-          const prepared = yield* models.prepare(live.id)
+          const prepared = yield* models.prepare(live.id, turn.settings)
           if (live.model?.generation !== prepared.generation) {
             if (live.model !== undefined) {
               yield* Scope.close(live.model.scope, Exit.void)
@@ -1002,7 +1009,7 @@ export const layer = Layer.unwrap(
                 key: turn.key,
                 turn: turn.id,
                 session,
-                model: Model.text(models.settings()),
+                model: Model.text(turn.settings),
                 at: turn.at,
               })
               turn.id = started.turn
@@ -1479,6 +1486,7 @@ export const layer = Layer.unwrap(
                     size: 1,
                     resumed: false,
                     status: undefined,
+                    settings: models.settings(),
                   }
                   own.turn = turn
                   yield* take(payload.key)

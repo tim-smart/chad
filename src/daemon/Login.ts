@@ -112,9 +112,14 @@ export class Login extends Context.Service<
   {
     /** What chad provides as `CodexAuth` to every model layer: clanka's login behind the one shared wait. */
     readonly auth: CodexAuth["Service"]
-    /** `chad login` through the daemon: joins a pending login or starts one, and prints the code (MOD-56, MOD-107). */
+    /**
+     * `chad login`, and a `chad model` or `/model` that needs the login: joins a pending login or starts one, and
+     * prints the code (MOD-56, MOD-92, MOD-107). A login it starts posts its code to `leader` when there is one, which
+     * is where a `/model` was typed (MOD-91), and by the notice route when there is none (MOD-118).
+     */
     readonly login: (
       print: (prompt: Prompt) => Effect.Effect<void>,
+      leader?: SessionRef,
     ) => Effect.Effect<Outcome, CodexAuthError | TimedOut>
     /** `chad logout` through the daemon (MOD-60). */
     readonly logout: Effect.Effect<void>
@@ -240,9 +245,9 @@ export const make = Effect.fnUntraced(function* (options: {
       Effect.ensuring(Effect.sync(() => current.waiters.delete(waiter))),
     )
 
-  const wait = (waiter: Waiter) =>
+  const wait = (waiter: Waiter, leader = waiter.session) =>
     Effect.gen(function* () {
-      const [current, fresh] = yield* take(waiter.session)
+      const [current, fresh] = yield* take(leader)
       if (fresh) yield* run(current)
       return yield* join(current, waiter)
     })
@@ -279,10 +284,10 @@ export const make = Effect.fnUntraced(function* (options: {
       authenticate: get,
       logout: logout,
     }),
-    login: (print) =>
+    login: (print, leader) =>
       Effect.gen(function* () {
         const waiter: Waiter = { session: undefined, print, told: false }
-        yield* wait(waiter)
+        yield* wait(waiter, leader)
         return waiter.told ? "logged-in" : "already"
       }),
     logout: logout,

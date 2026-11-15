@@ -29,20 +29,35 @@ export class Status extends Context.Service<
   { readonly text: Effect.Effect<string> }
 >()("chad/Handler/Status") {}
 
+/**
+ * `/model`, which runs outside the handler of its event: the handler hands it the words after the command and where it
+ * was typed, and is done (MOD-20, MOD-125).
+ */
+export class ModelCommand extends Context.Service<
+  ModelCommand,
+  {
+    readonly run: (
+      words: ReadonlyArray<string>,
+      where: {
+        /** A link to where the command was typed, as its platform writes one. */
+        readonly link: string
+        /** Posts a message where the command was typed. */
+        readonly post: (markdown: string) => Effect.Effect<void>
+      },
+    ) => Effect.Effect<void>
+  }
+>()("chad/Handler/ModelCommand") {}
+
 /** The chat commands, by their first word. They are plain text, and none of them reaches the model. */
 const commands = {
   "/new": "new",
   "/stop": "stop",
   "/status": "status",
+  "/model": "model",
 } as const
 
-/**
- * The chat command a message is, when it is one. The mention of chad is stripped first, and the command is the first
- * word of what is left, whatever its case. The text after it is ignored.
- */
-export const command = (
-  message: Pick<ChatMessage.ChatMessage, "text" | "mentions">,
-): (typeof commands)[keyof typeof commands] | undefined => {
+/** The words of a message, with the mention of chad stripped first. */
+const words = (message: Pick<ChatMessage.ChatMessage, "text" | "mentions">) => {
   let text = ""
   let from = 0
   const own = message.mentions
@@ -53,7 +68,17 @@ export const command = (
     from = mention.end
   }
   text += message.text.slice(from)
-  const word = text.trim().split(/\s+/)[0]?.toLowerCase() ?? ""
+  return text.trim().split(/\s+/)
+}
+
+/**
+ * The chat command a message is, when it is one. The mention of chad is stripped first, and the command is the first
+ * word of what is left, whatever its case. Only `/model` reads the words after it.
+ */
+export const command = (
+  message: Pick<ChatMessage.ChatMessage, "text" | "mentions">,
+): (typeof commands)[keyof typeof commands] | undefined => {
+  const word = words(message)[0]?.toLowerCase() ?? ""
   return Object.hasOwn(commands, word)
     ? commands[word as keyof typeof commands]
     : undefined
@@ -109,6 +134,17 @@ export const layer = (connection: Live) =>
         const mentioned = ChatMessage.mentionsSelf(message)
         const word = command(message)
         const status = Effect.flatMap(Status, (service) => service.text)
+        // `/model` is answered where it was typed, in a plain channel too, which gets no thread for it (MOD-91).
+        const model = (where: ChatThread.ChatThread) =>
+          Effect.flatMap(ModelCommand, (service) =>
+            service.run(words(message).slice(1), {
+              link: connection.format.link(where),
+              post: (markdown) =>
+                say(where, markdown).pipe(
+                  Effect.provideService(Chat.Chat, chat),
+                ),
+            }),
+          )
 
         let thread = event.thread
         if (event.kind === "channel") {
@@ -121,6 +157,7 @@ export const layer = (connection: Live) =>
           if (word === "status") {
             return yield* say(thread, Messages.status(yield* status))
           }
+          if (word === "model") return yield* model(thread)
           if (word !== undefined)
             return yield* say(thread, Messages.noSession(connection.format))
           // The thread is opened before the save, so an event that is delivered again lands on the same thread.
@@ -176,6 +213,10 @@ export const layer = (connection: Live) =>
         const sender = { by: author.id, connection: connection.name }
         if (word === "status") {
           yield* say(thread, Messages.status(yield* status))
+          return yield* Sessions.mark(key, mark)
+        }
+        if (word === "model") {
+          yield* model(thread)
           return yield* Sessions.mark(key, mark)
         }
         if (word === "stop") {

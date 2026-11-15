@@ -30,6 +30,7 @@ import type { SqlClient } from "effect/sql"
 import * as StoredConnections from "../Connections.ts"
 import * as Lock from "../Lock.ts"
 import * as Messages from "../Messages.ts"
+import * as ModelSpec from "../ModelSpec.ts"
 import * as Paths from "../Paths.ts"
 import * as TokenStore from "../TokenStore.ts"
 import { Timings } from "../Timings.ts"
@@ -333,9 +334,16 @@ const boot = Effect.fnUntraced(function* (
     Context.make(CodexAuth, login.auth),
     Context.make(DeviceCodeHandler, Login.otherLogins),
   )
-  const models = Model.make(settings, environment, requirements)
-  yield* Deferred.succeed(state.account, {
+  const models = Model.make({
+    initial: settings,
+    data: volume.data,
+    inputs: environment,
+    requirements,
+    deadline: inputs.timings.modelTrial,
+  })
+  const account: Server.Account = {
     login,
+    models,
     model: () => {
       const current = models.settings()
       return {
@@ -348,7 +356,8 @@ const boot = Effect.fnUntraced(function* (
     stored: TokenStore.codexStored(volume.data).pipe(
       Effect.provideContext(world),
     ),
-  })
+  }
+  yield* Deferred.succeed(state.account, account)
   state.held = notices.held
   yield* Disk.start(volume.data, inputs.timings.freeSpaceInterval, notices)
   // Cluster deletes a completed request of a session once it is a day old. The `turns` row is what is left of it.
@@ -372,6 +381,9 @@ const boot = Effect.fnUntraced(function* (
           }),
           Layer.succeed(Handler.Status, {
             text: Server.statusText(state),
+          }),
+          Layer.succeed(Handler.ModelCommand, {
+            run: (words, where) => modelCommand(account, scope, words, where),
           }),
           Layer.succeed(Chats.Chats, running.chats),
           Layer.succeed(Notices.Notices, notices),
@@ -408,6 +420,56 @@ const boot = Effect.fnUntraced(function* (
   }).pipe(Effect.forkIn(scope))
   return yield* Effect.never
 })
+
+/**
+ * `/model` from chat. Words it does not take get the usage line. Otherwise the command runs in a fiber of the daemon's
+ * scope, so the event's handler is done at once, and posts what it prints where it was typed. A restart drops a
+ * command that is still running, and nothing is said (MOD-125). A login it starts posts its code there too, and one
+ * that runs already has its code posted there as well (MOD-91).
+ */
+const modelCommand = (
+  account: Server.Account,
+  scope: Scope.Scope,
+  words: ReadonlyArray<string>,
+  where: {
+    readonly link: string
+    readonly post: (markdown: string) => Effect.Effect<void>
+  },
+) => {
+  const request = ModelSpec.parseWords(words)
+  if (Result.isFailure(request)) return where.post(request.failure)
+  let posted = false
+  const leader: Login.SessionRef = {
+    id: `model ${where.link}`,
+    ownerPresent: true,
+    link: where.link,
+    post: (markdown) =>
+      Effect.suspend(() => {
+        posted = true
+        return where.post(markdown)
+      }),
+    notice: where.post,
+    waiting: Effect.void,
+  }
+  return Server.modelCommand(
+    account,
+    request.success,
+    Queue.caller(undefined),
+    {
+      // The code of the login this command started went to `leader` already.
+      print: (prompt) =>
+        posted
+          ? Effect.void
+          : where.post(Messages.loginPrompt(prompt.verifyUrl, prompt.code)),
+      leader,
+    },
+  ).pipe(
+    Effect.catch((error) => Effect.succeed(error.text)),
+    Effect.flatMap(where.post),
+    Effect.forkIn(scope),
+    Effect.asVoid,
+  )
+}
 
 /**
  * Runs the daemon until it is told to stop and gives its exit code. It owns the parts that belong to the process:

@@ -10,6 +10,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs"
+import { builtinModules } from "node:module"
 import { type Server, createServer } from "node:net"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -268,8 +269,24 @@ it("IMG-16b CLI-142 CLI-143 CLI-144 the client is one esbuild file with effect i
     ...bundle.matchAll(/^import [^;]*? from "([^"]+)";$/gm),
   ].map((match) => match[1] ?? "")
   expect(imported.length).toBeGreaterThan(5)
-  expect(imported.filter((name) => !name.startsWith("node:"))).toEqual([])
-  expect(bundle).not.toMatch(/\bimport\(|\brequire\(/)
+  // The model layer that `chad model` with no daemon tries (MOD-90) brings modules that import Node's own by their
+  // bare names, and CommonJS ones that require them through the banner's `require`. ajv's code generator holds
+  // `require` calls of its own runtime as text, which never run in chad. clanka's `claude` provider imports its SDK
+  // when a turn runs on it, which chad refuses (MOD-5), so the build leaves the SDK out.
+  const node = (name: string) =>
+    name.startsWith("node:") || builtinModules.includes(name)
+  expect(imported.filter((name) => !node(name))).toEqual([])
+  const loaded = [...bundle.matchAll(/\b(?:import|require)\("([^"]+)"\)/g)].map(
+    (match) => match[1] ?? "",
+  )
+  expect(
+    loaded.filter(
+      (name) =>
+        !node(name) &&
+        !name.startsWith("ajv") &&
+        name !== "@anthropic-ai/claude-agent-sdk",
+    ),
+  ).toEqual([])
   expect(bundle).toContain("effect/Cause")
   const launcher = read("bin/chad.js")
     .split("\n")
@@ -347,6 +364,7 @@ it("CLI-59 CLI-218 the CLI sends its CHAD_SESSION with every request, and a daem
             ConnectionChange: () => Effect.succeed({ changed: false }),
             Login: () => Stream.empty,
             Logout: () => Effect.succeed({ spec: "openai-compat/fake" }),
+            Model: () => Stream.empty,
           }),
           layerVersionCheck(version),
         ),

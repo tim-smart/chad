@@ -9,10 +9,15 @@ export default () => {
   const script: string = JSON.parse(readFileSync(root + "package.json", "utf8"))
     .scripts.build
   for (const step of script.split(" && ")) {
-    const [command, ...args] = step.split(" ")
-    const ran = spawnSync(root + "node_modules/.bin/" + command, args, {
+    // Through a shell, for the quoted banner of the bundle.
+    const ran = spawnSync(step, {
       cwd: root,
       stdio: "inherit",
+      shell: true,
+      env: {
+        ...process.env,
+        PATH: `${root}node_modules/.bin:${process.env["PATH"] ?? ""}`,
+      },
     })
     if (ran.status !== 0) throw new Error(`the build of dist failed at ${step}`)
   }

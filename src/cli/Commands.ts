@@ -4,6 +4,7 @@ import { health } from "./commands/health.ts"
 import { login } from "./commands/login.ts"
 import { logout } from "./commands/logout.ts"
 import { logs } from "./commands/logs.ts"
+import { model } from "./commands/model.ts"
 import { owner } from "./commands/owner.ts"
 import { status } from "./commands/status.ts"
 
@@ -18,6 +19,7 @@ export const commands = [
   owner,
   login,
   logout,
+  model,
   db,
   logs,
 ] as const

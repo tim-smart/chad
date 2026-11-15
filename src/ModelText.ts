@@ -35,3 +35,9 @@ export const main = (data: string, model: string | undefined) =>
 /** Whether a setting's provider needs the Codex login: `openai` with no API key (MOD-2). */
 export const needsLogin = (text: string, apiKey: string | undefined) =>
   text.split("/", 1)[0] === "openai" && apiKey === undefined
+
+/** The word of a flag of `chad model` and `/model` that clears its override (MOD-83, MOD-123). */
+export const clear = "none"
+
+/** A flag's value as a change holds it: `none` clears the override, as `null`. */
+export const flagValue = (value: string) => (value === clear ? null : value)

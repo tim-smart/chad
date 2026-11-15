@@ -147,6 +147,28 @@ export class LoginFailed extends Schema.TaggedError<LoginFailed>(
   ]),
 }) {}
 
+/** What `chad model` asks for: a missing field is left as it is, and `null` clears an override (MOD-82, MOD-83). */
+export const ModelRequest = Schema.Struct({
+  main: Schema.optionalKey(Schema.String),
+  subagent: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  summarizer: Schema.optionalKey(Schema.NullOr(Schema.String)),
+})
+
+/** What a `chad model` through the daemon hears: the code of a login it needs, then what it prints (MOD-92). */
+export const ModelEvent = Schema.Union([
+  Schema.TaggedStruct("Code", {
+    verifyUrl: Schema.String,
+    code: Schema.String,
+  }),
+  Schema.TaggedStruct("Ended", { text: Schema.String }),
+])
+export type ModelEvent = typeof ModelEvent.Type
+
+/** A change the daemon stored nothing of, with what the CLI prints (MOD-16, MOD-124). */
+export class ModelUnchanged extends Schema.TaggedError<ModelUnchanged>(
+  "chad/Rpcs/ModelUnchanged",
+)("ModelUnchanged", { text: Schema.String }) {}
+
 /**
  * Every other call. A call is declared here, and is then refused to a CLI of another version. No call returns a
  * stored secret: a connection comes back without its token.
@@ -170,6 +192,13 @@ const checked = RpcGroup.make(
   Rpc.make("Login", { success: LoginEvent, error: LoginFailed, stream: true }),
   /** `chad logout`, which says whether the model in force needs the login. */
   Rpc.make("Logout", { success: Schema.Struct({ spec: Schema.String }) }),
+  /** `chad model`. It takes no place in the queue (CLI-159), and a killed CLI ends its change before the store. */
+  Rpc.make("Model", {
+    payload: { request: ModelRequest },
+    success: ModelEvent,
+    error: ModelUnchanged,
+    stream: true,
+  }),
 ).middleware(VersionCheck)
 
 export const Rpcs = OpenRpcs.merge(checked)

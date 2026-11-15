@@ -52,16 +52,12 @@ const throughDaemon = Effect.gen(function* () {
 })
 
 /**
- * The login with no daemon. The CLI runs the device flow itself over the token store, and takes the daemon's lock
- * only to store the token, so a daemon that started meanwhile wins and the command fails (MOD-57, MOD-58). Its
- * timeout is the daemon's, from `Timings` (MOD-108). `chad model <spec>` with no daemon runs the same login (MOD-90).
+ * clanka's login with no daemon, over the token store. The code goes to the terminal, and the daemon's lock is taken
+ * only to store the token, so a daemon that started meanwhile wins and the command fails (MOD-57, MOD-58).
+ * `chad model <spec>` with no daemon runs its login and its trial request on it (MOD-90).
  */
-export const alone = Effect.gen(function* () {
-  yield* Files.writable("login")
-  const { spec, needsLogin } = yield* Account.model
-  if (!needsLogin) return yield* Console.log(Messages.loginNotNeeded(spec))
+export const terminal = Effect.gen(function* () {
   const environment = yield* Environment
-  const timings = yield* Timings
   const fs = yield* FileSystem.FileSystem
   yield* Effect.orDie(
     fs.makeDirectory(dirname(environment.lock), { recursive: true }),
@@ -83,32 +79,58 @@ export const alone = Effect.gen(function* () {
     }),
   )
   let told = false
+  const handler = DeviceCodeHandler.of({
+    onCode: ({ verifyUrl, deviceCode }) => {
+      told = true
+      return Console.log(Messages.loginPrompt(verifyUrl, deviceCode))
+    },
+  })
   const auth = yield* CodexAuth.make.pipe(
     Effect.provideService(KeyValueStore.KeyValueStore, guarded),
-    Effect.provideService(
-      DeviceCodeHandler,
-      DeviceCodeHandler.of({
-        onCode: ({ verifyUrl, deviceCode }) => {
-          told = true
-          return Console.log(Messages.loginPrompt(verifyUrl, deviceCode))
-        },
+    Effect.provideService(DeviceCodeHandler, handler),
+  )
+  return {
+    auth,
+    store: guarded,
+    handler,
+    /** Whether the login asked for a code. */
+    told: () => told,
+  }
+})
+
+/**
+ * The login on `terminal`'s login, with the daemon's timeout from `Timings` (MOD-108). It fails with the command's
+ * failure for the reason the login did not complete.
+ */
+export const run = <E>(
+  auth: CodexAuth["Service"],
+  failed: (reason: string) => E,
+) =>
+  Effect.gen(function* () {
+    const timings = yield* Timings
+    return yield* auth.get.pipe(
+      Effect.catchTag("CodexAuthError", (error) =>
+        Effect.fail(failed(error.reason)),
+      ),
+      Effect.timeoutOrElse({
+        duration: timings.modelLogin,
+        orElse: () => Effect.fail(failed("TimedOut")),
       }),
-    ),
-  )
-  yield* auth.get.pipe(
-    Effect.timeoutOrElse({
-      duration: timings.modelLogin,
-      orElse: () => Effect.fail(failed("TimedOut")),
-    }),
-    Effect.catchTag("CodexAuthError", (error) =>
-      Effect.fail(failed(error.reason)),
-    ),
-    // The lock taken when the token is stored dies inside clanka, which stores with `orDie`.
-    Effect.catchDefect((defect) =>
-      defect instanceof Failure ? Effect.fail(defect) : Effect.die(defect),
-    ),
-  )
-  yield* Console.log(told ? Messages.loggedIn : Messages.alreadyLoggedIn)
+      // The lock taken when the token is stored dies inside clanka, which stores with `orDie`.
+      Effect.catchDefect((defect) =>
+        defect instanceof Failure ? Effect.fail(defect) : Effect.die(defect),
+      ),
+    )
+  })
+
+/** The login with no daemon, which the CLI runs itself on `terminal` (MOD-57, MOD-58, MOD-108). */
+export const alone = Effect.gen(function* () {
+  yield* Files.writable("login")
+  const { spec, needsLogin } = yield* Account.model
+  if (!needsLogin) return yield* Console.log(Messages.loginNotNeeded(spec))
+  const { auth, told } = yield* terminal
+  yield* run(auth, failed)
+  yield* Console.log(told() ? Messages.loggedIn : Messages.alreadyLoggedIn)
 })
 
 /** `chad login`: the Codex login, through the daemon when one runs (MOD-55 to MOD-58, MOD-62, MOD-64). */

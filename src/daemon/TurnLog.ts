@@ -60,6 +60,8 @@ export const step = Effect.fnUntraced(function* (
   ids: Ids,
   part: AgentOutput.Output,
   status: Lines,
+  /** Whether a login with a code is pending for the session, which hides the retry line (DIS-29, MOD-50). */
+  loginPending: () => boolean = () => false,
 ) {
   const agent = part._tag === "SubagentPart" ? part.id : undefined
   const inner = part._tag === "SubagentPart" ? part.part : part
@@ -107,13 +109,24 @@ export const step = Effect.fnUntraced(function* (
     case "ErrorRetry": {
       const retry = (state.retries.get(agent) ?? 0) + 1
       state.retries.set(agent, retry)
+      const of = yield* Agent.MaxRetries
+      // The line shows the highest count of every agent of the turn (DIS-28, FAIL-80, FAIL-81).
+      if (!loginPending()) {
+        yield* status.add(
+          Messages.statusRetry(
+            inner.error.reason._tag,
+            Math.max(...state.retries.values()),
+            of,
+          ),
+        )
+      }
       return yield* Logger.event("turn.retry", "Model error, retrying", {
         ...ids,
         ...subagentOf(agent),
         reason: inner.error.reason._tag,
         error: inner.error.message,
         retry,
-        of: yield* Agent.MaxRetries,
+        of,
       })
     }
   }

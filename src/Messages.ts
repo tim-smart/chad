@@ -346,6 +346,10 @@ export const statusSubagent = (prompt: string) =>
 /** A compaction's line in the status message (DIS-27). */
 export const statusCompaction = () => "Compacted the history"
 
+/** The line of a model error clanka retries: its cause and the highest count of retries (DIS-28, FAIL-80). */
+export const statusRetry = (cause: string, retry: number, of: number) =>
+  `Model error (${cause}), retrying (${retry} of ${of})`
+
 /** The line of a steering message the agent has read: its first 60 characters, on one line (DIS-30). */
 export const statusRead = (text: string) =>
   `Read your message: ${Array.from(text.trim().replace(/\s+/g, " ")).slice(0, 60).join("")}`
@@ -555,6 +559,72 @@ export const modelTrialTimedOut = "no answer within the deadline"
 /** One model's sentence of the `model-check-failed` notice (MOD-25, FAIL-168). */
 export const modelCheckFailed = (spec: string, error: string) =>
   `The model \`${spec}\` failed its check at start (${error}). If turns fail, set another with \`/model\`.`
+
+/** The usage line of `/model`, for words it does not take (MOD-82, MOD-123). */
+export const modelUsage =
+  "Use /model [<provider>/<model>[/<effort>]] [--subagent <provider>/<model>[/<effort>]|none] [--summarizer <provider>/<model>[/<effort>]|none]."
+
+/** What `chad model` and `/model` print with no argument, one fact to a line (MOD-19, MOD-124). */
+export const modelShown = (lines: {
+  readonly main: string
+  readonly subagent: string | undefined
+  readonly summarizer: string | undefined
+  readonly ignored: ReadonlyArray<string>
+}) =>
+  [
+    `model: ${lines.main}`,
+    `sub-agents: ${lines.subagent ?? "the main model"}`,
+    `summarizer: ${lines.summarizer ?? "the main model"}`,
+    ...lines.ignored,
+  ].join("\n")
+
+/** The main model's value in what `chad model` shows, when it cannot run (MOD-G27). */
+export const modelCannotRun = (spec: string, error: string) =>
+  `${spec} (cannot run: ${error})`
+
+/** A stored override this run leaves out, in what `chad model` shows (MOD-G31, MOD-124). */
+export const modelIgnored = (
+  override: "subagent" | "summarizer",
+  spec: string,
+  error: string,
+) =>
+  `ignored: the ${override === "subagent" ? "sub-agent" : "summarizer"} override ${spec} (${error})`
+
+/** A changed main model (MOD-15, MOD-124). */
+export const modelNow = (spec: string) => `The model is now ${spec}.`
+
+/** A set or cleared override (MOD-82, MOD-83, MOD-124). */
+export const modelOverrideNow = (
+  override: "subagent" | "summarizer",
+  spec: string | undefined,
+) =>
+  override === "subagent"
+    ? `Sub-agents now run on ${spec ?? "the main model"}.`
+    : `The summarizer now runs on ${spec ?? "the main model"}.`
+
+/** The overrides a change of provider cleared (MOD-85). */
+export const modelOverridesCleared = (
+  cleared: ReadonlyArray<"subagent" | "summarizer">,
+  provider: string,
+) =>
+  `${cleared.length === 2 ? "The sub-agent and summarizer overrides were" : cleared[0] === "subagent" ? "The sub-agent override was" : "The summarizer override was"} cleared, because the main model left ${provider}.`
+
+/** A change refused before any request, so nothing was stored (MOD-5, MOD-81, MOD-124). */
+export const modelRefused = (reason: string) => `Nothing was changed: ${reason}`
+
+/** A change whose trial request failed, so nothing was stored (MOD-16, MOD-84, MOD-88). */
+export const modelTrialFailed = (spec: string, error: string) =>
+  `The model ${spec} failed its trial request (${error}). Nothing was changed.`
+
+/** A change whose login did not complete, so nothing was stored (MOD-17). */
+export const modelLoginFailed = (reason: string) =>
+  reason === "TimedOut"
+    ? "The login timed out. Nothing was changed."
+    : `The login failed (${reason}). Nothing was changed.`
+
+/** A change whose file could not be written. The files written before it stay, and the daemon reads them again. */
+export const modelNotStored = (path: string, code: string) =>
+  `The change was not stored in full: ${path} could not be written (${code}).`
 
 /** A model call needed a Codex login while chad has none and cannot post a code for one (MOD-2). */
 export const loginUnavailable = "chad is not logged in to Codex."

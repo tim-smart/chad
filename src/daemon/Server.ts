@@ -19,11 +19,14 @@ import {
 } from "effect/rpc"
 import { SocketServer } from "effect/socket"
 import * as Messages from "../Messages.ts"
+import * as ModelSpec from "../ModelSpec.ts"
 import * as Paths from "../Paths.ts"
 import {
   type LoginEvent,
   LoginFailed,
+  type ModelEvent,
   type ModelState,
+  ModelUnchanged,
   type Phase,
   type Recent,
   type Report,
@@ -37,6 +40,7 @@ import type { Commands } from "./Connections.ts"
 import * as Filesystem from "./Filesystem.ts"
 import * as Logger from "./Logger.ts"
 import type * as Login from "./Login.ts"
+import type * as Model from "./Model.ts"
 import * as Queue from "./Queue.ts"
 import type { Volume } from "./Volume.ts"
 
@@ -67,6 +71,7 @@ export interface State {
 /** What `chad login`, `chad logout` and `chad status` reach of the model in the daemon. */
 export interface Account {
   readonly login: Login.Login["Service"]
+  readonly models: Model.Models["Service"]
   /** The main setting in force, and whether its provider needs the Codex login. */
   readonly model: () => { readonly spec: string; readonly needsLogin: boolean }
   /** Whether a Codex token is stored. */
@@ -83,6 +88,47 @@ export const modelState = (account: Account): Effect.Effect<ModelState> =>
       spec,
       login: (yield* account.stored) ? "logged-in" : "logged-out",
     } as const
+  })
+
+/** Where a login that `chad model` or `/model` needs tells its code, as `Login.login` takes it. */
+export interface LoginPrompt {
+  readonly print: (prompt: Login.Prompt) => Effect.Effect<void>
+  readonly leader?: Login.SessionRef
+}
+
+/**
+ * `chad model` and `/model` in the daemon, which run the one call and print the same text (MOD-15, MOD-19). With no
+ * change it shows the settings and the login state. A change logs `command.ran` with how it ended (MOD-122).
+ */
+export const modelCommand = (
+  account: Account,
+  request: ModelSpec.Request,
+  caller: string,
+  prompt: LoginPrompt,
+): Effect.Effect<string, ModelSpec.Unchanged> =>
+  Effect.gen(function* () {
+    if (ModelSpec.isShow(request)) {
+      const state = yield* modelState(account)
+      return ModelSpec.shown(
+        account.models.settings(),
+        Status.logins[state.login],
+      )
+    }
+    const login = account.login.login(prompt.print, prompt.leader).pipe(
+      Effect.asVoid,
+      Effect.mapError(
+        (error) =>
+          new ModelSpec.Unchanged({
+            text: Messages.modelLoginFailed(
+              error._tag === "LoginTimedOut" ? "TimedOut" : error.reason,
+            ),
+          }),
+      ),
+    )
+    return yield* account.models.change(request, login).pipe(
+      Effect.tapError(() => Queue.ran("model", caller, "refused")),
+      Effect.tap(() => Queue.ran("model", caller, "changed")),
+    )
   })
 
 /** What "Recent" reads from the database. */
@@ -318,6 +364,32 @@ const handlers = (state: State) => {
           )
           return { spec: model().spec }
         }),
+      ),
+    // A killed CLI ends this stream, and a change that has not reached its store with it. A login it started runs on
+    // in the daemon (MOD-101).
+    Model: ({ request }, { headers }) =>
+      Stream.callback<ModelEvent, ModelUnchanged>((queue) =>
+        tracked(
+          Effect.gen(function* () {
+            const text = yield* modelCommand(
+              yield* account,
+              request,
+              Queue.caller(headers[sessionHeader]),
+              {
+                print: (prompt) =>
+                  Mailbox.offer(queue, { _tag: "Code", ...prompt }).pipe(
+                    Effect.asVoid,
+                  ),
+              },
+            )
+            yield* Mailbox.offer(queue, { _tag: "Ended", text })
+            yield* Mailbox.end(queue)
+          }).pipe(
+            Effect.catch((error) =>
+              Mailbox.fail(queue, new ModelUnchanged({ text: error.text })),
+            ),
+          ),
+        ),
       ),
     Status: () => report(state),
     ConnectionChange: ({ change }, { headers }) =>

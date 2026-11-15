@@ -1,4 +1,5 @@
 import * as NodeServices from "@effect/platform-node/NodeServices"
+import * as NodeSocket from "@effect/platform-node/NodeSocket"
 import { Cause, Console, Effect, Layer } from "effect"
 import { CliConfig, CliError, CliOutput, Command, GlobalFlag } from "effect/cli"
 import type { HttpClient } from "effect/http"
@@ -64,6 +65,9 @@ export const runCli = (inputs: CliInputs): Promise<ExitCode> => {
   const services = Layer.mergeAll(
     NodeServices.layer,
     inputs.httpClient,
+    // The socket a Codex trial request of `chad model` with no daemon dials (MOD-90). It is no input of `runCli`, which
+    // takes an HttpClient and the durations only (TST-209).
+    NodeSocket.layerWebSocketConstructor,
     Layer.succeed(Environment.Environment, environment),
     Layer.succeed(Timings, inputs.timings),
     // Of the flags effect adds by itself, chad keeps --help and --version.

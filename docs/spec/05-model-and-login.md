@@ -335,6 +335,10 @@ A running daemon does not see a token that another process wrote, because its `C
 - **MOD-120** The login prompt is one line, the same in a thread and in the terminal: "To log chad in to Codex, open <verify URL> and enter the code <code>. The code is good for 15 minutes."
 - **MOD-121** `chad logout` prints one line that says chad is logged out of Codex and that a running turn is not stopped, and exits with code 0. It prints the same whether or not a token was stored.
 - **MOD-122** `chad login` and `chad logout` write the log event `command.ran` only when the daemon runs them. With no daemon they write no log line.
+- **MOD-123** The two flags of MOD-82 are `--subagent <spec>` and `--summarizer <spec>`, the same for `chad model` and `/model`, and the value `none` is the form of MOD-83 that clears the override. `/model` with words it does not take, such as an unknown flag, a flag with no value, one flag twice or a second setting, posts the usage line of the messages table and changes nothing.
+- **MOD-124** `chad model` and `/model` print the same text. With no argument it is three lines, `model: <spec> (<login state>)`, `sub-agents: <spec>` and `summarizer: <spec>`, where an override that is not set reads `the main model`, and then one line for each stored override the run leaves out. A change prints one line for each value it sets or clears and the line of MOD-85 when that clears overrides. A change that stores nothing prints why on one line that says nothing was changed, and the CLI exits with code 1. The texts are in the messages table.
+- **MOD-125** `/model` runs apart from the handling of its message, so the next message of the thread is not held up by a trial or a login, and it posts what it prints where it was typed when it ends. A restart drops a `/model` that is still running and nothing is posted. A `chad model` through the daemon whose CLI is killed ends the change if it has not yet reached its store.
+- **MOD-126** The daemon runs one change of the model at a time, and a change that waits is planned on what the one before it stored. The main model is written first and then each override.
 
 In the run behind MOD-61, after a logout during a turn on the WebSocket transport the turn finished normally, and the login was asked for 72 seconds into a later turn, when the socket was opened again. On the HTTP transport the next model call asked at once.
 
@@ -386,6 +390,17 @@ The prices are what models.dev listed on 2026-11-14.
 | `To log chad in to Codex, open <verify URL> and enter the code <code>. The code is good for 15 minutes.` | The thread of the turn that asked, the notice route, or the terminal | A login has its code (MOD-38, MOD-55, MOD-118, MOD-120) |
 | `chad is already logged in to Codex. To log in with another account, run chad logout and then chad login.` | CLI, exit code 0 | `chad login` with a good token stored (MOD-119) |
 | `chad is logged out of Codex. A turn that is running is not stopped: it finishes on the connection it has, and the next one asks for a login.` | CLI, exit code 0 | `chad logout` (MOD-61, MOD-121) |
+| `model: <spec> (<login state>)`, `sub-agents: <spec>` and `summarizer: <spec>`, one to a line | CLI, exit code 0, and where `/model` was typed | `chad model` or `/model` with no argument (MOD-19, MOD-124) |
+| `model: <spec> (cannot run: <reason>)` | The first line of the above | The main setting cannot run (MOD-G27) |
+| `ignored: the <sub-agent or summarizer> override <spec> (<reason>)` | A line after the above | A stored override that this run leaves out (MOD-81, MOD-G31) |
+| `The model is now <spec>.` | CLI, exit code 0, and where `/model` was typed | A change of the main model was stored (MOD-15) |
+| `Sub-agents now run on <spec or the main model>.` and `The summarizer now runs on <spec or the main model>.` | As above | An override was set or cleared (MOD-82, MOD-83) |
+| `The sub-agent and summarizer overrides were cleared, because the main model left <provider>.`, or the same for one of them | As above | A change of provider cleared overrides (MOD-85) |
+| `Nothing was changed: <reason>` | CLI, exit code 1, and where `/model` was typed | A setting refused before any request, such as `claude` (MOD-5) or an override of another provider (MOD-81) |
+| `The model <spec> failed its trial request (<error>). Nothing was changed.` | As above | A trial request failed or did not answer in time (MOD-16, MOD-84, MOD-88) |
+| `The login timed out. Nothing was changed.` and `The login failed (<reason>). Nothing was changed.` | As above | The login a change needed did not complete (MOD-17) |
+| `The change was not stored in full: <path> could not be written (<code>).` | As above | A file of the change could not be written, and the files written before it stay |
+| `Use /model [<provider>/<model>[/<effort>]] [--subagent <provider>/<model>[/<effort>]\|none] [--summarizer <provider>/<model>[/<effort>]\|none].` | Where `/model` was typed | Words `/model` does not take (MOD-123) |
 
 ## Gaps
 
@@ -535,3 +550,7 @@ The prices are what models.dev listed on 2026-11-14.
 | MOD-120 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
 | MOD-121 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
 | MOD-122 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
+| MOD-123 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
+| MOD-124 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
+| MOD-125 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
+| MOD-126 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |

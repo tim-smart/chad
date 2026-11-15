@@ -18,6 +18,8 @@ export interface Environment {
   readonly model?: string | undefined
   /** Whether `CHAD_OPENAI_API_KEY` is set, which puts `openai` on the API and off the Codex login (MOD-2). */
   readonly openaiApiKey?: string | undefined
+  /** `CHAD_OPENAI_API_URL`, the endpoint of a trial request `chad model` makes with no daemon (MOD-90). */
+  readonly openaiApiUrl?: string | undefined
 }
 
 export const Environment = Context.Service<Environment>("chad/cli/Environment")
@@ -31,5 +33,6 @@ export const read = (env: NodeJS.ProcessEnv): Environment => {
     session: env["CHAD_SESSION"],
     model: env["CHAD_MODEL"],
     openaiApiKey: env["CHAD_OPENAI_API_KEY"],
+    openaiApiUrl: env["CHAD_OPENAI_API_URL"],
   }
 }

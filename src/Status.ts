@@ -47,7 +47,8 @@ const connections = (list: ReadonlyArray<Connection> = []) =>
     (connection) => `connection: ${connection.name} (${connection.kind})`,
   )
 
-const logins: Record<ModelState["login"], string> = {
+/** A login state as `chad status` and `chad model` write it (CLI-125, MOD-19). */
+export const logins: Record<ModelState["login"], string> = {
   "logged-in": "logged in",
   "logged-out": "not logged in",
   pending: "login pending",
