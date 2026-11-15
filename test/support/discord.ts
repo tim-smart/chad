@@ -317,6 +317,11 @@ export interface Rest {
   readonly url: string
   readonly calls: () => ReadonlyArray<RestCall>
   /** Waits for `count` calls with the method whose path matches, and gives them. */
+  /** Waits for chad's posts in a channel that are not a status message, the one post with the Stop button on it. */
+  readonly answers: (
+    channel: string,
+    count: number,
+  ) => Promise<ReadonlyArray<RestCall>>
   readonly called: (
     method: string,
     path: RegExp,
@@ -406,7 +411,7 @@ export const rest = async (): Promise<Rest> => {
         mention_roles: [],
         attachments: [],
         embeds: [],
-        components: [],
+        components: call.body?.components ?? [],
       }
       messages.set(message.id, message)
       keep(post[1]!, message)
@@ -441,6 +446,37 @@ export const rest = async (): Promise<Rest> => {
           embeds: [],
         },
       ]
+    }
+    // An edit of chad's own message, as the status message has, and its deletion.
+    if (call.method === "PATCH" && message !== null) {
+      const stored = messages.get(message[2]!)
+      if (stored === undefined) {
+        return [404, { code: 10008, message: "Unknown Message" }]
+      }
+      const edited: Data = {
+        ...stored,
+        content: call.body?.content ?? stored["content"],
+        components: call.body?.components ?? stored["components"],
+      }
+      messages.set(message[2]!, edited)
+      histories.set(
+        message[1]!,
+        (histories.get(message[1]!) ?? []).map((kept) =>
+          kept["id"] === message[2] ? edited : kept,
+        ),
+      )
+      return [200, edited]
+    }
+    if (call.method === "DELETE" && message !== null) {
+      if (!messages.delete(message[2]!)) {
+        return [404, { code: 10008, message: "Unknown Message" }]
+      }
+      const history = histories.get(message[1]!) ?? []
+      histories.set(
+        message[1]!,
+        history.filter((kept) => kept["id"] !== message[2]),
+      )
+      return [204, null]
     }
     const thread = /^\/channels\/(\d+)\/messages\/(\d+)\/threads$/.exec(path)
     if (call.method === "POST" && thread !== null) {
@@ -513,6 +549,16 @@ export const rest = async (): Promise<Rest> => {
   return {
     url: `http://127.0.0.1:${port}`,
     calls: () => calls,
+    answers: (channel, count) =>
+      changes.until(() => {
+        const found = calls.filter(
+          (call) =>
+            call.method === "POST" &&
+            call.path === `/channels/${channel}/messages` &&
+            !Array.isArray(call.body?.["components"]),
+        )
+        return found.length >= count ? found : undefined
+      }),
     called: (method, path, count = 1) =>
       changes.until(() => {
         const found = calls.filter(

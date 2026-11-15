@@ -39,13 +39,9 @@ const identify = async (running: Process, index: number, session: string) => {
 
 /** chad's answers in a channel, as Discord's REST got them. */
 const answers = async (running: Process, count: number, channel = dm) =>
-  (
-    await running.discord.rest.called(
-      "POST",
-      new RegExp(`^/channels/${channel}/messages$`),
-      count,
-    )
-  ).map((call) => call.body?.["content"])
+  (await running.discord.rest.answers(channel, count)).map(
+    (call) => call.body?.["content"],
+  )
 
 test("SES-30b TST-60b TST-61d a dispatch that was in flight when the daemon was killed is not stored as seen, the next start resumes from the sequence before it, and Discord's replay is answered once", async () => {
   const running = await daemon({ connections: [home] })
@@ -248,7 +244,9 @@ test("SES-172 SES-203 SES-204 SES-37 in a thread two bots share, a /new the gate
     .calls()
     .filter(
       (call) =>
-        call.method === "POST" && call.path === `/channels/${shared}/messages`,
+        call.method === "POST" &&
+        call.path === `/channels/${shared}/messages` &&
+        !Array.isArray(call.body?.["components"]),
     )
   expect(posts).toHaveLength(2)
 

@@ -51,14 +51,29 @@ export const threadOf = (row: Record<string, unknown> | undefined) => {
   return thread.value
 }
 
-/** The text of every message chad has posted in a thread. */
+/** The text of every message chad has posted in a thread, its status messages aside. */
 export const posted = async (
   { fakes }: Pick<Scenario, "fakes">,
   thread: ChatThread.ChatThread,
-) =>
-  (await fakes.chat.messages(thread))
-    .filter((message) => message.author.isSelf)
+) => {
+  const statuses = await fakes.chat.statuses()
+  return (await fakes.chat.messages(thread))
+    .filter(
+      (message) => message.author.isSelf && !statuses.includes(message.id),
+    )
     .map((message) => message.text)
+}
+
+/** The status messages chad has in a thread now, by their text. */
+export const statusMessages = async (
+  { fakes }: Pick<Scenario, "fakes">,
+  thread: ChatThread.ChatThread,
+) => {
+  const statuses = await fakes.chat.statuses()
+  return (await fakes.chat.messages(thread))
+    .filter((message) => statuses.includes(message.id))
+    .map((message) => message.text)
+}
 
 /** The text of the last user message a model call carries. */
 export const prompted = (call: { readonly body: unknown } | undefined) => {

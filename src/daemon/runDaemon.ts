@@ -14,7 +14,7 @@ import {
   Option,
   Scope,
 } from "effect"
-import type { ChatAdapter, ChatHandler } from "effect/chat"
+import type { ChatAdapter, ChatHandler, ChatInteraction } from "effect/chat"
 import { MessageRetention, SingleRunner } from "effect/cluster"
 import type { HttpClient } from "effect/http"
 import type { Socket } from "effect/socket"
@@ -56,6 +56,7 @@ export interface DaemonInputs {
     never,
     | ChatAdapter.Registry
     | ChatHandler.ChatHandler
+    | ChatInteraction.Handler
     | Volume.Volume
     | HttpClient.HttpClient
     | Socket.WebSocketConstructor
@@ -276,7 +277,9 @@ const boot = Effect.fnUntraced(function* (
   // Each connection has a `Chat` and an adapter registry of its own, because the registry is keyed by platform and
   // two connections can share one. A session finds the `Chat` of a connection by the connection's name.
   const running = yield* Chats.make((connection, live) =>
-    inputs.chat(connection).pipe(Layer.provide(Handler.layer(live))),
+    inputs
+      .chat(connection)
+      .pipe(Layer.provide([Handler.layer(live), Handler.interactions(live)])),
   )
   // The notices outside a turn post through the connections, and "Problems" lists their keys from here on.
   const notices = yield* Notices.make({

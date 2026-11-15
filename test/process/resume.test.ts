@@ -14,6 +14,7 @@ import {
   prompted,
   rows,
   says,
+  statusMessages,
 } from "../support/owner.ts"
 import { daemon } from "../support/process.ts"
 
@@ -65,7 +66,7 @@ test("SES-99 SES-101 SES-102 SES-103 SES-98 STO-71 STO-72 FAIL-253 FAIL-104 FAIL
   ])
 }, 15_000)
 
-test("SES-106 SES-99 SES-202 FAIL-326 FAIL-63a FAIL-65 after two starts that a kill ended, a SIGTERM followed by a kill before the cut counting as one, the next delivery counts a third start, runs no model, posts the give-up message and records the turn as failed with GaveUp, with only turn.failed for that delivery", async () => {
+test("SES-106 SES-99 SES-202 FAIL-326 FAIL-63a FAIL-63b DIS-62 FAIL-65 after two starts that a kill ended, a SIGTERM followed by a kill before the cut counting as one, the next delivery counts a third start, runs no model, posts the give-up message and records the turn as failed with GaveUp, with only turn.failed for that delivery, and removes the status message the turn left behind", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([
@@ -90,6 +91,9 @@ test("SES-106 SES-99 SES-202 FAIL-326 FAIL-63a FAIL-65 after two starts that a k
   expect(await posted(running, thread)).toEqual([
     Messages.gaveUp(String(failed!.annotations["turn"])),
   ])
+  // The resumed start edited the message of the first, and the give-up removed it.
+  expect(await fakes.chat.statuses()).toHaveLength(1)
+  expect(await statusMessages(running, thread)).toEqual([])
   const events = running.log().map((line) => line.annotations["event"])
   expect(events.filter((event) => event === "turn.started")).toHaveLength(1)
   expect(events.filter((event) => event === "turn.resumed")).toHaveLength(1)
@@ -100,6 +104,42 @@ test("SES-106 SES-99 SES-202 FAIL-326 FAIL-63a FAIL-65 after two starts that a k
     { starts: 3, graceful_cuts: 0, outcome: "failed", failure: "GaveUp" },
   ])
 }, 20_000)
+
+test("SES-104 DIS-32 STO-75 a turn that a kill cut edits the status message its first start posted, adding the restart line, posts no second one, and removes it before the answer", async () => {
+  const running = await daemon()
+  const { fakes } = running
+  await fakes.model.script([
+    { text: "never sent", hold: true },
+    { text: "finished", hold: true },
+  ])
+  const first = await running.start()
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "do the thing")
+  await fakes.model.received(1)
+  const [row] = await found(
+    running,
+    "SELECT started_at, status_message_id FROM turns WHERE status_message_id IS NOT NULL",
+  )
+  await first.kill()
+
+  await running.start()
+  await fakes.model.received(2)
+  await eventually(
+    () => statusMessages(running, thread),
+    (texts) =>
+      texts.length === 1 &&
+      texts[0] ===
+        Messages.statusMessage(Number(row!["started_at"]), [
+          Messages.statusRestarted(),
+        ]),
+  )
+  expect(await fakes.chat.statuses()).toEqual([row!["status_message_id"]])
+  await fakes.model.release(1)
+  await fakes.chat.answers(thread, 1)
+  expect(await posted(running, thread)).toEqual(["finished"])
+  expect(await statusMessages(running, thread)).toEqual([])
+  expect(await fakes.chat.statuses()).toHaveLength(1)
+}, 15_000)
 
 test("SES-161 SES-101 a kill after the start is counted and before the prompt is stored resumes with the owner's message and its files, and the restart note after them in the same send", async () => {
   const running = await daemon()
@@ -341,14 +381,11 @@ test("FAIL-135 FAIL-281 SES-99 a turn whose row the full volume cannot insert ge
   ])
 }, 20_000)
 
-test("FAIL-135 SES-99 a turn whose session directory cannot be made gets the ordinary failed-turn message and no reply, the thread's later messages still answer, and a restart delivers it again as a fresh turn", async () => {
+test("FAIL-135 SES-99 a turn whose session directory cannot be made has its start counted before anything else, so it ends failed with Internal and the ordinary failed-turn message, its status message is removed, and the thread's later messages still answer", async () => {
   const running = await daemon()
   const { fakes } = running
-  await fakes.model.script([
-    { text: "second answer" },
-    { text: "first answer" },
-  ])
-  const first = await running.start()
+  await fakes.model.script([{ text: "second answer" }])
+  await running.start()
   const thread = await fakes.chat.makeThread("direct")
   // A file where the sessions directory belongs fails the new session's directory.
   const sessions = join(running.data, "sessions")
@@ -360,18 +397,12 @@ test("FAIL-135 SES-99 a turn whose session directory cannot be made gets the ord
   await fakes.chat.answers(thread, 1)
   rmSync(sessions)
   mkdirSync(sessions)
-  expect(rows(running, "SELECT request_key FROM turns")).toEqual([])
+  expect(rows(running, "SELECT starts, outcome, failure FROM turns")).toEqual([
+    { starts: 1, outcome: "failed", failure: "Internal" },
+  ])
 
   await says(running, thread, "second")
   await fakes.chat.answers(thread, 2)
-  await first.kill()
-
-  await running.start()
-  const calls = await fakes.model.received(2)
-  expect(prompted(calls[1])).toBe("first")
-  await fakes.chat.answers(thread, 3)
-  expect((await posted(running, thread)).slice(1)).toEqual([
-    "second answer",
-    "first answer",
-  ])
+  expect((await posted(running, thread)).slice(1)).toEqual(["second answer"])
+  expect(await statusMessages(running, thread)).toEqual([])
 }, 20_000)

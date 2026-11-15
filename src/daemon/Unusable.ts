@@ -8,6 +8,7 @@ import {
   FileSystem,
   Layer,
 } from "effect"
+import { ChatInteraction } from "effect/chat"
 import type { HttpClient } from "effect/http"
 import type { Socket } from "effect/socket"
 import * as Messages from "../Messages.ts"
@@ -81,9 +82,13 @@ export const run = Effect.fnUntraced(function* (options: {
   )
   const status = Server.statusText(state)
   const running = yield* Chats.make((connection, handler) =>
-    inputs
-      .chat(connection)
-      .pipe(Layer.provide(Handler.unusable(handler, text, status))),
+    inputs.chat(connection).pipe(
+      Layer.provide([
+        Handler.unusable(handler, text, status),
+        // No turn runs, so a click is answered and does nothing.
+        ChatInteraction.layer(),
+      ]),
+    ),
   )
   yield* running.set(stored).pipe(Effect.provideContext(context))
   yield* Deferred.succeed(

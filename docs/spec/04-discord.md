@@ -70,6 +70,8 @@ The status message is one message that chad posts when a turn starts and edits i
 - **DIS-93** When a post, an edit or the removal of the status message fails, chad logs the failure and carries on with the turn. The status message is a view of the turn, and a turn does not fail over it.
 - **DIS-94** The one exception to DIS-93 is a first post that fails because the thread no longer exists. chad then ends the turn as a failed turn with the reason `ThreadGone` before the model runs (see 16-failures-logs-status.md). Without this a cron job in a deleted thread would run its whole turn and find out only when the answer cannot be posted.
 - **DIS-95** When chad closes a turn's row that an earlier process left as running, it makes one attempt to delete the status message whose id is in the row and posts nothing. The rule is in 03-sessions-and-turns.md.
+- **DIS-116** The status message's header line is "Working, started <t:…:R>", with the time the turn's first start began, so the header of a resumed turn keeps it.
+- **DIS-117** A script's line is the first line of its source in a code span, cut at 120 characters and ended with "…" when anything was cut. A sub-agent's line is "Sub-agent: " and the first line of its prompt, cut the same way. A compaction's line is "Compacted the history". A background sub-agent's scripts and compactions get no line, because the Agent's output does not show its steps.
 
 The lines with a fixed wording:
 
@@ -386,3 +388,5 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-113 | TIM-559 round 3 on DIS-G25 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | DIS-114 | TIM-559 round 3 on DIS-G25 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | DIS-115 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `wire` |
+| DIS-116 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `discord-ui` |
+| DIS-117 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `discord-ui` |

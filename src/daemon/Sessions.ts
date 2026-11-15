@@ -298,6 +298,10 @@ export interface Start {
   /** How many of the earlier starts a graceful stop cut. */
   readonly cuts: number
   readonly earlier: Usage
+  /** The id of the status message an earlier start posted, which this one edits (STO-75, SES-104). */
+  readonly status: string | undefined
+  /** When the request's first attempt started. */
+  readonly at: number
 }
 
 /** How many of a turn's earlier starts ended in a kill: every one that neither finished nor was cut gracefully. */
@@ -324,12 +328,14 @@ export const started = Effect.fnUntraced(function* (start: {
     turn_id: string
     starts: number
     graceful_cuts: number
+    status_message_id: string | null
+    started_at: number | null
   }>`
     INSERT INTO turns (request_key, turn_id, session_id, origin, started_at, starts, model)
     VALUES (${start.key}, ${start.turn}, ${start.session}, 'message', ${start.at}, 1, ${start.model ?? null})
     ON CONFLICT (request_key) DO UPDATE SET
       starts = starts + 1, session_id = excluded.session_id, model = excluded.model
-    RETURNING turn_id, starts, graceful_cuts
+    RETURNING turn_id, starts, graceful_cuts, status_message_id, started_at
   `
   const row = rows[0]!
   return {
@@ -337,7 +343,15 @@ export const started = Effect.fnUntraced(function* (start: {
     starts: row.starts,
     cuts: row.graceful_cuts,
     earlier: earlier[0] ?? noUsage,
+    status: row.status_message_id ?? undefined,
+    at: Number(row.started_at ?? start.at),
   } satisfies Start
+})
+
+/** Records the id of a turn's status message as soon as its post returns, so that a resumed start edits it (DIS-90). */
+export const status = Effect.fnUntraced(function* (key: string, id: string) {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql`UPDATE turns SET status_message_id = ${id} WHERE request_key = ${key}`
 })
 
 /** Records that a graceful stop cut a turn's start, which then does not count as a kill. */
@@ -647,14 +661,18 @@ export const undecodable = Effect.fnUntraced(function* (row: {
   const sql = yield* SqlClient.SqlClient
   return yield* sql.withTransaction(
     Effect.gen(function* () {
-      const rows = yield* sql<{ turn_id: string; session_id: string | null }>`
+      const rows = yield* sql<{
+        turn_id: string
+        session_id: string | null
+        status_message_id: string | null
+      }>`
         INSERT INTO turns (request_key, turn_id, session_id, origin, started_at, ended_at, outcome, failure, failure_detail)
         VALUES (${row.key}, ${row.turn}, ${row.session ?? null}, 'message', ${row.at}, ${row.at}, 'failed', 'Internal',
           ${row.detail})
         ON CONFLICT (request_key) DO UPDATE SET
           ended_at = excluded.ended_at, outcome = 'failed', failure = 'Internal', failure_detail = excluded.failure_detail
         WHERE turns.outcome IS NULL
-        RETURNING turn_id, session_id
+        RETURNING turn_id, session_id, status_message_id
       `
       const ended = rows[0]
       if (ended === undefined) return undefined
@@ -666,7 +684,12 @@ export const undecodable = Effect.fnUntraced(function* (row: {
           failure: "Internal",
         })
       }
-      return { turn: ended.turn_id, session }
+      // The status message a cut start of the turn left behind (DIS-95).
+      return {
+        turn: ended.turn_id,
+        session,
+        status: ended.status_message_id ?? undefined,
+      }
     }),
   )
 })

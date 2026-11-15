@@ -1,8 +1,10 @@
 import * as Agent from "clanka/Agent"
 import type * as AgentOutput from "clanka/AgentOutput"
 import { type Cause, Context, Effect } from "effect"
+import * as Messages from "../Messages.ts"
 import * as Logger from "./Logger.ts"
 import * as Sessions from "./Sessions.ts"
+import type { Lines } from "./StatusMessage.ts"
 
 /**
  * What a turn writes to the log: its start, its steps and its end (FAIL-11, FAIL-12). The steps are read from the
@@ -49,14 +51,15 @@ const subagentOf = (agent: number | undefined) =>
   agent === undefined ? {} : { subagent: agent }
 
 /**
- * One part of the Agent's output. A part that is a step of the turn gets its line here (FAIL-245 to FAIL-250), and a
- * part of a sub-agent carries the sub-agent's id (FAIL-241). A script's own lines are not read from here: see
- * `scriptStarted`.
+ * One part of the Agent's output. A part that is a step of the turn gets its log line here (FAIL-245 to FAIL-250), and
+ * a part of a sub-agent carries the sub-agent's id (FAIL-241). A step that the status message shows gets its status line
+ * here too, from the same call (FAIL-11, DIS-81). A script's own lines are not read from here: see `scriptStarted`.
  */
 export const step = Effect.fnUntraced(function* (
   state: Steps,
   ids: Ids,
   part: AgentOutput.Output,
+  status: Lines,
 ) {
   const agent = part._tag === "SubagentPart" ? part.id : undefined
   const inner = part._tag === "SubagentPart" ? part.part : part
@@ -64,6 +67,7 @@ export const step = Effect.fnUntraced(function* (
   switch (inner._tag) {
     case "SubagentStart": {
       state.subagents.set(inner.id, now)
+      yield* status.add(Messages.statusSubagent(inner.prompt))
       return yield* Logger.event(
         "turn.subagent-started",
         "A sub-agent started",
@@ -87,6 +91,7 @@ export const step = Effect.fnUntraced(function* (
       })
     }
     case "CompactionEnded": {
+      yield* status.add(Messages.statusCompaction())
       return yield* Logger.event(
         "turn.compaction",
         "The history was compacted",
@@ -214,17 +219,29 @@ const scriptIds = (ids: Logger.SessionLogIds, agent: number | undefined) => ({
   ...subagentOf(agent),
 })
 
-/** A script starts to run (FAIL-13). */
+/**
+ * A script starts to run (FAIL-13), with its line in the status message (DIS-24, FAIL-11). The source is the whole
+ * script, which is what clanka's `ScriptDelta` carries too (DIS-25). `status` is `none` for an agent whose steps the
+ * Agent's output leaves out.
+ */
 export const scriptStarted = (
   ids: Logger.SessionLogIds,
   agent: number | undefined,
   script: string,
+  status: Lines,
 ) =>
-  Logger.event("turn.script-started", "A script started", {
-    ...scriptIds(ids, agent),
-    source: source(script),
-    source_chars: script.length,
-  }).pipe(Logger.ownConsole)
+  Effect.andThen(
+    Effect.flatMap(hidden, (agent) =>
+      agent === undefined
+        ? status.add(Messages.statusScript(script))
+        : Effect.void,
+    ),
+    Logger.event("turn.script-started", "A script started", {
+      ...scriptIds(ids, agent),
+      source: source(script),
+      source_chars: script.length,
+    }).pipe(Logger.ownConsole),
+  )
 
 /** A script ended, whether or not the status message has a line for it (FAIL-14, FAIL-192). */
 export const scriptEnded = (
@@ -247,9 +264,21 @@ export type Origin = "message"
 export const started = (ids: Ids, origin: Origin) =>
   Logger.event("turn.started", "A turn started", { ...ids, origin })
 
-/** A later start of a turn, after a restart (FAIL-253, FAIL-326). */
-export const resumed = (ids: Ids, origin: Origin, starts: number) =>
-  Logger.event("turn.resumed", "A turn was resumed", { ...ids, origin, starts })
+/** A later start of a turn, after a restart (FAIL-253, FAIL-326), with its line in the status message (DIS-32). */
+export const resumed = (
+  ids: Ids,
+  origin: Origin,
+  starts: number,
+  status: Lines,
+) =>
+  Effect.andThen(
+    status.add(Messages.statusRestarted()),
+    Logger.event("turn.resumed", "A turn was resumed", {
+      ...ids,
+      origin,
+      starts,
+    }),
+  )
 
 /** What every end of a turn carries (FAIL-254, FAIL-255). `session` is missing when the turn ended before it had one. */
 export interface End {

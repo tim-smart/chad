@@ -4,6 +4,7 @@ import { Effect } from "effect"
 import { expect, test } from "vitest"
 import { query } from "../support/database.ts"
 import { owner, type Scenario, scenario } from "../support/driver.ts"
+import { posted } from "../support/owner.ts"
 
 /** An owner's message, delivered to the daemon. */
 const ask = async (
@@ -54,7 +55,7 @@ test("MOD-98 an openai-compat request carries neither prompt_cache_key nor a ses
   expect(Object.keys(call?.headers ?? {})).not.toContain("session_id")
 })
 
-test("SES-17 SES-44 SES-50 DIS-7 DIS-11 DIS-50 TST-56 the entity posts the clean final answer once, as a normal post in the thread the message came from", async () => {
+test("SES-17 SES-44 SES-50 DIS-7 DIS-11 DIS-50 TST-56 OV-28 DIS-35 the entity posts the clean final answer once, as a normal post in the thread the message came from, after it removed the status message", async () => {
   const running = await scenario()
   const { fakes, chat, data } = running
   await fakes.model.script([{ text: "The **final** answer." }])
@@ -63,12 +64,18 @@ test("SES-17 SES-44 SES-50 DIS-7 DIS-11 DIS-50 TST-56 the entity posts the clean
   await fakes.chat.answers(thread, 1)
 
   // The driver holds ChatTest itself, so it reads the adapter's calls with no verb in the product.
-  // The one read is for the kind of the session's thread, and the one write is the answer.
+  // The one read is for the kind of the session's thread. The writes are the status message, its removal and the
+  // answer.
   const calls = (await Effect.runPromise(chat.calls)).filter(
     (call) => call.op !== "getThread",
   )
-  expect(calls.map((call) => [call.op, call.thread, call.markdown])).toEqual([
-    ["post", thread, "The **final** answer."],
+  const [status] = await fakes.chat.statuses()
+  expect(calls.map((call) => call.op)).toEqual(["post", "delete", "post"])
+  expect(calls[1]?.messageId).toBe(status)
+  expect([calls[2]?.op, calls[2]?.thread, calls[2]?.markdown]).toEqual([
+    "post",
+    thread,
+    "The **final** answer.",
   ])
   // The turn ended at the text reply, with nothing waiting, so the model was asked once.
   expect(await fakes.model.calls()).toHaveLength(1)
@@ -161,8 +168,7 @@ test("TST-36 a script holds a response until the scenario releases it", async ()
   await ask(running, thread, "hello")
 
   await fakes.model.received(1)
-  const before = await fakes.chat.messages(thread)
-  expect(before.filter((message) => message.author.isSelf)).toEqual([])
+  expect(await posted(running, thread)).toEqual([])
   await fakes.model.release(0)
   const [answer] = await fakes.chat.answers(thread, 1)
   expect(answer?.text).toBe("held")

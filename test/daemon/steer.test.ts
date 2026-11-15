@@ -137,19 +137,22 @@ test("SES-18 SES-19 SES-45 SES-47 SES-156 SES-157 SES-176 SES-177 SES-178 SES-17
 test("SES-46 SES-155 a message that arrives when the turn's model part is over starts the next turn by the same request, and its image goes to the model as on a first message", async () => {
   const running = await scenario()
   const { fakes, chat } = running
-  await fakes.model.script([{ text: "one" }, { text: "two" }])
+  await fakes.model.script([{ text: "one", hold: true }, { text: "two" }])
   const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
   // The answer's post is refused once, which holds the turn open after its model part.
+  await fakes.model.received(1)
   await Effect.runPromise(
     chat.failNext(
       "post",
       new ChatError.RateLimited({ retryAfter: Duration.millis(400) }),
     ),
   )
-  await says(running, thread, "hello")
+  const before = (await Effect.runPromise(chat.calls)).length
+  await fakes.model.release(0)
   await eventually(
     () => Effect.runPromise(chat.calls),
-    (calls) => calls.some((call) => call.op === "post"),
+    (calls) => calls.slice(before).some((call) => call.op === "post"),
   )
   await says(running, thread, "later", {
     files: [

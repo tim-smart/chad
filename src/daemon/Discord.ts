@@ -159,7 +159,12 @@ export const layer = (connection: Connection) => {
     ),
     Layer.provide(KeyValueStore.layerSql({ table: shardTable })),
   )
+  // A click comes over the gateway, as `INTERACTION_CREATE`, and goes to `ChatInteraction.Handler`.
   const gateway = (refused: Deferred.Deferred<number>) =>
+    DiscordChat.layerGatewayInteractions.pipe(
+      Layer.provideMerge(gatewayOnly(refused)),
+    )
+  const gatewayOnly = (refused: Deferred.Deferred<number>) =>
     DiscordGatewayLive.pipe(
       Layer.provide([
         connected(connection),

@@ -80,7 +80,7 @@ test("FAIL-132 FAIL-51 API-99 a turn that answered adds nothing for the next tur
   const { fakes, chat } = running
   await fakes.model.script([
     { text: "one" },
-    { text: "two" },
+    { text: "two", hold: true },
     { text: "three" },
   ])
   const thread = await fakes.chat.makeThread("direct")
@@ -89,13 +89,16 @@ test("FAIL-132 FAIL-51 API-99 a turn that answered adds nothing for the next tur
   await lines(running, "turn.ended", 1)
   expect(rows(running, "SELECT * FROM session_updates")).toEqual([])
 
+  // The answer's post fails, which comes after the status message's.
+  await says(running, thread, "more")
+  await fakes.model.received(2)
   await Effect.runPromise(
     chat.failNext(
       "post",
       new ChatError.Forbidden({ detail: "Missing Access" }),
     ),
   )
-  await says(running, thread, "more")
+  await fakes.model.release(1)
   const [, second] = await lines(running, "turn.ended", 2)
   const turn = String(second!.annotations["turn"])
   expect(second!.annotations["outcome"]).toBe("answered")
@@ -121,15 +124,17 @@ test("FAIL-132 FAIL-51 API-99 a turn that answered adds nothing for the next tur
 test("FAIL-44 a turn whose thread is gone when its answer is posted ends failed with ThreadGone, posts nothing, and logs turn.failed in place of turn.ended", async () => {
   const running = await scenario()
   const { fakes, chat } = running
-  await fakes.model.script([{ text: "one" }])
+  await fakes.model.script([{ text: "one", hold: true }])
   const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+  await fakes.model.received(1)
   await Effect.runPromise(
     chat.failNext(
       "post",
       new ChatError.NotFound({ detail: "thread_not_found" }),
     ),
   )
-  await says(running, thread, "hello")
+  await fakes.model.release(0)
   const [failed] = await lines(running, "turn.failed", 1)
   expect(failed!.annotations["reason"]).toBe("ThreadGone")
   expect(rows(running, "SELECT outcome, failure FROM turns")).toEqual([

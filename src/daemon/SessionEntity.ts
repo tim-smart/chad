@@ -42,6 +42,7 @@ import * as Failed from "./Failed.ts"
 import * as Logger from "./Logger.ts"
 import * as Queue from "./Queue.ts"
 import * as Sessions from "./Sessions.ts"
+import * as StatusMessage from "./StatusMessage.ts"
 import * as Spawner from "./Spawner.ts"
 import * as TurnLog from "./TurnLog.ts"
 import { Volume } from "./Volume.ts"
@@ -190,6 +191,8 @@ interface Live {
   frozen: { readonly system: string; readonly fingerprint: string } | undefined
   /** Whether the frozen prompt has changed since it was stored. */
   unsaved: boolean
+  /** Where the running turn's steps put their lines, which the executor reads for a script (DIS-24). */
+  readonly view: { lines: StatusMessage.Lines }
 }
 
 /** An owner's message that waits to steer the running turn. */
@@ -232,6 +235,8 @@ interface Turn {
   size: number
   /** Whether a restart cut an earlier start of the turn, so that this one sends the restart note. */
   resumed: boolean
+  /** The turn's status message, once it is opened. */
+  status: StatusMessage.StatusMessage | undefined
 }
 
 /** What the entity holds for the thread's current session. A `/new` puts a fresh one in its place. */
@@ -378,6 +383,7 @@ export const layer = Layer.unwrap(
             turn: undefined,
             subagents: new Map(),
           }
+          const view = { lines: StatusMessage.none }
           const built = yield* Layer.buildWithScope(
             AgentExecutor.layerLocal({ directory }).pipe(
               Layer.provide(Spawner.layer(id, volume.home)),
@@ -470,7 +476,12 @@ export const layer = Layer.unwrap(
                         options.onTask?.(task) ?? Effect.void,
                       ),
                   })
-                  yield* TurnLog.scriptStarted(ids, subagent, options.script)
+                  yield* TurnLog.scriptStarted(
+                    ids,
+                    subagent,
+                    options.script,
+                    view.lines,
+                  )
                   const at = Date.now()
                   let text = ""
                   // The end is logged however the script ends, a stop included, with what it printed so far (FAIL-192).
@@ -527,6 +538,7 @@ export const layer = Layer.unwrap(
                 ? undefined
                 : { system: row.system, fingerprint: row.fingerprint },
             unsaved: false,
+            view,
           }
           return live
         })
@@ -571,6 +583,10 @@ export const layer = Layer.unwrap(
         ) {
           for (const steer of steers) {
             turn.steers.splice(turn.steers.indexOf(steer), 1)
+            // The status message's line and the log line of a steer the agent read come from here (DIS-30, FAIL-11).
+            yield* (turn.status ?? StatusMessage.none).add(
+              Messages.statusRead(steer.text),
+            )
             yield* Logger.event("turn.steered", "A message steered the turn", {
               session: live.id,
               turn: turn.id,
@@ -664,7 +680,12 @@ export const layer = Layer.unwrap(
           return yield* output.pipe(
             Stream.runForEach((part) =>
               Effect.gen(function* () {
-                yield* TurnLog.step(steps, ids, part)
+                yield* TurnLog.step(
+                  steps,
+                  ids,
+                  part,
+                  turn.status ?? StatusMessage.none,
+                )
                 if (part._tag === "HistoryAppended") {
                   yield* saveFrozen(live)
                   for (const message of part.messages) known.add(message)
@@ -785,6 +806,9 @@ export const layer = Layer.unwrap(
             }
             if (own.turn === turn) own.turn = undefined
             if (own.live?.ids.turn === turn.id) own.live.ids.turn = undefined
+            if (own.live !== undefined && own.live.view.lines === turn.status) {
+              own.live.view.lines = StatusMessage.none
+            }
             const reply: Outcome | "next" =
               turn.stopped || turn.reset ? { _tag: "Dropped" } : "next"
             for (const steer of waiting) {
@@ -839,6 +863,9 @@ export const layer = Layer.unwrap(
                 ).pipe(Effect.as(false)),
               ),
             )
+            // The status message goes however the turn ends (DIS-35), and a turn whose end is not written finds it gone
+            // when it is delivered again.
+            if (turn.status !== undefined) yield* turn.status.remove
             if (posted(reason)) {
               yield* chats.get(connection).pipe(
                 Effect.flatMap((chat) =>
@@ -874,31 +901,34 @@ export const layer = Layer.unwrap(
         ) {
           const chat = yield* chats.get(request.connection)
           if (own.ready !== undefined) yield* Deferred.await(own.ready)
-          const built = yield* Effect.exit(
+          // The start is counted first, since the row holds the status message an earlier start posted.
+          const counted = yield* Effect.exit(
             Effect.gen(function* () {
-              own.live ??= yield* start()
-              const live = own.live
+              // The gateway handler opens the row before it saves a message, and a `/new` swaps it in one transaction.
+              const session = own.live?.id ?? (yield* Sessions.current(key))?.id
+              if (session === undefined) {
+                return yield* Effect.die(new Error(`no session row for ${key}`))
+              }
               const started = yield* Sessions.started({
                 key: turn.key,
                 turn: turn.id,
-                session: live.id,
+                session,
                 model: Option.getOrUndefined(model)?.name,
                 at: turn.at,
               })
               turn.id = started.turn
               turn.usage = turn.earlier = started.earlier
               turn.resumed = started.starts > 1
-              return { live, started }
+              return { session, started }
             }),
           )
-          if (Exit.isFailure(built)) {
-            return yield* failed(turn, own, request.connection)(built.cause)
+          if (Exit.isFailure(counted)) {
+            return yield* failed(turn, own, request.connection)(counted.cause)
           }
-          const { live, started } = built.value
-          const ids = { session: live.id, turn: turn.id }
-          // A line the session logs from here until the turn closes carries the turn's id (FAIL-26).
-          live.ids.turn = turn.id
-          // After two starts that a kill ended, the model does not run again (SES-106).
+          const { session, started } = counted.value
+          const ids = { session, turn: turn.id }
+          // After two starts that a kill ended, the model does not run again (SES-106). The status message the turn
+          // left behind goes, and the give-up message is posted in place of the failed-turn message (DIS-62, FAIL-63).
           if (Sessions.kills(started) >= 2) {
             const at = Date.now()
             const reason: Failed.Reason = { _tag: "GaveUp" }
@@ -910,6 +940,9 @@ export const layer = Layer.unwrap(
               tell: ids,
             })
             yield* chats.ready(request.connection)
+            if (started.status !== undefined) {
+              yield* StatusMessage.discard(chat, thread, started.status)
+            }
             yield* post(chat, Messages.gaveUp(turn.id))
             yield* TurnLog.failed(
               {
@@ -922,9 +955,60 @@ export const layer = Layer.unwrap(
             )
             return { _tag: "Failed", reason } as const
           }
+          // The status message comes before the Agent is built and before anything the turn sends (DIS-19). A
+          // delivery at boot comes before the platform may have answered.
+          yield* chats.ready(request.connection)
+          const status = yield* StatusMessage.open({
+            chat,
+            thread,
+            // A resumed turn's header keeps the time its first attempt started.
+            at: started.at,
+            stored: started.status,
+            interval: timings.statusEditInterval,
+            scope,
+          })
+          // A thread that is gone ends the turn before the model runs, and nothing is posted (DIS-94, FAIL-207).
+          if (status === "gone") {
+            const at = Date.now()
+            const reason: Failed.Reason = { _tag: "ThreadGone" }
+            yield* Sessions.ended({
+              key: turn.key,
+              outcome: "failed",
+              failure: recorded(reason),
+              at,
+            })
+            yield* TurnLog.failed(
+              {
+                ...ids,
+                duration: at - turn.at,
+                usage: turn.usage,
+                reconciled: 0,
+              },
+              reason._tag,
+            )
+            return { _tag: "Failed", reason } as const
+          }
+          turn.status = status
+          // The id goes into the row as soon as the post returns (DIS-90, STO-75).
+          if (status.id !== undefined && status.id !== started.status) {
+            yield* Sessions.status(turn.key, status.id)
+          }
+          const built = yield* Effect.exit(
+            Effect.gen(function* () {
+              own.live ??= yield* start()
+              return own.live
+            }),
+          )
+          if (Exit.isFailure(built)) {
+            return yield* failed(turn, own, request.connection)(built.cause)
+          }
+          const live = built.value
+          live.view.lines = status
+          // A line the session logs from here until the turn closes carries the turn's id (FAIL-26).
+          live.ids.turn = turn.id
           // The first start writes `turn.started`, and each later one `turn.resumed` (FAIL-326).
           if (turn.resumed) {
-            yield* TurnLog.resumed(ids, "message", started.starts)
+            yield* TurnLog.resumed(ids, "message", started.starts, status)
           } else {
             yield* TurnLog.started(ids, "message")
           }
@@ -988,6 +1072,8 @@ export const layer = Layer.unwrap(
             return yield* failed(turn, own, request.connection)(end.cause)
 
           const { outcome, reconciled, at } = end.value
+          // The status message goes however the turn ends, before what it ends with is posted (DIS-35, OV-28).
+          yield* status.remove
           const fields: TurnLog.End = {
             ...ids,
             duration: at - turn.at,
@@ -1167,10 +1253,12 @@ export const layer = Layer.unwrap(
           if (ended !== undefined) {
             // A stored request is delivered as the daemon boots, before the platform may have answered.
             yield* chats.ready(payload.connection)
-            yield* post(
-              yield* chats.get(payload.connection),
-              Messages.failedTurn(0, reason, ended.turn),
-            )
+            const chat = yield* chats.get(payload.connection)
+            // The status message a cut start left behind gets one attempt at its removal (DIS-95).
+            if (ended.status !== undefined) {
+              yield* StatusMessage.discard(chat, thread, ended.status)
+            }
+            yield* post(chat, Messages.failedTurn(0, reason, ended.turn))
             yield* TurnLog.failed(
               {
                 session: ended.session,
@@ -1281,6 +1369,7 @@ export const layer = Layer.unwrap(
                     prompted: false,
                     size: 1,
                     resumed: false,
+                    status: undefined,
                   }
                   own.turn = turn
                   yield* take(payload.key)

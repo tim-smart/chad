@@ -54,13 +54,7 @@ const direct = (s: number, id: string, content: string, author = owner) =>
 
 /** Waits for chad's answers in a channel, as Discord's REST got them. */
 const answers = async (chad: Scenario, count: number, channel = dm) =>
-  (
-    await chad.discord.rest.called(
-      "POST",
-      new RegExp(`^/channels/${channel}/messages$`),
-      count,
-    )
-  ).map((call) => call.body)
+  (await chad.discord.rest.answers(channel, count)).map((call) => call.body)
 
 const shards = (chad: Scenario) =>
   query(
@@ -123,11 +117,7 @@ test("STO-35 STO-147 STO-148 SES-30a SES-185 TST-61b each connection answers wit
         content: `from ${name}`,
       }),
     )
-    const [answer] = await first.discord.rest.called(
-      "POST",
-      new RegExp(`^/channels/${channel}/messages$`),
-      1,
-    )
+    const [answer] = await first.discord.rest.answers(channel, 1)
     expect(answer?.headers["authorization"]).toBe(`Bot ${name}-token`)
   }
   expect(await first.stop()).toBe(0)

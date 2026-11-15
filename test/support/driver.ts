@@ -82,6 +82,8 @@ export interface Scenario {
   readonly chat: ChatTest.ChatTest["Service"]
   /** Holds the platform's `getThread`, see `Platform.holdThreads`. */
   readonly holdThreads: Platform.Platform["holdThreads"]
+  /** A user's click on a button of a message, and the daemon's answer to it, see `Platform.click`. */
+  readonly click: Platform.Platform["click"]
   /** Discord's two ends for a `discord` connection: the scripted gateway and the fake REST server. */
   readonly discord: {
     readonly gateway: Discord.Gateway
@@ -359,6 +361,7 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
     fakes,
     chat: platform.chat,
     holdThreads: platform.holdThreads,
+    click: platform.click,
     discord,
     requests: () => requests,
     log,

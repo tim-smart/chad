@@ -39,11 +39,13 @@ export interface Fakes {
     readonly messages: (
       thread: ChatThread.ChatThread,
     ) => Promise<ReadonlyArray<ChatMessage.ChatMessage>>
-    /** Waits until chad has posted `count` messages in the thread, and gives them. */
+    /** Waits until chad has posted `count` messages in the thread, a status message aside, and gives them. */
     readonly answers: (
       thread: ChatThread.ChatThread,
       count: number,
     ) => Promise<ReadonlyArray<ChatMessage.ChatMessage>>
+    /** The ids of the status messages chad has posted, removed ones included. */
+    readonly statuses: () => Promise<ReadonlyArray<string>>
   }
   readonly model: {
     readonly script: (replies: ReadonlyArray<Model.Reply>) => Promise<void>
@@ -55,9 +57,13 @@ export interface Fakes {
 }
 
 export const direct = (platform: Platform, model: Model.FakeModel): Fakes => {
+  // A status message is no answer: it is removed before what the turn ends with is posted.
   const own = (thread: ChatThread.ChatThread) =>
     Effect.map(platform.chat.messages(thread), (messages) =>
-      messages.filter((message) => message.author.isSelf),
+      messages.filter(
+        (message) =>
+          message.author.isSelf && !platform.statuses().includes(message.id),
+      ),
     )
   const answers = (
     thread: ChatThread.ChatThread,
@@ -84,6 +90,7 @@ export const direct = (platform: Platform, model: Model.FakeModel): Fakes => {
         ),
       messages: (thread) => Effect.runPromise(platform.chat.messages(thread)),
       answers: (thread, count) => Effect.runPromise(answers(thread, count)),
+      statuses: async () => platform.statuses(),
     },
     model: {
       script: async (replies) => model.script(replies),
@@ -156,6 +163,7 @@ export class Rpcs extends RpcGroup.make(
     payload: { thread: Thread, count: Schema.Number },
     success: Messages,
   }),
+  Rpc.make("statuses", { success: Schema.Array(Schema.String) }),
   Rpc.make("modelScript", { payload: { replies: Schema.Array(Reply) } }),
   Rpc.make("modelRelease", { payload: { index: Schema.Number } }),
   Rpc.make("modelCalls", { success: Schema.Array(Call) }),
@@ -178,6 +186,7 @@ export const handlers = (fakes: Fakes) =>
     messages: ({ thread }) => Effect.promise(() => fakes.chat.messages(thread)),
     answers: ({ thread, count }) =>
       Effect.promise(() => fakes.chat.answers(thread, count)),
+    statuses: () => Effect.promise(() => fakes.chat.statuses()),
     modelScript: ({ replies }) =>
       Effect.promise(() => fakes.model.script(replies)),
     modelRelease: ({ index }) =>
@@ -201,6 +210,7 @@ export const remote = (
       deliver: (event) => run(client.deliver({ event })),
       messages: (thread) => run(client.messages({ thread })),
       answers: (thread, count) => run(client.answers({ thread, count })),
+      statuses: () => run(client.statuses()),
     },
     model: {
       script: (replies) => run(client.modelScript({ replies })),

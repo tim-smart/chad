@@ -1,8 +1,9 @@
-import { Cause, Context, DateTime, Effect, Exit } from "effect"
+import { Cause, Context, DateTime, Effect, Exit, Layer } from "effect"
 import {
   Chat,
   ChatEvent,
   ChatHandler,
+  ChatInteraction,
   ChatMarkdown,
   ChatMessage,
   ChatThread,
@@ -20,6 +21,7 @@ import * as Logger from "./Logger.ts"
 import { Message, Session } from "./SessionEntity.ts"
 import * as Notices from "./Notices.ts"
 import * as Sessions from "./Sessions.ts"
+import { StopButton } from "./StatusMessage.ts"
 
 /** What `/status` prints, which is the text `chad status` prints for the same daemon call. */
 export class Status extends Context.Service<
@@ -287,3 +289,32 @@ export const unusable = (
     }),
     { deliverSelf: true },
   )
+
+/**
+ * What chad does with a click of one connection. A click on Stop goes to the session of its thread as the `stop` request
+ * that `/stop` sends, and is answered at once, before the stop is done, so that the answer is inside the platform's
+ * deadline (SES-74, DIS-39). A click from anyone who is not an owner is answered and does nothing else (SES-75, DIS-40).
+ */
+export const interactions = (connection: Live) =>
+  ChatInteraction.group(StopButton)
+    .toLayer({
+      stop: (click) =>
+        Effect.gen(function* () {
+          if (!connection.owners().includes(click.userId)) {
+            return ChatInteraction.ack
+          }
+          const session = (yield* Session.client)(
+            ChatThread.toString(click.thread),
+          )
+          yield* session
+            .stop({ by: click.userId, connection: connection.name })
+            .pipe(
+              Effect.catchCause((cause) =>
+                Effect.logError("A stop could not be delivered", cause),
+              ),
+              Effect.forkDetach,
+            )
+          return ChatInteraction.ack
+        }),
+    })
+    .pipe(Layer.provideMerge(ChatInteraction.layer()))

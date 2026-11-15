@@ -301,6 +301,51 @@ export const turnLine = (turn: string) =>
 export const gaveUp = (turn: string) =>
   `This turn was cut off by a crash twice, so I've stopped retrying it. Whatever its scripts already did is done. Send a message to carry on.\n${turnLine(turn)}`
 
+/** The most of an action's text that its line in the status message shows (DIS-20). */
+const statusLineChars = 120
+
+/** How many actions the status message shows, the newest last (DIS-20). */
+export const statusActions = 5
+
+/** An action's text cut to its first line and to `statusLineChars`, with the cut marked. */
+const oneLine = (text: string) => {
+  const trimmed = text.trim()
+  const points = Array.from(trimmed.split("\n", 1)[0] ?? "")
+  const cut = points.length > statusLineChars || trimmed.includes("\n")
+  return points.slice(0, statusLineChars).join("").trimEnd() + (cut ? "…" : "")
+}
+
+/** A code span around text that may hold a backtick of its own. */
+const codeSpan = (text: string) =>
+  text.includes("`") ? `\`\` ${text} \`\`` : `\`${text}\``
+
+/** The status message: a header with the turn's start as a relative timestamp, and the last actions (DIS-20, DIS-22). */
+export const statusMessage = (at: number, lines: ReadonlyArray<string>) =>
+  [
+    subtext(`Working, started <t:${Math.floor(at / 1000)}:R>`),
+    ...lines.slice(-statusActions).map(subtext),
+  ].join("\n")
+
+/** A script's line in the status message: the script's own source, cut (DIS-24). */
+export const statusScript = (source: string) => {
+  const line = oneLine(source)
+  return line.endsWith("…") ? `${codeSpan(line.slice(0, -1))}…` : codeSpan(line)
+}
+
+/** A sub-agent's line in the status message: the start of its prompt (DIS-26). */
+export const statusSubagent = (prompt: string) =>
+  `Sub-agent: ${oneLine(prompt)}`
+
+/** A compaction's line in the status message (DIS-27). */
+export const statusCompaction = () => "Compacted the history"
+
+/** The line of a steering message the agent has read: its first 60 characters, on one line (DIS-30). */
+export const statusRead = (text: string) =>
+  `Read your message: ${Array.from(text.trim().replace(/\s+/g, " ")).slice(0, 60).join("")}`
+
+/** The line of a turn that is resumed after a restart (DIS-32). */
+export const statusRestarted = () => "Restarted mid-turn, picking it back up."
+
 /** The first line of an error's text, cut at 200 characters, because a provider's message can be a page of JSON (FAIL-59). */
 export const firstLine = (text: string): string =>
   (text.trim().split("\n", 1)[0] ?? "").trim().slice(0, 200)

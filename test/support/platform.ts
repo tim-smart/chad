@@ -18,6 +18,7 @@ import {
   ChatAdapter,
   type ChatEvent,
   ChatHandler,
+  ChatInteraction,
   ChatTest,
 } from "effect/chat"
 import { RpcSerialization, RpcServer } from "effect/rpc"
@@ -62,6 +63,17 @@ export interface Platform {
   }
   /** Holds every `getThread` until `release` is called, as a platform that is slow to answer does. */
   readonly holdThreads: () => { readonly release: () => void }
+  /** The ids of the status messages chad has posted: the posts with the Stop button on them. */
+  readonly statuses: () => ReadonlyArray<string>
+  /** Clicks a button on a message as a user, and gives the daemon's answer to the click. */
+  readonly click: (
+    messageId: string,
+    id: string,
+    userId: string,
+  ) => Effect.Effect<
+    ChatInteraction.ClickReply | ChatInteraction.Late,
+    ChatTest.NoSuchElement
+  >
   /** The number of writes the daemon has made to the chat. */
   readonly writes: () => number
   /** Resolves once the daemon has made more writes than `seen`. */
@@ -70,7 +82,7 @@ export interface Platform {
   readonly layer: Layer.Layer<
     never,
     never,
-    ChatAdapter.Registry | ChatHandler.ChatHandler
+    ChatAdapter.Registry | ChatHandler.ChatHandler | ChatInteraction.Handler
   >
   /** The handlers of the adapter client's requests. */
   readonly handlers: Layer.Layer<
@@ -167,12 +179,31 @@ export const make = (
             return Effect.promise(() => gate.released)
           }).pipe(Effect.as(inner.download(thread, attachment, options))),
         ),
-      post: (thread, content) => wrote("post", inner.post(thread, content)),
+      post: (thread, content) =>
+        wrote(
+          "post",
+          inner.post(thread, content).pipe(
+            Effect.tap((posted) =>
+              Effect.sync(() => {
+                if (
+                  content.actions?.some(
+                    (action) =>
+                      action._tag === "Button" && action.id === "stop",
+                  )
+                ) {
+                  statuses.add(posted.id)
+                }
+              }),
+            ),
+          ),
+        ),
       edit: (thread, id, content) =>
         wrote("edit", inner.edit(thread, id, content)),
       delete: (thread, id) => wrote("delete", inner.delete(thread, id)),
     }
 
+    const statuses = new Set<string>()
+    let interactions: ChatInteraction.Handler["Service"] | undefined
     let handler: Handler | undefined
     let attached: Array<() => void> = []
     const attach = (next: Handler) =>
@@ -215,6 +246,17 @@ export const make = (
         }),
       holdDownloads,
       holdThreads,
+      statuses: () => [...statuses],
+      click: (messageId, id, userId) =>
+        Effect.gen(function* () {
+          const event = yield* chat.click(messageId, id, { userId })
+          if (event._tag !== "ButtonClicked" || interactions === undefined) {
+            return yield* Effect.die(new Error("no daemon takes the click"))
+          }
+          return yield* chat
+            .interact(event)
+            .pipe(Effect.provideService(ChatInteraction.Handler, interactions))
+        }),
       writes: () => writes,
       written: (seen) =>
         Effect.callback<void>((resume) => {
@@ -225,6 +267,7 @@ export const make = (
         Effect.gen(function* () {
           const daemon = yield* ChatAdapter.Registry
           yield* daemon.register(adapter)
+          interactions = yield* ChatInteraction.Handler
           yield* attach(yield* ChatHandler.ChatHandler)
         }),
       ),
