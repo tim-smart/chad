@@ -19,7 +19,7 @@ import { tmpdir } from "node:os"
 import { dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-/** The vitest projects the pull request gate runs, one per layer. Any other project is a release or live item. */
+/** The vitest projects the pull request gate runs, one per layer. Any other project is a live item. */
 export const gateProjects = ["types", "unit", "daemon", "process", "image"]
 
 /**
@@ -442,7 +442,7 @@ export const evaluate = (inputs: Inputs): Report => {
       !itemTests.has(entry.coveredBy)
     ) {
       failures.push(
-        `the waiver ${entry.unit} names ${entry.coveredBy}, which is no release or live item`,
+        `the waiver ${entry.unit} names ${entry.coveredBy}, which is no live item`,
       )
       continue
     }

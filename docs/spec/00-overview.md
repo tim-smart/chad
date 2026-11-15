@@ -199,7 +199,7 @@ The parts use these terms with the meanings below. Paths are relative to the dat
 | 14-self-edit-skill.md | The bundled `self-edit` skill, the core prompt's fixed sentences and the persona. |
 | 15-credentials.md | `chad secret`, one-off codes, asking the owner for a value and the `credentials` skill. |
 | 16-failures-logs-status.md | The log formats and `chad logs`, the reasons a turn fails and what the owner is told, retries and the usage limit, the usage columns of the `turns` table, the blocks of `chad status`, a full disk, the notices and the bundled `diagnose` skill. |
-| 17-testing.md | How chad is tested, which is the six layers, the harness around `runDaemon`, the local platform, the rule ids on tests, what gates the pull request, and the release and live checks. |
+| 17-testing.md | How chad is tested, which is the six layers, the harness around `runDaemon`, the local platform, the rule ids on tests, what gates the pull request, and the live checks. |
 | 18-asphodel-plugin.md | The asphodel plugin written against the plugin API. |
 | 19-build-order.md | The order in which chad is built, which is five stages that each run a list of named slices on one shared branch and one pull request, when a stage is done, and the point from which Tim can run the image on his own server. |
 | 20-for-tim.md | What Tim has to read and answer, which is the size of the build, the questions that were his with the answers given for him, every rule that states something he agreed in person and that a ticket he has not read then changed, his to-do list, and one paragraph for each ticket he has not read. It states no rule, so it has no rule ids, no Gaps section and no Provenance table. |

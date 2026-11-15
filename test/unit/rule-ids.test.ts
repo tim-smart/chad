@@ -199,11 +199,11 @@ describe("the comparison of the spec's ids with the tests' ids", () => {
     expect(inSourceOnly.failures).toContainEqual(
       expect.stringContaining("AA-1 (01-a-part.md, slice early) has no test"),
     )
-    const releaseOnly = run({
+    const liveOnly = run({
       rules: [early],
-      tests: [["AA-1 holds", "soak"]],
+      tests: [["AA-1 holds", "codex"]],
     })
-    expect(releaseOnly.failures).toContainEqual(
+    expect(liveOnly.failures).toContainEqual(
       expect.stringContaining("AA-1 (01-a-part.md, slice early) has no test"),
     )
   })
@@ -315,10 +315,10 @@ describe("the comparison of the spec's ids with the tests' ids", () => {
         { id: "AA-5", slice: "early" },
       ],
       waivers: [
-        ["AA-3", "soak"],
+        ["AA-3", "codex"],
         ["AA-4", "AA-5"],
       ],
-      tests: [["AA-3 over 300 applies", "soak"], ["AA-5 holds"]],
+      tests: [["AA-3 on a real login", "codex"], ["AA-5 holds"]],
     })
     expect(report.failures).toEqual([])
     expect(summary(report).split("\n")).toEqual(
@@ -326,7 +326,7 @@ describe("the comparison of the spec's ids with the tests' ids", () => {
         "waived, by reason:",
         "  definition: 1",
         "  withdrawn: 1",
-        "  soak: 1",
+        "  codex: 1",
         "  fact: 1",
       ]),
     )
@@ -343,19 +343,19 @@ describe("the comparison of the spec's ids with the tests' ids", () => {
       tests: NonNullable<Fixture["tests"]> = [],
     ) => run({ rules, waivers, tests: [["AA-1 AA-3 hold"], ...tests] }).failures
     expect(
-      failures([["AA-1", "soak"]], [["AA-1 over 300 applies", "soak"]]),
+      failures([["AA-1", "codex"]], [["AA-1 on a real login", "codex"]]),
     ).toEqual([])
     expect(failures([["AA-3", "AA-1"]])).toEqual([])
     expect(
-      failures([["AA-1", "soak"]], [["AA-3 over 300 applies", "soak"]]),
+      failures([["AA-1", "codex"]], [["AA-3 on a real login", "codex"]]),
     ).toEqual([
-      "the waiver AA-1 names the item soak, which does not carry the rule's id",
+      "the waiver AA-1 names the item codex, which does not carry the rule's id",
     ])
     expect(failures([["AA-1", "Tim has not read it"]])).toEqual([
-      "the waiver AA-1 names Tim has not read it, which is no release or live item",
+      "the waiver AA-1 names Tim has not read it, which is no live item",
     ])
     expect(failures([["AA-1", "unit"]])).toEqual([
-      "the waiver AA-1 names unit, which is no release or live item",
+      "the waiver AA-1 names unit, which is no live item",
     ])
     expect(failures([["AA-1", "AA-3"]])).toEqual([
       "the waiver AA-1 names the rule AA-3 in place of an item, and only a fact may",
@@ -365,9 +365,9 @@ describe("the comparison of the spec's ids with the tests' ids", () => {
     ])
     // A fact names a rule and never an item, and the rule may be one that only an item covers.
     expect(
-      failures([["AA-3", "soak"]], [["AA-3 over 300 applies", "soak"]]),
+      failures([["AA-3", "codex"]], [["AA-3 on a real login", "codex"]]),
     ).toEqual([
-      "the waiver AA-3 is of a fact and names soak, and a fact names the rule whose test would fail if it stopped holding",
+      "the waiver AA-3 is of a fact and names codex, and a fact names the rule whose test would fail if it stopped holding",
     ])
     expect(
       run({
@@ -378,11 +378,11 @@ describe("the comparison of the spec's ids with the tests' ids", () => {
         ],
         waivers: [
           ["AA-8", "AA-7"],
-          ["AA-7", "soak"],
+          ["AA-7", "codex"],
         ],
-        tests: [["AA-1 holds"], ["AA-7 over 300 applies", "soak"]],
+        tests: [["AA-1 holds"], ["AA-7 on a real login", "codex"]],
       }),
-    ).toMatchObject({ failures: [], waived: { fact: 1, soak: 1 } })
+    ).toMatchObject({ failures: [], waived: { fact: 1, codex: 1 } })
     // The hand checks are no project. A waiver names them by the rule that lists them, for a rule and a fact alike,
     // and that rule's text is what carries the id.
     const byHand = (text: string, waivers: NonNullable<Fixture["waivers"]>) =>
@@ -576,8 +576,8 @@ describe("the delivered file", () => {
     ).toEqual(["the stopped rule AA-1 also has a held entry"])
     expect(
       failures({
-        waivers: [["AA-1", "soak"]],
-        tests: [["AA-1 over 300 applies", "soak"]],
+        waivers: [["AA-1", "codex"]],
+        tests: [["AA-1 on a real login", "codex"]],
       }),
     ).toEqual(["the stopped rule AA-1 also has a waiver"])
   })

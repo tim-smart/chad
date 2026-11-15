@@ -34,7 +34,7 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 - **ORD-41** The rule-id script cannot judge a reason. The reviewer of a stage reads every held entry the stage added, from the stage's hand-off comment, and the stage is not done while the reviewer rejects one.
 - **ORD-42** The delivered file holds a third list, the stopped rules. A stopped rule is one a builder reported under the stop rule of ORD-28. Its entry gives the rule id and one sentence that says what is wrong with the rule. The rule-id script treats a stopped rule as pending and prints the list. The script fails on a stopped entry whose id is unknown or withdrawn, or whose rule also has a test, a waiver or a held entry.
 - **ORD-43** A stage can be done while it has stopped rules, and its hand-off comment lists them. The build is not done while any rule is stopped: Tim, or whoever he names to change the spec during the build, rules on each one, the rule is changed or withdrawn in the spec, and the stage that is open at the time builds what was ruled. If no stage is open at the time, the last stage is reopened to build it.
-- **ORD-44** A rule that only a live item or a release item can cover is on the waiver list against that item from the slice that adds it, whether or not the bot or the logins the item needs exist yet. No job reads a secret. No rule is pending because something Tim has to provide does not exist yet (see 17-testing.md).
+- **ORD-44** A rule that only a live item or a hand check can cover is on the waiver list against it from the slice the rule is tagged with, whether or not the bot or the logins it needs exist yet. No job reads a secret. No rule is pending because something Tim has to provide does not exist yet (see 17-testing.md).
 - **ORD-13** "Too hard", "flaky" and "Tim has not read it" are not reasons for a held rule. The only reason is that the rule rests on something a later slice delivers.
 - **ORD-14** A rule's row in its Provenance table keeps one slice. A builder who finds that a whole rule sits in a slice before a slice it rests on changes the rule's slice in the same change, and names the rule in the hand-off comment. A builder who finds that one statement of a rule rests on a later slice gives the rule letters (see 17-testing.md) and holds that letter.
 ## Slices
@@ -46,7 +46,7 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 | `wire` | 1 | The Discord wire slice: the real gateway hook and a dfx shard over a scripted socket. Rules about the Discord gateway, intents and what the adapter does on the wire. |
 | `cli` | 1 | The socket, the lock and the CLI skeleton: RPC, the queue, `health`, `status`, `db query`, the version header, the session marker, exit codes, and connection and owner storage with `chad connection` and `chad owner`. The stored connections replace the connections input of `runDaemon`, a connection or owner change reaches the running daemon with no restart, and the first turn inside the image runs here. |
 | `turns` | 2 | Sessions and turns in one process: steering, `/new`, `/stop`, chat commands, the stored history and the reconcile, passivation, compaction, the `turns` table, attachments into the inbox. |
-| `kills` | 2 | The process-scenario driver and everything that needs a kill or a restart: the resumed turn, the give-up, the graceful stop with its 15 second wait for requests in flight, redelivery, the catch-up after a restart, and the start of the release list, with the local command that runs it and the real-length item's first duration, which is that wait. |
+| `kills` | 2 | The process-scenario driver and everything that needs a kill or a restart: the resumed turn, the give-up, the graceful stop with its 15 second wait for requests in flight, redelivery, and the catch-up after a restart. |
 | `failures` | 2 | The full logger, `chad logs`, `Failed.reason` and the failed-turn messages, the notice table and notices, the full disk rules, the status blocks. |
 | `discord-ui` | 2 | What a turn looks like in Discord: the status message, the split, attachments out, the Stop button, the wordings. |
 | `models` | 2 | The providers, the Codex login on the fake's Codex side, `/model`, the model check, the usage limit, the retry line and the silence bound. |
@@ -57,7 +57,7 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 | `skills-mcp` | 4 | Skills, MCP servers, `chad mcp login`, and the stop's 60 second deadline, which only an MCP server can hold a stop open long enough to reach. |
 | `timers-cron` | 4 | Timers and the cron plugin. |
 | `backup` | 5 | `chad backup` and `chad restore`, the prune job, the before-migration copy. |
-| `image` | 5 | Compose, the Kubernetes manifests and the script of their checks, the image size budget, the browser sidecar wiring. |
+| `image` | 5 | Compose, the Kubernetes manifests and the script of their checks, the browser sidecar wiring. |
 | `bundled-skills` | 5 | The `self-edit`, `credentials` and `diagnose` skills, the skill text and its checks. |
 | `asphodel` | 5 | The check that all twelve asphodel scenarios are green. Each scenario's own rules go in the earliest slice that can run it. |
 | `live` | 5 | The rest of the live layer: the Codex list, the skill runs, the release checklist, the prototype scenario table check. |
@@ -67,8 +67,8 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 
 - **ORD-16** `harness` comes before every slice that has behaviour to test, so that each later slice starts with a driver, a fake model and a local platform. It delivers the owner allowlist and the drop of chad's own messages, so that both hold before anything that can run `bash` answers a real gateway (see 17-testing.md).
 - **ORD-17** `wire` comes straight after `harness`. The gateway parts of the Discord adapter have never been run, and the slice finds out whether they hold before the slices that build on them (see 17-testing.md).
-- **ORD-18** The real-length item of the release list starts in `kills` and is complete in `timers-cron` (see 17-testing.md).
-- **ORD-46** There is no scheduled workflow. Each stage runs the release items that exist at least once before the stage is done, with the local command, and the hand-off comment gives each result. A red item holds the stage.
+- **ORD-18** Withdrawn.
+- **ORD-46** There is no scheduled workflow and no release list.
 - **ORD-19** `plugin-api` comes after `models`, so that stage 2 ends at a build an owner can use. Every rule that needs a plugin-started turn, a hook, a prompt chunk, `sendFile`, a plugin's log line or the Agent rebuild by generation is tagged `plugin-api` or a later slice.
 - **ORD-20** `plugin-api` comes before `loader`. The API is built and tested with plugins handed to `runDaemon` through its plugins input, each one a name and a `Plugin.make` value (see 17-testing.md), and loading a plugin from the repo is added on top of an API that already works.
 - **ORD-21** `backup`, `image`, `bundled-skills`, `asphodel` and `live` come last, because each of them checks or packages what the earlier slices built.
@@ -123,7 +123,7 @@ A builder reads `AGENTS.md` at the root of the repo on every run and may not rea
 | ORD-15 | TIM-559 round 2 R6 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-16 | TIM-558 items 13 and 50; TIM-559 round 2 R6 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-17 | TIM-558 items 26 and 27 | Architect (Tim has not read) | not run |  | `definition` | - |
-| ORD-18 | TIM-559 round 2 R6 item 5, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| ORD-18 | TIM-559 round 2 R6 item 5, withdrawn by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-19 | Tim, chat 2026-11-15; TIM-559 round 2 R10 item 4 | Tim for the order. Architect (Tim has not read) for the first usable mark | not run |  | `definition` | - |
 | ORD-20 | TIM-559 round 2 R6; TIM-559 cold read | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-21 | TIM-559 round 2 R6 | Architect (Tim has not read) | not run |  | `definition` | - |
@@ -149,5 +149,5 @@ A builder reads `AGENTS.md` at the root of the repo on every run and may not rea
 | ORD-41 | TIM-559 round 4 item 11 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-42 | TIM-559 cold read, wire reader; TIM-559 round 2 R7; TIM-559 round 5 item 1 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
 | ORD-43 | TIM-559 cold read, wire reader; TIM-559 round 2 R7; TIM-559 round 5 item 1 | Architect (Tim has not read) | not run |  | `definition` | - |
-| ORD-44 | TIM-559 cold read, wire reader; TIM-558 item 3; TIM-559 round 5 item 2, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
-| ORD-46 | TIM-559 cold read, wire reader; follows from Tim, chat 2026-11-15; TIM-559 round 5 item 3, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| ORD-44 | TIM-559 cold read, wire reader; TIM-558 item 3; TIM-559 round 5 item 2, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| ORD-46 | TIM-559 cold read, wire reader; follows from Tim, chat 2026-11-15; TIM-559 round 5 item 3, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
