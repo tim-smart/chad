@@ -337,7 +337,7 @@ effect has no rotating file logger, and its `Logger.toFile` flushes once a secon
 - **FAIL-35** chad owns the list of lines waiting to be written to the file. An Error or Fatal line writes everything waiting plus itself at once, in one synchronous append, so the file keeps the order stdout has.
 - **FAIL-36** The writer flushes on every exit path chad controls.
 - **FAIL-37** A write to the file that fails, as on a full disk, is dropped without a notice. stdout still gets the line.
-- **FAIL-243** Provisional, open with Tim. The `stop.cut` line is written synchronously to both sinks before the process exits, without waiting for the writer's window. A blocked event loop stops the timer that writes it, and Docker's 90 second grace period is then the backstop (see 01-image-and-volume.md, which holds the rule).
+- **FAIL-243** The `stop.cut` line is written synchronously to both sinks before the process exits, without waiting for the writer's window. A blocked event loop stops the timer that writes it, and Docker's 90 second grace period is then the backstop (see 01-image-and-volume.md, which holds the rule).
 
 What ran in the probes. With 4 fibers logging 400 lines at once, 32 of them Error or Fatal, the file was byte-identical to stdout, and after each Error or Fatal call returned the file held everything sent so far. With a 2,000 byte cap that made 44 rotations, the files joined oldest first were byte-identical to stdout. After a hard exit that followed 50 Info lines, 1 Error and 10 more Info lines, the file held the 51 lines up to the Error. A write is handed to the operating system with no `fsync`, so a power loss is not covered.
 
@@ -764,7 +764,7 @@ A command that changes chad leaves a line in the thread of the session it ran fr
 
 ## Follow-ups outside chad
 
-v1 does not wait for any of these. The build takes a fix if the effect snapshot it pins already has it.
+v1 does not wait for any of these. The build takes a fix if the effect snapshot it pins already has it. Each is to be raised as an issue on Effect-TS/effect or Effectful-Tech/clanka. That was a question for Tim, which Jarvis answered for him on 2026-11-15.
 
 - **FAIL-186** effect's OpenAI WebSocket decoder drops an error frame that has no `error.message`, and drops `resets_at`. Both are follow-ups for effect.
 - **FAIL-187** effect's cluster gives up on a reply it cannot save without a log line. This is a follow-up for effect.
@@ -775,7 +775,7 @@ None of the four has been raised as an issue.
 
 ## What this part changes in what Tim agreed himself
 
-Tim has not read the decisions in this part. Twelve of them change something he agreed in person, and so does one decision in 04-discord.md that rests on the same reasoning. Anything he disagrees with reopens that point. The rulings made since added smaller differences, and the Provenance table marks every such rule in its "Changed by" column.
+Tim has not read the decisions in this part. Twelve of them change something he agreed in person, and so does one decision in 04-discord.md that rests on the same reasoning. He handed the question of whether they stand to Jarvis on 2026-11-15, and Jarvis kept all thirteen. Anything he disagrees with reopens that point. The rulings made since added smaller differences, and the Provenance table marks every such rule in its "Changed by" column.
 
 1. chad ends a model call after 15 minutes of silence (FAIL-84). Tim agreed that chad adds no turn timeout of its own in v1, before anyone knew that a silent call costs about 117 minutes. This is a bound on silence and not on a turn, but it is close.
 2. `chad logs` exists (FAIL-38). Tim ruled a `logs` command out of v1. His own later change removed the status message at the end of a turn, which left the log as the only record of a failed turn.
@@ -805,8 +805,6 @@ Tim has not read the decisions in this part. Twelve of them change something he 
 - **FAIL-G19** [builder] Small wordings. The notice for a repo plugin skipped because a bundled plugin took its name has no text (TIM-548 item 12). The logged-out notice's two sentences are joined here with a full stop that no ticket writes (TIM-535, TIM-557 item 40). The form of `<when>` in the safe mode notice and the rounding of `<n> MB` are not given, and neither is whether cron's pause line is subtext (TIM-557 item 40).
 - **FAIL-G21** [builder] The text of the `diagnose` skill and its `chad db query` recipes. TIM-557 item 43 names what it teaches and nothing more.
 - **FAIL-G22** [builder] Whether the real Codex service sends an `error.message` with a usage limit, and what a new connection gets while the limit is in force. Only the two live captures in FAIL-98 can answer it. TIM-557 "Not settled here".
-- **FAIL-G23** [tim] Raising the four follow-ups as issues on Effect-TS/effect and Effectful-Tech/clanka. TIM-557 leaves that to Tim.
-- **FAIL-G24** [tim] Tim has not read TIM-557. The thirteen changes listed above this section are the ones that touch what he agreed in person, and the silence bound is first among them.
 - **FAIL-G26** [builder] The contents of `state/db-unusable`. FAIL-225 to FAIL-227 read only whether the file exists.
 - **FAIL-G27** [builder] The text of the `prune-failed` condition, and the key under which a one-off notice that could not be delivered is kept (FAIL-313), with the check that clears its row. TIM-559 round 3 C5 names both as things only a row remembers and gives no more.
 - **FAIL-G28** [builder] The length at which the plugin's name is cut in the notice of FAIL-318. TIM-559 round 3 A2.
@@ -1067,7 +1065,7 @@ Tim has not read the decisions in this part. Twelve of them change something he 
 | FAIL-240 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | FAIL-241 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-242 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `models` |
-| FAIL-243 | TIM-559 round 2 R5 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| FAIL-243 | TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `skills-mcp` |
 | FAIL-244 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-245 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-246 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |

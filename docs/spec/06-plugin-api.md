@@ -812,7 +812,6 @@ export declare class Turns extends Turns_base {}
 
 ## Gaps
 
-- **API-G10** [tim] The bound on the wait in API-61. Tim agreed the rule with a 10 second bound in front of him, and it is 40 seconds. TIM-543 kept the budgets, and TIM-539 records the bound as open for him to revisit. The wait before the first turn after `/new` (API-126) has the same bound when `/new` stopped a turn.
 - **API-G17** [builder] The wording of the defect messages of API-79, API-130, API-133 and API-135, and of the load error of API-131. The TIM-559 round 3 rulings on API-G13 and API-G15 and the TIM-559 round 4 ruling on item 2 fix what each says and give no text. The model reads these texts, so the wording the builder writes is added to those rules.
 
 ## Provenance
@@ -879,7 +878,7 @@ export declare class Turns extends Turns_base {}
 | API-58 | TIM-530 resolution (reviewed, no separate yes) | Tim | not run |  | `rule` | `plugin-api` |
 | API-59 | TIM-530 resolution, TIM-532 item 6 | Tim | not run |  | `rule` | `plugin-api` |
 | API-60 | TIM-532 item 10, amended by TIM-543 item 1 and TIM-557 item 29 | Tim for the delivery, Architect (Tim has not read) for the reconcile | run for the delivery, not run for the reconcile | TIM-557 | `rule` | `plugin-api` |
-| API-61 | TIM-539 item 6, TIM-543 item 5 | Tim | run |  | `rule` | `plugin-api` |
+| API-61 | TIM-539 item 6, TIM-543 item 5; answered for Tim by Jarvis, chat 2026-11-15 | Tim; the 40 second bound kept by Jarvis, delegated by Tim on 2026-11-15 (Tim has not read) | run |  | `rule` | `plugin-api` |
 | API-62 | TIM-530 prototype (reviewed, no separate yes) | Tim | not run |  | `definition` | - |
 | API-63 | TIM-539 item 7 | Tim | not run |  | `definition` | - |
 | API-64 | TIM-547 item 10, run in TIM-552 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |

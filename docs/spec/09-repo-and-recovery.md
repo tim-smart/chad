@@ -52,7 +52,7 @@ The daemon never loads from the directory the agent edits. `repo/live` names the
 - **REC-13** `versions/`, `live`, `node_modules`, `package.json` and `examples` are derived. chad creates them at boot when they are missing. A backup takes `repo/work/` with its `.git` and nothing else from `repo/`, and the first boot after a restore rebuilds `versions/` and `live` from the head of the `applied` branch.
 - **REC-14** At boot chad replaces a link found at `repo/examples` or `repo/node_modules` without asking. Anything else at those paths is moved to `<name>.replaced-<timestamp>` and logged.
 - **REC-15** The applied history is the `applied` branch of the repo. Each apply that changes something adds one commit to it, and so does each revert.
-- **REC-149** Provisional, open with Tim. The paths in this part are the image's, where the data volume is mounted at `/data`. `CHAD_DATA` names another data directory for running chad outside the image, and the whole of `repo/` follows it, the two links `repo/node_modules` and `repo/examples` included. Setting `CHAD_DATA` is not a supported way to move the volume inside the image (see 01-image-and-volume.md).
+- **REC-149** The paths in this part are the image's, where the data volume is mounted at `/data`. `CHAD_DATA` names another data directory for running chad outside the image, and the whole of `repo/` follows it, the two links `repo/node_modules` and `repo/examples` included. Setting `CHAD_DATA` is not a supported way to move the volume inside the image (see 01-image-and-volume.md).
 
 ## Drafts and applied commits
 
@@ -176,7 +176,7 @@ An unclean boot is a boot whose daemon died without stopping on purpose. A plugi
 - **REC-131** Automatic safe mode writes `auto` to `state/safe-mode`, so it lasts across restarts until `chad safe off` or `/safe off`.
 - **REC-132** Starting safe mode does not reset the boot counter. The counter clears by REC-68 as it does on any other boot.
 - **REC-133** `state/boot-count` holds one decimal number (see 02-storage.md).
-- **REC-148** Provisional, open with Tim. A stop that chad's own 60 second deadline cuts exits with code 1 and is not an unclean boot, because the SIGTERM handler cleared the counter (REC-68) before it started the deadline's timer. A blocked event loop stops that timer, and Docker's kill at 90 seconds is then the backstop. Whether that boot counts as unclean follows from REC-68 alone. It does not count when the handler ran before the loop blocked, and it counts when the handler never ran, as the kill of any frozen daemon does (REC-69). The deadline itself is in 01-image-and-volume.md.
+- **REC-148** A stop that chad's own 60 second deadline cuts exits with code 1 and is not an unclean boot, because the SIGTERM handler cleared the counter (REC-68) before it started the deadline's timer. A blocked event loop stops that timer, and Docker's kill at 90 seconds is then the backstop. Whether that boot counts as unclean follows from REC-68 alone. It does not count when the handler ran before the loop blocked, and it counts when the handler never ran, as the kill of any frozen daemon does (REC-69). The deadline itself is in 01-image-and-volume.md.
 
 In the image run, three restarts under Docker's default 10 second timeout each left the counter at 1, three `docker kill` runs counted 1, 2 and 3, and stopping a daemon frozen with SIGSTOP left the counter at 1. The start of safe mode from the counter was not run.
 
@@ -441,8 +441,8 @@ A notice is a short message chad posts on its own account, as opposed to the age
 | REC-145 | TIM-559 ruling on REC-G15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | REC-146 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | REC-147 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| REC-148 | TIM-559 round 2 R5, TIM-553 question 1 and its stand-in answer | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| REC-149 | TIM-559 round 2 R5, TIM-553 question 2 and its stand-in answer | Architect (Tim has not read) | not run |  | `rule` | `apply` |
+| REC-148 | TIM-559 round 2 R5, TIM-553 question 1 and its stand-in answer; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `skills-mcp` |
+| REC-149 | TIM-559 round 2 R5, TIM-553 question 2 and its stand-in answer; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `apply` |
 | REC-150 | TIM-559 round 3 A2 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | REC-151 | TIM-559 round 3 L2, TIM-559 round 4 item 6 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | REC-152 | TIM-559 round 3 A1, TIM-559 round 4 items 7 and 8 | Architect (Tim has not read) | read for clanka's walk; the refusal and the boot not run |  | `rule` | `apply` |

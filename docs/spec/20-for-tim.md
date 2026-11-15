@@ -1,6 +1,6 @@
 # For Tim
 
-This is the one file to read before you merge the spec and let the build start. It holds the size of the build, the questions that wait on you, what changed after you agreed it, your to-do list and a paragraph on each ticket you have not read. Sections 1, 2 and 4 take about five minutes each, section 5 about ten and section 3 about half an hour.
+This is the one file to read before you merge the spec and let the build start. It holds the size of the build, the questions that were yours with the answers Jarvis gave for you, what changed after you agreed it, your to-do list and a paragraph on each ticket you have not read. Sections 1, 2 and 4 take about five minutes each, section 5 about ten and section 3 about half an hour.
 
 ## The size of the build
 
@@ -37,37 +37,40 @@ Two rulings are your own, made in chat on 2026-11-15, and they override Architec
 
 With one shared pull request, a merge no longer tells the rule-id script which slices are delivered. ORD-9 to ORD-12 answer that with a file under `docs/spec/` that lists the delivered slices and the held rules, and the script reads what is pending from that file alone. Those four rules were written during assembly. Architect agreed them in round 4 of TIM-559, and you have not read them.
 
-Before the spec was published, eight readers each took one slice of stages 1 and 2 with only what a builder gets and listed what they would have to ask. Their 156 questions were fixed in the parts, most of them as pointers, slice moves and gaps for the builder with a recommended answer. The fixes that state something new went to Architect as round 5 of TIM-559, and you have not read them: a list of stopped rules for a rule a builder reports as wrong (ORD-42, ORD-43), waivers for rules that only a live or nightly job covers (ORD-44, TST-205), how scheduled jobs run before the merge (ORD-46), the inputs of `runDaemon` (TST-33, TST-201 to TST-203), oxlint and prettier (TST-204, which is gap TST-G25 below), and what a boot writes when it is refused before it holds the lock (FAIL-322).
+Before the spec was published, eight readers each took one slice of stages 1 and 2 with only what a builder gets and listed what they would have to ask. Their 156 questions were fixed in the parts, most of them as pointers, slice moves and gaps for the builder with a recommended answer. The fixes that state something new went to Architect as round 5 of TIM-559, and you have not read them: a list of stopped rules for a rule a builder reports as wrong (ORD-42, ORD-43), waivers for rules that only a live or nightly job covers (ORD-44, TST-205), how scheduled jobs run before the merge (ORD-46), the inputs of `runDaemon` (TST-33, TST-201 to TST-203), oxlint and prettier (TST-204), and what a boot writes when it is refused before it holds the lock (FAIL-322).
 
 The first usable build is the end of stage 2, after the `models` slice (ORD-22). From there an owner can add a Discord connection and an owner with the CLI, log in to Codex and talk to chad in a thread (ORD-23). That build has no plugins, apply, `chad.json`, secrets, skills, MCP servers, timers, cron, backup or `chad setup`, and it runs from the Dockerfile alone (ORD-24). Until `plugin-api` is delivered, a changed model is only sure to reach a session opened after the change (ORD-25). ORD-23 to ORD-25 were written during assembly, and nobody has agreed them.
 
-## Questions only you can answer
+## The questions that were yours
 
-Three questions from TIM-553 are open with you. Their provisional rules say "Provisional, open with Tim" in their text.
+Twenty questions waited on you when the spec was published: three from TIM-553 and seventeen gaps in the parts. You handed them to Jarvis in chat on 2026-11-15. Each answer below is in the spec now, and the Provenance row of each rule it touches says "Jarvis, delegated by Tim on 2026-11-15". 26 rules carry that mark. They are still counted in the table of section 1 under whoever agreed the rule before. You have not read the answers. An answer you disagree with reopens that point, and most are a change of one or two rules.
 
-1. The deadline of a stop. Provisional rules: IMG-82, IMG-83 and IMG-139, with SES-115, REC-148, MCP-97, FAIL-243 and ASP-93 resting on them. TIM-541 item 25 says chad exits within 60 seconds of SIGTERM, 15 for requests in flight, 35 for queued hooks and 10 for closing the plugins' scopes. Nothing enforced the 60, and in the run a turn that ignored interruption kept the daemon alive until Docker's kill at 90 seconds. The provisional answer is a timer, started in the SIGTERM handler, that exits the process at 60 seconds with code 1 and writes what was still open as the event `stop.cut`. If you want no timer of chad's own, those three rules are rewritten, the exit code 1 of a cut stop (IMG-85) and the `stop.cut` line go, the 50 second cut-off in SES-115 and ASP-93 goes, and Docker's 90 second grace period (IMG-87) is the only bound. Until you answer, the stop test at its real length (TST-118, TST-119) is written on the provisional values.
-2. What `CHAD_DATA` is for. Provisional rules: IMG-29 and IMG-140, with STO-188, REC-149, CLI-204 and TST-189. TIM-541 item 10 says of the volume that "`CHAD_DATA` moves it". In the run it left `HOME`, the caches, the npm prefix and PATH at `/data`, so an `npm install -g` was lost with the container. The provisional answer is that in the image the volume is at `/data`, and that `CHAD_DATA` is for running chad outside the image and for the process scenarios. If you want it to move the whole volume in the image, the image has to derive `HOME`, the npm prefix, the cache directory and PATH from it at start, and those six rules change. TIM-553 advised against that, because a `docker exec` shell would keep the image's values.
-3. Why `CHAD_SOCKET` exists. Provisional rules: IMG-30 and CLI-9. You agreed in TIM-542 item 2 that it moves the socket for a volume whose filesystem cannot hold one. That reason did not hold in the run: on sshfs, with the socket moved, chad failed at the next step. The provisional answer keeps the variable for a reason that did run, a data path so deep that the socket path passes the platform's limit, 107 bytes on Linux and 103 on macOS. If you would sooner drop the variable, IMG-30 and CLI-9 go, and the message of IMG-63 and CLI-11 has to name a shorter data path as the fix.
+The three from TIM-553. In each, the answer that had been provisional stands.
 
-The gaps tagged for you, in part order:
+- The deadline of a stop (IMG-82, IMG-83, IMG-139, with SES-115, REC-148, MCP-97, FAIL-243 and ASP-93). A timer that starts in the SIGTERM handler exits the process at 60 seconds with code 1 and writes `stop.cut`. TIM-541 item 25 says chad exits within 60 seconds, and nothing enforced it: in the run a turn that ignored interruption kept the daemon alive until Docker's kill at 90 seconds. The timer is the only thing that makes the 60 seconds true.
+- What `CHAD_DATA` is for (IMG-29, IMG-140, with STO-188, REC-149, CLI-204 and TST-189). In the image the volume is at `/data`, and `CHAD_DATA` is for running chad outside the image and for the process scenarios. It does not move `HOME`, the caches, the npm prefix or PATH. Making it move the whole volume in the image means deriving those four at start, which nothing ran, and the image has one volume path.
+- Why `CHAD_SOCKET` exists (IMG-30, IMG-63, CLI-9). It stays, for a data path so deep that the socket path passes the platform's limit, 107 bytes on Linux and 103 on macOS. That reason ran. The reason you agreed in TIM-542 item 2, a filesystem that cannot hold a socket, did not hold in the run. You agreed the variable itself, so it was kept over dropping it.
 
-1. **IMG-G1** (01-image-and-volume.md). A pointer to the three questions above.
-2. **IMG-G16** (01-image-and-volume.md). Which filesystem sits under the local-path directory on your k3s node. `stat -f -c %T /var/local-path-provisioner` answers it.
-3. **DIS-G21** (04-discord.md). Whether your "no redaction" ruling on TIM-554 also removes the masking of the status message and of chad's posts. DIS-34 reads it as yes. It is the same question as CRED-G1.
-4. **MOD-G1** (05-model-and-login.md). The name of the header that carries the session id to the model. You agreed `session_id` in TIM-544. MOD-32 says `session-id`, the spelling read from the Codex CLI and then run, and the spec keeps it unless you say otherwise.
-5. **API-G10** (06-plugin-api.md). How long a session's next turn may wait for queued hooks after a compaction (API-61). You agreed the rule with a 10 second bound in front of you. With the budgets as they are it is 40 seconds.
-6. **CLI-G18** (10-cli.md). Why `CHAD_SOCKET` exists, which is question 3 above.
-7. **MCP-G9** (12-skills-and-mcp.md). Which MCP servers that need an OAuth login you want on day one.
-8. **SELF-G12** (14-self-edit-skill.md). Whether the bundled skills are also shown under `/data/repo/examples/`, next to the bundled plugins' source. TIM-549 read your "built in" as plugins only.
-9. **SELF-G13** (14-self-edit-skill.md). You worded the `repo/examples` link as a trial ("Let's try symlink"). The question is what result makes you keep the link or drop it.
-10. **CRED-G1** (15-credentials.md). Whether "no redaction" covers the masking of chad's own outputs as well as the wrap of clanka's `AgentExecutor`. CRED-12 reads it as both, so chad masks nothing. If you meant only the wrap, a stored value of 8 characters or more is again replaced with `<secret:NAME>` at chad's outputs.
-11. **CRED-G17** (15-credentials.md). Which sites you want chad signed in to on day one. The recipes of the `credentials` skill should be written for those.
-12. **FAIL-G23** (16-failures-logs-status.md). Whether to raise the four follow-ups that TIM-557 found outside chad as issues on Effect-TS/effect and Effectful-Tech/clanka. v1 waits for none of them.
-13. **FAIL-G24** (16-failures-logs-status.md). You have not read TIM-557. The part lists thirteen changes to what you agreed in person, the first being that chad ends a turn after 15 minutes of silence from the model (FAIL-84).
-14. **TST-G7** (17-testing.md). The stop test at its real length is written on the provisional values of question 1 and changes with them if you rule otherwise (TST-175).
-15. **TST-G25** (17-testing.md). Whether chad lints with oxlint and formats with prettier, as `tim-smart/lalph` does (TST-204). Architect inferred it from your other repos in round 5 of TIM-559. The gap also asks whether you want lalph's `effect-language-service patch` step and its `tsgo` type-check, neither of which was taken.
-16. **ASP-G10** (18-asphodel-plugin.md). The bound of API-G10 as the asphodel plugin states it. ASP-92 gives up to 40 seconds.
-17. **ORD-G2** (19-build-order.md). Whether you merge one pull request that holds the whole build (ORD-3), or merge after each stage on a green gate. The second gives `main` a usable build at the end of stage 2, makes the last review smaller and lets the scheduled jobs fire from stage 1 (ORD-46).
+The gaps, in part order. Each gap is gone from its part.
+
+| Gap | Question | Answer | Why |
+| --- | --- | --- | --- |
+| IMG-G1, CLI-G18, TST-G7 | Pointers to the three questions above | Closed with them | |
+| DIS-G21, CRED-G1 | Whether "no redaction" also removes the masking of the status message and of chad's own outputs | Yes. chad masks nothing (CRED-12, DIS-34) | Your ruling on TIM-554 was that nothing is redacted. A mask on stored values of 8 characters or more misses any value a script transforms, so it reads as a protection it does not give. The `chad secret` commands and the `credentials` skill never print a stored value (CRED-8). The cost is the one of FAIL-9: script source and output are in the status message and in stdout, wherever the container's logs are shipped. |
+| MOD-G1 | `session_id`, which you agreed in TIM-544, or `session-id` | `session-id` (MOD-32) | It is the spelling read from the Codex CLI, and the one that ran. |
+| API-G10, ASP-G10 | The wait before a session's next turn after a compaction is at most 40 seconds, and you agreed the rule with 10 seconds in front of you | 40 seconds stands (API-61, ASP-92) | It is reached only when a plugin's hooks hang, and it measured 272 ms with hooks that return. Getting to 10 seconds means cutting the 30 second `afterTurn` budget, which is what the asphodel ingest runs in. |
+| MCP-G9 | Which MCP servers that need an OAuth login you want on day one | None | v1 names no server. The login is built and tested against the fake, and you add servers once chad runs. |
+| SELF-G12 | Whether the bundled skills are also shown under `/data/repo/examples/` | No, plugins only | It is how TIM-549 read your "built in", and it needs no new rule. Adding the skills later changes the link's target to a directory that holds both. |
+| SELF-G13 | What ends the trial of the `repo/examples` link | Nothing in v1. The link stays (SELF-20) | No test and no release waits on it. Whether the agent finds the link unprompted can only be seen once chad is in use, so it is yours to judge then. |
+| CRED-G17 | Which sites you want chad signed in to on day one | None | The `credentials` skill ships its two recipes, for agent-browser and Playwright MCP, against the test form (CRED-83). A recipe for a real site is something you or chad add later. |
+| FAIL-G23 | Whether to raise the four follow-ups outside chad as issues on Effect-TS/effect and Effectful-Tech/clanka | Yes, all four | v1 waits for none of them. They are not filed yet, because they would be posted in your name on public repos. |
+| FAIL-G24 | Whether the thirteen changes that TIM-557 made to what you agreed in person stand | All thirteen stand | They are listed in 16-failures-logs-status.md. The two with the most weight are the end of a model call after 15 minutes of silence (FAIL-84), since a silent call otherwise costs about 117 minutes, and `chad logs` (FAIL-38), since the log is the only record of a failed turn. The one to know about is FAIL-9, as above. |
+| TST-G25 | Whether chad lints with oxlint and formats with prettier as `tim-smart/lalph` does, and whether it takes that repo's `effect-language-service patch` step or its `tsgo` type-check | oxlint and prettier, and neither of the other two (TST-204) | TypeScript 7, which the image pins, already is the native compiler, so `tsgo` adds nothing. A compiler patched for Effect's diagnostics in the gate is not the compiler the image runs at an apply, and nothing was run with the patch on the vendored effect snapshot. Four of your repos carry Effect's diagnostics in one form or another, so this is the answer you are most likely to overrule. |
+| ORD-G2 | One merge of the whole build after stage 5, or a merge after each stage | One merge (ORD-3) | It is your own ruling. A merge after each stage needs a new pull request each time, which breaks the one shared pull request of your plan workflow and makes each stage's start depend on what you merged. The three gains are mostly had without it: you can review on the same pull request at the end of each stage, the branch is usable from the end of stage 2, and the scheduled jobs run from the shared branch (ORD-46). |
+
+One gap is still yours, because it is a measurement on your node and not a decision:
+
+1. **IMG-G16** (01-image-and-volume.md). Which filesystem sits under the local-path directory on your k3s node. `stat -f -c %T /var/local-path-provisioner` answers it, and so does the one run of the Kubernetes checks in stage 5 (TST-111). Nothing in the build waits for it.
 
 ## What changed after you agreed it
 
@@ -103,7 +106,7 @@ Each bullet gives the rules, what you agreed, what the spec says now and, in bra
 - IMG-44. TIM-538 item 8: `repo/node_modules` is a symlink into the image. Now remade at every boot, with anything else at that path moved aside. [TIM-553]
 - IMG-49. TIM-538 items 4 and 6: `tsc` finds chad through `repo/node_modules`. Now through a self-link and an `exports` field of `.`, `./Plugin`, `./Session` and `./Turns`. [TIM-541, TIM-553]
 - IMG-17, IMG-28. TIM-542 item 29: `CHAD_SESSION` marks a session's processes. Now `chad serve` sets `CHAD_SESSION=daemon` on itself, and a session's processes get `TZ`. [TIM-550, TIM-541, TIM-553]
-- IMG-30. TIM-542 item 2: the reason for `CHAD_SOCKET`. Provisional, question 3. [TIM-553, TIM-559]
+- IMG-30. TIM-542 item 2: the reason for `CHAD_SOCKET`. Answered for you, section 2. [TIM-553, TIM-559]
 - IMG-62. TIM-542 item 3: a held lock with a silent socket means starting or frozen. Now a booting daemon listens before it opens the database, so silence means frozen. [TIM-550, TIM-559]
 - IMG-75. TIM-542 items 20 and 27: `chad health` exits 0 with the lock held and a ping answered. Now the lock is tested first, with exit 4 when it is free even if a daemon answers. [TIM-553, TIM-550]
 - IMG-64. TIM-543: the cluster ran at 300 shards. Now `shardsPerGroup: 1`, the count in a database row, and a refusal to start on another count. [TIM-553]
@@ -150,7 +153,7 @@ Each bullet gives the rules, what you agreed, what the spec says now and, in bra
 - SES-54. TIM-531 item 1: a running turn keeps the old handlers. Now a turn that starts during a swap waits for the activation, 40 seconds at most. [TIM-547]
 - SES-88. As STO-70, with the usage columns and the key column `request_key`. [TIM-557, TIM-559]
 - SES-106. TIM-532 item 13, TIM-533 item 12: a give-up message that said "restart". Now the turn ends as `Failed` with `GaveUp` and the message says "crash". [TIM-557]
-- SES-115. TIM-539 item 8: a graceful stop runs the queued hooks inside their budgets. Now only until 50 seconds after SIGTERM. Provisional, question 1. [TIM-541, TIM-553, TIM-559]
+- SES-115. TIM-539 item 8: a graceful stop runs the queued hooks inside their budgets. Now only until 50 seconds after SIGTERM. Answered for you, section 2. [TIM-541, TIM-553, TIM-559]
 - SES-122 to SES-124. As OV-24. [TIM-558]
 - SES-125. TIM-530, TIM-540 item 8: `Turns.start` and the timer handler get a turn's end as the request's reply. Now from the session in the same process. [TIM-557]
 - SES-129. TIM-543: the three gateway checks became their own ticket. Now the `wire` slice and the nightly job test them. [TIM-558]
@@ -460,13 +463,13 @@ Each bullet gives the rules, what you agreed, what the spec says now and, in bra
 - ASP-88, ASP-116, ASP-117. As SES-142. [TIM-559]
 - ASP-91. As SES-134. [TIM-557]
 - ASP-92. As API-61. Its "Changed by" cell is empty. Open as ASP-G10.
-- ASP-93. As SES-115. Provisional, question 1. [TIM-541, TIM-553, TIM-559]
+- ASP-93. As SES-115. Answered for you, section 2. [TIM-541, TIM-553, TIM-559]
 - ASP-99. As API-44. [TIM-557]
 - ASP-81, ASP-112. Not changes: both follow TIM-552, which you agreed.
 
 ## Your to-do list
 
-1. Read this file and answer the questions of section 2, or let the provisional rules stand. The stop test at its real length arrives in stage 3 on the provisional values (TST-119, TST-G7). Section 3 covers the two reading items of TST-165, the local dev adapter (OV-5) and the test minimum (TST-173).
+1. Read this file. Section 2 holds the answers Jarvis gave to the questions that were yours, and you overrule any of them by saying so before the stage that builds it. Section 3 covers the two reading items of TST-165, the local dev adapter (OV-5) and the test minimum (TST-173).
 2. Merge pull request 1 of `tim-smart/chad`, which publishes the spec under `docs/spec/`.
 3. Move "Build chad v1 from the spec" (TIM-560) to todo. Its stage issues are TIM-561 to TIM-565.
 4. From stage 1 to the end: rule on each rule that a builder stops as wrong or impossible to build (ORD-28, ORD-43). The build is not done while one is stopped.
@@ -498,7 +501,7 @@ It wrote the self-edit skill and what the skill rests on: `persona.md` (SWAP-26)
 It ran the socket, the lock and `CHAD_SESSION` of TIM-542. A booting daemon listens before it opens the database (IMG-62), and `chad serve` marks itself with `CHAD_SESSION=daemon` (IMG-17). 42 rules come from it, 25 of them in 10-cli.md. You are most likely to overrule CLI-59, under which only the CLI refuses an owner command inside a session, and CLI-21, under which a CLI of another version is refused for everything but `chad status` and `chad health`.
 
 **"The chad image built and run" (TIM-553)**
-The image built and ran on amd64 and arm64. It made five changes to the design, among them `shardsPerGroup: 1` (IMG-64), and left the three questions of section 2. 34 rules come from it, 14 of them in 01-image-and-volume.md. Beside the three provisional answers, you are most likely to overrule IMG-64, under which a daemon that finds another shard count refuses to start.
+The image built and ran on amd64 and arm64. It made five changes to the design, among them `shardsPerGroup: 1` (IMG-64), and left the three questions that section 2 now answers. 34 rules come from it, 14 of them in 01-image-and-volume.md. Beside those three answers, you are most likely to overrule IMG-64, under which a daemon that finds another shard count refuses to start.
 
 **"Credential tools run on real clanka and a browser sidecar" (TIM-554)**
 Decisions 1 and 2 are your own: the commands and the `credentials` skill never print a stored value, and nothing is redacted. Architect agreed the rest. 33 rules come from it, 23 of them in 15-credentials.md, and 25 are Architect's. You are most likely to overrule the reading of "no redaction" as covering chad's own outputs (CRED-12, DIS-34, asked as CRED-G1 and DIS-G21), and CRED-18, which limits a secret's name to `[A-Z_][A-Z0-9_]*` and 64 characters.

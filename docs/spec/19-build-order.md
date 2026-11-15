@@ -103,7 +103,6 @@ A builder reads `AGENTS.md` at the root of the repo on every run and may not rea
 ## Gaps
 
 - **ORD-G1** [builder] The name and format of the delivered file, and whether the rule-id script's list mode takes a slice or a stage, are not given.
-- **ORD-G2** [tim] Tim merges one pull request that holds the whole build. The alternative that was named is a merge after each stage on a green gate, which gives `main` a usable build at the end of stage 2, makes the last review smaller, and lets the nightly and weekly jobs fire on their schedule from stage 1 on (ORD-46).
 
 ## Provenance
 
@@ -111,7 +110,7 @@ A builder reads `AGENTS.md` at the root of the repo on every run and may not rea
 | --- | --- | --- | --- | --- | --- | --- |
 | ORD-1 | TIM-559 round 2 R6; Tim, chat 2026-11-15 | Tim | not run |  | `definition` | - |
 | ORD-2 | Tim, chat 2026-11-15 | Tim | not run |  | `definition` | - |
-| ORD-3 | Tim, chat 2026-11-15 | Tim | not run |  | `definition` | - |
+| ORD-3 | Tim, chat 2026-11-15; answered for Tim by Jarvis, chat 2026-11-15 | Tim; one merge kept over a merge after each stage by Jarvis, delegated by Tim on 2026-11-15 (Tim has not read) | not run |  | `definition` | - |
 | ORD-4 | Tim, chat 2026-11-15; TIM-559 round 2 R10 item 2 | Tim for the stages. Architect (Tim has not read) for one slice at a time | not run |  | `definition` | - |
 | ORD-5 | Tim, chat 2026-11-15 | Tim | not run |  | `definition` | - |
 | ORD-6 | TIM-559 round 2 R7; Tim, chat 2026-11-15 | Tim for the stage. Architect (Tim has not read) for the rest | not run |  | `definition` | - |

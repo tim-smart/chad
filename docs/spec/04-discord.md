@@ -265,7 +265,6 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 - **DIS-G26** [builder] Whether a click or a modal submit that Discord delivers a second time after the gateway resumes is handled a second time. DIS-2 says an interaction has no dedupe key and no rule says what a second delivery does. Recommended: find out in the wire slice whether dfx delivers one twice at all, and if it does, handle it again with no dedupe of chad's own.
 - **DIS-G27** [builder] What the daemon does with a gateway that Discord has closed for good, after it writes `chat.refused` (DIS-110). One reading keeps the daemon up with that connection stopped until the token changes or the daemon restarts, and the other exits so that the container's restart policy takes over. Recommended: the daemon stays up, stops reconnecting that connection and keeps serving the socket, since 16-failures-logs-status.md lists a chat connection that is not connected under "Problems". Which closes write `chat.disconnected` and which fields the three lines carry belong with the event table in 16-failures-logs-status.md.
 - **DIS-G28** [builder] What the notice of DIS-72 links to when the pending login was started by `chad login` or `chad model` and so has no thread of its own. Recommended: follow what 05-model-and-login.md settles for where such a login's code is posted. If the code also goes to the thread that a notice outside a turn goes to, link that thread.
-- **DIS-G21** [tim] Whether "no redaction" also removes the masking of the status message and of chad's posts. DIS-34 follows the reading recorded in TIM-554 decision 2, which that ticket leaves for Tim to correct.
 
 ## Provenance
 
@@ -304,7 +303,7 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-31 | TIM-533 item 9 | Tim | not run |  | `rule` | `discord-ui` |
 | DIS-32 | TIM-533 item 12, TIM-536 item 11 | Tim | not run |  | `rule` | `discord-ui` |
 | DIS-33 | TIM-533 item 8 and facts comment | Tim | not run |  | `rule` | `discord-ui` |
-| DIS-34 | TIM-554 decision 2, which removes TIM-546 item 18 and the TIM-546 change to TIM-533 | Tim | not run |  | `rule` | `discord-ui` |
+| DIS-34 | TIM-554 decision 2, which removes TIM-546 item 18 and the TIM-546 change to TIM-533; answered for Tim by Jarvis, chat 2026-11-15 | Tim; the reading that this covers the status message and chad's posts kept by Jarvis, delegated by Tim on 2026-11-15 (Tim has not read) | not run |  | `rule` | `discord-ui` |
 | DIS-35 | TIM-533 item 3 | Tim | not run |  | `rule` | `discord-ui` |
 | DIS-36 | TIM-533 resolution, passed on to other tickets | Tim | not run |  | `definition` | - |
 | DIS-37 | TIM-533 item 11 | Tim | not run |  | `rule` | `plugin-api` |
