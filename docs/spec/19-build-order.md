@@ -20,7 +20,7 @@ A stage is one build issue. A slice is a named piece of the build, and every rul
 - **ORD-4** Within a stage the slices are built in the order of the table, one slice at a time. A stage holds more rules than one run of a builder can read, so a stage is expected to take several runs.
 - **ORD-5** No limit is set on how many rule ids a stage or a slice holds (see 17-testing.md).
 - **ORD-6** A stage is done when its slices are implemented and reviewed on the shared branch, each of its slices is in the delivered file of ORD-9, and every rule of its slices has a test, a waiver, or an entry in that file's list of held rules or of stopped rules (see 17-testing.md for the waiver list and for the rule this restates).
-- **ORD-7** When a stage is done its builder moves the stage issue to done and posts a hand-off comment on the parent build issue. The comment gives the branch and the pull request, what the stage delivered, each held entry the stage added with its reason, each rule it added to the spec, and each live job that has never passed with the number of rules that are waived against it.
+- **ORD-7** When a stage is done its builder moves the stage issue to done and posts a hand-off comment on the parent build issue. The comment gives the branch and the pull request, what the stage delivered, each held entry the stage added with its reason, each rule it added to the spec, each live job that has never passed with the number of rules that are waived against it, and the time of `pnpm test` and of the image layer on the stage's last gate run.
 - **ORD-8** The pull request's description holds a review guide, which each stage extends with what it added.
 ## The delivered file
 
@@ -112,7 +112,7 @@ A builder reads `AGENTS.md` at the root of the repo on every run and may not rea
 | ORD-4 | Tim, chat 2026-11-15; TIM-559 round 2 R10 item 2 | Tim for the stages. Architect (Tim has not read) for one slice at a time | not run |  | `definition` | - |
 | ORD-5 | Tim, chat 2026-11-15 | Tim | not run |  | `definition` | - |
 | ORD-6 | TIM-559 round 2 R7; Tim, chat 2026-11-15 | Tim for the stage. Architect (Tim has not read) for the rest | not run |  | `definition` | - |
-| ORD-7 | Tim, chat 2026-11-15, TIM-559 round 5 item 2 | Tim | not run |  | `definition` | - |
+| ORD-7 | Tim, chat 2026-11-15, TIM-559 round 5 item 2, amended by Tim's ruling that `pnpm test` has a target of one minute, chat 2026-11-15 | Tim | not run |  | `definition` | - |
 | ORD-8 | Tim, chat 2026-11-15 | Tim | not run |  | `definition` | - |
 | ORD-9 | TIM-559 round 4 item 11; follows from Tim, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-10 | TIM-559 round 4 item 11; follows from Tim, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
