@@ -10,6 +10,11 @@
 // is never taken as ownership. This is best effort: a background process whose parent ends between two looks, and
 // which drops the mark or runs where `/proc` does not exist, is never seen (TST-87 is on the stopped list for it).
 // A look that fails is kept and fails the scenario, and never stops a daemon's own handle from being signalled.
+//
+// One read of the table is in flight at a time, and each is taken in full before the next one starts, so the records
+// follow the table in the order it was sampled. A start time is to the second, so a table sampled before a newer one
+// must never be taken after it: it could bring back a process the newer one saw end, under a pid and second that a
+// later process now has.
 import { execFile, spawnSync } from "node:child_process"
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 
@@ -90,18 +95,22 @@ const marked = (directory: string): ReadonlySet<number> => {
 export interface Tracker {
   /** Counts a daemon as a root of the scenario's processes, while its own handle says it runs. */
   readonly root: (pid: number, running: () => boolean) => void
-  /** Records the descendants the process table shows now. A failed look is kept for `reap`, and never thrown. */
-  readonly look: () => void
   /**
-   * Kills every recorded process that the table still shows as recorded, and waits until none is left. It fails with
-   * every failed look once it is done, and when one outlives the bound.
+   * Records the descendants the process table shows, once the poll's read in flight is taken. A failed look is kept
+   * for `reap`, and the promise never rejects.
+   */
+  readonly look: () => Promise<void>
+  /**
+   * Stops the poll and takes its read in flight, then kills every recorded process that the table still shows as
+   * recorded, and waits until none is left. It fails with every failed look once it is done, and when one outlives the
+   * bound.
    */
   readonly reap: (wait: () => Promise<unknown>) => Promise<void>
 }
 
 export interface Seams {
   readonly table?: () => ReadonlyArray<Row>
-  /** Reads the table without blocking, for the poll. */
+  /** Reads the table without blocking, for the poll. It calls `done` once, with the rows or an error. */
   readonly tableLater?: (
     done: (rows: ReadonlyArray<Row> | Error) => void,
   ) => void
@@ -115,7 +124,8 @@ const tableLater = (done: (rows: ReadonlyArray<Row> | Error) => void) =>
   void execFile(
     "ps",
     ["-A", ...columns],
-    { encoding: "utf8", env },
+    // A ps that hangs ends as an error, so the read in flight that a look and the reap wait for always ends.
+    { encoding: "utf8", env, timeout: 5_000, killSignal: "SIGKILL" },
     (error, out) => done(error === null ? parse(out) : error),
   )
 
@@ -139,15 +149,9 @@ export const tracker = (directory: string, seams: Seams = {}): Tracker => {
   const known = new Set<string>()
   const failures: Array<string> = []
 
-  // A table that is the newest one read sets the roots' identities and retires what it no longer shows. One that comes
-  // back after a newer one only adds what it saw: when it was sampled is not known, only that its read began earlier.
-  const take = (
-    rows: ReadonlyArray<Row>,
-    marks: ReadonlySet<number>,
-    newest: boolean,
-  ) => {
+  const take = (rows: ReadonlyArray<Row>, marks: ReadonlySet<number>) => {
     const runner = rows.find((row) => row.pid === process.pid)?.pgid
-    for (const row of newest ? rows : []) {
+    for (const row of rows) {
       const root = roots.get(row.pid)
       if (root !== undefined && root.started === undefined && root.running()) {
         root.started = row.started
@@ -176,66 +180,67 @@ export const tracker = (directory: string, seams: Seams = {}): Tracker => {
       }
     }
     // A record the table no longer shows is retired, so a later process with its pid is not taken for it.
-    if (!newest) return
     const shown = new Set(rows.map(key))
     for (const entry of known) if (!shown.has(entry)) known.delete(entry)
   }
 
-  // Each read takes a number when it starts. A poll's table that comes back after a newer look would retire a process
-  // the look recorded while it is still there, and it may also be the only one that saw a child that started after the
-  // look, so it adds and does not retire.
-  let issued = 0
-  let applied = 0
-  const apply = (
-    read: number,
-    rows: ReadonlyArray<Row>,
-    marks: ReadonlySet<number>,
-  ) => {
-    const newest = read > applied
-    if (newest) applied = read
-    take(rows, marks, newest)
+  // The poll's read in flight, which a look and the reap take before they read the table themselves. A tick while one
+  // is in flight starts none.
+  let inFlight: Promise<void> | undefined
+  const settled = async () => {
+    while (inFlight !== undefined) await inFlight
   }
-
-  const look = () => {
-    const number = ++issued
+  const now = (marks: () => ReadonlySet<number>) => {
     try {
-      apply(number, read(), new Set())
+      const rows = read()
+      take(rows, marks())
+      return rows
     } catch (error) {
       failures.push(String(error))
+      return undefined
     }
+  }
+
+  const look = async () => {
+    await settled()
+    now(() => new Set())
   }
 
   // The table is read while the daemons run as well, for a parent that ends before a kill does.
   const later = seams.tableLater ?? tableLater
-  const stop =
+  let polling = seams.poll !== false
+  const stopTimer =
     seams.poll === false
       ? () => {}
       : (seams.poll ?? every)(() => {
-          const number = ++issued
-          later((rows) => {
-            if (rows instanceof Error) failures.push(String(rows))
-            else apply(number, rows, new Set())
-          })
+          if (!polling || inFlight !== undefined) return
+          inFlight = new Promise<void>((resolve) =>
+            later((rows) => {
+              inFlight = undefined
+              if (rows instanceof Error) failures.push(String(rows))
+              else take(rows, new Set())
+              resolve()
+            }),
+          )
         })
+  const stop = () => {
+    polling = false
+    stopTimer()
+  }
 
   return {
     root: (pid, running) => void roots.set(pid, { running }),
     look,
     reap: async (wait) => {
       stop()
+      // What the last poll saw is recorded before the table is read for the kill.
+      await settled()
       const left = Date.now() + (seams.bound ?? 5_000)
       let living: ReadonlyArray<Row> = []
       try {
         for (;;) {
-          let rows: ReadonlyArray<Row> | undefined
-          const number = ++issued
-          try {
-            rows = read()
-          } catch (error) {
-            failures.push(String(error))
-          }
+          const rows = now(() => marked(directory))
           if (rows !== undefined) {
-            apply(number, rows, marked(directory))
             living = rows.filter(
               (row) =>
                 !row.zombie && !roots.has(row.pid) && known.has(key(row)),

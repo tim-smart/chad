@@ -31,7 +31,7 @@ test("CLI-19 a daemon stopped in the middle of a call ends the command with exit
   const running = await daemon({ connections: [home] })
   const current = await running.start()
   const { check, release } = await checking(running)
-  current.signal("SIGTERM")
+  await current.signal("SIGTERM")
   const ran = await check.done
   release()
   expect(ran.code).toBe(4)

@@ -76,7 +76,7 @@ test("SES-106 SES-99 SES-202 FAIL-326 after two starts that a kill ended, a SIGT
   const second = await running.start()
   await fakes.model.received(2)
   // Docker's default 10 seconds: SIGTERM, and a kill before the 15 second cut.
-  second.signal("SIGTERM")
+  await second.signal("SIGTERM")
   await running.logged("stop.started")
   await second.kill()
   await running.start()

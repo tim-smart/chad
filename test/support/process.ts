@@ -59,8 +59,11 @@ export interface Daemon {
   readonly kill: () => Promise<Exited>
   /** A graceful stop: SIGTERM, and the exit. */
   readonly stop: () => Promise<Exited>
-  /** Sends a signal and does not wait, such as SIGSTOP. */
-  readonly signal: (name: NodeJS.Signals) => void
+  /**
+   * Sends a signal and does not wait for the daemon, such as SIGSTOP. A SIGTERM or SIGKILL goes once the process table
+   * was read, which the promise says.
+   */
+  readonly signal: (name: NodeJS.Signals) => Promise<void>
 }
 
 export interface Process {
@@ -220,16 +223,16 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
       )
     }
     // The daemon's descendants are read before a signal that can end it, while they are still its descendants.
-    const signal = (name: NodeJS.Signals) => {
-      if (name === "SIGKILL" || name === "SIGTERM") tracked.look()
+    const signal = async (name: NodeJS.Signals) => {
+      if (name === "SIGKILL" || name === "SIGTERM") await tracked.look()
       running.kill(name)
     }
     const started: Daemon = {
       pid: running.pid ?? 0,
       exit,
-      kill: () => (signal("SIGKILL"), exit),
-      stop: () => (signal("SIGTERM"), exit),
-      signal: (name) => signal(name),
+      kill: () => signal("SIGKILL").then(() => exit),
+      stop: () => signal("SIGTERM").then(() => exit),
+      signal,
     }
     children.push(started)
     return started
@@ -265,10 +268,10 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
   let closing: Promise<void> | undefined
   const close = () =>
     (closing ??= (async () => {
-      tracked.look()
+      await tracked.look()
       for (const running of children) {
-        running.signal("SIGCONT")
-        running.signal("SIGKILL")
+        await running.signal("SIGCONT")
+        await running.signal("SIGKILL")
       }
       await Promise.all(children.map((running) => running.exit))
       await tracked.reap(wait)

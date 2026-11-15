@@ -67,7 +67,7 @@ test("SES-111 SES-201 FAIL-295 IMG-85a a turn that ends inside the wait of a gra
   const two = await fakes.chat.makeThread("direct")
   await says(running, one, "first")
   await fakes.model.received(1)
-  current.signal("SIGTERM")
+  await current.signal("SIGTERM")
   await running.logged("stop.started")
   const event = await fakes.chat.userPosts(two, {
     text: "second",
