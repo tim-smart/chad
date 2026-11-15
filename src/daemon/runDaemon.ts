@@ -35,6 +35,7 @@ import * as Model from "./Model.ts"
 import * as Queue from "./Queue.ts"
 import * as Server from "./Server.ts"
 import * as SessionEntity from "./SessionEntity.ts"
+import * as Sessions from "./Sessions.ts"
 import * as Storage from "./Storage.ts"
 import * as Volume from "./Volume.ts"
 
@@ -210,6 +211,18 @@ const boot = Effect.fnUntraced(function* (
     })
   }
   yield* fs.writeFileString(volume.version, version + "\n")
+  // "Recent" reads the `turns` table from here on. "Today" is the day in the daemon's own timezone until the owner
+  // can set one (FAIL-334).
+  state.recent = Effect.suspend(() => {
+    const now = Date.now()
+    const today = new Date(now)
+    today.setHours(0, 0, 0, 0)
+    return Sessions.recent({
+      since: now - Duration.toMillis(inputs.timings.statusFailedWindow),
+      today: today.getTime(),
+      week: now - Duration.toMillis(Duration.days(7)),
+    })
+  }).pipe(Effect.provideContext(base))
 
   // Step 9.
   state.phase = "loading"
@@ -253,7 +266,7 @@ const boot = Effect.fnUntraced(function* (
             stopping: () => state.phase === "stopping",
           }),
           Layer.succeed(Handler.Status, {
-            text: Effect.sync(() => Server.statusText(state)),
+            text: Server.statusText(state),
           }),
           Layer.succeed(Chats.Chats, running.chats),
           Layer.succeed(Volume.Volume, volume),

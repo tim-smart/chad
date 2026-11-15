@@ -179,13 +179,15 @@ test("SES-134 STO-123 FAIL-119 FAIL-120 at the end of a turn, however it ends, t
   await fakes.chat.answers(thread, 3)
   expect((await ends(3))[2]?.annotations).toMatchObject({
     outcome: "answered",
-    reconciled: 5,
+    reconciled: 6,
   })
   const third = stored(running)
   expect(third.slice(0, 3)).toEqual(second)
+  // The stop is told to the model in an update message ahead of the owner's (FAIL-125).
   expect(roles(third)).toEqual([
     "user",
     "assistant",
+    "user",
     "user",
     "user",
     "assistant",
@@ -195,7 +197,7 @@ test("SES-134 STO-123 FAIL-119 FAIL-120 at the end of a turn, however it ends, t
       .log()
       .filter((line) => line.annotations["event"] === "history.reconciled")
       .map((line) => line.annotations["messages"]),
-  ).toEqual([1, 5])
+  ).toEqual([1, 6])
   // What the turn's row says of its end was written after the history was whole.
   expect(
     rows(running, "SELECT outcome FROM turns ORDER BY started_at"),

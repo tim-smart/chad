@@ -24,6 +24,7 @@ import type { LanguageModel, Model as AiModel } from "effect/ai"
 import { Prompt } from "effect/ai"
 import {
   Chat,
+  ChatError,
   ChatEvent,
   ChatMarkdown,
   ChatMessage,
@@ -36,12 +37,17 @@ import * as Messages from "../Messages.ts"
 import { Timings } from "../Timings.ts"
 import * as Attachments from "./Attachments.ts"
 import { Chats, type ChatService } from "./Chats.ts"
+import * as Failed from "./Failed.ts"
 import * as Logger from "./Logger.ts"
 import * as Queue from "./Queue.ts"
 import * as Sessions from "./Sessions.ts"
 import * as Spawner from "./Spawner.ts"
 import * as TurnLog from "./TurnLog.ts"
 import { Volume } from "./Volume.ts"
+
+const ChatMessageJson = Schema.toCodecJson(ChatMessage.ChatMessage)
+const encodeChatMessage = Schema.encodeSync(ChatMessageJson)
+const decodeChatMessage = Schema.decodeUnknownExit(ChatMessageJson)
 
 /**
  * An owner's message, as the request cluster persists. Its primary key is the event's dedupe key, so an event that is
@@ -51,15 +57,19 @@ export class Message extends Schema.Class<Message>("chad/Session/Message")({
   key: Schema.String,
   /** The name of the chat connection the message arrived on, which is the one the session answers through. */
   connection: Schema.String,
-  /** The whole chat message, in effect/chat's own encoded form. */
-  message: ChatMessage.ChatMessage,
+  /**
+   * The whole chat message, in effect/chat's own encoded form. The entity decodes it itself, so that a stored message
+   * a later image no longer reads still ends its request with a message in the thread (SES-152). The stored bytes are
+   * the ones a `ChatMessage` field gave.
+   */
+  message: Schema.Json,
   attachments: Schema.Array(Schema.String),
 }) {
   static fromEvent(event: ChatEvent.MessageCreated, connection: string) {
     return new Message({
       key: ChatEvent.dedupeKey(event),
       connection,
-      message: event.message,
+      message: encodeChatMessage(event.message),
       attachments: event.message.attachments.map((attachment) => attachment.id),
     })
   }
@@ -75,12 +85,36 @@ export class Message extends Schema.Class<Message>("chad/Session/Message")({
  */
 export const Outcome = Schema.Union([
   Schema.TaggedStruct("Answered", { text: Schema.String }),
-  Schema.TaggedStruct("Failed", { reason: Schema.String }),
+  Schema.TaggedStruct("Failed", { reason: Failed.Reason }),
   Schema.TaggedStruct("Stopped", {}),
   Schema.TaggedStruct("Steered", {}),
   Schema.TaggedStruct("Dropped", {}),
 ])
 export type Outcome = typeof Outcome.Type
+
+/** What became of a post: it reached the thread, the thread is gone, or it failed otherwise. */
+type Posting = "posted" | "gone" | "failed"
+
+/** Whether a post failed because the platform does not have the thread (FAIL-44). */
+const gone = (cause: Cause.Cause<unknown>) =>
+  cause.reasons.some((reason) => {
+    if (reason._tag !== "Fail") return false
+    const error = reason.error
+    const chat =
+      error instanceof ChatMarkdown.ChatMarkdownError &&
+      error.cause._tag === "Chat"
+        ? error.cause.error
+        : error
+    return ChatError.isChatError(chat) && chat.reason._tag === "NotFound"
+  })
+
+/** A request with its chat message decoded. */
+interface Request {
+  readonly key: string
+  readonly connection: string
+  readonly message: ChatMessage.ChatMessage
+  readonly attachments: ReadonlyArray<string>
+}
 
 /** What a `/stop` or a `/new` carries: who sent it, and the connection it arrived on. */
 const Command = {
@@ -193,6 +227,8 @@ interface Turn {
   known: Set<Prompt.Message> | undefined
   /** Whether the batch of the turn's own prompt has come. */
   prompted: boolean
+  /** How many messages the turn's own prompt is: the update message, the owner's message and the restart note. */
+  size: number
   /** Whether a restart cut an earlier start of the turn, so that this one sends the restart note. */
   resumed: boolean
 }
@@ -255,13 +291,16 @@ export const layer = Layer.unwrap(
               }),
         )
 
+        /** Posts in the thread, and says whether the post reached it, or found the thread gone. */
         const post = (chat: ChatService, markdown: string) =>
           ChatMarkdown.post(thread, markdown).pipe(
             Effect.provideService(Chat.Chat, chat),
+            Effect.as<Posting>("posted"),
             Effect.catchCause((cause) =>
-              Effect.logError("A message could not be posted", cause),
+              Effect.logError("A message could not be posted", cause).pipe(
+                Effect.as<Posting>(gone(cause) ? "gone" : "failed"),
+              ),
             ),
-            Effect.asVoid,
           )
 
         /**
@@ -271,7 +310,7 @@ export const layer = Layer.unwrap(
         const told = new Set<string>()
         const tell = Effect.fnUntraced(function* (
           chat: ChatService,
-          request: Message,
+          request: Request,
           read: Attachments.Read,
         ) {
           if (read.notices.length === 0 || told.has(request.key)) return
@@ -466,7 +505,7 @@ export const layer = Layer.unwrap(
         const converse = Effect.fnUntraced(function* (
           live: Live,
           turn: Turn,
-          request: Message,
+          request: Request,
           chat: ChatService,
         ) {
           // A resumed start sends the restart note in place of the owner's message when the stored history holds that
@@ -482,24 +521,39 @@ export const layer = Layer.unwrap(
                 asImages: true,
               })
           if (read !== undefined) yield* tell(chat, request, read)
+          // What chad posted in the thread since the last answer the owner read goes ahead of the prompt, in one update
+          // message that the system prompt does not change for (FAIL-125, FAIL-127, FAIL-131).
+          const pending = yield* Sessions.updates(live.id)
+          const text = Messages.update(pending.lines)
+          const update =
+            text === undefined || pending.last === undefined
+              ? []
+              : [
+                  Prompt.userMessage({
+                    content: [Prompt.textPart({ text })],
+                    options: Sessions.updateOf(pending.last),
+                  }),
+                ]
+          const note = Prompt.userMessage({
+            content: [Prompt.textPart({ text: Messages.restartNote() })],
+          })
+          const messages = [
+            ...update,
+            ...(read === undefined
+              ? [note]
+              : [
+                  Attachments.prompt(read, Sessions.promptOf(turn.key)),
+                  ...(turn.resumed ? [note] : []),
+                ]),
+          ]
+          turn.size = messages.length
           const known = new Set(live.agent.history.current.content)
           turn.known = known
           const output = yield* live.agent.send({
             prompt:
-              read === undefined
+              read === undefined && update.length === 0
                 ? Messages.restartNote()
-                : Prompt.fromMessages([
-                    Attachments.prompt(read, Sessions.promptOf(turn.key)),
-                    ...(turn.resumed
-                      ? [
-                          Prompt.userMessage({
-                            content: [
-                              Prompt.textPart({ text: Messages.restartNote() }),
-                            ],
-                          }),
-                        ]
-                      : []),
-                  ]),
+                : Prompt.fromMessages(messages),
             system: frozen(live),
           })
           yield* saveFrozen(live)
@@ -555,7 +609,7 @@ export const layer = Layer.unwrap(
         const ask = Effect.fnUntraced(function* (
           live: Live,
           turn: Turn,
-          request: Message,
+          request: Request,
           chat: ChatService,
         ) {
           const chosen = yield* Effect.fromOption(model)
@@ -590,8 +644,8 @@ export const layer = Layer.unwrap(
             taken === undefined
               ? []
               : messages.filter((message) => !taken.has(message))
-          // Before the prompt's own batch, the first such message is the prompt.
-          const candidates = turn.prompted ? unread : unread.slice(1)
+          // Before the prompt's own batch, the first such messages are the prompt.
+          const candidates = turn.prompted ? unread : unread.slice(turn.size)
           const steers = Sessions.matched(
             turn.steers.map((steer) => steer.text),
             candidates.map(Sessions.textOf),
@@ -634,15 +688,43 @@ export const layer = Layer.unwrap(
             Deferred.doneUnsafe(turn.ended, Effect.void)
           })
 
-        const failed = (turn: Turn, session: string | undefined) =>
+        /** Whether a reason's turn posts the failed-turn message. The others post a message of their own or nothing. */
+        const posted = (reason: Failed.Reason): reason is Messages.Posted =>
+          reason._tag === "ModelError" || reason._tag === "Internal"
+
+        /** What a failed turn's row records of its reason: the tag and the whole reason (STO-76). */
+        const recorded = (reason: Failed.Reason) => ({
+          tag: reason._tag,
+          detail: Failed.detail(reason),
+        })
+
+        /** Ends a turn that a defect outside the model's part cut: its row, the failed-turn message and its log line. */
+        const failed = (turn: Turn, own: State, connection: string) =>
           Effect.fnUntraced(function* (cause: Cause.Cause<unknown>) {
             const at = Date.now()
+            const reason = Failed.classify(cause)
+            const session = own.live?.id
             yield* Sessions.ended({
               key: turn.key,
               outcome: "failed",
-              failure: "Internal",
+              failure: recorded(reason),
               at,
+              tell:
+                session === undefined ? undefined : { session, turn: turn.id },
             }).pipe(Effect.ignore)
+            if (posted(reason)) {
+              yield* chats.get(connection).pipe(
+                Effect.flatMap((chat) =>
+                  post(
+                    chat,
+                    Messages.failedTurn(at - turn.at, reason, turn.id),
+                  ),
+                ),
+                Effect.catchCause((cause) =>
+                  Effect.logError("A message could not be posted", cause),
+                ),
+              )
+            }
             yield* TurnLog.failed(
               {
                 session,
@@ -651,17 +733,17 @@ export const layer = Layer.unwrap(
                 usage: turn.usage,
                 reconciled: 0,
               },
-              "Internal",
+              reason._tag,
               cause,
             )
-            return { _tag: "Failed", reason: "Internal" } as const
+            return { _tag: "Failed", reason } as const
           })
 
         /** One turn, from the request that takes the session to the reply. */
         const run = Effect.fnUntraced(function* (
           own: State,
           turn: Turn,
-          request: Message,
+          request: Request,
         ) {
           const chat = yield* chats.get(request.connection)
           if (own.ready !== undefined) yield* Deferred.await(own.ready)
@@ -683,7 +765,7 @@ export const layer = Layer.unwrap(
             }),
           )
           if (Exit.isFailure(built)) {
-            return yield* failed(turn, own.live?.id)(built.cause)
+            return yield* failed(turn, own, request.connection)(built.cause)
           }
           const { live, started } = built.value
           const ids = { session: live.id, turn: turn.id }
@@ -692,13 +774,16 @@ export const layer = Layer.unwrap(
           // After two starts that a kill ended, the model does not run again (SES-106).
           if (Sessions.kills(started) >= 2) {
             const at = Date.now()
+            const reason: Failed.Reason = { _tag: "GaveUp" }
             yield* Sessions.ended({
               key: turn.key,
               outcome: "failed",
-              failure: "GaveUp",
+              failure: recorded(reason),
               at,
+              tell: ids,
             })
-            yield* post(chat, Messages.gaveUp())
+            yield* chats.ready(request.connection)
+            yield* post(chat, Messages.gaveUp(turn.id))
             yield* TurnLog.failed(
               {
                 ...ids,
@@ -708,7 +793,7 @@ export const layer = Layer.unwrap(
               },
               "GaveUp",
             )
-            return { _tag: "Failed", reason: "GaveUp" } as const
+            return { _tag: "Failed", reason } as const
           }
           // The first start writes `turn.started`, and each later one `turn.resumed` (FAIL-326).
           if (turn.resumed) {
@@ -756,18 +841,24 @@ export const layer = Layer.unwrap(
               ? { _tag: "Stopped" }
               : Exit.isSuccess(exit)
                 ? { _tag: "Answered", text: exit.value }
-                : { _tag: "Failed", reason: "Internal" }
+                : { _tag: "Failed", reason: Failed.classify(exit.cause) }
             const at = Date.now()
+            // A stop and a failure are posted in place of an answer, so the next turn tells the model of them
+            // (FAIL-125), and their line is written with the end.
             yield* Sessions.ended({
               key: turn.key,
               outcome: lower[outcome._tag],
-              failure: outcome._tag === "Failed" ? outcome.reason : undefined,
+              failure:
+                outcome._tag === "Failed"
+                  ? recorded(outcome.reason)
+                  : undefined,
               at,
+              tell: outcome._tag === "Answered" ? undefined : ids,
             })
             return { outcome, reconciled, at }
           }).pipe(Effect.uninterruptible, Effect.exit)
           if (Exit.isFailure(end))
-            return yield* failed(turn, live.id)(end.cause)
+            return yield* failed(turn, own, request.connection)(end.cause)
 
           const { outcome, reconciled, at } = end.value
           const fields: TurnLog.End = {
@@ -777,20 +868,54 @@ export const layer = Layer.unwrap(
             reconciled,
           }
           if (outcome._tag === "Failed") {
+            if (posted(outcome.reason)) {
+              yield* post(
+                chat,
+                Messages.failedTurn(at - turn.at, outcome.reason, turn.id),
+              )
+            }
             yield* TurnLog.failed(
               fields,
-              outcome.reason,
+              outcome.reason._tag,
               Exit.isFailure(exit) ? exit.cause : undefined,
             )
             return outcome
           }
-          // The answer goes out through the connection the message arrived on.
-          yield* post(
+          // The answer goes out through the connection the message arrived on. An answer that could not be posted
+          // leaves the turn `Answered`, because the history holds it (FAIL-51), and the model is told that the owner
+          // has not read it (FAIL-129).
+          const delivered = yield* post(
             chat,
             outcome._tag === "Answered"
               ? outcome.text
               : Messages.stopped(at - turn.at),
           )
+          // An answer for a thread that no longer exists ends the turn `ThreadGone`, which posts nothing (FAIL-44,
+          // FAIL-64).
+          if (delivered === "gone" && outcome._tag === "Answered") {
+            const reason: Failed.Reason = { _tag: "ThreadGone" }
+            yield* Sessions.ended({
+              key: turn.key,
+              outcome: "failed",
+              failure: recorded(reason),
+              at,
+            })
+            yield* TurnLog.failed(fields, reason._tag)
+            return { _tag: "Failed", reason } as const
+          }
+          if (delivered === "failed" && outcome._tag === "Answered") {
+            yield* Sessions.tell(live.id, {
+              turn: turn.id,
+              outcome: "answered",
+            }).pipe(
+              Effect.catchCause((cause) =>
+                Effect.logError(
+                  "An unposted answer could not be recorded",
+                  cause,
+                ),
+              ),
+            )
+          }
           yield* TurnLog.ended(
             fields,
             outcome._tag === "Answered" ? "answered" : "stopped",
@@ -804,7 +929,7 @@ export const layer = Layer.unwrap(
          */
         const steer = Effect.fnUntraced(function* (
           turn: Turn,
-          request: Message,
+          request: Request,
         ) {
           // A message that was on its way into a turn when the turn was stopped is dropped with the ones that waited.
           const arrived = !turn.stopped
@@ -884,6 +1009,50 @@ export const layer = Layer.unwrap(
           })
         })
 
+        /**
+         * A stored request whose chat message this image cannot decode, which a deploy that changes effect/chat's
+         * encoding leaves (SES-152, SES-205). It fails as `Internal` with the failed-turn message and is answered, so
+         * it does not block the thread and is not tried again.
+         */
+        const undecodable = Effect.fnUntraced(function* (
+          payload: Message,
+          cause: Cause.Cause<unknown>,
+        ) {
+          const reason: Failed.Reason = {
+            _tag: "Internal",
+            message: Messages.firstLine(Cause.pretty(cause)),
+          }
+          const at = Date.now()
+          const session = (yield* Sessions.current(key))?.id
+          const ended = yield* Sessions.undecodable({
+            key: payload.key,
+            turn: Sessions.turnId(),
+            session,
+            detail: Failed.detail(reason),
+            at,
+          })
+          if (ended !== undefined) {
+            // A stored request is delivered as the daemon boots, before the platform may have answered.
+            yield* chats.ready(payload.connection)
+            yield* post(
+              yield* chats.get(payload.connection),
+              Messages.failedTurn(0, reason, ended.turn),
+            )
+            yield* TurnLog.failed(
+              {
+                session: ended.session,
+                turn: ended.turn,
+                duration: 0,
+                usage: Sessions.noUsage,
+                reconciled: 0,
+              },
+              reason._tag,
+              cause,
+            )
+          }
+          return { _tag: "Failed", reason } as const
+        })
+
         return Session.of({
           message: ({ payload }) =>
             Effect.gen(function* () {
@@ -891,12 +1060,15 @@ export const layer = Layer.unwrap(
               // `/new` that arrives behind it still finds the message waiting on that turn.
               let joined = state.turn
               if (joined?.stopped === true) joined = undefined
+              const decoded = decodeChatMessage(payload.message)
               const duplicate = Logger.event(
                 "message.ignored",
                 "A message was ignored",
                 {
                   reason: "duplicate",
-                  author: payload.message.author.id,
+                  author: Exit.isSuccess(decoded)
+                    ? decoded.value.author.id
+                    : "unknown",
                   connection: payload.connection,
                 },
               )
@@ -909,22 +1081,45 @@ export const layer = Layer.unwrap(
                     ? { _tag: "Answered", text: "" }
                     : row.outcome === "stopped"
                       ? { _tag: "Stopped" }
-                      : { _tag: "Failed", reason: row.failure ?? "Internal" }
+                      : {
+                          _tag: "Failed",
+                          reason: Failed.fromRow(
+                            row.failure,
+                            row.failure_detail,
+                          ),
+                        }
                 return reply
               }
               // A turn whose prompt the volume shows neither as stored nor as not stored is held: its delivery stays
               // unanswered and starts nothing, and the thread's other requests go on, until Tim rules on it (STO-211).
+              // Such a request that does not decode fails with the defect cluster gave it before the entity decoded
+              // the message itself, and nothing else.
               if (
                 row !== undefined &&
                 (yield* Sessions.unproven(payload.key))
               ) {
                 yield* take(payload.key)
+                if (Exit.isFailure(decoded)) {
+                  return yield* Effect.die(Cause.squash(decoded.cause))
+                }
                 return yield* Effect.never
               }
               // A message that joined a turn and is delivered again has nothing left to do.
               if (yield* Sessions.steered(payload.key)) {
                 yield* duplicate
                 return { _tag: "Steered" } as const
+              }
+              // A stored message that this image cannot read ends its request at once, and is not tried again.
+              // A cut turn's request that does not decode still lets the thread's other requests go.
+              if (Exit.isFailure(decoded)) {
+                yield* take(payload.key)
+                return yield* undecodable(payload, decoded.cause)
+              }
+              const request: Request = {
+                key: payload.key,
+                connection: payload.connection,
+                message: decoded.value,
+                attachments: payload.attachments,
               }
               if (first !== undefined && first.key !== payload.key) {
                 yield* Deferred.await(first.taken)
@@ -951,16 +1146,17 @@ export const layer = Layer.unwrap(
                     closing: false,
                     known: undefined,
                     prompted: false,
+                    size: 1,
                     resumed: false,
                   }
                   own.turn = turn
                   yield* take(payload.key)
-                  return yield* run(own, turn, payload).pipe(
-                    Effect.catchCause(failed(turn, own.live?.id)),
+                  return yield* run(own, turn, request).pipe(
+                    Effect.catchCause(failed(turn, own, request.connection)),
                     Effect.ensuring(close(own, turn)),
                   )
                 }
-                const outcome = yield* steer(running, payload)
+                const outcome = yield* steer(running, request)
                 if (outcome !== "next") return outcome
               }
             }).pipe(Effect.ensuring(take(payload.key)), Effect.orDie),

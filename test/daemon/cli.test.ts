@@ -58,7 +58,7 @@ test("OV-19 CLI-8 IMG-74 CLI-125a CLI-125h CLI-125i SELF-8 IMG-17 CLI-55 FAIL-28
   const status = await running.chad(["status"])
   expect(status.code).toBe(0)
   expect(status.stderr).toBe("")
-  expect(facts(status.stdout)).toEqual([
+  expect(facts(status.stdout).slice(0, 4)).toEqual([
     "daemon: up (ready)",
     `version: chad ${json("package.json").version}, effect ${json("node_modules/effect/package.json").version}`,
     "connection: local (local)",

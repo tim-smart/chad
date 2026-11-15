@@ -68,7 +68,52 @@ export const render = (view: View): string => {
     `version: chad ${report.version}, effect ${report.effect}`,
     ...report.filesystem.map((warning) => `filesystem: ${warning}`),
     ...connections(report.connections),
+    ...blocks(report),
   ].join("\n")
+}
+
+/** A time as the blocks print it: UTC, to the second. */
+const time = (at: number) => `${new Date(at).toISOString().slice(0, 19)}Z`
+
+/**
+ * The "Problems" and "Recent" blocks, each a heading and then one fact to a line, after a blank line (FAIL-110,
+ * FAIL-333). A daemon that sends neither block gets none.
+ */
+const blocks = (report: Report): ReadonlyArray<string> => {
+  if (report.problems === undefined && report.recent === undefined) return []
+  const problems = report.problems ?? []
+  const lines = [
+    "",
+    "Problems",
+    ...(problems.length === 0 ? ["none"] : problems),
+    "",
+    "Recent",
+  ]
+  const recent = report.recent
+  if (recent === undefined || "unavailable" in recent) {
+    lines.push(
+      `turns: not available (${recent?.unavailable ?? "the daemon sent none"})`,
+    )
+  } else {
+    lines.push(
+      `failed in the last 24h: ${
+        recent.failed.length === 0
+          ? "none"
+          : recent.failed
+              .map((group) => `${group.count} ${group.reason}`)
+              .join(", ")
+      }`,
+      ...recent.last.map(
+        (turn) =>
+          `failed turn: ${turn.turn} ${turn.reason} at ${time(turn.at)}`,
+      ),
+      `tokens: ${recent.today} today, ${recent.week} in the last 7 days`,
+    )
+  }
+  if (report.started !== undefined) {
+    lines.push(`started: ${time(report.started)}`)
+  }
+  return lines
 }
 
 /**

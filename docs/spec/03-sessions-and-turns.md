@@ -37,6 +37,7 @@ chad runs sessions on effect cluster. An entity is an addressable actor that han
 - **SES-151** The `message` request stores the whole chat message in effect/chat's own encoded form, plus the attachment ids, so that a redelivered request rebuilds `Origin.Message` without asking Discord again.
 - **SES-152** A stored request that no longer decodes ends as `Failed` with the reason `Internal` and a message in the thread. It does not block the boot and is not retried. A deploy is a graceful stop, so a cut turn is redelivered under the new image, and effect/chat's encoding can differ between two images.
 - **SES-153** What cluster does with a stored request that does not decode has not been run. A process scenario covers it (see 17-testing.md).
+- **SES-205** A stored request that no longer decodes gets a `turns` row keyed by the request's key. One that never started gets a fresh turn id and the thread's current session, and one that a restart cut keeps the turn id and session of its row. No start is counted, the reason is `Internal`, and the failed-turn message gives a duration of zero. The session's next turn is told of it (FAIL-125). The session entity decodes the chat message itself, so such a request reaches it and is answered.
 - **SES-15** A turn that a plugin starts with `Turns.start` or `Turns.queue`, or that a timer starts, is a persisted request to the same entity.
 - **SES-16** The core derives the key of a scheduled run from the plugin, the timer name and the scheduled time, so one scheduled time starts one turn. An immediate `Turns.start` gets a fresh id per call, so two calls are two turns. A plugin never passes a key.
 - **SES-17** The entity posts to chat itself. The reply to a request is only its outcome.
@@ -620,3 +621,4 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-202 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | SES-203 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | SES-204 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| SES-205 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |

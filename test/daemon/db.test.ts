@@ -99,6 +99,9 @@ test("CLI-46a CLI-237 chad status --json prints the facts as one JSON object on 
     phase: "ready",
     filesystem: answered.filesystem,
     connections: [{ name: "local", kind: "local" }],
+    started: answered.started,
+    problems: [],
+    recent: { failed: [], last: [], today: 0, week: 0 },
   })
   expect(Array.isArray(answered.filesystem)).toBe(true)
 

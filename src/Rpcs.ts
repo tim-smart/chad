@@ -25,6 +25,29 @@ export const Phase = Schema.Literals([
 ])
 export type Phase = typeof Phase.Type
 
+/** What "Recent" in `chad status` shows, or why the daemon could not read it. */
+export const Recent = Schema.Union([
+  Schema.Struct({
+    /** The failed turns of the last 24 hours, as a count for each reason, the most first. */
+    failed: Schema.Array(
+      Schema.Struct({ reason: Schema.String, count: Schema.Number }),
+    ),
+    /** The last five failed turns, the latest first. */
+    last: Schema.Array(
+      Schema.Struct({
+        turn: Schema.String,
+        reason: Schema.String,
+        at: Schema.Number,
+      }),
+    ),
+    /** The tokens in and out of the turns that started today and in the last 7 days. */
+    today: Schema.Number,
+    week: Schema.Number,
+  }),
+  Schema.Struct({ unavailable: Schema.String }),
+])
+export type Recent = typeof Recent.Type
+
 /** What the daemon knows about itself, which is what `chad status` prints when the daemon answers. */
 export const Report = Schema.Struct({
   /** The daemon's chad version. */
@@ -37,6 +60,12 @@ export const Report = Schema.Struct({
   connections: Schema.Array(
     Schema.Struct({ name: Schema.String, kind: Schema.String }),
   ),
+  /** When the daemon started, in milliseconds since the epoch. A daemon before the `failures` slice sends none. */
+  started: Schema.optionalKey(Schema.Number),
+  /** The "Problems" block: each standing condition once, from what the daemon holds without the database (FAIL-112). */
+  problems: Schema.optionalKey(Schema.Array(Schema.String)),
+  /** The "Recent" block, from the `turns` table, or why it could not be read (FAIL-114). */
+  recent: Schema.optionalKey(Recent),
 })
 export type Report = typeof Report.Type
 

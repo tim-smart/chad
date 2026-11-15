@@ -225,6 +225,12 @@ const write = Effect.fnUntraced(function* (
     if (key !== undefined) {
       yield* sql`INSERT OR IGNORE INTO prompts (request_key, session_id) VALUES (${key}, ${id})`
     }
+    // The lines an update message told are cleared with the batch that stores it, so a crash can neither lose them
+    // nor have them told twice (FAIL-215, STO-132).
+    const told = updatesOf(message)
+    if (told !== undefined) {
+      yield* sql`DELETE FROM session_updates WHERE session_id = ${id} AND seq <= ${told}`
+    }
   }
   yield* sql`UPDATE sessions SET environment = ${JSON.stringify(encodeEnvironment(executor))} WHERE id = ${id}`
 })
@@ -264,13 +270,14 @@ export interface Turn {
   readonly turn_id: string | null
   readonly outcome: "answered" | "failed" | "stopped" | null
   readonly failure: string | null
+  readonly failure_detail: string | null
 }
 
 /** The row of the turn a request asked for, when there is one. */
 export const turn = Effect.fnUntraced(function* (key: string) {
   const sql = yield* SqlClient.SqlClient
   const rows =
-    yield* sql<Turn>`SELECT request_key, turn_id, outcome, failure FROM turns WHERE request_key = ${key}`
+    yield* sql<Turn>`SELECT request_key, turn_id, outcome, failure, failure_detail FROM turns WHERE request_key = ${key}`
   return rows[0]
 })
 
@@ -340,12 +347,25 @@ export const cut = Effect.fnUntraced(function* (key: string) {
  */
 export const promptOf = (key: string) => ({ chad: { request: key } })
 
-/** The request key that marks a message as a turn's prompt, when it is one. */
-const requestOf = (message: Prompt.Message): string | undefined => {
+/** What chad's own options on a message hold under one name. */
+const ownOption = (message: Prompt.Message, name: string): unknown => {
   const options: unknown = message.options["chad"]
   if (typeof options !== "object" || options === null) return undefined
-  const request: unknown = (options as { readonly request?: unknown }).request
+  return (options as Readonly<Record<string, unknown>>)[name]
+}
+
+/** The request key that marks a message as a turn's prompt, when it is one. */
+const requestOf = (message: Prompt.Message): string | undefined => {
+  const request = ownOption(message, "request")
   return typeof request === "string" ? request : undefined
+}
+
+/** The options that mark an update message with the last `session_updates` line it tells. */
+export const updateOf = (seq: number) => ({ chad: { updates: seq } })
+
+const updatesOf = (message: Prompt.Message): number | undefined => {
+  const seq = ownOption(message, "updates")
+  return typeof seq === "number" ? seq : undefined
 }
 
 /**
@@ -461,16 +481,193 @@ export const usage = Effect.fnUntraced(function* (key: string, used: Usage) {
   `
 })
 
-/** Records how a turn ended. */
+/** A line to tell the model, as `session_updates` holds it (STO-170). */
+export type Line =
+  | {
+      readonly turn: string
+      readonly outcome: "answered" | "failed" | "stopped"
+      readonly failure?: string | undefined
+    }
+  | { readonly notice: string; readonly text: string }
+
+const insertLine = Effect.fnUntraced(function* (session: string, line: Line) {
+  const sql = yield* SqlClient.SqlClient
+  const fields =
+    "turn" in line
+      ? {
+          turn: line.turn,
+          outcome: line.outcome,
+          failure: line.failure ?? null,
+          notice: null,
+          text: null,
+        }
+      : {
+          turn: null,
+          outcome: null,
+          failure: null,
+          notice: line.notice,
+          text: line.text,
+        }
+  yield* sql`
+    INSERT INTO session_updates (session_id, seq, turn_id, outcome, failure, notice_key, text)
+    SELECT ${session}, COALESCE(MAX(seq), 0) + 1, ${fields.turn}, ${fields.outcome}, ${fields.failure},
+      ${fields.notice}, ${fields.text}
+    FROM session_updates WHERE session_id = ${session}
+  `
+})
+
+/**
+ * Adds a line that the session's next turn tells the model (FAIL-131): a post of chad's in the thread that the
+ * session's history does not hold.
+ */
+export const tell = Effect.fnUntraced(function* (session: string, line: Line) {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql.withTransaction(insertLine(session, line))
+})
+
+/** The lines that wait to be told to a session's model, oldest first, with the sequence number of the last. */
+export const updates = Effect.fnUntraced(function* (session: string) {
+  const sql = yield* SqlClient.SqlClient
+  const rows = yield* sql<{
+    seq: number
+    turn_id: string | null
+    outcome: "answered" | "failed" | "stopped" | null
+    failure: string | null
+    notice_key: string | null
+    text: string | null
+  }>`
+    SELECT seq, turn_id, outcome, failure, notice_key, text FROM session_updates
+    WHERE session_id = ${session} ORDER BY seq
+  `
+  const lines = rows.map((row): Line =>
+    row.turn_id !== null && row.outcome !== null
+      ? {
+          turn: row.turn_id,
+          outcome: row.outcome,
+          failure: row.failure ?? undefined,
+        }
+      : { notice: row.notice_key ?? "", text: row.text ?? "" },
+  )
+  return { lines, last: rows.at(-1)?.seq }
+})
+
+/**
+ * Records how a turn ended: the outcome, and for a failed turn the reason's tag and the whole reason (STO-76). A turn
+ * whose end chad posted in the thread in place of an answer gets its line for the next turn in the same transaction.
+ */
 export const ended = Effect.fnUntraced(function* (end: {
   readonly key: string
   readonly outcome: "answered" | "failed" | "stopped"
-  readonly failure?: string | undefined
+  readonly failure?:
+    { readonly tag: string; readonly detail: string } | undefined
+  readonly at: number
+  /** The session and the turn, when the model is to be told how the turn ended. */
+  readonly tell?:
+    { readonly session: string; readonly turn: string } | undefined
+}) {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql.withTransaction(
+    Effect.gen(function* () {
+      yield* sql`
+        UPDATE turns SET ended_at = ${end.at}, outcome = ${end.outcome}, failure = ${end.failure?.tag ?? null},
+          failure_detail = ${end.failure?.detail ?? null}
+        WHERE request_key = ${end.key}
+      `
+      if (end.tell !== undefined) {
+        yield* insertLine(end.tell.session, {
+          turn: end.tell.turn,
+          outcome: end.outcome,
+          failure: end.failure?.tag,
+        })
+      }
+    }),
+  )
+})
+
+/**
+ * Records a stored request that no longer decodes as a failed turn, with no start counted (SES-152, SES-205). A
+ * request that never started gets a row of the thread's current session with a fresh turn id, and one that a restart
+ * cut keeps the id and session of its row. The model is told of it with the next turn. Gives the turn id and the
+ * session, or nothing when the row has an outcome already.
+ */
+export const undecodable = Effect.fnUntraced(function* (row: {
+  readonly key: string
+  readonly turn: string
+  readonly session: string | undefined
+  readonly detail: string
   readonly at: number
 }) {
   const sql = yield* SqlClient.SqlClient
-  yield* sql`
-    UPDATE turns SET ended_at = ${end.at}, outcome = ${end.outcome}, failure = ${end.failure ?? null}
-    WHERE request_key = ${end.key}
+  return yield* sql.withTransaction(
+    Effect.gen(function* () {
+      const rows = yield* sql<{ turn_id: string; session_id: string | null }>`
+        INSERT INTO turns (request_key, turn_id, session_id, origin, started_at, ended_at, outcome, failure, failure_detail)
+        VALUES (${row.key}, ${row.turn}, ${row.session ?? null}, 'message', ${row.at}, ${row.at}, 'failed', 'Internal',
+          ${row.detail})
+        ON CONFLICT (request_key) DO UPDATE SET
+          ended_at = excluded.ended_at, outcome = 'failed', failure = 'Internal', failure_detail = excluded.failure_detail
+        WHERE turns.outcome IS NULL
+        RETURNING turn_id, session_id
+      `
+      const ended = rows[0]
+      if (ended === undefined) return undefined
+      const session = ended.session_id ?? undefined
+      if (session !== undefined) {
+        yield* insertLine(session, {
+          turn: ended.turn_id,
+          outcome: "failed",
+          failure: "Internal",
+        })
+      }
+      return { turn: ended.turn_id, session }
+    }),
+  )
+})
+
+/** What "Recent" in `chad status` reads from the `turns` table (FAIL-114). */
+export interface Recent {
+  /** The failed turns since `since`, as a count for each reason. */
+  readonly failed: ReadonlyArray<{
+    readonly reason: string
+    readonly count: number
+  }>
+  /** The last five failed turns, latest first. */
+  readonly last: ReadonlyArray<{
+    readonly turn: string
+    readonly reason: string
+    readonly at: number
+  }>
+  /** The tokens in and out of the turns that started since each time. */
+  readonly today: number
+  readonly week: number
+}
+
+export const recent = Effect.fnUntraced(function* (times: {
+  readonly since: number
+  readonly today: number
+  readonly week: number
+}) {
+  const sql = yield* SqlClient.SqlClient
+  const failed = yield* sql<{ reason: string; count: number }>`
+    SELECT COALESCE(failure, 'Internal') AS reason, COUNT(*) AS count FROM turns
+    WHERE outcome = 'failed' AND ended_at >= ${times.since}
+    GROUP BY reason ORDER BY count DESC, reason
   `
+  const last = yield* sql<{ turn: string; reason: string; at: number }>`
+    SELECT turn_id AS turn, COALESCE(failure, 'Internal') AS reason, ended_at AS at FROM turns
+    WHERE outcome = 'failed' AND turn_id IS NOT NULL
+    ORDER BY ended_at DESC LIMIT 5
+  `
+  const tokens = yield* sql<{ today: number | null; week: number | null }>`
+    SELECT
+      SUM(CASE WHEN started_at >= ${times.today} THEN input_tokens + output_tokens ELSE 0 END) AS today,
+      SUM(input_tokens + output_tokens) AS week
+    FROM turns WHERE started_at >= ${times.week}
+  `
+  return {
+    failed,
+    last,
+    today: tokens[0]?.today ?? 0,
+    week: tokens[0]?.week ?? 0,
+  } satisfies Recent
 })

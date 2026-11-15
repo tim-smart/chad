@@ -1,5 +1,5 @@
 import { Context, Deferred, Effect, Exit, Layer, Scope } from "effect"
-import { Chat } from "effect/chat"
+import { Chat, ChatAdapter } from "effect/chat"
 import type { Connection } from "./Connection.ts"
 
 /** effect/chat's router, as one connection has it. */
@@ -15,6 +15,11 @@ export class Chats extends Context.Service<
   {
     /** The `Chat` of a connection, once it is built. It dies for a name that is no connection of this daemon. */
     readonly get: (connection: string) => Effect.Effect<ChatService>
+    /**
+     * Waits until the connection's platform has registered its adapter, which it does once the platform answers. A
+     * post made as the daemon boots waits for it, so that it is not refused for want of the adapter.
+     */
+    readonly ready: (connection: string) => Effect.Effect<void>
   }
 >()("chad/Chats") {}
 
@@ -45,8 +50,25 @@ export interface Running<R> {
 interface Entry {
   connection: Connection
   readonly chat: Deferred.Deferred<ChatService>
+  readonly registered: Deferred.Deferred<void>
   readonly scope: Scope.Closeable
 }
+
+/** The connection's adapter registry, which says when an adapter has registered in it. */
+const announcing = (entry: Entry) =>
+  Layer.effect(
+    ChatAdapter.Registry,
+    Effect.map(ChatAdapter.Registry, (inner) => ({
+      ...inner,
+      register: (adapter: ChatAdapter.ChatAdapter) =>
+        inner
+          .register(adapter)
+          .pipe(
+            Effect.andThen(Deferred.succeed(entry.registered, undefined)),
+            Effect.asVoid,
+          ),
+    })),
+  )
 
 /**
  * `layer` gives the Layer of one connection's chat platform. It is built with a `Chat` and an adapter registry that
@@ -69,6 +91,7 @@ export const make = <R>(
       const entry: Entry = {
         connection,
         chat: yield* Deferred.make<ChatService>(),
+        registered: yield* Deferred.make<void>(),
         scope: yield* Scope.fork(parent),
       }
       entries.set(connection.name, entry)
@@ -85,6 +108,7 @@ export const make = <R>(
       }
       return Layer.buildWithScope(
         Layer.mergeAll(registered, layer(entry.connection, live)).pipe(
+          Layer.provide(announcing(entry)),
           Layer.provide(Layer.fresh(Chat.layer)),
         ),
         entry.scope,
@@ -98,6 +122,12 @@ export const make = <R>(
           return entry === undefined
             ? Effect.die(new Error(`there is no chat connection ${connection}`))
             : Deferred.await(entry.chat)
+        },
+        ready: (connection) => {
+          const entry = entries.get(connection)
+          return entry === undefined
+            ? Effect.die(new Error(`there is no chat connection ${connection}`))
+            : Deferred.await(entry.registered)
         },
       },
       list: () => [...entries.values()].map((entry) => entry.connection),

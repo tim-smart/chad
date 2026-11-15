@@ -43,6 +43,7 @@ test.each([
       DROP TABLE prompts;
       DROP TABLE commands;
       DROP TABLE unproven;
+      DROP TABLE session_updates;
       DELETE FROM effect_sql_migrations WHERE migration_id > 2;
     `)
     if (untagged) {
@@ -115,6 +116,7 @@ test.each([
     db.exec(`
       UPDATE session_messages SET message = json_remove(message, '$.options.chad');
       DROP TABLE unproven;
+      DROP TABLE session_updates;
       DELETE FROM effect_sql_migrations WHERE migration_id > ${ran ? 4 : 3};
     `)
     if (ran) {
@@ -212,6 +214,7 @@ test.each([
     const db = new DatabaseSync(join(running.data, "db/chad.db"))
     db.exec(`
       DROP TABLE unproven;
+      DROP TABLE session_updates;
       DELETE FROM effect_sql_migrations WHERE migration_id > ${schema};
       UPDATE effect_sql_migrations
         SET created_at = datetime((SELECT started_at FROM turns) / 1000 - ${earlier}, 'unixepoch')

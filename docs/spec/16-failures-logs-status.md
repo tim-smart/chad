@@ -378,6 +378,7 @@ A turn ends with an `Outcome`, which is `Answered`, `Failed` with a reason, or `
 
 - **FAIL-43** `Failed.reason` is one of exactly seven tags: `ThreadGone`, `ModelError`, `UsageLimit`, `LoginFailed`, `LoggedOut`, `GaveUp` and `Internal`.
 - **FAIL-44** `ThreadGone` means the turn's thread no longer exists.
+- **FAIL-335** A turn whose answer cannot be posted because the platform no longer has the thread ends `Failed` with `ThreadGone`, and the answer stays in the history.
 - **FAIL-45** `ModelError { reason, message, retries }` means clanka's stream failed with `RetriesExhausted`, or with an `AiError` that clanka does not retry, or chad's silence bound ended the turn (FAIL-84). `reason` is the `AiError` reason tag, such as `RateLimitError`, except after the silence bound, where it is chad's own value `TurnTimeout` (FAIL-203).
 - **FAIL-46** `UsageLimit { resetsAt? }` means the model provider said the plan's usage limit is reached. It also covers a `QuotaExhaustedError` on the API key path.
 - **FAIL-47** `LoginFailed { reason }` means a login the turn needed did not complete. The reason is `TimedOut` when chad's 15 minute login wait ran out, or one of clanka's three `CodexAuthError` reasons, `DeviceFlowFailed`, `TokenExchangeFailed` and `RefreshFailed`. A login failure inside a model call reaches chad as a defect that wraps `CodexAuthError`, and chad looks inside the defect for it.
@@ -442,7 +443,7 @@ export const Outcome = Schema.Union([
 - **FAIL-60** `UsageLimit` replaces the failed-turn message with "You've reached the usage limit on this login. It resets <time>. Wait, or move to another provider with `/model`." `<time>` is a Discord timestamp. The sentence "It resets <time>." is left out when the error carried no reset time.
 - **FAIL-61** `LoginFailed` with `TimedOut` replaces the failed-turn message with "Login timed out. Send a message to try again." The login wait is chad's own and lasts 15 minutes. When it runs out, every turn that was waiting for the login gets this message, and a turn that lost its login part way through keeps the history it had (see 05-model-and-login.md).
 - **FAIL-62** `LoginFailed` with any other reason replaces the failed-turn message with "Login failed (<reason>). Send a message to try again."
-- **FAIL-63** `GaveUp` replaces the failed-turn message with the give-up message, "This turn was cut off by a crash twice, so I've stopped retrying it. Whatever its scripts already did is done. Send a message to carry on." chad removes the status message the turn left behind when it posts it. Only kills count toward the two, and a turn can be cut by any number of graceful restarts.
+- **FAIL-63** (a) `GaveUp` replaces the failed-turn message with the give-up message, "This turn was cut off by a crash twice, so I've stopped retrying it. Whatever its scripts already did is done. Send a message to carry on." (b) chad removes the status message the turn left behind when it posts it. (a) Only kills count toward the two, and a turn can be cut by any number of graceful restarts.
 - **FAIL-64** `LoggedOut` and `ThreadGone` post nothing in the turn's thread. The owner learns of them from the notices in FAIL-175 and FAIL-173.
 - **FAIL-65** Every failed-turn message and every give-up message ends with one subtext line, "-# Turn <id>. `chad logs --turn <id>` shows what it did."
 - **FAIL-66** In a server thread the failed-turn message is a reply to the owner's message with the reply ping on, like an answer. A plain post in a server thread notifies nobody. When that message no longer exists the post is a plain post, as for every post chad makes as a reply (see 04-discord.md).
@@ -577,12 +578,14 @@ What `chad status` prints about the daemon, the plugins, the MCP servers, the mo
 - **FAIL-111** `/status` renders with no database and no model.
 - **FAIL-112** "Problems" comes first. It lists every standing condition once. A live key is shown from the daemon's own check (FAIL-213) and a table key from its held row (FAIL-308). The two classes are in "Notices outside a turn".
 - **FAIL-113** "Problems" also lists two things that have no key and no notice. These are a chat connection that is not connected and timers held for a plugin that is not loaded. Timers held for a plugin the owner turned off, or for a plugin deleted from the repo, are not listed here. `chad status` shows them with the plugin (see 11-settings.md).
-- **FAIL-114** "Recent" shows the failed turns of the last 24 hours grouped by reason, the last five failed turns with their ids, the tokens used today and in the last 7 days, when the daemon started, and whether the exit before that start was unclean. Grouping by reason keeps two real failures visible on a day when 24 scheduled runs were skipped because chad was logged out.
+- **FAIL-114** (a) "Recent" shows the failed turns of the last 24 hours grouped by reason, the last five failed turns with their ids, the tokens used today and in the last 7 days, when the daemon started, (b) and whether the exit before that start was unclean. (a) Grouping by reason keeps two real failures visible on a day when 24 scheduled runs were skipped because chad was logged out.
 - **FAIL-115** "Today" is the current day in the owner's timezone.
 - **FAIL-116** Anything finer than the two blocks is read with `chad db query`.
 - **FAIL-117** `chad status` shows, for each plugin, its count of warnings and of errors logged since it loaded, with the latest line. The count rests on the copies in FAIL-30, which carry the plugin's name from every place in FAIL-27.
 - **FAIL-118** A plugin's start-up warnings, such as the asphodel plugin finding its daemon unreachable, stay log lines that carry the plugin's name. They get no notice of their own, and there is no API through which a plugin notifies the owner. The failing-hook notice covers the case that lasts.
 - **FAIL-213** For a live key, "Problems" shows the condition from the daemon's own check, once each, and never reads the key's row. The row only decides whether a notice is sent. That is how `/status` shows these conditions with no database.
+- **FAIL-333** "Problems" and "Recent" come after the facts `chad status` already prints, each as a heading on its own line after a blank line, then one fact to a line. "Problems" says "none" when it has nothing. "Recent" has a line with the failed turns of the last 24 hours as a count for each reason, a line for each of the last five failed turns with its id, its reason and when it ended, a line with the tokens used today and in the last 7 days, and a line with when the daemon started. Times are in UTC. When the `turns` table cannot be read, "Recent" says so in one line and the rest of the answer is as it would be. `chad status --json` carries the same as `problems`, `recent` and `started`.
+- **FAIL-334** Until the owner can set a timezone (FAIL-115), "today" in "Recent" is the current day in the timezone of the daemon's own process.
 
 | "Problems" lists | Source |
 | --- | --- |
@@ -620,6 +623,7 @@ A failed-turn message, a "Stopped" line and a notice are chad's posts and are no
 - **FAIL-131** The lines waiting to be told live in the database table `session_updates`, per session, and are cleared when a turn's history holds them. They survive passivation, so an owner who asks two hours later still gets them. The table's SQL is in 02-storage.md.
 - **FAIL-215** chad deletes a session's `session_updates` rows in the same transaction that writes the history that holds them. A crash between two separate writes would lose the update or tell it twice.
 - **FAIL-132** After an `Answered` turn with no notices since, nothing is added.
+- **FAIL-332** The update message is a user message that goes ahead of the owner's message in the same send. It opens with `<environment-update>` and the heading "What chad posted in this thread". It gives the latest turn as "Your last turn, <id>, <how it ended>.", then the sentence of FAIL-130 when it applies, then "Before it, since the last answer the owner read:" with a count for each way the older turns ended, then the notices, one to a line.
 
 ## A full disk
 
@@ -1159,3 +1163,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-329 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-330 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-331 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
+| FAIL-332 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
+| FAIL-333 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
+| FAIL-334 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
+| FAIL-335 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |

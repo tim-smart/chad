@@ -1,6 +1,6 @@
 import { dirname } from "node:path"
 import * as NodeSocketServer from "@effect/platform-node/NodeSocketServer"
-import { Data, Deferred, Effect, Fiber, FileSystem, Layer } from "effect"
+import { Cause, Data, Deferred, Effect, Fiber, FileSystem, Layer } from "effect"
 import {
   type Rpc,
   type RpcGroup,
@@ -12,6 +12,7 @@ import * as Messages from "../Messages.ts"
 import * as Paths from "../Paths.ts"
 import {
   type Phase,
+  type Recent,
   type Report,
   Rpcs,
   layerVersionCheck,
@@ -34,7 +35,19 @@ export interface State {
   readonly commands: Deferred.Deferred<Commands>
   /** The fibers of the commands in flight, which a stop interrupts before it takes anything down (CLI-19). */
   readonly calls: Set<Fiber.Fiber<unknown, unknown>>
+  /** When the daemon started, in milliseconds since the epoch. */
+  readonly started: number
+  /**
+   * The standing conditions "Problems" lists that the daemon answers from memory or from files, each once. None reads
+   * the database, so `/status` shows them when it cannot be used (FAIL-112, FAIL-213, CLI-211).
+   */
+  readonly problems: Array<() => ReadonlyArray<string>>
+  /** What "Recent" reads from the `turns` table, once the database is open (FAIL-114). */
+  recent: Effect.Effect<RecentTurns, unknown> | undefined
 }
+
+/** What "Recent" reads from the database. */
+export type RecentTurns = Exclude<Recent, { readonly unavailable: string }>
 
 export const makeState = (): State => ({
   phase: "starting",
@@ -42,6 +55,9 @@ export const makeState = (): State => ({
   connections: [],
   commands: Deferred.makeUnsafe(),
   calls: new Set(),
+  started: Date.now(),
+  problems: [],
+  recent: undefined,
 })
 
 /**
@@ -50,17 +66,36 @@ export const makeState = (): State => ({
  */
 export const interruptCalls = (state: State) => Fiber.interruptAll(state.calls)
 
-const report = (state: State): Report => ({
-  version: Version.version,
-  effect: Version.effect() ?? "unknown",
-  phase: state.phase,
-  filesystem: state.filesystem,
-  connections: state.connections,
-})
+/**
+ * "Recent", or why it is missing. A database that cannot be read leaves the rest of the answer as it is, so `/status`
+ * renders with no database and no model (FAIL-111, CLI-149).
+ */
+const recent = (state: State): Effect.Effect<Recent> =>
+  state.recent === undefined
+    ? Effect.succeed({ unavailable: "the database is not open yet" })
+    : state.recent.pipe(
+        Effect.catchCause((cause) =>
+          Effect.succeed({
+            unavailable: `the database could not be read: ${Messages.firstLine(Cause.pretty(cause))}`,
+          }),
+        ),
+      )
+
+const report = (state: State): Effect.Effect<Report> =>
+  Effect.map(recent(state), (recent) => ({
+    version: Version.version,
+    effect: Version.effect() ?? "unknown",
+    phase: state.phase,
+    filesystem: state.filesystem,
+    connections: state.connections,
+    started: state.started,
+    problems: state.problems.flatMap((check) => check()),
+    recent,
+  }))
 
 /** The text `chad status` prints for a daemon that answers, which `/status` posts as it is. */
-export const statusText = (state: State): string =>
-  Status.render({ daemon: "up", report: report(state) })
+export const statusText = (state: State): Effect.Effect<string> =>
+  Effect.map(report(state), (report) => Status.render({ daemon: "up", report }))
 
 /** The daemon could not listen on its socket. The message is the exit message. */
 export class SocketRefused extends Data.TaggedError("SocketRefused")<{
@@ -170,7 +205,7 @@ const handlers = (state: State) => {
     })
   return Rpcs.toLayer({
     Ping: () => Effect.succeed("pong"),
-    Status: () => Effect.sync(() => report(state)),
+    Status: () => report(state),
     ConnectionChange: ({ change }, { headers }) =>
       command((commands) =>
         commands.change(change, Queue.caller(headers[sessionHeader])),

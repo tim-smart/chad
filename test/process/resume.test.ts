@@ -2,6 +2,8 @@
 // on the same volume (docs/spec/17-testing.md, TST-27). A kill point is a model response the fake holds (TST-45).
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
+import * as Failed from "../../dist/daemon/Failed.js"
+import { execute } from "../support/database.ts"
 import {
   eventually,
   found,
@@ -61,7 +63,7 @@ test("SES-99 SES-101 SES-102 SES-103 SES-98 STO-71 STO-72 FAIL-253 FAIL-104 FAIL
   ])
 }, 15_000)
 
-test("SES-106 SES-99 SES-202 FAIL-326 after two starts that a kill ended, a SIGTERM followed by a kill before the cut counting as one, the next delivery counts a third start, runs no model, posts the give-up message and records the turn as failed with GaveUp, with only turn.failed for that delivery", async () => {
+test("SES-106 SES-99 SES-202 FAIL-326 FAIL-63a FAIL-65 after two starts that a kill ended, a SIGTERM followed by a kill before the cut counting as one, the next delivery counts a third start, runs no model, posts the give-up message and records the turn as failed with GaveUp, with only turn.failed for that delivery", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([
@@ -81,9 +83,11 @@ test("SES-106 SES-99 SES-202 FAIL-326 after two starts that a kill ended, a SIGT
   await second.kill()
   await running.start()
   await fakes.chat.answers(thread, 1)
-  expect(await posted(running, thread)).toEqual([Messages.gaveUp()])
   const [failed] = await lines(running, "turn.failed", 1)
   expect(failed!.annotations["reason"]).toBe("GaveUp")
+  expect(await posted(running, thread)).toEqual([
+    Messages.gaveUp(String(failed!.annotations["turn"])),
+  ])
   const events = running.log().map((line) => line.annotations["event"])
   expect(events.filter((event) => event === "turn.started")).toHaveLength(1)
   expect(events.filter((event) => event === "turn.resumed")).toHaveLength(1)
@@ -189,4 +193,43 @@ test("SES-161 SES-101 STO-207 a kill after a compaction took the turn's prompt o
   expect(prompted(all[4])).toBe(Messages.restartNote())
   await fakes.chat.answers(thread, 1)
   expect(await posted(running, thread)).toEqual(["finished"])
+}, 20_000)
+
+test("SES-152 SES-153 SES-205 a stored request that the next start cannot decode ends failed with Internal and the failed-turn message at once, counts no start, runs no model and is answered, so it is not tried again", async () => {
+  const running = await daemon()
+  const { fakes } = running
+  await fakes.model.script([{ text: "never sent", hold: true }])
+  const first = await running.start()
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "do the thing")
+  await fakes.model.received(1)
+  await first.kill()
+  // What a deploy that changes effect/chat's encoding leaves on the volume.
+  execute(
+    running.data,
+    "UPDATE cluster_messages SET payload = json_set(payload, '$.message', 'not a message') WHERE tag = 'message'",
+  )
+  await running.start()
+  const [failed] = await lines(running, "turn.failed", 1)
+  expect(failed!.annotations["reason"]).toBe("Internal")
+  const [row] = await found(
+    running,
+    "SELECT turn_id, starts, outcome, failure, failure_detail FROM turns WHERE outcome IS NOT NULL",
+  )
+  expect(row).toMatchObject({
+    starts: 1,
+    outcome: "failed",
+    failure: "Internal",
+  })
+  const reason = Failed.fromRow("Internal", String(row!["failure_detail"]))
+  if (reason._tag !== "Internal") throw new Error("not Internal")
+  await fakes.chat.answers(thread, 1)
+  expect(await posted(running, thread)).toEqual([
+    Messages.failedTurn(0, reason, String(row!["turn_id"])),
+  ])
+  expect(await fakes.model.calls()).toHaveLength(1)
+  await found(
+    running,
+    "SELECT 1 FROM cluster_replies r JOIN cluster_messages m ON m.id = r.request_id WHERE m.tag = 'message'",
+  )
 }, 20_000)

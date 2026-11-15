@@ -3,6 +3,7 @@
  * the spec's wording by a test, and a scenario refers to a message by its name here.
  */
 import * as Connections from "./Connections.ts"
+import type * as Failed from "./daemon/Failed.ts"
 
 /** The start-up check found no data directory (docs/spec/01-image-and-volume.md, IMG-58). */
 export const dataMissing = (data: string) =>
@@ -292,9 +293,113 @@ export const stopped = (milliseconds: number) =>
 export const restartNote = () =>
   "[chad restarted while this turn was running. A script that was cut off may already have had its side effects. Check before you repeat anything, then finish the request above.]"
 
-/** chad gave up on a turn that two kills cut (docs/spec/03-sessions-and-turns.md, SES-106). */
-export const gaveUp = () =>
-  "This turn was cut off by a crash twice, so I've stopped retrying it. Whatever its scripts already did is done. Send a message to carry on."
+/** The subtext line every failed-turn message and the give-up message end with (FAIL-65). */
+export const turnLine = (turn: string) =>
+  subtext(`Turn ${turn}. \`chad logs --turn ${turn}\` shows what it did.`)
+
+/** chad gave up on a turn that two kills cut (docs/spec/03-sessions-and-turns.md, SES-106, FAIL-63). */
+export const gaveUp = (turn: string) =>
+  `This turn was cut off by a crash twice, so I've stopped retrying it. Whatever its scripts already did is done. Send a message to carry on.\n${turnLine(turn)}`
+
+/** The first line of an error's text, cut at 200 characters, because a provider's message can be a page of JSON (FAIL-59). */
+export const firstLine = (text: string): string =>
+  (text.trim().split("\n", 1)[0] ?? "").trim().slice(0, 200)
+
+/** The reasons whose failed turn posts the failed-turn message, and what that message says of each (FAIL-55 to FAIL-58). */
+export type Posted = Extract<
+  Failed.Reason,
+  { readonly _tag: "ModelError" | "Internal" }
+>
+
+const failedReason = (reason: Posted) =>
+  reason._tag === "Internal"
+    ? `chad hit an error (${firstLine(reason.message)})`
+    : reason.retries === 0
+      ? `the model request failed (${reason.reason}: ${firstLine(reason.message)})`
+      : `the model kept failing after ${reason.retries} retries (${reason.reason}: ${firstLine(reason.message)})`
+
+/** A failed turn, as a normal message in its thread (FAIL-54, FAIL-65). */
+export const failedTurn = (
+  milliseconds: number,
+  reason: Posted,
+  turn: string,
+) =>
+  `That turn failed after ${duration(milliseconds)}: ${failedReason(reason)}. The conversation is intact, send a message to carry on.\n${turnLine(turn)}`
+
+/** One line of `session_updates`, as the update message reads it (STO-170). */
+export type Update =
+  | {
+      readonly turn: string
+      /** How the turn ended. An `answered` line is an answer that could not be posted (FAIL-129). */
+      readonly outcome: "answered" | "failed" | "stopped"
+      /** The reason's tag, on a failed turn's line. */
+      readonly failure?: string | undefined
+    }
+  | { readonly notice: string; readonly text: string }
+
+type TurnUpdate = Extract<Update, { readonly turn: string }>
+
+const endedAs = (line: TurnUpdate) =>
+  line.outcome === "answered"
+    ? "answered, but the answer could not be posted in the thread, so the owner has not read it"
+    : line.outcome === "stopped"
+      ? "was stopped, and chad posted that in the thread"
+      : `failed with ${line.failure ?? "Internal"}, and chad posted that in the thread in place of an answer`
+
+const counted = (line: TurnUpdate, count: number) =>
+  line.outcome === "answered"
+    ? `${count} ${count === 1 ? "answer" : "answers"} could not be posted`
+    : line.outcome === "stopped"
+      ? `${count} ${count === 1 ? "turn was" : "turns were"} stopped`
+      : `${count} ${count === 1 ? "turn" : "turns"} failed with ${line.failure ?? "Internal"}`
+
+/** Whether a step was running when the turn ended, which a stop, a give-up and a defect cut (FAIL-130). */
+const cut = (line: TurnUpdate) =>
+  line.outcome === "stopped" ||
+  (line.outcome === "failed" &&
+    (line.failure === "GaveUp" || line.failure === "Internal"))
+
+/**
+ * The update message that tells the model what chad posted in the session's thread since the last turn it answered
+ * and the owner read (FAIL-125 to FAIL-130, FAIL-332). It is clanka's `<environment-update>` form, which a compaction
+ * drops. Nothing is sent when there is no line.
+ */
+export const update = (lines: ReadonlyArray<Update>): string | undefined => {
+  const turns = lines.filter((line): line is TurnUpdate => "turn" in line)
+  const notices = lines.filter(
+    (line): line is Exclude<Update, TurnUpdate> => !("turn" in line),
+  )
+  if (turns.length === 0 && notices.length === 0) return undefined
+  const body: Array<string> = []
+  const latest = turns.at(-1)
+  if (latest !== undefined) {
+    body.push(`Your last turn, ${latest.turn}, ${endedAs(latest)}.`)
+    if (cut(latest)) {
+      body.push(
+        "The steps before the cut are in the history above. The step that was running was cut and may have partly run.",
+      )
+    }
+    // The older turns are a count for each way they ended, in the order each way first came.
+    const earlier = new Map<string, Array<TurnUpdate>>()
+    for (const line of turns.slice(0, -1)) {
+      const key = `${line.outcome}:${line.failure ?? ""}`
+      earlier.set(key, [...(earlier.get(key) ?? []), line])
+    }
+    if (earlier.size > 0) {
+      const counts = [...earlier.values()].map((same) =>
+        counted(same[0]!, same.length),
+      )
+      body.push(
+        `Before it, since the last answer the owner read: ${counts.join("; ")}.`,
+      )
+    }
+  }
+  if (notices.length > 0) {
+    body.push("chad also posted these notices in the thread:")
+    for (const notice of notices) body.push(`- ${notice.text}`)
+  }
+  return `<environment-update>\n# What chad posted in this thread\n\n${body.join("\n")}\n</environment-update>`
+}
 
 /** `/stop` found nothing running (DIS-76). */
 export const nothingRunning = () => subtext("Nothing is running.")
