@@ -69,12 +69,14 @@ export const locked = <A, E, R>(
     yield* Effect.orDie(
       fs.makeDirectory(dirname(environment.lock), { recursive: true }),
     )
-    const release = Lock.take(environment.lock, Duration.zero)
-    if (release === undefined) {
-      return yield* new Failure({
-        code: ExitCode.failed,
-        message: Messages.daemonStarted(command),
-      })
-    }
-    return yield* Effect.ensuring(write, Effect.sync(release))
-  }).pipe(Effect.uninterruptible)
+    return yield* Effect.gen(function* () {
+      const release = Lock.take(environment.lock, Duration.zero)
+      if (release === undefined) {
+        return yield* new Failure({
+          code: ExitCode.failed,
+          message: Messages.daemonStarted(command),
+        })
+      }
+      return yield* Effect.ensuring(write, Effect.sync(release))
+    }).pipe(Effect.uninterruptible)
+  })
