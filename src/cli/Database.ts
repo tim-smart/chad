@@ -19,6 +19,9 @@ const reads: ReadonlySet<number> = new Set([
  * The read-only open refuses a write to the database itself, and says so in SQLite's words. It does not cover what a
  * statement writes elsewhere: a temporary table, an attached database, or the file of `VACUUM INTO`. So anything
  * that is no read and does not name the main database is refused here, before it runs.
+ *
+ * A `PRAGMA` passes, because SQLite gives the same action for one that reads and one that sets, and `table_info`
+ * and its like take an argument too. The ones that write are left to `query_only`.
  */
 const authorize = (
   action: number,
@@ -58,6 +61,9 @@ export const query = (path: string, sql: string, limit: number): Rows => {
   if (!existsSync(path)) throw new Missing(path)
   const database = new DatabaseSync(path, { readOnly: true })
   try {
+    // With this on SQLite refuses a write to any database of the connection, which the read-only open does not: a
+    // `PRAGMA temp.user_version = 1` writes to the temporary database.
+    database.exec("PRAGMA query_only = ON")
     database.setAuthorizer(authorize)
     const statement = database.prepare(sql)
     statement.setReadBigInts(true)

@@ -50,15 +50,18 @@ it("STO-80 CLI-31f CLI-130 CLI-131 chad db query and chad db check answer beside
   expect(await db(data, "check")).toEqual(sound)
 }, 30_000)
 
-it("STO-79 STO-175 STO-202 chad db query refuses a statement that writes, in the database or anywhere else: it exits 1 with SQLite's own message on stderr and nothing on stdout, as any statement that fails does, and a volume with no database is named", async () => {
+it("STO-79 STO-175 STO-202 chad db query refuses a statement that writes, in the database or anywhere else, and still answers a PRAGMA that reads: a refusal exits 1 with SQLite's own message on stderr and nothing on stdout, as any statement that fails does, and a volume with no database is named", async () => {
   const data = volume(numbered(3))
-  // What the read-only open does not cover: a file beside the database, a temporary table and an attached database.
+  // What the read-only open does not cover: a file beside the database, a temporary table, an attached database and
+  // the header of the temporary database.
   const copy = join(data, "copy.db")
   for (const [sql, message] of [
     [`VACUUM INTO '${copy}'`, "authorization denied"],
     ["VACUUM", "authorization denied"],
     ["CREATE TEMP TABLE more (n)", "not authorized"],
     [`ATTACH DATABASE '${copy}' AS more`, "not authorized"],
+    ["PRAGMA temp.user_version = 42", "attempt to write a readonly database"],
+    ["PRAGMA temp.application_id = 42", "attempt to write a readonly database"],
   ] as const) {
     expect(await db(data, "query", sql), sql).toEqual({
       stdout: "",
@@ -67,6 +70,18 @@ it("STO-79 STO-175 STO-202 chad db query refuses a statement that writes, in the
     })
   }
   expect(existsSync(copy)).toBe(false)
+  // A PRAGMA that reads takes an argument too, and is no write.
+  expect(await db(data, "query", "PRAGMA table_info(numbers)")).toEqual({
+    stdout:
+      "cid\tname\ttype\tnotnull\tdflt_value\tpk\n0\tn\tINTEGER\t0\tNULL\t1\n",
+    stderr: "",
+    code: 0,
+  })
+  expect(await db(data, "query", "PRAGMA temp.user_version")).toEqual({
+    stdout: "user_version\n0\n",
+    stderr: "",
+    code: 0,
+  })
   for (const sql of [
     "DELETE FROM numbers",
     "INSERT INTO numbers VALUES (4)",
