@@ -89,6 +89,14 @@ export const dbMore = (limit: number) =>
 /** What `--limit` of `chad db query` takes, which the usage error for any other value names. */
 export const dbLimit = () => "a whole number from 1 up"
 
+/** What `--level` of `chad logs` takes, which the usage error for any other value names. */
+export const logsLevel = () =>
+  "one of all, trace, debug, info, warn, error, fatal or none"
+
+/** What `--since` of `chad logs` takes, which the usage error for any other value names. */
+export const logsSince = () =>
+  "a duration such as 15m or 2h, or an ISO 8601 time"
+
 /** A command needs the daemon and the lock is free (docs/spec/10-cli.md). */
 export const noDaemon = (command: string, lock: string) =>
   `chad ${command}: no daemon (lock ${lock} is free)`

@@ -5,7 +5,7 @@ import { ChatError } from "effect/chat"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
 import { fresh, scenario, type Scenario } from "../support/driver.ts"
-import { results, runs } from "../support/model.ts"
+import { printed, runs } from "../support/model.ts"
 import {
   eventually,
   posted,
@@ -202,7 +202,7 @@ test("SES-41 SES-198 STO-21 a file the owner sends after the Agent has changed i
   await fakes.chat.answers(thread, 2)
 
   const calls = await fakes.model.calls()
-  const cwd = String(results(calls[3]).at(-1)).trim()
+  const cwd = String(printed(calls[3]).at(-1)).trim()
   expect(cwd).toBe(join(inbox(running), "..", "work"))
   const path = join(inbox(running), `${note.message.id}-note.txt`)
   expect(prompted(calls[2])).toBe(
@@ -235,7 +235,7 @@ test("SES-41 SES-198 STO-21 with a relative CHAD_DATA the prompt still names a s
   await fakes.chat.answers(thread, 1)
 
   const calls = await fakes.model.calls()
-  const cwd = String(results(calls[1]).at(-1)).trim()
+  const cwd = String(printed(calls[1]).at(-1)).trim()
   const path = join(inbox(running), `${note.message.id}-note.txt`)
   expect(isAbsolute(path)).toBe(true)
   expect(prompted(calls[0])).toBe(

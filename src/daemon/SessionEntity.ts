@@ -13,7 +13,6 @@ import {
   Fiber,
   FileSystem,
   Layer,
-  Logger as EffectLogger,
   MutableRef,
   Option,
   PrimaryKey,
@@ -41,6 +40,7 @@ import * as Logger from "./Logger.ts"
 import * as Queue from "./Queue.ts"
 import * as Sessions from "./Sessions.ts"
 import * as Spawner from "./Spawner.ts"
+import * as TurnLog from "./TurnLog.ts"
 import { Volume } from "./Volume.ts"
 
 /**
@@ -131,9 +131,6 @@ export const Stopping = Context.Reference<{ readonly stopping: () => boolean }>(
   { defaultValue: () => ({ stopping: () => false }) },
 )
 
-/** The loggers of a running script: the default one, which prints to the console the script was given. */
-const scriptLoggers = new Set([EffectLogger.defaultLogger])
-
 /** The system prompt as chad renders it, which is what a session freezes and what its fingerprint is taken of. */
 export const system = (options: {
   readonly toolInstructions: string
@@ -152,6 +149,8 @@ interface Live {
   readonly scope: Scope.Closeable
   readonly agent: Agent.Agent
   readonly directory: string
+  /** The ids the session's log lines carry, whose turn is the one running (FAIL-25, FAIL-26). */
+  readonly ids: Logger.SessionLogIds
   /** The system prompt the session last sent, with the fingerprint of what chad rendered for it. */
   frozen: { readonly system: string; readonly fingerprint: string } | undefined
   /** Whether the frozen prompt has changed since it was stored. */
@@ -329,41 +328,36 @@ export const layer = Layer.unwrap(
               )
             }).pipe(Effect.provideContext(services))
 
-          // Every process the session starts carries the session id, through a spawner of the session's own.
+          // Every process the session starts carries the session id, through a spawner of the session's own. A tool
+          // call runs on a fiber made from the context of this build, so the session's ids are provided to it.
+          const ids: Logger.SessionLogIds = { session: id, turn: undefined }
           const built = yield* Layer.buildWithScope(
             AgentExecutor.layerLocal({ directory }).pipe(
               Layer.provide(Spawner.layer(id, volume.home)),
             ),
             own,
-          )
+          ).pipe(Effect.provideService(Logger.CurrentLogIds, ids))
           const inner = Context.get(built, AgentExecutor.AgentExecutor)
           const executor = AgentExecutor.AgentExecutor.of({
             capabilities: inner.capabilities,
             executeUnsafe: inner.executeUnsafe.bind(inner),
             renderEnvironment: inner.renderEnvironment,
-            // clanka reports a script's failure through the logger, with the script's own output as the console.
-            // chad's logger writes to the log file, so inside a script the default logger stands in for it, and
-            // the error reaches the model.
+            // clanka reports a script's failure through the logger, with the script's own output as the console,
+            // and chad's logger prints such a line into the script's output (FAIL-23).
             execute: (options) =>
-              inner
-                .execute({
-                  ...options,
-                  onTask: (task) =>
-                    Effect.andThen(
-                      track(task),
-                      options.onTask?.(task) ?? Effect.void,
-                    ),
-                })
-                .pipe(
-                  Stream.provideService(
-                    EffectLogger.CurrentLoggers,
-                    scriptLoggers,
+              inner.execute({
+                ...options,
+                onTask: (task) =>
+                  Effect.andThen(
+                    track(task),
+                    options.onTask?.(task) ?? Effect.void,
                   ),
-                ),
+              }),
           })
           const agent = yield* Agent.make.pipe(
             Effect.provideService(AgentExecutor.AgentExecutor, executor),
             Effect.provideService(Scope.Scope, own),
+            Effect.provideService(Logger.CurrentLogIds, ids),
           )
           const messages = yield* Sessions.history(id)
           if (messages.length > 0) {
@@ -386,6 +380,7 @@ export const layer = Layer.unwrap(
             scope: own,
             agent,
             directory,
+            ids,
             frozen:
               row.system === null || row.fingerprint === null
                 ? undefined
@@ -508,9 +503,12 @@ export const layer = Layer.unwrap(
             system: frozen(live),
           })
           yield* saveFrozen(live)
+          const steps = TurnLog.steps()
+          const ids = { session: live.id, turn: turn.id }
           return yield* output.pipe(
             Stream.runForEach((part) =>
               Effect.gen(function* () {
+                yield* TurnLog.step(steps, ids, part)
                 if (part._tag === "HistoryAppended") {
                   yield* saveFrozen(live)
                   for (const message of part.messages) known.add(message)
@@ -627,6 +625,7 @@ export const layer = Layer.unwrap(
               if (steer.fiber !== undefined) yield* Fiber.interrupt(steer.fiber)
             }
             if (own.turn === turn) own.turn = undefined
+            if (own.live?.ids.turn === turn.id) own.live.ids.turn = undefined
             const reply: Outcome | "next" =
               turn.stopped || turn.reset ? { _tag: "Dropped" } : "next"
             for (const steer of waiting) {
@@ -644,15 +643,17 @@ export const layer = Layer.unwrap(
               failure: "Internal",
               at,
             }).pipe(Effect.ignore)
-            yield* Logger.event("turn.failed", "The turn failed", {
-              ...(session === undefined ? {} : { session }),
-              turn: turn.id,
-              reason: "Internal",
-              duration_ms: at - turn.at,
-              ...Sessions.fields(turn.usage),
-              reconciled: 0,
-              cause: Cause.pretty(cause),
-            })
+            yield* TurnLog.failed(
+              {
+                session,
+                turn: turn.id,
+                duration: at - turn.at,
+                usage: turn.usage,
+                reconciled: 0,
+              },
+              "Internal",
+              cause,
+            )
             return { _tag: "Failed", reason: "Internal" } as const
           })
 
@@ -686,6 +687,8 @@ export const layer = Layer.unwrap(
           }
           const { live, started } = built.value
           const ids = { session: live.id, turn: turn.id }
+          // A line the session logs from here until the turn closes carries the turn's id (FAIL-26).
+          live.ids.turn = turn.id
           // After two starts that a kill ended, the model does not run again (SES-106).
           if (Sessions.kills(started) >= 2) {
             const at = Date.now()
@@ -696,28 +699,22 @@ export const layer = Layer.unwrap(
               at,
             })
             yield* post(chat, Messages.gaveUp())
-            yield* Logger.event("turn.failed", "The turn failed", {
-              ...ids,
-              reason: "GaveUp",
-              duration_ms: at - turn.at,
-              ...Sessions.fields(turn.usage),
-              reconciled: 0,
-              cause: "",
-            })
+            yield* TurnLog.failed(
+              {
+                ...ids,
+                duration: at - turn.at,
+                usage: turn.usage,
+                reconciled: 0,
+              },
+              "GaveUp",
+            )
             return { _tag: "Failed", reason: "GaveUp" } as const
           }
           // The first start writes `turn.started`, and each later one `turn.resumed` (FAIL-326).
           if (turn.resumed) {
-            yield* Logger.event("turn.resumed", "A turn was resumed", {
-              ...ids,
-              origin: "message",
-              starts: started.starts,
-            })
+            yield* TurnLog.resumed(ids, "message", started.starts)
           } else {
-            yield* Logger.event("turn.started", "A turn started", {
-              ...ids,
-              origin: "message",
-            })
+            yield* TurnLog.started(ids, "message")
           }
           Deferred.doneUnsafe(turn.open, Effect.succeed(live))
 
@@ -773,18 +770,18 @@ export const layer = Layer.unwrap(
             return yield* failed(turn, live.id)(end.cause)
 
           const { outcome, reconciled, at } = end.value
-          const fields = {
+          const fields: TurnLog.End = {
             ...ids,
-            duration_ms: at - turn.at,
-            ...Sessions.fields(turn.usage),
+            duration: at - turn.at,
+            usage: turn.usage,
             reconciled,
           }
           if (outcome._tag === "Failed") {
-            yield* Logger.event("turn.failed", "The turn failed", {
-              ...fields,
-              reason: outcome.reason,
-              cause: Exit.isFailure(exit) ? Cause.pretty(exit.cause) : "",
-            })
+            yield* TurnLog.failed(
+              fields,
+              outcome.reason,
+              Exit.isFailure(exit) ? exit.cause : undefined,
+            )
             return outcome
           }
           // The answer goes out through the connection the message arrived on.
@@ -794,10 +791,10 @@ export const layer = Layer.unwrap(
               ? outcome.text
               : Messages.stopped(at - turn.at),
           )
-          yield* Logger.event("turn.ended", "The turn ended", {
-            ...fields,
-            outcome: lower[outcome._tag],
-          })
+          yield* TurnLog.ended(
+            fields,
+            outcome._tag === "Answered" ? "answered" : "stopped",
+          )
           return outcome
         })
 

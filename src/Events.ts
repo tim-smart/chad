@@ -76,6 +76,25 @@ export const events = {
 
 export type EventName = keyof typeof events
 
+/** The level names `CHAD_LOG_LEVEL` and `chad logs --level` take, in any letter case, each with effect's level (FAIL-17). */
+export const logLevels: Readonly<Record<string, LogLevel.LogLevel>> = {
+  all: "All",
+  trace: "Trace",
+  debug: "Debug",
+  info: "Info",
+  warn: "Warn",
+  error: "Error",
+  fatal: "Fatal",
+  none: "None",
+}
+
+/** The level a name gives, in any letter case, or nothing for a name that is not one. */
+export const logLevelNamed = (name: string): LogLevel.LogLevel | undefined => {
+  const key = name.toLowerCase()
+  // An own key only: `constructor` and `__proto__` name no level.
+  return Object.hasOwn(logLevels, key) ? logLevels[key] : undefined
+}
+
 /** The level of an event's line. `reason` is the reason of a `message.ignored` line. */
 export const levelOf = (
   event: EventName,

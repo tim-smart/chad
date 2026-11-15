@@ -1,17 +1,6 @@
 import type { LogLevel } from "effect"
+import { logLevelNamed } from "../Events.ts"
 import * as Paths from "../Paths.ts"
-
-/** The values of `CHAD_LOG_LEVEL`, each with effect's level of the same name. */
-const levels: Record<string, LogLevel.LogLevel> = {
-  all: "All",
-  trace: "Trace",
-  debug: "Debug",
-  info: "Info",
-  warn: "Warn",
-  error: "Error",
-  fatal: "Fatal",
-  none: "None",
-}
 
 /**
  * What the daemon takes from the environment table of docs/spec/01-image-and-volume.md. It is read when `runDaemon`
@@ -35,14 +24,7 @@ export interface Environment {
 
 export const read = (env: NodeJS.ProcessEnv): Environment => {
   const named = env["CHAD_LOG_LEVEL"]
-  const key = named?.toLowerCase()
-  // An own key only: `constructor` and `__proto__` name no level.
-  const level =
-    key === undefined
-      ? "Info"
-      : Object.hasOwn(levels, key)
-        ? levels[key]
-        : undefined
+  const level = named === undefined ? "Info" : logLevelNamed(named)
   return {
     data: Paths.data(env),
     socket: Paths.socket(env),

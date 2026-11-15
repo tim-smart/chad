@@ -73,6 +73,13 @@ export const results = (call: Call | undefined): ReadonlyArray<string> => {
     .map((message) => String(message.content))
 }
 
+/** A line that effect's default logger printed into a script's output, as plain clanka prints its own (FAIL-23). */
+const logged = /^\[\d{2}:\d{2}:\d{2}\.\d{3}\] [A-Z]+ \(#\d+\): .*\n?/gm
+
+/** The results of a call with the log lines taken out, which leaves what the scripts and their commands printed. */
+export const printed = (call: Call | undefined): ReadonlyArray<string> =>
+  results(call).map((result) => result.replaceAll(logged, ""))
+
 export interface Options {
   /** The address and the port to listen on, in place of this machine's own address and a free port. */
   readonly host?: string

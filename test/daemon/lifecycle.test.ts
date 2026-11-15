@@ -3,7 +3,7 @@ import { ChatThread } from "effect/chat"
 import { expect, test } from "vitest"
 import { defaults } from "../../dist/Timings.js"
 import { scenario, type Scenario } from "../support/driver.ts"
-import { results, runs } from "../support/model.ts"
+import { printed, runs } from "../support/model.ts"
 import { rows, says, sessions } from "../support/owner.ts"
 
 /** The system prompt a model call carries. */
@@ -44,10 +44,10 @@ test(
 
     const ids = sessions(running).map((session) => String(session["id"]))
     const calls = await fakes.model.calls()
-    const printed = [calls[1], calls[3]].map((call) =>
-      JSON.parse(String(results(call)[0])),
+    const started = [calls[1], calls[3]].map((call) =>
+      JSON.parse(String(printed(call)[0])),
     )
-    expect(printed).toEqual(
+    expect(started).toEqual(
       ids.map((id) => ({
         cwd: `${running.data}/sessions/${id}`,
         home: `${running.data}/home`,
@@ -162,7 +162,7 @@ test(
     expect(calls).toHaveLength(4)
     // The history clanka sends is the one that was stored, and the script starts where the last one left.
     expect(JSON.stringify(calls[2]?.body)).toContain("remember the word heron")
-    expect(results(calls[3]).at(-1)?.trim()).toBe(
+    expect(printed(calls[3]).at(-1)?.trim()).toBe(
       `${running.data}/sessions/${id}/work`,
     )
     // The prompt is the frozen one, and the row still holds it under the same fingerprint.

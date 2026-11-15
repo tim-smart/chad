@@ -36,7 +36,7 @@ export const make = (
   sessions: join(data, "sessions"),
   home: join(data, "home"),
   version: Paths.version(data),
-  log: join(data, "logs/chad.log"),
+  log: Paths.log(data),
   localSocket: join(data, "run/local.sock"),
 })
 

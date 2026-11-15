@@ -1,7 +1,7 @@
 import { Duration } from "effect"
 import { expect, test } from "vitest"
 import { scenario } from "../support/driver.ts"
-import { results, runs } from "../support/model.ts"
+import { printed, runs } from "../support/model.ts"
 import { lines, posted, rows, says, sessions } from "../support/owner.ts"
 
 /** A turn that starts one background process which runs for a number of seconds, and prints the task's id. */
@@ -48,7 +48,7 @@ test(
       { outcome: null },
     ])
     expect(JSON.parse(String(first?.["tasks"]))).toEqual([
-      { id: String(results(calls[1])[0]).trim(), kind: "bash" },
+      { id: String(printed(calls[1])[0]).trim(), kind: "bash" },
     ])
 
     // Cluster looks for idle entities every five seconds at the least. Its first look takes the second session only.

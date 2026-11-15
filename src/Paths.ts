@@ -19,6 +19,21 @@ export const lock = (data: string): string => join(data, "state/daemon.lock")
 /** The database. */
 export const database = (data: string): string => join(data, "db/chad.db")
 
+/** The daemon's log file. */
+export const log = (data: string): string => join(data, "logs/chad.log")
+
+/** How many rotated log files are kept, `chad.log.1` to `chad.log.3` (FAIL-32). */
+export const logKept = 3
+
+/** The log files, oldest first: the rotated ones and then `chad.log` itself. */
+export const logFiles = (data: string): ReadonlyArray<string> => [
+  ...Array.from(
+    { length: logKept },
+    (_, index) => `${log(data)}.${logKept - index}`,
+  ),
+  log(data),
+]
+
 /** The file that holds the chad version that last wrote the volume. */
 export const version = (data: string): string => join(data, "state/version")
 

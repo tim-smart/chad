@@ -44,6 +44,8 @@ The status message is removed when a turn ends (see 04-discord.md), so the log i
 - **FAIL-15** A retry of a model call is logged at Warn.
 - **FAIL-16** A failed turn is logged as `turn.failed` at Error, with the full cause. The thread gets only the first line of it.
 - **FAIL-241** The log lines of a script that a sub-agent ran carry the sub-agent's id.
+- **FAIL-328** A sub-agent's id on a line is the annotation `subagent`, the number in the task id `subagent_<n>` that clanka gives it. A line of the root agent carries no `subagent`. The line of a sub-agent's start carries the first 200 characters of its prompt as `prompt`.
+- **FAIL-329** The cut in a script's logged output is the line `[... <n> characters cut ...]`, where `<n>` is the number of characters left out. The line of a script's start carries the length of the whole source as `source_chars`, and the line of its end the length of the whole output as `output_chars`.
 - **FAIL-242** A turn that ends as `LoggedOut` or `UsageLimit` is logged once, as `turn.failed` with that reason, and chad writes no second event for it. The reset time of a usage limit is on that line when the error carried one. Two lines for one failure would count it twice.
 
 ## Event names
@@ -362,6 +364,8 @@ What ran in the probes. With 4 fibers logging 400 lines at once, 32 of them Erro
 - **FAIL-200** `chad logs` uses the exit codes of 10-cli.md. It exits 0 when nothing matches, because exit 1 means that a command ran and failed, and the agent reads it.
 - **FAIL-201** A `--level` or `--since` value that it cannot read exits 2. This differs on purpose from `CHAD_LOG_LEVEL`, which falls back to `info` (FAIL-18).
 - **FAIL-202** `chad logs` never exits 4, because it needs no daemon.
+- **FAIL-330** The line for a person holds, in this order and on one line, the entry's time in UTC, its level, its event when it has one, its message, its other annotations as `key=value`, and its cause. A value with whitespace, a double quote or an equals sign, and an empty one, is written as a JSON string. A line of the files that is not a JSON entry is skipped.
+- **FAIL-331** `chad logs` exits 1 when a log file is there and cannot be read.
 
 ```
 chad logs [--turn <id>] [--session <id>] [--plugin <name>] [--event <prefix>]
@@ -1151,3 +1155,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-325 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
 | FAIL-326 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | FAIL-327 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| FAIL-328 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
+| FAIL-329 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
+| FAIL-330 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
+| FAIL-331 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |

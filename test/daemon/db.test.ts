@@ -4,7 +4,7 @@ import { expect, test } from "vitest"
 import { version } from "../../dist/Version.js"
 import { execute, query } from "../support/database.ts"
 import { fresh, owner, scenario } from "../support/driver.ts"
-import { results, runs } from "../support/model.ts"
+import { printed, runs } from "../support/model.ts"
 import { json, path } from "../support/repo.ts"
 
 test("STO-80 STO-83a CLI-130 with a daemon running, the agent runs chad db query and chad db check in its turn and reads what the owner's shell reads", async () => {
@@ -43,7 +43,7 @@ test("STO-80 STO-83a CLI-130 with a daemon running, the agent runs chad db query
 
   // What the agent's two commands printed is what the model's next call carries as the tool's result.
   const [, next] = await fakes.model.calls()
-  expect(results(next)).toEqual([`${read.stdout}\nok\n\n`])
+  expect(printed(next)).toEqual([`${read.stdout}\nok\n\n`])
 })
 
 test("STO-82 STO-174 STO-175 CLI-131 nothing checks integrity at boot: the daemon boots on a database whose index has lost a row, and chad db check then prints SQLite's own lines and exits 1", async () => {

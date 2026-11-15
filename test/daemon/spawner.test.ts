@@ -3,7 +3,7 @@ import { join } from "node:path"
 import type { ChatThread } from "effect/chat"
 import { expect, onTestFinished, test } from "vitest"
 import { owner, type Scenario, scenario } from "../support/driver.ts"
-import { results, runs } from "../support/model.ts"
+import { printed, runs } from "../support/model.ts"
 
 /** An owner's message, delivered to the daemon. */
 const ask = async (
@@ -97,7 +97,7 @@ test("CLI-52 CLI-53 REC-95 every process a session starts carries CHAD_SESSION w
   // What a child printed is what the model's next call carries as the result of the tool it called.
   const calls = await fakes.model.calls()
   expect(calls).toHaveLength(8)
-  const [, , agent, , background, parent, , other] = calls.map(results)
+  const [, , agent, , background, parent, , other] = calls.map(printed)
   expect(agent).toEqual([`${ids[0]}\n\n`])
   expect(background).toEqual([`${ids[0]}\n\n`])
   expect(JSON.parse(String(parent?.[0]))).toEqual({
