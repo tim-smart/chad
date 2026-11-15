@@ -384,7 +384,7 @@ test("FAIL-135 FAIL-281 SES-99 a turn whose row the full volume cannot insert ge
   ])
 }, 20_000)
 
-test("FAIL-135 SES-99 a turn whose session directory cannot be made has its start counted before anything else, so it ends failed with Internal and the ordinary failed-turn message, its status message is removed, and the thread's later messages still answer", async () => {
+test("FAIL-135 SES-99 FAIL-12 FAIL-326 a turn whose session directory cannot be made has its start counted and logged before anything else, so it ends failed with Internal and the ordinary failed-turn message, its status message is removed, and the thread's later messages still answer", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([{ text: "second answer" }])
@@ -397,6 +397,12 @@ test("FAIL-135 SES-99 a turn whose session directory cannot be made has its star
   await says(running, thread, "first")
   const [failed] = await lines(running, "turn.failed", 1)
   expect(failed!.annotations["reason"]).toBe("Internal")
+  expect(
+    running
+      .log()
+      .filter((line) => line.annotations["event"] === "turn.started")
+      .map((line) => line.annotations["turn"]),
+  ).toEqual([failed!.annotations["turn"]])
   await fakes.chat.answers(thread, 1)
   rmSync(sessions)
   mkdirSync(sessions)

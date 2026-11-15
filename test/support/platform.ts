@@ -24,7 +24,7 @@ import {
 } from "effect/chat"
 import { RpcSerialization, RpcServer } from "effect/rpc"
 import * as LocalChat from "../../dist/daemon/LocalChat.js"
-import { factor } from "./entry.ts"
+import { factor } from "./factor.ts"
 
 /** The name of the platform in a thread string, such as `local:1`. */
 export const name = "local"

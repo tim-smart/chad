@@ -349,18 +349,21 @@ export const evaluate = (inputs: Inputs): Report => {
     }
   }
 
+  // A stopped entry names a rule, or one letter of a rule as a held entry can, and stops the units it names.
   const stopped = new Map<string, Stopped>()
+  const stops: Array<Stopped> = []
   for (const entry of delivered.stopped) {
-    const rule = spec.rules.get(entry.id)
-    if (!rule) {
+    const target = resolve(entry.id)
+    if (!target) {
       failures.push(
         `the stopped entry ${entry.id} names a rule the spec does not have`,
       )
-    } else if (rule.slice === "-" && rule.kind !== "definition") {
+    } else if (target.rule.slice === "-" && target.rule.kind !== "definition") {
       failures.push(`the stopped entry ${entry.id} names a withdrawn rule`)
     } else {
-      stopped.set(entry.id, entry)
-      if (unitsOf(rule).some((unit) => held.has(unit)))
+      stops.push(entry)
+      for (const unit of target.units) stopped.set(unit, entry)
+      if (unitsOf(target.rule).some((unit) => held.has(unit)))
         failures.push(`the stopped rule ${entry.id} also has a held entry`)
     }
   }
@@ -380,11 +383,11 @@ export const evaluate = (inputs: Inputs): Report => {
               ? ("definition" as const)
               : ("withdrawn" as const),
         }
-      if (stopped.has(rule.id))
+      if (stopped.has(unit))
         return {
           unit,
           status: "stopped" as const,
-          reason: stopped.get(rule.id)!.reason,
+          reason: stopped.get(unit)!.reason,
         }
       if (!isDelivered(rule.slice))
         return { unit, status: "pending" as const, reason: rule.slice }
@@ -424,7 +427,7 @@ export const evaluate = (inputs: Inputs): Report => {
     failures,
     index,
     pending: inBuildOrder,
-    stopped: [...stopped.values()],
+    stopped: stops,
   }
 }
 

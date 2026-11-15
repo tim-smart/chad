@@ -24,7 +24,7 @@ import * as Volume from "../../src/daemon/Volume.ts"
 import { events, levelOf } from "../../src/Events.ts"
 import { defaults, scale, type Timings } from "../../src/Timings.ts"
 import config, { files, timezone } from "../../vitest.config.ts"
-import { factor } from "../support/entry.ts"
+import { factor } from "../support/factor.ts"
 import { json, path, read, yaml } from "../support/repo.ts"
 
 /** One step of a workflow job. */

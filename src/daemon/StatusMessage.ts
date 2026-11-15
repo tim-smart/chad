@@ -32,8 +32,21 @@ export interface Lines {
   readonly add: (line: string) => Effect.Effect<void>
 }
 
-/** The lines of what has no status message: a background sub-agent's steps, and a turn whose post failed. */
+/** The lines of what has no status message: a background sub-agent's scripts, and a turn whose post failed. */
 export const none: Lines = { add: () => Effect.void }
+
+/**
+ * Lines added before the status message is open, so that a step logged before the post still gets its line from the
+ * call that logs it (FAIL-11, DIS-81). `into` adds them to the message, in their order.
+ */
+export const pending = () => {
+  const added: Array<string> = []
+  return {
+    add: (line: string) => Effect.sync(() => void added.push(line)),
+    into: (status: Lines) =>
+      Effect.forEach(added.splice(0), status.add, { discard: true }),
+  }
+}
 
 export interface StatusMessage extends Lines {
   /** The message's id, or nothing when its post failed. */

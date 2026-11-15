@@ -447,7 +447,11 @@ export const layer = Layer.unwrap(
                         }),
                       ),
                       Effect.tap(() =>
-                        TurnLog.compacted(ids, options?.reset === true),
+                        TurnLog.compacted(
+                          ids,
+                          options?.reset === true,
+                          view.lines,
+                        ),
                       ),
                     ),
             // A script is logged here, where every agent's script runs, a background sub-agent's included (FAIL-13,
@@ -962,6 +966,15 @@ export const layer = Layer.unwrap(
             )
             return { _tag: "Failed", reason } as const
           }
+          // The first start writes `turn.started`, and each later one `turn.resumed` (FAIL-326). Only the delivery that
+          // gives up, above, writes neither. They come before anything that can fail, so that a turn that ends early has
+          // its start in the log too (FAIL-12). A later start's status line waits for the status message.
+          const early = StatusMessage.pending()
+          if (turn.resumed) {
+            yield* TurnLog.resumed(ids, "message", started.starts, early)
+          } else {
+            yield* TurnLog.started(ids, "message")
+          }
           // The status message comes before the Agent is built and before anything the turn sends (DIS-19). A
           // delivery at boot comes before the platform may have answered.
           yield* chats.ready(request.connection)
@@ -997,6 +1010,7 @@ export const layer = Layer.unwrap(
             return { _tag: "Failed", reason } as const
           }
           turn.status = status
+          yield* early.into(status)
           // The id goes into the row as soon as the post returns (DIS-90, STO-75).
           if (status.id !== undefined && status.id !== started.status) {
             yield* Sessions.status(turn.key, status.id)
@@ -1014,12 +1028,6 @@ export const layer = Layer.unwrap(
           live.view.lines = status
           // A line the session logs from here until the turn closes carries the turn's id (FAIL-26).
           live.ids.turn = turn.id
-          // The first start writes `turn.started`, and each later one `turn.resumed` (FAIL-326).
-          if (turn.resumed) {
-            yield* TurnLog.resumed(ids, "message", started.starts, status)
-          } else {
-            yield* TurnLog.started(ids, "message")
-          }
           Deferred.doneUnsafe(turn.open, Effect.succeed(live))
 
           // The model's part runs in a fiber of its own, which is what a stop interrupts. A turn that was stopped

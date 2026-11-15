@@ -117,9 +117,13 @@ export const post = Effect.fnUntraced(function* (
     error.cause.error.reason.retry === "retry"
       ? options.replyTo
       : undefined
+  // A part that may have landed is not sent again, and it still takes one of the messages (DIS-51). A post sends each
+  // part once, so what is uncertain is the one part whose write failed.
+  const slots = maxParts - sent - ((error.uncertain ?? "") === "" ? 0 : 1)
+  // `ChatMarkdown` posts at least one part, so with no slot left the rest goes out as the file alone.
   const retry: Effect.Effect<void, unknown> =
-    sent < maxParts
-      ? markdown(chat, format, thread, rest, maxParts - sent, again)
+    slots > 0
+      ? markdown(chat, format, thread, rest, slots, again)
       : chat.post(thread, { markdown: "", files: [file(rest)] })
   const second = yield* Effect.exit(retry)
   if (Exit.isSuccess(second)) return "posted"

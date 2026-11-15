@@ -2,9 +2,7 @@
 // over the test's outside world and the spec's durations, every length multiplied by one factor.
 import { type DaemonInputs, runDaemon } from "../../dist/daemon/runDaemon.js"
 import { defaults, scale, type Timings } from "../../dist/Timings.js"
-
-/** The one scale factor. The 60 seconds of a stop become 3, and the orderings between the lengths hold. */
-export const factor = 0.05
+import { factor } from "./factor.ts"
 
 /**
  * The lengths a scenario may set by itself, apart from the factor (docs/spec/17-testing.md, TST-212). Each is still too

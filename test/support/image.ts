@@ -15,10 +15,10 @@ import { Duplex, type Readable, type Writable } from "node:stream"
 import * as NodeSocket from "@effect/platform-node/NodeSocket"
 import { Effect, Exit, Layer, Scope } from "effect"
 import { Socket } from "effect/socket"
-import { build as bundle } from "esbuild"
 import { fresh } from "./driver.ts"
+import * as Bundle from "./bundle.ts"
 import * as Fakes from "./fakes.ts"
-import { path, root } from "./repo.ts"
+import { root } from "./repo.ts"
 
 /** The container engine. podman works where it answers to the same commands. */
 export const engine = process.env["CHAD_ENGINE"] ?? "docker"
@@ -289,26 +289,14 @@ let bundleDirectory: string | undefined
 const scope = Effect.runSync(Scope.make())
 
 /**
- * The one file of the repository that the second container is given: its entry in test support with everything the
- * entry imports, the built package and effect included. It is bundled once, into a temporary directory.
+ * The one file of the repository that the second container is given (`Bundle.bundleFakes`). It is bundled once, into a
+ * temporary directory.
  */
 const bundleFakes = (): Promise<string> =>
   (bundled ??= (async () => {
     bundleDirectory = mkdtempSync(join(tmpdir(), "chad-fakes-"))
     const outfile = join(bundleDirectory, "fakes.mjs")
-    await bundle({
-      entryPoints: [path("test/support/second.ts")],
-      outfile,
-      bundle: true,
-      platform: "node",
-      format: "esm",
-      target: "node26",
-      logLevel: "warning",
-      // Some of the bundled packages are CommonJS and ask `require` for Node's own modules. An ES module has none.
-      banner: {
-        js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);',
-      },
-    })
+    await Bundle.bundleFakes(outfile)
     // The container's uid is not the one that wrote the file.
     chmodSync(outfile, 0o644)
     return outfile

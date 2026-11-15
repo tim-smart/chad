@@ -119,3 +119,65 @@ test("DIS-100 FAIL-66 a post that replies to a message that is gone goes out as 
     ["the turn failed", undefined],
   ])
 })
+
+const blocked = /^text \d{4} x+ \d+$/
+
+test("DIS-51 DIS-54 a part that may have landed is not sent again and still uses one of the five messages, down to none left for text", async () => {
+  const answer = Array.from({ length: 10 }, (_, block) =>
+    numbered(`text`, 30)
+      .map((line) => `${line} ${block}`)
+      .join("\n"),
+  ).join("\n\n")
+  // The third post leaves three messages for the rest, and the fifth leaves none, so the rest is the file alone.
+  for (const lostPost of [3, Post.maxParts]) {
+    const calls = await Effect.runPromise(
+      Effect.gen(function* () {
+        const { test, chat } = yield* platform
+        const thread = yield* test.makeThread("direct")
+        // That post lands, and its answer is lost on the way back.
+        let posts = 0
+        const lost: typeof chat = {
+          ...chat,
+          post: (where, content) =>
+            ++posts === lostPost
+              ? chat.post(where, content).pipe(
+                  Effect.andThen(
+                    Effect.fail(
+                      new ChatError.ChatError({
+                        platform: where.platform,
+                        op: "post",
+                        reason: new ChatError.Transport({
+                          retry: "uncertain",
+                          detail: "no answer",
+                        }),
+                      }),
+                    ),
+                  ),
+                )
+              : chat.post(where, content),
+        }
+        const posting = yield* Post.post(lost, Format.local, thread, answer, {
+          answer: {},
+        })
+        expect(posting).toBe("posted")
+        return (yield* test.calls).filter(
+          (call) => call.op === "post" && call.outcome === "ok",
+        )
+      }),
+    )
+    const texts = calls.filter((call) => call.files === undefined)
+    const files = calls.filter((call) => call.files !== undefined)
+    expect(texts).toHaveLength(Post.maxParts)
+    expect(files.map((call) => call.files?.map((file) => file.name))).toEqual([
+      [Post.overflowFile],
+    ])
+    const lines = [
+      ...texts.map((call) => call.markdown ?? ""),
+      new TextDecoder().decode(files[0]!.files![0]!.content),
+    ].flatMap((text) => text.split("\n").filter((line) => blocked.test(line)))
+    // The part that may have landed did land, so every line is there once, in its order.
+    expect(lines).toEqual(
+      answer.split("\n").filter((line) => blocked.test(line)),
+    )
+  }
+})

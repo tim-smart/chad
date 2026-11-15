@@ -404,4 +404,31 @@ describe("the delivered file", () => {
       failures({ held: [["AA-1", "late", "It rests on the rest."]] }),
     ).toEqual(["the stopped rule AA-1 also has a held entry"])
   })
+
+  it("ORD-42 ORD-11 stops one letter of a rule, leaves its other letters delivered, and fails on a letter the rule's text does not mark", () => {
+    const lettered = {
+      id: "AA-1",
+      slice: "early",
+      text: "(a) One statement. (b) Another.",
+    }
+    const report = run({
+      rules: [lettered],
+      delivered: ["early"],
+      stopped: [["AA-1b", "It is wrong."]],
+    })
+    expect(report.failures).toEqual([])
+    expect(report.pending).toEqual({ stopped: 1 })
+    expect(
+      report.index.find((entry) => entry.id === "AA-1")?.units,
+    ).toMatchObject([
+      { unit: "AA-1a", status: "delivered" },
+      { unit: "AA-1b", status: "stopped" },
+    ])
+    expect(
+      run({
+        rules: [lettered],
+        stopped: [["AA-1c", "It is wrong."]],
+      }).failures,
+    ).toEqual(["the stopped entry AA-1c names a rule the spec does not have"])
+  })
 })

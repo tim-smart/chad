@@ -91,18 +91,13 @@ export const step = Effect.fnUntraced(function* (
       })
     }
     case "CompactionEnded": {
-      yield* status.add(Messages.statusCompaction())
-      return yield* Logger.event(
-        "turn.compaction",
-        "The history was compacted",
-        {
-          ...ids,
-          ...subagentOf(agent),
-          reason: inner.reason,
-          tokens_before: inner.tokensBefore,
-          tokens_after: inner.tokensAfter,
-        },
-      )
+      return yield* compaction(status, {
+        ...ids,
+        ...subagentOf(agent),
+        reason: inner.reason,
+        tokens_before: inner.tokensBefore,
+        tokens_after: inner.tokensAfter,
+      })
     }
     case "Usage": {
       // A retry is counted per agent, since that agent's last usage.
@@ -123,6 +118,13 @@ export const step = Effect.fnUntraced(function* (
     }
   }
 })
+
+/** A compaction's status line and its log line, from the one call for every agent (DIS-27, DIS-81, FAIL-11). */
+const compaction = (status: Lines, fields: Readonly<Record<string, unknown>>) =>
+  Effect.andThen(
+    status.add(Messages.statusCompaction()),
+    Logger.event("turn.compaction", "The history was compacted", fields),
+  )
 
 /**
  * The end lines of the sub-agents whose end the Agent's output did not carry, because the turn was stopped or failed
@@ -197,16 +199,19 @@ const hidden = Effect.map(chain, (found) => {
  * The compaction line of an agent whose `CompactionEnded` the Agent's output leaves out (FAIL-249). clanka renders the
  * environment with `reset` right before it puts a compacted history in place, and for nothing else
  * (`Agent.ts:876-879,1025-1030`, `AgentExecutor.ts:90-93`). clanka keeps the reason and the token counts to itself
- * for such an agent, so the line has neither. The other agents' compactions are logged by `step`.
+ * for such an agent, so the line has neither. Its status line is added with it, as every compaction's is (DIS-27). The
+ * other agents' compactions are logged by `step`.
  */
-export const compacted = (ids: Logger.SessionLogIds, reset: boolean) =>
+export const compacted = (
+  ids: Logger.SessionLogIds,
+  reset: boolean,
+  status: Lines,
+) =>
   Effect.gen(function* () {
     if (!reset) return
     const agent = yield* hidden
     if (agent === undefined) return
-    yield* Logger.event("turn.compaction", "The history was compacted", {
-      ...scriptIds(ids, agent.id),
-    }).pipe(Logger.ownConsole)
+    yield* compaction(status, scriptIds(ids, agent.id)).pipe(Logger.ownConsole)
   })
 
 /**
