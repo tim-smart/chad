@@ -324,14 +324,14 @@ The table shows how the counts decide what a delivery does. "Start number" is th
 
 ## Graceful stop
 
-This section covers what a graceful stop does to sessions. The whole stop sequence, its 60 second limit, which is provisional and open with Tim, and its exit codes are in 01-image-and-volume.md.
+This section covers what a graceful stop does to sessions. The whole stop sequence, its 60 second limit and its exit codes are in 01-image-and-volume.md.
 
 - **SES-110** A graceful stop waits up to 15 seconds, which is cluster's `entityTerminationTimeout`, for requests in flight.
 - **SES-111** A turn that ends inside those 15 seconds finishes normally and is not redelivered.
 - **SES-112** A longer turn is cut at 15 seconds, recorded as a graceful cut (SES-105) and resumed on the next start.
 - **SES-113** A timer whose plugin is not loaded is held inside its request until the plugin comes back. The request stays unprocessed, so a kill redelivers it and it is held again (see 13-timers-and-cron.md).
 - **SES-114** A timer held for an unloaded plugin and a plugin turn waiting for an idle session are requests in flight, so a stop with either one takes the full 15 seconds.
-- **SES-115** After the wait, chad runs the hooks queued off the reply path, each inside its budget, before it closes the plugins' scopes. The stop's deadline ends this drain 50 seconds after SIGTERM at the latest, and a hook that is still queued then is dropped and logged. Provisional, open with Tim (see 01-image-and-volume.md).
+- **SES-115** After the wait, chad runs the hooks queued off the reply path, each inside its budget, before it closes the plugins' scopes. The stop's deadline ends this drain 50 seconds after SIGTERM at the latest, and a hook that is still queued then is dropped and logged. The stop's order and its deadline are in 01-image-and-volume.md.
 - **SES-173** A graceful stop gives the prune job no wait of its own. What a cut prune leaves behind and how its next run finishes are in 02-storage.md.
 
 ## Compaction
@@ -511,7 +511,7 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-112 | TIM-543 decision 3, comment on TIM-532 | Tim | run |  | `rule` | `kills` |
 | SES-113 | TIM-543 decision 4 | Tim | run |  | `rule` | `timers-cron` |
 | SES-114 | TIM-543 decision 4, TIM-547 body | Tim | run |  | `rule` | `timers-cron` |
-| SES-115 | TIM-539 item 8, TIM-543, amended by TIM-541 item 25, TIM-553 question 1 and TIM-559 round 2 R5 | Architect (Tim has not read) | not run | TIM-541, TIM-553, TIM-559 | `rule` | `plugin-api` |
+| SES-115 | TIM-539 item 8, TIM-543, amended by TIM-541 item 25, TIM-553 question 1 and TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run | TIM-541, TIM-553, TIM-559 | `rule` | `plugin-api` |
 | SES-116 | TIM-543 decision 1, TIM-535 "Model" | Tim | run |  | `rule` | `turns` |
 | SES-117 | TIM-543 decision 1 | Tim | run |  | `rule` | `failures` |
 | SES-118 | TIM-532 item 10 | Tim | run |  | `rule` | `plugin-api` |

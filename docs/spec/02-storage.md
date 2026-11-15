@@ -59,7 +59,7 @@ logs/
 - **STO-5** The volume has to be a local filesystem, because the database runs in write-ahead log mode. A volume backed by NFS is unsupported. The list of supported volume types and the warning `chad serve` prints are in 01-image-and-volume.md.
 - **STO-6** `cache/` holds only what can be downloaded again, with `XDG_CACHE_HOME=/data/cache` and `NPM_CONFIG_CACHE=/data/cache/npm`.
 - **STO-7** The daemon writes its log as JSON lines to `logs/chad.log`, in addition to standard output. chad renames `chad.log` to `chad.log.1` when it passes 10 MB and keeps `chad.log.1` to `chad.log.3`, so the logs take at most 40 MB of the volume. Only the daemon writes the file. The line formats, the rotation and flush rules and `chad logs` are in 16-failures-logs-status.md.
-- **STO-188** Provisional, open with Tim. In the image the volume is at `/data`. `CHAD_DATA` moves the daemon's files, the socket and the two links under `repo/`, and nothing else. It does not move `HOME` (STO-22) or the caches (STO-6), which the image fixes under `/data`, so it is not a supported way to move the volume inside the image. See 01-image-and-volume.md.
+- **STO-188** In the image the volume is at `/data`. `CHAD_DATA` moves the daemon's files, the socket and the two links under `repo/`, and nothing else. It does not move `HOME` (STO-22) or the caches (STO-6), which the image fixes under `/data`, so it is not a supported way to move the volume inside the image. See 01-image-and-volume.md.
 - **STO-8** Under `repo/`, only `work/` with its `.git` is source of record. chad creates `versions/`, `live`, `node_modules`, `examples` and `package.json` again at boot when they are missing. See 09-repo-and-recovery.md and 07-plugin-loading.md.
 
 ## Files outside the database
@@ -671,7 +671,7 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-185 | TIM-559 ruling on STO-G25, IMG-G8 and SES-G16 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | STO-186 | TIM-559 ruling on FAIL-G20 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | STO-187 | TIM-559 round 1 Q9 item 8, amended by Tim, chat 2026-11-15 | Architect (Tim has not read). Tim for a delivered slice, which was a merged pull request | not run |  | `rule` | `harness` |
-| STO-188 | TIM-559 round 2 R5, TIM-553 question 2 for Tim | Architect (Tim has not read) | run for what `CHAD_DATA` moves, not run for the rest |  | `rule` | `harness` |
+| STO-188 | TIM-559 round 2 R5, TIM-553 question 2 for Tim; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | run for what `CHAD_DATA` moves, not run for the rest |  | `rule` | `harness` |
 | STO-189 | TIM-559 round 2 R3 | Architect (Tim has not read) | read |  | `fact` | `turns` |
 | STO-190 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | STO-191 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `backup` |

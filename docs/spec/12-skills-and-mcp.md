@@ -307,7 +307,7 @@ A running turn keeps the keys it took. After a rebuild some of those keys name t
 - **MCP-94** A graceful stop abandons a rebuild that is in progress (see 01-image-and-volume.md for the stop's budget).
 - **MCP-95** When the stop lands during the drain, the old layer is still current. A held call is routed again, to the old layer, and answered.
 - **MCP-96** When the stop lands after the old layer closed, no layer is current. A held call is neither answered nor failed. It waits for the stop to cut its turn, and the turn resumes on the next boot against the `mcp.json` that was applied.
-- **MCP-97** In a stop the plugins' scopes close before the MCP layer, so the stop's 60 second deadline cuts only MCP servers. A stop cut by the deadline exits 1, and its `stop.cut` log line names the servers that were still open. The cut stays a log line, and the owner gets no notice for it (see 16-failures-logs-status.md). Provisional, open with Tim. The 60 second deadline and its exit code are one of the three questions open with him, and the rule for them, with how the `stop.cut` line is written before the exit, is in 01-image-and-volume.md.
+- **MCP-97** In a stop the plugins' scopes close before the MCP layer, so the stop's 60 second deadline cuts only MCP servers. A stop cut by the deadline exits 1, and its `stop.cut` log line names the servers that were still open. The cut stays a log line, and the owner gets no notice for it (see 16-failures-logs-status.md). The rule for the 60 second deadline and its exit code, with how the `stop.cut` line is written before the exit, is in 01-image-and-volume.md.
 - **MCP-131** chad does nothing in v1 to keep a resumed turn from sending an MCP call a second time. The paragraph below states the limit.
 
 The runs recorded three things that no rule changes. A turn that a graceful stop cut while its MCP call was in flight sends that call to the server a second time when it resumes, which matters for a call that is not safe to repeat. An MCP call in flight when the daemon restarts fails with "Connection closed". clanka never deletes the HTTP session when it closes an HTTP server, which is a known leak that chad does not work around.
@@ -697,7 +697,6 @@ The log events that this part's behaviour writes are `skill.skipped`, `skill.bun
 ## Gaps
 
 - **MCP-G3** [builder] The wording of the login link message, of the terminal prompt for the paste, of what the thread or the terminal shows when a login finishes or fails, of what the terminal shows when a login expires, of the line of MCP-125 that says no login is waiting, and of the refusals of MCP-118, MCP-120 and MCP-121. TIM-537 items 10 and 11.
-- **MCP-G9** [tim] Which OAuth servers the owner wants on day one. TIM-537, "Not settled here", says Tim did not name any.
 - **MCP-G10** [builder] The wording of the apply's line for a repo skill that hides a bundled one, and of the per-server status lines. TIM-537 items 3 and 6.
 - **MCP-G13** [builder] How chad keeps clanka's `McpConfig.load` to the one file. As read, `load` also reads `$XDG_CONFIG_HOME/clanka/mcp.json` or `$HOME/.config/clanka/mcp.json`, and `.mcp.json` in the directory it is given, before the files it is passed. TIM-537 item 5 says "one `mcp.json`".
 - **MCP-G15** [builder] Where in the image the bundled skills directory is. TIM-537 item 3.
@@ -807,7 +806,7 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-94 | TIM-555 item 7, TIM-553 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-95 | TIM-555 item 7 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-96 | TIM-555 item 7 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-97 | TIM-553 item 8, as recorded on TIM-555, TIM-557 item 41, TIM-559 round 2 R4 and R5 | Architect (Tim has not read) | run; no notice not run |  | `rule` | `skills-mcp` |
+| MCP-97 | TIM-553 item 8, as recorded on TIM-555, TIM-557 item 41, TIM-559 round 2 R4 and R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | run; no notice not run |  | `rule` | `skills-mcp` |
 | MCP-98 | TIM-557 items 36 and 40 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-99 | TIM-558 item 33 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-100 | TIM-558 item 17, amended by TIM-559 ruling on MCP-G20 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |

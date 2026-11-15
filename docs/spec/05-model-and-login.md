@@ -381,7 +381,6 @@ The prices are what models.dev listed on 2026-11-14.
 
 ## Gaps
 
-- **MOD-G1** [tim] The header name. Tim agreed to the header under the name `session_id`. The spelling `session-id` was read from the Codex CLI and run afterwards, and Tim has not confirmed it (TIM-544).
 - **MOD-G5** [builder] What `chad model` and `/model` print, with and without an argument, on success and on a failed trial, and the wording of the `claude` refusal (TIM-535, TIM-542).
 - **MOD-G9** [builder] The wording of the login prompt in a thread and in the terminal. The prototype posted "Open <verify URL> and enter <code>" (TIM-533, TIM-544).
 - **MOD-G15** [builder] What `chad logout` prints (TIM-544 item 6).
@@ -437,7 +436,7 @@ The prices are what models.dev listed on 2026-11-14.
 | MOD-29 | TIM-544 item 1 | Tim | not run |  | `rule` | `models` |
 | MOD-30 | TIM-544 item 2, amending TIM-531 item 1 | Tim | run |  | `rule` | `plugin-api` |
 | MOD-31 | TIM-531 item 7, kept by TIM-544 item 1, TIM-559 cold read | Tim | run |  | `rule` | `models` |
-| MOD-32 | TIM-544 item 1 and "The header's name", amending TIM-531 item 7, TIM-559 cold read | Tim | run |  | `rule` | `models` |
+| MOD-32 | TIM-544 item 1 and "The header's name", amending TIM-531 item 7, TIM-559 cold read; answered for Tim by Jarvis, chat 2026-11-15 | Tim; the spelling `session-id` kept by Jarvis, delegated by Tim on 2026-11-15 (Tim has not read) | run |  | `rule` | `models` |
 | MOD-33 | TIM-535 Login, amended by TIM-544 item 3 | Tim | run |  | `rule` | `models` |
 | MOD-34 | TIM-544 item 3, TIM-559 cold read | Tim | run |  | `rule` | `models` |
 | MOD-35 | TIM-535 Login | Tim | run |  | `rule` | `models` |

@@ -627,7 +627,7 @@ In the run, a timezone reload with one plugin that failed to build swapped the o
 - **SWAP-106** After a stop that landed after the commit, the next boot loads the new version, and a turn the stop cut resumes on it.
 - **SWAP-107** A call held at the gate when a stop abandons the swap goes through the routing rule again against the version that is now current.
 - **SWAP-108** When the plugin is between its close and its activation, a held call is not answered. It waits for the stop to cut its turn, which resumes after the restart.
-- **SWAP-109** A graceful stop has no 10 second step of its own for closing the plugins. The plugins' scopes close in the stop's last step, before the MCP layer, and that step ends 60 seconds from SIGTERM. The stop's order and its 60 second deadline are provisional and open with Tim (see 01-image-and-volume.md).
+- **SWAP-109** A graceful stop has no 10 second step of its own for closing the plugins. The plugins' scopes close in the stop's last step, before the MCP layer, and that step ends 60 seconds from SIGTERM. The stop's order and its 60 second deadline are in 01-image-and-volume.md.
 
 The abandon step, from the prototype that ran it at four points of a swap. It is the swap's interruption handler.
 
@@ -812,7 +812,7 @@ Each message below is the failure text of a plugin tool call, and the table name
 | SWAP-106 | TIM-547 item 15 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SWAP-107 | TIM-552 decision 4, amending TIM-547 item 15 | Tim | run |  | `rule` | `apply` |
 | SWAP-108 | TIM-552 decision 4, amending TIM-547 item 15 | Tim | run |  | `rule` | `apply` |
-| SWAP-109 | TIM-547 (passed to TIM-541), TIM-541 item 25, changed by TIM-553 question 1, provisional by TIM-559 round 2 R5 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
+| SWAP-109 | TIM-547 (passed to TIM-541), TIM-541 item 25, changed by TIM-553 question 1, provisional by TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `apply` |
 | SWAP-110 | TIM-552 question 1 | Tim | run |  | `fact` | `turns` |
 | SWAP-111 | TIM-552 decision 6 | Tim | run |  | `definition` | - |
 | SWAP-112 | TIM-552 decision 6, amending TIM-547 item 9 | Tim | run |  | `rule` | `apply` |

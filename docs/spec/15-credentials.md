@@ -408,7 +408,6 @@ These were also never run. A real Discord modal, a real model following the skil
 
 ## Gaps
 
-- **CRED-G1** [tim] Whether Tim's "no redaction" ruling covers the masking of chad's own outputs as well as the `AgentExecutor` wrap. CRED-12 follows the reading that it covers both, which TIM-554 decision 2 leaves for Tim to correct. If he meant only the wrap, masking of stored values of 8 characters or more as `<secret:NAME>` at chad's outputs comes back. Until Tim answers, CRED-12 holds as written and the builder builds no masking.
 - **CRED-G4** [builder] What chad replies to the click when it retires a button without opening a modal (CRED-72 and CRED-121). The reply is either the edit itself or a plain acknowledgement followed by the edit, and the owner sees the same edit both ways. CRED-122 is the only fixed part. Closest is TIM-554 decision 7.
 - **CRED-G5** [builder] The wording of the message when a save fails after the modal's reply (CRED-54). Closest is TIM-554 decision 5.
 - **CRED-G7** [builder] The time zone and format of `<time>` in "already asked at <time>". The prototype prints `HH:MM:SS UTC`. Closest is TIM-546 item 14.
@@ -416,7 +415,6 @@ These were also never run. A real Discord modal, a real model following the skil
 - **CRED-G12** [builder] The sidecar's image, how its Chromium is started and the CDP port. The prototype used `mcr.microsoft.com/playwright:v1.61.1-jammy` and port 9222. Closest is TIM-554 decision 4.
 - **CRED-G15** [builder] Whether the dotenv line can carry a value with a newline, or with both `'` and ` #`. A newline probably cannot be carried. The daemon scenario of CRED-104 answers it, and the skill then names the values the recipe cannot carry. Closest is TIM-554 decision 12.
 - **CRED-G16** [builder] The text of the `credentials` skill. No draft exists. Closest is TIM-546 items 22 and 23.
-- **CRED-G17** [tim] Which sites Tim wants chad signed in to on day one. The recipes should be written for those. Closest is TIM-546 "Not settled here".
 - **CRED-G18** [builder] Which versions of agent-browser and Playwright MCP the recipes target. The prototype ran agent-browser 0.43.0 and `@playwright/mcp` 0.0.85. Closest is TIM-554.
 - **CRED-G19** [builder] The limits a real Discord modal applies. The 45 character title and label and the 100 character id limit are from effect/chat's test adapter, and no real modal was run. The hand check of CRED-110 is the first run on one. Closest is TIM-546 "Not settled here".
 - **CRED-G21** [builder] The wording of the line `/secret NAME` answers with when a button for NAME is already in the thread (CRED-125), and of the message `chad secret run` prints with exit 126 (CRED-115). Neither has a wording from the prototype. Closest is the TIM-559 rulings on CRED-G8 and CRED-G11.
@@ -439,7 +437,7 @@ These were also never run. A real Discord modal, a real model following the skil
 | CRED-9 | TIM-546 item 2, amended by TIM-554 | Architect (Tim has not read) | run |  | `rule` | `settings` |
 | CRED-10 | TIM-546 item 2 | Architect (Tim has not read) | run |  | `rule` | `settings` |
 | CRED-11 | TIM-542 item 14, amended by TIM-554 | Tim | not run |  | `rule` | `settings` |
-| CRED-12 | TIM-554 decision 2, replacing TIM-546 items 18, 19 and 20 | Tim | not run |  | `rule` | `settings` |
+| CRED-12 | TIM-554 decision 2, replacing TIM-546 items 18, 19 and 20; answered for Tim by Jarvis, chat 2026-11-15 | Tim; the reading that this covers chad's own outputs kept by Jarvis, delegated by Tim on 2026-11-15 (Tim has not read) | not run |  | `rule` | `settings` |
 | CRED-13 | TIM-554 "How well each is supported", amended by TIM-558 item 48 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | CRED-14 | TIM-546 item 2, TIM-542 item 31, TIM-554 decision 12 | Architect (Tim has not read) | run | TIM-546 | `definition` | - |
 | CRED-15 | TIM-546 item 3 | Architect (Tim has not read) | not run |  | `definition` | - |
