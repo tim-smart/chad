@@ -210,11 +210,11 @@ it("IMG-63 CLI-11 CLI-213 the socket path limit is the platform's, 107 bytes on 
   })
 
   const volume = { data: "/data", socket: "/data/run/chad.sock" }
-  expect(Server.listenFailure(volume, "EOPNOTSUPP", () => "nfs4")).toBe(
+  expect(Server.listenFailure(volume, "EOPNOTSUPP", "nfs4")).toBe(
     "chad serve: cannot create the socket /data/run/chad.sock (EOPNOTSUPP). /data/run is on nfs4, which cannot hold a unix socket. chad needs a local filesystem under /data.",
   )
   for (const code of ["EADDRINUSE", "EACCES"]) {
-    expect(Server.listenFailure(volume, code, () => "nfs4")).toBe(
+    expect(Server.listenFailure(volume, code, "nfs4")).toBe(
       `chad serve: cannot create the socket /data/run/chad.sock (${code}).`,
     )
   }

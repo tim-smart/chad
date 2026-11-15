@@ -1,4 +1,4 @@
-import { Effect, Exit } from "effect"
+import { Effect, Exit, FileSystem } from "effect"
 import type { HttpClient } from "effect/http"
 import { SqlClient } from "effect/sql"
 import * as Connections from "../Connections.ts"
@@ -65,7 +65,7 @@ export const make = Effect.fnUntraced(function* <R>(
   queue: Queue.Queue,
 ) {
   const context = yield* Effect.context<
-    R | HttpClient.HttpClient | SqlClient.SqlClient
+    R | HttpClient.HttpClient | SqlClient.SqlClient | FileSystem.FileSystem
   >()
   let connections = running.list()
 
@@ -76,7 +76,7 @@ export const make = Effect.fnUntraced(function* <R>(
       if (next.changed) {
         // A client that goes away now does not leave the file and the running connections apart.
         yield* Effect.gen(function* () {
-          yield* Connections.write(volume.data, next.connections)
+          yield* Effect.orDie(Connections.write(volume.data, next.connections))
           connections = next.connections
           state.connections = Connections.listed(connections)
           yield* running.set(next.connections)

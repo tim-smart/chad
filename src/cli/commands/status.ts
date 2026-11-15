@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs"
-import { Console, Duration, Effect } from "effect"
+import { Console, Duration, Effect, FileSystem } from "effect"
 import { Command } from "effect/cli"
 import * as Connections from "../../Connections.ts"
 import * as Messages from "../../Messages.ts"
@@ -13,13 +12,13 @@ import { ExitCode, Failure } from "../Failure.ts"
 import * as Flags from "../Flags.ts"
 
 /** What `state/version` holds, which the CLI reads with or without a daemon. */
-const volumeVersion = (data: string): string | undefined => {
-  try {
-    return readFileSync(Paths.version(data), "utf8").trim()
-  } catch {
-    return undefined
-  }
-}
+const volumeVersion = Effect.fnUntraced(function* (data: string) {
+  const fs = yield* FileSystem.FileSystem
+  return yield* fs.readFileString(Paths.version(data)).pipe(
+    Effect.map((text) => text.trim()),
+    Effect.catch(() => Effect.succeed(undefined)),
+  )
+})
 
 /** `chad status`: what the daemon says about itself, and what the files say when it does not answer. */
 export const status = Command.make(
@@ -32,7 +31,7 @@ export const status = Command.make(
     const stored = yield* Connections.read(environment.data).pipe(Effect.result)
     const fromFiles = {
       version,
-      volume: volumeVersion(environment.data),
+      volume: yield* volumeVersion(environment.data),
       connections:
         stored._tag === "Success" ? Connections.listed(stored.success) : [],
     }

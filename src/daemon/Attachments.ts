@@ -1,6 +1,5 @@
-import { mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { Effect, Stream } from "effect"
+import { Effect, FileSystem, Stream } from "effect"
 import { Prompt } from "effect/ai"
 import type { ChatMessage } from "effect/chat"
 import * as Messages from "../Messages.ts"
@@ -58,6 +57,7 @@ export const read = Effect.fnUntraced(function* (options: {
   readonly asImages: boolean
 }) {
   const { message } = options
+  const fs = yield* FileSystem.FileSystem
   const lines: Array<string> = []
   const parts: Array<Prompt.FilePart> = []
   const notices: Array<string> = []
@@ -100,8 +100,10 @@ export const read = Effect.fnUntraced(function* (options: {
     // The path is absolute, because the Agent's working directory moves with every `cd` and the inbox does not.
     const inbox = join(options.directory, "inbox")
     const path = join(inbox, inboxName(message.id, attachment.name))
-    mkdirSync(inbox, { recursive: true })
-    writeFileSync(path, bytes)
+    // A save that fails is a defect for now. What a full disk does to a turn is the failures slice's to say.
+    yield* fs
+      .makeDirectory(inbox, { recursive: true })
+      .pipe(Effect.andThen(fs.writeFile(path, bytes)), Effect.orDie)
     lines.push(Messages.promptFileSaved(name, path))
   }
   const read: Read = {

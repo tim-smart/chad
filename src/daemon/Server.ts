@@ -1,7 +1,6 @@
-import { chmodSync, rmSync } from "node:fs"
 import { dirname } from "node:path"
 import * as NodeSocketServer from "@effect/platform-node/NodeSocketServer"
-import { Data, Deferred, Effect, Layer } from "effect"
+import { Data, Deferred, Effect, FileSystem, Layer } from "effect"
 import {
   type Rpc,
   type RpcGroup,
@@ -61,24 +60,23 @@ export class SocketRefused extends Data.TaggedError("SocketRefused")<{
 
 /**
  * The exit message for a `listen` that failed. An address in use and a directory the daemon may not write are named
- * as they are, and every other error means a filesystem that cannot hold a unix socket.
+ * as they are, and every other error means a filesystem that cannot hold a unix socket. `type` is the type of the
+ * filesystem that holds the socket's directory.
  */
 export const listenFailure = (
   volume: Pick<Volume, "data" | "socket">,
   code: string,
-  type: (directory: string) => string = Filesystem.typeOf,
-): string => {
-  const directory = dirname(volume.socket)
-  return code === "EADDRINUSE" || code === "EACCES"
+  type: string,
+): string =>
+  code === "EADDRINUSE" || code === "EACCES"
     ? Messages.socketFailed(volume.socket, code)
     : Messages.socketUnsupported(
         volume.socket,
         code,
-        directory,
-        type(directory),
+        dirname(volume.socket),
+        type,
         volume.data,
       )
-}
 
 /**
  * The unix socket. The path is checked before anything touches it, a socket file that a killed daemon left is
@@ -99,16 +97,24 @@ export const listen = (volume: Pick<Volume, "data" | "socket">) =>
           ),
         })
       }
-      yield* Effect.sync(() => rmSync(volume.socket, { force: true }))
+      const fs = yield* FileSystem.FileSystem
+      yield* Effect.orDie(fs.remove(volume.socket, { force: true }))
       const server = yield* NodeSocketServer.make({ path: volume.socket }).pipe(
-        Effect.mapError((error) => {
-          const cause = error.reason.cause as NodeJS.ErrnoException | undefined
-          return new SocketRefused({
-            message: listenFailure(volume, cause?.code ?? "unknown"),
-          })
-        }),
+        Effect.catch(
+          Effect.fnUntraced(function* (error) {
+            const cause = error.reason.cause as
+              NodeJS.ErrnoException | undefined
+            return yield* new SocketRefused({
+              message: listenFailure(
+                volume,
+                cause?.code ?? "unknown",
+                yield* Filesystem.typeOf(dirname(volume.socket)),
+              ),
+            })
+          }),
+        ),
       )
-      yield* Effect.sync(() => chmodSync(volume.socket, 0o600))
+      yield* Effect.orDie(fs.chmod(volume.socket, 0o600))
       return server
     }),
   )

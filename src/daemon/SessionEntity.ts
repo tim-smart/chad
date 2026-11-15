@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto"
-import { mkdirSync } from "node:fs"
 import { join } from "node:path"
 import * as Agent from "clanka/Agent"
 import * as AgentExecutor from "clanka/AgentExecutor"
@@ -12,6 +11,7 @@ import {
   Effect,
   Exit,
   Fiber,
+  FileSystem,
   Layer,
   Logger as EffectLogger,
   MutableRef,
@@ -212,6 +212,7 @@ export const layer = Layer.unwrap(
         const volume = yield* Volume
         const model = yield* Model
         const chats = yield* Chats
+        const fs = yield* FileSystem.FileSystem
         const services = yield* Effect.context<
           Sharding.Sharding | Entity.CurrentAddress | SqlClient.SqlClient
         >()
@@ -265,7 +266,7 @@ export const layer = Layer.unwrap(
           }
           const id = row.id
           const directory = join(volume.sessions, id)
-          mkdirSync(directory, { recursive: true })
+          yield* Effect.orDie(fs.makeDirectory(directory, { recursive: true }))
           const own = yield* Scope.fork(scope)
 
           // The background tasks of the session. While one runs the entity is held, so that the idle time does not

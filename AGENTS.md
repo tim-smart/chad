@@ -48,6 +48,7 @@ chad is built from the spec in `docs/spec/`. This file is the builder's contract
 ## Code
 
 - Read `node_modules/effect/AGENTS.md` before writing Effect code. It is how Effect is written in the version chad pins. If the installed package does not ship the file, read it from the effect repo at the commit the manifest under `vendor/` names.
+- Code under `src/` reads and writes files through Effect's `FileSystem` service, never through `node:fs`. A failed call is then a `PlatformError` in the error channel, and `src/Errno.ts` gives its errno code. The exceptions are the log file's appender, because a `Logger` writes synchronously, `src/Version.ts`, which reads at module load, the `existsSync` in front of a `node:sqlite` open, and a call `FileSystem` does not have, such as `statfs`. Tests and `scripts/` may use `node:fs`.
 - Run every command through the repo's own `flake.nix`: `nix develop -c pnpm install`, and the same for every later command. If you need a new tool, add it to the flake.
 - The repo uses oxlint and prettier (`docs/spec/17-testing.md`). The gate runs both, and the type-check is `tsc`.
 - Never edit a migration that a delivered slice added. A change to the schema is a new migration.

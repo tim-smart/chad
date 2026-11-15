@@ -1,6 +1,6 @@
-import { accessSync, chmodSync, constants, mkdirSync, statSync } from "node:fs"
 import { join } from "node:path"
-import { Context } from "effect"
+import { Context, Effect, FileSystem, Option } from "effect"
+import type { PlatformError } from "effect/PlatformError"
 import * as Messages from "../Messages.ts"
 import * as Paths from "../Paths.ts"
 
@@ -53,42 +53,60 @@ const directories: ReadonlyArray<readonly [name: string, mode?: number]> = [
   ["cache"],
 ]
 
-const ownership = (path: string): Messages.Ownership => {
-  const stat = statSync(path)
-  return {
-    uid: stat.uid,
-    gid: stat.gid,
-    mode: (stat.mode & 0o7777).toString(8),
-  }
-}
+const ownership = (info: FileSystem.File.Info): Messages.Ownership => ({
+  uid: Option.getOrThrow(info.uid),
+  gid: Option.getOrThrow(info.gid),
+  mode: (info.mode & 0o7777).toString(8),
+})
 
 /**
  * The start-up check. It writes nothing, and gives the exit message when the volume is missing, cannot be written or
  * holds a `repo/` that another uid owns.
  */
-export const check = (volume: Volume): string | undefined => {
+export const check = Effect.fnUntraced(function* (
+  volume: Volume,
+): Effect.fn.Return<string | undefined, PlatformError, FileSystem.FileSystem> {
+  const fs = yield* FileSystem.FileSystem
   const self = { uid: process.getuid!(), gid: process.getgid!() }
-  try {
-    accessSync(volume.data, constants.W_OK | constants.X_OK)
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "ENOENT"
+  // `.` is looked up inside the directory, so the one call asks for the right to search it as well as to write it.
+  const refused = yield* fs.access(`${volume.data}/.`, { writable: true }).pipe(
+    Effect.as(undefined),
+    Effect.catchTag("PlatformError", (error) => Effect.succeed(error)),
+  )
+  if (refused !== undefined) {
+    return refused.reason._tag === "NotFound"
       ? Messages.dataMissing(volume.data)
-      : Messages.dataNotWritable(volume.data, self, ownership(volume.data))
+      : Messages.dataNotWritable(
+          volume.data,
+          self,
+          ownership(yield* fs.stat(volume.data)),
+        )
   }
-  const repo = statSync(volume.repo, { throwIfNoEntry: false })
-  return repo !== undefined && repo.uid !== self.uid
-    ? Messages.repoNotOwned(volume.repo, self.uid, ownership(volume.repo))
+  const repo = yield* fs
+    .stat(volume.repo)
+    .pipe(
+      Effect.catchTag("PlatformError", (error) =>
+        error.reason._tag === "NotFound"
+          ? Effect.succeed(undefined)
+          : Effect.fail(error),
+      ),
+    )
+  return repo !== undefined && Option.getOrThrow(repo.uid) !== self.uid
+    ? Messages.repoNotOwned(volume.repo, self.uid, ownership(repo))
     : undefined
-}
+})
 
 /**
  * Creates the directories that are missing. The private ones get their mode from a chmod, on every start, because
  * chad never changes the process umask.
  */
-export const prepare = (volume: Volume): void => {
+export const prepare = Effect.fnUntraced(function* (
+  volume: Volume,
+): Effect.fn.Return<void, PlatformError, FileSystem.FileSystem> {
+  const fs = yield* FileSystem.FileSystem
   for (const [name, mode] of directories) {
     const path = join(volume.data, name)
-    mkdirSync(path, { recursive: true })
-    if (mode !== undefined) chmodSync(path, mode)
+    yield* fs.makeDirectory(path, { recursive: true })
+    if (mode !== undefined) yield* fs.chmod(path, mode)
   }
-}
+})
