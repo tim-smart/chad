@@ -282,6 +282,16 @@ describe("the comparison of the spec's ids with the tests' ids", () => {
     ).toEqual([
       'test/a.test.ts: "AA-1a AA-1b AA-1c hold" names AA-1c, which the spec does not have',
     ])
+    // A rule with no slice wants no test, and a test may still name a letter its text marks, and no other.
+    const unsliced = { ...lettered, slice: "-", kind: "definition" }
+    expect(
+      run({ rules: [unsliced], tests: [["AA-1a holds"]] }).failures,
+    ).toEqual([])
+    expect(
+      run({ rules: [unsliced], tests: [["AA-1a AA-1z hold"]] }).failures,
+    ).toEqual([
+      'test/a.test.ts: "AA-1a AA-1z hold" names AA-1z, which the spec does not have',
+    ])
   })
 
   it("TST-16 fails on an untested rule that Architect agreed, as on any other", () => {
