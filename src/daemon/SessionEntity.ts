@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { join } from "node:path"
+import { resolve } from "node:path"
 import * as Agent from "clanka/Agent"
 import * as AgentExecutor from "clanka/AgentExecutor"
 import type { TaskHandle } from "clanka/AgentTools"
@@ -265,7 +265,9 @@ export const layer = Layer.unwrap(
             return yield* Effect.die(new Error(`no session row for ${key}`))
           }
           const id = row.id
-          const directory = join(volume.sessions, id)
+          // Resolved against the daemon's directory, so that the Agent's cwd and the paths in its prompt are absolute
+          // whether CHAD_DATA is or not.
+          const directory = resolve(volume.sessions, id)
           yield* Effect.orDie(fs.makeDirectory(directory, { recursive: true }))
           const own = yield* Scope.fork(scope)
 

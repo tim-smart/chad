@@ -97,7 +97,8 @@ export const read = Effect.fnUntraced(function* (options: {
       )
       continue
     }
-    // The path is absolute, because the Agent's working directory moves with every `cd` and the inbox does not.
+    // The path is absolute, because the Agent's working directory moves with every `cd` and the inbox does not. The
+    // session's directory is resolved already, also when CHAD_DATA is relative.
     const inbox = join(options.directory, "inbox")
     const path = join(inbox, inboxName(message.id, attachment.name))
     // A save that fails is a defect for now. What a full disk does to a turn is the failures slice's to say.

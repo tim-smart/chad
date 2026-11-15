@@ -1,10 +1,10 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
-import { join, resolve } from "node:path"
+import { isAbsolute, join, relative, resolve } from "node:path"
 import { Effect } from "effect"
 import { ChatError } from "effect/chat"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
-import { scenario, type Scenario } from "../support/driver.ts"
+import { fresh, scenario, type Scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
 import {
   eventually,
@@ -206,6 +206,39 @@ test("SES-41 SES-198 STO-21 a file the owner sends after the Agent has changed i
   expect(cwd).toBe(join(inbox(running), "..", "work"))
   const path = join(inbox(running), `${note.message.id}-note.txt`)
   expect(prompted(calls[2])).toBe(
+    ["read this", Messages.promptFileSaved("note.txt", path)].join("\n\n"),
+  )
+  expect(readFileSync(resolve(cwd, path), "utf8")).toBe("a note")
+})
+
+test("SES-41 SES-198 STO-21 with a relative CHAD_DATA the prompt still names a saved file by its absolute path, which reaches the file from the Agent's directory", async () => {
+  const directory = fresh()
+  const running = await scenario({
+    directory,
+    env: { CHAD_DATA: relative(process.cwd(), join(directory, "data")) },
+  })
+  const { fakes } = running
+  await fakes.model.script([
+    runs('console.log((await run("pwd")).trim())'),
+    { text: "read it" },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  const note = await says(running, thread, "read this", {
+    files: [
+      {
+        name: "note.txt",
+        contentType: "text/plain",
+        content: new TextEncoder().encode("a note"),
+      },
+    ],
+  })
+  await fakes.chat.answers(thread, 1)
+
+  const calls = await fakes.model.calls()
+  const cwd = String(results(calls[1]).at(-1)).trim()
+  const path = join(inbox(running), `${note.message.id}-note.txt`)
+  expect(isAbsolute(path)).toBe(true)
+  expect(prompted(calls[0])).toBe(
     ["read this", Messages.promptFileSaved("note.txt", path)].join("\n\n"),
   )
   expect(readFileSync(resolve(cwd, path), "utf8")).toBe("a note")
