@@ -1,10 +1,11 @@
 // The one interface through which a scenario reaches the chat fake and the model fake. It has two implementations.
 // `direct` holds the fakes in the scenario's own process. `remote` goes over a test-only RPC group that is served
 // next to the adapter operations, which is how a scenario reaches fakes that run in another process or container.
-import { Effect, Schema } from "effect"
+import { Effect, Layer, Schema, Scope } from "effect"
 import { ChatEvent, ChatMessage, ChatThread } from "effect/chat"
-import { Rpc, type RpcClient, RpcGroup } from "effect/rpc"
+import { Rpc, RpcClient, RpcGroup, RpcSerialization } from "effect/rpc"
 import type { RpcClientError } from "effect/rpc/RpcClientError"
+import type { Socket } from "effect/socket"
 import type * as Model from "./model.ts"
 import type { Platform } from "./platform.ts"
 
@@ -183,3 +184,28 @@ export const remote = (
     },
   }
 }
+
+/**
+ * The fakes at the far end of a socket, which is how a scenario reaches the ones behind `run/local.sock`. The client
+ * and its socket live as long as the scope.
+ */
+export const over = <E>(
+  socket: Layer.Layer<Socket.Socket, E>,
+  scope: Scope.Scope,
+): Promise<Fakes> =>
+  Effect.runPromise(
+    Effect.gen(function* () {
+      const protocol = yield* Layer.buildWithScope(
+        RpcClient.layerProtocolSocket().pipe(
+          Layer.provide(socket),
+          Layer.provide(RpcSerialization.layerNdjson),
+        ),
+        scope,
+      )
+      const client = yield* RpcClient.make(Rpcs).pipe(
+        Effect.provideContext(protocol),
+        Scope.provide(scope),
+      )
+      return remote(client)
+    }),
+  )

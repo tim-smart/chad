@@ -16,7 +16,6 @@ import * as NodeSocket from "@effect/platform-node/NodeSocket"
 import { Effect, Exit, Layer, Scope } from "effect"
 import type { ChatTest } from "effect/chat"
 import { HttpClient, HttpClientRequest } from "effect/http"
-import { RpcClient, RpcSerialization } from "effect/rpc"
 import { onTestFinished, vi } from "vitest"
 import { runCli } from "../../dist/cli/runCli.js"
 import * as Chat from "../../dist/daemon/Chat.js"
@@ -204,9 +203,12 @@ export const inProcess = async (
   }
 }
 
-/** A file that holds a token, outside every scenario's directory, and what removes it. */
+/**
+ * A file that holds a token, outside every scenario's directory, and what removes it. Its directory's name does not
+ * start with `chad-`, because CI uploads `/tmp/chad-*` when a job fails and the nightly job's token is a real one.
+ */
 const tokenFile = (token: string) => {
-  const directory = mkdtempSync(join(tmpdir(), "chad-token-"))
+  const directory = mkdtempSync(join(tmpdir(), "token-"))
   const file = join(directory, "token")
   writeFileSync(file, token, { mode: 0o600 })
   return { file, remove: () => rmSync(directory, { recursive: true }) }
@@ -368,23 +370,8 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
         scope,
       ),
     )
-    // The client's socket lives as long as the scenario, so its Layer is built into the scenario's scope.
-    const client = await Effect.runPromise(
-      Effect.gen(function* () {
-        const protocol = yield* Layer.buildWithScope(
-          RpcClient.layerProtocolSocket().pipe(
-            Layer.provide(NodeSocket.layerNet({ path })),
-            Layer.provide(RpcSerialization.layerNdjson),
-          ),
-          scope,
-        )
-        return yield* RpcClient.make(Fakes.Rpcs).pipe(
-          Effect.provideContext(protocol),
-          Scope.provide(scope),
-        )
-      }),
-    )
-    fakes = Fakes.remote(client)
+    // The client's socket lives as long as the scenario, so it is built into the scenario's scope.
+    fakes = await Fakes.over(NodeSocket.layerNet({ path }), scope)
   }
 
   onTestFinished(async ({ task }) => {

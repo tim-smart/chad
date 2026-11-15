@@ -1,23 +1,40 @@
+import { existsSync, readdirSync, statSync } from "node:fs"
+import { join } from "node:path"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import * as Messages from "../../dist/Messages.js"
+import { owner } from "../support/driver.ts"
 import {
   buildImage,
   buildStage,
   cleanup,
   command,
   type Config,
+  type Container,
+  container,
   exec,
+  fakes as startFakes,
+  fakesFile,
+  healthy,
+  imageId,
   inspect,
+  internal,
   lines,
   logs,
+  modelUrl,
+  network,
   type Options,
   output,
   ready,
+  type Result,
+  reserve,
+  scenario,
   sh,
   start,
   stop,
   volume,
 } from "../support/image.ts"
-import { json, read } from "../support/repo.ts"
+import type * as Model from "../support/model.ts"
+import { json, read, root } from "../support/repo.ts"
 
 vi.setConfig({ testTimeout: 120_000 })
 
@@ -32,7 +49,7 @@ beforeAll(async () => {
   config = inspect()
 }, 900_000)
 
-afterAll(cleanup)
+afterAll(cleanup, 120_000)
 
 /** The packages dpkg holds as installed whose names match a pattern. */
 const installed = (pattern: string) =>
@@ -429,8 +446,13 @@ describe("the chad launcher", () => {
       output("readlink -f /opt/chad/node_modules/effect"),
     ])
 
-    // The bundle itself arrives with the `cli` slice, so this is the launcher's choice and not a CLI that ran.
-    const other = readTrace(command(traced, "status").stderr)
+    // The CLI ran from the bundle: with no daemon in its container, `chad status` says so and exits 4.
+    const status = command(traced, "status")
+    expect(status.status).toBe(4)
+    expect(status.stdout.split("\n")[0]).toBe(
+      "daemon: not running (lock /data/state/daemon.lock is free)",
+    )
+    const other = readTrace(status.stderr)
     expect(other.launcher).toEqual(["../dist/cli.bundle.js"])
     expect(other.dist).not.toContain("daemon.js")
   })
@@ -499,6 +521,183 @@ describe("the image booted on an empty named volume, and then stopped", () => {
     ).toEqual([])
     expect(run).not.toContain("local.sock")
     expect(stdout).toMatch(/event=boot\.ready .*\bconnections=0\b/)
+  })
+})
+
+describe("an owner's message to the image, with the local platform and the fake model server in a second container", () => {
+  const reply = "Hello from the image."
+  let data: string
+  let shared: string
+  let url: string
+  let added: ReadonlyArray<Result>
+  let sockets: { before: ReadonlyArray<string>; after: ReadonlyArray<string> }
+  let health: string
+  let answers: ReadonlyArray<string>
+  let calls: ReadonlyArray<Model.Call>
+  let status: ReadonlyArray<string>
+  let daemon: Container
+  let second: Container
+  let id: string
+  let kept: string
+
+  /** A container's mounts, by where they are mounted. */
+  const mounts = ({ Mounts }: Container) =>
+    Mounts.toSorted((a, b) => a.Destination.localeCompare(b.Destination)).map(
+      ({ Type, Name, Destination, RW }) =>
+        Type === "volume"
+          ? { Type, Name, Destination, RW }
+          : { Type, Destination, RW },
+    )
+
+  beforeAll(async () => {
+    data = volume()
+    shared = network()
+    const onVolume = ["--volume", data + ":/data"]
+    // The owner's two commands, each a run of the image's own `chad` on the fresh volume, before any daemon.
+    added = [
+      command(onVolume, "connection", "add", "local", "--name", "local"),
+      command(onVolume, "owner", "add", "local", owner),
+    ]
+    const fakesName = reserve()
+    url = modelUrl(fakesName)
+    const daemonName = start(
+      ...onVolume,
+      "--network",
+      shared,
+      "--env",
+      "CHAD_MODEL=openai-compat/fake",
+      "--env",
+      "CHAD_OPENAI_API_URL=" + url,
+      "--env",
+      "CHAD_OPENAI_API_KEY=fake-key",
+    )
+    const run = () => exec(daemonName, "ls -A /data/run").split("\n")
+    kept = await scenario(
+      { daemon: daemonName, fakes: fakesName },
+      async (step) => {
+        step("waiting for the daemon's boot.ready")
+        await ready(daemonName)
+        const before = run()
+        step("starting the second container")
+        const fakes = await startFakes(fakesName, shared, data)
+        sockets = { before, after: run() }
+        step("running chad health in the daemon's container")
+        health = exec(daemonName, "chad health")
+        step("waiting for the engine to report the daemon's container healthy")
+        await healthy(daemonName)
+        step("delivering the owner's message")
+        await fakes.model.script([{ text: reply }])
+        const thread = await fakes.chat.makeThread("direct")
+        const event = await fakes.chat.userPosts(thread, {
+          text: "hello",
+          authorId: owner,
+        })
+        expect(await fakes.chat.deliver(event)).toBe(true)
+        step("waiting for chad's answer")
+        answers = (await fakes.chat.answers(thread, 1)).map(({ text }) => text)
+        calls = await fakes.model.calls()
+        step("running chad status in the daemon's container")
+        status = exec(daemonName, "chad status").split("\n")
+        daemon = container(daemonName)
+        second = container(fakesName)
+        id = imageId()
+      },
+    )
+  }, 120_000)
+
+  it("TST-58 TST-57 TST-210 the image answers an owner's message with the scripted model's text, on a local platform and a fake model server that a second container of the same image runs from one file mounted read-only, and the engine reports the daemon's container healthy", () => {
+    expect(added.map(({ status, stdout }) => [status, stdout])).toEqual([
+      [0, Messages.connectionAdded("local", "local") + "\n"],
+      [0, Messages.ownerAdded(owner, "local") + "\n"],
+    ])
+    expect(health).toBe(Messages.healthy())
+    expect(daemon.State.Health.Status).toBe("healthy")
+    expect(answers).toEqual([reply])
+    expect(status).toEqual(
+      expect.arrayContaining([
+        "daemon: up (ready)",
+        "connection: local (local)",
+      ]),
+    )
+
+    // The second container is the same image under its default uid, on the daemon's volume and network.
+    expect(second.Image).toBe(id)
+    expect(second.Config.User).toBe(config.User)
+    expect(Object.keys(second.NetworkSettings.Networks)).toEqual([shared])
+    expect(mounts(second)).toEqual([
+      { Type: "volume", Name: data, Destination: "/data", RW: true },
+      { Type: "bind", Destination: fakesFile, RW: false },
+    ])
+    // What it runs is the one mounted file, which was bundled from this repository and is no part of the checkout.
+    expect([second.Path, ...second.Args]).toEqual([
+      "node",
+      fakesFile,
+      new URL(url).port,
+    ])
+    const file = second.Mounts.find(({ Type }) => Type === "bind")?.Source ?? ""
+    expect(statSync(file).isFile()).toBe(true)
+    expect(file.startsWith(root)).toBe(false)
+  })
+
+  it("TST-44 the daemon's container is on openai-compat and reaches the fake by an ordinary URL: it is given the three model variables, no certificate authority and no host entries", () => {
+    const variables = new Map(
+      daemon.Config.Env.map((entry): [string, string] => {
+        const at = entry.indexOf("=")
+        return [entry.slice(0, at), entry.slice(at + 1)]
+      }),
+    )
+    const own = (config.Env ?? []).map((entry) => entry.split("=")[0])
+    // What the container holds over the image's own environment. podman adds two variables of its own.
+    expect(
+      [...variables.keys()]
+        .filter((name) => ![...own, "container", "HOSTNAME"].includes(name))
+        .toSorted(),
+    ).toEqual(["CHAD_MODEL", "CHAD_OPENAI_API_KEY", "CHAD_OPENAI_API_URL"])
+    expect(variables.get("CHAD_MODEL")).toBe("openai-compat/fake")
+    expect(variables.get("CHAD_OPENAI_API_URL")).toBe(url)
+    expect(new URL(url).protocol).toBe("http:")
+    expect(daemon.HostConfig.ExtraHosts ?? []).toEqual([])
+    // The one file system it is given is the volume, so no certificate file reached it either.
+    expect(daemon.Mounts.map(({ Destination }) => Destination)).toEqual([
+      "/data",
+    ])
+    // The request arrived at the fake under the name the URL gave.
+    expect(calls.map(({ path, headers }) => [path, headers["host"]])).toEqual([
+      ["/v1/chat/completions", new URL(url).host],
+    ])
+  })
+
+  it("TST-59 the product is unchanged: the daemon's container is the image as built, with its own entrypoint and command, the volume and the network and nothing of the tests, and the platform comes from the second container's file", () => {
+    expect(daemon.Image).toBe(id)
+    expect([daemon.Path, ...daemon.Args]).toEqual([
+      ...(config.Entrypoint ?? []),
+      ...(config.Cmd ?? []),
+    ])
+    expect(daemon.Config.User).toBe(config.User)
+    expect(mounts(daemon)).toEqual([
+      { Type: "volume", Name: data, Destination: "/data", RW: true },
+    ])
+    expect(Object.keys(daemon.NetworkSettings.Networks)).toEqual([shared])
+    // Nothing listened at run/local.sock while the daemon's container was the only one.
+    expect(sockets.before).not.toContain("local.sock")
+    expect(sockets.after).toContain("local.sock")
+  })
+
+  it("TST-211 the two containers share an internal network and publish no port, and the scenario keeps what they wrote, the daemon's log and the database under the run id", () => {
+    expect(internal(shared)).toBe(true)
+    expect(
+      [daemon, second].flatMap(({ NetworkSettings }) =>
+        Object.keys(NetworkSettings.Ports ?? {}),
+      ),
+    ).toEqual([])
+    expect(readdirSync(kept).toSorted()).toEqual([
+      "daemon.log",
+      "data",
+      "fakes.log",
+    ])
+    for (const file of ["logs/chad.log", "db/chad.db"]) {
+      expect(existsSync(join(kept, "data", file))).toBe(true)
+    }
   })
 })
 

@@ -314,12 +314,15 @@ describe("the suite", () => {
     }
   })
 
-  it("TST-81 the gate uploads what the failed scenarios left under the run's directory", () => {
-    const steps: ReadonlyArray<Step> = yaml(".github/workflows/gate.yml").jobs
-      .layers.steps
-    const upload = steps.find((step) => step.if === "failure()")
-    expect(upload?.uses).toMatch(/^actions\/upload-artifact@/)
-    expect(upload?.with?.["path"]).toBe("/tmp/chad-*/")
+  it("TST-81 TST-211 the gate's layers job and its image job upload what the failed scenarios left under the run's directory", () => {
+    const jobs: Record<string, { steps: ReadonlyArray<Step> }> = yaml(
+      ".github/workflows/gate.yml",
+    ).jobs
+    for (const job of ["layers", "image"]) {
+      const upload = jobs[job]?.steps.find((step) => step.if === "failure()")
+      expect(upload?.uses).toMatch(/^actions\/upload-artifact@/)
+      expect(upload?.with?.["path"]).toBe("/tmp/chad-*/")
+    }
   })
 
   it("TST-5a TST-135 CI runs the Node major the Dockerfile names, and the local command fails at once on another", () => {

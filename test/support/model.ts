@@ -59,7 +59,17 @@ export const results = (call: Call | undefined): ReadonlyArray<string> => {
     .map((message) => String(message.content))
 }
 
-export const start = async (): Promise<FakeModel> => {
+export interface Options {
+  /** The address and the port to listen on, in place of this machine's own address and a free port. */
+  readonly host?: string
+  readonly port?: number
+  /** Called with each call as it arrives, for an event log. */
+  readonly heard?: (call: Call) => void
+}
+
+/** Starts the fake. The image layer tells it where to listen, because its daemon is in another container. */
+export const start = async (options: Options = {}): Promise<FakeModel> => {
+  const host = options.host ?? "127.0.0.1"
   let replies: ReadonlyArray<Reply> = []
   let calls: Array<Call> = []
   const held = new Map<number, () => void>()
@@ -72,7 +82,7 @@ export const start = async (): Promise<FakeModel> => {
     request.on("end", async () => {
       const index = calls.length
       const text = Buffer.concat(parts).toString("utf8")
-      calls.push({
+      const call: Call = {
         index,
         path: request.url ?? "",
         headers: Object.fromEntries(
@@ -82,7 +92,9 @@ export const start = async (): Promise<FakeModel> => {
           ]),
         ),
         body: text === "" ? null : JSON.parse(text),
-      })
+      }
+      calls.push(call)
+      options.heard?.(call)
       for (const wake of waiting.splice(0)) wake()
       const reply = replies[index]
       if (reply === undefined) {
@@ -140,7 +152,9 @@ export const start = async (): Promise<FakeModel> => {
       response.end("data: [DONE]\n\n")
     })
   })
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
+  await new Promise<void>((resolve) =>
+    server.listen(options.port ?? 0, host, resolve),
+  )
   const { port } = server.address() as AddressInfo
 
   return {
