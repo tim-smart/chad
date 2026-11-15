@@ -155,10 +155,12 @@ effect/chat runs chad's handler inline, one event at a time for the whole bot. U
 - **SES-170** The last message chad saw in a session is a column on its `sessions` row, and the catch-up of SES-37 reads forward from it (see 02-storage.md).
 - **SES-171** The gateway handler writes that mark after the save of the request succeeds, and not in one transaction with the save. A mark that lags is harmless, because SES-33 and SES-90 drop a message that is read twice.
 - **SES-172** The mark only moves forward, and it advances for every message chad handled in that thread, chat commands included, so the catch-up never replays a `/new` or a `/stop`.
+- **SES-196** The mark orders two messages by their times, and two messages of one time by their ids: a longer id is later, and ids of one length compare as text. Discord's ids and the local platform's both count up that way. `/new` gives the new row the later of the old row's mark and the command's own, by that order.
 - **SES-39** A mention in a plain channel with no session that the catch-up cannot find is lost. This is accepted.
 - **SES-129** The gateway behaviours in SES-4, SES-30, SES-37 and SES-38 have not been run. They are tested by the Discord wire slice. Of them only the mention of SES-4 meets a real gateway, in the hand checks (see 17-testing.md).
 - **SES-40** An image up to 10 MB goes to the model as a `FilePart`.
 - **SES-41** Every other file is saved under `inbox/` in the session's working directory, and the prompt names its path.
+- **SES-198** The prompt names a saved file by its absolute path, because the Agent's working directory moves with each `cd` and the inbox stays in the session's directory.
 - **SES-42** A file over 25 MB is skipped with a line in the prompt. The notice the owner sees is in 04-discord.md.
 - **SES-43** The entity downloads attachments when the turn starts, so the stored request holds attachment ids only.
 - **SES-189** An attachment id in a stored request is the attachment's id in the stored chat message. chad turns it into bytes with the chat adapter's `download` operation on every platform, the local one included, and reads a file's size from the message before it downloads anything.
@@ -228,7 +230,7 @@ The rules in this section are the steps between a request taking the session and
 
 ## /stop and the Stop button
 
-- **SES-69** `/stop` interrupts the running turn, which ends as `Stopped`. `afterTurn` still runs.
+- **SES-69** (a) `/stop` interrupts the running turn, which ends as `Stopped`. (b) `afterTurn` still runs.
 - **SES-70** Messages that were waiting to steer the stopped turn are dropped, and their requests are answered `Dropped`.
 - **SES-71** After a `/stop`, queued plugin turns stay queued and background processes keep running.
 - **SES-72** With nothing running, chad posts the notice "Nothing is running."
@@ -268,6 +270,7 @@ The two session tables and the `turns` table live in `db/chad.db`. Their columns
 - **SES-85** `session_messages` is append-only. chad writes to it on every `HistoryAppended` part of the `send` stream. On `HistoryReplaced` it swaps the session's rows in one transaction.
 - **SES-134** At the end of every turn, however it ends, chad also makes the stored history equal to the Agent's history, before it records the turn's end. The compare covers the session's whole history, not only what the turn added (see 16-failures-logs-status.md).
 - **SES-195** The end-of-turn reconcile matches the messages it writes against the turn's outstanding steers, in order and by text. For each match it writes the `steers` row in the reconcile's transaction, writes `turn.steered` after it and answers the request `Steered`. A steer with no match is answered `Dropped` when the turn was stopped, and starts the next turn otherwise.
+- **SES-197** A message the reconcile of SES-195 writes is matched against a steer only when the Agent took it during the turn and no batch delivered it. The turn's own prompt and any message of an earlier turn that the reconcile writes again never match, whatever their text.
 - **SES-86** History rows are stored as clanka produced them. chad masks no secret values in them.
 - **SES-87** chad keeps the system prompt it last sent, because with Codex the system prompt is not in the history. It sends that text again through the function form of `send({ system })`.
 - **SES-88** `turns` has one row per turn request, keyed by the request's key in the column `request_key`. It holds the first attempt's turn id, the session, the origin, the start and end times, the outcome, the failure reason, the status message id, the number of starts, the number of starts that a graceful stop cut, the model and the token usage. The end time and the outcome are null while the turn runs. The usage columns and when chad writes them are in 16-failures-logs-status.md.
@@ -285,7 +288,7 @@ Passivation is cluster closing an idle entity's activation. Nothing is deleted. 
 - **SES-94** A turn in flight needs no hold. A turn that runs longer than the idle time is not passivated.
 - **SES-95** The next message restores the session from SQLite. chad builds a new Agent, sets its history from `session_messages` and sets its environment from the `sessions` row.
 - **SES-192** chad writes the log event `session.passivated` when a session's entity leaves memory, which is after the idle time or when the daemon stops, and `session.restored` when it builds the Agent of a session that has stored history. `session.restored` carries the number of history messages it loaded (see 16-failures-logs-status.md).
-- **SES-96** On restore, a fingerprint that matches reuses the frozen system prompt, so the restored session sends the same bytes as before. Reading the cached history on a new connection also needs the session id that chad sends as the `prompt_cache_key` and in the `session-id` header (see 05-model-and-login.md).
+- **SES-96** (a) On restore, a fingerprint that matches reuses the frozen system prompt, so the restored session sends the same bytes as before. (b) Reading the cached history on a new connection also needs the session id that chad sends as the `prompt_cache_key` and in the `session-id` header (see 05-model-and-login.md).
 - **SES-97** A fingerprint that differs counts as a tool change, and the system prompt is rendered again. The fingerprint differs whenever the render without the chunks differs, which includes a persona change, a safe mode flip and a new image that changes the core block.
 - **SES-98** The same restore runs after a restart. A restart also builds a new model layer for the session (see 05-model-and-login.md).
 - **SES-168** On the first turn after a restore, the update message of SES-130 carries one line that names the background tasks that died with the process, because the model otherwise waits on tasks that no longer exist.
@@ -348,7 +351,7 @@ This section covers what a graceful stop does to sessions. The whole stop sequen
 
 Compaction is clanka replacing old history with a summary. clanka starts it in the background at 200k tokens. It runs the summarizer next to one model call and applies the result before a later one. The `HistoryReplaced` part, which clanka emits only from compaction and only on an open `send` stream, is the one signal on the stream that a compaction happened.
 
-- **SES-116** chad always provides clanka's `SummarizerModel` layer, on the same model as the agent unless the summarizer override is set (see 05-model-and-login.md). Without the layer, a summarizer that is still running when its turn ends is cancelled.
+- **SES-116** (a) chad always provides clanka's `SummarizerModel` layer, on the same model as the agent (b) unless the summarizer override is set (see 05-model-and-login.md). (a) Without the layer, a summarizer that is still running when its turn ends is cancelled.
 - **SES-117** A compaction belongs to the turn whose `send` stream carried `HistoryReplaced`. That can be a later turn than the one that started the summarizer.
 - **SES-135** A compaction that the reconcile of SES-134 finds, because the stream did not deliver its `HistoryReplaced`, counts as a compaction of the turn the reconcile ran for, and `Compacted` is delivered for it under SES-118 (see 16-failures-logs-status.md).
 - **SES-118** chad delivers `Compacted` to `onSession` hooks once after that turn ends, after the turn's `afterTurn`, even if the turn compacted twice. It never delivers it mid-turn.
@@ -602,3 +605,6 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-193 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
 | SES-194 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
 | SES-195 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| SES-196 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| SES-197 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| SES-198 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |

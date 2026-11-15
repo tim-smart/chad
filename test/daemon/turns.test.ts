@@ -130,7 +130,7 @@ test("STO-125 STO-126 FAIL-101 FAIL-107 the turns table has an index on started_
   }
 })
 
-test("FAIL-53 FAIL-103 FAIL-105 a turn's usage is the total of its model calls, a sub-agent's included, the output tokens include the reasoning tokens, and a script that fails goes back to the model as its output and does not fail the turn", async () => {
+test("FAIL-53 FAIL-103a FAIL-105 a turn's usage is the total of its model calls, a sub-agent's included, the output tokens include the reasoning tokens, and a script that fails goes back to the model as its output and does not fail the turn", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([

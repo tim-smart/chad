@@ -1,8 +1,19 @@
-import { expect, it } from "vitest"
+import { mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import * as NodeServices from "@effect/platform-node/NodeServices"
+import * as Agent from "clanka/Agent"
+import * as AgentExecutor from "clanka/AgentExecutor"
+import * as OpenAiCompat from "clanka/OpenAiCompat"
+import { Effect, Fiber, Layer, Stream } from "effect"
+import type { Prompt } from "effect/ai"
+import { FetchHttpClient } from "effect/http"
+import { expect, it, onTestFinished } from "vitest"
 import * as Attachments from "../../src/daemon/Attachments.ts"
 import * as Handler from "../../src/daemon/Handler.ts"
 import * as Sessions from "../../src/daemon/Sessions.ts"
 import * as Messages from "../../src/Messages.ts"
+import * as FakeModel from "../support/model.ts"
 
 /** A message with a mention of chad in front of its text. */
 const mentioned = (text: string) => ({
@@ -105,4 +116,84 @@ it("DIS-59 DIS-64 DIS-75 DIS-76 DIS-77 SES-186 SES-190 the notices of a session 
   expect(Messages.fileFailed("lost.txt")).toBe(
     "-# Skipped `lost.txt`. I couldn't download it.",
   )
+})
+
+it("SES-196 a mark is later than another by its time, and at one time by its id: a longer id is later, and ids of one length compare as text", () => {
+  const at = 1_700_000_000_000
+  expect(Sessions.later({ id: "m1", at: at + 1 }, { id: "m9", at })).toBe(true)
+  expect(Sessions.later({ id: "m9", at }, { id: "m1", at: at + 1 })).toBe(false)
+  expect(Sessions.later({ id: "m4", at }, { id: "m3", at })).toBe(true)
+  expect(Sessions.later({ id: "m10", at }, { id: "m9", at })).toBe(true)
+  expect(Sessions.later({ id: "m9", at }, { id: "m10", at })).toBe(false)
+  // Discord's ids are decimal numbers.
+  expect(
+    Sessions.later(
+      { id: "1200000000000000001", at },
+      { id: "999999999999999999", at },
+    ),
+  ).toBe(true)
+  expect(Sessions.later({ id: "m3", at }, { id: "m3", at })).toBe(false)
+})
+
+it("SES-176 the pinned clanka takes the two steers that wait while a model call runs in one step: one HistoryAppended batch of their user messages, in the order of the calls", async () => {
+  const model = await FakeModel.start()
+  onTestFinished(() => model.close())
+  const directory = mkdtempSync(join(tmpdir(), "steer-"))
+  onTestFinished(() => rmSync(directory, { recursive: true, force: true }))
+  model.script([
+    { ...FakeModel.runs('console.log("ran")'), hold: true },
+    { text: "done" },
+  ])
+  const services = Layer.mergeAll(
+    AgentExecutor.layerLocal({ directory }),
+    OpenAiCompat.model("fake").pipe(
+      Layer.provide(OpenAiCompat.layerClient({ apiUrl: model.url })),
+    ),
+    Agent.ConversationMode.layer(true),
+  ).pipe(
+    Layer.provideMerge(Layer.merge(NodeServices.layer, FetchHttpClient.layer)),
+  )
+
+  const batches = await Effect.gen(function* () {
+    const agent = yield* Agent.make
+    const output = yield* agent.send({ prompt: "hello" })
+    const batches: Array<ReadonlyArray<Prompt.Message>> = []
+    // The stream ends with AgentFinished once the turn is over.
+    const parts = yield* Stream.runForEach(output, (part) =>
+      Effect.sync(() => {
+        if (part._tag === "HistoryAppended") batches.push(part.messages)
+      }),
+    ).pipe(
+      Effect.catchTag("AgentFinished", () => Effect.void),
+      Effect.forkScoped,
+    )
+    yield* Effect.promise(() => model.received(1))
+    const first = yield* Effect.forkScoped(agent.steer("first"))
+    const second = yield* Effect.forkScoped(agent.steer("second"))
+    yield* Effect.yieldNow
+    model.release(0)
+    yield* Fiber.join(first)
+    yield* Fiber.join(second)
+    yield* Fiber.join(parts)
+    return batches
+  }).pipe(Effect.scoped, Effect.provide(services), Effect.runPromise)
+
+  const steered = batches.filter((batch) =>
+    batch.some((message) => JSON.stringify(message).includes("first")),
+  )
+  expect(steered).toHaveLength(1)
+  // A steer's string is the message's one text part, which is how a Prompt holds a user message made from a string.
+  expect(
+    steered[0]?.map((message) => [
+      message.role,
+      message.role === "user"
+        ? message.content.map((part) =>
+            part.type === "text" ? part.text : part.type,
+          )
+        : [],
+    ]),
+  ).toEqual([
+    ["user", ["first"]],
+    ["user", ["second"]],
+  ])
 })

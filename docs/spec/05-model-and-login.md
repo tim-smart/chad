@@ -30,7 +30,7 @@ chad reads the provider from the model setting. The provider decides whether a l
 - **MOD-11** (a) `CHAD_MODEL` supplies the default model setting. (b) A stored override wins over it.
 - **MOD-12** The override is the file `state/model` on the volume, outside the repo and outside the database, written by temp file and rename. See 02-storage.md.
 - **MOD-13** chad keeps two optional overrides, one for the sub-agent model and one for the summarizer model, and passes them to clanka. Without an override, sub-agents and the summarizer run on the main model. If the subscription's limits are reached, the sub-agent model is the first to move to a smaller model.
-- **MOD-14** chad always provides clanka's `SummarizerModel` layer, on the agent's model unless the summarizer override names another, so that a summarizer still running when its turn ends is not cancelled. See 03-sessions-and-turns.md.
+- **MOD-14** (a) chad always provides clanka's `SummarizerModel` layer, on the agent's model (b) unless the summarizer override names another, (a) so that a summarizer still running when its turn ends is not cancelled. See 03-sessions-and-turns.md.
 - **MOD-72** When a provider says a usage limit is reached, chad ends the turn and does not move to another model on its own. See 16-failures-logs-status.md.
 - **MOD-79** When `CHAD_MODEL` is unset and no override is stored, chad runs `openai/gpt-6-astra/medium`.
 - **MOD-80** The sub-agent override and the summarizer override are kept on the volume under `state/`, beside the main override.

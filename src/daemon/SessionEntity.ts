@@ -177,6 +177,13 @@ interface Turn {
   reset: boolean
   /** Whether the model's part is over, after which no message can join the turn. */
   closing: boolean
+  /**
+   * The messages of the Agent's history that cannot be a steer of this turn: the ones it held when the turn's `send`
+   * began, and every one a batch delivered since. Nothing until the turn has sent.
+   */
+  known: Set<Prompt.Message> | undefined
+  /** Whether the batch of the turn's own prompt has come. */
+  prompted: boolean
 }
 
 /** What the entity holds for the thread's current session. A `/new` puts a fresh one in its place. */
@@ -446,7 +453,8 @@ export const layer = Layer.unwrap(
             asImages: true,
           })
           yield* tell(chat, request, read)
-          let batches = 0
+          const known = new Set(live.agent.history.current.content)
+          turn.known = known
           const output = yield* live.agent.send({
             prompt: Attachments.prompt(read),
             system: frozen(live),
@@ -457,9 +465,12 @@ export const layer = Layer.unwrap(
               Effect.gen(function* () {
                 if (part._tag === "HistoryAppended") {
                   yield* saveFrozen(live)
+                  for (const message of part.messages) known.add(message)
                   // The first batch is the turn's own prompt, which is no steer whatever it says.
-                  const steers =
-                    batches++ === 0 ? [] : carried(turn, part.messages)
+                  const steers = turn.prompted
+                    ? carried(turn, part.messages)
+                    : []
+                  turn.prompted = true
                   yield* Sessions.append(
                     live.id,
                     part.messages,
@@ -468,6 +479,7 @@ export const layer = Layer.unwrap(
                   )
                   yield* steered(live, turn, steers)
                 } else if (part._tag === "HistoryReplaced") {
+                  for (const message of part.messages) known.add(message)
                   yield* Sessions.replace(
                     live.id,
                     part.messages,
@@ -525,14 +537,18 @@ export const layer = Layer.unwrap(
             stored.length <= encoded.length &&
             stored.every((row, index) => row === encoded[index])
           const missing = prefix ? messages.slice(stored.length) : messages
-          // Only what the stored rows do not already hold can be a steering message of this turn.
-          let common = 0
-          while (common < stored.length && stored[common] === encoded[common]) {
-            common++
-          }
+          // A steer of this turn can only be a message the Agent took during it that no batch delivered. A row of an
+          // earlier turn that is written again here is none, whatever its text.
+          const taken = turn.known
+          const unread =
+            taken === undefined
+              ? []
+              : messages.filter((message) => !taken.has(message))
+          // Before the prompt's own batch, the first such message is the prompt.
+          const candidates = turn.prompted ? unread : unread.slice(1)
           const steers = Sessions.matched(
             turn.steers.map((steer) => steer.text),
-            messages.slice(common).map(Sessions.textOf),
+            candidates.map(Sessions.textOf),
           ).map((index) => turn.steers[index]!)
           const write = prefix ? Sessions.append : Sessions.replace
           yield* write(
@@ -824,6 +840,8 @@ export const layer = Layer.unwrap(
                     stopped: false,
                     reset: false,
                     closing: false,
+                    known: undefined,
+                    prompted: false,
                   }
                   own.turn = turn
                   return yield* run(own, turn, payload).pipe(

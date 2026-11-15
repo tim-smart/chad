@@ -92,6 +92,17 @@ export const known = Effect.fnUntraced(function* (thread: string) {
   return rows.length > 0
 })
 
+/**
+ * Whether one mark is later than another. Two messages of one time are ordered by their ids: a longer id is later, and
+ * ids of one length compare as text. Discord's ids and the local platform's both count up that way.
+ */
+export const later = (a: Mark, b: Mark) =>
+  a.at !== b.at
+    ? a.at > b.at
+    : a.id.length !== b.id.length
+      ? a.id.length > b.id.length
+      : a.id > b.id
+
 /** Starts a session in a thread, with a fresh id, and gives the id. */
 export const open = Effect.fnUntraced(function* (
   thread: string,
@@ -126,7 +137,7 @@ export const renew = Effect.fnUntraced(function* (
       `
       const last = ended.find(
         (row): row is Mark =>
-          row.id !== null && row.at !== null && row.at > mark.at,
+          row.id !== null && row.at !== null && later(row as Mark, mark),
       )
       return yield* open(thread, kind, last ?? mark)
     }),
@@ -138,7 +149,13 @@ export const mark = Effect.fnUntraced(function* (thread: string, to: Mark) {
   const sql = yield* SqlClient.SqlClient
   yield* sql`
     UPDATE sessions SET last_message_id = ${to.id}, last_message_at = ${to.at}
-    WHERE thread = ${thread} AND ended_at IS NULL AND (last_message_at IS NULL OR last_message_at <= ${to.at})
+    WHERE thread = ${thread} AND ended_at IS NULL AND (
+      last_message_at IS NULL OR last_message_at < ${to.at} OR (
+        last_message_at = ${to.at} AND (
+          length(last_message_id) < length(${to.id}) OR (length(last_message_id) = length(${to.id}) AND last_message_id <= ${to.id})
+        )
+      )
+    )
   `
 })
 

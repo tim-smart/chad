@@ -108,7 +108,7 @@ test("SES-5 DIS-77 when the thread cannot be opened chad says so in the channel 
   expect(await fakes.model.calls()).toEqual([])
 })
 
-test("SES-34 SES-145 SES-146 DIS-5 CLI-138 CLI-141 a chat command is the first word after the mention, in any case and with any text after it, it never reaches the model, and every other text does", async () => {
+test("SES-34 SES-145 SES-146 DIS-5 CLI-138a CLI-141a a chat command is the first word after the mention, in any case and with any text after it, it never reaches the model, and every other text does", async () => {
   const running = await scenario()
   const { fakes } = running
   const others = ["/revert", "/login", "/logout", "/logs", "please /stop"]

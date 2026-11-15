@@ -63,7 +63,7 @@ test("SES-85 SES-86 SES-163 STO-65 STO-68 the history is stored batch by batch w
   expect(JSON.stringify(sent(calls[2]))).toContain(secret)
 })
 
-test("SES-85 SES-116 STO-65 MOD-14 FAIL-106 a compaction swaps the session's rows for the compacted history, its summarizer outlives the turn that started it, and the summarizer's tokens are not in the turn's usage", async () => {
+test("SES-85 SES-116a STO-65 MOD-14a FAIL-106 a compaction swaps the session's rows for the compacted history, its summarizer outlives the turn that started it, and the summarizer's tokens are not in the turn's usage", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([

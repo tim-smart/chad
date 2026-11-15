@@ -124,7 +124,7 @@ test("STO-62 STO-205 a session has one row with its id, thread, kind and times, 
 })
 
 test(
-  "SES-87 SES-92 SES-95 SES-96 SES-192 SWAP-22 FAIL-324 FAIL-325 TST-212 an idle session leaves memory after the idle time, and the next message restores it from SQLite: the same history, the same environment and the same system prompt, byte for byte",
+  "SES-87 SES-92 SES-95 SES-96a SES-192 SWAP-22 FAIL-324 FAIL-325 TST-212 an idle session leaves memory after the idle time, and the next message restores it from SQLite: the same history, the same environment and the same system prompt, byte for byte",
   { timeout: 20_000 },
   async () => {
     expect(Duration.toMinutes(defaults.sessionIdle)).toBe(30)

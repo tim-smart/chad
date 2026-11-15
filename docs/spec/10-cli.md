@@ -517,11 +517,11 @@ What a backup holds and what a restore rebuilds are in 02-storage.md. The rules 
 
 A few commands can be typed in chat. They are plain text that chad matches after it strips the mention, and they are not Discord slash commands. They never reach the model.
 
-- **CLI-138** The chat commands are `/new`, `/stop`, `/safe [on|off]`, `/model [<spec>]`, `/status`, `/secret NAME`, `/secret NAME totp` and `/secret`. `/new` and `/stop` are in 03-sessions-and-turns.md and the `/secret` forms are in 15-credentials.md.
+- **CLI-138** The chat commands are (a) `/new`, `/stop`, (b) `/safe [on|off]`, (c) `/model [<spec>]`, (a) `/status`, (d) `/secret NAME`, `/secret NAME totp` and `/secret`. `/new` and `/stop` are in 03-sessions-and-turns.md and the `/secret` forms are in 15-credentials.md.
 - **CLI-139** `/safe`, `/model` and `/status` run the same daemon calls as `chad safe`, `chad model` and `chad status` and print the same text.
 - **CLI-140** `/secret` with no name prints what `chad secret list` prints.
 - **CLI-149** `/status` renders with no database and no model. It answers when the database cannot be used and when the model is down, which is when the owner has little else to go on in chat (see 16-failures-logs-status.md).
-- **CLI-141** No other CLI command has a chat form. There is no `/revert`, `/login`, `/logout` or `/logs`. The route from a phone after a bad change is `/safe on`, then asking chad to revert or fix it.
+- **CLI-141** (a) No other CLI command has a chat form. There is no `/revert`, `/login`, `/logout` or `/logs`. (b) The route from a phone after a bad change is `/safe on`, then asking chad to revert or fix it.
 - **CLI-203** How chad matches a chat command, what trailing text does and what a command does in a plain channel with no session are in 03-sessions-and-turns.md.
 
 ## How the CLI is packaged

@@ -4,11 +4,13 @@ import { Duration, Effect } from "effect"
 import { ChatError, ChatThread } from "effect/chat"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
-import { scenario, type Scenario } from "../support/driver.ts"
+import { execute } from "../support/database.ts"
+import { owner, scenario, type Scenario } from "../support/driver.ts"
 import { runs } from "../support/model.ts"
 import {
   eventually,
   found,
+  lines,
   posted,
   prompted,
   rows,
@@ -180,7 +182,7 @@ test("SES-46 SES-155 a message that arrives when the turn's model part is over s
   ).toBe(false)
 })
 
-test("SES-64 SES-69 SES-70 SES-73 SES-76 DIS-59 FAIL-69 /stop interrupts the turn, which ends as Stopped with its notice and no failure, the message that waited to steer it is Dropped, and the session takes the next turn with its history", async () => {
+test("SES-64 SES-69a SES-70 SES-73 SES-76 DIS-59 FAIL-69 /stop interrupts the turn, which ends as Stopped with its notice and no failure, the message that waited to steer it is Dropped, and the session takes the next turn with its history", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -389,4 +391,83 @@ test("SES-51 SWAP-110 a turn stays open while a background sub-agent runs after 
     await found(running, "SELECT outcome FROM turns WHERE outcome IS NOT NULL"),
   ).toEqual([{ outcome: "answered" }])
   expect(rows(running, "SELECT 1 FROM turns")).toHaveLength(1)
+})
+
+test("SES-134 SES-195 SES-197 a stop whose reconcile writes a lost row of an earlier turn again does not take that row for a steer the Agent never read, though their text is the same", async () => {
+  const running = await scenario()
+  const { fakes } = running
+  await fakes.model.script([
+    { text: "one" },
+    { text: "never sent", hold: true },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "same text")
+  await fakes.chat.answers(thread, 1)
+  await says(running, thread, "more")
+  await fakes.model.received(2)
+  await says(running, thread, "same text")
+  // The message with a file is sent after it, so once its file is saved the one before it waits as well.
+  await waits(running, thread)
+  // The first turn's prompt goes missing, so the reconcile writes the whole history again.
+  execute(
+    running.data,
+    "DELETE FROM session_messages WHERE seq = (SELECT min(seq) FROM session_messages)",
+  )
+  await says(running, thread, "/stop")
+  await found(running, answered, 4)
+
+  const ended = await lines(running, "turn.ended", 2)
+  expect(ended[1]?.annotations["outcome"]).toBe("stopped")
+  expect(ended[1]?.annotations["reconciled"]).toBeGreaterThan(0)
+  expect(replies(running).toSorted()).toEqual([
+    "Answered",
+    "Dropped",
+    "Dropped",
+    "Stopped",
+  ])
+  expect(rows(running, "SELECT * FROM steers")).toEqual([])
+  expect(
+    running
+      .log()
+      .filter((line) => line.annotations["event"] === "turn.steered"),
+  ).toEqual([])
+  const [session] = sessions(running)
+  expect(stored(running, session?.["id"])).toEqual(["same text", "more"])
+})
+
+test("SES-171 SES-172 SES-196 a message handled while /new is finishing, with the same time as the command, is the new session's mark, because two messages of one time are ordered by their ids", async () => {
+  const running = await scenario()
+  const { fakes, chat } = running
+  await fakes.model.script([{ text: "one", hold: true }, { text: "two" }])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+  await fakes.model.received(1)
+  // The stop's notice waits on a rate limit, which holds the reset open.
+  await Effect.runPromise(
+    chat.failNext(
+      "post",
+      new ChatError.RateLimited({ retryAfter: Duration.millis(400) }),
+    ),
+  )
+  const reset = await says(running, thread, "/new")
+  const posted = await fakes.chat.userPosts(thread, {
+    text: "again",
+    authorId: owner,
+  })
+  if (posted._tag !== "MessageCreated") throw new Error("not a message")
+  const again = {
+    ...posted,
+    message: { ...posted.message, timestamp: reset.message.timestamp },
+  }
+  expect(await fakes.chat.deliver(again)).toBe(true)
+  await fakes.chat.answers(thread, 3)
+
+  const [old, fresh] = sessions(running)
+  // The message was handled before the reset ended the old row, and the new row starts from it and not from the command.
+  expect(old?.["last_message_id"]).toBe(again.message.id)
+  expect(fresh).toMatchObject({
+    ended_at: null,
+    last_message_id: again.message.id,
+    last_message_at: old?.["last_message_at"],
+  })
 })

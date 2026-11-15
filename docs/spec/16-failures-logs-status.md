@@ -554,7 +554,7 @@ The `turns` table has one row per turn and is never pruned (see 02-storage.md, w
 - **FAIL-100** Times are integer milliseconds since the epoch. The `diagnose` skill's queries depend on it.
 - **FAIL-101** The table has an index on `started_at` and one on `(session_id, started_at)`, because it is never pruned and `chad status` reads it.
 - **FAIL-102** `model` is the model value that the turn's Agent was built with on the turn's last attempt, in the full `<provider>/<model>[/<effort>]` form (see 02-storage.md and 05-model-and-login.md). A sub-agent that ran on another model is inside the same token totals.
-- **FAIL-103** The usage columns hold the turn's totals across all its attempts, sub-agents included.
+- **FAIL-103** (a) The usage columns hold the turn's totals (b) across all its attempts, (a) sub-agents included.
 - **FAIL-104** chad writes the usage columns on every `Usage` part, so a turn that is killed keeps what it had used, and a resumed attempt adds to what the row holds. The four counters in a part are running totals for the current `send`, so what chad writes is the total of the earlier attempts plus the latest part's values, and it never adds one part to the part before it. `context_tokens` is the latest part's value and never a sum.
 - **FAIL-105** `output_tokens` includes reasoning tokens, so the total is right and only the split between reasoning and visible output is missing.
 - **FAIL-106** The tokens used by the summarizer that compacts a history are not counted anywhere. This is a known gap in v1.

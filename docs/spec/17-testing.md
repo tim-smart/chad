@@ -769,4 +769,4 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-209 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | TST-210 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | TST-211 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
-| TST-212 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| TST-212 | Build, stage 2 | Builder (Tim has not read) | run |  | `definition` | - |

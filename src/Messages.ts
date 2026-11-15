@@ -312,7 +312,7 @@ export const status = (text: string) => `\`\`\`\n${text}\n\`\`\``
 
 /** The lines a prompt gets about the files on the owner's message. The model reads them. */
 export const promptFileSaved = (name: string, path: string) =>
-  `The owner attached the file ${name}. It is saved at ${path} in your working directory.`
+  `The owner attached the file ${name}. It is saved at ${path}.`
 
 export const promptFileSkipped = (name: string, bytes: number) =>
   `The owner attached the file ${name} (${megabytes(bytes)}). It is over the 25 MB limit and was not saved.`

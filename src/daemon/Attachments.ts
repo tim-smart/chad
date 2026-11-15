@@ -97,9 +97,11 @@ export const read = Effect.fnUntraced(function* (options: {
       )
       continue
     }
-    const path = join("inbox", inboxName(message.id, attachment.name))
-    mkdirSync(join(options.directory, "inbox"), { recursive: true })
-    writeFileSync(join(options.directory, path), bytes)
+    // The path is absolute, because the Agent's working directory moves with every `cd` and the inbox does not.
+    const inbox = join(options.directory, "inbox")
+    const path = join(inbox, inboxName(message.id, attachment.name))
+    mkdirSync(inbox, { recursive: true })
+    writeFileSync(path, bytes)
     lines.push(Messages.promptFileSaved(name, path))
   }
   const read: Read = {
