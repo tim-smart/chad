@@ -14,6 +14,7 @@ The slices that are delivered, in build order. The builder who finishes a slice 
 - `kills`
 - `failures`
 - `discord-ui`
+- `models`
 
 ## Held rules
 
