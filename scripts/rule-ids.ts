@@ -45,8 +45,10 @@ export interface Rule {
   readonly text: string
   readonly section: string
   readonly row: string
-  /** The letters the rule's text marks as (a), (b) and so on. */
+  /** The letters the rule's text marks as (a), (b) and so on, each of which wants a test. A rule with no slice has none. */
   readonly letters: ReadonlyArray<string>
+  /** The letters the rule's text marks, whether or not the rule has a slice. A test may name these and no other. */
+  readonly marked: ReadonlyArray<string>
 }
 
 /** One entry of `vitest list --json`. */
@@ -185,13 +187,13 @@ export const parseSpec = (parts: Readonly<Record<string, string>>): Spec => {
       }
       const text = texts.get(id)
       const slice = unquote(columns[6]!)
-      // A rule with no slice has no test, so a letter in its text marks nothing. TST-191 has "(a), (b)" in its prose.
-      const letters =
-        slice === "-"
-          ? []
-          : [...(text?.text ?? "").matchAll(/\(([a-z])\)/g)].map(
-              (match) => match[1]!,
-            )
+      const marked = [
+        ...new Set(
+          [...(text?.text ?? "").matchAll(/\(([a-z])\)/g)].map(
+            (match) => match[1]!,
+          ),
+        ),
+      ].sort()
       rules.set(id, {
         id,
         part,
@@ -205,7 +207,9 @@ export const parseSpec = (parts: Readonly<Record<string, string>>): Spec => {
         text: text?.text ?? "",
         section: text?.section ?? "",
         row,
-        letters: [...new Set(letters)].sort(),
+        // A rule with no slice has no test, so a letter in its text wants none. TST-191 has "(a), (b)" in its prose.
+        letters: slice === "-" ? [] : marked,
+        marked,
       })
     }
   }
@@ -314,12 +318,10 @@ export const evaluate = (inputs: Inputs): Report => {
       const unit = match[0]
       const id = `${match[1]}-${match[2]}`
       const rule = spec.rules.get(id)
-      // A rule with no slice carries no letters, and a test may still name one of its letters.
+      // A test may name a letter that the rule's text marks, with or without a slice, and no other.
       if (
         !rule ||
-        (match[3] !== undefined &&
-          rule.slice !== "-" &&
-          !rule.letters.includes(match[3]))
+        (match[3] !== undefined && !rule.marked.includes(match[3]))
       ) {
         failures.push(`${where} names ${unit}, which the spec does not have`)
         continue
