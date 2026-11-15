@@ -24,6 +24,11 @@ export default defineConfig({
         name,
         include: [`test/${name}/**/*.test.ts`],
         pool: "forks",
+        // A daemon or process scenario waits on what the daemon does, never on a clock (TST-76), so its time limit only
+        // bounds a hang. The default 5 seconds is under twice what the longest takes on a healthy runner.
+        ...(name === "daemon" || name === "process"
+          ? { testTimeout: 20_000 }
+          : {}),
         env: { TZ: timezone, CHAD_TEST_RUN: run },
         setupFiles: ["test/support/modules.ts"],
         // The built package is loaded by Node itself and never through vite, as a plugin's imports are.

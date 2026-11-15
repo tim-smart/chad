@@ -18,6 +18,8 @@ export interface Reply {
    * runs beside the turn, so which of the two takes a call index is not known in advance.
    */
   readonly summary?: Reply
+  /** Whether the response leaves out its usage, as a provider that reports none does. */
+  readonly unmetered?: boolean
   /** What the call used, in place of one token in and one out. `reasoning` is a part of `output`. */
   readonly usage?: {
     readonly input: number
@@ -137,7 +139,7 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
       // A tool call is one entry of the delta's `tool_calls`, with its arguments as JSON text, and it ends the
       // response with `tool_calls` where an answer ends it with `stop`.
       const { tool } = reply
-      const events = [
+      const events: Array<object> = [
         tool === undefined
           ? chunk({ role: "assistant", content: reply.text ?? "" }, null)
           : chunk(
@@ -159,7 +161,9 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
               null,
             ),
         chunk({}, tool === undefined ? "stop" : "tool_calls"),
-        {
+      ]
+      if (reply.unmetered !== true)
+        events.push({
           ...chunk({}, null),
           choices: [],
           usage: {
@@ -172,8 +176,7 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
               reasoning_tokens: reply.usage?.reasoning ?? 0,
             },
           },
-        },
-      ]
+        })
       for (const event of events) {
         response.write(`data: ${JSON.stringify(event)}\n\n`)
       }

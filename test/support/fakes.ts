@@ -104,6 +104,7 @@ const Reply = Schema.Struct({
   ),
   status: Schema.optionalKey(Schema.Number),
   hold: Schema.optionalKey(Schema.Boolean),
+  unmetered: Schema.optionalKey(Schema.Boolean),
   usage: Schema.optionalKey(
     Schema.Struct({
       input: Schema.Number,

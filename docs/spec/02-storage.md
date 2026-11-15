@@ -320,6 +320,7 @@ CREATE TABLE steers (
 - **STO-208** chad records each chat command it runs as one row of the table `commands`, keyed by the dedupe key of the chat event that carried it, and writes the row before the command runs. `commands` rows are never deleted.
 - **STO-209** The migration after the one that adds `prompts` fills it from what a volume stored before: a row for each stored message that carries a turn's request key, and a row for each unfinished turn that has started once or more, whose session has a stored history in which no message carries a key. Such a history was written before prompts carried their key, and its prompt was stored with the rest.
 - **STO-210** The migration after STO-209's leaves a `prompts` row only where the volume shows that the turn's prompt was stored. It adds a row for each unfinished turn with recorded usage, because clanka puts a send's prompt batch on its output before any of its usage and chad stores each part before it reads the next. It removes the row of each unfinished turn that was already there when STO-209's migration ran, that has no recorded usage and whose key no stored message carries. Such a turn resumes as one whose prompt was not stored (SES-161), and the restart note asks the model to check before it repeats anything.
+- **STO-211** The migration after STO-210's records in the table `unproven`, by request key, each unfinished turn whose prompt the volume shows neither as stored nor as never stored: one that started before the second after STO-209's migration ran, with no recorded usage and whose key no stored message carries. STO-210's migration took the `prompts` row of each such turn that had one, and a row STO-207 wrote with the prompt looks the same there as one STO-209 inferred. The delivery of a turn in `unproven` stays unanswered and starts nothing: no start is counted, the model is not called, nothing is posted, and it does not take its session before the thread's other requests (SES-200). Every other unfinished turn has a `prompts` row exactly when its prompt was stored, from a stored message that carries its key, from recorded usage, or from STO-207, and resumes by SES-161 or SES-101. Tim rules on what a turn in `unproven` does.
 
 ```sql
 CREATE TABLE prompts (
@@ -330,6 +331,10 @@ CREATE TABLE commands (
   event_key TEXT PRIMARY KEY,    -- the dedupe key of the chat event that carried the command
   thread TEXT,                   -- the thread string of the command's chat thread
   ran_at INTEGER                 -- milliseconds since the epoch
+) STRICT;
+CREATE TABLE unproven (
+  request_key TEXT PRIMARY KEY,  -- the key of the turn's request, as in turns.request_key
+  session_id TEXT                -- the turn's session
 ) STRICT;
 ```
 
@@ -722,3 +727,4 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-208 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | STO-209 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | STO-210 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| STO-211 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |

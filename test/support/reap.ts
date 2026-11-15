@@ -139,9 +139,15 @@ export const tracker = (directory: string, seams: Seams = {}): Tracker => {
   const known = new Set<string>()
   const failures: Array<string> = []
 
-  const take = (rows: ReadonlyArray<Row>, marks: ReadonlySet<number>) => {
+  // A table that is the newest one read sets the roots' identities and retires what it no longer shows. One that comes
+  // back after a newer one only adds what it saw: when it was sampled is not known, only that its read began earlier.
+  const take = (
+    rows: ReadonlyArray<Row>,
+    marks: ReadonlySet<number>,
+    newest: boolean,
+  ) => {
     const runner = rows.find((row) => row.pid === process.pid)?.pgid
-    for (const row of rows) {
+    for (const row of newest ? rows : []) {
       const root = roots.get(row.pid)
       if (root !== undefined && root.started === undefined && root.running()) {
         root.started = row.started
@@ -170,12 +176,14 @@ export const tracker = (directory: string, seams: Seams = {}): Tracker => {
       }
     }
     // A record the table no longer shows is retired, so a later process with its pid is not taken for it.
+    if (!newest) return
     const shown = new Set(rows.map(key))
     for (const entry of known) if (!shown.has(entry)) known.delete(entry)
   }
 
-  // Each read takes a number when it starts, and a table is taken only when no later read was taken first. A poll's
-  // table that comes back after a newer look would retire a process the look recorded while it is still there.
+  // Each read takes a number when it starts. A poll's table that comes back after a newer look would retire a process
+  // the look recorded while it is still there, and it may also be the only one that saw a child that started after the
+  // look, so it adds and does not retire.
   let issued = 0
   let applied = 0
   const apply = (
@@ -183,9 +191,9 @@ export const tracker = (directory: string, seams: Seams = {}): Tracker => {
     rows: ReadonlyArray<Row>,
     marks: ReadonlySet<number>,
   ) => {
-    if (read <= applied) return
-    applied = read
-    take(rows, marks)
+    const newest = read > applied
+    if (newest) applied = read
+    take(rows, marks, newest)
   }
 
   const look = () => {

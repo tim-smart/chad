@@ -6,6 +6,7 @@ import turns from "./migrations/0002_turns.ts"
 import kills from "./migrations/0003_kills.ts"
 import prompts from "./migrations/0004_prompts.ts"
 import evidence from "./migrations/0005_evidence.ts"
+import unproven from "./migrations/0006_unproven.ts"
 import type { Volume } from "./Volume.ts"
 
 /** The number of cluster shards chad runs with, from the first release. */
@@ -18,6 +19,7 @@ export const migrations = {
   "0003_kills": kills,
   "0004_prompts": prompts,
   "0005_evidence": evidence,
+  "0006_unproven": unproven,
 }
 
 /** The one connection to `db/chad.db`, serialized, in WAL mode and with the driver's 5 second busy timeout. */

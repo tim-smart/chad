@@ -915,6 +915,15 @@ export const layer = Layer.unwrap(
                       : { _tag: "Failed", reason: row.failure ?? "Internal" }
                 return reply
               }
+              // A turn whose prompt the volume shows neither as stored nor as not stored is held: its delivery stays
+              // unanswered and starts nothing, and the thread's other requests go on, until Tim rules on it (STO-211).
+              if (
+                row !== undefined &&
+                (yield* Sessions.unproven(payload.key))
+              ) {
+                yield* take(payload.key)
+                return yield* Effect.never
+              }
               // A message that joined a turn and is delivered again has nothing left to do.
               if (yield* Sessions.steered(payload.key)) {
                 yield* duplicate
