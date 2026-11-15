@@ -1,23 +1,25 @@
 // The end of a process scenario (docs/spec/17-testing.md, TST-87): a process that a session started in the background
-// leaves its own process group, so a kill of the daemon does not end it, and the driver finds it by the mark every
-// start's environment carries.
+// leaves its daemon's process group, so a kill of the daemon does not end it, and it may drop the mark every start's
+// environment carries. The driver finds it by the process tree and the groups it recorded (`test/support/reap.ts`).
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, test } from "vitest"
 import { eventually, says } from "../support/owner.ts"
 import { alive, daemon } from "../support/process.ts"
 
-test("TST-87 a background process of a session outlives a kill of its daemon, and the end of the scenario ends it", async () => {
+test("TST-87 a background process of a session outlives a kill of its daemon, whatever its environment holds, and the end of the scenario ends it", async () => {
   const running = await daemon()
   const { fakes } = running
   const pidFile = join(running.directory, "background.pid")
+  const bareFile = join(running.directory, "bare.pid")
   await fakes.model.script([
     {
       tool: {
         name: "execute",
         arguments: {
-          script: `const job = await bash({ command: "echo $$ > ${pidFile}; exec sleep 30", background: true })
-console.log(job.id)`,
+          script: `const one = await bash({ command: "echo $$ > ${pidFile}; exec env -u CHAD_TEST_SCENARIO sleep 30", background: true })
+const two = await bash({ command: 'env -i "$(command -v sleep)" 30 & echo $! > ${bareFile}; wait', background: true })
+console.log(one.id, two.id)`,
         },
       },
     },
@@ -26,19 +28,22 @@ console.log(job.id)`,
   const first = await running.start()
   const thread = await fakes.chat.makeThread("direct")
   await says(running, thread, "start a sleeper")
-  const pid = await eventually(
-    () => {
-      try {
-        return Number(readFileSync(pidFile, "utf8"))
-      } catch {
-        return 0
-      }
-    },
-    (value) => value > 0 && alive(value),
-  )
+  const pidOf = (file: string) =>
+    eventually(
+      () => {
+        try {
+          return Number(readFileSync(file, "utf8"))
+        } catch {
+          return 0
+        }
+      },
+      (value) => value > 0 && alive(value),
+    )
+  // One drops the mark and is the daemon's child. The other has an empty environment and is a grandchild.
+  const pids = [await pidOf(pidFile), await pidOf(bareFile)]
   await fakes.model.received(2)
   await first.kill()
-  expect(alive(pid)).toBe(true)
+  expect(pids.map(alive)).toEqual([true, true])
   await running.close()
-  expect(alive(pid)).toBe(false)
+  expect(pids.map(alive)).toEqual([false, false])
 }, 15_000)

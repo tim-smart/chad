@@ -218,6 +218,14 @@ const write = Effect.fnUntraced(function* (
   for (const steer of steers) {
     yield* sql`INSERT OR IGNORE INTO steers (request_key, turn_id) VALUES (${steer.key}, ${steer.turn})`
   }
+  // A turn's prompt is recorded with the batch that stores it, so the record outlives a compaction that drops the
+  // message itself (STO-207).
+  for (const message of messages) {
+    const key = requestOf(message)
+    if (key !== undefined) {
+      yield* sql`INSERT OR IGNORE INTO prompts (request_key, session_id) VALUES (${key}, ${id})`
+    }
+  }
   yield* sql`UPDATE sessions SET environment = ${JSON.stringify(encodeEnvironment(executor))} WHERE id = ${id}`
 })
 
@@ -332,15 +340,36 @@ export const cut = Effect.fnUntraced(function* (key: string) {
  */
 export const promptOf = (key: string) => ({ chad: { request: key } })
 
+/** The request key that marks a message as a turn's prompt, when it is one. */
+const requestOf = (message: Prompt.Message): string | undefined => {
+  const options: unknown = message.options["chad"]
+  if (typeof options !== "object" || options === null) return undefined
+  const request: unknown = (options as { readonly request?: unknown }).request
+  return typeof request === "string" ? request : undefined
+}
+
 /**
- * Whether a session's stored history holds the prompt of a turn, which it does not when a kill came before the prompt
- * was stored (SES-161).
+ * Whether the stored history took the prompt of a turn at some point, which it has not when a kill came before the
+ * prompt was stored (SES-161). A compaction since then does not change the answer (STO-207).
  */
-export const holds = Effect.fnUntraced(function* (id: string, key: string) {
+export const holds = Effect.fnUntraced(function* (key: string) {
   const sql = yield* SqlClient.SqlClient
-  const rows = yield* sql<{ found: number }>`
-    SELECT 1 AS found FROM session_messages
-    WHERE session_id = ${id} AND json_extract(message, '$.options.chad.request') = ${key} LIMIT 1
+  const rows = yield* sql<{
+    found: number
+  }>`SELECT 1 AS found FROM prompts WHERE request_key = ${key}`
+  return rows.length > 0
+})
+
+/**
+ * Records that a chat command runs, by the dedupe key of its event, and says whether it is the first time. A command
+ * whose key is recorded already, in this process or before a restart, does not run again (SES-203, SES-204).
+ */
+export const claim = Effect.fnUntraced(function* (key: string, thread: string) {
+  const sql = yield* SqlClient.SqlClient
+  const rows = yield* sql<{ event_key: string }>`
+    INSERT INTO commands (event_key, thread, ran_at) VALUES (${key}, ${thread}, ${Date.now()})
+    ON CONFLICT (event_key) DO NOTHING
+    RETURNING event_key
   `
   return rows.length > 0
 })

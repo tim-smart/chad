@@ -476,8 +476,7 @@ export const layer = Layer.unwrap(
         ) {
           // A resumed start sends the restart note in place of the owner's message when the stored history holds that
           // message. When a kill came before it was stored, the message goes first and the note after it (SES-161).
-          const held =
-            turn.resumed && (yield* Sessions.holds(live.id, turn.key))
+          const held = turn.resumed && (yield* Sessions.holds(turn.key))
           const read = held
             ? undefined
             : yield* Attachments.read({

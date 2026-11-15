@@ -225,9 +225,8 @@ const boot = Effect.fnUntraced(function* (
   })
   // Each connection has a `Chat` and an adapter registry of its own, because the registry is keyed by platform and
   // two connections can share one. A session finds the `Chat` of a connection by the connection's name.
-  const claim = Handler.runsOnce()
   const running = yield* Chats.make((connection, live) =>
-    inputs.chat(connection).pipe(Layer.provide(Handler.layer(live, claim))),
+    inputs.chat(connection).pipe(Layer.provide(Handler.layer(live))),
   )
   // Cluster deletes a completed request of a session once it is a day old. The `turns` row is what is left of it.
   const retention = MessageRetention.make({

@@ -148,7 +148,7 @@ The product carries no test code. Three seams make that possible. The daemon is 
 - **TST-43** If the archive of the Codex login prototype does not hold the server's frames, the first recording is made on Tim's login, in the `models` slice, when the fake's Codex side is written.
 - **TST-44** The image layer stays on `openai-compat`. The shipped binary cannot be pointed at a fake Codex host, and chad gets no test certificate authority and no host entries to make that possible.
 - **TST-45** A kill point is made by holding something outside the core, which is a model response, a fixture plugin's hook or an MCP server. The daemon gets no pause points.
-- **TST-213** Withdrawn.
+- **TST-213** The test of SES-20 provokes its defect with a fixture plugin's hook that dies, because clanka contains every fake model response tried for it: an unknown tool, arguments that are not an object, a failed call, and a script that throws `null`, leaves a rejection unhandled or completes with a circular value.
 - **TST-46** Layers 3 and 4 import the built package from `dist`, not chad's source through vite. A plugin's imports are answered by the host's `require`, so source loaded through vite could give a plugin a second copy of `chad/Plugin`.
 - **TST-47** One layer 3 scenario asserts that the running daemon holds one copy of `chad` and one copy of `effect`.
 
@@ -770,4 +770,4 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-210 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | TST-211 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | TST-212 | Build, stage 2 | Builder (Tim has not read) | run |  | `definition` | - |
-| TST-213 | Build, stage 2, withdrawn in the review of `kills`, which found a defect that escapes a handler without a plugin | Builder (Tim has not read) | run |  | `rule` | - |
+| TST-213 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `plugin-api` |

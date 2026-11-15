@@ -13,6 +13,11 @@ export interface Reply {
   readonly status?: number
   /** Whether the response waits until the test releases it. */
   readonly hold?: boolean
+  /**
+   * The reply when the call is clanka's summarizer, which sends no tool results, in place of this one. A compaction
+   * runs beside the turn, so which of the two takes a call index is not known in advance.
+   */
+  readonly summary?: Reply
   /** What the call used, in place of one token in and one out. `reasoning` is a part of `output`. */
   readonly usage?: {
     readonly input: number
@@ -103,7 +108,14 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
       calls.push(call)
       options.heard?.(call)
       for (const wake of waiting.splice(0)) wake()
-      const reply = replies[index]
+      const scripted = replies[index]
+      const summarizing =
+        scripted?.summary !== undefined &&
+        !(
+          (call.body as { messages?: ReadonlyArray<{ role?: string }> } | null)
+            ?.messages ?? []
+        ).some((message) => message.role === "tool")
+      const reply = summarizing ? scripted.summary : scripted
       if (reply === undefined) {
         response.writeHead(500, { "content-type": "application/json" })
         response.end(

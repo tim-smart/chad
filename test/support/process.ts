@@ -9,7 +9,6 @@ import {
   existsSync,
   mkdirSync,
   openSync,
-  readdirSync,
   readFileSync,
   rmSync,
 } from "node:fs"
@@ -29,6 +28,7 @@ import * as Fakes from "./fakes.ts"
 import { httpClient } from "./http.ts"
 import * as Model from "./model.ts"
 import * as Platform from "./platform.ts"
+import * as Reap from "./reap.ts"
 
 const child = fileURLToPath(new URL("./child.ts", import.meta.url))
 
@@ -100,39 +100,7 @@ export interface Process {
   ) => Promise<Cli.Ran>
 }
 
-/** The variable that marks every process of one scenario with its directory. */
-const scenarioVariable = "CHAD_TEST_SCENARIO"
-
-/** Whether a process runs, which a zombie that waits to be reaped does not. */
-export const alive = (pid: number) => {
-  try {
-    const stat = readFileSync(`/proc/${pid}/stat`, "utf8")
-    return (
-      stat.slice(stat.lastIndexOf(")") + 2, stat.lastIndexOf(")") + 3) !== "Z"
-    )
-  } catch {
-    return false
-  }
-}
-
-/** The running processes whose environment carries the mark of the scenario in `directory`. */
-const marked = (directory: string): ReadonlyArray<number> => {
-  const mark = `${scenarioVariable}=${directory}`
-  return readdirSync("/proc")
-    .filter((name) => /^\d+$/.test(name))
-    .map(Number)
-    .filter((pid) => {
-      try {
-        return (
-          readFileSync(`/proc/${pid}/environ`, "utf8")
-            .split("\0")
-            .includes(mark) && alive(pid)
-        )
-      } catch {
-        return false
-      }
-    })
-}
+export { alive } from "./reap.ts"
 
 export const daemon = async (options: Options = {}): Promise<Process> => {
   const directory = fresh()
@@ -186,7 +154,7 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
     NPM_CONFIG_CACHE: join(cache, "npm"),
     // Every process a start leads to inherits this, a detached background process included, which is how the end of
     // the scenario finds them (TST-87).
-    [scenarioVariable]: directory,
+    [Reap.scenarioVariable]: directory,
     ...options.env,
   }
 
@@ -214,6 +182,7 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
     log().filter((line) => line.annotations["event"] === "boot.ready").length
 
   const children: Array<Daemon> = []
+  const tracked = Reap.tracker(directory)
   const spawned: Process["spawn"] = (start = {}) => {
     const out = openSync(join(directory, "daemon.out"), "a")
     const gc = start.gc ?? options.gc ?? false
@@ -239,12 +208,18 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
       }),
     )
     record("daemon", { state: "started", pid: running.pid })
+    if (running.pid !== undefined) tracked.root(running.pid)
+    // The daemon's descendants are read before a signal that can end it, while they are still its descendants.
+    const signal = (name: NodeJS.Signals) => {
+      if (name === "SIGKILL" || name === "SIGTERM") tracked.look()
+      running.kill(name)
+    }
     const started: Daemon = {
       pid: running.pid ?? 0,
       exit,
-      kill: () => (running.kill("SIGKILL"), exit),
-      stop: () => (running.kill("SIGTERM"), exit),
-      signal: (name) => void running.kill(name),
+      kill: () => (signal("SIGKILL"), exit),
+      stop: () => (signal("SIGTERM"), exit),
+      signal: (name) => signal(name),
     }
     children.push(started)
     return started
@@ -274,34 +249,18 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
     return started
   }
 
-  // The daemons, then every process that carries the scenario's mark, so nothing a scenario started outlives it. One
-  // that a SIGKILL does not end within the bound fails the scenario.
+  // The daemons, then every process the driver recorded for the scenario (`reap.ts`), so nothing a scenario started
+  // outlives it. One that a SIGKILL does not end within the bound fails the scenario.
   let closing: Promise<void> | undefined
   const close = () =>
     (closing ??= (async () => {
+      tracked.look()
       for (const running of children) {
         running.signal("SIGCONT")
         running.signal("SIGKILL")
         await running.exit
       }
-      const left = Date.now() + 5_000
-      for (;;) {
-        const found = marked(directory)
-        if (found.length === 0) break
-        if (Date.now() > left) {
-          throw new Error(
-            `processes outlived the scenario: ${found.join(", ")}`,
-          )
-        }
-        for (const pid of found) {
-          try {
-            process.kill(pid, "SIGKILL")
-          } catch {
-            // It ended in between.
-          }
-        }
-        await wait()
-      }
+      await tracked.reap(wait)
     })())
 
   onTestFinished(async ({ task }) => {

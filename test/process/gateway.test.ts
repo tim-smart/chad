@@ -140,7 +140,7 @@ test("SES-37 SES-170 SES-199 TST-61c TST-60b after a kill, a resume that Discord
   ).toBe(false)
 }, 20_000)
 
-test("SES-172 SES-203 SES-37 in a thread two bots share, a /new the gateway never carried is caught up by both connections and runs once", async () => {
+test("SES-172 SES-203 SES-204 SES-37 in a thread two bots share, a /new the gateway never carried is caught up by both connections and runs once, and a replay to both bots after a kill runs it no more", async () => {
   const away: Connection = { ...home, name: "away", token: "away-token" }
   // The drop of a duplicate is a debug line.
   const running = await daemon({
@@ -178,7 +178,7 @@ test("SES-172 SES-203 SES-37 in a thread two bots share, a /new the gateway neve
     content: "/new",
     timestamp: new Date().toISOString(),
   })
-  await running.start()
+  const second = await running.start()
   // Each connection's resume is turned down, so each identifies afresh and runs its own catch-up.
   for (const index of [2, 3]) {
     const turnedDown = await running.discord.gateway.socket(index)
@@ -251,4 +251,45 @@ test("SES-172 SES-203 SES-37 in a thread two bots share, a /new the gateway neve
         call.method === "POST" && call.path === `/channels/${shared}/messages`,
     )
   expect(posts).toHaveLength(2)
-}, 25_000)
+
+  // After a kill, both bots resume and Discord replays the /new to each. The stored claim outlives the process.
+  await second.kill()
+  await running.start()
+  for (const index of [6, 7]) {
+    const again = await running.discord.gateway.socket(index)
+    again.receive(Discord.hello)
+    await again.sent(Discord.Op.resume, 1)
+    again.receive(
+      Discord.messageCreate(2, {
+        id: "12",
+        channel: shared,
+        channelType: 11,
+        guild: "600000000000000001",
+        author: owner,
+        content: "/new",
+        timestamp: new Date().toISOString(),
+      }),
+    )
+    again.receive(Discord.resumed(3))
+  }
+  const replayed = await eventually(
+    () => {
+      const log = running.log()
+      const after = log.slice(
+        log.findLastIndex((line) => line.annotations["event"] === "boot.ready"),
+      )
+      return {
+        ran: after.filter((line) => line.annotations["event"] === "command.ran")
+          .length,
+        dropped: after.filter(
+          (line) =>
+            line.annotations["event"] === "message.ignored" &&
+            line.annotations["reason"] === "duplicate",
+        ).length,
+      }
+    },
+    ({ ran, dropped }) => ran + dropped >= 2,
+  )
+  expect(replayed).toEqual({ ran: 0, dropped: 2 })
+  expect(query(running.data, "SELECT id FROM sessions")).toHaveLength(2)
+}, 30_000)

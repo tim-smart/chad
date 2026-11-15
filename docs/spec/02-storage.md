@@ -316,6 +316,21 @@ CREATE TABLE steers (
 ) STRICT;
 ```
 
+- **STO-207** chad records each turn whose prompt the stored history took as one row of the table `prompts`, keyed by the turn's request key, in the same transaction as the batch that stores the prompt. A compaction that takes the prompt out of the history leaves the row, and the row is what tells a resume after a kill before the prompt was stored (SES-161) from one after it. `prompts` rows are never deleted.
+- **STO-208** chad records each chat command it runs as one row of the table `commands`, keyed by the dedupe key of the chat event that carried it, and writes the row before the command runs. `commands` rows are never deleted.
+
+```sql
+CREATE TABLE prompts (
+  request_key TEXT PRIMARY KEY,  -- the key of the turn's request, as in turns.request_key
+  session_id TEXT                -- the session whose history took the prompt
+) STRICT;
+CREATE TABLE commands (
+  event_key TEXT PRIMARY KEY,    -- the dedupe key of the chat event that carried the command
+  thread TEXT,                   -- the thread string of the command's chat thread
+  ran_at INTEGER                 -- milliseconds since the epoch
+) STRICT;
+```
+
 ## The timers table
 
 A plugin timer is a scheduled run that a plugin asked the core to hold, through `Turns.schedule`. Cluster stores the wake-up message, and chad's own table stores what the timer is. The behaviour is in 13-timers-and-cron.md.
@@ -701,3 +716,5 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-204 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
 | STO-205 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
 | STO-206 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| STO-207 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| STO-208 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |

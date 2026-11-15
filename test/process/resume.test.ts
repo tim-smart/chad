@@ -2,7 +2,15 @@
 // on the same volume (docs/spec/17-testing.md, TST-27). A kill point is a model response the fake holds (TST-45).
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
-import { found, lines, posted, prompted, rows, says } from "../support/owner.ts"
+import {
+  eventually,
+  found,
+  lines,
+  posted,
+  prompted,
+  rows,
+  says,
+} from "../support/owner.ts"
 import { daemon } from "../support/process.ts"
 
 test("SES-99 SES-101 SES-102 SES-103 SES-98 STO-71 STO-72 FAIL-253 FAIL-104 FAIL-103b TST-45 TST-27 TST-28 a turn that a kill cut is delivered again at the next start with no word from the owner, counts a second start before the model runs, resumes with the restart note over the restored history and the first attempt's turn id, and adds its usage to what the killed attempt used", async () => {
@@ -127,3 +135,58 @@ test("SES-161 SES-101 a kill after the start is counted and before the prompt is
   const [resumed] = await lines(running, "turn.resumed", 1)
   expect(resumed!.annotations["starts"]).toBe(2)
 }, 15_000)
+
+test("SES-161 SES-101 STO-207 a kill after a compaction took the turn's prompt out of the stored history resumes with the restart note alone, because the record that the prompt was stored outlives the compaction", async () => {
+  const running = await daemon()
+  const { fakes } = running
+  const summary = { text: "the summary" }
+  await fakes.model.script([
+    // The call says the context is over clanka's threshold, which starts a compaction beside the turn.
+    {
+      tool: { name: "execute", arguments: { script: 'console.log("one")' } },
+      usage: { input: 250_000, output: 10 },
+    },
+    // The turn's next call and the summarizer's, in either order. The turn's is held.
+    {
+      tool: { name: "execute", arguments: { script: 'console.log("two")' } },
+      hold: true,
+      summary,
+    },
+    {
+      tool: { name: "execute", arguments: { script: 'console.log("two")' } },
+      hold: true,
+      summary,
+    },
+    // The call that takes the finished compaction, held as the kill point.
+    { text: "never sent", hold: true, summary },
+    { text: "finished" },
+  ])
+  const first = await running.start()
+  const thread = await fakes.chat.makeThread("direct")
+  // Long enough that the compaction does not keep it.
+  const long = "a long story. ".repeat(8_000)
+  await says(running, thread, long)
+  const calls = await fakes.model.received(3)
+  const own = [1, 2].find((index) =>
+    JSON.stringify(calls[index]!.body).includes('"role":"tool"'),
+  )!
+  fakes.model.release(own)
+  await fakes.model.received(4)
+  await eventually(
+    () => rows(running, "SELECT message FROM session_messages"),
+    (stored) =>
+      stored.length > 0 &&
+      !stored.some((row) => String(row["message"]).includes("a long story.")),
+  )
+  expect(rows(running, "SELECT request_key FROM prompts")).toHaveLength(1)
+  await first.kill()
+
+  await running.start()
+  const all = await fakes.model.received(5)
+  const resumed = JSON.stringify(all[4]!.body)
+  expect(resumed).not.toContain("a long story.")
+  expect(resumed).toContain("the summary")
+  expect(prompted(all[4])).toBe(Messages.restartNote())
+  await fakes.chat.answers(thread, 1)
+  expect(await posted(running, thread)).toEqual(["finished"])
+}, 20_000)
