@@ -45,13 +45,15 @@ const direct = { connection: "local", thread: "local:dm", direct: true }
 
 /**
  * One daemon's notices on a volume. Its post records the text it was given, and fails while `failing` says so. Its
- * platform knows no thread as a direct message. Stopping it closes its scope and its database, as a stop or a kill
+ * platform says what `kind` says of every thread, which is no direct message unless the test says otherwise, and
+ * `undefined` when it cannot say. Stopping it closes its scope and its database, as a stop or a kill
  * does.
  */
 const boot = async (
   data: string,
   posted: Array<string>,
   failing: () => boolean = () => false,
+  kind: () => boolean | undefined = () => false,
 ) => {
   const scope = Effect.runSync(Scope.make())
   onTestFinished(() => Effect.runPromise(Scope.close(scope, Exit.void)))
@@ -63,23 +65,26 @@ const boot = async (
   )
   await Effect.runPromise(Storage.migrate.pipe(Effect.provideContext(context)))
   const attempts: Array<string> = []
+  const posts: Array<{ thread: string; direct: boolean }> = []
   const notices = await Effect.runPromise(
     Notices.make({
       data,
       quiet: Duration.hours(24),
-      post: (_, __, text) =>
+      post: (destination, direct, text) =>
         Effect.suspend(() => {
           attempts.push(text)
+          posts.push({ thread: destination.thread, direct })
           if (failing()) return Effect.fail("the platform is down")
           posted.push(text)
           return Effect.void
         }),
-      direct: () => Effect.succeed(false),
+      direct: () => Effect.sync(kind),
     }).pipe(Effect.provideContext(context), Scope.provide(scope)),
   )
   return {
     notices,
     attempts,
+    posts,
     stop: () => Effect.runPromise(Scope.close(scope, Exit.void)),
   }
 }
@@ -222,4 +227,28 @@ it("FAIL-159 FAIL-232 REC-101 a restarted daemon posts where state/notice-thread
           .all().length === 1,
     ),
   )
+})
+
+it("FAIL-231 REC-101 FAIL-341 a restored destination whose kind the platform cannot say stays while the owner writes in a server thread, and its notice is posted as a server's, until the platform says it is a server thread", async () => {
+  const data = volume()
+  const posted: Array<string> = []
+  const first = await boot(data, posted)
+  const saved = { connection: "local", thread: "local:saved", direct: false }
+  await Effect.runPromise(first.notices.arrived(saved))
+  await first.stop()
+
+  let kind: boolean | undefined = undefined
+  const second = await boot(data, posted, undefined, () => kind)
+  const server = { connection: "local", thread: "local:server", direct: false }
+  const file = () =>
+    JSON.parse(readFileSync(join(data, "state/notice-thread"), "utf8"))
+  await Effect.runPromise(second.notices.arrived(server))
+  expect(file()).toEqual({ connection: "local", thread: "local:saved" })
+  await Effect.runPromise(second.notices.raise(low))
+  await until(() => posted.length === 1)
+  expect(second.posts).toEqual([{ thread: "local:saved", direct: false }])
+
+  kind = false
+  await Effect.runPromise(second.notices.arrived(server))
+  expect(file()).toEqual({ connection: "local", thread: "local:server" })
 })

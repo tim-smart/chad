@@ -780,8 +780,9 @@ export const layer = Layer.unwrap(
 
         /**
          * Ends a turn that a defect outside the model's part cut: its row, the failed-turn message and its log line. A
-         * turn whose end cannot be written either is `unrecorded`: its request gets no reply, so that the next start
-         * delivers it again and resumes the turn as one a crash cut (FAIL-135).
+         * turn whose end cannot be written either, or that has no row to write it on, is `unrecorded`: its request
+         * gets no reply, so that the next start delivers it again (FAIL-135). It resumes as a turn a crash cut, or,
+         * when its row was never written, runs as a fresh delivery.
          */
         const failed = (turn: Turn, own: State, connection: string) =>
           Effect.fnUntraced(function* (cause: Cause.Cause<unknown>) {

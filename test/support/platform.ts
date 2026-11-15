@@ -60,6 +60,8 @@ export interface Platform {
     readonly reached: Promise<void>
     readonly release: () => void
   }
+  /** Holds every `getThread` until `release` is called, as a platform that is slow to answer does. */
+  readonly holdThreads: () => { readonly release: () => void }
   /** The number of writes the daemon has made to the chat. */
   readonly writes: () => number
   /** Resolves once the daemon has made more writes than `seen`. */
@@ -138,8 +140,24 @@ export const make = (
         },
       }
     }
+    let threads: Promise<void> | undefined
+    const holdThreads = () => {
+      let release = () => {}
+      threads = new Promise<void>((resolve) => (release = resolve))
+      return {
+        release: () => {
+          threads = undefined
+          release()
+        },
+      }
+    }
     const adapter: ChatAdapter.ChatAdapter = {
       ...inner,
+      getThread: (thread) =>
+        Effect.suspend(() => {
+          const gate = threads
+          return gate === undefined ? Effect.void : Effect.promise(() => gate)
+        }).pipe(Effect.andThen(inner.getThread(thread))),
       download: (thread, attachment, options) =>
         Stream.unwrap(
           Effect.suspend(() => {
@@ -196,6 +214,7 @@ export const make = (
             )
         }),
       holdDownloads,
+      holdThreads,
       writes: () => writes,
       written: (seen) =>
         Effect.callback<void>((resume) => {

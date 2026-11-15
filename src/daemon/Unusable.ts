@@ -117,10 +117,12 @@ const notify = (data: string, text: string, running: Chats.Running<unknown>) =>
       connection: destination.connection,
       thread: destination.thread,
     }
-    const direct = yield* Notices.directMessage(
-      running.chats,
-      running.list,
-    )(destination)
+    // A destination whose kind is unknown is posted in as a server's, as the notices do (FAIL-341).
+    const direct =
+      (yield* Notices.directMessage(
+        running.chats,
+        running.list,
+      )(destination)) ?? false
     const post = Notices.post(running.chats, running.list)
     const posted = yield* Effect.exit(
       Effect.suspend(() => post(destination, direct, text)).pipe(

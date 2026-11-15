@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import * as AgentExecutor from "clanka/AgentExecutor"
-import { Effect, Schema } from "effect"
+import { Data, Effect, Schema } from "effect"
 import { Prompt } from "effect/ai"
 import { SqlClient } from "effect/sql"
 
@@ -589,9 +589,16 @@ export const updates = Effect.fnUntraced(function* (session: string) {
   return { lines: [...older, ...lines], last }
 })
 
+/** A turn's end that found no row of its request to record it on. */
+export class NoTurn extends Data.TaggedError("NoTurn")<{
+  readonly key: string
+}> {}
+
 /**
  * Records how a turn ended: the outcome, and for a failed turn the reason's tag and the whole reason (STO-76). A turn
  * whose end chad posted in the thread in place of an answer gets its line for the next turn in the same transaction.
+ * A request with no row fails with `NoTurn` and writes nothing, its line included, so that an end is recorded only
+ * where the volume holds it (FAIL-135).
  */
 export const ended = Effect.fnUntraced(function* (end: {
   readonly key: string
@@ -606,11 +613,13 @@ export const ended = Effect.fnUntraced(function* (end: {
   const sql = yield* SqlClient.SqlClient
   yield* sql.withTransaction(
     Effect.gen(function* () {
-      yield* sql`
+      const rows = yield* sql<{ turn_id: string }>`
         UPDATE turns SET ended_at = ${end.at}, outcome = ${end.outcome}, failure = ${end.failure?.tag ?? null},
           failure_detail = ${end.failure?.detail ?? null}
         WHERE request_key = ${end.key}
+        RETURNING turn_id
       `
+      if (rows.length === 0) return yield* new NoTurn({ key: end.key })
       if (end.tell !== undefined) {
         yield* insertLine(end.tell.session, {
           turn: end.tell.turn,

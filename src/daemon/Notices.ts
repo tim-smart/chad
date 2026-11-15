@@ -11,7 +11,7 @@ import {
   Schema,
   Semaphore,
 } from "effect"
-import { Chat, ChatMarkdown, ChatThread } from "effect/chat"
+import { Chat, ChatError, ChatMarkdown, ChatThread } from "effect/chat"
 import { SqlClient } from "effect/sql"
 import * as Messages from "../Messages.ts"
 import * as Paths from "../Paths.ts"
@@ -136,12 +136,13 @@ export const post =
     })
 
 /**
- * Whether a destination's thread is a direct message, as its platform says. A thread on no connection of this daemon,
- * or one its platform cannot say, is taken as a server's. It waits for the connection's adapter, as a post does.
+ * Whether a destination's thread is a direct message, as its platform says, or `undefined` while the platform cannot
+ * say. A thread on no connection of this daemon, or one its platform refuses for good, is not a direct message chad
+ * can post in, and is taken as a server's. It waits for the connection's adapter, as a post does.
  */
 export const directMessage =
   (chats: Chats["Service"], connections: () => ReadonlyArray<Connection>) =>
-  (destination: Destination): Effect.Effect<boolean> =>
+  (destination: Destination): Effect.Effect<boolean | undefined> =>
     Effect.gen(function* () {
       const thread = ChatThread.fromString(destination.thread)
       const known = connections().some(
@@ -152,7 +153,20 @@ export const directMessage =
       const chat = yield* chats.get(destination.connection)
       const info = yield* chat.getThread(thread.value)
       return info.kind === "direct"
-    }).pipe(Effect.catchCause(() => Effect.succeed(false)))
+    }).pipe(
+      Effect.catchCause((cause) =>
+        Effect.succeed(
+          cause.reasons.some(
+            (reason) =>
+              reason._tag === "Fail" &&
+              ChatError.isChatError(reason.error) &&
+              reason.error.retry === "denied",
+          )
+            ? false
+            : undefined,
+        ),
+      ),
+    )
 
 /** What a `notices` row holds (STO-169, FAIL-229). Both times are milliseconds since the epoch. */
 interface Row {
@@ -196,8 +210,10 @@ export const make = Effect.fnUntraced(function* (options: {
   /** The time after a key's last notice in which the key is not announced again (FAIL-152). */
   readonly quiet: Duration.Duration
   readonly post: Post
-  /** Whether a thread is a direct message, as its platform says. */
-  readonly direct: (destination: Destination) => Effect.Effect<boolean>
+  /** Whether a thread is a direct message, as its platform says, or `undefined` while it cannot say. */
+  readonly direct: (
+    destination: Destination,
+  ) => Effect.Effect<boolean | undefined>
 }) {
   const sql = yield* SqlClient.SqlClient
   const services = yield* Effect.context<FileSystem.FileSystem>()
@@ -220,8 +236,8 @@ export const make = Effect.fnUntraced(function* (options: {
   /**
    * Whether a destination is a direct message. The thread the file named is looked up once: its session's kind, or
    * its platform's word when it has no session, because a direct message that only a command reached has none
-   * (FAIL-231, REC-101). With `wait`, a platform that has not answered by then leaves the kind unknown for now, and
-   * it is taken as a server's.
+   * (FAIL-231, REC-101). A platform that cannot say, or with `wait` has not answered by then, leaves the kind unknown,
+   * and the next owner's message or notice asks again (FAIL-341).
    */
   const directOf = (target: Target, wait?: Duration.Duration) =>
     target.direct !== undefined
@@ -234,15 +250,15 @@ export const make = Effect.fnUntraced(function* (options: {
           const asking = options.direct(target)
           const direct =
             kind !== undefined
-              ? Option.some(kind === "direct")
+              ? kind === "direct"
               : wait === undefined
-                ? yield* Effect.asSome(asking)
-                : yield* Effect.timeoutOption(asking, wait)
-          if (Option.isNone(direct)) return false
-          if (destination === target) {
-            destination = { ...target, direct: direct.value }
-          }
-          return direct.value
+                ? yield* asking
+                : Option.getOrUndefined(
+                    yield* Effect.timeoutOption(asking, wait),
+                  )
+          if (direct === undefined) return undefined
+          if (destination === target) destination = { ...target, direct }
+          return direct
         })
 
   const read = (key: string): Effect.Effect<Row | undefined> => {
@@ -324,7 +340,8 @@ export const make = Effect.fnUntraced(function* (options: {
       return false
     }
     const where = { connection: target.connection, thread: target.thread }
-    const direct = yield* directOf(target)
+    // A destination whose kind is unknown is posted in as a server's, so that its owners are mentioned (FAIL-341).
+    const direct = (yield* directOf(target)) ?? false
     const posted = yield* Effect.exit(
       Effect.suspend(() => options.post(target, direct, text)).pipe(
         Effect.sandbox,
@@ -453,12 +470,13 @@ export const make = Effect.fnUntraced(function* (options: {
         const same =
           now?.connection === at.connection && now.thread === at.thread
         if (same && !unwritten) return
-        // A direct message session stays the destination while the owner writes elsewhere (REC-101).
+        // A direct message session stays the destination while the owner writes elsewhere (REC-101), and so does one
+        // whose kind the platform has not said yet (FAIL-341).
         if (
           !same &&
           now !== undefined &&
           !at.direct &&
-          (yield* directOf(now, platformWait))
+          (yield* directOf(now, platformWait)) !== false
         ) {
           return
         }

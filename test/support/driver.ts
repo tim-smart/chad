@@ -80,6 +80,8 @@ export interface Scenario {
   readonly fakes: Fakes.Fakes
   /** The chat fake itself, for what needs no verb in the interface, such as `failNext` and `calls`. */
   readonly chat: ChatTest.ChatTest["Service"]
+  /** Holds the platform's `getThread`, see `Platform.holdThreads`. */
+  readonly holdThreads: Platform.Platform["holdThreads"]
   /** Discord's two ends for a `discord` connection: the scripted gateway and the fake REST server. */
   readonly discord: {
     readonly gateway: Discord.Gateway
@@ -356,6 +358,7 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
     data,
     fakes,
     chat: platform.chat,
+    holdThreads: platform.holdThreads,
     discord,
     requests: () => requests,
     log,

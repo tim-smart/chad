@@ -1,5 +1,7 @@
 // The resumed turn and the give-up in layer 4: the daemon as a child process that a scenario kills and starts again
 // on the same volume (docs/spec/17-testing.md, TST-27). A kill point is a model response the fake holds (TST-45).
+import { mkdirSync, rmSync, writeFileSync } from "node:fs"
+import { join } from "node:path"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
 import * as Failed from "../../dist/daemon/Failed.js"
@@ -291,5 +293,85 @@ test("FAIL-135 FAIL-140 SES-99 SES-101 SES-103 SES-200 a turn whose end the full
     { starts: 2, outcome: "answered" },
     { starts: 1, outcome: "answered" },
     { starts: 1, outcome: "answered" },
+  ])
+}, 20_000)
+
+test("FAIL-135 FAIL-281 SES-99 a turn whose row the full volume cannot insert gets the ordinary failed-turn message and no reply and leaves no update, the thread's later messages still answer, and a restart delivers it again as a fresh turn", async () => {
+  const running = await daemon()
+  const { fakes } = running
+  await fakes.model.script([
+    { text: "second answer" },
+    { text: "first answer" },
+  ])
+  const first = await running.start()
+  const thread = await fakes.chat.makeThread("direct")
+  // No test can fill the volume, so a trigger fails the turn's first row with SQLite's full text.
+  execute(
+    running.data,
+    "CREATE TRIGGER full BEFORE INSERT ON turns BEGIN SELECT RAISE(ABORT, 'database or disk is full'); END",
+  )
+  await says(running, thread, "first")
+  const [failed] = await lines(running, "turn.failed", 1)
+  expect(failed!.annotations["reason"]).toBe("Internal")
+  await fakes.chat.answers(thread, 1)
+  const [told] = await posted(running, thread)
+  expect(told).toContain(Messages.turnLine(String(failed!.annotations["turn"])))
+  execute(running.data, "DROP TRIGGER full")
+  expect(rows(running, "SELECT request_key FROM turns")).toEqual([])
+  expect(rows(running, "SELECT seq FROM session_updates")).toEqual([])
+
+  // The thread's next message does not wait behind the request that has no row.
+  await says(running, thread, "second")
+  await fakes.chat.answers(thread, 2)
+  await first.kill()
+
+  await running.start()
+  const calls = await fakes.model.received(2)
+  expect(prompted(calls[1])).toBe("first")
+  await fakes.chat.answers(thread, 3)
+  expect((await posted(running, thread)).slice(1)).toEqual([
+    "second answer",
+    "first answer",
+  ])
+  expect(
+    rows(running, "SELECT starts, outcome FROM turns ORDER BY started_at"),
+  ).toEqual([
+    { starts: 1, outcome: "answered" },
+    { starts: 1, outcome: "answered" },
+  ])
+}, 20_000)
+
+test("FAIL-135 SES-99 a turn whose session directory cannot be made gets the ordinary failed-turn message and no reply, the thread's later messages still answer, and a restart delivers it again as a fresh turn", async () => {
+  const running = await daemon()
+  const { fakes } = running
+  await fakes.model.script([
+    { text: "second answer" },
+    { text: "first answer" },
+  ])
+  const first = await running.start()
+  const thread = await fakes.chat.makeThread("direct")
+  // A file where the sessions directory belongs fails the new session's directory.
+  const sessions = join(running.data, "sessions")
+  rmSync(sessions, { recursive: true })
+  writeFileSync(sessions, "")
+  await says(running, thread, "first")
+  const [failed] = await lines(running, "turn.failed", 1)
+  expect(failed!.annotations["reason"]).toBe("Internal")
+  await fakes.chat.answers(thread, 1)
+  rmSync(sessions)
+  mkdirSync(sessions)
+  expect(rows(running, "SELECT request_key FROM turns")).toEqual([])
+
+  await says(running, thread, "second")
+  await fakes.chat.answers(thread, 2)
+  await first.kill()
+
+  await running.start()
+  const calls = await fakes.model.received(2)
+  expect(prompted(calls[1])).toBe("first")
+  await fakes.chat.answers(thread, 3)
+  expect((await posted(running, thread)).slice(1)).toEqual([
+    "second answer",
+    "first answer",
   ])
 }, 20_000)
