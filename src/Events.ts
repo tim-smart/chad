@@ -44,7 +44,6 @@ export const events = {
   "skill.skipped": "Warn",
   "skill.bundled-changed": "Info",
   "disk.low": "Warn",
-  "disk.critical": "Error",
   "disk.full": "Error",
   "database.unusable": "Error",
   "database.migrated": "Info",

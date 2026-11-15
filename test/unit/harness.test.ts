@@ -85,7 +85,6 @@ describe("the durations", () => {
       bootCountClear: 60,
       freeSpaceInterval: 3600,
       pruneAge: 30 * 24 * 3600,
-      turnEndRetry: 60,
       noticeQuiet: 24 * 3600,
       statusFailedWindow: 24 * 3600,
       statusTokenWindow: 7 * 24 * 3600,
@@ -311,17 +310,6 @@ describe("the suite", () => {
       ...sources("test/process"),
     ]) {
       expect(read(file), file).not.toMatch(/setTimeout|sleep\(|within \d+/)
-    }
-  })
-
-  it("TST-81 TST-211 the gate's layers job and its image job upload what the failed scenarios left under the run's directory", () => {
-    const jobs: Record<string, { steps: ReadonlyArray<Step> }> = yaml(
-      ".github/workflows/gate.yml",
-    ).jobs
-    for (const job of ["layers", "image"]) {
-      const upload = jobs[job]?.steps.find((step) => step.if === "failure()")
-      expect(upload?.uses).toMatch(/^actions\/upload-artifact@/)
-      expect(upload?.with?.["path"]).toBe("/tmp/chad-*/")
     }
   })
 

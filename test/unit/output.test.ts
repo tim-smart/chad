@@ -3,7 +3,7 @@ import * as Messages from "../../src/Messages.ts"
 import * as Status from "../../src/Status.ts"
 import { read } from "../support/repo.ts"
 
-it("TST-92 STO-201 STO-202 what chad db prints beside its rows are templates of the Messages module, in the spec's wording", () => {
+it("STO-201 STO-202 what chad db prints beside its rows are templates of the Messages module, in the spec's wording", () => {
   const spec = read("docs/spec/02-storage.md")
   const templates = [
     Messages.dbMore(200),

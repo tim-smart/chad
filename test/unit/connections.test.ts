@@ -14,7 +14,7 @@ import * as Token from "../../src/cli/Token.ts"
 import * as Messages from "../../src/Messages.ts"
 import { read } from "../support/repo.ts"
 
-it("TST-92 CLI-217 CLI-218 CLI-219 CLI-220 CLI-221 CLI-222 CLI-223 CLI-224 CLI-225 CLI-226 CLI-227 CLI-233 STO-197 the lines of the connection and owner commands are templates of the Messages module, in the spec's wording", () => {
+it("CLI-217 CLI-218 CLI-219 CLI-220 CLI-221 CLI-222 CLI-223 CLI-224 CLI-225 CLI-226 CLI-227 CLI-233 STO-197 the lines of the connection and owner commands are templates of the Messages module, in the spec's wording", () => {
   const spec = read("docs/spec/10-cli.md") + read("docs/spec/02-storage.md")
   const rejected = (
     reason: Parameters<typeof Messages.connectionRejected>[1]["reason"],

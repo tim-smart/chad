@@ -9,10 +9,10 @@ Two daemons appear below. "chad" always means chad's own daemon, and "the asphod
 chad has no built-in memory (see 00-overview.md). asphodel's Hermes plugin is the Python code under `plugin/` in `tim-smart/asphodel`, read at commit `f8ccdea`. It uses every kind of extension point a plugin needs: start-up and shutdown, a system prompt block per session, context injected before a turn, the transcript after a turn with its author and time, a notice on a reset and on a compaction, tools, settings, stored state and background work. A plugin API that can express all of it is enough for v1, so the plugin written against the API is the API's acceptance test.
 
 - **ASP-1** Every extension point of asphodel's Hermes plugin is expressed against the plugin API in 06-plugin-api.md. No kind of hook exists only for this plugin.
-- **ASP-2** The asphodel plugin is a test fixture in chad's repository, exactly as this part prints it, together with the fake asphodel daemon printed below. The fixture file is the source and this part prints it (see 17-testing.md).
+- **ASP-2** The asphodel plugin is a test fixture in chad's repository, together with the fake asphodel daemon printed below. The fixture starts from what this part prints. The fixture file is the source, and nothing keeps the printed copy in step (see 17-testing.md).
 - **ASP-3** The fixture is type-checked against the built declaration files of the `chad` package and run through the real chad daemon with the twelve scenarios listed below (see 17-testing.md).
 - **ASP-4** The fixture is not in the image, and nothing from asphodel's repository enters chad's CI.
-- **ASP-109** CI compares the two code blocks of this part, which are the plugin source and the fake asphodel daemon, with the two fixture files, and fails when they differ (see 17-testing.md).
+- **ASP-109** Withdrawn.
 - **ASP-5** The plugin imports `Plugin` and `Session` from `chad` and nothing else from chad. Every other import is a module of `effect`.
 - **ASP-6** The plugin builds one service of its own per load, and that one service serves every session. State that belongs to a session or a turn is keyed by the session id or the turn id.
 
@@ -56,16 +56,16 @@ The plugin's name is `asphodel`, so its file is `plugins/asphodel.ts` and its en
 - **ASP-12** The timezone that the plugin sends is the `timezone` setting when it is set, and otherwise the name of chad's `DateTime.CurrentTimeZone`.
 - **ASP-13** A change to the owners or to chad's timezone reloads the plugin (see 06-plugin-api.md). Each load sends the bank again, so the new values reach the asphodel daemon.
 - **ASP-14** With `ingest` set to `false` the plugin sends no turn to the asphodel daemon. The system prompt block, the prefetch, the tools and the clear on a reset or a compaction still run.
-- **ASP-15** In the Compose example the plugin's settings are `"url": "http://asphodel:7720"` and `"token": "${ASPHODEL_TOKEN}"`. On Kubernetes the asphodel daemon is a sidecar in chad's pod and `url` is `http://127.0.0.1:7720` (see 01-image-and-volume.md).
+- **ASP-15** On Kubernetes the asphodel daemon is a sidecar in chad's pod, and the plugin's settings are `"url": "http://127.0.0.1:7720"` and `"token": "${ASPHODEL_TOKEN}"` (see 01-image-and-volume.md).
 
-The entry for the Compose example:
+The entry for the Kubernetes example:
 
 ```json
 {
   "plugins": {
     "asphodel": {
       "settings": {
-        "url": "http://asphodel:7720",
+        "url": "http://127.0.0.1:7720",
         "token": "${ASPHODEL_TOKEN}"
       }
     }
@@ -891,7 +891,7 @@ These notes are for whoever ports the plugin. They are not rules for chad.
 | Rule | Source | Agreed by | Support | Changed by | Kind | Slice |
 | --- | --- | --- | --- | --- | --- | --- |
 | ASP-1 | Map (Agreed at charting), TIM-539 resolution | charting for the acceptance test, Tim for the result | run |  | `rule` | `asphodel` |
-| ASP-2 | TIM-558 item 49 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
+| ASP-2 | TIM-558 item 49, amended by Tim's ruling that the bookkeeping checks go, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | ASP-3 | TIM-558 item 49 | Architect (Tim has not read) | not run |  | `rule` | `asphodel` |
 | ASP-4 | TIM-558 item 49 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | ASP-5 | TIM-539 prototype, TIM-553 item 3 | Tim for the prototype, Architect (Tim has not read) for the package exports | run |  | `rule` | `plugin-api` |
@@ -904,7 +904,7 @@ These notes are for whoever ports the plugin. They are not rules for chad.
 | ASP-12 | TIM-539 item 3, TIM-539 prototype | Tim | run |  | `rule` | `plugin-api` |
 | ASP-13 | TIM-539 item 2, TIM-542 item 16 | Tim | not run |  | `rule` | `settings` |
 | ASP-14 | TIM-539 prototype (in the archive, no separate yes) | Tim | not run |  | `rule` | `settings` |
-| ASP-15 | TIM-541 item 23 | Architect (Tim has not read) | not run |  | `rule` | `image` |
+| ASP-15 | TIM-541 item 23, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | ASP-16 | TIM-539 resolution (in the prototype, no separate yes) | Tim | run |  | `rule` | `plugin-api` |
 | ASP-17 | TIM-539 item 7, TIM-539 prototype comment | Tim | run |  | `rule` | `plugin-api` |
 | ASP-18 | TIM-554 item 2, which removes TIM-546 item 18 | Tim for no redaction, Architect (Tim has not read) for applying it to afterTurn | not run |  | `rule` | `plugin-api` |
@@ -998,7 +998,7 @@ These notes are for whoever ports the plugin. They are not rules for chad.
 | ASP-106 | TIM-539 prototype comment (where each part lands) | Tim | not run |  | `definition` | - |
 | ASP-107 | TIM-557 item 13, TIM-539 prototype | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | ASP-108 | TIM-557 item 41 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| ASP-109 | TIM-559 ruling on ASP-G9 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
+| ASP-109 | TIM-559 ruling on ASP-G9, withdrawn by Tim's ruling that the bookkeeping checks go, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | ASP-110 | TIM-559 ruling on ASP-G12 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | ASP-111 | TIM-559 ruling on ASP-G12 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | ASP-112 | TIM-559 ruling on ASP-G2, TIM-538 as changed by TIM-552 for the exception | Architect (Tim has not read) for the rule, Tim for the exception | not run | TIM-559 | `rule` | `apply` |

@@ -43,7 +43,7 @@ describe("what chad asks of Discord", () => {
 })
 
 describe("layer 6", () => {
-  it("TST-30 no project and no workflow reaches a real Discord, a Codex login or a real model, so none of layer 6 gates a pull request", () => {
+  it("TST-30 no project and no workflow reaches a real Discord or a Codex login, so none of layer 6 gates a pull request", () => {
     const projects = (config.test?.projects ?? []).map((project) =>
       typeof project === "object" && "test" in project
         ? project.test?.name

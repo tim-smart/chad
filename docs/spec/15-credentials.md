@@ -344,7 +344,7 @@ The rules an agent has to follow cannot be enforced by a command, so they live i
 - **CRED-95** The skill says that agent-browser's vault is a second copy of the password, encrypted with a key that sits beside it in `~/.agent-browser/.encryption-key`.
 - **CRED-96** The skill carries the rules for a password typed into the chat (CRED-77, CRED-78 and CRED-79) and the plain statement about both factors (CRED-15).
 - **CRED-108** The CI checks on a bundled skill, which 14-self-edit-skill.md lists, run on the `credentials` skill too (see 17-testing.md).
-- **CRED-127** The skill says to restart the browser service when CDP on `127.0.0.1` refuses a connection after chad's container restarted.
+- **CRED-127** Withdrawn.
 
 The agent-browser steps that signed in to the prototype's test form, for the recipe. `--cdp 9222` points agent-browser at the sidecar's Chromium.
 
@@ -357,10 +357,10 @@ agent-browser --cdp 9222 fill '#code' "$(chad secret code SITE_TOTP 2>/dev/null)
 
 ## The browser sidecar
 
-- **CRED-97** The browser sidecar shares chad's network namespace. In compose that is `network_mode: service:chad` on the browser's service. On Kubernetes it is a container in chad's pod.
+- **CRED-97** The browser sidecar shares chad's network namespace. On Kubernetes it is a container in chad's pod.
 - **CRED-98** Tools reach the browser's CDP port on loopback, at `http://127.0.0.1:9222` in the recipes. Chrome 149 listens on loopback whatever `--remote-debugging-address` says, and when reached by container name through a forwarder it answers "500 Host header is specified and is not an IP address or localhost."
 - **CRED-99** Anything in chad's container can drive the logged-in browser. The spec says so in plain words.
-- **CRED-128** The sidecar's service in the Compose example depends on chad's service with `restart: true` (see 01-image-and-volume.md). Compose applies that only to a restart it performs itself, so a chad container that crashes and comes back, or a `docker restart` of it, can still leave the browser unreachable, and CRED-127 is the way out.
+- **CRED-128** Withdrawn.
 
 ## The Playwright MCP recipe
 
@@ -393,13 +393,13 @@ Playwright MCP masks its own text results by replacing a value with `<secret>NAM
 
 ## Runs owed to the test plan
 
-- **CRED-104** The build's test plan (see 17-testing.md) includes the seven runs that were asked for and not made. Six are daemon scenarios, and the container one runs in the image layer. They are listed below.
-- **CRED-110** The test plan also holds the Enter modal on the test chat platform, a negative test for a click and for a modal submit from someone who is not an owner, and a real Discord modal completed by hand before a release (see 17-testing.md).
+- **CRED-104** The build's test plan (see 17-testing.md) includes the seven runs that were asked for and not made. Six are daemon scenarios, and the container one is part of the one run on Tim's k3s node. They are listed below.
+- **CRED-110** The test plan also holds the Enter modal on the test chat platform, a negative test for a click and for a modal submit from someone who is not an owner, and a real Discord modal completed by hand once, at the end of the build (see 17-testing.md).
 
 - Retiring a forgotten button on a click (CRED-72).
 - The name limit at `request` and `/secret` (CRED-18). Only a button failing to post at a 76 character name was seen.
 - The save failing after the modal's reply (CRED-54).
-- Recreating chad's container alone on Docker with the shared network namespace, and a restart of chad's container after a crash (CRED-97 and CRED-128).
+- The browser sidecar on the shared network namespace of chad's pod (CRED-97).
 - `${NAME}` in `mcp.json` naming a TOTP secret failing the apply (CRED-37).
 - A dotenv value with a newline, and one with both `'` and ` #` (CRED-101).
 - Where an MCP server's working directory is in chad (CRED-103).
@@ -522,20 +522,20 @@ These were also never run. A real Discord modal, a real model following the skil
 | CRED-94 | TIM-554 decision 11 | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |
 | CRED-95 | TIM-554 decision 11 | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |
 | CRED-96 | TIM-546 items 3 and 17, TIM-554 decision 3 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
-| CRED-97 | TIM-554 decision 4 | Architect (Tim has not read) | run |  | `rule` | `image` |
+| CRED-97 | TIM-554 decision 4, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | run |  | `rule` | `image` |
 | CRED-98 | TIM-554 decision 4 | Architect (Tim has not read) | run |  | `rule` | `image` |
 | CRED-99 | TIM-554 decision 4 | Architect (Tim has not read) | run |  | `definition` | - |
 | CRED-100 | TIM-554 decision 12 | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |
 | CRED-101 | TIM-554 decision 12 | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |
 | CRED-102 | TIM-554 decision 12 | Architect (Tim has not read) | run |  | `definition` | - |
 | CRED-103 | TIM-554 decision 11, amended by TIM-559 ruling on CRED-G14 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
-| CRED-104 | TIM-554 "Not run" and "Passed on", TIM-558 items 52 and 54, amended by TIM-559 ruling on IMG-G17 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
+| CRED-104 | TIM-554 "Not run" and "Passed on", TIM-558 items 52 and 54, amended by TIM-559 ruling on IMG-G17, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | CRED-105 | TIM-557 item 4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | CRED-106 | TIM-557 item 39, amended by TIM-559 ruling on SWAP-G13 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | CRED-107 | TIM-558 item 35 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | CRED-108 | TIM-558 item 32, TIM-557 item 43 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | CRED-109 | TIM-558 items 8 and 33 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| CRED-110 | TIM-558 items 29, 35, 37 and 52, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `live` |
+| CRED-110 | TIM-558 items 29, 35, 37 and 52, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `live` |
 | CRED-111 | TIM-559 ruling on SET-G8 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `settings` |
 | CRED-112 | TIM-559 ruling on REC-G19 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `settings` |
 | CRED-113 | TIM-559 ruling on CRED-G11 | Architect (Tim has not read) | not run | TIM-546, TIM-559 | `rule` | `settings` |
@@ -552,8 +552,8 @@ These were also never run. A real Discord modal, a real model following the skil
 | CRED-124 | TIM-559 ruling on CRED-G8 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | CRED-125 | TIM-559 ruling on CRED-G8 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | CRED-126 | TIM-559 ruling on SES-G3 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| CRED-127 | TIM-559 ruling on IMG-G17 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
-| CRED-128 | TIM-559 ruling on IMG-G17 | Architect (Tim has not read) | read |  | `rule` | `image` |
+| CRED-127 | TIM-559 ruling on IMG-G17, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| CRED-128 | TIM-559 ruling on IMG-G17, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | read |  | `rule` | - |
 | CRED-129 | TIM-559 ruling on CRED-G14 | Architect (Tim has not read) | not run |  | `definition` | - |
 | CRED-130 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | CRED-131 | TIM-559 round 3 on CRED-G20 | Architect (Tim has not read) | not run |  | `rule` | `settings` |

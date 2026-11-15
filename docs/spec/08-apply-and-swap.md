@@ -688,7 +688,7 @@ Each message below is the failure text of a plugin tool call, and the table name
 
 - **SWAP-115** The check that a removed plugin's queued hook is dropped and logged depends on an order, which the test states. It holds the first hook open until the removal (see 17-testing.md).
 - **SWAP-124** How the rules of this part are tested is in 17-testing.md, which holds the layer the swap scenarios run in.
-- **SWAP-145** One fixed task of the live skill runs is a fix to a tool that the same turn then calls, so that a real model meets message 1 (see 17-testing.md).
+- **SWAP-145** Withdrawn.
 - **SWAP-146** That task passes when, after message 1, the turn has no second apply and at most one more call to the refused tool, and the call in the next turn succeeds.
 
 ## Gaps
@@ -848,7 +848,7 @@ Each message below is the failure text of a plugin tool call, and the table name
 | SWAP-142 | TIM-559 ruling on SWAP-G9 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `apply` |
 | SWAP-143 | TIM-559 ruling on REC-G19 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `settings` |
 | SWAP-144 | TIM-559 ruling on SET-G8 and SET-G9 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `settings` |
-| SWAP-145 | TIM-559 ruling on SWAP-G11 | Architect (Tim has not read) | not run |  | `rule` | `live` |
+| SWAP-145 | TIM-559 ruling on SWAP-G11, withdrawn by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | SWAP-146 | TIM-559 ruling on SWAP-G11 | Architect (Tim has not read) | not run |  | `rule` | `live` |
 | SWAP-147 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | SWAP-148 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `settings` |

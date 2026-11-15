@@ -47,7 +47,7 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 | `cli` | 1 | The socket, the lock and the CLI skeleton: RPC, the queue, `health`, `status`, `db query`, the version header, the session marker, exit codes, and connection and owner storage with `chad connection` and `chad owner`. The stored connections replace the connections input of `runDaemon`, a connection or owner change reaches the running daemon with no restart, and the first turn inside the image runs here. |
 | `turns` | 2 | Sessions and turns in one process: steering, `/new`, `/stop`, chat commands, the stored history and the reconcile, passivation, compaction, the `turns` table, attachments into the inbox. |
 | `kills` | 2 | The process-scenario driver and everything that needs a kill or a restart: the resumed turn, the give-up, the graceful stop with its 15 second wait for requests in flight, redelivery, and the catch-up after a restart. |
-| `failures` | 2 | The full logger, `chad logs`, `Failed.reason` and the failed-turn messages, the notice table and notices, the full disk rules, the status blocks. |
+| `failures` | 2 | The full logger, `chad logs`, `Failed.reason` and the failed-turn messages, the notice table and notices, the free space check, the status blocks. |
 | `discord-ui` | 2 | What a turn looks like in Discord: the status message, the split, attachments out, the Stop button, the wordings. |
 | `models` | 2 | The providers, the Codex login on the fake's Codex side, `/model`, the model check, the usage limit, the retry line and the silence bound. |
 | `plugin-api` | 3 | The plugin API with plugins handed to `runDaemon` through its plugins input (see 17-testing.md): the four modules, hooks and their ordering, prompt chunks, the key-value store, `Turns` and plugin-started turns, `sendFile`, tools, the Agent rebuild by generation. No loading from the repo. |
@@ -57,10 +57,10 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 | `skills-mcp` | 4 | Skills, MCP servers, `chad mcp login`, and the stop's 60 second deadline, which only an MCP server can hold a stop open long enough to reach. |
 | `timers-cron` | 4 | Timers and the cron plugin. |
 | `backup` | 5 | `chad backup` and `chad restore`, the prune job, the before-migration copy. |
-| `image` | 5 | Compose, the Kubernetes manifests and the script of their checks, the browser sidecar wiring. |
+| `image` | 5 | The Kubernetes manifests and the script of their checks, the browser sidecar wiring. |
 | `bundled-skills` | 5 | The `self-edit`, `credentials` and `diagnose` skills, the skill text and its checks. |
 | `asphodel` | 5 | The check that all twelve asphodel scenarios are green. Each scenario's own rules go in the earliest slice that can run it. |
-| `live` | 5 | The rest of the live layer: the Codex list, the skill runs, the release checklist, the prototype scenario table check. |
+| `live` | 5 | The rest of the live layer: the Codex list, and one checklist for it and for the hand checks. |
 
 - **ORD-15** A slice's rules are the rules whose Provenance row names the slice. The table above says what each slice is for and is not a list of its rules. Where the table and a rule's row disagree, the row holds.
 ## Why the slices come in this order
@@ -114,10 +114,10 @@ A builder reads `AGENTS.md` at the root of the repo on every run and may not rea
 | ORD-6 | TIM-559 round 2 R7; Tim, chat 2026-11-15 | Tim for the stage. Architect (Tim has not read) for the rest | not run |  | `definition` | - |
 | ORD-7 | Tim, chat 2026-11-15, TIM-559 round 5 item 2 | Tim | not run |  | `definition` | - |
 | ORD-8 | Tim, chat 2026-11-15 | Tim | not run |  | `definition` | - |
-| ORD-9 | TIM-559 round 4 item 11; follows from Tim, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| ORD-10 | TIM-559 round 4 item 11; follows from Tim, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| ORD-11 | TIM-559 round 4 item 11; follows from Tim, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| ORD-12 | TIM-559 round 4 item 11; follows from Tim, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
+| ORD-9 | TIM-559 round 4 item 11; follows from Tim, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| ORD-10 | TIM-559 round 4 item 11; follows from Tim, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| ORD-11 | TIM-559 round 4 item 11; follows from Tim, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| ORD-12 | TIM-559 round 4 item 11; follows from Tim, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-13 | TIM-558 item 3 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-14 | TIM-559 round 2 R2 and R6 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-15 | TIM-559 round 2 R6 | Architect (Tim has not read) | not run |  | `definition` | - |
@@ -145,9 +145,9 @@ A builder reads `AGENTS.md` at the root of the repo on every run and may not rea
 | ORD-37 | TIM-559 round 2 R10 item 1; Tim, chat 2026-11-15 | Architect (Tim has not read). Tim for a delivered slice in place of a merged pull request | not run |  | `definition` | - |
 | ORD-38 | Tim, chat 2026-11-15 | Tim | not run |  | `definition` | - |
 | ORD-39 | TIM-558 items 1 and 36 | Architect (Tim has not read) | not run |  | `definition` | - |
-| ORD-40 | TIM-559 round 4 item 11 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
+| ORD-40 | TIM-559 round 4 item 11, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-41 | TIM-559 round 4 item 11 | Architect (Tim has not read) | not run |  | `definition` | - |
-| ORD-42 | TIM-559 cold read, wire reader; TIM-559 round 2 R7; TIM-559 round 5 item 1 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
+| ORD-42 | TIM-559 cold read, wire reader; TIM-559 round 2 R7; TIM-559 round 5 item 1, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-43 | TIM-559 cold read, wire reader; TIM-559 round 2 R7; TIM-559 round 5 item 1 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-44 | TIM-559 cold read, wire reader; TIM-558 item 3; TIM-559 round 5 item 2, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-46 | TIM-559 cold read, wire reader; follows from Tim, chat 2026-11-15; TIM-559 round 5 item 3, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |

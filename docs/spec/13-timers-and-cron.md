@@ -185,7 +185,7 @@ Cron is a bundled plugin, which means it ships in the image and not in the owner
 - **CRON-59** Jobs have no CLI commands. They are managed through cron's tools.
 - **CRON-109** A job is identified by its name. The name is unique among all of cron's jobs across all threads, because `cronUpdate` can move a job between threads.
 - **CRON-110** A job's name cannot be changed in v1.
-- **CRON-111** Cron uses the job's name as the name of the job's timer and as the label of its turns. The label is what the owner reads in the `ThreadGone` notice and in the full disk message.
+- **CRON-111** Cron uses the job's name as the name of the job's timer and as the label of its turns. The label is what the owner reads in the `ThreadGone` notice.
 - **CRON-112** A job created during a run of another job takes the owner id of the job whose run created it, because that is the only owner the turn has.
 - **CRON-113** A job created in a turn that has no owner message and no cron job behind it, such as a turn another plugin started with `Turns.start`, gets no owner id and never pings.
 - **CRON-114** A job records whether its timezone was given or taken from the default.
@@ -386,7 +386,7 @@ The prompt wrapper is the set of lines cron puts around the owner's prompt so th
 | CRON-108 | TIM-559 ruling on CRON-G11 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | CRON-109 | TIM-559 ruling on CRON-G1 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
 | CRON-110 | TIM-559 ruling on CRON-G1 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
-| CRON-111 | TIM-559 ruling on CRON-G1 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
+| CRON-111 | TIM-559 ruling on CRON-G1, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
 | CRON-112 | TIM-559 ruling on CRON-G10 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
 | CRON-113 | TIM-559 ruling on CRON-G10 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
 | CRON-114 | TIM-559 ruling on CRON-G18 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `timers-cron` |
