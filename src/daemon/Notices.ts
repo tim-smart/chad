@@ -135,6 +135,25 @@ export const post =
       )
     })
 
+/**
+ * Whether a destination's thread is a direct message, as its platform says. A thread on no connection of this daemon,
+ * or one its platform cannot say, is taken as a server's. It waits for the connection's adapter, as a post does.
+ */
+export const directMessage =
+  (chats: Chats["Service"], connections: () => ReadonlyArray<Connection>) =>
+  (destination: Destination): Effect.Effect<boolean> =>
+    Effect.gen(function* () {
+      const thread = ChatThread.fromString(destination.thread)
+      const known = connections().some(
+        ({ name }) => name === destination.connection,
+      )
+      if (Option.isNone(thread) || !known) return false
+      yield* chats.ready(destination.connection)
+      const chat = yield* chats.get(destination.connection)
+      const info = yield* chat.getThread(thread.value)
+      return info.kind === "direct"
+    }).pipe(Effect.catchCause(() => Effect.succeed(false)))
+
 /** What a `notices` row holds (STO-169, FAIL-229). Both times are milliseconds since the epoch. */
 interface Row {
   readonly holds: boolean
@@ -143,6 +162,12 @@ interface Row {
   readonly text: string
   readonly delivered: boolean
 }
+
+/** A destination, and whether its thread is a direct message, which is `undefined` until it is looked up. */
+type Target = Destination & { readonly direct: boolean | undefined }
+
+/** How long an owner's message waits for a platform to say whether the destination is a direct message. */
+const platformWait = Duration.seconds(5)
 
 export class Notices extends Context.Service<
   Notices,
@@ -171,6 +196,8 @@ export const make = Effect.fnUntraced(function* (options: {
   /** The time after a key's last notice in which the key is not announced again (FAIL-152). */
   readonly quiet: Duration.Duration
   readonly post: Post
+  /** Whether a thread is a direct message, as its platform says. */
+  readonly direct: (destination: Destination) => Effect.Effect<boolean>
 }) {
   const sql = yield* SqlClient.SqlClient
   const services = yield* Effect.context<FileSystem.FileSystem>()
@@ -184,18 +211,39 @@ export const make = Effect.fnUntraced(function* (options: {
   const live = new Map<string, string>()
 
   const stored = yield* readDestination(options.data)
-  let destination: (Destination & { readonly direct: boolean }) | undefined =
-    stored === undefined
-      ? undefined
-      : {
-          ...stored,
-          direct:
-            (yield* Sessions.kindOf(stored.thread).pipe(
-              Effect.orElseSucceed(() => undefined),
-            )) === "direct",
-        }
+  // The file does not say whether its thread is a direct message (STO-121), so that is looked up when it first matters.
+  let destination: Target | undefined =
+    stored === undefined ? undefined : { ...stored, direct: undefined }
   /** Whether the destination in memory is newer than the file, because the file could not be written. */
   let unwritten = false
+
+  /**
+   * Whether a destination is a direct message. The thread the file named is looked up once: its session's kind, or
+   * its platform's word when it has no session, because a direct message that only a command reached has none
+   * (FAIL-231, REC-101). With `wait`, a platform that has not answered by then leaves the kind unknown for now, and
+   * it is taken as a server's.
+   */
+  const directOf = (target: Target, wait?: Duration.Duration) =>
+    target.direct !== undefined
+      ? Effect.succeed(target.direct)
+      : Effect.gen(function* () {
+          const kind = yield* Sessions.kindOf(target.thread).pipe(
+            Effect.orElseSucceed(() => undefined),
+            Effect.provideService(SqlClient.SqlClient, sql),
+          )
+          const asking = options.direct(target)
+          const direct =
+            kind !== undefined
+              ? Option.some(kind === "direct")
+              : wait === undefined
+                ? yield* Effect.asSome(asking)
+                : yield* Effect.timeoutOption(asking, wait)
+          if (Option.isNone(direct)) return false
+          if (destination === target) {
+            destination = { ...target, direct: direct.value }
+          }
+          return direct.value
+        })
 
   const read = (key: string): Effect.Effect<Row | undefined> => {
     const held = pending.get(key)
@@ -276,8 +324,9 @@ export const make = Effect.fnUntraced(function* (options: {
       return false
     }
     const where = { connection: target.connection, thread: target.thread }
+    const direct = yield* directOf(target)
     const posted = yield* Effect.exit(
-      Effect.suspend(() => options.post(target, target.direct, text)).pipe(
+      Effect.suspend(() => options.post(target, direct, text)).pipe(
         Effect.sandbox,
         Effect.retry({ times: 1 }),
       ),
@@ -405,7 +454,14 @@ export const make = Effect.fnUntraced(function* (options: {
           now?.connection === at.connection && now.thread === at.thread
         if (same && !unwritten) return
         // A direct message session stays the destination while the owner writes elsewhere (REC-101).
-        if (!same && now?.direct === true && !at.direct) return
+        if (
+          !same &&
+          now !== undefined &&
+          !at.direct &&
+          (yield* directOf(now, platformWait))
+        ) {
+          return
+        }
         destination = at
         const wrote = yield* Effect.exit(
           writeDestination(options.data, at).pipe(

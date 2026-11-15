@@ -283,6 +283,7 @@ const boot = Effect.fnUntraced(function* (
     data: volume.data,
     quiet: inputs.timings.noticeQuiet,
     post: Notices.post(running.chats, running.list),
+    direct: Notices.directMessage(running.chats, running.list),
   }).pipe(Effect.provideContext(base))
   state.problems.push(notices.problems)
   state.held = notices.held

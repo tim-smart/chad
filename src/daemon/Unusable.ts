@@ -7,9 +7,7 @@ import {
   Exit,
   FileSystem,
   Layer,
-  Option,
 } from "effect"
-import { ChatThread } from "effect/chat"
 import type { HttpClient } from "effect/http"
 import type { Socket } from "effect/socket"
 import * as Messages from "../Messages.ts"
@@ -97,20 +95,6 @@ export const run = Effect.fnUntraced(function* (options: {
   yield* Effect.forkIn(notify(volume.data, text, running), scope)
 })
 
-/** Whether the thread is a direct message, as its platform says. A thread it cannot say is taken as a server's. */
-const directMessage = (
-  chats: Chats.Chats["Service"],
-  destination: Notices.Destination,
-) =>
-  Effect.gen(function* () {
-    const thread = ChatThread.fromString(destination.thread)
-    if (Option.isNone(thread)) return false
-    yield* chats.ready(destination.connection)
-    const chat = yield* chats.get(destination.connection)
-    const info = yield* chat.getThread(thread.value)
-    return info.kind === "direct"
-  }).pipe(Effect.orElseSucceed(() => false))
-
 /**
  * Sends the error to the thread `state/notice-thread` records, once for as long as the database stays unusable,
  * restarts included: `state/db-unusable` marks the send, and only when it cannot be written is the notice sent again
@@ -133,12 +117,10 @@ const notify = (data: string, text: string, running: Chats.Running<unknown>) =>
       connection: destination.connection,
       thread: destination.thread,
     }
-    const known = running
-      .list()
-      .some(({ name }) => name === destination.connection)
-    const direct = known
-      ? yield* directMessage(running.chats, destination)
-      : false
+    const direct = yield* Notices.directMessage(
+      running.chats,
+      running.list,
+    )(destination)
     const post = Notices.post(running.chats, running.list)
     const posted = yield* Effect.exit(
       Effect.suspend(() => post(destination, direct, text)).pipe(

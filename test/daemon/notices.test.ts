@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import { ChatThread } from "effect/chat"
 import { expect, test } from "vitest"
 import { scenario } from "../support/driver.ts"
-import { says } from "../support/owner.ts"
+import { says, sessions } from "../support/owner.ts"
 
 /** What `state/notice-thread` holds, which must be one JSON line. */
 const destination = (data: string) => {
@@ -39,4 +39,24 @@ test("FAIL-158 FAIL-159 FAIL-231 REC-109 REC-145 a notice outside a turn goes wh
   await says(first, later, "hello")
   expect(destination(first.data)).toEqual(at(later))
   await first.fakes.chat.answers(later, 1)
+})
+
+test("FAIL-231 REC-101 a direct message that only a command reached stays the destination after a restart while the owner writes in a server thread", async () => {
+  const first = await scenario()
+  const direct = await first.fakes.chat.makeThread("direct")
+  await says(first, direct, "/status")
+  await first.fakes.chat.answers(direct, 1)
+  expect(destination(first.data)).toEqual(at(direct))
+  // A command opens no session, so no row says that the thread is a direct message.
+  expect(sessions(first)).toEqual([])
+  expect(await first.stop()).toBe(0)
+
+  // The platform starts again with the same direct message, which its first thread is.
+  const second = await scenario({ directory: first.directory })
+  expect(await second.fakes.chat.makeThread("direct")).toEqual(direct)
+  const server = await second.fakes.chat.makeThread("thread")
+  await says(second, server, "/status", { mention: true })
+  await second.fakes.chat.answers(server, 1)
+  expect(destination(second.data)).toEqual(at(direct))
+  expect(await second.stop()).toBe(0)
 })

@@ -44,8 +44,9 @@ const until = async (done: () => boolean) => {
 const direct = { connection: "local", thread: "local:dm", direct: true }
 
 /**
- * One daemon's notices on a volume. Its post records the text it was given, and fails while `failing` says so.
- * Stopping it closes its scope and its database, as a stop or a kill does.
+ * One daemon's notices on a volume. Its post records the text it was given, and fails while `failing` says so. Its
+ * platform knows no thread as a direct message. Stopping it closes its scope and its database, as a stop or a kill
+ * does.
  */
 const boot = async (
   data: string,
@@ -73,6 +74,7 @@ const boot = async (
           posted.push(text)
           return Effect.void
         }),
+      direct: () => Effect.succeed(false),
     }).pipe(Effect.provideContext(context), Scope.provide(scope)),
   )
   return {
@@ -84,7 +86,7 @@ const boot = async (
 
 const low = Notices.diskLow(500 * 1024 * 1024)
 
-it("FAIL-150 FAIL-151 FAIL-152 STO-129 STO-130 a condition's notice is sent once while it holds, a restart included, and a condition that begins again within 24 hours of its last notice is not announced", async () => {
+it("FAIL-150 FAIL-151 FAIL-152 STO-129 STO-130 a condition's notice is sent once while it holds, a restart and a day included, and a condition that begins again is announced only 24 hours after its last notice", async () => {
   const data = volume()
   const posted: Array<string> = []
   const first = await boot(data, posted)
@@ -94,25 +96,40 @@ it("FAIL-150 FAIL-151 FAIL-152 STO-129 STO-130 a condition's notice is sent once
   await Effect.runPromise(first.notices.raise(low))
   await first.stop()
   expect(posted).toEqual([low.text])
-  const sent = row(data, "disk-low")?.["last_sent_at"]
 
+  // More than a day after the notice, a restarted daemon finds the condition still held and does not announce it.
+  const day = 25 * 3600 * 1000
+  const earlier = (key: string) =>
+    database(data, (db) =>
+      db.exec(
+        `UPDATE notices SET last_sent_at = last_sent_at - ${day} WHERE key = '${key}'`,
+      ),
+    )
+  earlier("disk-low")
+  const held = row(data, "disk-low")
   const second = await boot(data, posted)
   await Effect.runPromise(second.notices.raise(low))
+  expect(row(data, "disk-low")).toEqual(held)
+
+  // Once it clears, it is announced when it begins again.
   await Effect.runPromise(second.notices.clear("disk-low"))
-  expect(row(data, "disk-low")).toMatchObject({ holds: 0, last_sent_at: sent })
+  expect(row(data, "disk-low")).toMatchObject({
+    holds: 0,
+    last_sent_at: held?.["last_sent_at"],
+  })
+  await Effect.runPromise(second.notices.raise(low))
+  await until(
+    () =>
+      row(data, "disk-low")?.["delivered"] === 1 &&
+      row(data, "disk-low")?.["last_sent_at"] !== held?.["last_sent_at"],
+  )
+  const sent = row(data, "disk-low")?.["last_sent_at"]
+
+  // Within 24 hours of that notice, a condition that clears and begins again is not announced.
+  await Effect.runPromise(second.notices.clear("disk-low"))
   await Effect.runPromise(second.notices.raise(low))
   expect(row(data, "disk-low")).toMatchObject({ holds: 1, last_sent_at: sent })
-  expect(posted).toEqual([low.text])
-
-  // A day after the last notice, the condition is announced when it begins again.
-  database(data, (db) =>
-    db.exec(
-      `UPDATE notices SET last_sent_at = last_sent_at - ${25 * 3600 * 1000}`,
-    ),
-  )
-  await Effect.runPromise(second.notices.clear("disk-low"))
-  await Effect.runPromise(second.notices.raise(low))
-  await until(() => posted.length === 2)
+  expect(posted).toEqual([low.text, low.text])
   expect(second.attempts).toEqual([low.text])
 })
 

@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+import { Effect } from "effect"
 import { ChatThread } from "effect/chat"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
@@ -24,7 +25,7 @@ const tries = (chad: Scenario) =>
         ) && line.annotations["key"] === "database-unusable",
     )
 
-test("STO-117 STO-118 STO-119 FAIL-339 STO-136 STO-186 FAIL-147 FAIL-148 FAIL-149 FAIL-225 FAIL-226 SES-29 a corrupt database keeps chad up without sessions, answers the owner with the error, and sends its notice once across restarts", async () => {
+test("STO-117 STO-118 STO-119 STO-136 STO-186 FAIL-147 FAIL-148 FAIL-149 FAIL-225 FAIL-226 SES-29 a corrupt database keeps chad up without sessions, answers the owner with the error, and sends its notice once across restarts", async () => {
   const directory = fresh()
   const data = join(directory, "data")
   mkdirSync(join(data, "db"), { recursive: true })
@@ -83,6 +84,28 @@ test("STO-117 STO-118 STO-119 FAIL-339 STO-136 STO-186 FAIL-147 FAIL-148 FAIL-14
   const third = await scenario({ directory })
   await lines(third, "boot.ready", 3)
   expect(existsSync(join(data, "state/db-unusable"))).toBe(false)
+})
+
+test("FAIL-148 SES-29 STO-118 on an unusable database every owner message gets the error, one without a mention in a server thread or a plain channel included, and the channel opens no thread", async () => {
+  const directory = fresh()
+  mkdirSync(join(directory, "data/db"), { recursive: true })
+  writeFileSync(
+    join(directory, "data/db/chad.db"),
+    "this is not a database, ".repeat(400),
+  )
+  const running = await scenario({ directory })
+  const text = await answer(running)
+  const thread = await running.fakes.chat.makeThread("thread")
+  const channel = await running.fakes.chat.makeThread("channel")
+  await says(running, thread, "hello")
+  expect(await running.fakes.chat.answers(thread, 1)).toMatchObject([{ text }])
+  await says(running, channel, "hello")
+  expect(await running.fakes.chat.answers(channel, 1)).toMatchObject([{ text }])
+  const opened = (await Effect.runPromise(running.chat.calls)).filter(
+    (call) => call.op === "startThread",
+  )
+  expect(opened).toEqual([])
+  expect(await running.stop()).toBe(0)
 })
 
 test("STO-41 STO-117 a database that holds a migration this chad does not know starts no session and is left as it is", async () => {
