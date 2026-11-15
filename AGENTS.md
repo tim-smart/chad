@@ -22,12 +22,14 @@ chad is built from the spec in `docs/spec/`. This file is the builder's contract
 - A rule of a delivered slice whose test cannot pass yet, because it rests on a later slice, goes on the delivered file's list of held rules with that slice's name and a one-sentence reason. That is the only accepted reason.
 - A rule that only a live item or a hand check can cover goes on the waiver list against it. Nothing is pending because Tim's bot or logins do not exist yet. No job reads a secret, and no job talks to a real Discord.
 - There is no scheduled workflow and no release list, and `gate.yml` is the only workflow. Every test runs on the gate, apart from the live checks that are done by hand.
-- A stage is done when each of its slices is delivered and every rule of those slices has a test, a waiver, a held entry or a stopped entry. Then move the stage issue to done and post the hand-off comment on the parent build issue: the branch and pull request, what landed, each held and stopped entry you added with its reason, each live job that has never passed with the number of rules waived against it, and each rule you added to the spec.
+- A stage is done when each of its slices is delivered and every rule of those slices has a test, a waiver, a held entry or a stopped entry. Then move the stage issue to done and post the hand-off comment on the parent build issue: the branch and pull request, what landed, each held and stopped entry you added with its reason, each live job that has never passed with the number of rules waived against it, each rule you added to the spec, and the time of `pnpm test` and of the image layer on the stage's last gate run.
 
 ## Tests
 
 - Tests are asked for in this repo, whatever your own instructions say about skipping them.
-- Every test names the rule ids it covers in its title. The minimum is one test for each rule id, or for each letter where a rule carries letters. No test names no rule id.
+- Every test names the rule ids it covers in its title. No test names no rule id.
+- A rule that has a slice has a test of its own, or a line on the waiver list (`docs/spec/waivers.md`) that names another rule whose test on the gate already runs it. Where a rule carries letters, that holds for each letter.
+- A rule that decides who chad obeys, or what chad keeps secret, is never waived against another rule's test.
 - A rule whose kind is `definition` needs no test. A `fact` is tested against the pinned dependency or waived as `docs/spec/17-testing.md` says.
 - No `skip`, `todo` or `only`.
 - No test and no CI job uses a real Discord token or a real Codex login, apart from the live jobs that `docs/spec/17-testing.md` names.

@@ -30,7 +30,7 @@ The build order is in 19-build-order.md. This part uses two of its words, becaus
 
 ## Rule ids, the waiver list and pending rules
 
-Every rule in the spec carries an id such as `SES-12`. A script in CI compares the ids in the spec with the ids named by the tests, so that a rule cannot go untested without anyone noticing. Reviews judge whether a test really tests its rule. The script only checks that a test exists.
+Every rule in the spec carries an id such as `SES-12`. A script in CI compares the ids in the spec with the ids named by the tests and by the waiver list, so that a rule cannot go uncovered without anyone noticing. A rule that has a slice has a test that names it, or a line on the waiver list that names another rule whose test already runs it. Reviews judge whether a test really tests its rule, and whether the test that a waiver names really runs the rule. The script only checks that the test exists.
 
 Each rule also has a kind, which its Provenance row gives. A `rule` is chad's own behaviour, which a test can break. A `fact` is what a dependency does, such as clanka, effect, dfx, Discord, Node, Docker or SQLite, and a rule rests on it. A `definition` is a term, a reason or an overview sentence with nothing to test. A rule about how the suite and the build are run is a `definition` too.
 
@@ -41,7 +41,7 @@ Each rule also has a kind, which its Provenance row gives. A `rule` is chad's ow
 - **TST-10** The rule-id script fails when a test names an id the spec does not have.
 - **TST-11** The rule-id script fails on any `skip`, `todo` or `only`. How it finds them is the builder's, because the output of `vitest list --json` may leave a skipped test out, and TST-8 limits only how rule ids are found.
 - **TST-12** The rule-id script writes an index from each rule to its tests and CI keeps it as an artifact.
-- **TST-13** The waiver list names, for each rule on it, the live item that covers the rule, and that item carries the rule's id. The hand checks carry a rule's id in the text of TST-144, and a waiver against them names that rule. A fact on the list names, in place of an item, the rule whose test would fail if the fact stopped holding (TST-192). "Tim has not read it" and "flaky" are not accepted as reasons. A rule that only a live item or a hand check covers is on the waiver list against it from the slice the rule is tagged with, whether or not the bot or the login that it needs exists yet. No rule is pending because they do not exist.
+- **TST-13** The waiver list names, for each rule on it, the live item that covers the rule, and that item carries the rule's id. The hand checks carry a rule's id in the text of TST-144, and a waiver against them names that rule. A fact on the list names, in place of an item, the rule whose test would fail if the fact stopped holding (TST-192). A rule on the list may name, in place of an item, another rule whose test on the gate runs what the rule describes. That test need not assert on it. A rule that decides who chad obeys, or what chad keeps secret, is never waived this way. "Tim has not read it" and "flaky" are not accepted as reasons. A rule that only a live item or a hand check covers is on the waiver list against it from the slice the rule is tagged with, whether or not the bot or the login that it needs exists yet. No rule is pending because they do not exist.
 - **TST-14** A rule is pending while its slice is not delivered. Pending is derived from the Slice column of the rule index and from the delivered file, which lists the slices that are delivered (see 19-build-order.md). No list of pending rules is kept by hand. The only entries written by hand are the held rules of that file, each a rule of a delivered slice that rests on a later slice. The build is done when no rule is pending.
 - **TST-15** Neither local command (TST-133 and TST-136) runs the rule-id script's comparison of the spec's ids with the tests' ids. The comparison gates only in CI, because it needs every project and so needs Docker. The script does not refuse to run outside CI, so a builder can run the comparison by hand. Its `show` mode (TST-194) runs anywhere.
 - **TST-16** A rule that was agreed with Architect standing in for Tim is tested like any other rule. If Tim reopens one, its id finds its tests.
@@ -52,11 +52,11 @@ Each rule also has a kind, which its Provenance row gives. A `rule` is chad's ow
 - **TST-170** The spec lives in chad's repository under `docs/spec/`, so the rule-id script reads the spec's rule ids in CI from the repository itself.
 - **TST-171** A script builds one index of every rule from the Provenance tables of the parts. Each row holds the rule's id, its part, who agreed it, its support, the tickets that changed it, its kind and its slice, and this rule index is what the rule-id script reads. The index is generated in CI and is not committed, so that two changes never conflict on it. The Provenance tables are the only source of rule ids. A rule's text may be a bullet or a table row, and a gap id such as `TST-G1` has no Provenance row and is not a rule.
 - **TST-172** A rule whose slice is `-` needs no test and is never pending. Only a definition and a withdrawn rule have that slice, and the rule-id script counts a definition as waived with the reason "definition". It counts a withdrawn rule, whose row may still give the kind `rule`, with the reason "withdrawn".
-- **TST-173** For this build the minimum is one test for each rule id that has a slice, or one test for each letter where a rule carries letters (TST-190), and there is no test that names no rule id.
+- **TST-173** For this build a rule that has a slice has a test of its own, or is on the waiver list against a rule whose test runs it (TST-13). Where a rule carries letters, that holds for each letter (TST-190). No test names no rule id.
 - **TST-174** Each stage issue states the minimum of TST-173 in its own text, because an agent may read only its own issue. The `AGENTS.md` at the root of chad's repository says that tests name rule ids and how to look a rule up (see 19-build-order.md for the rest of that file).
 - **TST-175** A change to a rule also changes the tests that name the rule's id, or pends them with the reason, in the same change.
 - **TST-176** A stage is done when its work is implemented and reviewed on the shared branch and no rule tagged with its slices is pending without a recorded reason. Tim merges the one pull request after stage 5.
-- **TST-190** A test may name one statement of a rule by a letter after the rule's id, such as `SES-12a`, and the rule-id script accepts that form. Once a rule's text carries letters, the script requires a test for each letter.
+- **TST-190** A test may name one statement of a rule by a letter after the rule's id, such as `SES-12a`, and the rule-id script accepts that form. Once a rule's text carries letters, the script requires a test or a waiver for each letter.
 - **TST-191** Whoever first tests a rule that holds several statements marks the statements (a), (b) and so on in the rule's text, in the same change. The letters are the only way a rule is split. A rule is withdrawn only when it goes away, never to replace it with new ids.
 - **TST-192** A fact takes the slice of the first rule that rests on it. It has a test that runs against the pinned versions of the dependency, or a waiver that names the rule whose test would fail if the fact stopped holding.
 - **TST-193** The slice `-` is set only while the spec is assembled. Moving a rule to `-` afterwards is a change to the rule. The rule-id script prints the number of waived rules for each waiver reason.
@@ -212,6 +212,8 @@ The allowlist of owners is chad's one security rule, so each way in gets a test 
 - **TST-74** clanka's own timeouts stay at their real length in every layer. They are the 30 second MCP connect and the 4 seconds per stdio server.
 - **TST-75** Layers 3 and 4 run on live time with shortened durations.
 
+Layers 3 and 4 test the stop's order and its limits on shortened durations (TST-73, TST-75), and that is the stop's only cover. The daemon in the image runs `Timings` at its defaults (TST-72), so no image test stops a daemon that has requests in flight or hooks queued. The 35 seconds for queued hooks is then never run at its real length, which Tim accepted in chat on 2026-11-15.
+
 The first table holds the durations chad sets, which are the ones `Timings` holds. Each value is the one the named rule states, and the tickets behind it are in that rule's row of its own part's Provenance table.
 
 | Duration | Value | Stated in |
@@ -255,7 +257,7 @@ The first table holds the durations chad sets, which are the ones `Timings` hold
 
 The rules behind the stop rows are in 01-image-and-volume.md.
 
-The second table holds durations the spec names that chad does not set. They belong to a library, to Discord, to the provider or to the container configuration, and they stay at their real length in the tests.
+The second table holds durations the spec names that chad does not set. They belong to a library, to Discord, to the provider or to the container configuration, and they stay at their real length in the tests. Where an image test waits on a setting of the container and not of chad, such as the health check's interval, it may pass a shorter one to the engine.
 
 | Duration | Value | Owner | Stated in |
 | --- | --- | --- | --- |
@@ -364,11 +366,11 @@ The only full disk error that any prototype met came from a page cap on the data
 
 ## The pull request gate
 
-- **TST-112** The pull request gate is layers 1 to 4 plus the image layer on amd64. Its target is 15 minutes.
+- **TST-112** The pull request gate is layers 1 to 4 plus the image layer on amd64. The target for layers 1 to 4, which is `pnpm test`, is one minute on the gate's runner.
 - **TST-113** Nothing on the gate reads a secret, so a pull request from a fork runs the whole gate.
 - **TST-114** Withdrawn.
 
-The 15 minutes is a target. Nobody has timed the suite or the image build on a runner.
+The minute is a target. Nothing fails when it is missed.
 
 ## No scheduled workflow, release list or budget
 
@@ -378,7 +380,7 @@ chad has no scheduled workflow, no release list and no budget, and `gate.yml` is
 - **TST-116** Withdrawn.
 - **TST-117** Withdrawn.
 - **TST-118** Withdrawn.
-- **TST-119** The image layer always runs the stop at its real length, with queued hooks in it, because the 35 seconds for queued hooks was never run.
+- **TST-119** Withdrawn.
 - **TST-120** Withdrawn.
 - **TST-121** Withdrawn.
 - **TST-122** Withdrawn.
@@ -529,7 +531,7 @@ Once:
 - Make the first Codex recording, if TST-43 needs it.
 - Run the Kubernetes checks on his k3s node.
 - Read the change to the charting line on the local dev adapter. He agreed that line himself, and it now means that `ChatTest` runs outside the daemon and the image carries only the client.
-- Read that for this build the minimum is one test for each rule id (TST-173). The Coding squad's instructions, which are his, say to write only the bare minimum of tests.
+- Read that for this build a rule has a test of its own, or a line on the waiver list against a rule whose test runs it (TST-173). The Coding squad's instructions, which are his, say to write only the bare minimum of tests.
 
 ## Gaps
 
@@ -551,7 +553,7 @@ Once:
 
 ## Provenance
 
-Every decision from TIM-558 and from TIM-557 was agreed with Architect standing in for Tim, and Tim has not read either. Nothing was run for TIM-558, and none of the rules here that come from TIM-557 was run. The rules that come from the three rounds of TIM-559 were agreed the same way, and none of them was run. The rules marked "Tim, chat 2026-11-15" are Tim's own rulings that the repo is public and that the build is five stages on one branch and one pull request. The rules marked "Tim's ruling that chad has no scheduled job" were withdrawn or reworded during the build, after Tim ruled in chat on 2026-11-15 that chad has no nightly Discord job, no weekly dependency job and no other nightly job, and that `gate.yml` is the only workflow. The rules marked "Tim's ruling that chad has no release list and no budget" were withdrawn or reworded after Tim ruled in chat on the same day that the real-length timings, the soak and the image size budget go too, so that every test runs on the gate apart from the live checks done by hand. The rules marked "Tim's ruling that the image is amd64 only" were reworded the same way, after Tim ruled in chat on the same day that chad is not built for arm64. Six more marks come from a fifth ruling of the same day. The rules marked "Tim's ruling that the suite's own rules need no test" took the kind `definition` and the slice `-`, because they say how the suite and the build are run and no test of them runs chad's own code or a fake that the scenarios rest on. The rules marked "Tim's ruling that the bookkeeping checks go" are the report of functions that no layer ran, the table of prototype scenarios, the comparison of the asphodel fixture with the printed plugin and the test that pinned each `Messages` template to the spec's wording. The rules marked "Tim's ruling that chad has no release ceremony" are the skill runs and what was run before a release. The rules marked "Tim's ruling that chad has no Compose example", "Tim's ruling on a full disk" and "Tim's ruling that the docs have no NFS paragraph" follow the same cuts in the other parts. The rules marked "TIM-559 cold read" were reworded or added by Jarvis after fresh readers each took one build slice and wrote down what they would have to ask, and Tim has not read them. The durations tables repeat values that other parts state, and the tickets behind each value are in the Provenance row of the rule that the table names.
+Every decision from TIM-558 and from TIM-557 was agreed with Architect standing in for Tim, and Tim has not read either. Nothing was run for TIM-558, and none of the rules here that come from TIM-557 was run. The rules that come from the three rounds of TIM-559 were agreed the same way, and none of them was run. The rules marked "Tim, chat 2026-11-15" are Tim's own rulings that the repo is public and that the build is five stages on one branch and one pull request. The rules marked "Tim's ruling that chad has no scheduled job" were withdrawn or reworded during the build, after Tim ruled in chat on 2026-11-15 that chad has no nightly Discord job, no weekly dependency job and no other nightly job, and that `gate.yml` is the only workflow. The rules marked "Tim's ruling that chad has no release list and no budget" were withdrawn or reworded after Tim ruled in chat on the same day that the real-length timings, the soak and the image size budget go too, so that every test runs on the gate apart from the live checks done by hand. The rules marked "Tim's ruling that the image is amd64 only" were reworded the same way, after Tim ruled in chat on the same day that chad is not built for arm64. Six more marks come from a fifth ruling of the same day. The rules marked "Tim's ruling that the suite's own rules need no test" took the kind `definition` and the slice `-`, because they say how the suite and the build are run and no test of them runs chad's own code or a fake that the scenarios rest on. The rules marked "Tim's ruling that the bookkeeping checks go" are the report of functions that no layer ran, the table of prototype scenarios, the comparison of the asphodel fixture with the printed plugin and the test that pinned each `Messages` template to the spec's wording. The rules marked "Tim's ruling that chad has no release ceremony" are the skill runs and what was run before a release. The rules marked "Tim's ruling that chad has no Compose example", "Tim's ruling on a full disk" and "Tim's ruling that the docs have no NFS paragraph" follow the same cuts in the other parts. The rule marked "Tim's ruling that `pnpm test` has a target of one minute" comes from a sixth ruling of the same day, which sets that target for layers 1 to 4, enforces it with no check and has each stage's hand-off comment give the two times (see 19-build-order.md). Two more marks come from a seventh ruling of the same day. The rule marked "Tim's ruling that no image test runs the stop at its real length" is TST-119, which is withdrawn. The rules marked "Tim's ruling that a rule another rule's test runs needs no test of its own" were reworded so that a rule may go on the waiver list against another rule whose test on the gate already runs it. The rules marked "TIM-559 cold read" were reworded or added by Jarvis after fresh readers each took one build slice and wrote down what they would have to ask, and Tim has not read them. The durations tables repeat values that other parts state, and the tickets behind each value are in the Provenance row of the rule that the table names.
 
 | Rule | Source | Agreed by | Support | Changed by | Kind | Slice |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -567,7 +569,7 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-10 | TIM-558 item 3, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-11 | TIM-558 item 3; TIM-559 cold read, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-12 | TIM-558 item 3, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
-| TST-13 | TIM-558 item 3, amended by TIM-559 round 2 R2; TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-13 | TIM-558 item 3, amended by TIM-559 round 2 R2; TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15, amended by Tim's ruling that a rule another rule's test runs needs no test of its own, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-14 | TIM-558 item 3, amended by TIM-559 main session ruling on Q2 and by Tim, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read). Tim for a slice that is delivered in place of merged | not run |  | `definition` | - |
 | TST-15 | TIM-558 item 45, amended by TIM-559 round 2 R10 point 2; TIM-559 cold read, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-16 | TIM-558 item 4, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
@@ -666,14 +668,14 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-109 | TIM-558 item 54, TIM-557 comment on TIM-558, amended by Tim's ruling that the image is amd64 only, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | TST-110 | TIM-558 item 55, round 1 Q8, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | TST-111 | TIM-558 item 55 | Architect (Tim has not read) | not run |  | `rule` | `live` |
-| TST-112 | TIM-558 item 41, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-112 | TIM-558 item 41, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15, amended by Tim's ruling that `pnpm test` has a target of one minute, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-113 | TIM-558 item 41, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-114 | TIM-558 item 41, withdrawn by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-115 | TIM-558 item 42, round 1 Q14, withdrawn by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-116 | TIM-558 "Not settled here", round 1 Q14, round 2 E, settled by Tim, chat 2026-11-15, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Tim | not run, from memory for the runner being free |  | `rule` | - |
 | TST-117 | TIM-558 item 42, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-118 | TIM-558 item 29, round 1 Q6, withdrawn by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| TST-119 | TIM-558 item 29, round 1 Q6 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
+| TST-119 | TIM-558 item 29, round 1 Q6, withdrawn by Tim's ruling that no image test runs the stop at its real length, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-120 | TIM-558 item 42, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-121 | TIM-558 item 42, withdrawn by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-122 | TIM-558 item 42, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
@@ -727,7 +729,7 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-170 | TIM-559 ruling on TST-G12, main session ruling on Q1, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-171 | TIM-559 main session ruling on Q2, round 2 R7 and R10 point 3; TIM-559 cold read, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-172 | TIM-559 main session ruling on Q2, round 2 R2; TIM-559 cold read, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
-| TST-173 | TIM-559 main session ruling on Q7, round 2 R2, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run | TIM-559 | `definition` | - |
+| TST-173 | TIM-559 main session ruling on Q7, round 2 R2, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15, amended by Tim's ruling that a rule another rule's test runs needs no test of its own, chat 2026-11-15 | Architect (Tim has not read) | not run | TIM-559 | `definition` | - |
 | TST-174 | TIM-559 main session ruling on Q7, round 2 R10 point 1, amended by Tim, chat 2026-11-15 | Architect (Tim has not read). Tim for the stages | not run | TIM-559 | `definition` | - |
 | TST-175 | TIM-559 main session ruling on Q6, amended by Tim, chat 2026-11-15 | Architect (Tim has not read). Tim for the one shared pull request | not run |  | `definition` | - |
 | TST-176 | Tim, chat 2026-11-15, in place of TIM-559 main session ruling on Q10 | Tim | not run |  | `definition` | - |
@@ -744,7 +746,7 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-187 | TIM-559 ruling on SWAP-G11, withdrawn by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-188 | TIM-559 ruling on LOAD-G1 | Architect (Tim has not read) | not run |  | `rule` | `loader` |
 | TST-189 | TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `definition` | - |
-| TST-190 | TIM-559 round 2 R2, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-190 | TIM-559 round 2 R2, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15, amended by Tim's ruling that a rule another rule's test runs needs no test of its own, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-191 | TIM-559 round 2 R2 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-192 | TIM-559 round 2 R2, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-193 | TIM-559 round 2 R2, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
