@@ -4,7 +4,7 @@ This part gives the order in which chad is built: the five stages, the slices ea
 
 ## Stages
 
-A stage is one build issue. A slice is a named piece of the build, and every rule's row in its part's Provenance table names the slice in which the rule's test first passes.
+A stage is one build issue. A slice is a named piece of the build, and every rule's row in its part's Provenance table names the slice in which the rule is built.
 
 | Stage | Slices, in build order | Ends with |
 | --- | --- | --- |

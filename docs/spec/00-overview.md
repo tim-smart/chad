@@ -204,7 +204,7 @@ The parts use these terms with the meanings below. Paths are relative to the dat
 | 19-build-order.md | The order in which chad is built, which is five stages that each run a list of named slices on one shared branch and one pull request, when a stage is done, and the point from which Tim can run the image on his own server. |
 | 20-for-tim.md | What Tim has to read and answer, which is the size of the build, the questions that were his with the answers given for him, every rule that states something he agreed in person and that a ticket he has not read then changed, his to-do list, and one paragraph for each ticket he has not read. It states no rule, so it has no rule ids, no Gaps section and no Provenance table. |
 
-- **OV-50** Every rule in this spec has a stable id that is never renumbered or reused, and every test names the ids of the rules it covers in its title. 17-testing.md holds the rules that state this and their tests, so this sentence has no test of its own.
+- **OV-50** Every rule in this spec has a stable id that is never renumbered or reused, and a test names the ids of the rules it covers in its title, where it covers any. 17-testing.md holds the rules that state this, so this sentence has no test of its own.
 - **OV-54** The spec lives in the chad repo under `docs/spec/`, one file per part.
 - **OV-55** An `AGENTS.md` at the root of the chad repo, `tim-smart/chad`, holds the builder's contract, which is what a builder has to follow on every run (see 19-build-order.md).
 - **OV-56** chad is built in five stages, which are five build issues that run one after another and share one branch and one pull request. Each stage is a run of slices, and its rules are the rules whose Provenance row names one of those slices. A stage is done when its work is implemented and reviewed on the shared branch and no rule of its slices is pending without a recorded reason. Tim merges the one pull request after stage 5, and the first usable build is the end of stage 2 (see 19-build-order.md and 17-testing.md).
@@ -219,7 +219,7 @@ Every part that states rules ends with a Provenance table that has one row per r
 | Support | Whether a prototype ran the rule, it was read from source, or nothing ran. |
 | Changed by | The tickets Tim has not read that changed something he agreed in person. It is empty for every other rule, and 20-for-tim.md is built from it. |
 | Kind | `rule` for chad's own behaviour, which a test can break. `fact` for what a dependency does, which a rule rests on. `definition` for a term, a reason or an overview sentence with nothing to test. A rule about how the suite and the build are run is a `definition` too. |
-| Slice | The build slice in which the rule's test first passes (see 19-build-order.md). A rule never has a slice that comes before a slice it rests on. A fact takes the slice of the first rule that rests on it, and a definition or a withdrawn rule has `-`. |
+| Slice | The build slice in which the rule is built (see 19-build-order.md). A rule never has a slice that comes before a slice it rests on. A fact takes the slice of the first rule that rests on it, and a definition or a withdrawn rule has `-`. |
 
 ## Gaps
 
@@ -282,7 +282,7 @@ Every part that states rules ends with a Provenance table that has one row per r
 | OV-47 | TIM-557 items 7 and 9 | Architect (Tim has not read) | run (TIM-557) for the one logger with the script's output unchanged; the Info cap not run |  | `fact` | `failures` |
 | OV-48 | TIM-557 item 34 | Architect (Tim has not read) | run (TIM-557) for cluster's behaviour; chad's handling not run |  | `fact` | `failures` |
 | OV-49 | TIM-557 items 20, 25 and 28; TIM-558 item 50 | Architect (Tim has not read) | not run |  | `definition` | - |
-| OV-50 | TIM-558 item 2; TIM-559 cold read | Architect (Tim has not read) | not run |  | `definition` | - |
+| OV-50 | TIM-558 item 2; TIM-559 cold read, amended by Tim's ruling that tests are chosen by behaviour, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | OV-51 | TIM-559 ruling on OV-G2 (main session, the pins); TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `repo` |
 | OV-52 | TIM-559 ruling on OV-G2 (main session, the pins) | Architect (Tim has not read) | not run |  | `rule` | `repo` |
 | OV-53 | TIM-559 ruling on OV-G2 (main session, the pins) | Architect (Tim has not read) | not run |  | `rule` | `repo` |
