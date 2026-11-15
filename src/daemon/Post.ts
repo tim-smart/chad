@@ -1,4 +1,3 @@
-import { DiscordChat } from "@effect/chat-discord"
 import { Cause, Effect, Exit } from "effect"
 import {
   Chat,
@@ -8,6 +7,7 @@ import {
   type ChatThread,
 } from "effect/chat"
 import type { ChatService } from "./Chats.ts"
+import type { Format } from "./Format.ts"
 import * as Logger from "./Logger.ts"
 
 /**
@@ -26,8 +26,8 @@ export type Posting = "posted" | "gone" | "failed"
 
 export interface Options {
   /**
-   * The owner's message the post replies to, with the reply ping on. When that message is gone the post is a plain
-   * one (DIS-55, DIS-100, FAIL-66).
+   * The owner's message the post replies to, under the formatter's reply options: the reply ping on, and a plain post
+   * when that message is gone (DIS-55, DIS-100, FAIL-66).
    */
   readonly replyTo?: string | undefined
   /**
@@ -54,6 +54,7 @@ const notFound = (cause: Cause.Cause<unknown>) => {
 
 const markdown = (
   chat: ChatService,
+  format: Format,
   thread: ChatThread.ChatThread,
   text: string,
   parts: number,
@@ -63,14 +64,8 @@ const markdown = (
     maxParts: parts,
     overflow: { file: { name: overflowFile } },
     ...(replyTo === undefined ? {} : { replyTo: { messageId: replyTo } }),
-  }).pipe(
-    Effect.provideService(Chat.Chat, chat),
-    // Discord posts a reply to a message that is gone as a plain message, and does not refuse it (DIS-100).
-    DiscordChat.withPostOptions(
-      replyTo === undefined
-        ? {}
-        : { notify: { repliedUser: true }, failIfNotExists: false },
-    ),
+  }).pipe(Effect.provideService(Chat.Chat, chat), (effect) =>
+    replyTo === undefined ? effect : format.reply(effect),
   )
 
 /**
@@ -81,12 +76,13 @@ const markdown = (
  */
 export const post = Effect.fnUntraced(function* (
   chat: ChatService,
+  format: Format,
   thread: ChatThread.ChatThread,
   text: string,
   options: Options = {},
 ): Effect.fn.Return<Posting> {
   const first = yield* Effect.exit(
-    markdown(chat, thread, text, maxParts, options.replyTo),
+    markdown(chat, format, thread, text, maxParts, options.replyTo),
   )
   if (Exit.isSuccess(first)) return "posted"
   const error = failure(first.cause)
@@ -123,7 +119,7 @@ export const post = Effect.fnUntraced(function* (
       : undefined
   const retry: Effect.Effect<void, unknown> =
     sent < maxParts
-      ? markdown(chat, thread, rest, maxParts - sent, again)
+      ? markdown(chat, format, thread, rest, maxParts - sent, again)
       : chat.post(thread, { markdown: "", files: [file(rest)] })
   const second = yield* Effect.exit(retry)
   if (Exit.isSuccess(second)) return "posted"

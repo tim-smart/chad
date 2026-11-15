@@ -3,6 +3,7 @@ import { isAbsolute, join, relative, resolve } from "node:path"
 import { Effect } from "effect"
 import { ChatError } from "effect/chat"
 import { expect, test } from "vitest"
+import * as Format from "../../dist/daemon/Format.js"
 import * as Messages from "../../dist/Messages.js"
 import { fresh, scenario, type Scenario } from "../support/driver.ts"
 import { printed, runs } from "../support/model.ts"
@@ -122,8 +123,8 @@ test("SES-42 SES-190 DIS-64 a file over 25 MB is not downloaded and one whose do
   await running.logged("turn.ended")
 
   expect(await posted(running, thread)).toEqual([
-    Messages.fileSkipped("big.zip", size),
-    Messages.fileFailed("lost.txt"),
+    Messages.fileSkipped(Format.local, "big.zip", size),
+    Messages.fileFailed(Format.local, "lost.txt"),
     "done",
   ])
   const prompt = prompted((await fakes.model.calls())[0])

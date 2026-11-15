@@ -4,6 +4,7 @@
  */
 import * as Connections from "./Connections.ts"
 import type * as Failed from "./daemon/Failed.ts"
+import type { Format } from "./daemon/Format.ts"
 
 /** The start-up check found no data directory (docs/spec/01-image-and-volume.md, IMG-58). */
 export const dataMissing = (data: string) =>
@@ -271,9 +272,6 @@ export const connectionChecked = (
   }
 }
 
-/** A line of Discord subtext, which is how a notice inside a turn's flow is written. */
-const subtext = (line: string) => `-# ${line}`
-
 /** A length of time as a notice shows it: `48s`, and `2m 5s` from a minute on. */
 export const duration = (milliseconds: number) => {
   const seconds = Math.max(0, Math.round(milliseconds / 1000))
@@ -283,8 +281,8 @@ export const duration = (milliseconds: number) => {
 }
 
 /** A turn was stopped (docs/spec/04-discord.md, DIS-59). */
-export const stopped = (milliseconds: number) =>
-  subtext(`Stopped after ${duration(milliseconds)}.`)
+export const stopped = (format: Format, milliseconds: number) =>
+  format.subtext(`Stopped after ${duration(milliseconds)}.`)
 
 /**
  * The prompt of a turn that a restart cut, which a resumed start sends in place of the owner's message
@@ -293,13 +291,15 @@ export const stopped = (milliseconds: number) =>
 export const restartNote = () =>
   "[chad restarted while this turn was running. A script that was cut off may already have had its side effects. Check before you repeat anything, then finish the request above.]"
 
-/** The subtext line every failed-turn message and the give-up message end with (FAIL-65). */
-export const turnLine = (turn: string) =>
-  subtext(`Turn ${turn}. \`chad logs --turn ${turn}\` shows what it did.`)
+/** The line every failed-turn message and the give-up message end with, as the formatter's subtext (FAIL-65). */
+export const turnLine = (format: Format, turn: string) =>
+  format.subtext(
+    `Turn ${turn}. \`chad logs --turn ${turn}\` shows what it did.`,
+  )
 
 /** chad gave up on a turn that two kills cut (docs/spec/03-sessions-and-turns.md, SES-106, FAIL-63). */
-export const gaveUp = (turn: string) =>
-  `This turn was cut off by a crash twice, so I've stopped retrying it. Whatever its scripts already did is done. Send a message to carry on.\n${turnLine(turn)}`
+export const gaveUp = (format: Format, turn: string) =>
+  `This turn was cut off by a crash twice, so I've stopped retrying it. Whatever its scripts already did is done. Send a message to carry on.\n${turnLine(format, turn)}`
 
 /** The most of an action's text that its line in the status message shows (DIS-20). */
 const statusLineChars = 120
@@ -319,11 +319,18 @@ const oneLine = (text: string) => {
 const codeSpan = (text: string) =>
   text.includes("`") ? `\`\` ${text} \`\`` : `\`${text}\``
 
-/** The status message: a header with the turn's start as a relative timestamp, and the last actions (DIS-20, DIS-22). */
-export const statusMessage = (at: number, lines: ReadonlyArray<string>) =>
+/**
+ * The status message: a header with the turn's start as the formatter's relative time, and the last actions, each as
+ * its subtext (DIS-20, DIS-22).
+ */
+export const statusMessage = (
+  format: Format,
+  at: number,
+  lines: ReadonlyArray<string>,
+) =>
   [
-    subtext(`Working, started <t:${Math.floor(at / 1000)}:R>`),
-    ...lines.slice(-statusActions).map(subtext),
+    format.subtext(`Working, started ${format.relativeTime(at)}`),
+    ...lines.slice(-statusActions).map((line) => format.subtext(line)),
   ].join("\n")
 
 /** A script's line in the status message: the script's own source, cut (DIS-24). */
@@ -365,11 +372,12 @@ const failedReason = (reason: Posted) =>
 
 /** A failed turn, as a normal message in its thread (FAIL-54, FAIL-65). */
 export const failedTurn = (
+  format: Format,
   milliseconds: number,
   reason: Posted,
   turn: string,
 ) =>
-  `That turn failed after ${duration(milliseconds)}: ${failedReason(reason)}. The conversation is intact, send a message to carry on.\n${turnLine(turn)}`
+  `That turn failed after ${duration(milliseconds)}: ${failedReason(reason)}. The conversation is intact, send a message to carry on.\n${turnLine(format, turn)}`
 
 /** One line of `session_updates`, as the update message reads it (STO-170). */
 export type Update =
@@ -447,17 +455,18 @@ export const update = (lines: ReadonlyArray<Update>): string | undefined => {
 }
 
 /** `/stop` found nothing running (DIS-76). */
-export const nothingRunning = () => subtext("Nothing is running.")
+export const nothingRunning = (format: Format) =>
+  format.subtext("Nothing is running.")
 
 /** `/new` started a session (DIS-75). */
-export const newSession = () =>
-  subtext(
+export const newSession = (format: Format) =>
+  format.subtext(
     "New session started. Nothing from the earlier conversation carries over.",
   )
 
 /** `/new` or `/stop` in a plain channel, where there is no session (docs/spec/03-sessions-and-turns.md, SES-148). */
-export const noSession = () =>
-  subtext(
+export const noSession = (format: Format) =>
+  format.subtext(
     "There is no session in this channel. Mention me with a message and I'll open a thread for it.",
   )
 
@@ -469,8 +478,10 @@ export const threadFailed = (reason: string) =>
 const megabytes = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`
 
 /** A file over the limit was skipped (DIS-64). */
-export const fileSkipped = (name: string, bytes: number) =>
-  subtext(`Skipped \`${name}\` (${megabytes(bytes)}). The limit is 25 MB.`)
+export const fileSkipped = (format: Format, name: string, bytes: number) =>
+  format.subtext(
+    `Skipped \`${name}\` (${megabytes(bytes)}). The limit is 25 MB.`,
+  )
 
 /** The data volume is short of space, the notice of the key `disk-low` (FAIL-171). */
 export const diskLow = (bytes: number) =>
@@ -495,8 +506,8 @@ export const heldProblem = (text: string, recorded: number) =>
   `${text} (recorded ${new Date(recorded).toISOString().slice(0, 19)}Z)`
 
 /** A file could not be downloaded and was skipped. */
-export const fileFailed = (name: string) =>
-  subtext(`Skipped \`${name}\`. I couldn't download it.`)
+export const fileFailed = (format: Format, name: string) =>
+  format.subtext(`Skipped \`${name}\`. I couldn't download it.`)
 
 /** What `/status` posts: the text of `chad status`, kept as it is. */
 export const status = (text: string) => `\`\`\`\n${text}\n\`\`\``

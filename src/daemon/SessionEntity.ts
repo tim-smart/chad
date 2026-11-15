@@ -32,6 +32,7 @@ import * as Attachments from "./Attachments.ts"
 import { Chats, type ChatService } from "./Chats.ts"
 import * as Disk from "./Disk.ts"
 import * as Failed from "./Failed.ts"
+import type { Format } from "./Format.ts"
 import * as Logger from "./Logger.ts"
 import * as Post from "./Post.ts"
 import * as Queue from "./Queue.ts"
@@ -281,9 +282,10 @@ export const layer = Layer.unwrap(
         /** Posts in the thread, and says whether the post reached it, or found the thread gone. */
         const post = (
           chat: ChatService,
+          format: Format,
           markdown: string,
           options?: Post.Options,
-        ) => Post.post(chat, thread, markdown, options)
+        ) => Post.post(chat, format, thread, markdown, options)
 
         /**
          * The owner's message that the answer, the failed-turn message and the give-up message of a turn reply to: the
@@ -308,12 +310,13 @@ export const layer = Layer.unwrap(
         const told = new Set<string>()
         const tell = Effect.fnUntraced(function* (
           chat: ChatService,
+          format: Format,
           request: Request,
           read: Attachments.Read,
         ) {
           if (read.notices.length === 0 || told.has(request.key)) return
           told.add(request.key)
-          for (const notice of read.notices) yield* post(chat, notice)
+          for (const notice of read.notices) yield* post(chat, format, notice)
         })
 
         /**
@@ -614,6 +617,7 @@ export const layer = Layer.unwrap(
           turn: Turn,
           request: Request,
           chat: ChatService,
+          format: Format,
         ) {
           // A resumed start sends the restart note in place of the owner's message when the stored history holds that
           // message. When a kill came before it was stored, the message goes first and the note after it (SES-161).
@@ -622,12 +626,13 @@ export const layer = Layer.unwrap(
             ? undefined
             : yield* Attachments.read({
                 chat,
+                format,
                 message: request.message,
                 attachments: request.attachments,
                 directory: live.directory,
                 asImages: true,
               })
-          if (read !== undefined) yield* tell(chat, request, read)
+          if (read !== undefined) yield* tell(chat, format, request, read)
           // What chad posted in the thread since the last answer the owner read goes ahead of the prompt, in one update
           // message that the system prompt does not change for (FAIL-125, FAIL-127, FAIL-131).
           const pending = yield* Sessions.updates(live.id)
@@ -726,9 +731,10 @@ export const layer = Layer.unwrap(
           turn: Turn,
           request: Request,
           chat: ChatService,
+          format: Format,
         ) {
           const chosen = yield* Effect.fromOption(model)
-          return yield* converse(live, turn, request, chat).pipe(
+          return yield* converse(live, turn, request, chat, format).pipe(
             Effect.provide(
               Layer.merge(
                 chosen.layer,
@@ -858,11 +864,16 @@ export const layer = Layer.unwrap(
             if (turn.status !== undefined) yield* turn.status.remove
             // In a server thread it replies to the owner's message, which pings them (FAIL-66).
             if (posted(reason)) {
-              yield* Effect.all([chats.get(connection), replyTo(request)]).pipe(
-                Effect.flatMap(([chat, reply]) =>
+              yield* Effect.all([
+                chats.get(connection),
+                chats.format(connection),
+                replyTo(request),
+              ]).pipe(
+                Effect.flatMap(([chat, format, reply]) =>
                   post(
                     chat,
-                    Messages.failedTurn(at - turn.at, reason, turn.id),
+                    format,
+                    Messages.failedTurn(format, at - turn.at, reason, turn.id),
                     { replyTo: reply },
                   ),
                 ),
@@ -892,6 +903,7 @@ export const layer = Layer.unwrap(
           request: Request,
         ) {
           const chat = yield* chats.get(request.connection)
+          const format = yield* chats.format(request.connection)
           const reply = yield* replyTo(request)
           if (own.ready !== undefined) yield* Deferred.await(own.ready)
           // The start is counted first, since the row holds the status message an earlier start posted.
@@ -936,7 +948,9 @@ export const layer = Layer.unwrap(
             if (started.status !== undefined) {
               yield* StatusMessage.discard(chat, thread, started.status)
             }
-            yield* post(chat, Messages.gaveUp(turn.id), { replyTo: reply })
+            yield* post(chat, format, Messages.gaveUp(format, turn.id), {
+              replyTo: reply,
+            })
             yield* TurnLog.failed(
               {
                 ...ids,
@@ -954,6 +968,7 @@ export const layer = Layer.unwrap(
           const status = yield* StatusMessage.open({
             chat,
             thread,
+            format,
             // A resumed turn's header keeps the time its first attempt started.
             at: started.at,
             stored: started.status,
@@ -1012,7 +1027,7 @@ export const layer = Layer.unwrap(
           let exit: Exit.Exit<string, unknown> = Exit.succeed("")
           if (!turn.stopped) {
             const fiber = yield* Effect.forkChild(
-              ask(live, turn, request, chat),
+              ask(live, turn, request, chat, format),
             )
             turn.fiber = fiber
             if (turn.stopped) yield* Fiber.interrupt(fiber)
@@ -1077,7 +1092,13 @@ export const layer = Layer.unwrap(
             if (posted(outcome.reason)) {
               yield* post(
                 chat,
-                Messages.failedTurn(at - turn.at, outcome.reason, turn.id),
+                format,
+                Messages.failedTurn(
+                  format,
+                  at - turn.at,
+                  outcome.reason,
+                  turn.id,
+                ),
                 { replyTo: reply },
               )
             }
@@ -1093,8 +1114,8 @@ export const layer = Layer.unwrap(
           // `Answered`, because the history holds it (FAIL-51), and the model is told that the owner has not read it
           // (FAIL-129).
           const delivered = yield* outcome._tag === "Answered"
-            ? post(chat, outcome.text, { replyTo: reply, answer: ids })
-            : post(chat, Messages.stopped(at - turn.at))
+            ? post(chat, format, outcome.text, { replyTo: reply, answer: ids })
+            : post(chat, format, Messages.stopped(format, at - turn.at))
           // An answer for a thread that no longer exists ends the turn `ThreadGone`, which posts nothing (FAIL-44,
           // FAIL-64).
           if (delivered === "gone" && outcome._tag === "Answered") {
@@ -1154,14 +1175,16 @@ export const layer = Layer.unwrap(
             : yield* Deferred.await(turn.open)
           if (live === undefined) return yield* missed
           const chat = yield* chats.get(request.connection)
+          const format = yield* chats.format(request.connection)
           const read = yield* Attachments.read({
             chat,
+            format,
             message: request.message,
             attachments: request.attachments,
             directory: live.directory,
             asImages: false,
           })
-          yield* tell(chat, request, read)
+          yield* tell(chat, format, request, read)
           if (turn.closing) return yield* missed
           const entry: Steer = {
             key: request.key,
@@ -1200,6 +1223,7 @@ export const layer = Layer.unwrap(
         ) {
           if (old.ready !== undefined) yield* Deferred.await(old.ready)
           const chat = yield* chats.get(payload.connection)
+          const format = yield* chats.format(payload.connection)
           // A running turn is stopped first, and it posts its own notice before the new session's.
           if (old.turn !== undefined) {
             const turn = old.turn
@@ -1214,7 +1238,7 @@ export const layer = Layer.unwrap(
             id: payload.message,
             at: payload.at,
           })
-          yield* post(chat, Messages.newSession())
+          yield* post(chat, format, Messages.newSession(format))
           yield* Queue.ran("/new", Queue.caller(undefined), "changed", {
             session: id,
           })
@@ -1246,11 +1270,16 @@ export const layer = Layer.unwrap(
             // A stored request is delivered as the daemon boots, before the platform may have answered.
             yield* chats.ready(payload.connection)
             const chat = yield* chats.get(payload.connection)
+            const format = yield* chats.format(payload.connection)
             // The status message a cut start left behind gets one attempt at its removal (DIS-95).
             if (ended.status !== undefined) {
               yield* StatusMessage.discard(chat, thread, ended.status)
             }
-            yield* post(chat, Messages.failedTurn(0, reason, ended.turn))
+            yield* post(
+              chat,
+              format,
+              Messages.failedTurn(format, 0, reason, ended.turn),
+            )
             yield* TurnLog.failed(
               {
                 session: ended.session,
@@ -1381,9 +1410,11 @@ export const layer = Layer.unwrap(
           stop: ({ payload }) =>
             Effect.gen(function* () {
               if (yield* interrupt(state.turn)) return { stopped: true }
+              const format = yield* chats.format(payload.connection)
               yield* post(
                 yield* chats.get(payload.connection),
-                Messages.nothingRunning(),
+                format,
+                Messages.nothingRunning(format),
               )
               return { stopped: false }
             }),

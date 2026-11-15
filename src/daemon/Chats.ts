@@ -1,6 +1,7 @@
 import { Context, Deferred, Effect, Exit, Layer, Scope } from "effect"
 import { Chat, ChatAdapter } from "effect/chat"
 import type { Connection } from "./Connection.ts"
+import * as Format from "./Format.ts"
 
 /** effect/chat's router, as one connection has it. */
 export type ChatService = Chat.Chat["Service"]
@@ -15,6 +16,8 @@ export class Chats extends Context.Service<
   {
     /** The `Chat` of a connection, once it is built. It dies for a name that is no connection of this daemon. */
     readonly get: (connection: string) => Effect.Effect<ChatService>
+    /** The formatter of a connection's platform. It dies for a name that is no connection of this daemon. */
+    readonly format: (connection: string) => Effect.Effect<Format.Format>
     /**
      * Waits until the connection's platform has registered its adapter, which it does once the platform answers. A
      * post made as the daemon boots waits for it, so that it is not refused for want of the adapter.
@@ -23,10 +26,14 @@ export class Chats extends Context.Service<
   }
 >()("chad/Chats") {}
 
-/** A connection as its handler sees it while it runs: the name, and the owner ids as they stand at each message. */
+/**
+ * A connection as its handler sees it while it runs: the name, the owner ids as they stand at each message, and its
+ * platform's formatter.
+ */
 export interface Live {
   readonly name: string
   readonly owners: () => ReadonlyArray<string>
+  readonly format: Format.Format
 }
 
 /**
@@ -105,6 +112,7 @@ export const make = <R>(
       const live: Live = {
         name: entry.connection.name,
         owners: () => entry.connection.owners,
+        format: Format.of(entry.connection.kind),
       }
       return Layer.buildWithScope(
         Layer.mergeAll(registered, layer(entry.connection, live)).pipe(
@@ -122,6 +130,12 @@ export const make = <R>(
           return entry === undefined
             ? Effect.die(new Error(`there is no chat connection ${connection}`))
             : Deferred.await(entry.chat)
+        },
+        format: (connection) => {
+          const entry = entries.get(connection)
+          return entry === undefined
+            ? Effect.die(new Error(`there is no chat connection ${connection}`))
+            : Effect.succeed(Format.of(entry.connection.kind))
         },
         ready: (connection) => {
           const entry = entries.get(connection)

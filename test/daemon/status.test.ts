@@ -2,6 +2,7 @@
 import { Effect } from "effect"
 import { ChatError } from "effect/chat"
 import { expect, test } from "vitest"
+import * as Format from "../../dist/daemon/Format.js"
 import * as Messages from "../../dist/Messages.js"
 import { owner, scenario } from "../support/driver.ts"
 import {
@@ -38,7 +39,8 @@ test("DIS-19 DIS-20 DIS-21 DIS-24 DIS-33 DIS-35 DIS-81 DIS-90 FAIL-11 STO-75 OV-
   await eventually(
     () => statusMessages(running, thread),
     (texts) =>
-      texts[0] === Messages.statusMessage(at, [Messages.statusScript(script)]),
+      texts[0] ===
+      Messages.statusMessage(Format.local, at, [Messages.statusScript(script)]),
   )
   await lines(running, "turn.script-started", 1)
 
@@ -71,7 +73,11 @@ test("SES-74 DIS-39 a click on Stop from an owner is answered inside the interac
   const reply = await Effect.runPromise(running.click(status!, "stop", owner))
   expect(reply._tag).toBe("Ack")
   const [notice] = await fakes.chat.answers(thread, 1)
-  expect(stoppedNotices(Messages.stopped)).toContain(notice?.text)
+  expect(
+    stoppedNotices((milliseconds) =>
+      Messages.stopped(Format.local, milliseconds),
+    ),
+  ).toContain(notice?.text)
   expect(await statusMessages(running, thread)).toEqual([])
   expect(rows(running, "SELECT outcome FROM turns")).toEqual([
     { outcome: "stopped" },

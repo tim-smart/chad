@@ -10,6 +10,7 @@ import {
 import { ChatError, ChatInteraction, type ChatThread } from "effect/chat"
 import * as Messages from "../Messages.ts"
 import type { ChatService } from "./Chats.ts"
+import type { Format } from "./Format.ts"
 
 /**
  * The status message of a running turn (docs/spec/04-discord.md): one message that chad posts when the turn starts,
@@ -73,6 +74,8 @@ export const discard = (
 export const open = Effect.fnUntraced(function* (options: {
   readonly chat: ChatService
   readonly thread: ChatThread.ChatThread
+  /** The formatter of the connection's platform. */
+  readonly format: Format
   /** When the turn started, which the header shows as a relative time. */
   readonly at: number
   readonly stored: string | undefined
@@ -82,7 +85,7 @@ export const open = Effect.fnUntraced(function* (options: {
   const { chat, thread } = options
   const lines: Array<string> = []
   const content = () => ({
-    markdown: Messages.statusMessage(options.at, lines),
+    markdown: Messages.statusMessage(options.format, options.at, lines),
     actions: [StopButton.of()],
   })
   let id = options.stored

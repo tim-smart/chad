@@ -3,6 +3,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, test } from "vitest"
+import * as Format from "../../dist/daemon/Format.js"
 import * as Messages from "../../dist/Messages.js"
 import * as Failed from "../../dist/daemon/Failed.js"
 import { execute } from "../support/database.ts"
@@ -89,7 +90,7 @@ test("SES-106 SES-99 SES-202 FAIL-326 FAIL-63a FAIL-63b DIS-62 FAIL-65 after two
   const [failed] = await lines(running, "turn.failed", 1)
   expect(failed!.annotations["reason"]).toBe("GaveUp")
   expect(await posted(running, thread)).toEqual([
-    Messages.gaveUp(String(failed!.annotations["turn"])),
+    Messages.gaveUp(Format.local, String(failed!.annotations["turn"])),
   ])
   // The resumed start edited the message of the first, and the give-up removed it.
   expect(await fakes.chat.statuses()).toHaveLength(1)
@@ -129,7 +130,7 @@ test("SES-104 DIS-32 STO-75 a turn that a kill cut edits the status message its 
     (texts) =>
       texts.length === 1 &&
       texts[0] ===
-        Messages.statusMessage(Number(row!["started_at"]), [
+        Messages.statusMessage(Format.local, Number(row!["started_at"]), [
           Messages.statusRestarted(),
         ]),
   )
@@ -267,7 +268,7 @@ test("SES-152 SES-153 SES-205 TST-182 a stored request that the next start canno
   if (reason._tag !== "Internal") throw new Error("not Internal")
   await fakes.chat.answers(thread, 1)
   expect(await posted(running, thread)).toEqual([
-    Messages.failedTurn(0, reason, String(row!["turn_id"])),
+    Messages.failedTurn(Format.local, 0, reason, String(row!["turn_id"])),
   ])
   expect(await fakes.model.calls()).toHaveLength(1)
   await found(
@@ -302,7 +303,7 @@ test("FAIL-135 FAIL-140 SES-99 SES-101 SES-103 SES-200 a turn whose end the full
   await fakes.chat.answers(thread, 1)
   const turn = String(failed!.annotations["turn"])
   const [told] = await posted(running, thread)
-  expect(told).toContain(Messages.turnLine(turn))
+  expect(told).toContain(Messages.turnLine(Format.local, turn))
   execute(running.data, "DROP TRIGGER full")
   expect(
     rows(running, "SELECT turn_id, starts, outcome, ended_at FROM turns"),
@@ -355,7 +356,9 @@ test("FAIL-135 FAIL-281 SES-99 a turn whose row the full volume cannot insert ge
   expect(failed!.annotations["reason"]).toBe("Internal")
   await fakes.chat.answers(thread, 1)
   const [told] = await posted(running, thread)
-  expect(told).toContain(Messages.turnLine(String(failed!.annotations["turn"])))
+  expect(told).toContain(
+    Messages.turnLine(Format.local, String(failed!.annotations["turn"])),
+  )
   execute(running.data, "DROP TRIGGER full")
   expect(rows(running, "SELECT request_key FROM turns")).toEqual([])
   expect(rows(running, "SELECT seq FROM session_updates")).toEqual([])

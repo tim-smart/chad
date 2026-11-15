@@ -4,6 +4,7 @@ import { Prompt } from "effect/ai"
 import type { ChatMessage } from "effect/chat"
 import * as Messages from "../Messages.ts"
 import type { ChatService } from "./Chats.ts"
+import type { Format } from "./Format.ts"
 
 /**
  * The files on an owner's message. An image on a message that starts a turn goes to the model, and every other file
@@ -50,6 +51,8 @@ export const prompt = (
  */
 export const read = Effect.fnUntraced(function* (options: {
   readonly chat: ChatService
+  /** The formatter of the connection's platform, which writes the notices. */
+  readonly format: Format
   readonly message: ChatMessage.ChatMessage
   /** The ids of the attachments the stored request names. */
   readonly attachments: ReadonlyArray<string>
@@ -66,7 +69,7 @@ export const read = Effect.fnUntraced(function* (options: {
     const name = attachment.name ?? "file"
     if (attachment.size !== undefined && attachment.size > fileLimit) {
       lines.push(Messages.promptFileSkipped(name, attachment.size))
-      notices.push(Messages.fileSkipped(name, attachment.size))
+      notices.push(Messages.fileSkipped(options.format, name, attachment.size))
       continue
     }
     const bytes = yield* options.chat
@@ -78,7 +81,7 @@ export const read = Effect.fnUntraced(function* (options: {
       )
     if (bytes === undefined) {
       lines.push(Messages.promptFileFailed(name))
-      notices.push(Messages.fileFailed(name))
+      notices.push(Messages.fileFailed(options.format, name))
       continue
     }
     const type = attachment.contentType?.split(";")[0]?.trim().toLowerCase()

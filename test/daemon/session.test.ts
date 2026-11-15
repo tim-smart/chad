@@ -1,6 +1,7 @@
 import { Effect } from "effect"
 import { ChatError, ChatThread } from "effect/chat"
 import { expect, test } from "vitest"
+import * as Format from "../../dist/daemon/Format.js"
 import * as Messages from "../../dist/Messages.js"
 import { owner, scenario } from "../support/driver.ts"
 import {
@@ -133,8 +134,8 @@ test("SES-34 SES-145 SES-146 DIS-5 CLI-138a CLI-141a a chat command is the first
     await lines(running, "turn.ended", index + 2)
   }
   const said = await posted(running, thread)
-  expect(said).toContain(Messages.nothingRunning())
-  expect(said).toContain(Messages.newSession())
+  expect(said).toContain(Messages.nothingRunning(Format.local))
+  expect(said).toContain(Messages.newSession(Format.local))
 })
 
 test("SES-72 DIS-76 SES-83 DIS-75 DIS-84 SES-188 with nothing running /stop posts its notice and creates no session, and /new creates the thread's first session and posts its notice", async () => {
@@ -144,14 +145,16 @@ test("SES-72 DIS-76 SES-83 DIS-75 DIS-84 SES-188 with nothing running /stop post
   const direct = await fakes.chat.makeThread("direct")
 
   await says(running, direct, "/stop")
-  expect(await posted(running, direct)).toEqual([Messages.nothingRunning()])
+  expect(await posted(running, direct)).toEqual([
+    Messages.nothingRunning(Format.local),
+  ])
   expect(sessions(running)).toEqual([])
 
   const command = await says(running, direct, "/new")
   await fakes.chat.answers(direct, 2)
   expect(await posted(running, direct)).toEqual([
-    Messages.nothingRunning(),
-    Messages.newSession(),
+    Messages.nothingRunning(Format.local),
+    Messages.newSession(Format.local),
   ])
   expect(sessions(running)).toMatchObject([
     {
@@ -174,7 +177,10 @@ test("SES-147 SES-148 SES-186 a mentioned command in a plain channel with no ses
   await says(running, channel, "/stop", { mention: true })
   await says(running, channel, "/status", { mention: true })
   const said = await posted(running, channel)
-  expect(said.slice(0, 2)).toEqual([Messages.noSession(), Messages.noSession()])
+  expect(said.slice(0, 2)).toEqual([
+    Messages.noSession(Format.local),
+    Messages.noSession(Format.local),
+  ])
   expect(said[2]).toContain("daemon: up (ready)")
   expect(sessions(running)).toEqual([])
   const calls = await Effect.runPromise(chat.calls)

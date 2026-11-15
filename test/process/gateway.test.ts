@@ -1,6 +1,7 @@
 // The Discord wire slice in layer 4 (docs/spec/17-testing.md, TST-60b): the daemon in a child process, dfx's real
 // shard over a WebSocket to the scripted gateway, and kills between its starts.
 import { expect, test } from "vitest"
+import * as Format from "../../dist/daemon/Format.js"
 import * as Messages from "../../dist/Messages.js"
 import type { Connection } from "../../dist/daemon/Connection.js"
 import * as Discord from "../support/discord.ts"
@@ -231,7 +232,7 @@ test("SES-172 SES-203 SES-204 SES-37 in a thread two bots share, a /new the gate
   expect(handled).toEqual({ ran: 1, dropped: 1 })
   expect(await answers(running, 2, shared)).toEqual([
     "first answer",
-    Messages.newSession(),
+    Messages.newSession(Format.discord),
   ])
   // One reset leaves the ended session and the new one.
   expect(

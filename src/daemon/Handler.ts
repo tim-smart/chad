@@ -122,7 +122,7 @@ export const layer = (connection: Live) =>
             return yield* say(thread, Messages.status(yield* status))
           }
           if (word !== undefined)
-            return yield* say(thread, Messages.noSession())
+            return yield* say(thread, Messages.noSession(connection.format))
           // The thread is opened before the save, so an event that is delivered again lands on the same thread.
           const opened = yield* Effect.exit(
             chat.startThread(thread, message.id),

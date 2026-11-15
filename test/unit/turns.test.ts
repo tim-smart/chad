@@ -12,6 +12,7 @@ import { expect, it, onTestFinished } from "vitest"
 import * as Attachments from "../../src/daemon/Attachments.ts"
 import * as Handler from "../../src/daemon/Handler.ts"
 import * as Sessions from "../../src/daemon/Sessions.ts"
+import * as Format from "../../src/daemon/Format.ts"
 import * as Messages from "../../src/Messages.ts"
 import * as FakeModel from "../support/model.ts"
 
@@ -97,23 +98,25 @@ it("SES-195 the reconcile gives each outstanding steer, oldest first, the first 
 })
 
 it("DIS-59 DIS-64 DIS-75 DIS-76 DIS-77 SES-186 SES-190 the notices of a session are templates of the Messages module in the spec's wording, as subtext, and the one about a thread is a normal message", () => {
-  expect(Messages.stopped(48_000)).toBe("-# Stopped after 48s.")
-  expect(Messages.stopped(125_400)).toBe("-# Stopped after 2m 5s.")
-  expect(Messages.stopped(200)).toBe("-# Stopped after 0s.")
-  expect(Messages.nothingRunning()).toBe("-# Nothing is running.")
-  expect(Messages.newSession()).toBe(
+  expect(Messages.stopped(Format.discord, 48_000)).toBe("-# Stopped after 48s.")
+  expect(Messages.stopped(Format.discord, 125_400)).toBe(
+    "-# Stopped after 2m 5s.",
+  )
+  expect(Messages.stopped(Format.discord, 200)).toBe("-# Stopped after 0s.")
+  expect(Messages.nothingRunning(Format.discord)).toBe("-# Nothing is running.")
+  expect(Messages.newSession(Format.discord)).toBe(
     "-# New session started. Nothing from the earlier conversation carries over.",
   )
-  expect(Messages.noSession()).toBe(
+  expect(Messages.noSession(Format.discord)).toBe(
     "-# There is no session in this channel. Mention me with a message and I'll open a thread for it.",
   )
   expect(Messages.threadFailed("Missing Permissions")).toBe(
     "I couldn't open a thread on that message (Missing Permissions). I need Create Public Threads here, or you can DM me.",
   )
-  expect(Messages.fileSkipped("big.zip", 48 * 1024 * 1024)).toBe(
-    "-# Skipped `big.zip` (48 MB). The limit is 25 MB.",
-  )
-  expect(Messages.fileFailed("lost.txt")).toBe(
+  expect(
+    Messages.fileSkipped(Format.discord, "big.zip", 48 * 1024 * 1024),
+  ).toBe("-# Skipped `big.zip` (48 MB). The limit is 25 MB.")
+  expect(Messages.fileFailed(Format.discord, "lost.txt")).toBe(
     "-# Skipped `lost.txt`. I couldn't download it.",
   )
 })

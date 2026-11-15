@@ -1,6 +1,7 @@
 import { Duration, Effect, Layer } from "effect"
 import { Chat, ChatError, ChatTest, ChatThread } from "effect/chat"
 import { expect, test } from "vitest"
+import * as Format from "../../src/daemon/Format.ts"
 import * as Post from "../../src/daemon/Post.ts"
 import { discordDescriptor } from "../support/platform.ts"
 
@@ -60,7 +61,7 @@ test("DIS-51 DIS-54 an answer longer than five messages goes out in five and ans
               )
             : chat.post(where, content),
       }
-      const posting = yield* Post.post(failing, thread, answer, {
+      const posting = yield* Post.post(failing, Format.local, thread, answer, {
         answer: {},
       })
       const calls = (yield* test.calls).filter(
@@ -100,9 +101,15 @@ test("DIS-100 FAIL-66 a post that replies to a message that is gone goes out as 
     Effect.gen(function* () {
       const { test, chat } = yield* platform
       const thread = yield* test.makeThread("thread")
-      const posting = yield* Post.post(chat, thread, "the turn failed", {
-        replyTo: "999",
-      })
+      const posting = yield* Post.post(
+        chat,
+        Format.local,
+        thread,
+        "the turn failed",
+        {
+          replyTo: "999",
+        },
+      )
       return { posting, messages: yield* test.messages(thread) }
     }),
   )

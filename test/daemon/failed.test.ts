@@ -1,6 +1,7 @@
 import { Effect } from "effect"
 import { ChatError } from "effect/chat"
 import { expect, test } from "vitest"
+import * as Format from "../../dist/daemon/Format.js"
 import * as Messages from "../../dist/Messages.js"
 import * as Failed from "../../dist/daemon/Failed.js"
 import { scenario } from "../support/driver.ts"
@@ -50,6 +51,7 @@ test("FAIL-43 FAIL-54 FAIL-55 FAIL-65 FAIL-16 STO-76 API-112 FAIL-125 FAIL-127 F
   if (reason._tag !== "ModelError") throw new Error("not a ModelError")
   expect(await posted(running, thread)).toEqual([
     Messages.failedTurn(
+      Format.local,
       Number(failed!.annotations["duration_ms"]),
       reason,
       turn,

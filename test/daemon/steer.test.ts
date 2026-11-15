@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { Duration, Effect } from "effect"
 import { ChatError, ChatThread } from "effect/chat"
 import { expect, test } from "vitest"
+import * as Format from "../../dist/daemon/Format.js"
 import * as Messages from "../../dist/Messages.js"
 import { execute } from "../support/database.ts"
 import { owner, scenario, type Scenario } from "../support/driver.ts"
@@ -200,7 +201,11 @@ test("SES-64 SES-69a SES-70 SES-73 SES-76 DIS-59 FAIL-69 /stop interrupts the tu
   const [notice] = await fakes.chat.answers(thread, 1)
   await found(running, answered, 2)
 
-  expect(stoppedNotices(Messages.stopped)).toContain(notice?.text)
+  expect(
+    stoppedNotices((milliseconds) =>
+      Messages.stopped(Format.local, milliseconds),
+    ),
+  ).toContain(notice?.text)
   const [turn] = rows(running, "SELECT outcome, ended_at, failure FROM turns")
   expect(turn).toMatchObject({ outcome: "stopped", failure: null })
   expect(turn?.["ended_at"]).toEqual(expect.any(Number))
@@ -250,7 +255,7 @@ test("SES-9 SES-10 SES-77 SES-138 SES-139 STO-63 STO-64 SES-171 SES-172 CLI-205b
   await fakes.chat.answers(thread, 3)
   expect(await posted(running, thread)).toEqual([
     "one",
-    Messages.newSession(),
+    Messages.newSession(Format.local),
     "two",
   ])
 
@@ -325,8 +330,12 @@ test("SES-78 SES-140 DIS-103 /new during a turn stops it first, posts the stoppe
   await waits(running, thread)
   await says(running, thread, "/new")
   const notices = await fakes.chat.answers(thread, 2)
-  expect(stoppedNotices(Messages.stopped)).toContain(notices[0]?.text)
-  expect(notices[1]?.text).toBe(Messages.newSession())
+  expect(
+    stoppedNotices((milliseconds) =>
+      Messages.stopped(Format.local, milliseconds),
+    ),
+  ).toContain(notices[0]?.text)
+  expect(notices[1]?.text).toBe(Messages.newSession(Format.local))
   await found(running, answered, 2)
   expect(replies(running).toSorted()).toEqual(["Dropped", "Stopped"])
   expect(rows(running, "SELECT outcome FROM turns")).toEqual([
