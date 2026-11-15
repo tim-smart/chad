@@ -28,6 +28,13 @@ export const gateProjects = ["types", "unit", "daemon", "process", "image"]
  */
 export const handChecks = "TST-144"
 
+/**
+ * The waiver reason of a rule that names another rule whose test on the gate already runs it. Whether that test really
+ * runs the rule, and whether the rule is one that decides who chad obeys or what chad keeps secret, which is never
+ * waived this way, are for the review. The script cannot judge either.
+ */
+export const neighbour = "another rule's test"
+
 export const deliveredFile = "delivered.md"
 export const waiverFile = "waivers.md"
 
@@ -260,7 +267,7 @@ export const parseDelivered = (
   }
 }
 
-/** Reads the waiver list: each rule on it and the item, or for a fact the rule, that covers it. */
+/** Reads the waiver list: each rule on it and the item, or the rule, that covers it. */
 export const parseWaivers = (markdown: string): ReadonlyArray<Waiver> =>
   tableRows(sectionsOf(markdown).get("Waivers")).map((row) => ({
     unit: row[0] ?? "",
@@ -382,6 +389,11 @@ export const evaluate = (inputs: Inputs): Report => {
 
   const waivers = new Map<string, string>()
   // The waivers that name an item come first, because a fact may name a rule that only an item covers.
+  const ownTest = (unit: string) =>
+    gateTests.has(unit) ||
+    (waivers.has(unit) &&
+      waivers.get(unit) !== "fact" &&
+      waivers.get(unit) !== neighbour)
   const listed = parseWaivers(inputs.waivers)
   const namesRule = (entry: Waiver) =>
     entry.coveredBy !== handChecks && resolve(entry.coveredBy) !== undefined
@@ -412,27 +424,32 @@ export const evaluate = (inputs: Inputs): Report => {
       continue
     }
     // A fact names a rule in place of an item, and that rule's own test is what covers the fact. The test is one of
-    // the gate, or one of the item the rule is waived against. A rule that is held, pending or itself a fact waived
-    // against a rule has no test, which also rules out two facts that name each other.
+    // the gate, or one of the item the rule is waived against. A rule that is held, pending or itself waived against
+    // a rule has no test, which also rules out two facts that name each other.
+    //
+    // A rule names another rule in the same place, one whose test already runs it. That test is one of the gate, for
+    // each letter the waiver names, so a rule waived this way cannot be named by another.
     const covering = resolve(entry.coveredBy)
     if (covering) {
-      if (target.rule.kind !== "fact") {
+      const isFact = target.rule.kind === "fact"
+      if (covering.rule.id === target.rule.id) {
         failures.push(
-          `the waiver ${entry.unit} names the rule ${entry.coveredBy} in place of an item, and only a fact may`,
+          `the waiver ${entry.unit} names ${entry.coveredBy}, which is the rule itself`,
         )
-      } else if (
-        covering.rule.id === target.rule.id ||
-        !covering.units.some(
-          (unit) =>
-            gateTests.has(unit) ||
-            (waivers.has(unit) && waivers.get(unit) !== "fact"),
-        )
-      ) {
+      } else if (isFact && !covering.units.some(ownTest)) {
         failures.push(
           `the waiver ${entry.unit} names ${entry.coveredBy}, which has no test that could fail`,
         )
+      } else if (
+        !isFact &&
+        !covering.units.every((unit) => gateTests.has(unit))
+      ) {
+        failures.push(
+          `the waiver ${entry.unit} names ${entry.coveredBy}, which has no test of its own on the gate`,
+        )
       } else {
-        for (const unit of target.units) waivers.set(unit, "fact")
+        for (const unit of target.units)
+          waivers.set(unit, isFact ? "fact" : neighbour)
       }
       continue
     }

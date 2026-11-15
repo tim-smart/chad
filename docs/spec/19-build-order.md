@@ -92,7 +92,7 @@ A builder reads `AGENTS.md` at the root of the repo on every run and may not rea
 
 - **ORD-32** `AGENTS.md` at the root of the chad repo holds the builder's contract and nothing about chad's behaviour. It is short enough to read in full on every run.
 - **ORD-33** `AGENTS.md` states the stop rule of ORD-28: a rule that is wrong or cannot be built is reported and left, and nothing else is built in its place.
-- **ORD-34** `AGENTS.md` says that every test names the rule ids it covers in its title, that the minimum is one test for each rule id or letter, that no test names no rule id, and that the instruction to skip tests in a builder's own brief does not apply to this repo (see 17-testing.md).
+- **ORD-34** `AGENTS.md` says that every test names the rule ids it covers in its title, that a rule or a letter has a test of its own or a line on the waiver list against another rule whose test runs it, that a rule which decides who chad obeys or what chad keeps secret is never waived that way, that no test names no rule id, and that the instruction to skip tests in a builder's own brief does not apply to this repo (see 17-testing.md).
 - **ORD-35** `AGENTS.md` says how to look a rule up: the rule-id script's `show <id>` mode prints one rule, and its list mode prints the ids of one slice. It tells the builder to read 00-overview.md and 17-testing.md in full and the other parts by rule, never the whole spec in one run.
 - **ORD-36** `AGENTS.md` gives the path of effect's own `AGENTS.md` inside the installed package and tells the builder to read it before writing Effect code.
 - **ORD-37** `AGENTS.md` says that a migration which a delivered slice added is never edited, and that a change to the schema is a new migration (see 02-storage.md).
@@ -139,7 +139,7 @@ A builder reads `AGENTS.md` at the root of the repo on every run and may not rea
 | ORD-31 | TIM-559 round 2 R10 item 6 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-32 | TIM-559 round 2 R10 item 1 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-33 | TIM-559 round 2 R10 item 1 | Architect (Tim has not read) | not run |  | `definition` | - |
-| ORD-34 | TIM-559 round 2 R10 item 1; TIM-558 item 3 | Architect (Tim has not read) | not run |  | `definition` | - |
+| ORD-34 | TIM-559 round 2 R10 item 1; TIM-558 item 3, amended by Tim's ruling that a rule another rule's test runs needs no test of its own, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-35 | TIM-559 round 2 R10 items 1 and 2 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-36 | TIM-559 round 2 R10 item 1 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-37 | TIM-559 round 2 R10 item 1; Tim, chat 2026-11-15 | Architect (Tim has not read). Tim for a delivered slice in place of a merged pull request | not run |  | `definition` | - |
