@@ -41,7 +41,6 @@ const files: Record<string, string> = {
     "| `early` | 1 | The first things. |",
   ].join("\n"),
   "docs/spec/delivered.md": "## Slices\n\n- `early`\n",
-  "docs/spec/waivers.md": "## Waivers\n",
   "vitest.config.ts": [
     'import { defineConfig } from "vitest/config"',
     "export default defineConfig({",
@@ -70,7 +69,7 @@ describe("the rule-id script, run over a checkout", () => {
   afterAll(() => rmSync(checkout, { recursive: true, force: true }))
 
   it("TST-170 reads the spec's rule ids from docs/spec/ in the repository", () => {
-    expect(comparison.stdout).toMatch(/^rules: 1, tested: 1$/m)
+    expect(comparison.stdout).toMatch(/^rules: 1$/m)
     expect(
       script(path("scripts/rule-ids.ts"), "show", "TST-170").stdout,
     ).toContain("- **TST-170** The spec lives in chad's repository")
@@ -81,10 +80,7 @@ describe("the rule-id script, run over a checkout", () => {
       readFileSync(join(checkout, ".rule-ids/index.json"), "utf8"),
     )
     expect(
-      index.map((entry) => [
-        entry.id,
-        entry.units.flatMap((unit) => unit.tests.map((test) => test.name)),
-      ]),
+      index.map((entry) => [entry.id, entry.tests.map((test) => test.name)]),
     ).toEqual([["AA-1", ["AA-1 holds"]]])
     const steps: ReadonlyArray<{
       uses?: string

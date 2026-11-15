@@ -6,7 +6,7 @@ Four terms are used throughout. The owner is a person whose Discord user id is o
 
 ## How chad reaches Discord
 
-DIS-3 and DIS-4 are facts about Discord itself. A scripted gateway answers as its author thinks Discord does and cannot show either, so each takes a waiver and not a test on the scripted gateway (see 17-testing.md).
+DIS-3 and DIS-4 are facts about Discord itself. A scripted gateway answers as its author thinks Discord does and cannot show either, so neither has a test on the scripted gateway, and the hand checks confirm both (see 17-testing.md).
 
 - **DIS-1** chad connects to Discord over the gateway through dfx, so it needs no inbound port. Which gateway layer it uses and how events are replayed after a restart are in 03-sessions-and-turns.md.
 - **DIS-2** Button clicks and modal submits arrive over the same gateway through `layerGatewayInteractions` and are handled by a `ChatInteraction.Handler`. They are not chat events and carry no dedupe key.
@@ -15,7 +15,7 @@ DIS-3 and DIS-4 are facts about Discord itself. A scripted gateway answers as it
 - **DIS-86** chad identifies to the gateway with the intents for guilds, guild messages, direct messages and message content.
 - **DIS-87** In a server channel the bot needs the permissions View Channel, Send Messages, Send Messages in Threads, Create Public Threads, Read Message History and Attach Files.
 - **DIS-88** One constant in chad holds the intents of DIS-86 and the permissions of DIS-87. The intents chad identifies with come from it, and so do the permissions in the invite URL that `chad connection add discord` prints and the privileged intents that its output names. Message content is the only privileged intent in the list. The constant is written when chad first identifies to the gateway, for DIS-86, and what this rule adds to it is the invite URL and the named intents. The command, the URL's scopes and what `chad setup` shows of it are in 10-cli.md.
-- **DIS-89** The intents of DIS-86 and the permissions of DIS-87 have not been run against a real Discord, and the hand checks are what confirm them (see 17-testing.md). This rule has no test in the gate and is on the waiver list against the hand checks.
+- **DIS-89** The intents of DIS-86 and the permissions of DIS-87 have not been run against a real Discord, and the hand checks are what confirm them (see 17-testing.md). This rule has no test in the gate.
 - **DIS-5** chad registers no Discord slash commands. Its chat commands, such as `/new` and `/stop`, are plain text, and none of them reaches the model. The list of the chat commands is in 10-cli.md, how they are matched is in 03-sessions-and-turns.md, and each command is specified in 03-sessions-and-turns.md, 05-model-and-login.md, 10-cli.md or 15-credentials.md.
 - **DIS-6** Only an owner's message triggers chad. A message from anyone else is ignored and never enters a session's history.
 - **DIS-80** chad drops its own messages before it checks for an owner, and an id on the allowlist is an owner whether or not it belongs to a bot. Both rules are in 03-sessions-and-turns.md.
@@ -359,7 +359,7 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-86 | TIM-559 ruling on DIS-G17 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | DIS-87 | TIM-559 ruling on DIS-G17 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | DIS-88 | TIM-559 ruling on DIS-G17, amended by TIM-559 round 3 A4, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `cli` |
-| DIS-89 | TIM-559 ruling on DIS-G17, TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
+| DIS-89 | TIM-559 ruling on DIS-G17, TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that tests are chosen by behaviour, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | DIS-90 | TIM-559 ruling on DIS-G8 and SES-G10 | Architect (Tim has not read) | not run |  | `rule` | `discord-ui` |
 | DIS-91 | TIM-559 ruling on DIS-G8 and SES-G10 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | DIS-92 | TIM-559 ruling on DIS-G7 and MOD-G10 | Architect (Tim has not read) | not run |  | `rule` | `models` |

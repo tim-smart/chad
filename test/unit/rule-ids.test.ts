@@ -69,7 +69,6 @@ interface Fixture {
     readonly [unit: string, slice: string, reason: string]
   >
   readonly stopped?: ReadonlyArray<readonly [id: string, reason: string]>
-  readonly waivers?: ReadonlyArray<readonly [unit: string, coveredBy: string]>
   readonly tests?: ReadonlyArray<readonly [name: string, project?: string]>
   readonly sources?: Readonly<Record<string, string>>
 }
@@ -99,7 +98,6 @@ const run = (fixture: Fixture) =>
       "",
       table("Stopped rules", ["Rule", "What is wrong"], fixture.stopped ?? []),
     ].join("\n"),
-    waivers: table("Waivers", ["Rule", "Covered by"], fixture.waivers ?? []),
     tests: (fixture.tests ?? []).map(
       ([name, projectName = "unit"]): ListedTest => ({
         name,
@@ -149,7 +147,6 @@ describe("the rule index", () => {
     const report = evaluate({
       parts: { ...parts([early]), "02-another.md": part([early]) },
       delivered: "",
-      waivers: "",
       tests: [],
       sources: {},
     })
@@ -182,39 +179,29 @@ describe("the rule index", () => {
 })
 
 describe("the comparison of the spec's ids with the tests' ids", () => {
-  it("TST-9 fails on a rule of a delivered slice that has no test", () => {
-    expect(run({ rules: [early] }).failures).toEqual([
-      "AA-1 (01-a-part.md, slice early) has no test, is not pending and is not on the waiver list",
+  it("TST-7 TST-14 wants no test for a rule of a delivered slice, and takes a test whose title names no rule id", () => {
+    const report = run({ rules: [early, late], tests: [["decodes UTF-8"]] })
+    expect(report.failures).toEqual([])
+    expect(report.index.map((entry) => entry.units)).toEqual([
+      [{ unit: "AA-1", status: "delivered" }],
+      [{ unit: "AA-2", status: "pending", reason: "late" }],
     ])
-    expect(run({ rules: [early], tests: [["AA-1 holds"]] }).failures).toEqual(
-      [],
-    )
   })
 
-  it("TST-8 counts only the tests that vitest lists in a project of the gate", () => {
-    const inSourceOnly = run({
-      rules: [early],
-      sources: { "test/a.test.ts": 'it("AA-1 holds", () => {})' },
-    })
-    expect(inSourceOnly.failures).toContainEqual(
-      expect.stringContaining("AA-1 (01-a-part.md, slice early) has no test"),
-    )
-    const liveOnly = run({
-      rules: [early],
-      tests: [["AA-1 holds", "codex"]],
-    })
-    expect(liveOnly.failures).toContainEqual(
-      expect.stringContaining("AA-1 (01-a-part.md, slice early) has no test"),
-    )
-  })
-
-  it("TST-7 TST-173 fails on a test whose title names no rule id", () => {
+  it("TST-8 TST-12 indexes only the tests that vitest lists in a project of the gate", () => {
     const report = run({
       rules: [early],
-      tests: [["AA-1 holds"], ["decodes UTF-8"]],
+      tests: [["AA-1 holds"], ["AA-1 on a real login", "codex"]],
+      sources: { "test/b.test.ts": 'it("AA-1 in the source only", () => {})' },
     })
-    expect(report.failures).toEqual([
-      'test/a.test.ts: "decodes UTF-8" names no rule id',
+    expect(report.failures).toEqual([])
+    expect(report.index[0]?.tests).toEqual([
+      {
+        name: "AA-1 holds",
+        file: "test/a.test.ts",
+        projectName: "unit",
+        unit: "AA-1",
+      },
     ])
   })
 
@@ -261,32 +248,22 @@ describe("the comparison of the spec's ids with the tests' ids", () => {
     ])
   })
 
-  it("TST-190 takes a letter after an id, and wants a test for each letter the rule's text carries", () => {
+  it("TST-190 takes a letter after an id that the rule's text marks, and no other", () => {
     const lettered = {
       id: "AA-1",
       slice: "early",
       text: "(a) One statement. (b) Another.",
     }
     expect(
-      run({ rules: [lettered], tests: [["AA-1a holds"], ["AA-1b holds"]] })
-        .failures,
-    ).toEqual([])
-    expect(
       run({ rules: [lettered], tests: [["AA-1a holds"], ["AA-1 holds"]] })
         .failures,
-    ).toEqual([
-      "AA-1b (01-a-part.md, slice early) has no test, is not pending and is not on the waiver list",
-    ])
+    ).toEqual([])
     expect(
       run({ rules: [lettered], tests: [["AA-1a AA-1b AA-1c hold"]] }).failures,
     ).toEqual([
       'test/a.test.ts: "AA-1a AA-1b AA-1c hold" names AA-1c, which the spec does not have',
     ])
-    // A rule with no slice wants no test, and a test may still name a letter its text marks, and no other.
     const unsliced = { ...lettered, slice: "-", kind: "definition" }
-    expect(
-      run({ rules: [unsliced], tests: [["AA-1a holds"]] }).failures,
-    ).toEqual([])
     expect(
       run({ rules: [unsliced], tests: [["AA-1a AA-1z hold"]] }).failures,
     ).toEqual([
@@ -294,238 +271,19 @@ describe("the comparison of the spec's ids with the tests' ids", () => {
     ])
   })
 
-  it("TST-16 fails on an untested rule that Architect agreed, as on any other", () => {
-    const report = run({
-      rules: [{ ...early, agreedBy: "Architect (Tim has not read)" }],
-    })
-    expect(report.failures).toHaveLength(1)
-  })
-
-  it("TST-172 wants no test for a rule whose slice is -, and counts it as a definition or as withdrawn", () => {
+  it("TST-172 never leaves a rule whose slice is - pending, and indexes it as a definition or as withdrawn", () => {
     const report = run({
       rules: [
         { id: "AA-1", slice: "-", kind: "definition" },
-        { id: "AA-2", slice: "-", kind: "definition" },
         { id: "AA-3", slice: "-", kind: "rule", text: "Withdrawn." },
       ],
       delivered: [],
     })
     expect(report.failures).toEqual([])
-    expect(report.waived).toEqual({ definition: 2, withdrawn: 1 })
     expect(report.pending).toEqual({})
-  })
-
-  it("TST-193 prints the number of waived rules for each waiver reason", () => {
-    const report = run({
-      rules: [
-        { id: "AA-1", slice: "-", kind: "definition" },
-        { id: "AA-2", slice: "-", kind: "rule", text: "Withdrawn." },
-        { id: "AA-3", slice: "early" },
-        { id: "AA-4", slice: "early", kind: "fact" },
-        { id: "AA-5", slice: "early" },
-        { id: "AA-6", slice: "early" },
-      ],
-      waivers: [
-        ["AA-3", "codex"],
-        ["AA-4", "AA-5"],
-        ["AA-6", "AA-5"],
-      ],
-      tests: [["AA-3 on a real login", "codex"], ["AA-5 holds"]],
-    })
-    expect(report.failures).toEqual([])
-    expect(summary(report).split("\n")).toEqual(
-      expect.arrayContaining([
-        "waived, by reason:",
-        "  definition: 1",
-        "  withdrawn: 1",
-        "  codex: 1",
-        "  fact: 1",
-        "  another rule's test: 1",
-      ]),
-    )
-  })
-
-  it("TST-13 TST-192 takes a waiver that names an item which carries the rule's id, the hand checks whose rule names it, or for a fact a rule with a test", () => {
-    const rules = [
-      early,
-      { id: "AA-3", slice: "early", kind: "fact" },
-      { id: "AA-4", slice: "-", kind: "definition" },
-    ]
-    const failures = (
-      waivers: NonNullable<Fixture["waivers"]>,
-      tests: NonNullable<Fixture["tests"]> = [],
-    ) => run({ rules, waivers, tests: [["AA-1 AA-3 hold"], ...tests] }).failures
-    expect(
-      failures([["AA-1", "codex"]], [["AA-1 on a real login", "codex"]]),
-    ).toEqual([])
-    expect(failures([["AA-3", "AA-1"]])).toEqual([])
-    expect(
-      failures([["AA-1", "codex"]], [["AA-3 on a real login", "codex"]]),
-    ).toEqual([
-      "the waiver AA-1 names the item codex, which does not carry the rule's id",
-    ])
-    expect(failures([["AA-1", "Tim has not read it"]])).toEqual([
-      "the waiver AA-1 names Tim has not read it, which is no live item",
-    ])
-    expect(failures([["AA-1", "unit"]])).toEqual([
-      "the waiver AA-1 names unit, which is no live item",
-    ])
-    expect(failures([["AA-3", "AA-4"]])).toEqual([
-      "the waiver AA-3 names AA-4, which has no test that could fail",
-    ])
-    // A fact names a rule and never an item, and the rule may be one that only an item covers.
-    expect(
-      failures([["AA-3", "codex"]], [["AA-3 on a real login", "codex"]]),
-    ).toEqual([
-      "the waiver AA-3 is of a fact and names codex, and a fact names the rule whose test would fail if it stopped holding",
-    ])
-    expect(
-      run({
-        rules: [
-          early,
-          { id: "AA-7", slice: "early" },
-          { id: "AA-8", slice: "early", kind: "fact" },
-        ],
-        waivers: [
-          ["AA-8", "AA-7"],
-          ["AA-7", "codex"],
-        ],
-        tests: [["AA-1 holds"], ["AA-7 on a real login", "codex"]],
-      }),
-    ).toMatchObject({ failures: [], waived: { fact: 1, codex: 1 } })
-    // The hand checks are no project. A waiver names them by the rule that lists them, for a rule and a fact alike,
-    // and that rule's text is what carries the id.
-    const byHand = (text: string, waivers: NonNullable<Fixture["waivers"]>) =>
-      run({
-        rules: [
-          early,
-          { id: "AA-9", slice: "early" },
-          { id: "AA-10", slice: "early", kind: "fact" },
-          { id: "AA-11", slice: "early", kind: "fact" },
-          { id: "TST-144", slice: "late", text },
-        ],
-        waivers,
-        tests: [["AA-1 holds"]],
-      })
-    expect(
-      byHand(
-        "A person does two things by hand, which confirm AA-9 and AA-10.",
-        [
-          ["AA-9", "TST-144"],
-          ["AA-10", "TST-144"],
-          ["AA-11", "AA-9"],
-        ],
-      ),
-    ).toMatchObject({ failures: [], waived: { "hand checks": 2, fact: 1 } })
-    expect(
-      byHand("A person does two things by hand, which confirm AA-10.", [
-        ["AA-9", "TST-144"],
-        ["AA-1", "TST-144"],
-        ["TST-144", "TST-144"],
-      ]).failures,
-    ).toEqual([
-      "the waiver AA-9 names the hand checks of TST-144, whose text does not carry the rule's id",
-      "the waiver AA-1 names the hand checks of TST-144, whose text does not carry the rule's id",
-      "the waiver TST-144 names the hand checks of TST-144, whose text does not carry the rule's id",
-      "AA-9 (01-a-part.md, slice early) has no test, is not pending and is not on the waiver list",
-      "AA-10 (01-a-part.md, slice early) has no test, is not pending and is not on the waiver list",
-      "AA-11 (01-a-part.md, slice early) has no test, is not pending and is not on the waiver list",
-    ])
-    // Two facts with no test, each waived against the other, cover nothing.
-    const facts = [
-      early,
-      { id: "AA-5", slice: "early", kind: "fact" },
-      { id: "AA-6", slice: "early", kind: "fact" },
-    ]
-    const each = (waivers: NonNullable<Fixture["waivers"]>) =>
-      run({ rules: facts, waivers, tests: [["AA-1 holds"]] })
-    expect(
-      each([
-        ["AA-5", "AA-1"],
-        ["AA-6", "AA-1"],
-      ]),
-    ).toMatchObject({ failures: [], waived: { fact: 2 } })
-    expect(
-      each([
-        ["AA-5", "AA-6"],
-        ["AA-6", "AA-5"],
-      ]).failures,
-    ).toEqual([
-      "the waiver AA-5 names AA-6, which has no test that could fail",
-      "the waiver AA-6 names AA-5, which has no test that could fail",
-      "AA-5 (01-a-part.md, slice early) has no test, is not pending and is not on the waiver list",
-      "AA-6 (01-a-part.md, slice early) has no test, is not pending and is not on the waiver list",
-    ])
-  })
-
-  it("TST-13 TST-173 TST-190 takes a waiver of a rule or a letter that names another rule or letter with a test of its own on the gate", () => {
-    const rules = [
-      early,
-      { id: "AA-2", slice: "early", text: "(a) One thing. (b) Another." },
-      { id: "AA-3", slice: "early" },
-      { id: "AA-4", slice: "early" },
-      { id: "AA-5", slice: "early", kind: "fact" },
-    ]
-    const report = (waivers: NonNullable<Fixture["waivers"]>) =>
-      run({
-        rules,
-        waivers: [["AA-4", "codex"], ...waivers],
-        tests: [["AA-1 AA-2a hold"], ["AA-4 on a real login", "codex"]],
-      })
-    const rest = [
-      ["AA-3", "AA-1"],
-      ["AA-5", "AA-1"],
-    ] as const
-    // One letter is waived against a rule, and a rule against one letter. The other letter keeps its own test.
-    expect(
-      report([
-        ["AA-2b", "AA-1"],
-        ["AA-3", "AA-2a"],
-        ["AA-5", "AA-1"],
-      ]),
-    ).toMatchObject({
-      failures: [],
-      waived: { "another rule's test": 2, fact: 1, codex: 1 },
-    })
-    expect(report(rest).failures).toEqual([
-      "AA-2b (01-a-part.md, slice early) has no test, is not pending and is not on the waiver list",
-    ])
-    // The named rule has a test on the gate for each of its letters, and a waiver or a test of a live item is none.
-    const none = (unit: string, coveredBy: string) =>
-      `the waiver ${unit} names ${coveredBy}, which has no test of its own on the gate`
-    const untested = (unit: string) =>
-      `${unit} (01-a-part.md, slice early) has no test, is not pending and is not on the waiver list`
-    expect(
-      report([
-        ["AA-2b", "AA-2a"],
-        ["AA-3", "AA-2"],
-        ["AA-5", "AA-1"],
-      ]).failures,
-    ).toEqual([
-      "the waiver AA-2b names AA-2a, which is the rule itself",
-      none("AA-3", "AA-2"),
-      untested("AA-2b"),
-      untested("AA-3"),
-    ])
-    expect(
-      report([
-        ["AA-2b", "AA-4"],
-        ["AA-3", "AA-1"],
-        ["AA-5", "AA-1"],
-      ]).failures,
-    ).toEqual([none("AA-2b", "AA-4"), untested("AA-2b")])
-    // A rule waived this way has no test, so neither a rule nor a fact may name it.
-    expect(
-      report([
-        ["AA-2b", "AA-3"],
-        ["AA-3", "AA-1"],
-        ["AA-5", "AA-3"],
-      ]).failures,
-    ).toEqual([
-      none("AA-2b", "AA-3"),
-      "the waiver AA-5 names AA-3, which has no test that could fail",
-      untested("AA-2b"),
-      untested("AA-5"),
+    expect(report.index.map((entry) => entry.units[0]?.status)).toEqual([
+      "definition",
+      "withdrawn",
     ])
   })
 
@@ -542,14 +300,8 @@ describe("the delivered file", () => {
     expect(report.failures).toEqual([])
     expect(report.pending).toEqual({ late: 1 })
     expect(
-      run({
-        rules: [early, late],
-        tests: [["AA-1 holds"]],
-        delivered: ["early", "late"],
-      }).failures,
-    ).toEqual([
-      "AA-2 (01-a-part.md, slice late) has no test, is not pending and is not on the waiver list",
-    ])
+      run({ rules: [early, late], delivered: ["early", "late"] }),
+    ).toMatchObject({ failures: [], pending: {} })
   })
 
   it("ORD-11 holds a rule, or one letter of a rule, for a later slice with a reason", () => {
@@ -573,7 +325,7 @@ describe("the delivered file", () => {
     ).toEqual(["the held entry AA-1 gives no reason"])
   })
 
-  it("ORD-12 fails on a held entry once the slice it names is delivered, and on the rule while it has no test", () => {
+  it("ORD-12 fails on a held entry once the slice it names is delivered", () => {
     const fixture = {
       rules: [early, late],
       held: [["AA-1", "late", "It rests on the rest."]],
@@ -591,9 +343,7 @@ describe("the delivered file", () => {
     ])
     expect(
       run({ ...fixture, delivered: ["early", "late"], held: [] }).failures,
-    ).toEqual([
-      "AA-1 (01-a-part.md, slice early) has no test, is not pending and is not on the waiver list",
-    ])
+    ).toEqual([])
   })
 
   it("ORD-40 fails on a slice the build order does not have, and on a held entry for the rule's own slice", () => {
@@ -620,7 +370,7 @@ describe("the delivered file", () => {
     )
   })
 
-  it("ORD-42 leaves a stopped rule pending and prints it, and fails on one that is unknown, withdrawn or also tested", () => {
+  it("ORD-42 leaves a stopped rule pending and prints it, and fails on one that is unknown, withdrawn or also held", () => {
     const stopped = run({
       rules: [early],
       stopped: [["AA-1", "It names a flag that clanka does not have."]],
@@ -649,17 +399,9 @@ describe("the delivered file", () => {
     expect(failures({ tests: [["AA-1 holds"]] }, "AA-3")).toEqual([
       "the stopped entry AA-3 names a withdrawn rule",
     ])
-    expect(failures({ tests: [["AA-1 holds"]] })).toEqual([
-      "the stopped rule AA-1 also has a test",
-    ])
+    expect(failures({ tests: [["AA-1 holds"]] })).toEqual([])
     expect(
       failures({ held: [["AA-1", "late", "It rests on the rest."]] }),
     ).toEqual(["the stopped rule AA-1 also has a held entry"])
-    expect(
-      failures({
-        waivers: [["AA-1", "codex"]],
-        tests: [["AA-1 on a real login", "codex"]],
-      }),
-    ).toEqual(["the stopped rule AA-1 also has a waiver"])
   })
 })

@@ -22,21 +22,7 @@ import { fileURLToPath } from "node:url"
 /** The vitest projects the pull request gate runs, one per layer. Any other project is a live item. */
 export const gateProjects = ["types", "unit", "daemon", "process", "image"]
 
-/**
- * The rule that lists the hand checks, which no project runs. A waiver names the hand checks by this id, and they carry
- * a rule's id when this rule's text names it.
- */
-export const handChecks = "TST-144"
-
-/**
- * The waiver reason of a rule that names another rule whose test on the gate already runs it. Whether that test really
- * runs the rule, and whether the rule is one that decides who chad obeys or what chad keeps secret, which is never
- * waived this way, are for the review. The script cannot judge either.
- */
-export const neighbour = "another rule's test"
-
 export const deliveredFile = "delivered.md"
-export const waiverFile = "waivers.md"
 
 export interface Rule {
   readonly id: string
@@ -52,10 +38,8 @@ export interface Rule {
   readonly text: string
   readonly section: string
   readonly row: string
-  /** The letters the rule's text marks as (a), (b) and so on, each of which wants a test. A rule with no slice has none. */
+  /** The letters the rule's text marks as (a), (b) and so on. A test or a held entry may name these and no other. */
   readonly letters: ReadonlyArray<string>
-  /** The letters the rule's text marks, whether or not the rule has a slice. A test may name these and no other. */
-  readonly marked: ReadonlyArray<string>
 }
 
 /** One entry of `vitest list --json`. */
@@ -69,7 +53,6 @@ export interface Inputs {
   /** The parts of the spec by file name, such as `17-testing.md`. */
   readonly parts: Readonly<Record<string, string>>
   readonly delivered: string
-  readonly waivers: string
   readonly tests: ReadonlyArray<ListedTest>
   /** The source of every test file by path, read only to find skip, todo and only. */
   readonly sources: Readonly<Record<string, string>>
@@ -86,13 +69,9 @@ export interface Stopped {
   readonly reason: string
 }
 
-export interface Waiver {
-  readonly unit: string
-  readonly coveredBy: string
-}
-
+/** A rule with no slice is a definition or withdrawn. A rule of a delivered slice that is not held or stopped is delivered. */
 export type Status =
-  "tested" | "pending" | "held" | "stopped" | "waived" | "untested"
+  "definition" | "withdrawn" | "pending" | "held" | "stopped" | "delivered"
 
 export interface IndexEntry {
   readonly id: string
@@ -106,19 +85,17 @@ export interface IndexEntry {
     readonly unit: string
     readonly status: Status
     readonly reason?: string
-    readonly tests: ReadonlyArray<ListedTest>
   }>
+  /** The gate's tests that name the rule or one of its letters, each with the unit it names. */
+  readonly tests: ReadonlyArray<ListedTest & { readonly unit: string }>
 }
 
 export interface Report {
   readonly failures: ReadonlyArray<string>
   readonly index: ReadonlyArray<IndexEntry>
-  /** The number of waived rules for each waiver reason. */
-  readonly waived: Readonly<Record<string, number>>
   /** The number of pending rules for each slice that is not delivered, held rules included. */
   readonly pending: Readonly<Record<string, number>>
   readonly stopped: ReadonlyArray<Stopped>
-  readonly tested: number
 }
 
 const cells = (row: string) =>
@@ -214,9 +191,7 @@ export const parseSpec = (parts: Readonly<Record<string, string>>): Spec => {
         text: text?.text ?? "",
         section: text?.section ?? "",
         row,
-        // A rule with no slice has no test, so a letter in its text wants none. TST-191 has "(a), (b)" in its prose.
-        letters: slice === "-" ? [] : marked,
-        marked,
+        letters: marked,
       })
     }
   }
@@ -267,13 +242,6 @@ export const parseDelivered = (
   }
 }
 
-/** Reads the waiver list: each rule on it and the item, or the rule, that covers it. */
-export const parseWaivers = (markdown: string): ReadonlyArray<Waiver> =>
-  tableRows(sectionsOf(markdown).get("Waivers")).map((row) => ({
-    unit: row[0] ?? "",
-    coveredBy: unquote(row[1] ?? ""),
-  }))
-
 const splitUnit = (unit: string) => {
   const match = /^([A-Z]+-\d+)([a-z])?$/.exec(unit)
   return match ? { id: match[1]!, letter: match[2] } : undefined
@@ -302,7 +270,7 @@ export const evaluate = (inputs: Inputs): Report => {
   )
   const sliceNames = new Set(spec.slices.map((slice) => slice.name))
 
-  // The units a rule is checked by are its letters, or the rule itself when its text carries none.
+  // The units of a rule are its letters, or the rule itself when its text carries none.
   const resolve = (unit: string) => {
     const parsed = splitUnit(unit)
     const rule = parsed && spec.rules.get(parsed.id)
@@ -313,34 +281,28 @@ export const evaluate = (inputs: Inputs): Report => {
       : undefined
   }
 
-  const gateTests = new Map<string, Array<ListedTest>>()
-  const itemTests = new Map<string, Set<string>>()
+  // A test need name no rule id. One that names an id or a letter the spec lacks fails, in any project.
+  const gateTests = new Map<string, Array<ListedTest & { unit: string }>>()
   for (const test of inputs.tests) {
     const where = `${test.file}: "${test.name}"`
     const named = [...test.name.matchAll(/\b([A-Z]+)-(\d+)([a-z])?\b/g)].filter(
       (match) => prefixes.has(match[1]!),
     )
-    if (named.length === 0) failures.push(`${where} names no rule id`)
     for (const match of named) {
       const unit = match[0]
-      const id = `${match[1]}-${match[2]}`
-      const rule = spec.rules.get(id)
-      // A test may name a letter that the rule's text marks, with or without a slice, and no other.
+      const rule = spec.rules.get(`${match[1]}-${match[2]}`)
       if (
         !rule ||
-        (match[3] !== undefined && !rule.marked.includes(match[3]))
+        (match[3] !== undefined && !rule.letters.includes(match[3]))
       ) {
         failures.push(`${where} names ${unit}, which the spec does not have`)
         continue
       }
-      // A bare id on a rule that carries letters covers no letter.
-      if (match[3] === undefined && rule.letters.length > 0) continue
-      const project = test.projectName ?? ""
-      if (gateProjects.includes(project)) {
-        gateTests.set(unit, [...(gateTests.get(unit) ?? []), test])
-      } else {
-        itemTests.set(project, (itemTests.get(project) ?? new Set()).add(unit))
-      }
+      if (gateProjects.includes(test.projectName ?? ""))
+        gateTests.set(rule.id, [
+          ...(gateTests.get(rule.id) ?? []),
+          { ...test, unit },
+        ])
     }
   }
 
@@ -387,97 +349,6 @@ export const evaluate = (inputs: Inputs): Report => {
     }
   }
 
-  const waivers = new Map<string, string>()
-  // The waivers that name an item come first, because a fact may name a rule that only an item covers.
-  const ownTest = (unit: string) =>
-    gateTests.has(unit) ||
-    (waivers.has(unit) &&
-      waivers.get(unit) !== "fact" &&
-      waivers.get(unit) !== neighbour)
-  const listed = parseWaivers(inputs.waivers)
-  const namesRule = (entry: Waiver) =>
-    entry.coveredBy !== handChecks && resolve(entry.coveredBy) !== undefined
-  const byHand = spec.rules.get(handChecks)?.text ?? ""
-  for (const entry of [
-    ...listed.filter((entry) => !namesRule(entry)),
-    ...listed.filter(namesRule),
-  ]) {
-    const target = resolve(entry.unit)
-    if (!target || target.rule.slice === "-") {
-      failures.push(
-        `the waiver ${entry.unit} names a rule the spec does not have or one that needs no test`,
-      )
-      continue
-    }
-    // The hand checks cover a rule or a fact alike, and what carries the id is the text of the rule that lists them.
-    if (entry.coveredBy === handChecks) {
-      if (
-        target.rule.id !== handChecks &&
-        new RegExp(`\\b${target.rule.id}\\b`).test(byHand)
-      ) {
-        for (const unit of target.units) waivers.set(unit, "hand checks")
-      } else {
-        failures.push(
-          `the waiver ${entry.unit} names the hand checks of ${handChecks}, whose text does not carry the rule's id`,
-        )
-      }
-      continue
-    }
-    // A fact names a rule in place of an item, and that rule's own test is what covers the fact. The test is one of
-    // the gate, or one of the item the rule is waived against. A rule that is held, pending or itself waived against
-    // a rule has no test, which also rules out two facts that name each other.
-    //
-    // A rule names another rule in the same place, one whose test already runs it. That test is one of the gate, for
-    // each letter the waiver names, so a rule waived this way cannot be named by another.
-    const covering = resolve(entry.coveredBy)
-    if (covering) {
-      const isFact = target.rule.kind === "fact"
-      if (covering.rule.id === target.rule.id) {
-        failures.push(
-          `the waiver ${entry.unit} names ${entry.coveredBy}, which is the rule itself`,
-        )
-      } else if (isFact && !covering.units.some(ownTest)) {
-        failures.push(
-          `the waiver ${entry.unit} names ${entry.coveredBy}, which has no test that could fail`,
-        )
-      } else if (
-        !isFact &&
-        !covering.units.every((unit) => gateTests.has(unit))
-      ) {
-        failures.push(
-          `the waiver ${entry.unit} names ${entry.coveredBy}, which has no test of its own on the gate`,
-        )
-      } else {
-        for (const unit of target.units)
-          waivers.set(unit, isFact ? "fact" : neighbour)
-      }
-      continue
-    }
-    if (target.rule.kind === "fact") {
-      failures.push(
-        `the waiver ${entry.unit} is of a fact and names ${entry.coveredBy}, and a fact names the rule whose test would fail if it stopped holding`,
-      )
-      continue
-    }
-    if (
-      gateProjects.includes(entry.coveredBy) ||
-      !itemTests.has(entry.coveredBy)
-    ) {
-      failures.push(
-        `the waiver ${entry.unit} names ${entry.coveredBy}, which is no live item`,
-      )
-      continue
-    }
-    for (const unit of target.units) {
-      if (itemTests.get(entry.coveredBy)!.has(unit))
-        waivers.set(unit, entry.coveredBy)
-      else
-        failures.push(
-          `the waiver ${unit} names the item ${entry.coveredBy}, which does not carry the rule's id`,
-        )
-    }
-  }
-
   const stopped = new Map<string, Stopped>()
   for (const entry of delivered.stopped) {
     const rule = spec.rules.get(entry.id)
@@ -489,79 +360,49 @@ export const evaluate = (inputs: Inputs): Report => {
       failures.push(`the stopped entry ${entry.id} names a withdrawn rule`)
     } else {
       stopped.set(entry.id, entry)
-      for (const unit of unitsOf(rule)) {
-        const also = gateTests.has(unit)
-          ? "a test"
-          : waivers.has(unit)
-            ? "a waiver"
-            : held.has(unit)
-              ? "a held entry"
-              : ""
-        if (also !== "")
-          failures.push(`the stopped rule ${entry.id} also has ${also}`)
-      }
+      if (unitsOf(rule).some((unit) => held.has(unit)))
+        failures.push(`the stopped rule ${entry.id} also has a held entry`)
     }
   }
 
-  const waived: Record<string, number> = {}
   const pending: Record<string, number> = {}
-  let tested = 0
-  const count = (record: Record<string, number>, key: string) => {
-    record[key] = (record[key] ?? 0) + 1
+  const count = (key: string) => {
+    pending[key] = (pending[key] ?? 0) + 1
   }
   const index = [...spec.rules.values()].map((rule): IndexEntry => {
     const units = unitsOf(rule).map((unit) => {
-      const tests = gateTests.get(unit) ?? []
       const entry = held.get(unit)
-      if (rule.slice === "-") {
-        const reason = rule.kind === "definition" ? "definition" : "withdrawn"
-        return { unit, status: "waived" as const, reason, tests }
-      }
+      if (rule.slice === "-")
+        return {
+          unit,
+          status:
+            rule.kind === "definition"
+              ? ("definition" as const)
+              : ("withdrawn" as const),
+        }
       if (stopped.has(rule.id))
         return {
           unit,
           status: "stopped" as const,
           reason: stopped.get(rule.id)!.reason,
-          tests,
         }
       if (!isDelivered(rule.slice))
-        return { unit, status: "pending" as const, reason: rule.slice, tests }
+        return { unit, status: "pending" as const, reason: rule.slice }
       if (entry && !isDelivered(entry.slice))
-        return { unit, status: "held" as const, reason: entry.slice, tests }
+        return { unit, status: "held" as const, reason: entry.slice }
       if (entry)
         failures.push(
           `${unit} is held for ${entry.slice}, which is delivered, so the held entry has to go`,
         )
-      if (waivers.has(unit))
-        return {
-          unit,
-          status: "waived" as const,
-          reason: waivers.get(unit)!,
-          tests,
-        }
-      if (tests.length > 0) return { unit, status: "tested" as const, tests }
-      failures.push(
-        `${unit} (${rule.part}, slice ${rule.slice}) has no test, is not pending and is not on the waiver list`,
-      )
-      return { unit, status: "untested" as const, tests }
+      return { unit, status: "delivered" as const }
     })
     // A rule counts once, by the least settled of its units.
-    const order: ReadonlyArray<Status> = [
-      "untested",
-      "stopped",
-      "pending",
-      "held",
-      "waived",
-      "tested",
-    ]
-    const worst = units.toSorted(
-      (a, b) => order.indexOf(a.status) - order.indexOf(b.status),
-    )[0]!
-    if (worst.status === "waived") count(waived, worst.reason!)
-    else if (worst.status === "stopped") count(pending, "stopped")
-    else if (worst.status === "pending" || worst.status === "held")
-      count(pending, worst.reason!)
-    else if (worst.status === "tested") tested++
+    const order: ReadonlyArray<Status> = ["stopped", "pending", "held"]
+    const worst = units
+      .filter((unit) => order.includes(unit.status))
+      .toSorted((a, b) => order.indexOf(a.status) - order.indexOf(b.status))[0]
+    if (worst?.status === "stopped") count("stopped")
+    else if (worst) count(worst.reason!)
     return {
       id: rule.id,
       part: rule.part,
@@ -571,6 +412,7 @@ export const evaluate = (inputs: Inputs): Report => {
       kind: rule.kind,
       slice: rule.slice,
       units,
+      tests: gateTests.get(rule.id) ?? [],
     }
   })
   const inBuildOrder = Object.fromEntries(
@@ -581,21 +423,17 @@ export const evaluate = (inputs: Inputs): Report => {
   return {
     failures,
     index,
-    waived,
     pending: inBuildOrder,
     stopped: [...stopped.values()],
-    tested,
   }
 }
 
-/** What the comparison prints: the counts of waived rules by reason and of pending rules by slice, and the stopped rules. */
+/** What the comparison prints: the number of rules, the counts of pending rules by slice, and the stopped rules. */
 export const summary = (report: Report): string => {
   const table = (record: Readonly<Record<string, number>>) =>
     Object.entries(record).map(([key, value]) => `  ${key}: ${value}`)
   return [
-    `rules: ${report.index.length}, tested: ${report.tested}`,
-    "waived, by reason:",
-    ...table(report.waived),
+    `rules: ${report.index.length}`,
     "pending, by slice:",
     ...table(report.pending),
     `stopped: ${report.stopped.length}`,
@@ -719,7 +557,6 @@ const check = () => {
   const report = evaluate({
     parts: readParts(),
     delivered: readFileSync(join(specDir, deliveredFile), "utf8"),
-    waivers: readFileSync(join(specDir, waiverFile), "utf8"),
     tests,
     sources: Object.fromEntries(
       [...files].map((file) => [file, readFileSync(join(root, file), "utf8")]),
