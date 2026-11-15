@@ -11,7 +11,7 @@ Three words are used throughout. A scenario is one test that drives a daemon thr
 - **TST-3** There is one vitest project per layer. Each project uses `pool: forks`, and each scenario starts its own daemon.
 - **TST-4** The process suite and the image suite are vitest files that start processes and run `docker`. The repository holds no bash check scripts.
 - **TST-5** CI runs the Node version that the Dockerfile names. It installs effect from the tarballs under `vendor/` and clanka from npm at the version the lockfile pins, never from pkg.pr.new (see 01-image-and-volume.md).
-- **TST-204** The repository uses oxlint and prettier, configured as in `tim-smart/lalph`: an `.oxlintrc.json`, and a `.prettierrc.json` with `semi` set to false. The gate runs `oxlint` and `prettier --check .`. The typecheck is `tsc`. This was inferred from Tim's other TypeScript repos and is open with him (TST-G25).
+- **TST-204** The repository uses oxlint and prettier, configured as in `tim-smart/lalph`: an `.oxlintrc.json`, and a `.prettierrc.json` with `semi` set to false. The gate runs `oxlint` and `prettier --check .`. The typecheck is `tsc`. chad takes no patch of the compiler that adds Effect's diagnostics, neither the `effect-language-service patch` step of that repo nor `@effect/tsgo`, so the compiler of the gate is the one the image runs at an apply. The linter and the formatter were inferred from Tim's other TypeScript repos, four of which run oxlint and all of which carry prettier.
 
 ## Stages and slices
 
@@ -105,7 +105,7 @@ In the plugin API prototype the first four failed with `Type 'Own' is not assign
 
 The product carries no test code. Three seams make that possible. The daemon is started by one function that takes its outside world as inputs. The model is replaced at the network, so that everything chad does around a model call still runs. Every duration sits in one service, so that a test can shorten all of them together.
 
-- **TST-31** One function, `runDaemon(inputs)`, owns the parts of the daemon that belong to the process: signals, the 60 second exit timer, exit codes and `CHAD_SESSION=daemon` (see 01-image-and-volume.md, where the timer is a provisional rule that is open with Tim, and 10-cli.md).
+- **TST-31** One function, `runDaemon(inputs)`, owns the parts of the daemon that belong to the process: signals, the 60 second exit timer, exit codes and `CHAD_SESSION=daemon` (see 01-image-and-volume.md and 10-cli.md).
 - **TST-32** `chad serve` and the test entry file are a few lines each, and both call `runDaemon`. Layers 3 and 4 start the daemon from the test entry file and layer 5 starts it with `chad serve`.
 - **TST-33** The inputs of `runDaemon` are the four in the table below, together with the connections of TST-201 until the `cli` slice is delivered and the plugins of TST-202 from the `plugin-api` slice on. It has no other input (TST-203).
 
@@ -251,7 +251,7 @@ The first table holds the durations chad sets, which are the ones `Timings` hold
 | Notice, time after a key's last notice in which the key is not announced again | 24 hours | 16-failures-logs-status.md (FAIL-152) |
 | Status, the "Recent" block's window for failed turns and its longer window for tokens | 24 hours and 7 days | 16-failures-logs-status.md (FAIL-114) |
 
-The stop rows are provisional rules on a question that is open with Tim (see 01-image-and-volume.md and 20-for-tim.md).
+The rules behind the stop rows are in 01-image-and-volume.md.
 
 The second table holds durations the spec names that chad does not set. They belong to a library, to Discord, to the provider or to the container configuration, and they stay at their real length in the tests.
 
@@ -294,7 +294,7 @@ These rules come from traps the prototypes hit. Forty scenarios started at once 
 - **TST-85** A scenario that depends on an order states the order in the test. The check that a removed plugin's queued hook is dropped and logged holds the first hook open until the plugin is removed (see 08-apply-and-swap.md).
 - **TST-86** Each scenario's volume sits under a short path, because a runner's temporary path is long and a unix socket path holds at most 107 bytes on Linux and 103 bytes on macOS.
 - **TST-87** The driver kills its process group at the end of a scenario, and fails the scenario if a daemon or an MCP child process outlives it.
-- **TST-189** Provisional, open with Tim. The driver of the process scenarios points the daemon at a temporary directory with `CHAD_DATA`, and sets `HOME`, the npm prefix and the cache directory to paths inside that directory. `CHAD_DATA` moves none of the three, so without this a `bash` command in a scripted turn would write into the developer's home (see 01-image-and-volume.md for the variables).
+- **TST-189** The driver of the process scenarios points the daemon at a temporary directory with `CHAD_DATA`, and sets `HOME`, the npm prefix and the cache directory to paths inside that directory. `CHAD_DATA` moves none of the three, so without this a `bash` command in a scripted turn would write into the developer's home (see 01-image-and-volume.md for the variables).
 
 ## Checks on skills, messages and closed lists
 
@@ -545,7 +545,6 @@ Once:
 
 - Make the first Codex recording, if TST-43 needs it.
 - Run the Kubernetes checks on his k3s node.
-- Rule on the 60 second stop deadline. Until he does, the real-length stop test is written on the provisional values, and it changes with them if he rules otherwise.
 - Read the change to the charting line on the local dev adapter. He agreed that line himself, and it now means that `ChatTest` runs outside the daemon and the image carries only the client.
 - Read that for this build the minimum is one test for each rule id (TST-173). The Coding squad's instructions, which are his, say to write only the bare minimum of tests.
 
@@ -557,7 +556,6 @@ Once:
 - **TST-G4** [builder] The items of the live Codex list beyond the two captures and the four named are not written, and neither is the pass mark of each. How the two captures are made is not said either, given that both need a login that is at its usage limit. TIM-558 "Not settled here" and item 38, TIM-557 item 22.
 - **TST-G5** [builder] The usage-limit frame that the fake's Codex side serves before the first capture exists is not given. The fake's frames come from a recording, no recording of a usage limit exists, and a frame with an `error.message` and a frame without one end the turn differently. TIM-558 items 15 and 16, TIM-557 items 20 and 22.
 - **TST-G6** [builder] The fixed tasks of the skill runs are not written. The pass mark names effect's `AGENTS.md`, which plays no part in a task on the `credentials` skill or on the `diagnose` skill, and no ticket gives those tasks a pass mark. TIM-558 "Not settled here" and item 39, TIM-557 item 43.
-- **TST-G7** [tim] The 60 second stop deadline and its parts are provisional rules that are open with Tim (see 01-image-and-volume.md). The real-length stop test is written on the provisional values, and it changes with them under TST-175 if Tim rules otherwise. TIM-553 question 1.
 - **TST-G9** [builder] The list of adapter operations and the RPC schema between the adapter client and the local platform are not given. Whether the adapter has an operation that fetches the bytes of an inbound attachment is part of this (see 03-sessions-and-turns.md). TIM-558 items 20 and 21.
 - **TST-G10** [builder] How a script for the fake model server is written, how a hold is released, and the shape of the one interface to the fakes are not given. Whether the call index counts a request the daemon makes for itself, such as the model check at start, is not given either. Recommended: the fake tells that check apart by its fixed prompt (see 05-model-and-login.md) and does not count it. TIM-558 items 14 and 24.
 - **TST-G11** [builder] The scenarios of the wire slice are not listed. The decision says "about a dozen" and names what they cover. How the wire slice points the Discord adapter's REST calls at the fake REST server is not given either. TIM-558 item 26.
@@ -573,7 +571,6 @@ Once:
 - **TST-G22** [builder] Who makes the first Codex recording of TST-43, with which script and over which flows, is not said, and neither is whether the `models` slice waits for it. A builder has no Codex login and may not use one outside the live lists. Recommended: the builder writes the fake's Codex side from the source of clanka and effect, and commits a recorder script that covers the flows of TST-39 and the refusals of TST-40. Tim runs it once (TST-165) and the builder replaces the hand-written frames with the recording. The slice does not wait for that. TST-41 and TST-43 are on the waiver list against the recording comparison of TST-42, which is what catches a difference. TIM-559 cold read, models reader.
 - **TST-G23** [builder] The inputs of a `runCli` are not given. With no daemon the CLI makes its own network calls and reads its own durations, and 10-cli.md recommends one function `runCli(inputs)` that the bin calls with the real values. Recommended: its inputs are an `HttpClient` and the values of `Timings`, which a test passes as it passes `runDaemon`'s. A scenario calls it in the test's process from `dist` for the commands that reach the network, and starts the real bin for the rest. TIM-558 item 17, TIM-559 cold read, cli reader.
 - **TST-G24** [builder] How the image layer of the `harness` slice knows that the daemon is up. The Dockerfile's `HEALTHCHECK` line arrives in `harness`, and the `chad health` command that it calls arrives in `cli` with the lock, the socket and the ping (see 19-build-order.md and 10-cli.md). Until `cli` the container therefore reports unhealthy, and the layer cannot wait for a healthy container. Recommended: in `harness` the layer waits for the `boot.ready` line on the container's standard output (see 16-failures-logs-status.md), and from `cli` on it waits for a healthy container. TIM-559 cold read, harness reader and cli reader.
-- **TST-G25** [tim] The linter and the formatter of TST-204 were inferred from Tim's other TypeScript repos, four of which run oxlint and all of which carry prettier. Tim has not said that chad uses them. Two more things in `tim-smart/lalph` were not taken: its `prepare` script runs `effect-language-service patch`, and it type-checks with `tsgo`. The question is whether chad lints and formats as TST-204 says, and whether it takes either of those two. Until Tim answers, TST-204 holds as written and neither is taken.
 
 ## Provenance
 
@@ -611,7 +608,7 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-28 | TIM-558 item 10 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
 | TST-29 | TIM-558 item 11 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | TST-30 | TIM-558 item 12 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
-| TST-31 | TIM-558 item 13, TIM-559 round 2 R5 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
+| TST-31 | TIM-558 item 13, TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `harness` |
 | TST-32 | TIM-558 item 13, round 1 Q4 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | TST-33 | TIM-558 item 13; TIM-559 cold read; TIM-559 round 5 item 4 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | TST-34 | TIM-558 item 14 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
@@ -769,7 +766,7 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-186 | TIM-559 ruling on DIS-G17, round 3 A4; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | TST-187 | TIM-559 ruling on SWAP-G11 | Architect (Tim has not read) | not run |  | `rule` | `live` |
 | TST-188 | TIM-559 ruling on LOAD-G1 | Architect (Tim has not read) | not run |  | `rule` | `loader` |
-| TST-189 | TIM-559 round 2 R5 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
+| TST-189 | TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `kills` |
 | TST-190 | TIM-559 round 2 R2 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
 | TST-191 | TIM-559 round 2 R2 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-192 | TIM-559 round 2 R2 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
@@ -784,5 +781,5 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-201 | TIM-559 cold read, harness reader, wire reader and cli reader, TIM-559 round 5 item 4 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | TST-202 | TIM-559 cold read, harness reader, TIM-559 round 5 item 4 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | TST-203 | TIM-559 cold read, harness reader and cli reader, TIM-559 round 5 item 4 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-204 | TIM-559 cold read, repo reader, TIM-559 round 5 item 5 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
+| TST-204 | TIM-559 cold read, repo reader, TIM-559 round 5 item 5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `repo` |
 | TST-205 | TIM-559 cold read, wire reader, TIM-559 round 5 item 2 | Architect (Tim has not read) | not run |  | `rule` | `wire` |

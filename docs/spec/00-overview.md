@@ -202,7 +202,7 @@ The parts use these terms with the meanings below. Paths are relative to the dat
 | 17-testing.md | How chad is tested, which is the six layers, the harness around `runDaemon`, the local platform, the rule ids on tests, what gates the pull request, and the nightly and live checks. |
 | 18-asphodel-plugin.md | The asphodel plugin written against the plugin API. |
 | 19-build-order.md | The order in which chad is built, which is five stages that each run a list of named slices on one shared branch and one pull request, when a stage is done, and the point from which Tim can run the image on his own server. |
-| 20-for-tim.md | What Tim has to read and answer, which is the size of the build, the questions only he can answer, every rule that states something he agreed in person and that a ticket he has not read then changed, his to-do list, and one paragraph for each ticket he has not read. It states no rule, so it has no rule ids, no Gaps section and no Provenance table. |
+| 20-for-tim.md | What Tim has to read and answer, which is the size of the build, the questions that were his with the answers given for him, every rule that states something he agreed in person and that a ticket he has not read then changed, his to-do list, and one paragraph for each ticket he has not read. It states no rule, so it has no rule ids, no Gaps section and no Provenance table. |
 
 - **OV-50** Every rule in this spec has a stable id that is never renumbered or reused, and every test names the ids of the rules it covers in its title. 17-testing.md holds the rules that state this and their tests, so this sentence has no test of its own.
 - **OV-54** The spec lives in the chad repo under `docs/spec/`, one file per part.
@@ -215,7 +215,7 @@ Every part that states rules ends with a Provenance table that has one row per r
 | --- | --- |
 | Rule | The rule's id. |
 | Source | The tickets and items the rule comes from. |
-| Agreed by | Who agreed the rule as it now reads, which is Tim, Architect standing in for Tim, the charting of the map, or Jarvis, who assembled the spec. |
+| Agreed by | Who agreed the rule as it now reads, which is Tim, Architect standing in for Tim, the charting of the map, or Jarvis, who assembled the spec. "Jarvis, delegated by Tim on 2026-11-15" marks an answer to a question that was open with Tim. Tim handed those questions to Jarvis in chat on that day and has not read the answers. |
 | Support | Whether a prototype ran the rule, it was read from source, or nothing ran. |
 | Changed by | The tickets Tim has not read that changed something he agreed in person. It is empty for every other rule, and 20-for-tim.md is built from it. |
 | Kind | `rule` for chad's own behaviour, which a test can break. `fact` for what a dependency does, which a rule rests on. `definition` for a term, a reason or an overview sentence with nothing to test. |

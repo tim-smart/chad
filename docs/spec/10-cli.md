@@ -21,8 +21,8 @@ chad ships one executable. Run as `chad serve` it is the daemon. Run with any ot
 A client talks to the daemon over a unix socket on the volume, using effect's RPC module (`effect/rpc`). A command that prints progress, such as an apply, is a streamed call, so its lines reach the terminal as the daemon produces them. In the prototype a line arrived 1 to 3 ms after it was sent.
 
 - **CLI-8** The CLI reaches the daemon over a unix socket at `run/chad.sock` on the volume, speaking effect RPC with streamed calls. chad opens no HTTP port.
-- **CLI-9** The environment variable `CHAD_SOCKET` moves the socket to another path. Both the daemon and the CLI read it. Provisional, open with Tim: `CHAD_SOCKET` stays, and it exists for a data path so deep that the socket path passes the platform's limit (CLI-11).
-- **CLI-204** The CLI finds the volume the way the daemon does, from the environment variable `CHAD_DATA`, whose default is `/data`, and the default socket path follows it. Provisional, open with Tim: `CHAD_DATA` moves the daemon's files, the socket and the two links under `repo/` and nothing else, and it is not a supported way to move the volume in the image (see 01-image-and-volume.md).
+- **CLI-9** The environment variable `CHAD_SOCKET` moves the socket to another path. Both the daemon and the CLI read it. It exists for a data path so deep that the socket path passes the platform's limit (CLI-11).
+- **CLI-204** The CLI finds the volume the way the daemon does, from the environment variable `CHAD_DATA`, whose default is `/data`, and the default socket path follows it. `CHAD_DATA` moves the daemon's files, the socket and the two links under `repo/` and nothing else, and it is not a supported way to move the volume in the image (see 01-image-and-volume.md).
 - **CLI-10** `run/` is a directory of mode 0700, and the daemon sets that mode on every start. The daemon sets the socket to mode 0600 after `listen` and does not change the process umask.
 - **CLI-11** `chad serve` checks the socket path before it listens. The limit it checks against is the one of the platform chad runs on, which is 107 bytes on Linux and 103 bytes on macOS. A longer path ends the start with a message that gives the path's length and names `CHAD_SOCKET` as the fix. A filesystem that cannot hold a socket ends it with a message that names the filesystem as unsupported.
 - **CLI-12** When a connect fails with `EINVAL`, the CLI prints the same path-length message as `chad serve`.
@@ -524,7 +524,6 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 
 - **CLI-G1** [builder] The list of RPC calls and their payloads. The header names `chad-version` and `chad-session` and the newline-delimited JSON serialization come from the prototypes and were not put to anyone (TIM-542 and TIM-550, "Not settled here").
 - **CLI-G12** [builder] The exact wording of most CLI output, which covers the owner refusal, the apply's closing sentence, the line a waiting command prints, the health line, the settings listing and the layout of `chad status` (TIM-542 item 28, TIM-548 "Not settled here"). 17-testing.md pins each `Messages` template to the spec's wording, and for these messages the spec has no wording to pin to. Recommended: the builder writes each message it words into this part as a new rule that gives its text, the way 19-build-order.md has a builder record a choice the owner can see, and the test pins to that rule.
-- **CLI-G18** [tim] Why `CHAD_SOCKET` exists is open with Tim. CLI-9 states the provisional answer, which is the reason that ran, a data path so deep that the socket path passes the platform's limit (TIM-553 question 3, TIM-559 round 2 R5, see 20-for-tim.md).
 - **CLI-G24** [builder] Whether a command that runs with no daemon leaves a `command.ran` line. CLI-205 has the daemon write the event, and CLI-147 says that only the daemon writes the log, so a change made with no daemon leaves no line as the rules stand (TIM-559 round 2 R4, TIM-557 item 10). It is also not said whether `/new` and `/stop` are chat commands that change something. Recommended: `/new` writes the event and `/stop` does not (see 16-failures-logs-status.md).
 - **CLI-G25** [builder] Whether `chad connection token`, `chad connection check` and a later run of `chad setup` that keeps the stored token print the invite URL again, and the exact form of the URL's query string. The ruling has `chad connection add discord` print the URL and gives its scopes and the source of its permissions (TIM-559 round 3 A4).
 - **CLI-G26** [builder] What `chad connection check [<name>]` does. It has a synopsis and a row in the command table, and no rule says what it checks, whether it asks a running daemon, what it prints or what it exits with. Recommended: it checks each stored token the way CLI-118 does and, for a `local` connection, whether `run/local.sock` accepts a connection, prints one line per connection and never a token, and exits 1 when one fails (TIM-542 item 17, TIM-559 cold read).
@@ -548,7 +547,7 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-6 | TIM-542 item 32, TIM-559 round 2 R4 for the event name | Tim; the event name Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | CLI-7 | TIM-542 item 32, TIM-541 item 20 | Tim; the documented command lines Architect (Tim has not read) | not run |  | `rule` | `image` |
 | CLI-8 | TIM-542 item 2, TIM-550 item 1 | Tim | run |  | `rule` | `cli` |
-| CLI-9 | TIM-542 item 2, TIM-553 item 11, TIM-559 round 2 R5 | Tim; the reason and the provisional answer Architect (Tim has not read) | run | TIM-553 | `rule` | `cli` |
+| CLI-9 | TIM-542 item 2, TIM-553 item 11, TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Tim; the reason and the answer Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | run | TIM-553 | `rule` | `cli` |
 | CLI-10 | TIM-550 item 6 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | CLI-11 | TIM-550 item 6, TIM-553 item 11, TIM-559 round 2 R5 | Architect (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-12 | TIM-550 item 6 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
@@ -743,7 +742,7 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-201 | TIM-559 ruling on CLI-G10 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | CLI-202 | TIM-559 ruling on STO-G21 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | CLI-203 | TIM-559 ruling on SES-G3 | Architect (Tim has not read) | not run |  | `definition` | - |
-| CLI-204 | TIM-553 question 2, TIM-559 round 2 R5 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
+| CLI-204 | TIM-553 question 2, TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `cli` |
 | CLI-205 | TIM-559 round 2 R4, TIM-559 round 4 item 3 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | CLI-206 | TIM-559 round 3 L4 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | CLI-207 | TIM-559 round 3 L4 | Architect (Tim has not read) | not run |  | `rule` | `cli` |

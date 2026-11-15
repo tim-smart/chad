@@ -2,7 +2,7 @@
 
 chad ships as one Docker image and keeps all of its own state on one data volume. This part covers what the image contains, the user it runs as, its entrypoint and environment variables, the directory tree on the volume, how the pinned packages are installed, what the daemon checks at boot, the health probe, the stop sequence, the exit codes of the daemon, and the Compose and Kubernetes examples. "The daemon" is the long-running process started by `chad serve`. "The agent" is the clanka agent that runs a turn for the owner, and its commands run in the same container and as the same user as the daemon. This part leans on 02-storage.md for the database, backup and restore, on 10-cli.md for the commands, the lock and the socket, on 09-repo-and-recovery.md for the repo and safe mode, on 16-failures-logs-status.md for the logs and for what the owner sees, and on 17-testing.md for the tests and CI.
 
-Three questions about this part are still open with Tim: the deadline of a stop, what `CHAD_DATA` is for, and why `CHAD_SOCKET` exists. Their answers are provisional rules, each of which says so in its text: IMG-29, IMG-30, IMG-63, IMG-82, IMG-83, IMG-139 and IMG-140. The gap IMG-G1 lists them.
+Three questions about this part were open with Tim: the deadline of a stop, what `CHAD_DATA` is for, and why `CHAD_SOCKET` exists. Tim handed them to Jarvis on 2026-11-15, and the answers that had been provisional stand as rules: IMG-29, IMG-30, IMG-63, IMG-82, IMG-83, IMG-139 and IMG-140. Tim has not read them.
 
 ## The image
 
@@ -153,9 +153,9 @@ The owner configures chad with the variables below and nothing else from the env
 - **IMG-27** `TZ` is the default for the owner's timezone, the timezone stored by `chad timezone` overrides it, and UTC applies when neither is set.
 - **IMG-138** A `TZ` that does not name a valid zone counts as not set, so UTC applies unless a timezone is stored (see 10-cli.md for which zone names are valid).
 - **IMG-28** A session's processes inherit the daemon's environment, with `CHAD_SESSION` set to the session id and `TZ` set to the stored owner timezone. The daemon sets no `TZ` on itself.
-- **IMG-29** Provisional, open with Tim. In the image the volume is mounted at `/data`. `CHAD_DATA` moves the daemon's files, the socket and the two links under `repo/`, and nothing else. That is what running chad outside the image needs, and what the process scenarios of 17-testing.md need to point `chad serve` at a temporary directory. It does not move `HOME`, the caches, the npm prefix or PATH, and the image's variables are not derived from it. Setting `CHAD_DATA` is not a supported way to move the volume inside the image.
-- **IMG-140** Provisional, open with Tim. The driver of the process scenarios sets `HOME`, the npm prefix (`NPM_CONFIG_PREFIX`) and the cache directory (`XDG_CACHE_HOME`, with `NPM_CONFIG_CACHE` under it) to paths inside its temporary directory, next to `CHAD_DATA`. `CHAD_DATA` moves none of them, so without this a `bash` command in a scripted turn would write into the developer's home (see 17-testing.md for the driver).
-- **IMG-30** Provisional, open with Tim. `CHAD_SOCKET` moves the unix socket away from `run/chad.sock`. It exists for a data path so deep that the socket path passes the platform's limit for a unix socket path, which is 107 bytes on Linux and 103 bytes on macOS.
+- **IMG-29** In the image the volume is mounted at `/data`. `CHAD_DATA` moves the daemon's files, the socket and the two links under `repo/`, and nothing else. That is what running chad outside the image needs, and what the process scenarios of 17-testing.md need to point `chad serve` at a temporary directory. It does not move `HOME`, the caches, the npm prefix or PATH, and the image's variables are not derived from it. Setting `CHAD_DATA` is not a supported way to move the volume inside the image.
+- **IMG-140** The driver of the process scenarios sets `HOME`, the npm prefix (`NPM_CONFIG_PREFIX`) and the cache directory (`XDG_CACHE_HOME`, with `NPM_CONFIG_CACHE` under it) to paths inside its temporary directory, next to `CHAD_DATA`. `CHAD_DATA` moves none of them, so without this a `bash` command in a scripted turn would write into the developer's home (see 17-testing.md for the driver).
+- **IMG-30** `CHAD_SOCKET` moves the unix socket away from `run/chad.sock`. It exists for a data path so deep that the socket path passes the platform's limit for a unix socket path, which is 107 bytes on Linux and 103 bytes on macOS.
 - **IMG-115** `CHAD_LOG_LEVEL` takes `all`, `trace`, `debug`, `info`, `warn`, `error`, `fatal` or `none`, in any case, and the default is `info`. Any other value logs a warning and uses `info`, and it never stops a boot. What the level filters is in 16-failures-logs-status.md.
 - **IMG-116** No environment variable, flag or setting changes a duration that this part names. Each one is a default of the `Timings` service (see 17-testing.md).
 
@@ -388,7 +388,7 @@ In the image run the socket listened 0.8 to 1.3 s after the container started, a
 - **IMG-61** The daemon keeps the lock's handle until the process exits and closes it only then. The test suite has a check that forces garbage collections and then tries the lock.
 - **IMG-62** The daemon listens on the socket once it holds the lock, has passed the check for a newer `state/version` and has raised the boot counter. That is before it opens, copies or migrates the database and before it loads plugins, MCP servers and connections. `chad status` answers during boot and says which phase the boot is in, and `chad health` passes during boot.
 - **IMG-128** `chad status` names the phase of the boot as one of `starting`, `listening`, `database`, `loading`, `ready` and `stopping`.
-- **IMG-63** The socket error has two forms. A socket path longer than the platform's limit is refused with a message that gives the length and the limit and names `CHAD_SOCKET` as the fix. A filesystem that cannot hold a socket is named as unsupported. The limit is the one of the platform chad runs on, which is 107 bytes on Linux and 103 bytes on macOS, and never a fixed 107. That reading of the limit is provisional, open with Tim, with IMG-30.
+- **IMG-63** The socket error has two forms. A socket path longer than the platform's limit is refused with a message that gives the length and the limit and names `CHAD_SOCKET` as the fix. A filesystem that cannot hold a socket is named as unsupported. The limit is the one of the platform chad runs on, which is 107 bytes on Linux and 103 bytes on macOS, and never a fixed 107.
 - **IMG-64** `chad serve` runs effect cluster's `SingleRunner` with `shardsPerGroup: 1`, from the first release. The count is kept in a database row. A daemon that finds another count refuses to start and names both numbers (see 02-storage.md and 03-sessions-and-turns.md).
 - **IMG-65** The shard count guard runs before the database copy and the migrations, so a boot it refuses leaves the database as it was. That boot holds the lock, so its log lines go to both sinks.
 - **IMG-129** A boot that the shard count guard refuses exits 1.
@@ -461,9 +461,9 @@ In the image run Docker reported a daemon stopped with SIGSTOP as unhealthy 97 s
 A graceful stop starts when the daemon gets SIGTERM, which `docker stop` and Kubernetes both send. Docker's default stop timeout is 10 seconds and Kubernetes's default grace period is 30, after which the container is killed. An image cannot set the timeout, so the examples set it.
 
 - **IMG-81** On SIGTERM the handler clears the boot counter before anything else, and the daemon stops taking new turns.
-- **IMG-82** Provisional, open with Tim. The SIGTERM handler starts a timer. At 60 seconds from SIGTERM the timer exits the process with code 1 and logs what was still open, as the event `stop.cut`. The 60 seconds is a duration of the `Timings` service (see IMG-116). A forced exit is not an unclean boot, because the handler has already cleared the counter. The timer runs on the daemon's event loop, so a blocked event loop stops it, and the 90 second grace period of IMG-87 stays the backstop.
-- **IMG-139** Provisional, open with Tim. chad writes the `stop.cut` line synchronously to both sinks, stdout and `logs/chad.log`, before the timer of IMG-82 exits the process. It is the one line that explains a forced exit, and a write left pending would be lost with the process.
-- **IMG-83** Provisional, open with Tim. The stop runs in the order of the table below. Only the 15 seconds for requests in flight is a duration. The other limits are points in time measured from SIGTERM.
+- **IMG-82** The SIGTERM handler starts a timer. At 60 seconds from SIGTERM the timer exits the process with code 1 and logs what was still open, as the event `stop.cut`. The 60 seconds is a duration of the `Timings` service (see IMG-116). A forced exit is not an unclean boot, because the handler has already cleared the counter. The timer runs on the daemon's event loop, so a blocked event loop stops it, and the 90 second grace period of IMG-87 stays the backstop.
+- **IMG-139** chad writes the `stop.cut` line synchronously to both sinks, stdout and `logs/chad.log`, before the timer of IMG-82 exits the process. It is the one line that explains a forced exit, and a write left pending would be lost with the process.
+- **IMG-83** The stop runs in the order of the table below. Only the 15 seconds for requests in flight is a duration. The other limits are points in time measured from SIGTERM.
 
 | Order | Step | Limit |
 | --- | --- | --- |
@@ -592,13 +592,12 @@ spec:
 
 ## Gaps
 
-- **IMG-G1** [tim] The three questions open with Tim (the stop deadline timer, what `CHAD_DATA` is for, why `CHAD_SOCKET` exists) are stated here as provisional rules: IMG-82, IMG-83 and IMG-139 for the first, IMG-29 and IMG-140 for the second, IMG-30 and IMG-63 for the third. TIM-553 and TIM-559.
 - **IMG-G10** [builder] Which of Renovate and Dependabot the chad repo uses. Renovate needs Tim to install an app or supply a token, which is on no list of what Tim provides, and Dependabot needs nothing from him. Whether Dependabot follows a digest held in an `ARG`, as the Dockerfile above holds it, was not checked. Recommended: Dependabot, with the digest written on the `FROM` lines if the `ARG` hides it from the bump. TIM-541 item 1.
 - **IMG-G12** [builder] The format of the timestamp in `<name>.replaced-<timestamp>`. The stand-in wrote `YYYYMMDDTHHMMSS` in UTC. TIM-553 item 9.
 - **IMG-G13** [builder] The timeout of the Kubernetes startup probe. The liveness probe has 5 seconds and the startup probe has none stated. TIM-541 item 24.
 - **IMG-G14** [builder] The full text of the Compose file, the Kubernetes manifests and the CronJob, which needs resource names, the asphodel image, claim sizes, the Secret's name, and the backup schedule and destination. TIM-541 items 27 to 29 fix their contents and not their text.
 - **IMG-G15** [builder] Resource requests and limits. Nothing was measured, and IMG-110 leaves them out of the examples. TIM-541.
-- **IMG-G16** [tim] The filesystem under the local-path directory on Tim's node, which `stat -f -c %T /var/local-path-provisioner` answers. The lock and the write-ahead log were run on ext4 and tmpfs only, and TIM-558 item 55 leaves one run of the Kubernetes checks on his k3s node to Tim (see 17-testing.md). TIM-541 and TIM-553.
+- **IMG-G16** [tim] The filesystem under the local-path directory on Tim's node, which `stat -f -c %T /var/local-path-provisioner` answers. It is a measurement and not a decision, so nobody can answer it for him. The lock and the write-ahead log were run on ext4 and tmpfs only, and the one run of the Kubernetes checks on his k3s node records it (see 17-testing.md). Nothing in the build waits for it. TIM-541 and TIM-553.
 - **IMG-G18** [builder] The exact versions of uv, pnpm, TypeScript and esbuild. The prototype used uv 0.13.8, pnpm 12.18.0, TypeScript 7.0.2 and esbuild 0.28.2. TIM-541 item 2 and TIM-553.
 - **IMG-G20** [builder] Which steps of the boot list each phase name of IMG-128 covers. The daemon does not listen before step 5, so it can never answer `starting`, and 10-cli.md has the CLI say "starting or frozen" for a held lock with no socket. Recommended: the stand-in's use, which is `starting` until the socket listens and seen by no client, `listening` for steps 5 and 6, `database` for steps 7 and 8, `loading` for step 9, `ready` after it and `stopping` from SIGTERM. TIM-550 item 7, and TIM-559 cold read, cli reader.
 - **IMG-G21** [builder] Where in the boot list the daemon opens `logs/chad.log`. It cannot be before the lock (IMG-126), and the list gives it no step. The same question for the directories an empty volume lacks is a gap of 02-storage.md, which recommends `state/` when the lock is taken and the others once step 3 has passed. Recommended: the file is opened straight after the lock is taken, and `logs/` is made with it when missing, so that a boot refused at step 3 still leaves its lines in the file. TIM-541 item 13, and TIM-559 cold read, harness reader.
@@ -638,8 +637,8 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-26 | TIM-542 item 34 | Tim | not run |  | `rule` | `cli` |
 | IMG-27 | TIM-542 item 16 | Tim | not run |  | `rule` | `settings` |
 | IMG-28 | TIM-541 item 19, TIM-542 item 29, TIM-553 item 13 | Architect (Tim has not read) | run | TIM-541, TIM-553 | `rule` | `settings` |
-| IMG-29 | TIM-541 item 10, TIM-553 question 2, TIM-559 main session ruling on Q4, TIM-559 round 2 R5 | Architect (Tim has not read) | run |  | `rule` | `harness` |
-| IMG-30 | TIM-542 item 2, TIM-553 question 3, TIM-559 round 2 R5 | Architect (Tim has not read) | run | TIM-553, TIM-559 | `rule` | `cli` |
+| IMG-29 | TIM-541 item 10, TIM-553 question 2, TIM-559 main session ruling on Q4, TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | run |  | `rule` | `harness` |
+| IMG-30 | TIM-542 item 2, TIM-553 question 3, TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | run | TIM-553, TIM-559 | `rule` | `cli` |
 | IMG-31 | TIM-541 item 10 | Architect (Tim has not read) | run |  | `rule` | `harness` |
 | IMG-32 | TIM-536 item 12, TIM-538 item 8, TIM-542, TIM-541 item 11 | Architect (Tim has not read) | read | TIM-541, TIM-557, TIM-558, TIM-559 | `rule` | `backup` |
 | IMG-33 | TIM-542 item 32 | Tim | not run |  | `rule` | `apply` |
@@ -672,7 +671,7 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-60 | TIM-550 item 8, TIM-559 cold read | Architect (Tim has not read) | run |  | `rule` | `cli` |
 | IMG-61 | TIM-553 item 5 | Architect (Tim has not read) | run |  | `rule` | `kills` |
 | IMG-62 | TIM-550 item 7, TIM-541 round 1 answer 13, amended by TIM-559 ruling on IMG-G5 (support: listening before the database ran, with the counter and no version check before it) | Architect (Tim has not read) | not run | TIM-550, TIM-559 | `rule` | `cli` |
-| IMG-63 | TIM-550 item 6, TIM-553 item 11, TIM-559 round 2 R5 (support: the 107 byte limit ran on Linux, the macOS limit did not run) | Architect (Tim has not read) | not run |  | `rule` | `cli` |
+| IMG-63 | TIM-550 item 6, TIM-553 item 11, TIM-559 round 2 R5 (support: the 107 byte limit ran on Linux, the macOS limit did not run); answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `cli` |
 | IMG-64 | TIM-553 item 4 (support: TIM-543 prototype, not in the image) | Architect (Tim has not read) | run | TIM-553 | `rule` | `harness` |
 | IMG-65 | TIM-553 item 4, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | IMG-66 | TIM-536 item 14, amended by TIM-557 item 35 and by TIM-559 ruling on FAIL-G20 | Architect (Tim has not read) | not run | TIM-541, TIM-557, TIM-559 | `rule` | `failures` |
@@ -691,8 +690,8 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-79 | TIM-541 item 24, TIM-559 cold read | Architect (Tim has not read) | run |  | `rule` | `harness` |
 | IMG-80 | TIM-541 item 24 | Architect (Tim has not read) | run |  | `rule` | `image` |
 | IMG-81 | TIM-541 items 25 and 26 | Architect (Tim has not read) | run | TIM-541 | `rule` | `apply` |
-| IMG-82 | TIM-541 item 25, TIM-553 question 1, TIM-559 main session ruling on Q4, TIM-559 round 2 R5 (support: the timer and the exit at 60.0 s ran in the image, the blocked event loop did not run) | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| IMG-83 | TIM-541 item 25, TIM-543, TIM-547 item 15, TIM-553 question 1, TIM-559 round 2 R5 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| IMG-82 | TIM-541 item 25, TIM-553 question 1, TIM-559 main session ruling on Q4, TIM-559 round 2 R5 (support: the timer and the exit at 60.0 s ran in the image, the blocked event loop did not run); answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | run |  | `rule` | `skills-mcp` |
+| IMG-83 | TIM-541 item 25, TIM-543, TIM-547 item 15, TIM-553 question 1, TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `skills-mcp` |
 | IMG-84 | TIM-553 item 8 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | IMG-85 | TIM-553 item 7, TIM-559 round 2 R4 for the event name | Architect (Tim has not read) | run |  | `rule` | `kills` |
 | IMG-86 | TIM-541 item 25, TIM-557 item 41, TIM-559 round 2 R4 for the event name | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
@@ -748,5 +747,5 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-136 | TIM-559 ruling on IMG-G17 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | IMG-137 | TIM-559 ruling on IMG-G17 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-138 | TIM-559 ruling on CLI-G3 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| IMG-139 | TIM-559 round 2 R5 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| IMG-140 | TIM-559 round 2 R5 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
+| IMG-139 | TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `skills-mcp` |
+| IMG-140 | TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `kills` |

@@ -604,8 +604,6 @@ export default Plugin.make(NotesTools, Chunk)
 - **SELF-G9** [builder] How `<camelName>` is derived from a name that has hyphens or starts with a digit. TIM-549 item 17.
 - **SELF-G10** [builder] What `chad skill new` writes inside `SKILL.md`. TIM-542 item 11 gives the path only.
 - **SELF-G11** [builder] Ten of the 17 corrections to the first drafts are not listed anywhere. TIM-549 item 6 says all are applied in the drafts, and round 1 lists seven.
-- **SELF-G12** [tim] Whether the bundled skills are also shown under `/data/repo/examples/`. TIM-549's repo/examples follow-up reads Tim's "built in" as plugins and says the link's target would become a directory holding both if he wants the skills there.
-- **SELF-G13** [tim] Tim worded the `repo/examples` link as a trial ("Let's try symlink"). Whether the agent finds it unprompted has not been seen, and no ticket says what ends the trial. TIM-549 repo/examples follow-up.
 - **SELF-G15** [builder] Whether `self-edit` points at the `diagnose` skill, or names `chad logs`, where its draft sends the agent to `/data/logs/chad.log`. TIM-557 items 11 and 43 add the command and the skill and say nothing about this skill's text.
 - **SELF-G16** [builder] Which command is effect's build step in SELF-27, and how the image build gets effect's source when it holds only the tarballs under `vendor/`. TIM-549 item 22 names the step and no command, and nobody has run it. Recommended: the build clones effect at the manifest's commit and runs the script of that repository that fills the `AGENTS.md` and `ai-docs/**/*` entries of the `files` list in `packages/effect/package.json`. If the repository has no such script, the build copies `AGENTS.md` and `ai-docs/` as they sit in that tree.
 
