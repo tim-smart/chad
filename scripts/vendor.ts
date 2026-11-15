@@ -111,22 +111,38 @@ const github = async (path: string) => {
   return response.json()
 }
 
+/** What a command line asks for: the commit to vendor, or the newest one, and the clanka version to pin, if any. */
+export interface Request {
+  /** The named commit. Without one the script takes the newest commit of the pull request. */
+  readonly commit: string | undefined
+  /** The value of `--clanka`, which is a version or `newest`. */
+  readonly clanka: string | undefined
+}
+
+/** Reads the arguments. It gives `undefined` for a command line that names no commit and does not say `--newest`. */
+export const request = (argv: ReadonlyArray<string>): Request | undefined => {
+  const flag = argv.indexOf("--clanka")
+  const value = flag === -1 ? -1 : flag + 1
+  const commit = argv.find(
+    (argument, index) => !argument.startsWith("--") && index !== value,
+  )
+  if (commit === undefined && !argv.includes("--newest")) return undefined
+  return { commit, clanka: value === -1 ? undefined : argv[value] }
+}
+
 const main = async (argv: ReadonlyArray<string>) => {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
   const manifest: Manifest = JSON.parse(
     readFileSync(join(root, "vendor/manifest.json"), "utf8"),
   )
-  const flag = argv.indexOf("--clanka")
-  const wanted = flag === -1 ? undefined : argv[flag + 1]
-  const named = argv.find(
-    (argument, index) => !argument.startsWith("--") && index !== flag + 1,
-  )
-  if (named === undefined && !argv.includes("--newest")) {
+  const asked = request(argv)
+  if (asked === undefined) {
     console.error(
       "usage: node scripts/vendor.ts <commit> | --newest [--clanka <version> | newest]",
     )
     return 1
   }
+  const { commit: named, clanka: wanted } = asked
   const pnpm = (...args: ReadonlyArray<string>) =>
     spawnSync("pnpm", args, { cwd: root, stdio: "inherit" }).status === 0
 

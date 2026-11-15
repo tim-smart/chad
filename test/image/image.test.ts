@@ -410,7 +410,7 @@ const readTrace = (
   )
 
 describe("the chad launcher", () => {
-  it("IMG-16 LOAD-18 chad serve loads the daemon as separate files with the effect of node_modules, and any other command loads the bundled CLI", async () => {
+  it("IMG-16a IMG-16c LOAD-18 chad serve loads the daemon as separate files with the effect of node_modules, and the launcher sends any other command to the CLI bundle", async () => {
     expect(
       lines("head -n 1 /opt/chad/bin/chad.js && wc -l < /opt/chad/bin/chad.js"),
     ).toEqual(["#!/usr/bin/env node", expect.stringMatching(/^\d$/)])
@@ -429,6 +429,7 @@ describe("the chad launcher", () => {
       output("readlink -f /opt/chad/node_modules/effect"),
     ])
 
+    // The bundle itself arrives with the `cli` slice, so this is the launcher's choice and not a CLI that ran.
     const other = readTrace(command(traced, "status").stderr)
     expect(other.launcher).toEqual(["../dist/cli.bundle.js"])
     expect(other.dist).not.toContain("daemon.js")

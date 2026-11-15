@@ -6,6 +6,5 @@ A rule that only a nightly or a live item can cover names that item, which is a 
 
 ## Waivers
 
-| Rule   | Covered by |
-| ------ | ---------- |
-| SES-23 | SES-14     |
+| Rule | Covered by |
+| ---- | ---------- |

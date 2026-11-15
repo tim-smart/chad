@@ -16,6 +16,7 @@ A rule, or one letter of a rule, whose slice is delivered and whose test cannot 
 | Rule    | Slice    | Reason                                                                            |
 | ------- | -------- | --------------------------------------------------------------------------------- |
 | MOD-11b | `models` | The stored override is the file `state/model`, which the `models` slice delivers. |
+| IMG-16b | `cli`    | The bundled CLI is the file `dist/cli.bundle.js`, which the `cli` slice builds.   |
 
 ## Stopped rules
 

@@ -171,7 +171,7 @@ describe("the logger", () => {
     expect(levelOf("message.ignored", "own")).toBe("Debug")
   })
 
-  it("FAIL-17 CHAD_LOG_LEVEL takes its eight values in any letter case, and info is the default", () => {
+  it("FAIL-17 FAIL-18 CHAD_LOG_LEVEL takes its eight values in any letter case, info is the default, and any other value is unknown", () => {
     const level = (value?: string) =>
       Environment.read(value === undefined ? {} : { CHAD_LOG_LEVEL: value })
     expect(level().logLevel).toBe("Info")
@@ -191,10 +191,13 @@ describe("the logger", () => {
     ])
     expect(level("WARN")).toMatchObject({ logLevel: "Warn" })
     expect(level("Debug").unknownLogLevel).toBeUndefined()
-    expect(level("loud")).toMatchObject({
-      logLevel: "Info",
-      unknownLogLevel: "loud",
-    })
+    // A name that every object inherits is no level either.
+    for (const value of ["loud", "constructor", "__proto__", "toString", ""]) {
+      expect(level(value)).toMatchObject({
+        logLevel: "Info",
+        unknownLogLevel: value,
+      })
+    }
   })
 
   it("FAIL-20 effect's minimum is the more verbose of Info and the level, and the sinks drop what a quieter level leaves out", async () => {
@@ -419,7 +422,21 @@ describe("the dependencies", () => {
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
-    // The weekly job and an upgrade by hand run the same script.
+    // The weekly job and an upgrade by hand run the same script, and each of its command lines is read as written.
+    expect(Vendor.request(["e1ae842"])).toEqual({
+      commit: "e1ae842",
+      clanka: undefined,
+    })
+    expect(Vendor.request(["--clanka", "0.28.0", "e1ae842"])).toEqual({
+      commit: "e1ae842",
+      clanka: "0.28.0",
+    })
+    expect(Vendor.request(["--newest", "--clanka", "newest"])).toEqual({
+      commit: undefined,
+      clanka: "newest",
+    })
+    expect(Vendor.request([])).toBeUndefined()
+    expect(Vendor.request(["--clanka", "newest"])).toBeUndefined()
     expect(json("package.json").scripts.vendor).toBe("node scripts/vendor.ts")
     expect(read(".github/workflows/weekly.yml")).toContain(
       "node scripts/vendor.ts --newest --clanka newest",

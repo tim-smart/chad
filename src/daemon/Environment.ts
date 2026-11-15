@@ -30,7 +30,14 @@ export interface Environment {
 
 export const read = (env: NodeJS.ProcessEnv): Environment => {
   const named = env["CHAD_LOG_LEVEL"]
-  const level = named === undefined ? "Info" : levels[named.toLowerCase()]
+  const key = named?.toLowerCase()
+  // An own key only: `constructor` and `__proto__` name no level.
+  const level =
+    key === undefined
+      ? "Info"
+      : Object.hasOwn(levels, key)
+        ? levels[key]
+        : undefined
   return {
     data: env["CHAD_DATA"] ?? "/data",
     model: env["CHAD_MODEL"],

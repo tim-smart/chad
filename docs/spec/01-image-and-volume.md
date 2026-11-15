@@ -93,7 +93,7 @@ tini is a small init process. It runs as process 1, passes signals to the daemon
 - **IMG-13** The image sets `ENTRYPOINT ["tini", "--", "<absolute path to chad>"]` and `CMD ["serve"]`, both in exec form. The path to `chad` is absolute, so nothing on PATH can stand in for it.
 - **IMG-14** The entrypoint uses plain tini and not `tini -g`. With `-g` the agent's processes and the MCP servers get SIGTERM before the daemon has drained.
 - **IMG-15** The docs mention `--entrypoint bash` for a shell in a one-off run. "The docs", here and in every other rule of this part, are the user documentation that 00-overview.md defines.
-- **IMG-16** The `chad` executable is a few lines of plain JavaScript. With `serve` as the first argument it imports the daemon's entry point as separate files, not bundled. For every other command it imports the CLI as one file bundled by esbuild with effect inside it. The daemon never runs a bundled copy of effect.
+- **IMG-16** (a) The `chad` executable is a few lines of plain JavaScript. With `serve` as the first argument it imports the daemon's entry point as separate files, not bundled. (b) For every other command it imports the CLI as one file bundled by esbuild with effect inside it. (c) The daemon never runs a bundled copy of effect.
 - **IMG-17** `chad serve` sets `CHAD_SESSION=daemon` in its own environment when it starts, so stdio MCP servers and every other child of the daemon carry the marker. `CHAD_SESSION` is never an image `ENV`, so a `docker exec` shell has none (see 10-cli.md for what the marker does).
 - **IMG-114** The daemon's signal handling, the exit timer of IMG-82, its exit codes and `CHAD_SESSION=daemon` live in one function, `runDaemon`, which `chad serve` calls (see 17-testing.md).
 
