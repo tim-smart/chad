@@ -327,6 +327,25 @@ export const cut = Effect.fnUntraced(function* (key: string) {
 })
 
 /**
+ * The options that mark the prompt of a turn with the key of its request. They are stored with the message, and a
+ * provider reads only options under its own name, so the model never sees them.
+ */
+export const promptOf = (key: string) => ({ chad: { request: key } })
+
+/**
+ * Whether a session's stored history holds the prompt of a turn, which it does not when a kill came before the prompt
+ * was stored (SES-161).
+ */
+export const holds = Effect.fnUntraced(function* (id: string, key: string) {
+  const sql = yield* SqlClient.SqlClient
+  const rows = yield* sql<{ found: number }>`
+    SELECT 1 AS found FROM session_messages
+    WHERE session_id = ${id} AND json_extract(message, '$.options.chad.request') = ${key} LIMIT 1
+  `
+  return rows.length > 0
+})
+
+/**
  * The request of a turn that a restart cut in a thread's current session: a `turns` row that has no outcome. It takes
  * the session before any other request of the thread (SES-200).
  */

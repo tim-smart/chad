@@ -328,9 +328,9 @@ export interface Rest {
   readonly refuse: (token: string, status?: number) => void
   /**
    * Keeps every request that carries the token waiting, and gives what lets them go. A waiting request is among the
-   * calls from the moment it arrives.
+   * calls from the moment it arrives. With a path, only the requests whose path matches it wait.
    */
-  readonly hold: (token: string) => () => void
+  readonly hold: (token: string, path?: RegExp) => () => void
   /** Puts a message in its channel's history, as one that was sent while no gateway carried it, for the catch-up. */
   readonly sent: (message: Posted) => void
   readonly close: () => Promise<void>
@@ -350,7 +350,10 @@ export const rest = async (): Promise<Rest> => {
     histories.set(channel, history)
   }
   const refused = new Map<string, number>()
-  const held = new Map<string, Promise<void>>()
+  const held = new Map<
+    string,
+    { readonly path: RegExp | undefined; readonly released: Promise<void> }
+  >()
   const tokenOf = (call: RestCall) =>
     String(call.headers["authorization"]).replace("Bot ", "")
   let next = BigInt("1000000000000000000")
@@ -486,7 +489,12 @@ export const rest = async (): Promise<Rest> => {
         response.end(JSON.stringify(json))
         changes.changed()
       }
-      const waiting = held.get(tokenOf(call))
+      const hold = held.get(tokenOf(call))
+      const waiting =
+        hold === undefined ||
+        (hold.path !== undefined && !hold.path.test(call.path))
+          ? undefined
+          : hold.released
       if (waiting === undefined) {
         const [status, json] = answer(call)
         calls.push(call)
@@ -519,9 +527,12 @@ export const rest = async (): Promise<Rest> => {
       messages.set(message.id, d)
       keep(message.channel, d)
     },
-    hold: (token) => {
+    hold: (token, path) => {
       let release = () => {}
-      held.set(token, new Promise<void>((resolve) => (release = resolve)))
+      held.set(token, {
+        path,
+        released: new Promise<void>((resolve) => (release = resolve)),
+      })
       return () => {
         held.delete(token)
         release()

@@ -86,3 +86,44 @@ test("SES-106 SES-99 SES-202 FAIL-326 after two starts that a kill ended, a SIGT
     { starts: 3, graceful_cuts: 0, outcome: "failed", failure: "GaveUp" },
   ])
 }, 20_000)
+
+test("SES-161 SES-101 a kill after the start is counted and before the prompt is stored resumes with the owner's message and its files, and the restart note after them in the same send", async () => {
+  const running = await daemon()
+  const { fakes } = running
+  await fakes.model.script([{ text: "finished" }])
+  const first = await running.start()
+  const thread = await fakes.chat.makeThread("direct")
+  const held = running.holdDownloads()
+  await says(running, thread, "read my notes", {
+    files: [
+      {
+        name: "notes.txt",
+        contentType: "text/plain",
+        content: new TextEncoder().encode("the notes"),
+      },
+    ],
+  })
+  await held.reached
+  await found(running, "SELECT 1 FROM turns WHERE starts = 1")
+  expect(rows(running, "SELECT seq FROM session_messages")).toEqual([])
+  await first.kill()
+  held.release()
+
+  await running.start()
+  const [call] = await fakes.model.received(1)
+  const users = (
+    call!.body as {
+      messages: ReadonlyArray<{ role: string; content: unknown }>
+    }
+  ).messages
+    .filter((message) => message.role === "user")
+    .map((message) => JSON.stringify(message.content))
+  expect(users).toHaveLength(2)
+  expect(users[0]).toContain("read my notes")
+  expect(users[0]).toContain("notes.txt")
+  expect(prompted(call)).toBe(Messages.restartNote())
+  await fakes.chat.answers(thread, 1)
+  expect(await posted(running, thread)).toEqual(["finished"])
+  const [resumed] = await lines(running, "turn.resumed", 1)
+  expect(resumed!.annotations["starts"]).toBe(2)
+}, 15_000)

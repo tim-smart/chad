@@ -9,6 +9,7 @@ import {
   existsSync,
   mkdirSync,
   openSync,
+  readdirSync,
   readFileSync,
   rmSync,
 } from "node:fs"
@@ -67,6 +68,13 @@ export interface Process {
   readonly environment: Readonly<Record<string, string | undefined>>
   readonly fakes: Fakes.Fakes
   readonly chat: ChatTest.ChatTest["Service"]
+  /**
+   * Ends the scenario's processes, which the end of the test does as well: the daemons, then every process that
+   * carries the scenario's mark. Fails when one is still running after that.
+   */
+  readonly close: () => Promise<void>
+  /** Holds the local platform's downloads, see `Platform.holdDownloads`. */
+  readonly holdDownloads: Platform.Platform["holdDownloads"]
   readonly discord: {
     readonly gateway: Discord.Served
     readonly rest: Discord.Rest
@@ -90,6 +98,40 @@ export interface Process {
     env?: Readonly<Record<string, string | undefined>>,
     input?: string,
   ) => Promise<Cli.Ran>
+}
+
+/** The variable that marks every process of one scenario with its directory. */
+const scenarioVariable = "CHAD_TEST_SCENARIO"
+
+/** Whether a process runs, which a zombie that waits to be reaped does not. */
+export const alive = (pid: number) => {
+  try {
+    const stat = readFileSync(`/proc/${pid}/stat`, "utf8")
+    return (
+      stat.slice(stat.lastIndexOf(")") + 2, stat.lastIndexOf(")") + 3) !== "Z"
+    )
+  } catch {
+    return false
+  }
+}
+
+/** The running processes whose environment carries the mark of the scenario in `directory`. */
+const marked = (directory: string): ReadonlyArray<number> => {
+  const mark = `${scenarioVariable}=${directory}`
+  return readdirSync("/proc")
+    .filter((name) => /^\d+$/.test(name))
+    .map(Number)
+    .filter((pid) => {
+      try {
+        return (
+          readFileSync(`/proc/${pid}/environ`, "utf8")
+            .split("\0")
+            .includes(mark) && alive(pid)
+        )
+      } catch {
+        return false
+      }
+    })
 }
 
 export const daemon = async (options: Options = {}): Promise<Process> => {
@@ -142,6 +184,9 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
     NPM_CONFIG_PREFIX: join(home, ".npm-global"),
     XDG_CACHE_HOME: cache,
     NPM_CONFIG_CACHE: join(cache, "npm"),
+    // Every process a start leads to inherits this, a detached background process included, which is how the end of
+    // the scenario finds them (TST-87).
+    [scenarioVariable]: directory,
     ...options.env,
   }
 
@@ -229,21 +274,51 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
     return started
   }
 
+  // The daemons, then every process that carries the scenario's mark, so nothing a scenario started outlives it. One
+  // that a SIGKILL does not end within the bound fails the scenario.
+  let closing: Promise<void> | undefined
+  const close = () =>
+    (closing ??= (async () => {
+      for (const running of children) {
+        running.signal("SIGCONT")
+        running.signal("SIGKILL")
+        await running.exit
+      }
+      const left = Date.now() + 5_000
+      for (;;) {
+        const found = marked(directory)
+        if (found.length === 0) break
+        if (Date.now() > left) {
+          throw new Error(
+            `processes outlived the scenario: ${found.join(", ")}`,
+          )
+        }
+        for (const pid of found) {
+          try {
+            process.kill(pid, "SIGKILL")
+          } catch {
+            // It ended in between.
+          }
+        }
+        await wait()
+      }
+    })())
+
   onTestFinished(async ({ task }) => {
-    for (const running of children) {
-      running.signal("SIGCONT")
-      running.signal("SIGKILL")
-      await running.exit
-    }
+    const survivors = await close().then(
+      () => undefined,
+      (error: unknown) => error,
+    )
     await Effect.runPromise(Scope.close(scope, Exit.void))
     if (existsSync(directory)) record("model", { calls: model.calls() })
     await model.close()
     await discord.rest.close()
     await discord.gateway.close()
     // A scenario that failed keeps its directory, database included, for CI to upload.
-    if (task.result?.state === "pass") {
+    if (task.result?.state === "pass" && survivors === undefined) {
       rmSync(directory, { recursive: true, force: true })
     }
+    if (survivors !== undefined) throw survivors
   })
 
   return {
@@ -252,6 +327,8 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
     environment,
     fakes,
     chat: platform.chat,
+    holdDownloads: platform.holdDownloads,
+    close,
     discord,
     log,
     logged,

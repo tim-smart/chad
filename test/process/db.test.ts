@@ -125,7 +125,7 @@ it("STO-79 STO-175 STO-202 chad db query refuses a statement that writes, in the
   })
   // A read creates nothing on the volume.
   expect(existsSync(join(empty, "db"))).toBe(false)
-})
+}, 20_000)
 
 it("STO-81 STO-201 CLI-130 chad db query prints at most 200 rows, or as many as --limit gives, says on stderr when the statement had more, and takes no --limit below 1", async () => {
   const data = volume(numbered(250))

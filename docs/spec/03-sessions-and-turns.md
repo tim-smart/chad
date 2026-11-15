@@ -156,6 +156,7 @@ effect/chat runs chad's handler inline, one event at a time for the whole bot. U
 - **SES-199** A session is active for the catch-up of SES-37 when it has not ended and the owner message of its mark (SES-170) was sent less than 7 days ago. The `sessions` row keeps that message's time beside the mark, so a session that `/new` ended is not caught up.
 - **SES-171** The gateway handler writes that mark after the save of the request succeeds, and not in one transaction with the save. A mark that lags is harmless, because SES-33 and SES-90 drop a message that is read twice.
 - **SES-172** The mark only moves forward, and it advances for every message chad handled in that thread, chat commands included, so the catch-up never replays a `/new` or a `/stop`.
+- **SES-203** A chat command runs once for each chat message, however often the message is delivered while the process runs: by both connections of a thread that two bots share, by a replay, or by two catch-ups that overlap. In such a thread, a message belongs to the connection whose delivery reaches chad first, the catch-up's included, and the session answers through it (SES-185).
 - **SES-196** The mark orders two messages by their times, and two messages of one time by their ids: a longer id is later, and ids of one length compare as text. Discord's ids and the local platform's both count up that way. `/new` gives the new row the later of the old row's mark and the command's own, by that order.
 - **SES-39** A mention in a plain channel with no session that the catch-up cannot find is lost. This is accepted.
 - **SES-129** The gateway behaviours in SES-4, SES-30, SES-37 and SES-38 have not been run. They are tested by the Discord wire slice. Of them only the mention of SES-4 meets a real gateway, in the hand checks (see 17-testing.md).
@@ -616,3 +617,4 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-200 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | SES-201 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | SES-202 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| SES-203 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |

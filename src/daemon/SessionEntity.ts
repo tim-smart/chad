@@ -474,8 +474,11 @@ export const layer = Layer.unwrap(
           request: Message,
           chat: ChatService,
         ) {
-          // A resumed start sends the restart note in place of the owner's message, which the history holds already.
-          const read = turn.resumed
+          // A resumed start sends the restart note in place of the owner's message when the stored history holds that
+          // message. When a kill came before it was stored, the message goes first and the note after it (SES-161).
+          const held =
+            turn.resumed && (yield* Sessions.holds(live.id, turn.key))
+          const read = held
             ? undefined
             : yield* Attachments.read({
                 chat,
@@ -491,7 +494,18 @@ export const layer = Layer.unwrap(
             prompt:
               read === undefined
                 ? Messages.restartNote()
-                : Attachments.prompt(read),
+                : Prompt.fromMessages([
+                    Attachments.prompt(read, Sessions.promptOf(turn.key)),
+                    ...(turn.resumed
+                      ? [
+                          Prompt.userMessage({
+                            content: [
+                              Prompt.textPart({ text: Messages.restartNote() }),
+                            ],
+                          }),
+                        ]
+                      : []),
+                  ]),
             system: frozen(live),
           })
           yield* saveFrozen(live)

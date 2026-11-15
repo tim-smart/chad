@@ -34,14 +34,14 @@ export interface Read {
 }
 
 /** The prompt of a message that starts a turn. */
-export const prompt = (read: Read): Prompt.RawInput =>
-  read.images.length === 0
-    ? read.text
-    : Prompt.fromMessages([
-        Prompt.userMessage({
-          content: [Prompt.textPart({ text: read.text }), ...read.images],
-        }),
-      ])
+export const prompt = (
+  read: Read,
+  options: Prompt.ProviderOptions = {},
+): Prompt.Message =>
+  Prompt.userMessage({
+    content: [Prompt.textPart({ text: read.text }), ...read.images],
+    options,
+  })
 
 /**
  * Downloads the files of a message. `asImages` says whether an image may go to the model, which it may on a message

@@ -52,6 +52,14 @@ export interface Platform {
   readonly deliver: (
     event: ChatEvent.ChatEvent,
   ) => Effect.Effect<void, ChatHandler.NotAccepted>
+  /**
+   * Holds every download until `release` is called. `reached` resolves when the first one arrives, which is a point
+   * after the turn has counted its start and before its prompt reaches the model.
+   */
+  readonly holdDownloads: () => {
+    readonly reached: Promise<void>
+    readonly release: () => void
+  }
   /** The number of writes the daemon has made to the chat. */
   readonly writes: () => number
   /** Resolves once the daemon has made more writes than `seen`. */
@@ -113,8 +121,34 @@ export const make = (
           for (const wake of waiting) wake()
         }),
       )
+    let held:
+      | { readonly reach: () => void; readonly released: Promise<void> }
+      | undefined
+    const holdDownloads = () => {
+      let reach = () => {}
+      let release = () => {}
+      const reached = new Promise<void>((resolve) => (reach = resolve))
+      const released = new Promise<void>((resolve) => (release = resolve))
+      held = { reach, released }
+      return {
+        reached,
+        release: () => {
+          held = undefined
+          release()
+        },
+      }
+    }
     const adapter: ChatAdapter.ChatAdapter = {
       ...inner,
+      download: (thread, attachment, options) =>
+        Stream.unwrap(
+          Effect.suspend(() => {
+            const gate = held
+            if (gate === undefined) return Effect.void
+            gate.reach()
+            return Effect.promise(() => gate.released)
+          }).pipe(Effect.as(inner.download(thread, attachment, options))),
+        ),
       post: (thread, content) => wrote("post", inner.post(thread, content)),
       edit: (thread, id, content) =>
         wrote("edit", inner.edit(thread, id, content)),
@@ -161,6 +195,7 @@ export const make = (
               Effect.provideService(ChatHandler.ChatHandler, attachedHandler),
             )
         }),
+      holdDownloads,
       writes: () => writes,
       written: (seen) =>
         Effect.callback<void>((resume) => {

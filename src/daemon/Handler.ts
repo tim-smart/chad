@@ -1,6 +1,7 @@
 import { Context, DateTime, Effect, Exit } from "effect"
 import {
   Chat,
+  ChatEvent,
   ChatHandler,
   ChatMarkdown,
   ChatMessage,
@@ -64,7 +65,28 @@ export const command = (
  * that is not persisted, and every other message is saved as a request to the session of its thread. The handler
  * never waits for a turn.
  */
-export const layer = (connection: Live) =>
+/**
+ * What remembers the chat commands a daemon has run, by the dedupe key of their event, and says whether an event's
+ * command is new. A command is not a persisted request, so nothing else stops a second delivery of one from running it
+ * again: the other connection of a thread that two bots share, a replay, or a catch-up that overlaps another (SES-172,
+ * SES-203). After a restart, the mark that a command moves keeps the catch-up behind it. A daemon makes one and its
+ * connections share it, and the oldest keys go first.
+ */
+export const runsOnce = () => {
+  const ran = new Set<string>()
+  return (event: ChatEvent.MessageCreated) => {
+    const key = ChatEvent.dedupeKey(event)
+    if (ran.has(key)) return false
+    ran.add(key)
+    if (ran.size > 10_000) ran.delete(ran.values().next().value!)
+    return true
+  }
+}
+
+export const layer = (
+  connection: Live,
+  claim: (event: ChatEvent.MessageCreated) => boolean,
+) =>
   ChatHandler.layer(
     Effect.fnUntraced(
       function* (event) {
@@ -103,6 +125,9 @@ export const layer = (connection: Live) =>
         let thread = event.thread
         if (event.kind === "channel") {
           if (!mentioned) return yield* ignored("not-mentioned")
+          if (word !== undefined && !claim(event)) {
+            return yield* ignored("duplicate")
+          }
           // A command in a plain channel is answered there and opens no thread, which would be a session that nothing
           // has been said in.
           if (word === "status") {
@@ -136,6 +161,8 @@ export const layer = (connection: Live) =>
           !(yield* Sessions.known(ChatThread.toString(thread)))
         ) {
           return yield* ignored("not-mentioned")
+        } else if (word !== undefined && !claim(event)) {
+          return yield* ignored("duplicate")
         }
 
         const key = ChatThread.toString(thread)
