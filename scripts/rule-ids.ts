@@ -19,8 +19,14 @@ import { tmpdir } from "node:os"
 import { dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-/** The vitest projects the pull request gate runs, one per layer. Any other project is a nightly or live item. */
+/** The vitest projects the pull request gate runs, one per layer. Any other project is a live item. */
 export const gateProjects = ["types", "unit", "daemon", "process", "image"]
+
+/**
+ * The rule that lists the hand checks, which no project runs. A waiver names the hand checks by this id, and they carry
+ * a rule's id when this rule's text names it.
+ */
+export const handChecks = "TST-144"
 
 export const deliveredFile = "delivered.md"
 export const waiverFile = "waivers.md"
@@ -372,7 +378,9 @@ export const evaluate = (inputs: Inputs): Report => {
   const waivers = new Map<string, string>()
   // The waivers that name an item come first, because a fact may name a rule that only an item covers.
   const listed = parseWaivers(inputs.waivers)
-  const namesRule = (entry: Waiver) => resolve(entry.coveredBy) !== undefined
+  const namesRule = (entry: Waiver) =>
+    entry.coveredBy !== handChecks && resolve(entry.coveredBy) !== undefined
+  const byHand = spec.rules.get(handChecks)?.text ?? ""
   for (const entry of [
     ...listed.filter((entry) => !namesRule(entry)),
     ...listed.filter(namesRule),
@@ -382,6 +390,20 @@ export const evaluate = (inputs: Inputs): Report => {
       failures.push(
         `the waiver ${entry.unit} names a rule the spec does not have or one that needs no test`,
       )
+      continue
+    }
+    // The hand checks cover a rule or a fact alike, and what carries the id is the text of the rule that lists them.
+    if (entry.coveredBy === handChecks) {
+      if (
+        target.rule.id !== handChecks &&
+        new RegExp(`\\b${target.rule.id}\\b`).test(byHand)
+      ) {
+        for (const unit of target.units) waivers.set(unit, "hand checks")
+      } else {
+        failures.push(
+          `the waiver ${entry.unit} names the hand checks of ${handChecks}, whose text does not carry the rule's id`,
+        )
+      }
       continue
     }
     // A fact names a rule in place of an item, and that rule's own test is what covers the fact. The test is one of
@@ -420,7 +442,7 @@ export const evaluate = (inputs: Inputs): Report => {
       !itemTests.has(entry.coveredBy)
     ) {
       failures.push(
-        `the waiver ${entry.unit} names ${entry.coveredBy}, which is no nightly or live item`,
+        `the waiver ${entry.unit} names ${entry.coveredBy}, which is no live item`,
       )
       continue
     }

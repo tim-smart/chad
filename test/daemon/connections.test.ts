@@ -365,7 +365,7 @@ test("CLI-117 REC-93 IMG-26 a token is never a command argument, and no environm
   expect(running.discord.rest.calls()).toEqual([])
 })
 
-test("CLI-36 CLI-118 CLI-120a CLI-186 CLI-187 CLI-208 CLI-209 CLI-234 CLI-236 DIS-88 REC-98 TST-186b with the daemon running the daemon checks a token against Discord and swaps that connection's gateway with no restart: a new bot dials in with the intents of the one constant the invite URL is built from, a token Discord refuses leaves the old one in place, and a new token closes the old gateway and opens another", async () => {
+test("CLI-36 CLI-118 CLI-120a CLI-186 CLI-187 CLI-208 CLI-209 CLI-234 CLI-236 DIS-88 REC-98 TST-186 with the daemon running the daemon checks a token against Discord and swaps that connection's gateway with no restart: a new bot dials in with the intents of the one constant the invite URL is built from, a token Discord refuses leaves the old one in place, and a new token closes the old gateway and opens another", async () => {
   const chad = await scenario({ connections: [home] })
   const first = await identify(chad, 0, "session-home")
   const checks = () =>

@@ -16,7 +16,7 @@ The image is built from a two-stage Dockerfile. The first stage installs the pac
 - **IMG-6** The JavaScript of `@anthropic-ai/claude-agent-sdk` stays in the image, because clanka imports it. Its 349 MB platform binary, which is Claude Code, is left out with pnpm `ignoredOptionalDependencies` entries. Keeping the JavaScript makes no provider usable, and which providers chad refuses is in 05-model-and-login.md.
 - **IMG-7** The image's CI imports `clanka/ClaudeAgent` and fails if the platform binary's package is in `node_modules`.
 - **IMG-8** The image never carries a browser. An owner who wants one runs it as another container that chad reaches over the Chrome DevTools Protocol (CDP).
-- **IMG-9** The image is `ghcr.io/tim-smart/chad`, built for amd64 and arm64 and tagged by version.
+- **IMG-9** The image is `ghcr.io/tim-smart/chad`, built for amd64 and tagged by version.
 - **IMG-121** The image's version tag is the chad package's version with no prefix. It is the same string that `state/version` holds and `chad status` prints, so an owner can match a tag to a running chad.
 - **IMG-10** The image exposes no port, keeps `STOPSIGNAL` at SIGTERM and has no `VOLUME` line in its Dockerfile.
 - **IMG-11** The image carries effect's `AGENTS.md` and `ai-docs/` for the effect version it pins. They sit in the effect package of the image's `node_modules`, which is reachable at `/data/repo/node_modules/effect/` once the link of IMG-44 exists. If the vendored snapshot lacks either, the image build produces it from effect's source at the commit that the manifest under `vendor/` names, and the image build fails when it cannot (see 14-self-edit-skill.md for that step). The files are never taken from another published version.
@@ -288,7 +288,7 @@ effect/chat is not released. It is installed from a snapshot of the effect pull 
 - **IMG-55** clanka is version 0.28.0 from npm, pinned by the lockfile. It is not vendored.
 - **IMG-56** (a) CI fails when `node_modules` holds more than one `effect`. The check counts the copies under the `node_modules` of a clean install of the checkout, so it needs no image. (b) The image build repeats the count, as the Dockerfile above shows (see 07-plugin-loading.md).
 - **IMG-57** The move to released versions of effect is one commit, which changes the catalog and the overrides and nothing else.
-- **IMG-119** One script replaces the vendored tarballs as a set. A real upgrade and the weekly job against the newest effect snapshot both use it (see 17-testing.md).
+- **IMG-119** One script replaces the vendored tarballs as a set. A real upgrade uses it (see 17-testing.md).
 
 pkg.pr.new is the only place a snapshot's packages are published, so the script of IMG-119 downloads from it. No install does (IMG-53).
 
@@ -619,7 +619,7 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-6 | TIM-541 item 3, TIM-535 as changed by TIM-541, TIM-559 cold read | Architect (Tim has not read) | run | TIM-541 | `rule` | `harness` |
 | IMG-7 | TIM-541 item 3 | Architect (Tim has not read) | run |  | `rule` | `harness` |
 | IMG-8 | TIM-541 item 4, TIM-546 item 1 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| IMG-9 | TIM-541 item 6 | Architect (Tim has not read) | run |  | `rule` | `image` |
+| IMG-9 | TIM-541 item 6, amended by Tim's ruling that the image is amd64 only, chat 2026-11-15 | Architect (Tim has not read) | run |  | `rule` | `image` |
 | IMG-10 | TIM-541 item 6, TIM-542 item 2, TIM-553 item 10 | Architect (Tim has not read) | run |  | `rule` | `harness` |
 | IMG-11 | TIM-549 item 22 (comment on TIM-541), TIM-553, TIM-559 cold read | Architect (Tim has not read) | run |  | `rule` | `loader` |
 | IMG-12 | TIM-549 item 21 and its follow-up (comments on TIM-541), amended by TIM-557 item 43 and TIM-558 item 32 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
@@ -729,7 +729,7 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-116 | TIM-558 item 17 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | IMG-117 | TIM-557 item 38, amended by TIM-559 rulings on STO-G18 and FAIL-G9, which TIM-559 round 3 C4 settles as the connection and the thread | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | IMG-118 | TIM-557 items 1 and 4 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
-| IMG-119 | TIM-558 item 44 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
+| IMG-119 | TIM-558 item 44, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | IMG-120 | TIM-557 items 10 and 33 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | IMG-121 | TIM-559 ruling on IMG-G11 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-122 | TIM-559 ruling on IMG-G2 | Architect (Tim has not read) | not run |  | `rule` | `cli` |

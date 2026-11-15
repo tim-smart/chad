@@ -455,7 +455,7 @@ A remove followed by an add under the same name, with no daemon running in betwe
 ### Setup
 
 - **CLI-121** `chad setup` is a wizard over the other commands and is safe to run again. It asks for the Discord bot token and checks it. It asks for the owner's Discord user id and the timezone. It offers the model login, which can be skipped.
-- **CLI-122** Setup turns Discord's message content intent on for the bot when Discord allows it, and says where to click when it does not. This runs against a real bot only in the nightly Discord job (see 17-testing.md).
+- **CLI-122** Setup turns Discord's message content intent on for the bot when Discord allows it, and says where to click when it does not. This runs against a real bot only in the hand checks (see 17-testing.md).
 - **CLI-123** Every question has a flag. The flags are `--discord-token-file`, `--owner`, `--timezone` and `--skip-login`. With no terminal, a missing answer fails and names its flag, so setup can run without a terminal when every flag is given.
 - **CLI-124** Setup is an owner command. It works with the daemon running and in a one-off container before the first start.
 - **CLI-191** On a run after the first, each question of `chad setup` shows the stored value and keeps it on an empty answer.
@@ -686,7 +686,7 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-119 | TIM-534 item 13 | Tim | not run |  | `rule` | `cli` |
 | CLI-120 | TIM-542 item 17, TIM-547 item 14 | Tim; unloading a plugin after an owner is removed Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | CLI-121 | TIM-542 item 33 | Tim | not run |  | `rule` | `settings` |
-| CLI-122 | TIM-542 item 33, TIM-550 item 14, TIM-558 item 36 | Tim; the nightly job Architect (Tim has not read) | not run |  | `rule` | `settings` |
+| CLI-122 | TIM-542 item 33, TIM-550 item 14, TIM-558 item 36, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Tim, the hand check in place of the nightly job included | not run |  | `rule` | `settings` |
 | CLI-123 | TIM-542 item 33, TIM-541 item 20 | Tim | not run |  | `rule` | `settings` |
 | CLI-124 | TIM-542 items 24 and 30, TIM-541 item 20 | Tim | not run |  | `rule` | `settings` |
 | CLI-125 | TIM-542 item 19 | Tim | not run |  | `rule` | `cli` |

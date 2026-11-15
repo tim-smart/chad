@@ -346,8 +346,8 @@ tla: could not be loaded
 These are the findings behind the choice of loader. They ran on Linux x64 and ext4, with effect 4.1.4, esbuild 0.28.2, rolldown 1.3.2 and TypeScript 7.0.2, outside Docker.
 
 - **LOAD-66** chad never loads a plugin with `import()`. Node's ES module cache cannot be emptied, so a plugin loaded that way is never freed.
-- **LOAD-67** After a plugin is rebuilt and its old version closed, the old bundle's module is garbage collected. Repeated applies do not grow the daemon's heap without bound.
-- **LOAD-71** The tests of this part's rules, among them the soak of 300 applies that checks old plugin modules are collected, the scenario that asserts one copy of `chad` and of `effect` in the running daemon, and the check that the `chad` package exports exactly its four modules, are in 17-testing.md.
+- **LOAD-67** After a plugin is rebuilt and its old version closed, the old bundle's module is garbage collected.
+- **LOAD-71** The tests of this part's rules, among them the scenario that asserts one copy of `chad` and of `effect` in the running daemon, and the check that the `chad` package exports exactly its four modules, are in 17-testing.md.
 
 Memory after many applies. Each apply edits two plugins, one of which has 30 tools:
 
@@ -474,11 +474,11 @@ No run checked a volume on a filesystem other than ext4, or a repo with many fil
 | LOAD-64 | TIM-539, as recorded on TIM-538, amended by TIM-541 item 25, TIM-547 item 15 and TIM-553 item 8 | Tim, the stop budget, the hooks dropped during a swap and the MCP order Architect (Tim has not read) | not run | TIM-541, TIM-547, TIM-553 | `rule` | `plugin-api` |
 | LOAD-65 | TIM-539, as recorded on TIM-538 | Tim | not run |  | `rule` | `plugin-api` |
 | LOAD-66 | TIM-538 item 2, TIM-529 report section 3 | Tim | run |  | `rule` | `loader` |
-| LOAD-67 | TIM-538 item 2 | Tim | run |  | `rule` | `apply` |
+| LOAD-67 | TIM-538 item 2, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Tim | run |  | `rule` | `apply` |
 | LOAD-68 | TIM-558 item 17 | Architect (Tim has not read) | not run |  | `rule` | `loader` |
 | LOAD-69 | TIM-557 item 28 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | LOAD-70 | TIM-557 item 39, which defines the notice of TIM-550 item 11 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| LOAD-71 | TIM-558 items 7, 19 and 42 | Architect (Tim has not read) | not run |  | `definition` | - |
+| LOAD-71 | TIM-558 items 7, 19 and 42, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | LOAD-72 | TIM-559 ruling on LOAD-G9 | Architect (Tim has not read) | not run |  | `rule` | `loader` |
 | LOAD-73 | TIM-559 ruling on LOAD-G9, with the ruling on API-G2 | Architect (Tim has not read) | not run |  | `rule` | `loader` |
 | LOAD-74 | TIM-559 ruling on LOAD-G8 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |

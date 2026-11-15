@@ -20,9 +20,9 @@ chad is built from the spec in `docs/spec/`. This file is the builder's contract
 - All five stages share one branch and one pull request against `main`. Stage 1 creates both. Never open a second pull request, never rebase or force-push the shared branch, and never merge the pull request. Tim merges it after stage 5.
 - When you finish a slice, add its name to the delivered file under `docs/spec/` in the same change.
 - A rule of a delivered slice whose test cannot pass yet, because it rests on a later slice, goes on the delivered file's list of held rules with that slice's name and a one-sentence reason. That is the only accepted reason.
-- A rule that only a live or nightly job can cover goes on the waiver list against that job. Nothing is pending because Tim's bots or logins do not exist yet. A live job that lacks a secret fails and names the secret.
-- Scheduled workflows do not fire until the pull request is merged. Give each one a trigger that fires from the shared branch, and run each at least once before your stage is done. A nightly job that is red for any cause but a missing secret holds the stage. The last stage removes these triggers in its final change.
-- A stage is done when each of its slices is delivered and every rule of those slices has a test, a waiver, a held entry or a stopped entry. Then move the stage issue to done and post the hand-off comment on the parent build issue: the branch and pull request, what landed, each held and stopped entry you added with its reason, the result of each scheduled job, each live job that has never passed with the number of rules waived against it, and each rule you added to the spec.
+- A rule that only a live item or a hand check can cover goes on the waiver list against it. Nothing is pending because Tim's bot or logins do not exist yet. No job reads a secret, and no job talks to a real Discord.
+- There is no scheduled workflow and no release list, and `gate.yml` is the only workflow. Every test runs on the gate, apart from the live checks that are done by hand.
+- A stage is done when each of its slices is delivered and every rule of those slices has a test, a waiver, a held entry or a stopped entry. Then move the stage issue to done and post the hand-off comment on the parent build issue: the branch and pull request, what landed, each held and stopped entry you added with its reason, each live job that has never passed with the number of rules waived against it, and each rule you added to the spec.
 
 ## Tests
 
