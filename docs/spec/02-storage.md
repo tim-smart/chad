@@ -391,7 +391,7 @@ chad db check
 
 ## Backup and restore
 
-A backup is one tar file made by the CLI. chad makes no backups by itself, so something outside chad has to run the command and move the tar off the volume. The Kubernetes and Compose examples that do so are in 01-image-and-volume.md.
+A backup is one tar file made by the CLI. chad makes no backups by itself, so something outside chad has to run the command and move the tar off the volume. The Kubernetes example that does so is in 01-image-and-volume.md.
 
 ```
 chad backup <path> [--no-home] [--sessions]
@@ -447,10 +447,10 @@ The prune is the only job in chad that deletes old session data. It runs on `Clu
 
 ## The free space check
 
-- **STO-114** The free space check is a plain timer in the daemon. It runs at boot, then hourly, and at once when a write fails with SQLite's full error. It is kept off `ClusterCron` because an hourly job there would leave 8,760 requests and replies a year.
-- **STO-115** The check has two thresholds. Less than 1 GB free is the condition of the notice key `disk-low`, and less than 100 MB free is the condition of the notice key `disk-critical`. Each key clears at a higher level than the one it begins at, so free space that sits at a threshold does not send a notice at every check. The clearing levels, when each notice is sent, when it may be sent again and its wording are in 16-failures-logs-status.md.
+- **STO-114** The free space check is a plain timer in the daemon. It runs at boot and then hourly. It is kept off `ClusterCron` because an hourly job there would leave 8,760 requests and replies a year.
+- **STO-115** The check has one threshold. Less than 1 GB free is the condition of the notice key `disk-low`, which clears when a check finds 1 GB or more. When the notice is sent, when it may be sent again and its wording are in 16-failures-logs-status.md.
 - **STO-116** The check reads free space with `node:fs` `statfs`, because Effect's `FileSystem` has no call that reports it. Free space is `bavail * bsize`, the bytes the daemon's user can use.
-- **STO-134** chad enters no special mode when free space is low or gone. What chad does when a write fails because the volume is full is in 16-failures-logs-status.md.
+- **STO-134** chad enters no special mode when free space is low or gone. A write that fails because the volume is full fails like any other write of chad's, and what chad does then is in 16-failures-logs-status.md.
 - **STO-135** The hourly interval of the free space check, the prune's time of day (STO-104) and the 30 days of STO-105 are defaults of the `Timings` service, which the shipped binary cannot change. See 17-testing.md.
 
 ## An unusable database
@@ -475,7 +475,7 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 - **STO-G10** [builder] The column names and types of `sessions`, `session_messages` and `timers` beyond the fields the tickets name. TIM-536 ("Not settled here") and the TIM-543 prototype.
 - **STO-G15** [builder] How long `MessageRetention` keeps completed requests of the `Timer` entity. TIM-543 only says they can be pruned.
 - **STO-G26** [builder] When `sessions/<session-id>/` is created. TIM-536 item 10.
-- **STO-G27** [builder] Whether the 1 GB and 100 MB of STO-115 are decimal or binary units. TIM-557 item 31.
+- **STO-G27** [builder] Whether the 1 GB of STO-115 is a decimal or a binary unit. TIM-557 item 31.
 - **STO-G29** [builder] Whether a `chad backup` that fails with no daemon running leaves a `backup.failed` line (STO-191), and how a running daemon learns of the failure. The copy is made in the CLI's own process (STO-92) and only the daemon writes `logs/chad.log` (STO-7), so as the rules stand a backup that fails with no daemon leaves no line. TIM-559 round 2 R4 names the event and not its writer, and TIM-557 item 10 came closest.
 - **STO-G30** [builder] The name of the file that holds the version of the copy (STO-192), and what a boot writes in it when it copies the database of a volume that has no `state/version`. An older image reads the file, so the name does not change once a release has shipped it. TIM-559 round 3 on IMG-G19 and STO-G28 says only that the version is written beside the copy.
 - **STO-G31** [builder] The words of the exit message of STO-48 in its two forms, and what it says when the volume holds no copy or no version beside the copy. TIM-559 round 3 on IMG-G19 and STO-G28 gives what the message carries and not its text.
@@ -605,8 +605,8 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-111 | TIM-542 item 16 | Tim | read |  | `rule` | `backup` |
 | STO-112 | TIM-532 item 2 | Tim | run |  | `rule` | `turns` |
 | STO-113 | TIM-543, as recorded on TIM-536 | Tim | run |  | `rule` | `timers-cron` |
-| STO-114 | TIM-536 item 16, amended by TIM-557 item 31 | Tim. Architect (Tim has not read) for the run on a failed write | not run | TIM-557 | `rule` | `failures` |
-| STO-115 | TIM-536 item 16, amended by TIM-557 items 31 and 36, TIM-559 round 3 on FAIL-G7 for the clearing levels | Tim for the 1 GB threshold. Architect (Tim has not read) for the second threshold, the keys and the clearing | not run | TIM-557 | `rule` | `failures` |
+| STO-114 | TIM-536 item 16, amended by TIM-557 item 31, amended by Tim's ruling on a full disk, chat 2026-11-15 | Tim. Architect (Tim has not read) for the run on a failed write | not run | TIM-557 | `rule` | `failures` |
+| STO-115 | TIM-536 item 16, amended by TIM-557 items 31 and 36, TIM-559 round 3 on FAIL-G7 for the clearing levels, amended by Tim's ruling on a full disk, chat 2026-11-15 | Tim for the 1 GB threshold. Architect (Tim has not read) for the second threshold, the keys and the clearing | not run | TIM-557 | `rule` | `failures` |
 | STO-116 | TIM-536 ("How well each is supported"), TIM-557 ("Facts found before the grilling") | Tim. Architect (Tim has not read) for `bavail * bsize` | read for `statfs`, run for `bavail * bsize` |  | `rule` | `failures` |
 | STO-117 | TIM-536 item 14, amended by TIM-557 item 35 | Tim. Architect (Tim has not read) for the split from STO-48 and the two named cases | not run | TIM-541, TIM-557 | `rule` | `failures` |
 | STO-118 | TIM-536 item 14, amended by TIM-557 item 35 | Tim. Architect (Tim has not read) for the wording | not run |  | `rule` | `failures` |
@@ -625,7 +625,7 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-131 | TIM-557 item 30, amended by TIM-559 ruling on STO-G14 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | STO-132 | TIM-557 item 30, amended by TIM-559 ruling on STO-G14 and on FAIL-G8 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | STO-133 | TIM-557 item 26 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
-| STO-134 | TIM-557 items 31 to 34 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| STO-134 | TIM-557 items 31 to 34, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | STO-135 | TIM-558 item 17 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | STO-136 | TIM-557 items 35 and 38, amended by TIM-559 ruling on FAIL-G20 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | STO-137 | TIM-559 ruling on STO-G17 | Architect (Tim has not read) | not run |  | `rule` | `cli` |

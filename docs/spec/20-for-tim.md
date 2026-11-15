@@ -8,15 +8,15 @@ The spec holds 2,882 rule ids in 20 parts, 00-overview.md to 19-build-order.md.
 
 | Stage | Slices, with their rule ids | Rule ids | Kind `rule` | Kind `fact` |
 | --- | --- | --- | --- | --- |
-| 1 | `repo` 52, `harness` 157, `wire` 31, `cli` 139 | 379 | 369 | 10 |
-| 2 | `turns` 120, `kills` 40, `failures` 194, `discord-ui` 47, `models` 174 | 575 | 546 | 29 |
-| 3 | `plugin-api` 389, `loader` 65, `apply` 350 | 804 | 786 | 18 |
-| 4 | `settings` 273, `skills-mcp` 200, `timers-cron` 188 | 661 | 646 | 15 |
-| 5 | `backup` 80, `image` 48, `bundled-skills` 117, `asphodel` 5, `live` 24 | 274 | 270 | 4 |
-| No slice | 165 definitions and 24 withdrawn rules | 189 | 24 | 0 |
-| Total | | 2,882 | 2,641 | 76 |
+| 1 | `repo` 16, `harness` 141, `wire` 30, `cli` 137 | 324 | 314 | 10 |
+| 2 | `turns` 120, `kills` 36, `failures` 181, `discord-ui` 47, `models` 174 | 558 | 529 | 29 |
+| 3 | `plugin-api` 381, `loader` 64, `apply` 349 | 794 | 776 | 18 |
+| 4 | `settings` 273, `skills-mcp` 200, `timers-cron` 187 | 660 | 645 | 15 |
+| 5 | `backup` 80, `image` 39, `bundled-skills` 114, `asphodel` 5, `live` 14 | 252 | 248 | 4 |
+| No slice | 232 definitions and 62 withdrawn rules | 294 | 62 | 0 |
+| Total | | 2,882 | 2,574 | 76 |
 
-By kind there are 2,641 rules, 76 facts about a dependency and 165 definitions. The withdrawn rules are SWAP-18, MCP-101, TST-103 and the twenty-one that went with your rulings of 2026-11-15 that chad has no scheduled job, no release list and no budget: TST-115 to TST-118, TST-120, TST-121, TST-123 to TST-132, TST-139, TST-140, TST-142, TST-143 and TST-205. Five definitions were withdrawn with them, TST-114, TST-122, TST-141, TST-195 and ORD-18, and so were TST-206 to TST-208, which the build had added and this table does not count. Nothing without a slice needs a test (TST-172).
+By kind there are 2,574 rules, 76 facts about a dependency and 232 definitions. 67 of the definitions were rules of 17-testing.md and 19-build-order.md until your fifth ruling of 2026-11-15, which says that a rule about how the suite and the build are run needs no test. The withdrawn rules are SWAP-18, MCP-101, TST-103 and the twenty-one that went with your rulings of 2026-11-15 that chad has no scheduled job, no release list and no budget: TST-115 to TST-118, TST-120, TST-121, TST-123 to TST-132, TST-139, TST-140, TST-142, TST-143 and TST-205. Five definitions were withdrawn with them, TST-114, TST-122, TST-141, TST-195 and ORD-18, and so were TST-206 to TST-208, which the build had added and this table does not count. Your fifth ruling of the same day withdrew thirty-eight more rules and three definitions. They are the bookkeeping checks (TST-20, TST-92, TST-154 to TST-157, TST-159, ASP-109), the skill runs (TST-148 to TST-150, TST-187, SELF-125, SWAP-145), the Compose example (IMG-98 to IMG-100, IMG-135 to IMG-137, CRED-127, CRED-128, TST-184), most of the full disk rules (FAIL-138, FAIL-139, FAIL-142 to FAIL-145, FAIL-172, FAIL-217, FAIL-218, FAIL-220 to FAIL-224, FAIL-280, FAIL-314, TST-167) and the docs' NFS paragraph (IMG-73). The three definitions are TST-157, FAIL-145 and FAIL-224. Nothing without a slice needs a test (TST-172).
 
 | "Agreed by" | Rule ids |
 | --- | --- |
@@ -31,7 +31,7 @@ You have not read twelve, which section 5 takes one by one: "Docker image and da
 
 579 rules have "Changed by" filled, and section 3 covers those that state something you agreed in person. TIM-559 is named in that column on 266 rules and TIM-557 on 152. By the first word of the Support cell, 746 rules were run in a prototype, 186 were read from source and 1,950 were not run.
 
-The single largest cost in the build is one test for each rule id. TST-173 sets the minimum at one test for each rule id that has a slice and allows no test that names no rule id. TST-9 has the rule-id script fail when a rule has no test, is not pending and is not on the waiver list. TST-17 has each stage issue ask for tests in words, because the builders' briefs tell them to write none unless asked. That is 2,693 ids to cover, 2,617 rules and 76 facts, though one test may name several ids (TST-7). You were offered the chance to trim this rule and did not, so it stands. Trimming it later changes TST-173 and the rules that carry it to the script, the stage issues and the repo's `AGENTS.md` (TST-9, TST-17, TST-174, ORD-34), and it needs another measure of coverage, because TST-19 makes the rule ids the only one.
+The single largest cost in the build is one test for each rule id. TST-173 sets the minimum at one test for each rule id that has a slice and allows no test that names no rule id. TST-9 has the rule-id script fail when a rule has no test, is not pending and is not on the waiver list. TST-17 has each stage issue ask for tests in words, because the builders' briefs tell them to write none unless asked. That is 2,588 ids to cover, 2,512 rules and 76 facts, though one test may name several ids (TST-7). You were offered the chance to trim this rule and did not, so it stands. Trimming it later changes TST-173 and the rules that carry it to the script, the stage issues and the repo's `AGENTS.md` (TST-9, TST-17, TST-174, ORD-34), and it needs another measure of coverage, because TST-19 makes the rule ids the only one.
 
 Two rulings are your own, made in chat on 2026-11-15, and they override Architect. The repo `tim-smart/chad` exists and is public. The build is five stage issues that share one branch and one pull request (TST-199, ORD-1 to ORD-3), with no pull request per slice and no cap on rule ids per issue (TST-17, ORD-5).
 
@@ -64,7 +64,7 @@ The gaps, in part order. Each gap is gone from its part.
 | SELF-G13 | What ends the trial of the `repo/examples` link | Nothing in v1. The link stays (SELF-20) | No test and no release waits on it. Whether the agent finds the link unprompted can only be seen once chad is in use, so it is yours to judge then. |
 | CRED-G17 | Which sites you want chad signed in to on day one | None | The `credentials` skill ships its two recipes, for agent-browser and Playwright MCP, against the test form (CRED-83). A recipe for a real site is something you or chad add later. |
 | FAIL-G23 | Whether to raise the four follow-ups outside chad as issues on Effect-TS/effect and Effectful-Tech/clanka | Only the first, effect's WebSocket decoder (FAIL-186). The other three are left alone | This one is your own ruling, made in chat on 2026-11-15 after you saw the list. The fix is "Fix effect's OpenAI WebSocket client dropping error frames and resets_at" (TIM-566). v1 waits for none of the four. |
-| FAIL-G24 | Whether the thirteen changes that TIM-557 made to what you agreed in person stand | All thirteen stand | They are listed in 16-failures-logs-status.md. The two with the most weight are the end of a model call after 15 minutes of silence (FAIL-84), since a silent call otherwise costs about 117 minutes, and `chad logs` (FAIL-38), since the log is the only record of a failed turn. The one to know about is FAIL-9, as above. |
+| FAIL-G24 | Whether the thirteen changes that TIM-557 made to what you agreed in person stand | All thirteen stood. Twelve are left, because your ruling on a full disk took out the second free space notice | They are listed in 16-failures-logs-status.md. The two with the most weight are the end of a model call after 15 minutes of silence (FAIL-84), since a silent call otherwise costs about 117 minutes, and `chad logs` (FAIL-38), since the log is the only record of a failed turn. The one to know about is FAIL-9, as above. |
 | TST-G25 | Whether chad lints with oxlint and formats with prettier as `tim-smart/lalph` does, and whether it takes that repo's `effect-language-service patch` step or its `tsgo` type-check | oxlint and prettier, and neither of the other two (TST-204) | TypeScript 7, which the image pins, already is the native compiler, so `tsgo` adds nothing. A compiler patched for Effect's diagnostics in the gate is not the compiler the image runs at an apply, and nothing was run with the patch on the vendored effect snapshot. Four of your repos carry Effect's diagnostics in one form or another, so this is the answer you are most likely to overrule. |
 | ORD-G2 | One merge of the whole build after stage 5, or a merge after each stage | One merge (ORD-3) | It is your own ruling. A merge after each stage needs a new pull request each time, which breaks the one shared pull request of your plan workflow and makes each stage's start depend on what you merged. Two of the three gains are had without it: you can review on the same pull request at the end of each stage, and the branch is usable from the end of stage 2. The third was that scheduled jobs fire only from `main`, and chad now has none (ORD-46). |
 
@@ -99,7 +99,6 @@ Each bullet gives the rules, what you agreed, what the spec says now and, in bra
 - IMG-40, IMG-124. TIM-536 item 13: a new image's first boot copies the database. Now to `db/chad.db.before-migration`, and a boot that finds `state/migrating` keeps the earlier copy. [TIM-541, TIM-559]
 - IMG-39, IMG-66, IMG-88. TIM-536 items 5, 8 and 14: chad stays up without sessions on any unusable database. Now an older chad that finds a newer `state/version` exits 1 and names the copy. [TIM-541, TIM-557, TIM-559]
 - IMG-41. TIM-536 item 7: what `chad backup` holds. Now it skips `cache/`, `logs/` and the copy taken before a migration. [TIM-541]
-- IMG-67. TIM-536 item 16: one free space notice under 1 GB, checked at boot and hourly. Now also checked on SQLite's full error, with a second notice under 100 MB. [TIM-557]
 - IMG-32. TIM-536 items 2 and 12: the volume layout. Now also `cache/`, `logs/`, the copy before a migration, `secrets/mcp-oauth.json`, `run/local.sock` and five files under `state/`. [TIM-541, TIM-557, TIM-558, TIM-559]
 - IMG-6. TIM-535: no Claude Code and no SDK in the image. Now the SDK's JavaScript stays, because clanka imports it. [TIM-541]
 - IMG-42. TIM-534 item 10: the owner can mount other directories. Now at `/mnt/<name>`. [TIM-541]
@@ -124,7 +123,6 @@ Each bullet gives the rules, what you agreed, what the spec says now and, in bra
 - STO-19, STO-146. TIM-537 item 13: MCP OAuth tokens go in the secret store. Now in `secrets/mcp-oauth.json`, which `chad secret` and `${NAME}` never read. [TIM-559]
 - STO-1. As IMG-32, plus two more model overrides. [TIM-541, TIM-549, TIM-557, TIM-558, TIM-559]
 - STO-48, STO-117, STO-120. As IMG-39, and a boot refused the lock or the shard count check is not unclean. [TIM-541, TIM-550, TIM-553, TIM-557, TIM-559]
-- STO-114, STO-115. As IMG-67, and each key clears at a higher level than it begins at. [TIM-557, TIM-559]
 - STO-34. TIM-536: what the database holds. Now also the shard count row [TIM-553], `notices` and `session_updates` [TIM-557] and `steers` [TIM-559].
 - STO-70. TIM-536 item 11: the `turns` row. Now also the failure reason, its detail and the model. [TIM-557]
 - STO-65, STO-123. As OV-29. [TIM-557]
@@ -426,12 +424,11 @@ Each bullet gives the rules, what you agreed, what the spec says now and, in bra
 - FAIL-63. As SES-106. [TIM-557]
 - FAIL-156. As OV-44. [TIM-557]
 - FAIL-175. As MOD-53. [TIM-557]
-- FAIL-134, FAIL-171, FAIL-172, FAIL-314. As IMG-67. [TIM-557, TIM-559]
 - FAIL-74 to FAIL-77. As MOD-78 and CRON-77. [TIM-557]
 - FAIL-119, FAIL-125. As OV-29 and OV-26. [TIM-557]
 - FAIL-9. As OV-41. [TIM-557]
 - FAIL-208. As DIS-104. [TIM-557]
-- DIS-77. The part's thirteenth change, described under 04-discord.md.
+- DIS-77. The part's twelfth change, described under 04-discord.md.
 - FAIL-141. As SES-125. [TIM-557]
 - FAIL-136, FAIL-137. As SES-32. [TIM-557]
 - FAIL-150 to FAIL-152. TIM-535, TIM-534, TIM-536: the "one notice" cases. Now one keyed rule for all, as DIS-78. [TIM-557]
@@ -443,7 +440,6 @@ Each bullet gives the rules, what you agreed, what the spec says now and, in bra
 - FAIL-31. TIM-530: a plugin's log lines in a tool handler go into the script's output. Now also into chad's log, with the plugin's name. [TIM-557]
 - FAIL-72. As CRON-74. [TIM-557]
 - FAIL-99, FAIL-100. As STO-70, with the usage totals and the times in integer milliseconds. [TIM-557]
-- FAIL-133. As IMG-67. [TIM-557]
 - FAIL-147. As IMG-39. [TIM-541, TIM-557]
 - FAIL-162. TIM-534 item 7: chad tells the owner about an automatic safe mode. Now the notice names the last apply and says to fix or revert it. [TIM-557]
 - FAIL-163. As API-44. [TIM-557]
@@ -477,7 +473,7 @@ Each bullet gives the rules, what you agreed, what the spec says now and, in bra
 6. Stage 1, `wire` slice: nothing. You ruled in chat on 2026-11-15 that chad has no nightly Discord job, no weekly dependency job and no other scheduled job, so you create no test bots and no scratch server and put no token in the repository's secrets. You do the hand checks on your own bot and your own server (item 9).
 7. Stage 2, `models` slice: make the first Codex recording on your login, if the archive of TIM-544 does not hold the server's frames (TST-43).
 8. Stage 5, `live` slice, once: run the Kubernetes checks on your k3s node (TST-111), which also answers IMG-G16.
-9. Stage 5, `live` slice, and before each release: approve one device code per run for the Codex list (TST-145) and for the skill runs (TST-148), which spend your Codex quota at three runs per task. Do the hand checks on your own bot and your own server: a direct message, a click on Stop, the Enter modal, a mention in a server channel that opens a thread with a message in that thread that does not mention chad, and `chad setup` (TST-144). Rule on a release held by a skill task that failed two of its three runs (TST-150).
+9. Stage 5, `live` slice, once, at the end of the build: approve one device code per run for the Codex list (TST-145). Do the hand checks on your own bot and your own server: a direct message, a click on Stop, the Enter modal, a mention in a server channel that opens a thread with a message in that thread that does not mention chad, and `chad setup` (TST-144).
 10. After stage 5: merge the build pull request (ORD-3). No stage merges it.
 
 ## The tickets you have not read
@@ -510,7 +506,7 @@ Decisions 1 and 2 are your own: the commands and the `credentials` skill never p
 It ran a rebuild of the MCP layer under load. Calls made during a rebuild are held at a gate, and a turn that starts during one does not wait and takes the last layer that finished connecting (MCP-89). All 13 of its rules are in 12-skills-and-mcp.md. You are most likely to overrule MCP-92, under which a turn starts with no MCP at all once the 120 second backstop passes, and MCP-86, under which a server that a rebuild added cannot be called until each session's next turn.
 
 **"What the owner sees when things go wrong" (TIM-557)**
-It decided failures, the log and `chad status`: seven failure reasons (API-78), `chad logs` (FAIL-38) and notices with a key (FAIL-150). 275 rules come from it, 188 of them in 16-failures-logs-status.md, and all are Architect's. It changes thirteen things you agreed in person (FAIL-G24). You are most likely to overrule FAIL-84, which ends a turn after 15 minutes of model silence, and FAIL-156, which makes a notice outside a turn a normal message that mentions you in a server thread.
+It decided failures, the log and `chad status`: seven failure reasons (API-78), `chad logs` (FAIL-38) and notices with a key (FAIL-150). 275 rules come from it, 188 of them in 16-failures-logs-status.md, and all are Architect's. It changes twelve things you agreed in person (FAIL-G24). You are most likely to overrule FAIL-84, which ends a turn after 15 minutes of model silence, and FAIL-156, which makes a notice outside a turn a normal message that mentions you in a server thread.
 
 **"How chad is tested once built" (TIM-558)**
 Nothing was built or run for it. The runner is vitest with `@effect/vitest`, CI is GitHub Actions and a `local` connection kind stands in for Discord (TST-48). 218 rules come from it, 165 of them in 17-testing.md. You are most likely to overrule TST-145, under which the Codex list runs by hand on your login. You ruled out its scheduled jobs in chat on 2026-11-15, the nightly Discord job of TST-143 among them, and those rules are withdrawn.

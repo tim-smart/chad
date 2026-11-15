@@ -314,9 +314,12 @@ export const evaluate = (inputs: Inputs): Report => {
       const unit = match[0]
       const id = `${match[1]}-${match[2]}`
       const rule = spec.rules.get(id)
+      // A rule with no slice carries no letters, and a test may still name one of its letters.
       if (
         !rule ||
-        (match[3] !== undefined && !rule.letters.includes(match[3]))
+        (match[3] !== undefined &&
+          rule.slice !== "-" &&
+          !rule.letters.includes(match[3]))
       ) {
         failures.push(`${where} names ${unit}, which the spec does not have`)
         continue

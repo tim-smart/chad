@@ -94,7 +94,7 @@ A line chad itself writes carries an `event` annotation from this list. The copy
 | **FAIL-277** | `skill.skipped` | Warn | A skill was skipped at boot. |
 | **FAIL-278** | `skill.bundled-changed` | Info | A bundled skill that a repo skill hides changed in this image. |
 | **FAIL-279** | `disk.low` | Warn | The free space check found less than 1 GB. |
-| **FAIL-280** | `disk.critical` | Error | The free space check found less than 100 MB. |
+| **FAIL-280** | Withdrawn. |  |  |
 | **FAIL-281** | `disk.full` | Error | A write failed with SQLite's full error. |
 | **FAIL-282** | `database.unusable` | Error | The database could not be opened or migrated. |
 | **FAIL-283** | `database.migrated` | Builder's | A boot migrated the database. Carries both versions and the path of the copy (see 02-storage.md). |
@@ -430,7 +430,7 @@ export const Outcome = Schema.Union([
 - **FAIL-55** For a `ModelError` with no retries, `<reason>` is "the model request failed (<reason tag>: <first line of the message>)".
 - **FAIL-56** For a `ModelError` after retries, `<reason>` is "the model kept failing after <n> retries (<reason tag>: <first line>)".
 - **FAIL-57** For a `ModelError` whose `reason` is `TurnTimeout`, which is the silence bound, `<reason>` is "the model did not answer for 15 minutes".
-- **FAIL-58** For `Internal`, `<reason>` is "chad hit an error (<first line>)". A turn that fails on a full disk does not get this message. It gets the one in FAIL-138.
+- **FAIL-58** For `Internal`, `<reason>` is "chad hit an error (<first line>)".
 - **FAIL-59** The first line of a provider's message is cut at 200 characters. A provider message can be a page of JSON.
 - **FAIL-60** `UsageLimit` replaces the failed-turn message with "You've reached the usage limit on this login. It resets <time>. Wait, or move to another provider with `/model`." `<time>` is a Discord timestamp. The sentence "It resets <time>." is left out when the error carried no reset time.
 - **FAIL-61** `LoginFailed` with `TimedOut` replaces the failed-turn message with "Login timed out. Send a message to try again." The login wait is chad's own and lasts 15 minutes. When it runs out, every turn that was waiting for the login gets this message, and a turn that lost its login part way through keeps the history it had (see 05-model-and-login.md).
@@ -461,8 +461,6 @@ Every failure in one table. "Thread" is the turn's thread. "Counts for cron" say
 | `LoggedOut` | A turn with no owner present found chad logged out | Nothing in the thread. The `logged-out` notice | Where a notice outside a turn goes | No |
 | `GaveUp` | Two starts of the turn ended in a kill | The give-up message | Thread | Pauses the job at once |
 | `Internal` | Any other defect in chad or clanka | The failed-turn message with "chad hit an error (<first line>)" | Thread | Yes |
-| `Internal`, full disk | A write of chad's failed on a full disk during the turn (FAIL-216) | "The data volume is full, so I stopped. Free some space and send that again." For a plugin-started turn, "The data volume is full, so `<label>` stopped." Both end with the turn id line | Thread | Yes |
-| `Internal`, unrecorded end | A `running` row found on redelivery with a later row in its session | Nothing (FAIL-220) | Nowhere | No. The closure is a row repair and a log line (FAIL-222) |
 
 ## Cron's failure counting
 
@@ -571,7 +569,7 @@ What `chad status` prints about the daemon, the plugins, the MCP servers, the mo
 - **FAIL-110** `chad status` and `/status` show two blocks, "Problems" and "Recent".
 - **FAIL-111** `/status` renders with no database and no model.
 - **FAIL-112** "Problems" comes first. It lists every standing condition once. A live key is shown from the daemon's own check (FAIL-213) and a table key from its held row (FAIL-308). The two classes are in "Notices outside a turn".
-- **FAIL-113** "Problems" also lists three things that have no key and no notice. These are a chat connection that is not connected, timers held for a plugin that is not loaded, and requests stuck since the disk was full, with the words "restart chad to clear them". Timers held for a plugin the owner turned off, or for a plugin deleted from the repo, are not listed here. `chad status` shows them with the plugin (see 11-settings.md).
+- **FAIL-113** "Problems" also lists two things that have no key and no notice. These are a chat connection that is not connected and timers held for a plugin that is not loaded. Timers held for a plugin the owner turned off, or for a plugin deleted from the repo, are not listed here. `chad status` shows them with the plugin (see 11-settings.md).
 - **FAIL-114** "Recent" shows the failed turns of the last 24 hours grouped by reason, the last five failed turns with their ids, the tokens used today and in the last 7 days, when the daemon started, and whether the exit before that start was unclean. Grouping by reason keeps two real failures visible on a day when 24 scheduled runs were skipped because chad was logged out.
 - **FAIL-115** "Today" is the current day in the owner's timezone.
 - **FAIL-116** Anything finer than the two blocks is read with `chad db query`.
@@ -586,14 +584,13 @@ What `chad status` prints about the daemon, the plugins, the MCP servers, the mo
 | A one-off notice that could not be delivered | The `notices` table (FAIL-313) |
 | A chat connection that is not connected | The daemon's memory. It is the one failure that can never reach the owner in Discord |
 | Timers held for a plugin that is not loaded, unless the owner turned it off or it was deleted from the repo | See 13-timers-and-cron.md and 11-settings.md |
-| Requests stuck since the disk was full, "restart chad to clear them" | FAIL-142 |
 
 ## The history reconcile
 
 chad stores a session's history as clanka appends it, one write per `HistoryAppended` event, in the fiber that consumes the turn's stream (see 03-sessions-and-turns.md). A Stop interrupts that fiber. In a probe with a writer slowed to 400 ms, the Agent held three finished steps after a Stop and the store held one message. The Agent's memory is what the next turn sends to the model, so the store and the Agent would disagree after the next restart.
 
 - **FAIL-119** At the end of every turn, however it ends, chad makes the stored history equal to the Agent's history. It does this before it records the turn's end.
-- **FAIL-120** The compare covers the session's whole history, not only the part the turn added. That is what lets a turn that could not write during a full disk be healed by a later turn.
+- **FAIL-120** The compare covers the session's whole history, not only the part the turn added.
 - **FAIL-121** When the reconcile finds a `HistoryReplaced` that the stream did not deliver, chad replaces the stored history and runs the `Compacted` session event as that turn's, so a plugin does not miss a compaction.
 - **FAIL-122** The reconcile runs in a region that neither Stop nor a graceful stop can interrupt.
 - **FAIL-123** The turn's end line carries the number of messages the reconcile wrote, on every turn.
@@ -620,29 +617,29 @@ A failed-turn message, a "Stopped" line and a notice are chad's posts and are no
 
 chad enters no special mode when the disk fills. Each event is tried, and the rules below say what happens to one whose write fails. SQLite reports a full database as an error with `code: "ERR_SQLITE_ERROR"`, `errcode: 13` and `errstr: "database or disk is full"`, called SQLite's full error here.
 
-- **FAIL-133** The free space check runs at boot, then hourly, and at once when a write fails with SQLite's full error, so `chad status` is current. How it reads free space is in 02-storage.md.
-- **FAIL-134** The check has two thresholds and two notices. Below 1 GB free the condition `disk-low` begins, and below 100 MB free the condition `disk-critical` begins.
-- **FAIL-314** `disk-low` clears when a check finds 2 GB or more free, and `disk-critical` clears when a check finds 200 MB or more free. A key that cleared at the threshold where it begins would begin again on every check while free space sits at that line.
-- **FAIL-135** chad enters no special mode on a full disk.
+- **FAIL-133** The free space check runs at boot and then hourly. How it reads free space is in 02-storage.md.
+- **FAIL-134** The check has one threshold and one notice. Below 1 GB free the condition `disk-low` begins, and it clears when a check finds 1 GB or more.
+- **FAIL-314** Withdrawn.
+- **FAIL-135** chad enters no special mode on a full disk. A write that fails during a turn because the volume is full fails like any other write of chad's. The turn ends as `Failed` with `Internal` and gets the ordinary failed-turn message. If its end cannot be written, a restart treats the turn as one cut by a crash (see 03-sessions-and-turns.md).
 - **FAIL-136** When the disk is full as an owner's message arrives, saving the request fails with a typed error and no turn runs. chad answers in the thread, "The data volume is full, so I stopped. Free some space and send that again.", and accepts the chat event once the reply is posted, so the event is not replayed and the message does not run later by itself.
 - **FAIL-137** If that reply cannot be posted either, chad refuses the event. A refused event is not held for a restart. dfx reconnects and resumes in the same process after 1 second, doubling to 2 minutes, and holds back later events on the shard until the event is accepted.
-- **FAIL-138** When the disk fills during a turn, the first write of chad's that fails on a full disk (FAIL-216) ends the turn as `Failed` with `Internal`. chad posts in the thread "The data volume is full, so I stopped. Free some space and send that again." For a plugin-started turn the message reads "The data volume is full, so `<label>` stopped."
-- **FAIL-139** chad keeps that turn's end in memory and writes it as soon as a write succeeds. It tries every 60 seconds while any end is waiting, and once more at a graceful stop before the process exits. The stop is the one that matters. The owner frees space and restarts the container, the ends are written on the way down, and the redelivered requests find their rows ended.
+- **FAIL-138** Withdrawn.
+- **FAIL-139** Withdrawn.
 - **FAIL-140** A turn's own writes come before the reply to cluster. A reply that cannot be saved is silent in cluster, so chad's own failed write is the only signal.
 - **FAIL-141** Nothing in chad learns a turn's end from cluster's reply alone. The session's own in-memory end resolves anything waiting in the same process. That is the timer handler that saves a job's next run, and a plugin's `Turns.start`.
-- **FAIL-142** A request whose reply could not be saved stays stuck in that process, and "Problems" lists it (FAIL-113).
-- **FAIL-143** When chad restarts before a turn's end could be written, cluster delivers the request again and the `turns` row still says the turn is running. If the session has a later row, chad closes the row as `Failed` with `Internal` and the message "ended in a process that could not record it", and does not resume the turn. Turns in a session are serial, so a running row with a later row after it cannot be a turn that was cut in flight.
-- **FAIL-144** If the session has no later row, chad resumes the turn under the usual rule for a turn cut by a crash (see 03-sessions-and-turns.md). The owner did not send the message again and wants the answer.
-- **FAIL-145** What a turn could not write to the history is lost if the session passivates or chad restarts before a later turn's reconcile runs.
+- **FAIL-142** Withdrawn.
+- **FAIL-143** Withdrawn.
+- **FAIL-144** Withdrawn.
+- **FAIL-145** Withdrawn.
 - **FAIL-216** A write of chad's fails on a full disk when it fails with SQLite's full error, or when a file write of chad's fails with `ENOSPC`. On a truly full filesystem the writes under `state/` and to the inbox fail first.
-- **FAIL-217** Every turn that fails on a full disk gets the message in FAIL-138, in place of the failed-turn message. The failed-turn message's sentence "The conversation is intact" would be false when the history could not be saved.
-- **FAIL-218** That message ends with the turn id line of FAIL-65. The lines the turn logged before the disk filled are the ones the owner wants.
+- **FAIL-217** Withdrawn.
+- **FAIL-218** Withdrawn.
 - **FAIL-219** The reply in FAIL-136 has no turn id line, because no turn exists.
-- **FAIL-220** When chad closes a row as in FAIL-143, it posts nothing in the thread. A later turn has run in that session by then.
-- **FAIL-221** `afterTurn` does not run for a row closed that way. The turn ended in the earlier process, which is where its hook ran, and a second call would arrive after a later turn's hook in the same session with an outcome chad is guessing. A turn chad gives up on is different, because that turn never ended anywhere.
-- **FAIL-222** The closure writes the row and one log line.
-- **FAIL-223** chad also makes one best-effort delete of the status message whose id the row holds, and the delivery does not count as a start (see 03-sessions-and-turns.md).
-- **FAIL-224** If the earlier process died between the turn's end and its `afterTurn`, the hook never runs for that turn. This cost is accepted, next to the one in FAIL-145.
+- **FAIL-220** Withdrawn.
+- **FAIL-221** Withdrawn.
+- **FAIL-222** Withdrawn.
+- **FAIL-223** Withdrawn.
+- **FAIL-224** Withdrawn.
 
 What cluster does there, from a run on `SingleRunner` over SQLite with a real "database or disk is full" error forced by a page cap.
 
@@ -651,7 +648,7 @@ What cluster does there, from a run on `SingleRunner` over SQLite with a real "d
 - Only a restart delivers it again, and then the handler runs a second time.
 - When the database is full at the time a request is sent, the sender gets a typed `PersistenceError` at once and nothing is stored.
 
-Three things about a full disk have not run at all. chad's handling of the three cases has not run. The full error in the cluster run came from a page cap and not from a full filesystem. On a truly full filesystem the write-ahead log cannot grow, the renames under `state/` fail, the log file fails, and an apply's commit and export fail part way. The three cases are named tests on a volume with a size cap (see 17-testing.md).
+Three things about a full disk have not run at all. chad's handling of a full disk has not run. The full error in the cluster run came from a page cap and not from a full filesystem. On a truly full filesystem the write-ahead log cannot grow, the renames under `state/` fail, the log file fails, and an apply's commit and export fail part way.
 
 ## An unusable database
 
@@ -682,7 +679,7 @@ A notice outside a turn is a message chad sends the owner that belongs to no tur
 - **FAIL-159** chad writes that destination to the file `state/notice-thread` whenever an owner's message changes it. The file is one JSON line with the connection's name and the thread, written by temp file and rename like the other files under `state/`, and its shape is in 02-storage.md. It lets a boot with an unusable database tell the owner without waiting for a message.
 - **FAIL-160** When chad knows no session, as on a fresh volume, or when the post fails twice, the notice is logged as `notice.undelivered` and its row records that it was not delivered. If its condition still holds when a session first exists, chad posts it then. What "Problems" shows for it is in FAIL-313.
 - **FAIL-229** The `notices` table answers five things about a key. They are whether the condition holds now, when the row was recorded as holding, when its notice was last sent, whether that send was delivered, and the notice's text. "Problems" prints the stored text and the recorded time for a table key only (FAIL-308, FAIL-320).
-- **FAIL-230** A key whose row cannot be written, as on a full disk, is held in memory and written when a write next succeeds, as a turn's end is in FAIL-139. This covers every key and not only `disk-critical`.
+- **FAIL-230** A key whose row cannot be written, as on a full disk, is held in memory and written when a write next succeeds.
 - **FAIL-231** "Most recently active" in FAIL-158 is measured by the owner's latest message, whether it started a turn, steered one or was a chat command, so a scheduled run does not move the destination (see 09-repo-and-recovery.md).
 - **FAIL-232** The file `state/notice-thread` alone is enough to post a notice with no database. Its thread is the thread string that the `sessions` row stores (see 03-sessions-and-turns.md). The shape cannot change freely later, because the file is read after an upgrade whose migration failed.
 
@@ -690,8 +687,7 @@ The keys, with the class of each, what begins each condition and the check that 
 
 | Key | Class | The condition begins when | The key is cleared when |
 | --- | --- | --- | --- |
-| `disk-low` | Live | The free space check finds less than 1 GB | A check finds 2 GB or more |
-| `disk-critical` | Live | The free space check finds less than 100 MB | A check finds 200 MB or more |
+| `disk-low` | Live | The free space check finds less than 1 GB | A check finds 1 GB or more |
 | `logged-out` | Live | A turn with no owner present finds chad logged out, or a plugin-started turn ends as `LoginFailed` | A login succeeds, or a model call succeeds |
 | `usage-limit` | Table | A model call hits the usage limit | The next model call succeeds, or a login succeeds |
 | `plugin-skipped:<name>` | Live | The plugin is skipped at boot | The plugin loads, is no longer in the applied repo, or is turned off |
@@ -739,7 +735,7 @@ The wordings. Text in angle brackets is filled in. "First line" is the first lin
 - **FAIL-169** An MCP server whose token refresh fails is announced with "MCP server `<name>` needs a login again. Run `chad mcp login <name>`." chad does not post a login link by itself.
 - **FAIL-170** An MCP login that expires after its 10 minutes gets a subtext line in the thread that asked for it, "The login for `<name>` expired. Run `chad mcp login <name>` to try again."
 - **FAIL-171** The `disk-low` notice reads "The data volume has <n> MB free."
-- **FAIL-172** The `disk-critical` notice reads "The data volume has <n> MB free. chad will start failing when it runs out. Restart chad once there is room."
+- **FAIL-172** Withdrawn.
 - **FAIL-173** When a plugin-started turn fails with `ThreadGone`, the core posts "`<plugin>` could not run `<label>` because its thread is gone."
 - **FAIL-174** The `usage-limit` notice, sent when no owner was present, reads "This login has reached its usage limit. Scheduled runs are skipped until it resets."
 - **FAIL-175** The `logged-out` notice reads "chad is logged out. Send a message or run `chad login`. Scheduled runs are skipped until then." Until a login succeeds, turns with no owner present fail without calling clanka (see 05-model-and-login.md).
@@ -777,7 +773,7 @@ FAIL-187, FAIL-188 and FAIL-239 are not raised as issues, and chad keeps what it
 
 ## What this part changes in what Tim agreed himself
 
-Tim has not read the decisions in this part. Twelve of them change something he agreed in person, and so does one decision in 04-discord.md that rests on the same reasoning. He handed the question of whether they stand to Jarvis on 2026-11-15, and Jarvis kept all thirteen. Anything he disagrees with reopens that point. The rulings made since added smaller differences, and the Provenance table marks every such rule in its "Changed by" column.
+Tim has not read the decisions in this part. Eleven of them change something he agreed in person, and so does one decision in 04-discord.md that rests on the same reasoning. He handed the question of whether they stand to Jarvis on 2026-11-15, and Jarvis kept them all. There was a thirteenth then, the second free space notice, which Tim's ruling on a full disk of the same day took out. Anything he disagrees with reopens that point. The rulings made since added smaller differences, and the Provenance table marks every such rule in its "Changed by" column.
 
 1. chad ends a model call after 15 minutes of silence (FAIL-84). Tim agreed that chad adds no turn timeout of its own in v1, before anyone knew that a silent call costs about 117 minutes. This is a bound on silence and not on a turn, but it is close.
 2. `chad logs` exists (FAIL-38). Tim ruled a `logs` command out of v1. His own later change removed the status message at the end of a turn, which left the log as the only record of a failed turn.
@@ -786,12 +782,11 @@ Tim has not read the decisions in this part. Twelve of them change something he 
 5. The give-up message says "crash" where it said "restart" (FAIL-63).
 6. Notices outside a turn are normal messages with the owner's mention, where he agreed that notices use subtext (FAIL-156).
 7. The logged-out notice gains the sentence "Scheduled runs are skipped until then." (FAIL-175).
-8. The free space notice is two notices, where he agreed one (FAIL-134), and each clears at twice the free space at which it begins (FAIL-314).
-9. For cron, three kinds of failure do not count against a job, and `GaveUp` pauses a job at once (FAIL-74, FAIL-77).
-10. History is also reconciled at the end of a turn, and a session's next turn can start with an update message about what chad posted (FAIL-119, FAIL-125).
-11. Script source and output go to stdout, so they go wherever the container's logs are shipped (FAIL-9). It follows from his ruling that nothing is redacted, but it is the one consequence of that ruling he may not have pictured.
-12. The give-up message and the two login messages are normal messages, where he agreed that they are notices in subtext (FAIL-208).
-13. The message chad posts when it cannot open a thread on a mention is a normal message too, where he agreed that notices use subtext. The rule is in 04-discord.md.
+8. For cron, three kinds of failure do not count against a job, and `GaveUp` pauses a job at once (FAIL-74, FAIL-77).
+9. History is also reconciled at the end of a turn, and a session's next turn can start with an update message about what chad posted (FAIL-119, FAIL-125).
+10. Script source and output go to stdout, so they go wherever the container's logs are shipped (FAIL-9). It follows from his ruling that nothing is redacted, but it is the one consequence of that ruling he may not have pictured.
+11. The give-up message and the two login messages are normal messages, where he agreed that they are notices in subtext (FAIL-208).
+12. The message chad posts when it cannot open a thread on a mention is a normal message too, where he agreed that notices use subtext. The rule is in 04-discord.md.
 
 ## Gaps
 
@@ -882,7 +877,7 @@ Tim has not read the decisions in this part. Twelve of them change something he 
 | FAIL-55 | TIM-557 item 14 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-56 | TIM-557 item 14 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-57 | TIM-557 item 14, amended by TIM-559 ruling on FAIL-G5 | Architect (Tim has not read) | not run |  | `rule` | `models` |
-| FAIL-58 | TIM-557 item 14, amended by TIM-559 ruling on FAIL-G3 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| FAIL-58 | TIM-557 item 14, amended by TIM-559 ruling on FAIL-G3, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-59 | TIM-557 item 14 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-60 | TIM-557 item 14 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | FAIL-61 | TIM-533 item 10, TIM-535, TIM-557 item 14 | Tim | not run; fact run: the timeout ended both waiting turns with one code |  | `rule` | `models` |
@@ -937,14 +932,14 @@ Tim has not read the decisions in this part. Twelve of them change something he 
 | FAIL-110 | TIM-557 item 27 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-111 | TIM-557 item 27 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-112 | TIM-557 item 27, TIM-559 round 3 C5 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-113 | TIM-557 item 27, amended by TIM-559 ruling on SET-G11, TIM-559 round 3 C5 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
+| FAIL-113 | TIM-557 item 27, amended by TIM-559 ruling on SET-G11, TIM-559 round 3 C5, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
 | FAIL-114 | TIM-557 item 27 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-115 | TIM-557 item 27 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | FAIL-116 | TIM-557 round 1, Q16 | Architect (Tim has not read) | not run |  | `definition` | - |
 | FAIL-117 | TIM-557 item 28, amended by TIM-559 ruling on ASP-G12 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | FAIL-118 | TIM-539, TIM-557 item 28 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | FAIL-119 | TIM-557 item 29 | Architect (Tim has not read) | not run; fact run: the store behind the Agent after a Stop with a slow writer | TIM-557 | `rule` | `turns` |
-| FAIL-120 | TIM-557 item 29 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
+| FAIL-120 | TIM-557 item 29, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
 | FAIL-121 | TIM-557 item 29 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | FAIL-122 | TIM-557 item 29 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
 | FAIL-123 | TIM-557 item 29, amended by TIM-559 ruling on FAIL-G1 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
@@ -957,19 +952,19 @@ Tim has not read the decisions in this part. Twelve of them change something he 
 | FAIL-130 | TIM-557 item 30 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-131 | TIM-557 item 30, amended by TIM-559 ruling on FAIL-G8 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-132 | TIM-557 item 30 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-133 | TIM-536 item 16, TIM-557 item 31 | Architect (Tim has not read) | not run; fact run: `fs.statfs` gives the free bytes | TIM-557 | `rule` | `failures` |
-| FAIL-134 | TIM-557 item 31, changing TIM-536 item 16 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
-| FAIL-135 | TIM-557 item 31 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| FAIL-133 | TIM-536 item 16, TIM-557 item 31, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run; fact run: `fs.statfs` gives the free bytes | TIM-557 | `rule` | `failures` |
+| FAIL-134 | TIM-557 item 31, changing TIM-536 item 16, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
+| FAIL-135 | TIM-557 item 31, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-136 | TIM-557 item 32, changing TIM-532 | Architect (Tim has not read) | not run; fact run: a full database at send time fails with a typed error; fact read: who accepts a gateway event | TIM-557 | `rule` | `failures` |
 | FAIL-137 | TIM-557 item 32 and "What this changes in closed tickets" | Architect (Tim has not read) | not run; fact read: dfx's reconnect on a refused event | TIM-557 | `rule` | `failures` |
-| FAIL-138 | TIM-557 item 33, amended by TIM-559 ruling on FAIL-G3 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
-| FAIL-139 | TIM-557 item 33 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| FAIL-138 | TIM-557 item 33, amended by TIM-559 ruling on FAIL-G3, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| FAIL-139 | TIM-557 item 33, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-140 | TIM-557 item 33 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-141 | TIM-557 item 34, changing TIM-530 and TIM-540 item 8 | Architect (Tim has not read) | not run; fact read: the timer handler and `Turns.start` wait on the session's reply | TIM-557 | `rule` | `timers-cron` |
-| FAIL-142 | TIM-557 items 27 and 34 | Architect (Tim has not read) | not run; fact run: the request stays stuck until a restart |  | `rule` | `failures` |
-| FAIL-143 | TIM-557 item 34 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-144 | TIM-557 item 34 | Architect (Tim has not read) | not run; fact run: a restart delivers the request again |  | `rule` | `failures` |
-| FAIL-145 | TIM-557 item 34 | Architect (Tim has not read) | not run |  | `definition` | - |
+| FAIL-142 | TIM-557 items 27 and 34, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run; fact run: the request stays stuck until a restart |  | `rule` | - |
+| FAIL-143 | TIM-557 item 34, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| FAIL-144 | TIM-557 item 34, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run; fact run: a restart delivers the request again |  | `rule` | - |
+| FAIL-145 | TIM-557 item 34, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | FAIL-146 | TIM-541 item 14, TIM-557 item 35, TIM-559 round 3 on IMG-G19 and STO-G28; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | FAIL-147 | TIM-536 item 14, TIM-557 item 35 | Tim | not run | TIM-541, TIM-557 | `rule` | `failures` |
 | FAIL-148 | TIM-536 item 14, wording from TIM-557 item 35 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
@@ -996,7 +991,7 @@ Tim has not read the decisions in this part. Twelve of them change something he 
 | FAIL-169 | TIM-537 item 13, wording from TIM-557 item 40 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-170 | TIM-537 item 10, wording from TIM-557 item 40 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-171 | TIM-536 item 16, wording from TIM-557 item 40 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
-| FAIL-172 | TIM-557 items 31 and 40 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
+| FAIL-172 | TIM-557 items 31 and 40, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run | TIM-557 | `rule` | - |
 | FAIL-173 | TIM-540 item 19, wording from TIM-557 item 40 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | FAIL-174 | TIM-557 items 21 and 40 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | FAIL-175 | TIM-535, amended by TIM-557 item 40, TIM-544 decision 5 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `plugin-api` |
@@ -1041,20 +1036,20 @@ Tim has not read the decisions in this part. Twelve of them change something he 
 | FAIL-214 | TIM-559 ruling on FAIL-G1, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-215 | TIM-559 ruling on FAIL-G8 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-216 | TIM-559 ruling on FAIL-G3 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-217 | TIM-559 ruling on FAIL-G3, amending TIM-557 item 14 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-218 | TIM-559 ruling on FAIL-G3 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| FAIL-217 | TIM-559 ruling on FAIL-G3, amending TIM-557 item 14, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| FAIL-218 | TIM-559 ruling on FAIL-G3, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-219 | TIM-559 ruling on FAIL-G3 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-220 | TIM-559 ruling on FAIL-G6 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-221 | TIM-559 ruling on FAIL-G6 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
-| FAIL-222 | TIM-559 ruling on FAIL-G6 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-223 | TIM-559 ruling on SES-G17 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-224 | TIM-559 ruling on FAIL-G6 | Architect (Tim has not read) | not run |  | `definition` | - |
+| FAIL-220 | TIM-559 ruling on FAIL-G6, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| FAIL-221 | TIM-559 ruling on FAIL-G6, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| FAIL-222 | TIM-559 ruling on FAIL-G6, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| FAIL-223 | TIM-559 ruling on SES-G17, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| FAIL-224 | TIM-559 ruling on FAIL-G6, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | FAIL-225 | TIM-559 ruling on FAIL-G20, reading TIM-557 item 35 by item 36 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-226 | TIM-559 ruling on FAIL-G20, reading TIM-557 item 35 by item 36 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-227 | TIM-559 ruling on FAIL-G20, reading TIM-557 item 35 by item 36 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-228 | TIM-559 ruling on FAIL-G20, TIM-559 round 3 C5 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-229 | TIM-559 ruling on FAIL-G8, TIM-559 round 3 C5, TIM-559 round 4 item 9 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-230 | TIM-559 ruling on FAIL-G20 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| FAIL-230 | TIM-559 ruling on FAIL-G20, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-231 | TIM-559 ruling on REC-G15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-232 | TIM-559 ruling on FAIL-G9 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-233 | TIM-559 ruling on FAIL-G7, extending TIM-557 item 36 | Architect (Tim has not read) | not run |  | `rule` | `models` |
@@ -1104,7 +1099,7 @@ Tim has not read the decisions in this part. Twelve of them change something he 
 | FAIL-277 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-278 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-279 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-280 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| FAIL-280 | TIM-557 items 2 and 4, TIM-559 round 2 R4, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-281 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-282 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-283 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
@@ -1138,7 +1133,7 @@ Tim has not read the decisions in this part. Twelve of them change something he 
 | FAIL-311 | TIM-559 round 3 C5, TIM-559 ruling on FAIL-G20 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-312 | TIM-559 round 3 C5 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | FAIL-313 | TIM-559 round 3 C5, TIM-557 item 38 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
-| FAIL-314 | TIM-559 round 3 on FAIL-G7 | Architect (Tim has not read) | not run | TIM-557, TIM-559 | `rule` | `failures` |
+| FAIL-314 | TIM-559 round 3 on FAIL-G7, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run | TIM-557, TIM-559 | `rule` | - |
 | FAIL-315 | TIM-559 round 3 on FAIL-G7 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | FAIL-316 | TIM-559 round 3 on FAIL-G7 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-317 | TIM-559 round 3 on FAIL-G7 | Architect (Tim has not read) | not run |  | `rule` | `apply` |

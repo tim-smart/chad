@@ -482,7 +482,7 @@ it("CLI-215 SELF-8 IMG-128 chad status prints one fact to a line: the daemon and
   )
 })
 
-it("TST-90 TST-92 CLI-153 CLI-212 the CLI's messages are templates of the Messages module, in the spec's wording", () => {
+it("TST-90 CLI-153 CLI-212 the CLI's messages are templates of the Messages module, in the spec's wording", () => {
   const spec =
     read("docs/spec/10-cli.md") + read("docs/spec/01-image-and-volume.md")
   expect(Messages.noDaemon("apply", "<volume>/state/daemon.lock")).toBe(

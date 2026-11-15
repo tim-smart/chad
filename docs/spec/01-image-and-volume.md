@@ -1,6 +1,6 @@
 # Docker image and data volume layout
 
-chad ships as one Docker image and keeps all of its own state on one data volume. This part covers what the image contains, the user it runs as, its entrypoint and environment variables, the directory tree on the volume, how the pinned packages are installed, what the daemon checks at boot, the health probe, the stop sequence, the exit codes of the daemon, and the Compose and Kubernetes examples. "The daemon" is the long-running process started by `chad serve`. "The agent" is the clanka agent that runs a turn for the owner, and its commands run in the same container and as the same user as the daemon. This part leans on 02-storage.md for the database, backup and restore, on 10-cli.md for the commands, the lock and the socket, on 09-repo-and-recovery.md for the repo and safe mode, on 16-failures-logs-status.md for the logs and for what the owner sees, and on 17-testing.md for the tests and CI.
+chad ships as one Docker image and keeps all of its own state on one data volume. This part covers what the image contains, the user it runs as, its entrypoint and environment variables, the directory tree on the volume, how the pinned packages are installed, what the daemon checks at boot, the health probe, the stop sequence, the exit codes of the daemon, and the Kubernetes example. "The daemon" is the long-running process started by `chad serve`. "The agent" is the clanka agent that runs a turn for the owner, and its commands run in the same container and as the same user as the daemon. This part leans on 02-storage.md for the database, backup and restore, on 10-cli.md for the commands, the lock and the socket, on 09-repo-and-recovery.md for the repo and safe mode, on 16-failures-logs-status.md for the logs and for what the owner sees, and on 17-testing.md for the tests and CI.
 
 Three questions about this part were open with Tim: the deadline of a stop, what `CHAD_DATA` is for, and why `CHAD_SOCKET` exists. Tim handed them to Jarvis on 2026-11-15, and the answers that had been provisional stand as rules: IMG-29, IMG-30, IMG-63, IMG-82, IMG-83, IMG-139 and IMG-140. Tim has not read them.
 
@@ -395,7 +395,7 @@ In the image run the socket listened 0.8 to 1.3 s after the container started, a
 - **IMG-65** The shard count guard runs before the database copy and the migrations, so a boot it refuses leaves the database as it was. That boot holds the lock, so its log lines go to both sinks.
 - **IMG-129** A boot that the shard count guard refuses exits 1.
 - **IMG-66** With a database that cannot be opened or migrated for any reason other than a newer `state/version`, chad stays up without sessions, sends the owner one notice and answers each owner message with the error. The notice is not sent again at a later boot while the database stays unusable, which the file `state/db-unusable` records (see 02-storage.md and 16-failures-logs-status.md).
-- **IMG-67** A free space check runs at boot, then hourly, and at once when a write fails with SQLite's full error. It sends the `disk-low` notice when the volume has less than 1 GB free and the `disk-critical` notice when it has less than 100 MB (see 02-storage.md and 16-failures-logs-status.md).
+- **IMG-67** A free space check runs at boot and then hourly. It sends the `disk-low` notice when the volume has less than 1 GB free (see 02-storage.md and 16-failures-logs-status.md).
 
 The stand-in daemon held `starting` until its socket listened, set `listening` then, `database` before it opened the database, `loading` before it made the links and loaded, `ready` after that, and `stopping` in its SIGTERM handler. It had no check for a newer `state/version`, no shard count guard and no migrations, so it does not say which phase those steps belong to (see IMG-G20).
 
@@ -429,7 +429,7 @@ The database runs in SQLite's write-ahead log mode and the daemon lock is a SQLi
 - **IMG-70** `chad serve` reads the type of the filesystem under the data directory and warns, at boot in the log and in `chad status`, when it is NFS, CephFS, SMB, FUSE, the container's own layer or tmpfs. It warns and does not refuse.
 - **IMG-71** The check follows `CHAD_DATA` to the mount that holds it.
 - **IMG-72** The check also runs on `HOME`, `NPM_CONFIG_PREFIX` and `XDG_CACHE_HOME`, and warns for each one that is on the container's own layer or on tmpfs.
-- **IMG-73** The docs' NFS paragraph says that NFS is unsupported, that a daemon started just after the NFS server restarts can block for a minute or more before it listens, and that a Kubernetes startup probe has to allow for it.
+- **IMG-73** Withdrawn.
 
 The warnings of the stand-in daemon:
 
@@ -454,7 +454,7 @@ chad does not run on sshfs at all. The daemon cannot create its socket there, an
 - **IMG-77** On Kubernetes a startup probe runs the same command every 2 seconds with 30 failures.
 - **IMG-78** There is no readiness probe.
 - **IMG-79** The image carries a `HEALTHCHECK` with the same numbers: `--interval=30s --timeout=5s --retries=3 --start-period=60s --start-interval=2s`. This rule is about the line in the Dockerfile, and reading the built image's configuration tests it. What the command does is IMG-74 and IMG-75.
-- **IMG-80** Under plain Docker and Compose nothing restarts a frozen container, and the docs say so. v1 has no watchdog.
+- **IMG-80** Under plain Docker nothing restarts a frozen container, and the docs say so. v1 has no watchdog.
 
 In the image run Docker reported a daemon stopped with SIGSTOP as unhealthy 97 s after the freeze and restarted nothing, with `--restart unless-stopped` set.
 
@@ -478,7 +478,7 @@ A graceful stop starts when the daemon gets SIGTERM, which `docker stop` and Kub
 - **IMG-85** A stop the daemon finished exits 0. A stop cut by chad's own deadline exits 1, and its log line, the event `stop.cut`, names what was still open.
 - **IMG-86** The daemon logs what a stop dropped, as the event `stop.dropped`. Hooks dropped in a stop and a stop cut by the deadline are log lines only, and no notice is sent for them (see 16-failures-logs-status.md).
 - **IMG-87** The examples set a 90 second grace period.
-- **IMG-120** Before a graceful stop exits, chad tries once more to write any turn end that a full disk kept in memory, and the log writer flushes on every exit path chad controls (see 16-failures-logs-status.md).
+- **IMG-120** The log writer flushes on every exit path chad controls (see 16-failures-logs-status.md).
 - **IMG-130** The attempt of IMG-120 to write turn ends runs straight after step 2 of IMG-83, the wait for requests in flight. No turn ends after that step, so the deadline can cut the attempt only when the disk is still full.
 - **IMG-131** A stop gives a nightly prune that is in progress no wait of its own (see 02-storage.md for the prune and for how its next run finishes one that an exit cut).
 
@@ -522,17 +522,17 @@ In the image run three restarts under Docker's default 10 second timeout each co
 - **IMG-96** `chad restore` gets its own example, with the container stopped (see 02-storage.md).
 - **IMG-97** A one-off run of a different chad version against a live daemon is refused by the version check for every command except `status` and `health` (see 10-cli.md).
 
-## The Compose example
+## Containers next to chad
 
 asphodel is the memory daemon that the asphodel plugin talks to over http (see 18-asphodel-plugin.md). It runs as its own container next to chad.
 
-- **IMG-98** The Compose example has chad, asphodel and a vault bind mount at `/mnt/vault`. chad has `stop_grace_period: 90s`.
-- **IMG-99** In Compose, asphodel is a second service with its own volume on port 7720, which is not published on the host, and chad `depends_on` it. The asphodel plugin's settings are `"url": "http://asphodel:7720"` and `"token": "${ASPHODEL_TOKEN}"`.
-- **IMG-100** The Compose backup is a host cron line that runs `docker exec chad chad backup -`, which writes the tar to stdout.
-- **IMG-101** A browser sidecar in an example shares chad's network namespace, with `network_mode: service:chad` in Compose or the same pod on Kubernetes. Chrome listens on loopback only, whatever `--remote-debugging-address` says.
-- **IMG-135** In the Compose example the browser sidecar carries `depends_on: { chad: { restart: true } }`. Compose applies that only to a restart that a Compose operation makes, so it does not cover a chad that crashes and comes back under its restart policy, or a `docker restart chad`.
-- **IMG-136** The docs and the `credentials` skill say to restart the browser service when CDP on 127.0.0.1 refuses a connection after chad restarted (see 15-credentials.md for the skill).
-- **IMG-137** The image layer's check of the browser sidecar covers a chad that restarts after a crash as well as a recreate by Compose (see 17-testing.md).
+- **IMG-98** Withdrawn.
+- **IMG-99** Withdrawn.
+- **IMG-100** Withdrawn.
+- **IMG-101** A browser sidecar in an example shares chad's network namespace, as a container in the same pod on Kubernetes. Chrome listens on loopback only, whatever `--remote-debugging-address` says.
+- **IMG-135** Withdrawn.
+- **IMG-136** Withdrawn.
+- **IMG-137** Withdrawn.
 
 ## The Kubernetes example
 
@@ -597,7 +597,7 @@ spec:
 - **IMG-G10** [builder] Which of Renovate and Dependabot the chad repo uses. Renovate needs Tim to install an app or supply a token, which is on no list of what Tim provides, and Dependabot needs nothing from him. Whether Dependabot follows a digest held in an `ARG`, as the Dockerfile above holds it, was not checked. Recommended: Dependabot, with the digest written on the `FROM` lines if the `ARG` hides it from the bump. TIM-541 item 1.
 - **IMG-G12** [builder] The format of the timestamp in `<name>.replaced-<timestamp>`. The stand-in wrote `YYYYMMDDTHHMMSS` in UTC. TIM-553 item 9.
 - **IMG-G13** [builder] The timeout of the Kubernetes startup probe. The liveness probe has 5 seconds and the startup probe has none stated. TIM-541 item 24.
-- **IMG-G14** [builder] The full text of the Compose file, the Kubernetes manifests and the CronJob, which needs resource names, the asphodel image, claim sizes, the Secret's name, and the backup schedule and destination. TIM-541 items 27 to 29 fix their contents and not their text.
+- **IMG-G14** [builder] The full text of the Kubernetes manifests and the CronJob, which needs resource names, the asphodel image, claim sizes, the Secret's name, and the backup schedule and destination. TIM-541 items 27 to 29 fix their contents and not their text.
 - **IMG-G15** [builder] Resource requests and limits. Nothing was measured, and IMG-110 leaves them out of the examples. TIM-541.
 - **IMG-G16** [tim] The filesystem under the local-path directory on Tim's node, which `stat -f -c %T /var/local-path-provisioner` answers. It is a measurement and not a decision, so nobody can answer it for him. The lock and the write-ahead log were run on ext4 and tmpfs only, and the one run of the Kubernetes checks on his k3s node records it (see 17-testing.md). Nothing in the build waits for it. TIM-541 and TIM-553.
 - **IMG-G18** [builder] The exact versions of uv, pnpm, TypeScript and esbuild. The prototype used uv 0.13.8, pnpm 12.18.0, TypeScript 7.0.2 and esbuild 0.28.2. TIM-541 item 2 and TIM-553.
@@ -677,20 +677,20 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-64 | TIM-553 item 4 (support: TIM-543 prototype, not in the image) | Architect (Tim has not read) | run | TIM-553 | `rule` | `harness` |
 | IMG-65 | TIM-553 item 4, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | IMG-66 | TIM-536 item 14, amended by TIM-557 item 35 and by TIM-559 ruling on FAIL-G20 | Architect (Tim has not read) | not run | TIM-541, TIM-557, TIM-559 | `rule` | `failures` |
-| IMG-67 | TIM-536 item 16, amended by TIM-557 item 31 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
+| IMG-67 | TIM-536 item 16, amended by TIM-557 item 31, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | IMG-68 | TIM-536 item 4 | Tim | read |  | `definition` | - |
 | IMG-69 | TIM-541 item 17 | Architect (Tim has not read) | not run |  | `definition` | - |
 | IMG-70 | TIM-541 item 17, TIM-553 item 10 (support: NFS, the container's layer and tmpfs only) | Architect (Tim has not read) | run |  | `rule` | `cli` |
 | IMG-71 | TIM-553 item 10 | Architect (Tim has not read) | run |  | `rule` | `cli` |
 | IMG-72 | TIM-553 item 10 | Architect (Tim has not read) | run |  | `rule` | `cli` |
-| IMG-73 | TIM-553 item 14 | Architect (Tim has not read) | run |  | `rule` | `image` |
+| IMG-73 | TIM-553 item 14, withdrawn by Tim's ruling that the docs have no NFS paragraph, chat 2026-11-15 | Architect (Tim has not read) | run |  | `rule` | - |
 | IMG-74 | TIM-542 item 20 | Tim | run |  | `rule` | `cli` |
 | IMG-75 | TIM-553 item 6, TIM-550 item 7, TIM-542 item 27 | Architect (Tim has not read) | not run | TIM-550, TIM-553 | `rule` | `cli` |
 | IMG-76 | TIM-541 item 24 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-77 | TIM-541 item 24 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-78 | TIM-541 item 24 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-79 | TIM-541 item 24, TIM-559 cold read | Architect (Tim has not read) | run |  | `rule` | `harness` |
-| IMG-80 | TIM-541 item 24 | Architect (Tim has not read) | run |  | `rule` | `image` |
+| IMG-80 | TIM-541 item 24, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | run |  | `rule` | `image` |
 | IMG-81 | TIM-541 items 25 and 26 | Architect (Tim has not read) | run | TIM-541 | `rule` | `apply` |
 | IMG-82 | TIM-541 item 25, TIM-553 question 1, TIM-559 main session ruling on Q4, TIM-559 round 2 R5 (support: the timer and the exit at 60.0 s ran in the image, the blocked event loop did not run); answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | run |  | `rule` | `skills-mcp` |
 | IMG-83 | TIM-541 item 25, TIM-543, TIM-547 item 15, TIM-553 question 1, TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `skills-mcp` |
@@ -708,10 +708,10 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-95 | TIM-541 item 20 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-96 | TIM-541 item 20 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-97 | TIM-542 item 5, TIM-550 item 5 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
-| IMG-98 | TIM-541 item 29 | Architect (Tim has not read) | not run |  | `rule` | `image` |
-| IMG-99 | TIM-541 item 23, TIM-539 | Architect (Tim has not read) | not run |  | `rule` | `image` |
-| IMG-100 | TIM-541 item 29 | Architect (Tim has not read) | not run |  | `rule` | `image` |
-| IMG-101 | TIM-554 item 4 (comment on TIM-541) (support: podman) | Architect (Tim has not read) | run |  | `rule` | `image` |
+| IMG-98 | TIM-541 item 29, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| IMG-99 | TIM-541 item 23, TIM-539, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| IMG-100 | TIM-541 item 29, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| IMG-101 | TIM-554 item 4 (comment on TIM-541) (support: podman), amended by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | run |  | `rule` | `image` |
 | IMG-102 | TIM-541 item 27, TIM-536 item 18 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-103 | TIM-541 item 27 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-104 | TIM-541 item 27 | Architect (Tim has not read) | not run |  | `fact` | `image` |
@@ -730,7 +730,7 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-117 | TIM-557 item 38, amended by TIM-559 rulings on STO-G18 and FAIL-G9, which TIM-559 round 3 C4 settles as the connection and the thread | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | IMG-118 | TIM-557 items 1 and 4 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | IMG-119 | TIM-558 item 44, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| IMG-120 | TIM-557 items 10 and 33 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| IMG-120 | TIM-557 items 10 and 33, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | IMG-121 | TIM-559 ruling on IMG-G11 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-122 | TIM-559 ruling on IMG-G2 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | IMG-123 | TIM-559 rulings on IMG-G2 and MOD-G16 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
@@ -745,9 +745,9 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-132 | TIM-559 rulings on IMG-G5 and IMG-G6 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `apply` |
 | IMG-133 | TIM-559 main session ruling on Q8, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `repo` |
 | IMG-134 | TIM-559 main session ruling on Q8 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| IMG-135 | TIM-559 ruling on IMG-G17 (support: Architect read Compose's documentation) | Architect (Tim has not read) | read |  | `rule` | `image` |
-| IMG-136 | TIM-559 ruling on IMG-G17 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
-| IMG-137 | TIM-559 ruling on IMG-G17 | Architect (Tim has not read) | not run |  | `rule` | `image` |
+| IMG-135 | TIM-559 ruling on IMG-G17 (support: Architect read Compose's documentation), withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | read |  | `rule` | - |
+| IMG-136 | TIM-559 ruling on IMG-G17, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| IMG-137 | TIM-559 ruling on IMG-G17, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | IMG-138 | TIM-559 ruling on CLI-G3 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | IMG-139 | TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `skills-mcp` |
 | IMG-140 | TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `kills` |

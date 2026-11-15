@@ -163,7 +163,7 @@ const ButtonsLive = Buttons.toLayer(Effect.gen(function*() {
 - **DIS-61** chad puts no bound on how long a turn runs in v1, and the owner has Stop. chad does end a turn when one model call has had no answer from the provider for 15 minutes (see 16-failures-logs-status.md).
 - **DIS-62** chad gives up on a turn after two of its starts ended in a kill. A start that a graceful stop cut does not count, and such a turn is resumed however often that happens (see 03-sessions-and-turns.md). When chad gives up, it removes the status message the turn left behind and posts the give-up message in place of the failed-turn message. Like the failed-turn message, it ends with the subtext line that carries the turn's id, and in a server thread it is a reply to the owner's message with the reply ping on. Its wording is in 16-failures-logs-status.md.
 - **DIS-104** The give-up message and the messages for a login that timed out or failed are normal messages, not subtext. The rule is in 16-failures-logs-status.md.
-- **DIS-82** When the data volume is full, chad posts a message of its own in the thread, both for an owner's message it could not save and for a turn that the full disk ended. Those rules and their wordings are in 16-failures-logs-status.md.
+- **DIS-82** When the data volume is full and chad cannot save an owner's message, chad posts a message of its own in the thread. That rule and its wording are in 16-failures-logs-status.md.
 
 ## Files in and out
 
@@ -231,7 +231,7 @@ The login itself, its single shared wait and its timeout are in 05-model-and-log
 - **DIS-83** A command run from a session that changes what is loaded or deletes stored data posts one subtext line in that session's thread (see 16-failures-logs-status.md).
 - **DIS-84** Every text chad posts in chat is a template in one `Messages` module, and tests refer to a message by its name there (see 17-testing.md).
 - **DIS-79** The local dev adapter is a connection kind whose chat platform is effect/chat's `ChatTest`, running outside the daemon. The platform lives in the repo's test support and is not in the image (see 17-testing.md, and 10-cli.md for the `connection` commands). `ChatTest` shows subtext and relative timestamps as their raw text. It can press the Stop button through `click` and `interact`, and it supports modals.
-- **DIS-85** What only a real Discord can show of this part is checked by a wire slice over a scripted gateway and by the checks a person does by hand before a release (see 17-testing.md).
+- **DIS-85** What only a real Discord can show of this part is checked by a wire slice over a scripted gateway and by the checks a person does by hand once, at the end of the build (see 17-testing.md).
 
 Every wording this part fixes, in one place. Text in angle brackets is filled in, and `big.zip`, "48 MB" and "48s" stand for the real name, size and duration. The wordings of a failed turn, of the give-up message, of a login that timed out or failed, of the retry line and of every notice outside a turn are in 16-failures-logs-status.md.
 
@@ -352,10 +352,10 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-79 | TIM-533 resolution, support section, TIM-546 facts comment, amended by TIM-558 items 20 to 22 | Tim, and Architect (Tim has not read) for the connection kind and `ChatTest` running outside the daemon | read |  | `rule` | `harness` |
 | DIS-80 | TIM-558 item 40 | Architect (Tim has not read) | not run | TIM-558 | `rule` | `harness` |
 | DIS-81 | TIM-557 item 4 | Architect (Tim has not read) | not run |  | `rule` | `discord-ui` |
-| DIS-82 | TIM-557 items 32 and 33 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| DIS-82 | TIM-557 items 32 and 33, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | DIS-83 | TIM-557 item 39 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | DIS-84 | TIM-558 items 30 and 33 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
-| DIS-85 | TIM-558 items 26, 36 and 37, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| DIS-85 | TIM-558 items 26, 36 and 37, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | DIS-86 | TIM-559 ruling on DIS-G17 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | DIS-87 | TIM-559 ruling on DIS-G17 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | DIS-88 | TIM-559 ruling on DIS-G17, amended by TIM-559 round 3 A4, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `cli` |

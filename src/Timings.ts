@@ -64,8 +64,6 @@ export interface Timings {
   readonly pruneAt: { readonly hour: number; readonly minute: number }
   /** Prune, age of a reset session's history. */
   readonly pruneAge: Duration.Duration
-  /** Turn end that could not be written on a full disk, interval between tries. */
-  readonly turnEndRetry: Duration.Duration
   /** Notice, time after a key's last notice in which the key is not announced again. */
   readonly noticeQuiet: Duration.Duration
   /** Status, the "Recent" block's window for failed turns. */
@@ -107,7 +105,6 @@ export const defaults: Timings = {
   freeSpaceInterval: Duration.hours(1),
   pruneAt: { hour: 4, minute: 0 },
   pruneAge: Duration.days(30),
-  turnEndRetry: Duration.seconds(60),
   noticeQuiet: Duration.hours(24),
   statusFailedWindow: Duration.hours(24),
   statusTokenWindow: Duration.days(7),

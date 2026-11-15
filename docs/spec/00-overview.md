@@ -18,7 +18,7 @@ chad is a personal assistant that one person runs for themselves. It replaces He
 - **OV-7** Plugins are TypeScript files that use Effect. They are hot reloaded, and chad can write its own. A plugin can add tools, contribute chunks to the system prompt and register lifecycle hooks (see 06-plugin-api.md and 07-plugin-loading.md).
 - **OV-8** chad has a CLI, `chad`. The agent uses it to modify chad, and the owner uses it for the same changes and for first setup. The CLI does not write a plugin's source. The agent writes the source as files, and the CLI scaffolds, checks and applies it. A change takes effect only through a CLI command or the chat form of one, so chad has no file watcher (see 10-cli.md). The one exception is what clanka's own walk finds. clanka walks up from a session's working directory, and in every directory it visits it reads an `AGENTS.md` file and the skills under `.agents/skills` and `.kiro/skills` and shows them to that session without an apply. The daemon does nothing about the walk. `chad check` and an apply refuse `AGENTS.md`, `.agents/` and `.kiro/` in the repo, in the tree they export and on disk in `repo/work/`, so a line in `.gitignore` does not get one past them and an apply never commits one. A draft of one in `repo/work/` still reaches a session whose agent works there, and a boot does not look for one (see 12-skills-and-mcp.md for how far the walk reaches and for its test, and 07-plugin-loading.md for the refusal and for the boot).
 - **OV-9** v1 runs `openai/gpt-6-astra` at effort `medium` on a Codex login through clanka's `openai` provider. `openai-compat` with a URL and a key from the environment is the path that needs no login (see 05-model-and-login.md).
-- **OV-10** chad has no built-in memory. Memory is a plugin concern, and asphodel is the answer. The asphodel plugin is the acceptance test for the plugin API, and the spec shows it expressed against the API (see 18-asphodel-plugin.md). chad's repo carries the plugin as a test fixture, which runs through the real daemon against a fake asphodel daemon and is not in the image (see 17-testing.md). The fixture files in the repo are the source, and the code blocks of 18-asphodel-plugin.md are compared against them. Porting the real plugin is follow-up work in the asphodel repo and is not part of v1.
+- **OV-10** chad has no built-in memory. Memory is a plugin concern, and asphodel is the answer. The asphodel plugin is the acceptance test for the plugin API, and the spec shows it expressed against the API (see 18-asphodel-plugin.md). chad's repo carries the plugin as a test fixture, which runs through the real daemon against a fake asphodel daemon and is not in the image (see 17-testing.md). The fixture files in the repo are the source, and nothing keeps the code blocks of 18-asphodel-plugin.md in step with them. Porting the real plugin is follow-up work in the asphodel repo and is not part of v1.
 - **OV-11** v1 also contains the features in the table below, each specified in the part named.
 
 | Feature | Detail in |
@@ -90,7 +90,7 @@ other containers                   asphodel, and a browser if the owner wants on
 - **OV-41** The daemon writes every log entry to two places, standard output as one logfmt line and `logs/chad.log` as one JSON line. The entries include the source and the output of the agent's scripts with nothing masked, so those go wherever the container's logs are shipped. The one exception to the two places is a boot that is refused before it holds the daemon lock. It writes its lines to standard output only and writes nothing to the volume (see 16-failures-logs-status.md and 01-image-and-volume.md).
 - **OV-42** One function, `runDaemon(inputs)`, owns the parts of the daemon that belong to the process, and `chad serve` is a few lines that call it. Every duration the spec names lives in one `Timings` service (see 17-testing.md, which also specifies the one `Messages` module for what chad posts in chat, its CLI errors and the messages the model reads as tool results).
 
-The owner can run other containers next to chad. asphodel runs as a second Compose service or a Kubernetes sidecar (see 01-image-and-volume.md and 18-asphodel-plugin.md), and a browser runs as a container that shares chad's network namespace (see 15-credentials.md). Neither is part of the chad image.
+The owner can run other containers next to chad. asphodel runs as a Kubernetes sidecar (see 01-image-and-volume.md and 18-asphodel-plugin.md), and a browser runs as a container that shares chad's network namespace (see 15-credentials.md). Neither is part of the chad image.
 
 ### The main parts of the daemon
 
@@ -125,7 +125,7 @@ The rules in this section follow one owner message from Discord to the answer, t
 - **OV-31** A self-edit follows one path. The agent edits files in `repo/work/` and runs `chad apply`. The daemon checks the files, commits them, moves `repo/live`, swaps the plugins that changed and bumps the generation, and each session picks the change up at the start of its next turn. A change that fails a check keeps the last good version running, an edit that was not applied stays a draft, and a boot loads the last applied commit (see 08-apply-and-swap.md, 09-repo-and-recovery.md and 07-plugin-loading.md).
 - **OV-43** A turn that fails ends as `Failed` with a reason from a closed set. For most reasons chad itself, without the model, posts one message in the thread that names the reason and the turn id, and `chad logs --turn <id>` shows what the turn did (see 16-failures-logs-status.md).
 - **OV-44** What chad tells the owner outside a turn is a notice. It is a normal message and not subtext, and in a server thread it carries the owner's mention. A notice about a condition is sent once when the condition begins and is not sent again while the condition holds (see 16-failures-logs-status.md).
-- **OV-45** The Discord gateway side of this flow is tested by a wire slice, which runs the real `DiscordChat.layerDispatchHook` and a real dfx shard over a scripted socket. On a real gateway it is checked by hand before a release (see 17-testing.md).
+- **OV-45** The Discord gateway side of this flow is tested by a wire slice, which runs the real `DiscordChat.layerDispatchHook` and a real dfx shard over a scripted socket. On a real gateway it is checked by hand once, at the end of the build (see 17-testing.md).
 
 ## Facts about clanka and effect/chat that the design leans on
 
@@ -183,7 +183,7 @@ The parts use these terms with the meanings below. Paths are relative to the dat
 | Part | Covers |
 | --- | --- |
 | 00-overview.md | This orientation. |
-| 01-image-and-volume.md | The image, its user and environment variables, the volume's directory tree, the pinned packages, boot checks, the health probe, stopping, and the Compose and Kubernetes examples. |
+| 01-image-and-volume.md | The image, its user and environment variables, the volume's directory tree, the pinned packages, boot checks, the health probe, stopping, and the Kubernetes example. |
 | 02-storage.md | The SQLite database and its tables, the files kept outside it, backup and restore, pruning, and an unusable database. |
 | 03-sessions-and-turns.md | Sessions, the `Session` entity, steering, `/new` and `/stop`, what is stored, passivation, a turn cut by a restart, and the order of hooks around a turn. |
 | 04-discord.md | What a turn looks like in Discord, which is the status message, the answer, the buttons, sent files and the notices. |
@@ -218,7 +218,7 @@ Every part that states rules ends with a Provenance table that has one row per r
 | Agreed by | Who agreed the rule as it now reads, which is Tim, Architect standing in for Tim, the charting of the map, or Jarvis, who assembled the spec. "Jarvis, delegated by Tim on 2026-11-15" marks an answer to a question that was open with Tim. Tim handed those questions to Jarvis in chat on that day and has not read the answers. |
 | Support | Whether a prototype ran the rule, it was read from source, or nothing ran. |
 | Changed by | The tickets Tim has not read that changed something he agreed in person. It is empty for every other rule, and 20-for-tim.md is built from it. |
-| Kind | `rule` for chad's own behaviour, which a test can break. `fact` for what a dependency does, which a rule rests on. `definition` for a term, a reason or an overview sentence with nothing to test. |
+| Kind | `rule` for chad's own behaviour, which a test can break. `fact` for what a dependency does, which a rule rests on. `definition` for a term, a reason or an overview sentence with nothing to test. A rule about how the suite and the build are run is a `definition` too. |
 | Slice | The build slice in which the rule's test first passes (see 19-build-order.md). A rule never has a slice that comes before a slice it rests on. A fact takes the slice of the first rule that rests on it, and a definition or a withdrawn rule has `-`. |
 
 ## Gaps
@@ -242,7 +242,7 @@ Every part that states rules ends with a Provenance table that has one row per r
 | OV-7 | Map "Agreed at charting"; TIM-530 | charting; Tim | run (TIM-538, TIM-552) |  | `rule` | `apply` |
 | OV-8 | Map "Agreed at charting"; TIM-542 items 1, 11 and 22; the exception for what clanka's walk finds, and the refusal, TIM-559 ruling on MCP-G19, TIM-559 round 3 A1 and TIM-559 round 4 items 7 and 8 | charting; Tim; Architect (Tim has not read) for the exception | read; the walk read at clanka 0.28.0 (`src/AgentEnvironment.ts:62-117`); the refusal not run | TIM-559 | `rule` | `apply` |
 | OV-9 | Map "Agreed at charting"; TIM-535 "Model" and "Providers" | charting; Tim | run (TIM-544) |  | `rule` | `models` |
-| OV-10 | Map "Agreed at charting" and "Out of scope"; TIM-539; fixture TIM-558 item 49; the fixture files as the source TIM-559 ruling on ASP-G9 | charting; Tim; Architect (Tim has not read) for the fixture | run on a stand-in host (TIM-539); the fixture not run |  | `rule` | `asphodel` |
+| OV-10 | Map "Agreed at charting" and "Out of scope"; TIM-539; fixture TIM-558 item 49; the fixture files as the source TIM-559 ruling on ASP-G9, amended by Tim's ruling that the bookkeeping checks go, chat 2026-11-15 | charting; Tim; Architect (Tim has not read) for the fixture | run on a stand-in host (TIM-539); the fixture not run |  | `rule` | `asphodel` |
 | OV-11 | TIM-537; TIM-534; TIM-548; TIM-535; TIM-536 items 7 and 8; TIM-546 amended by TIM-554; TIM-549; TIM-557 items 1, 11, 14, 24, 36 and 43 | Tim (TIM-537, TIM-534, TIM-535, TIM-536, TIM-554 items 1 and 2); Architect (Tim has not read) for TIM-548, TIM-546, TIM-549 and TIM-557 | not run | TIM-557 | `definition` | - |
 | OV-12 | Map "Out of scope" | charting | not run |  | `definition` | - |
 | OV-13 | Map "Out of scope" | charting | not run |  | `definition` | - |
@@ -277,7 +277,7 @@ Every part that states rules ends with a Provenance table that has one row per r
 | OV-42 | TIM-558 items 13, 17 and 33; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | OV-43 | TIM-557 items 11, 12, 14 and 15 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | OV-44 | TIM-557 items 36 and 37; the notice as subtext that it changes is TIM-533 item 12 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
-| OV-45 | TIM-558 items 26, 27 and 36, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
+| OV-45 | TIM-558 items 26, 27 and 36, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | OV-46 | TIM-557 items 17 and 18 | Architect (Tim has not read) | run (TIM-557) for clanka's retries and the 117 minutes; chad's count and the silence bound not run | TIM-557 | `fact` | `models` |
 | OV-47 | TIM-557 items 7 and 9 | Architect (Tim has not read) | run (TIM-557) for the one logger with the script's output unchanged; the Info cap not run |  | `fact` | `failures` |
 | OV-48 | TIM-557 item 34 | Architect (Tim has not read) | run (TIM-557) for cluster's behaviour; chad's handling not run |  | `fact` | `failures` |

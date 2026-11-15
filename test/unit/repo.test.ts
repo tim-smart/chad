@@ -2,22 +2,12 @@ import { readdirSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 import { layers as localLayers } from "../../scripts/local.ts"
 import { parseDelivered, parseSpec } from "../../scripts/rule-ids.ts"
-import config, { layers } from "../../vitest.config.ts"
-import {
-  exists,
-  gateRuns,
-  json,
-  lockfile,
-  path,
-  read,
-  yaml,
-} from "../support/repo.ts"
+import { exists, json, lockfile, path, read, yaml } from "../support/repo.ts"
 
 const pkg = json("package.json")
 const workspace = yaml("pnpm-workspace.yaml")
 const lock = lockfile()
 const gate = yaml(".github/workflows/gate.yml")
-const gateText = read(".github/workflows/gate.yml")
 const manifest = json("vendor/manifest.json")
 
 const effectPackages = (names: ReadonlyArray<string>) =>
@@ -46,43 +36,9 @@ describe("the toolchain", () => {
   it("OV-16 the package runs on Node 26 and no other major", () => {
     expect(pkg.engines.node).toBe("^26.0.0")
   })
-
-  it("TST-138 the nix flake lives in the repository and gives a development shell", () => {
-    expect(read("flake.nix")).toContain("devShells")
-    expect(exists("flake.lock")).toBe(true)
-  })
-
-  it("TST-204 lints with oxlint, formats with prettier without semicolons and type-checks with tsc", () => {
-    expect(exists(".oxlintrc.json")).toBe(true)
-    expect(json(".prettierrc.json")).toEqual({ semi: false })
-    expect(gateRuns()["static"]).toEqual(
-      expect.arrayContaining([
-        "pnpm tsc --noEmit",
-        "pnpm oxlint",
-        "pnpm prettier --check .",
-      ]),
-    )
-    expect(dependencies["typescript"]).toBeDefined()
-    // No compiler patch for Effect's diagnostics is taken.
-    expect(Object.keys(dependencies)).not.toEqual(
-      expect.arrayContaining([
-        expect.stringMatching(/language-service|tsgo|native-preview/),
-      ]),
-    )
-    expect(pkg.scripts.prepare).toBeUndefined()
-  })
 })
 
 describe("the pinned packages", () => {
-  it("TST-1 the runner is vitest with @effect/vitest from the vendored snapshot", () => {
-    expect(dependencies["vitest"]).toBeDefined()
-    expect(dependencies["@effect/vitest"]).toBe("catalog:")
-    expect(catalog["@effect/vitest"]).toBe("file:vendor/effect-vitest.tgz")
-    expect(locked).toContainEqual(
-      expect.stringMatching(/^@effect\/vitest@file:vendor\/effect-vitest\.tgz/),
-    )
-  })
-
   it("IMG-52 OV-52 every effect package is a tarball under vendor/ through the catalog, and a manifest names the commit in full", () => {
     const direct = effectPackages(Object.keys(dependencies))
     expect(direct).toEqual(
@@ -150,60 +106,9 @@ describe("the pinned packages", () => {
 })
 
 describe("continuous integration", () => {
-  it("TST-2 runs on GitHub Actions, on every pull request", () => {
-    expect(gate.on).toHaveProperty("pull_request")
-  })
-
-  it("TST-5b installs effect from the tarballs under vendor/ and clanka from the lockfile, never from pkg.pr.new", () => {
-    for (const runs of Object.values(gateRuns())) {
-      expect(runs.filter((run) => run.includes("install"))).toEqual([
-        "pnpm install --frozen-lockfile",
-      ])
-    }
-    expect(read("pnpm-lock.yaml")).not.toContain("pkg.pr.new")
-    expect(gateText).not.toContain("pkg.pr.new")
-  })
-
-  it("TST-112 the gate is layers 1 to 4 and the image layer on amd64, each inside 15 minutes", () => {
-    expect(layers).toEqual(["types", "unit", "daemon", "process", "image"])
-    expect(gateRuns()["layers"]).toContain("pnpm test")
-    expect(gateRuns()["image"]).toContain("pnpm vitest run --project image")
-    for (const job of Object.values<{
-      "runs-on": string
-      "timeout-minutes": number
-    }>(gate.jobs)) {
-      // ubuntu-24.04 is GitHub's x64 runner.
-      expect(job["runs-on"]).toBe("ubuntu-24.04")
-      expect(job["timeout-minutes"]).toBe(15)
-    }
-  })
-
-  it("TST-113 nothing on the gate reads a secret, so a pull request from a fork runs all of it", () => {
-    expect(gateText).not.toMatch(/secrets\.|pull_request_target/)
-    expect(gate.permissions).toEqual({ contents: "read" })
-  })
-
   it("TST-133 one command runs layers 1 to 4 on a developer's machine", () => {
     expect(pkg.scripts.test).toBe("node scripts/local.ts")
     expect(localLayers).toEqual(["types", "unit", "daemon", "process"])
-  })
-
-  it("TST-19 no project sets a coverage threshold and no coverage tool is installed", () => {
-    expect(config.test?.coverage).toBeUndefined()
-    expect(
-      Object.keys(dependencies).filter((name) => name.includes("coverage")),
-    ).toEqual([])
-    expect(gateText).not.toContain("coverage")
-  })
-
-  it("TST-82 no project retries a failed test, and neither does the gate", () => {
-    expect(config.test?.retry).toBeUndefined()
-    for (const project of config.test?.projects ?? []) {
-      expect(
-        typeof project === "object" && "test" in project && project.test?.retry,
-      ).toBeUndefined()
-    }
-    expect(gateText).not.toMatch(/retry|rerun/i)
   })
 })
 

@@ -1,6 +1,6 @@
 # Testing
 
-This part says how chad is tested once it is built, so that each rule in the spec has a check that fails when the rule is broken. It covers the six layers of the suite, the seams and fakes that make the daemon testable, the rules every test follows, what gates a pull request, and the checks that need a real Discord bot, a real Codex login or a real model. It leans on every other part for the rules under test, and most on 01-image-and-volume.md, 04-discord.md, 05-model-and-login.md, 14-self-edit-skill.md, 16-failures-logs-status.md, 18-asphodel-plugin.md and 19-build-order.md. Nothing in this part has been run, and it does not contain the tests themselves.
+This part says how chad is tested once it is built, so that each rule in the spec has a check that fails when the rule is broken. It covers the six layers of the suite, the seams and fakes that make the daemon testable, the rules every test follows, what gates a pull request, and the checks that need a real Discord bot or a real Codex login. It leans on every other part for the rules under test, and most on 01-image-and-volume.md, 04-discord.md, 05-model-and-login.md, 14-self-edit-skill.md, 16-failures-logs-status.md, 18-asphodel-plugin.md and 19-build-order.md. Nothing in this part has been run, and it does not contain the tests themselves.
 
 Three words are used throughout. A scenario is one test that drives a daemon through one flow, such as a message in and an answer out. The driver is the test code that starts the daemon, sends it events, holds the fakes and reads the results. The harness is the driver together with the fakes and the scripts that every scenario shares.
 
@@ -32,7 +32,7 @@ The build order is in 19-build-order.md. This part uses two of its words, becaus
 
 Every rule in the spec carries an id such as `SES-12`. A script in CI compares the ids in the spec with the ids named by the tests, so that a rule cannot go untested without anyone noticing. Reviews judge whether a test really tests its rule. The script only checks that a test exists.
 
-Each rule also has a kind, which its Provenance row gives. A `rule` is chad's own behaviour, which a test can break. A `fact` is what a dependency does, such as clanka, effect, dfx, Discord, Node, Docker or SQLite, and a rule rests on it. A `definition` is a term, a reason or an overview sentence with nothing to test.
+Each rule also has a kind, which its Provenance row gives. A `rule` is chad's own behaviour, which a test can break. A `fact` is what a dependency does, such as clanka, effect, dfx, Discord, Node, Docker or SQLite, and a rule rests on it. A `definition` is a term, a reason or an overview sentence with nothing to test. A rule about how the suite and the build are run is a `definition` too.
 
 - **TST-6** Every rule in the spec has a stable id. Ids are assigned in the spec and are never renumbered or reused.
 - **TST-7** Every test names the rule ids it covers in its title.
@@ -48,7 +48,7 @@ Each rule also has a kind, which its Provenance row gives. A `rule` is chad's ow
 - **TST-17** Each stage issue says in words that it asks for tests, and names its slices. The rules whose tests a stage delivers are the rules tagged with those slices, and no limit is set on how many rule ids a stage holds. The builders' briefs tell them not to create tests unless explicitly asked, so an issue that does not ask gets none.
 - **TST-18** The reviewer of a stage checks that no rule tagged with the stage's slices is pending without a recorded reason. The recorded reason is the rule's entry in the list of held rules (see 19-build-order.md).
 - **TST-19** There is no line coverage number and no coverage gate. The rule ids are the measure of coverage.
-- **TST-20** Before each release one report lists the functions in `dist` that layers 2 to 4 never ran. It has no threshold and fails nothing. Each function on it is dead code or a rule the spec lacks.
+- **TST-20** Withdrawn.
 - **TST-170** The spec lives in chad's repository under `docs/spec/`, so the rule-id script reads the spec's rule ids in CI from the repository itself.
 - **TST-171** A script builds one index of every rule from the Provenance tables of the parts. Each row holds the rule's id, its part, who agreed it, its support, the tickets that changed it, its kind and its slice, and this rule index is what the rule-id script reads. The index is generated in CI and is not committed, so that two changes never conflict on it. The Provenance tables are the only source of rule ids. A rule's text may be a bullet or a table row, and a gap id such as `TST-G1` has no Provenance row and is not a rule.
 - **TST-172** A rule whose slice is `-` needs no test and is never pending. Only a definition and a withdrawn rule have that slice, and the rule-id script counts a definition as waived with the reason "definition". It counts a withdrawn rule, whose row may still give the kind `rule`, with the reason "withdrawn".
@@ -75,7 +75,7 @@ The layers are named for what is real in each. The table gives the overview and 
 | 3 | Daemon scenarios | The daemon in one process on live time, built from its own composition root. clanka's `Agent` and executor, `SingleRunner` over a SQLite file, the plugin loader, the socket and the CLI, and local MCP server processes are all real. | The chat platform, the network and the durations | Yes |
 | 4 | Process scenarios | The same daemon as a child process that the driver kills or stops at a chosen event and restarts on the same volume | The same three, with the chat state and the model script held in the driver | Yes |
 | 5 | Image | The built image on a real Docker engine, with the real `chad serve` | The local platform and the fake model server, in a second container | Yes on amd64 |
-| 6 | Live | A real Discord gateway, a real Codex login or a real model | Tim's own bot, Tim's login, fixed tasks | No |
+| 6 | Live | A real Discord gateway or a real Codex login | Tim's own bot and Tim's login | No |
 
 - **TST-21** Layer 1 runs `tsc` over the package and over fixture plugins.
 - **TST-22** Layer 1 holds six files that must fail to compile, one for each deliberate mistake in the table below. Each file asserts the error code and the service the error names, so that a file that fails on a typo does not pass.
@@ -99,7 +99,7 @@ In the plugin API prototype the first four failed with `Type 'Own' is not assign
 - **TST-27** Layer 4 runs the same daemon as a child process that the driver kills or stops at a chosen event and restarts on the same volume. A resumed turn, the give-up, the boot counter and safe mode, the lock, the stop, backup and restore, migrations and an unusable database are tested here.
 - **TST-28** In layer 4 the chat state and the model script live in the driver, because the process being killed cannot hold them.
 - **TST-29** Layer 5 runs the built image on a real Docker engine, with the real `chad serve`.
-- **TST-30** Layer 6 holds the checks that need a Discord bot, a Codex login or a real model. None of it gates a pull request.
+- **TST-30** Layer 6 holds the checks that need a Discord bot or a Codex login. None of it gates a pull request.
 
 ## How the daemon is made testable
 
@@ -250,7 +250,6 @@ The first table holds the durations chad sets, which are the ones `Timings` hold
 | Free space check, interval after the check at boot | 1 hour | 02-storage.md (STO-114), 01-image-and-volume.md (IMG-67) |
 | Prune, time of day | 04:00 in the owner's timezone | 02-storage.md (STO-104) |
 | Prune, age of a reset session's history | 30 days | 02-storage.md (STO-105) |
-| Turn end that could not be written on a full disk, interval between tries | 60 seconds | 16-failures-logs-status.md (FAIL-139) |
 | Notice, time after a key's last notice in which the key is not announced again | 24 hours | 16-failures-logs-status.md (FAIL-152) |
 | Status, the "Recent" block's window for failed turns and its longer window for tokens | 24 hours and 7 days | 16-failures-logs-status.md (FAIL-114) |
 
@@ -278,7 +277,7 @@ The second table holds durations the spec names that chad does not set. They bel
 | `HEALTHCHECK` | `--interval=30s --timeout=5s --retries=3 --start-period=60s --start-interval=2s` | The Dockerfile | 01-image-and-volume.md (IMG-79) |
 | Kubernetes liveness probe | Every 30 seconds, 5 second timeout, 3 failures | The example manifests | 01-image-and-volume.md (IMG-76) |
 | Kubernetes startup probe | Every 2 seconds, 30 failures | The example manifests | 01-image-and-volume.md (IMG-77) |
-| Stop grace period | 90 seconds | The Compose and Kubernetes examples | 01-image-and-volume.md (IMG-87) |
+| Stop grace period | 90 seconds | The Kubernetes example | 01-image-and-volume.md (IMG-87) |
 | Docker's default stop timeout | 10 seconds | Docker | 01-image-and-volume.md (IMG-91) |
 
 ## Suite rules
@@ -308,7 +307,7 @@ A closed list is a list of names that lives in one module. chad has three. The s
 - **TST-169** CI runs each recipe of the `diagnose` skill against a freshly migrated database. The recipes are the `chad logs --turn`, `chad status` and `chad db query` commands the skill teaches, and the queries read the `turns` table (see 16-failures-logs-status.md).
 - **TST-90** One `Messages` module holds what chad posts in chat, CLI errors, and the messages the model reads as tool results. It does not try to hold every string a user can see.
 - **TST-91** The check that every chad message a skill quotes appears in chad's source matches each quoted message against the templates of the `Messages` module.
-- **TST-92** One unit test pins each `Messages` template to the spec's wording, where the spec gives one. Where the spec gives no wording for a message that an owner, the model or a user of the CLI sees, the builder writes the wording into the part that owns the message as a new rule (see 19-build-order.md), and the test pins the template to that rule.
+- **TST-92** Withdrawn.
 - **TST-93** Every log event name on the closed list is emitted somewhere in layers 3 to 5. The check takes the list from the one module that holds it (see 16-failures-logs-status.md) and reads the emitted names from the saved log directories of TST-80. Layer 5 is included because some events happen only there, such as a stop cut by the deadline, the filesystem warning and a path moved aside at boot. Each event name is also a rule with its own id in 16-failures-logs-status.md, so the rule-id script requires a test that the event is written.
 - **TST-94** Every `Messages` name is expected by at least one scenario. The test helper records the names, because scenarios refer to messages by name.
 - **TST-95** Every `Failed.reason` tag appears in a `turns` row in some scenario.
@@ -330,7 +329,7 @@ Other parts name checks that "CI" makes. Each one has a layer.
 | The checks on the bundled skills, with the examples path and effect's `AGENTS.md` and `ai-docs` paths | 14-self-edit-skill.md (SELF-109 to SELF-116), 01-image-and-volume.md (IMG-12), 12-skills-and-mcp.md (MCP-19), 11-settings.md (SET-56) | 5 |
 | The lock survives forced garbage collections | 10-cli.md (CLI-27) | 4 |
 | The removed plugin's queued hook, with the first hook held open | 08-apply-and-swap.md (SWAP-115) | 3 |
-| The seven credential runs that were asked for and not made | 15-credentials.md (CRED-104) | 3 for six of them, 5 for the container one |
+| The seven credential runs that were asked for and not made | 15-credentials.md (CRED-104) | 3 for six of them. The container one is part of the one run on Tim's k3s node (TST-111) |
 
 - **TST-99** Each check that another part assigns to CI runs in the layer the table above gives.
 
@@ -352,16 +351,16 @@ The prototypes left a list of things that were decided and never run. Each is pl
 - **TST-108** A test makes a daemon lose its lock by replacing `state/daemon.lock` under the running daemon. The daemon keeps the lock's handle for its whole life, so nothing else loses it.
 - **TST-182** A layer 4 scenario redelivers a stored `message` request that no longer decodes, which is what a new image with a changed effect/chat encoding produces. It asserts that the request ends as `Failed` with `Internal` and a message in the thread, that the boot is not blocked, and that the request is not tried again (see 03-sessions-and-turns.md). What cluster does with a stored message it cannot decode has not been checked.
 - **TST-183** A layer 4 scenario kills the daemon on each side of the commit that stores a steering message in the history and records it as read. After a kill before the commit the redelivered message steers the turn again, after a kill after the commit it does not, and the stored history holds the message once in both cases. The rule that a message is in the stored history exactly once (SES-47 in 03-sessions-and-turns.md) counts as proven only when this scenario passes.
-- **TST-109** Layer 5 tests everything the image prototype ran, and the following, none of which a prototype ran: Docker marking a daemon that lost its lock unhealthy, the Compose example with asphodel as a second service and the backup line, recreating chad's container alone with a sidecar in its network namespace, one copy of effect, no Claude Code binary, a boot in safe mode with every bundled plugin on its defaults, the bundled skill checks, and the three full disk cases on a volume with a size cap, which TST-167 names.
-- **TST-184** The image layer's check on the browser sidecar covers a crash of chad's container that its restart policy brings back, as well as a Compose recreate of chad's container alone. The crash is a separate case because the `restart: true` of the Compose example applies only to a restart that a Compose operation makes (see 01-image-and-volume.md).
-- **TST-110** The Kubernetes checks are a script that runs against a cluster. They are the probes, `fsGroup` on a local-path volume and the backup CronJob (see 01-image-and-volume.md).
+- **TST-109** Layer 5 tests everything the image prototype ran, and the following, none of which a prototype ran: Docker marking a daemon that lost its lock unhealthy, one copy of effect, no Claude Code binary, a boot in safe mode with every bundled plugin on its defaults, and the bundled skill checks.
+- **TST-184** Withdrawn.
+- **TST-110** The Kubernetes checks are a script that runs against a cluster. They are the probes, `fsGroup` on a local-path volume, the backup CronJob and the browser sidecar's wiring in chad's pod (see 01-image-and-volume.md).
 - **TST-111** The Kubernetes checks run once on Tim's k3s node, as an item on the live list, because the filesystem on that node was never checked.
 - **TST-166** One named test checks that the text the model reads from a script's output is byte-identical at every value of `CHAD_LOG_LEVEL`. The values are `all`, `trace`, `debug`, `info`, `warn`, `error`, `fatal` and `none`. It tests the rule that the level filters chad's own sinks and never what a script sees (see 16-failures-logs-status.md).
-- **TST-167** The image layer runs three full disk cases on a volume with a size cap. They are a full disk when an owner's message arrives, a disk that fills during a turn, and a turn whose end or whose reply to cluster could not be saved, with the redelivery of its request after a restart (see 16-failures-logs-status.md).
+- **TST-167** Withdrawn.
 
 The image prototype's check script had these sections, which are what "everything the image prototype ran" means in TST-109: bin, repo, tini, volume, path, session, boot, stop, health, fs, data, socket, mcp-stop and shards, plus a separate lock check under garbage collection.
 
-The only full disk error that any prototype met came from a page cap on the database, in a run of cluster by itself. On a filesystem that is really full the write-ahead log cannot grow, the renames under `state/` fail, the log file fails, and an apply's commit and export fail part way. None of that has run, which is why the cases of TST-167 run on a size-capped volume and not on a page cap.
+The only full disk error that any prototype met came from a page cap on the database, in a run of cluster by itself. On a filesystem that is really full the write-ahead log cannot grow, the renames under `state/` fail, the log file fails, and an apply's commit and export fail part way. None of that has run.
 
 ## The pull request gate
 
@@ -405,12 +404,12 @@ The image prototype measured `chad health` at 117 ms, the socket listening 0.8 s
 - **TST-134** That command first checks for git and the other tools the scenarios call, and names what is missing.
 - **TST-135** That command fails at once when Node's major version differs from the one the Dockerfile names. The Dockerfile is the source of the toolchain version.
 - **TST-136** A second command runs the image layer on Docker or podman.
-- **TST-137** On podman the checks that need Docker are reported as not run. They are the unhealthy mark and the Compose example.
+- **TST-137** On podman the check that needs Docker is reported as not run. It is the unhealthy mark.
 - **TST-138** The nix flake for the repository lives in chad's repository.
 
 ## The live layer
 
-The live layer has three lists. The hand checks, the Codex list and the skill runs need Tim, and run before a release. No job talks to a real Discord, and no job reads a secret.
+The live layer has two lists, the hand checks and the Codex list. Tim runs each once, in the `live` slice of stage 5, and nothing is run before a release. No job talks to a real Discord, and no job reads a secret.
 
 - **TST-139** Withdrawn.
 - **TST-140** Withdrawn.
@@ -425,11 +424,11 @@ The live layer has three lists. The hand checks, the Codex list and the skill ru
 
 ### The hand checks
 
-- **TST-144** A person who is an owner does five things by hand before a release. Three are a direct message, a click on Stop, and the Enter modal completed. The fourth is a mention of chad in a server channel, which opens a thread, followed by a message in that thread that does not mention chad. The fifth is `chad setup` on a real bot. A bot cannot send another bot a direct message, and nothing can click a button through Discord's API. Both statements are from memory and were not checked. The fourth and the fifth are what confirm DIS-3, DIS-4, SES-8, DIS-89 and CLI-122 on a real Discord, which no job talks to.
+- **TST-144** A person who is an owner does five things by hand once, at the end of the build. Three are a direct message, a click on Stop, and the Enter modal completed. The fourth is a mention of chad in a server channel, which opens a thread, followed by a message in that thread that does not mention chad. The fifth is `chad setup` on a real bot. A bot cannot send another bot a direct message, and nothing can click a button through Discord's API. Both statements are from memory and were not checked. The fourth and the fifth are what confirm DIS-3, DIS-4, SES-8, DIS-89 and CLI-122 on a real Discord, which no job talks to.
 
 ### The Codex list
 
-- **TST-145** The Codex list runs by hand on Tim's login, on a scratch volume that holds the login, before a release. Tim's part is approving one device code per run, and a script does the rest. No Codex token is kept in CI secrets, because a refresh token stored there goes stale when it rotates.
+- **TST-145** The Codex list runs by hand on Tim's login, on a scratch volume that holds the login, once, at the end of the build. Tim's part is approving one device code per run, and a script does the rest. No Codex token is kept in CI secrets, because a refresh token stored there goes stale when it rotates.
 - **TST-146** Each item on the Codex list has a mechanical pass mark where one exists. An example is cached tokens above zero on a session's second turn after 60 seconds idle.
 - **TST-147** After the two captures of TST-168, the Codex list holds at least the four items in the table below, which are the ones left to run on the built daemon, and the recording comparison of TST-42.
 - **TST-168** The Codex list starts with two captures. The first is a real usage-limit frame. The second is what a new connection gets while the limit is in force.
@@ -443,15 +442,13 @@ The live layer has three lists. The hand checks, the Codex list and the skill ru
 
 Nobody has captured a real usage-limit frame, so it is not known whether the real service sends an `error.message` with it, and effect's decoder drops an error frame that has none (see 16-failures-logs-status.md). The second capture exists because the Codex socket idles out after 60 seconds, so most chat turns open a new connection, and a refused handshake loses its status and body.
 
-### The skill runs
+### The results of the two lists
 
-- **TST-148** The skill runs are a script. It runs fixed tasks on the real model, three runs for each task, so that a real model is watched following each bundled skill against a built chad.
-- **TST-149** A skill run passes when the end state shows in `chad status` and the path of effect's `AGENTS.md` appears in the turn's scripts.
-- **TST-150** A task that fails two of its three runs holds the release until Tim says otherwise.
-- **TST-187** One fixed task of the skill runs is a fix to a tool that the same turn then calls. A run of it passes when, after the message that the tool was changed by an apply (message 1 in 08-apply-and-swap.md), the turn makes no second apply and at most one more call to the refused tool, and the call in the next turn succeeds.
-- **TST-151** The results of the live lists are recorded in the release notes.
-
-The skill runs spend Tim's Codex quota. They are the first time anyone watches an agent follow the `self-edit` skill, including whether it reads effect's `AGENTS.md` when told to (see 14-self-edit-skill.md).
+- **TST-148** Withdrawn.
+- **TST-149** Withdrawn.
+- **TST-150** Withdrawn.
+- **TST-187** Withdrawn.
+- **TST-151** The results of the hand checks and of the Codex list are recorded in the stage 5 hand-off comment.
 
 ## What carries over from the prototypes
 
@@ -459,32 +456,34 @@ Every prototype was plain `node` scripts, bash, `tsc` and podman or Docker, with
 
 - **TST-152** Nothing that stood in for chad carries over into the suite. Fakes of things outside chad do carry over, which are the fake asphodel daemon, the MCP servers and the local login site.
 - **TST-153** The spec carries rules and no list of the prototypes' checks. The rule ids are the inventory of coverage.
-- **TST-154** A table in the repository maps each scenario of each prototype archive's final pass to a test or to a reason there is none. It covers the archives in the table below.
-- **TST-155** Where an archive has no scenarios, a row of the table is the archive's own grouping, such as a section of the image's check script or a run letter of the CLI prototype.
-- **TST-156** The stage that ports an archive fills that archive's rows. Stage 5, in its `live` slice, only checks that no row is empty.
-- **TST-157** Once no row is empty the table is frozen. It is a record of the port and is not kept up afterwards.
+- **TST-154** Withdrawn.
+- **TST-155** Withdrawn.
+- **TST-156** Withdrawn.
+- **TST-157** Withdrawn.
 - **TST-197** The prototype archives are kept on a branch of chad's repository named `prototypes`, which is never merged. Each stage issue names the archives that ran the rules of its slices.
 
-| Archive | What its final pass held | Row unit |
-| --- | --- | --- |
-| Storage on the data volume | Throwaway scripts on `node:sqlite`, its backup and a second reader | Its own grouping |
-| Runtime and plugin loading | A twelve-case walkthrough, a soak of 300 and 900 applies, a boot of the applied commit and a race reproduction | Its own grouping |
-| The asphodel plugin | 30 checks in 12 scenarios | Scenario |
-| The Session entity on `SingleRunner` and SQLite | 96 checks in 36 scenarios at 1 shard | Scenario |
-| Codex login | Claim tables and one log per run | Its own grouping |
-| Plugin settings | One throwaway script on `Config` reads | Its own grouping |
-| The CLI's socket, lock and session marker | Runs named by letter | Run letter |
-| The plugin swap with live sessions | 122 checks | Scenario |
-| The image built and run | 128 checks | Section of the check script |
-| Credential tools | 179 checks | Its own grouping |
-| The MCP layer rebuild | 169 checks | Scenario |
+The archives on that branch, with what the final pass of each held.
+
+| Archive | What its final pass held |
+| --- | --- |
+| Storage on the data volume | Throwaway scripts on `node:sqlite`, its backup and a second reader |
+| Runtime and plugin loading | A twelve-case walkthrough, a soak of 300 and 900 applies, a boot of the applied commit and a race reproduction |
+| The asphodel plugin | 30 checks in 12 scenarios |
+| The Session entity on `SingleRunner` and SQLite | 96 checks in 36 scenarios at 1 shard |
+| Codex login | Claim tables and one log per run |
+| Plugin settings | One throwaway script on `Config` reads |
+| The CLI's socket, lock and session marker | Runs named by letter |
+| The plugin swap with live sessions | 122 checks |
+| The image built and run | 128 checks |
+| Credential tools | 179 checks |
+| The MCP layer rebuild | 169 checks |
 
 ## The asphodel fixture
 
 The asphodel plugin is the acceptance test for the plugin API, and the spec prints it in 18-asphodel-plugin.md. Porting the real plugin belongs to asphodel's repository. chad's repository carries the printed plugin as a fixture, which is what turns the acceptance test into a test.
 
-- **TST-158** The asphodel plugin is a test fixture in chad's repository, exactly as the spec prints it, together with the fake asphodel daemon from the asphodel plugin prototype.
-- **TST-159** The fixture files are the source and the spec prints them. CI compares the fixture files with the code blocks of 18-asphodel-plugin.md and fails when they differ.
+- **TST-158** The asphodel plugin is a test fixture in chad's repository, together with the fake asphodel daemon from the asphodel plugin prototype. The fixture starts from what the spec prints in 18-asphodel-plugin.md. The fixture file is the source, and nothing keeps the printed copy in step.
+- **TST-159** Withdrawn.
 - **TST-160** The fixture is type-checked against the built declaration files, in layer 1.
 - **TST-188** The type-check of TST-160 and the image layer's type-check take their compiler options from the one source that `chad check` uses (see 07-plugin-loading.md). The image test sets no `types: []` of its own.
 - **TST-161** The fixture runs through the real daemon in layer 3 with the twelve scenarios in the table below.
@@ -520,11 +519,10 @@ For the gate:
 
 - Set branch protection with the gate's jobs as required checks. Without it the gate stops nothing.
 
-Before a release:
+At the end of the build:
 
-- Approve one device code per run for the Codex list and for the skill runs. The skill runs spend his Codex quota, three runs per task.
+- Approve one device code per run for the Codex list.
 - Do the hand checks, on his own bot and his own server. They need a person who is an owner.
-- Rule on a release that is held by a skill task that failed two of three.
 
 Once:
 
@@ -537,19 +535,15 @@ Once:
 
 - **TST-G1** [builder] The inputs of `runDaemon` are in TST-33, TST-201, TST-202 and TST-203. What is left to the builder is the TypeScript names and types of the input fields, what `runDaemon` returns, the names of the `Timings` values, the size of the scale factor, and whether a scenario may set one length apart from the factor. Also left are how the daemon in layer 3 keeps its signal handlers and its exit from acting on the test runner, what a SIGTERM does before the `kills` slice delivers the stop, what the test's `HttpClient` does with a request to a host that is not a fake, and whether `chad serve` hands the bundled plugins in through the plugins input. Recommended: `runDaemon` returns the exit code and the two entry files exit the process with it, the forced exit of the stop's timer being the one exit it makes itself. It removes its signal handlers and puts the environment back when it ends. Until `kills` a SIGTERM or SIGINT closes the daemon's scope and the exit code is 0. The test's client fails any request to a host that is not a fake, a scenario may set one length when no ordering it tests rests on that length, and `chad serve` passes the bundled plugins through the plugins input, so that the input has one meaning. TIM-558 items 13 and 17, TIM-559 cold read.
 - **TST-G2** [builder] No ticket says whether a duration that chad does not set belongs in `Timings`. The decision says "every duration the spec names" and names only clanka's two timeouts as staying real, and the split in the two durations tables follows who owns each value. The silence bound is the case that needs the answer, because it is three of clanka's turn timeouts in a row, which is 15 minutes at real length, so its test shortens that timeout. TIM-558 items 17 and 29, TIM-557 items 17 and 18.
-- **TST-G3** [builder] The file names and formats of the waiver list and the prototype scenario table are not given. TIM-558 items 3 and 47.
+- **TST-G3** [builder] The file name and format of the waiver list are not given. TIM-558 item 3.
 - **TST-G4** [builder] The items of the live Codex list beyond the two captures and the four named are not written, and neither is the pass mark of each. How the two captures are made is not said either, given that both need a login that is at its usage limit. TIM-558 "Not settled here" and item 38, TIM-557 item 22.
 - **TST-G5** [builder] The usage-limit frame that the fake's Codex side serves before the first capture exists is not given. The fake's frames come from a recording, no recording of a usage limit exists, and a frame with an `error.message` and a frame without one end the turn differently. TIM-558 items 15 and 16, TIM-557 items 20 and 22.
-- **TST-G6** [builder] The fixed tasks of the skill runs are not written. The pass mark names effect's `AGENTS.md`, which plays no part in a task on the `credentials` skill or on the `diagnose` skill, and no ticket gives those tasks a pass mark. TIM-558 "Not settled here" and item 39, TIM-557 item 43.
 - **TST-G9** [builder] The list of adapter operations and the RPC schema between the adapter client and the local platform are not given. Whether the adapter has an operation that fetches the bytes of an inbound attachment is part of this (see 03-sessions-and-turns.md). TIM-558 items 20 and 21.
 - **TST-G10** [builder] How a script for the fake model server is written, how a hold is released, and the shape of the one interface to the fakes are not given. Whether the call index counts a request the daemon makes for itself, such as the model check at start, is not given either. Recommended: the fake tells that check apart by its fixed prompt (see 05-model-and-login.md) and does not count it. TIM-558 items 14 and 24.
 - **TST-G11** [builder] The scenarios of the wire slice are not listed. The decision says "about a dozen" and names what they cover. How the wire slice points the Discord adapter's REST calls at the fake REST server is not given either. TIM-558 item 26.
-- **TST-G13** [builder] The prototype scenario table names archives for "Storage on the data volume" and "Plugin settings". Their runs were throwaway scripts and no archive of either is among the extracted prototypes, so what their rows are filled from is not said. TIM-558 item 47.
 - **TST-G15** [builder] The layer of the test of TST-166 and the layer of the recipe check of TST-169 are not named. TIM-557 items 6 and 43.
 - **TST-G16** [builder] These things were recorded as not run and no decision places any of them in a layer by name. Each still falls under the rule that every rule has a test or a waiver. From TIM-558 and the tickets before it they are the lock and the volume on filesystems other than ext4, tmpfs, NFS and sshfs; a real `npx -y` MCP server; the setup wizard; a hook that ignores interruption, a secret change during a swap, and the next boot with a setting value that still fails; a secret in an MCP HTTP header and the hint for a long server list; a background task that outlives an Agent rebuild; on Codex, the `session-id` header without `prompt_cache_key`, turns with no owner present failing without a call until a login succeeds, background sub-agents, efforts above `medium` on the three smaller models and anything longer than five minutes; and for credentials a real site, a derived image with a browser, `chad backup` with browser state and `--note ""`. From TIM-557 they are the plugin name, the Info cap and the ids on a copied log line together, with the lines of sub-agents, MCP calls and a background task; the history reconcile, a lost `HistoryReplaced` and the window with real SQLite; the update message, also after passivation; the retry count per agent and the silence bound; what a real Codex backend reports as usage; the notice table and its 24 hour rule; `/status` with no database; `state/notice-thread`; the cron counting rules; and `chad logs`. TIM-558 items 51 to 55, TIM-557 "How well each is supported".
 - **TST-G17** [builder] Three details of the rule-id script are not given. They are what a test that names a bare id does once the rule carries letters (TST-190), what `show <id>` prints for a rule that points at a table or a code block (TST-194), and how an id is told from text in a test title that only looks like one, such as `UTF-8` (TST-10). Recommended: a bare id covers no letter and does not fail by itself, so the missing letters fail under TST-9. `show` prints the rule's text, its file and line, its section heading and its Provenance row, and a flag prints the whole section. A word in a title counts as an id only when its prefix is one of the spec's prefixes. TIM-559 cold read, repo reader.
-- **TST-G18** [builder] Some rules of kind `rule` state that something is absent or how the spec is kept, and no behaviour of chad can break them. They are TST-6, TST-16, TST-19, TST-82, TST-83 and TST-193. Whether each gets a check that the thing is absent is not said. Recommended: one absence check for each. The checks are that ids are unique across the parts, that an Architect-agreed rule with no test fails like any other, that no project sets a coverage threshold or a retry count, and that the script takes no list of excluded tests. For TST-193 the test covers only the printed counts. TIM-559 cold read, repo reader.
-- **TST-G19** [builder] What TST-112, TST-133 and TST-134 are tested on in the `repo` slice is not said. The gate and the local commands name layers 1 to 5, and the first scenario arrives in `harness`, the process driver in `kills` and the fixture plugins of layer 1 in `plugin-api`. Recommended: the workflow and the local command name every layer from the `repo` slice on, a layer with no test yet is an empty project, the tests assert the shape of the workflow and of the command, and TST-134 checks for git alone until a scenario calls another tool. TIM-559 cold read, repo reader.
 - **TST-G20** [builder] Where the script of IMG-119 gets the tarballs of a newer effect commit is not said, and neither is what enforces TST-185. Recommended: the script takes a commit, downloads the snapshot's packages for that commit from pkg.pr.new, rewrites `vendor/` and the manifest, runs the first harness scenario, and puts the old set back when the scenario fails. TIM-559 cold read, harness reader.
 - **TST-G22** [builder] Who makes the first Codex recording of TST-43, with which script and over which flows, is not said, and neither is whether the `models` slice waits for it. A builder has no Codex login and may not use one outside the live lists. Recommended: the builder writes the fake's Codex side from the source of clanka and effect, and commits a recorder script that covers the flows of TST-39 and the refusals of TST-40. Tim runs it once (TST-165) and the builder replaces the hand-written frames with the recording. The slice does not wait for that. TST-41 and TST-43 are on the waiver list against the recording comparison of TST-42, which is what catches a difference. TIM-559 cold read, models reader.
 - **TST-G23** [builder] The inputs of a `runCli` are not given. With no daemon the CLI makes its own network calls and reads its own durations, and 10-cli.md recommends one function `runCli(inputs)` that the bin calls with the real values. Recommended: its inputs are an `HttpClient` and the values of `Timings`, which a test passes as it passes `runDaemon`'s. A scenario calls it in the test's process from `dist` for the commands that reach the network, and starts the real bin for the rest. TIM-558 item 17, TIM-559 cold read, cli reader.
@@ -557,40 +551,40 @@ Once:
 
 ## Provenance
 
-Every decision from TIM-558 and from TIM-557 was agreed with Architect standing in for Tim, and Tim has not read either. Nothing was run for TIM-558, and none of the rules here that come from TIM-557 was run. The rules that come from the three rounds of TIM-559 were agreed the same way, and none of them was run. The rules marked "Tim, chat 2026-11-15" are Tim's own rulings that the repo is public and that the build is five stages on one branch and one pull request. The rules marked "Tim's ruling that chad has no scheduled job" were withdrawn or reworded during the build, after Tim ruled in chat on 2026-11-15 that chad has no nightly Discord job, no weekly dependency job and no other nightly job, and that `gate.yml` is the only workflow. The rules marked "Tim's ruling that chad has no release list and no budget" were withdrawn or reworded after Tim ruled in chat on the same day that the real-length timings, the soak and the image size budget go too, so that every test runs on the gate apart from the live checks done by hand. The rules marked "Tim's ruling that the image is amd64 only" were reworded the same way, after Tim ruled in chat on the same day that chad is not built for arm64. The rules marked "TIM-559 cold read" were reworded or added by Jarvis after fresh readers each took one build slice and wrote down what they would have to ask, and Tim has not read them. The durations tables repeat values that other parts state, and the tickets behind each value are in the Provenance row of the rule that the table names.
+Every decision from TIM-558 and from TIM-557 was agreed with Architect standing in for Tim, and Tim has not read either. Nothing was run for TIM-558, and none of the rules here that come from TIM-557 was run. The rules that come from the three rounds of TIM-559 were agreed the same way, and none of them was run. The rules marked "Tim, chat 2026-11-15" are Tim's own rulings that the repo is public and that the build is five stages on one branch and one pull request. The rules marked "Tim's ruling that chad has no scheduled job" were withdrawn or reworded during the build, after Tim ruled in chat on 2026-11-15 that chad has no nightly Discord job, no weekly dependency job and no other nightly job, and that `gate.yml` is the only workflow. The rules marked "Tim's ruling that chad has no release list and no budget" were withdrawn or reworded after Tim ruled in chat on the same day that the real-length timings, the soak and the image size budget go too, so that every test runs on the gate apart from the live checks done by hand. The rules marked "Tim's ruling that the image is amd64 only" were reworded the same way, after Tim ruled in chat on the same day that chad is not built for arm64. Six more marks come from a fifth ruling of the same day. The rules marked "Tim's ruling that the suite's own rules need no test" took the kind `definition` and the slice `-`, because they say how the suite and the build are run and no test of them runs chad's own code or a fake that the scenarios rest on. The rules marked "Tim's ruling that the bookkeeping checks go" are the report of functions that no layer ran, the table of prototype scenarios, the comparison of the asphodel fixture with the printed plugin and the test that pinned each `Messages` template to the spec's wording. The rules marked "Tim's ruling that chad has no release ceremony" are the skill runs and what was run before a release. The rules marked "Tim's ruling that chad has no Compose example", "Tim's ruling on a full disk" and "Tim's ruling that the docs have no NFS paragraph" follow the same cuts in the other parts. The rules marked "TIM-559 cold read" were reworded or added by Jarvis after fresh readers each took one build slice and wrote down what they would have to ask, and Tim has not read them. The durations tables repeat values that other parts state, and the tickets behind each value are in the Provenance row of the rule that the table names.
 
 | Rule | Source | Agreed by | Support | Changed by | Kind | Slice |
 | --- | --- | --- | --- | --- | --- | --- |
-| TST-1 | TIM-558 item 1; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-2 | TIM-558 item 1 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-3 | TIM-558 item 1 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-4 | TIM-558 item 1 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-5 | TIM-558 item 1, amended by TIM-559 main session ruling on Q8 | Architect (Tim has not read) | read |  | `rule` | `repo` |
-| TST-6 | TIM-558 item 2 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-7 | TIM-558 item 2 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-8 | TIM-558 item 3, round 1 Q2; TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-9 | TIM-558 item 3, amended by TIM-559 main session ruling on Q2 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-10 | TIM-558 item 3 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-11 | TIM-558 item 3; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-12 | TIM-558 item 3 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-13 | TIM-558 item 3, amended by TIM-559 round 2 R2; TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-14 | TIM-558 item 3, amended by TIM-559 main session ruling on Q2 and by Tim, chat 2026-11-15 | Architect (Tim has not read). Tim for a slice that is delivered in place of merged | not run |  | `rule` | `repo` |
-| TST-15 | TIM-558 item 45, amended by TIM-559 round 2 R10 point 2; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-16 | TIM-558 item 4 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
+| TST-1 | TIM-558 item 1; TIM-559 cold read, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-2 | TIM-558 item 1, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-3 | TIM-558 item 1, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-4 | TIM-558 item 1, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-5 | TIM-558 item 1, amended by TIM-559 main session ruling on Q8, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | read |  | `definition` | - |
+| TST-6 | TIM-558 item 2, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-7 | TIM-558 item 2, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-8 | TIM-558 item 3, round 1 Q2; TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-9 | TIM-558 item 3, amended by TIM-559 main session ruling on Q2, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-10 | TIM-558 item 3, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-11 | TIM-558 item 3; TIM-559 cold read, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-12 | TIM-558 item 3, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-13 | TIM-558 item 3, amended by TIM-559 round 2 R2; TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-14 | TIM-558 item 3, amended by TIM-559 main session ruling on Q2 and by Tim, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read). Tim for a slice that is delivered in place of merged | not run |  | `definition` | - |
+| TST-15 | TIM-558 item 45, amended by TIM-559 round 2 R10 point 2; TIM-559 cold read, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-16 | TIM-558 item 4, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-17 | TIM-558 item 5, amended by Tim, chat 2026-11-15 | Architect (Tim has not read). Tim for the stages and their slices | not run |  | `definition` | - |
 | TST-18 | TIM-558 item 5, amended by Tim, chat 2026-11-15 | Tim | not run |  | `definition` | - |
-| TST-19 | TIM-558 item 6 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-20 | TIM-558 item 6 | Architect (Tim has not read) | not run |  | `rule` | `live` |
-| TST-21 | TIM-558 item 7 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
-| TST-22 | TIM-558 item 7, TIM-530 resolution | Tim for the six mistakes; Architect (Tim has not read) for the assertion | run for the six failing, not run for the assertion |  | `rule` | `loader` |
-| TST-23 | TIM-558 item 7, TIM-553 decision 3 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
-| TST-24 | TIM-558 items 7 and 31 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
-| TST-25 | TIM-558 item 8 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
-| TST-26 | TIM-558 item 9; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-27 | TIM-558 item 10 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
-| TST-28 | TIM-558 item 10 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
-| TST-29 | TIM-558 item 11 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-30 | TIM-558 item 12 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
+| TST-19 | TIM-558 item 6, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-20 | TIM-558 item 6, withdrawn by Tim's ruling that the bookkeeping checks go, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| TST-21 | TIM-558 item 7, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-22 | TIM-558 item 7, TIM-530 resolution, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Tim for the six mistakes; Architect (Tim has not read) for the assertion | run for the six failing, not run for the assertion |  | `definition` | - |
+| TST-23 | TIM-558 item 7, TIM-553 decision 3, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-24 | TIM-558 items 7 and 31, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-25 | TIM-558 item 8, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-26 | TIM-558 item 9; TIM-559 cold read, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-27 | TIM-558 item 10, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-28 | TIM-558 item 10, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-29 | TIM-558 item 11, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-30 | TIM-558 item 12, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-31 | TIM-558 item 13, TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `harness` |
 | TST-32 | TIM-558 item 13, round 1 Q4 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | TST-33 | TIM-558 item 13; TIM-559 cold read; TIM-559 round 5 item 4 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
@@ -636,30 +630,30 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-73 | TIM-558 item 17; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | TST-74 | TIM-558 item 17 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | TST-75 | TIM-558 item 28 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-76 | TIM-558 item 28 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-77 | TIM-558 item 28 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-78 | TIM-558 item 28, TIM-553; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-79 | TIM-558 item 28, round 1 Q6 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-80 | TIM-558 item 30, TIM-553 "Passed on" | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-81 | TIM-558 item 30 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-82 | TIM-558 item 30 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-83 | TIM-558 item 30 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-84 | TIM-558 item 30 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
-| TST-85 | TIM-558 item 30, TIM-553 comment on TIM-552 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| TST-86 | TIM-558 item 30, amended by TIM-559 round 2 R5 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-87 | TIM-558 item 30 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
+| TST-76 | TIM-558 item 28, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-77 | TIM-558 item 28, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-78 | TIM-558 item 28, TIM-553; TIM-559 cold read, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-79 | TIM-558 item 28, round 1 Q6, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-80 | TIM-558 item 30, TIM-553 "Passed on", amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-81 | TIM-558 item 30, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-82 | TIM-558 item 30, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-83 | TIM-558 item 30, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-84 | TIM-558 item 30, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-85 | TIM-558 item 30, TIM-553 comment on TIM-552, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-86 | TIM-558 item 30, amended by TIM-559 round 2 R5, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-87 | TIM-558 item 30, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-88 | TIM-558 item 31, comment on TIM-549 item 4 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | TST-89 | TIM-558 item 32, comment on TIM-549 item 21, TIM-557 item 43 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | TST-90 | TIM-558 item 33, round 1 Q12 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | TST-91 | TIM-558 item 33 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
-| TST-92 | TIM-558 item 8, round 1 Q12; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `cli` |
+| TST-92 | TIM-558 item 8, round 1 Q12; TIM-559 cold read, withdrawn by Tim's ruling that the bookkeeping checks go, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-93 | TIM-558 item 34, round 2 R7, TIM-557 item 2 and its comment on TIM-558, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | TST-94 | TIM-558 item 34 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | TST-95 | TIM-558 item 34 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | TST-96 | TIM-558 item 34 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | TST-97 | TIM-558 item 48, comment on TIM-554 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | TST-98 | TIM-558 item 48, TIM-554 (Tim's ruling) | Tim | not run |  | `rule` | `bundled-skills` |
-| TST-99 | TIM-558 items 7, 8, 19, 52, 53 and 54, "What this changes in closed tickets"; TIM-541 items 3 and 21, TIM-548 items 6 and 10, TIM-549 items 4 and 21, TIM-553 decision 5 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
+| TST-99 | TIM-558 items 7, 8, 19, 52, 53 and 54, "What this changes in closed tickets"; TIM-541 items 3 and 21, TIM-548 items 6 and 10, TIM-549 items 4 and 21, TIM-553 decision 5, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-100 | TIM-558 item 51, TIM-543, TIM-540 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
 | TST-101 | TIM-558 item 52 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
 | TST-102 | TIM-558 item 52, TIM-554 "Not run" | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
@@ -669,11 +663,11 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-106 | TIM-558 item 53 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | TST-107 | TIM-558 item 53 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | TST-108 | TIM-558 item 53, round 1 Q8 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
-| TST-109 | TIM-558 item 54, TIM-557 comment on TIM-558, amended by Tim's ruling that the image is amd64 only, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
-| TST-110 | TIM-558 item 55, round 1 Q8, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `image` |
+| TST-109 | TIM-558 item 54, TIM-557 comment on TIM-558, amended by Tim's ruling that the image is amd64 only, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
+| TST-110 | TIM-558 item 55, round 1 Q8, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | TST-111 | TIM-558 item 55 | Architect (Tim has not read) | not run |  | `rule` | `live` |
-| TST-112 | TIM-558 item 41 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-113 | TIM-558 item 41 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
+| TST-112 | TIM-558 item 41, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-113 | TIM-558 item 41, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-114 | TIM-558 item 41, withdrawn by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-115 | TIM-558 item 42, round 1 Q14, withdrawn by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-116 | TIM-558 "Not settled here", round 1 Q14, round 2 E, settled by Tim, chat 2026-11-15, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Tim | not run, from memory for the runner being free |  | `rule` | - |
@@ -693,68 +687,68 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-130 | TIM-558 item 43, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-131 | TIM-558 item 43, round 2 R5, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-132 | TIM-558 item 43, withdrawn by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| TST-133 | TIM-558 item 45 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-134 | TIM-558 item 45 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-135 | TIM-558 item 45, round 2 R9 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-136 | TIM-558 item 45 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-137 | TIM-558 item 45 | Architect (Tim has not read) | not run |  | `rule` | `image` |
-| TST-138 | TIM-558 item 45, amended by TIM-559 main session ruling (the flake lives in the chad repo) | Architect (Tim has not read) | read |  | `rule` | `repo` |
+| TST-133 | TIM-558 item 45, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-134 | TIM-558 item 45, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-135 | TIM-558 item 45, round 2 R9, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-136 | TIM-558 item 45, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-137 | TIM-558 item 45, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-138 | TIM-558 item 45, amended by TIM-559 main session ruling (the flake lives in the chad repo), amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | read |  | `definition` | - |
 | TST-139 | TIM-558 item 36, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-140 | TIM-558 item 36, comments on TIM-532 and TIM-550, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-141 | TIM-558 item 36, round 2 R1, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-142 | TIM-558 item 36, round 2 F, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-143 | TIM-558 item 36, amended by TIM-559 main session ruling on Q9 point 10 and round 2 R6 point 2; TIM-559 cold read, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| TST-144 | TIM-558 item 37, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run, from memory |  | `rule` | `live` |
-| TST-145 | TIM-558 item 38, "What Tim has to do", TIM-559 round 2 R10 point 5 | Architect (Tim has not read) | not run |  | `rule` | `live` |
+| TST-144 | TIM-558 item 37, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run, from memory |  | `rule` | `live` |
+| TST-145 | TIM-558 item 38, "What Tim has to do", TIM-559 round 2 R10 point 5, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `live` |
 | TST-146 | TIM-558 item 38 | Architect (Tim has not read) | not run |  | `rule` | `live` |
 | TST-147 | TIM-558 body and facts comment, TIM-544 "Not run", TIM-558 item 16, TIM-557 comment on TIM-558 | Architect (Tim has not read) | not run |  | `rule` | `live` |
-| TST-148 | TIM-558 item 39, round 1 Q8 | Architect (Tim has not read) | not run |  | `rule` | `live` |
-| TST-149 | TIM-558 item 39 | Architect (Tim has not read) | not run |  | `rule` | `live` |
-| TST-150 | TIM-558 item 39 | Architect (Tim has not read) | not run |  | `rule` | `live` |
-| TST-151 | TIM-558 item 39 | Architect (Tim has not read) | not run |  | `rule` | `live` |
+| TST-148 | TIM-558 item 39, round 1 Q8, withdrawn by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| TST-149 | TIM-558 item 39, withdrawn by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| TST-150 | TIM-558 item 39, withdrawn by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| TST-151 | TIM-558 item 39, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `live` |
 | TST-152 | TIM-558 item 46 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-153 | TIM-558 item 47 | Architect (Tim has not read) | not run |  | `definition` | - |
-| TST-154 | TIM-558 item 47 | Architect (Tim has not read) | not run |  | `rule` | `live` |
-| TST-155 | TIM-558 item 47 | Architect (Tim has not read) | not run |  | `rule` | `live` |
-| TST-156 | TIM-558 item 47, amended by Tim, chat 2026-11-15 | Architect (Tim has not read). Tim for the stages | not run |  | `rule` | `live` |
-| TST-157 | TIM-558 item 47, round 2 R2 | Architect (Tim has not read) | not run |  | `definition` | - |
-| TST-158 | TIM-558 item 49, map "Agreed at charting" | charting for the acceptance test; Architect (Tim has not read) for the fixture | not run |  | `rule` | `plugin-api` |
-| TST-159 | TIM-558 item 49, amended by TIM-559 ruling on TST-G12 and main session ruling on Q1 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
+| TST-154 | TIM-558 item 47, withdrawn by Tim's ruling that the bookkeeping checks go, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| TST-155 | TIM-558 item 47, withdrawn by Tim's ruling that the bookkeeping checks go, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| TST-156 | TIM-558 item 47, amended by Tim, chat 2026-11-15, withdrawn by Tim's ruling that the bookkeeping checks go, chat 2026-11-15 | Architect (Tim has not read). Tim for the stages | not run |  | `rule` | - |
+| TST-157 | TIM-558 item 47, round 2 R2, withdrawn by Tim's ruling that the bookkeeping checks go, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-158 | TIM-558 item 49, map "Agreed at charting", amended by Tim's ruling that the bookkeeping checks go, chat 2026-11-15 | charting for the acceptance test; Architect (Tim has not read) for the fixture | not run |  | `rule` | `plugin-api` |
+| TST-159 | TIM-558 item 49, amended by TIM-559 ruling on TST-G12 and main session ruling on Q1, withdrawn by Tim's ruling that the bookkeeping checks go, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-160 | TIM-558 item 49 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | TST-161 | TIM-558 item 49, TIM-539 | Architect (Tim has not read) | run on a stand-in host, not run on chad |  | `rule` | `asphodel` |
 | TST-162 | TIM-558 item 49 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | TST-163 | TIM-558 item 50, round 1 Q10 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
-| TST-164 | TIM-558 "Passed on", amended by TIM-559 main session rulings on Q2 and Q9 points 1 to 3, round 2 R6 points 1 and 5; TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-165 | TIM-558 "What Tim has to do", round 2 R10, amended by TIM-559 ruling on OV-G1 and main session rulings on Q4 and Q7, and by Tim, chat 2026-11-15; TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read). Tim for the repo being public | not run |  | `definition` | - |
+| TST-164 | TIM-558 "Passed on", amended by TIM-559 main session rulings on Q2 and Q9 points 1 to 3, round 2 R6 points 1 and 5; TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-165 | TIM-558 "What Tim has to do", round 2 R10, amended by TIM-559 ruling on OV-G1 and main session rulings on Q4 and Q7, and by Tim, chat 2026-11-15; TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read). Tim for the repo being public | not run |  | `definition` | - |
 | TST-166 | TIM-557 item 6 and round 2 R3, its comment on TIM-558 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| TST-167 | TIM-557 items 32 to 34 and "How well each is supported", its comment on TIM-558 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| TST-167 | TIM-557 items 32 to 34 and "How well each is supported", its comment on TIM-558, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-168 | TIM-557 item 22 and round 2 R7, its comment on TIM-558 | Architect (Tim has not read) | not run |  | `rule` | `live` |
 | TST-169 | TIM-557 item 43 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
-| TST-170 | TIM-559 ruling on TST-G12, main session ruling on Q1 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-171 | TIM-559 main session ruling on Q2, round 2 R7 and R10 point 3; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-172 | TIM-559 main session ruling on Q2, round 2 R2; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-173 | TIM-559 main session ruling on Q7, round 2 R2 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `repo` |
+| TST-170 | TIM-559 ruling on TST-G12, main session ruling on Q1, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-171 | TIM-559 main session ruling on Q2, round 2 R7 and R10 point 3; TIM-559 cold read, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-172 | TIM-559 main session ruling on Q2, round 2 R2; TIM-559 cold read, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-173 | TIM-559 main session ruling on Q7, round 2 R2, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run | TIM-559 | `definition` | - |
 | TST-174 | TIM-559 main session ruling on Q7, round 2 R10 point 1, amended by Tim, chat 2026-11-15 | Architect (Tim has not read). Tim for the stages | not run | TIM-559 | `definition` | - |
 | TST-175 | TIM-559 main session ruling on Q6, amended by Tim, chat 2026-11-15 | Architect (Tim has not read). Tim for the one shared pull request | not run |  | `definition` | - |
 | TST-176 | Tim, chat 2026-11-15, in place of TIM-559 main session ruling on Q10 | Tim | not run |  | `definition` | - |
-| TST-177 | TIM-559 main session ruling on Q2 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
+| TST-177 | TIM-559 main session ruling on Q2, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-178 | TIM-559 ruling on TST-G9 and CLI-G19 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-179 | TIM-559 ruling on CRON-G7 | Architect (Tim has not read) | read for the default of effect's `Cron`, not run |  | `rule` | `timers-cron` |
 | TST-180 | TIM-559 ruling on FAIL-G4 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | TST-181 | TIM-559 ruling on FAIL-G5 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | TST-182 | TIM-559 ruling on SES-G5 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | TST-183 | TIM-559 rulings on SES-G7 and STO-G12, settled by round 2 R3 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
-| TST-184 | TIM-559 ruling on IMG-G17 | Architect (Tim has not read) | read for Compose's documentation, not run |  | `rule` | `image` |
-| TST-185 | TIM-559 main session ruling on Q8 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
+| TST-184 | TIM-559 ruling on IMG-G17, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | read for Compose's documentation, not run |  | `rule` | - |
+| TST-185 | TIM-559 main session ruling on Q8, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-186 | TIM-559 ruling on DIS-G17, round 3 A4; TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
-| TST-187 | TIM-559 ruling on SWAP-G11 | Architect (Tim has not read) | not run |  | `rule` | `live` |
+| TST-187 | TIM-559 ruling on SWAP-G11, withdrawn by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-188 | TIM-559 ruling on LOAD-G1 | Architect (Tim has not read) | not run |  | `rule` | `loader` |
-| TST-189 | TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `kills` |
-| TST-190 | TIM-559 round 2 R2 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
+| TST-189 | TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `definition` | - |
+| TST-190 | TIM-559 round 2 R2, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-191 | TIM-559 round 2 R2 | Architect (Tim has not read) | not run |  | `definition` | - |
-| TST-192 | TIM-559 round 2 R2, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-193 | TIM-559 round 2 R2 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| TST-194 | TIM-559 round 2 R10 point 2 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
+| TST-192 | TIM-559 round 2 R2, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-193 | TIM-559 round 2 R2, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-194 | TIM-559 round 2 R10 point 2, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-195 | TIM-559 round 2 R6 point 5; TIM-559 cold read, withdrawn by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-196 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | TST-197 | TIM-559 round 2 R10 point 6, amended by Tim, chat 2026-11-15 | Architect (Tim has not read). Tim for the stages | not run |  | `definition` | - |
@@ -764,7 +758,7 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-201 | TIM-559 cold read, harness reader, wire reader and cli reader, TIM-559 round 5 item 4, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | TST-202 | TIM-559 cold read, harness reader, TIM-559 round 5 item 4 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | TST-203 | TIM-559 cold read, harness reader and cli reader, TIM-559 round 5 item 4 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| TST-204 | TIM-559 cold read, repo reader, TIM-559 round 5 item 5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `repo` |
+| TST-204 | TIM-559 cold read, repo reader, TIM-559 round 5 item 5; answered for Tim by Jarvis, chat 2026-11-15, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `definition` | - |
 | TST-205 | TIM-559 cold read, wire reader, TIM-559 round 5 item 2, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-206 | Build, stage 1, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | - |
 | TST-207 | Build, stage 1, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Builder (Tim has not read) | not run |  | `rule` | - |
