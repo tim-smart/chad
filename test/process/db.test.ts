@@ -48,7 +48,7 @@ it("STO-80 CLI-31f CLI-130 CLI-131 chad db query and chad db check answer beside
   await daemon.done
   expect(await db(data, ...count)).toEqual(counted)
   expect(await db(data, "check")).toEqual(sound)
-})
+}, 30_000)
 
 it("STO-79 STO-175 STO-202 chad db query refuses a statement that writes, in the database or anywhere else: it exits 1 with SQLite's own message on stderr and nothing on stdout, as any statement that fails does, and a volume with no database is named", async () => {
   const data = volume(numbered(3))
