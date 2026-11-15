@@ -1,4 +1,4 @@
-import { Context, DateTime, Effect, Exit } from "effect"
+import { Cause, Context, DateTime, Effect, Exit } from "effect"
 import {
   Chat,
   ChatEvent,
@@ -15,6 +15,7 @@ import {
 } from "effect/cluster"
 import * as Messages from "../Messages.ts"
 import type { Live } from "./Chats.ts"
+import * as Disk from "./Disk.ts"
 import * as Logger from "./Logger.ts"
 import { Message, Session } from "./SessionEntity.ts"
 import * as Notices from "./Notices.ts"
@@ -193,16 +194,37 @@ export const layer = (connection: Live) =>
             .pipe(Effect.catchCause(refuse("A reset could not be delivered")))
         }
 
-        // The session's row is there before the save, so the thread has a session from its first message on.
-        if ((yield* Sessions.current(key)) === undefined) {
-          yield* Sessions.open(key, yield* kind)
-        }
-        const request = Message.fromEvent(event, connection.name)
-        const sharding = yield* Sharding.Sharding
-        const storage = yield* MessageStorage.MessageStorage
-        const id = EntityId.make(key)
-        const held = yield* storage
-          .requestIdForPrimaryKey({
+        // A save that fails because the data volume is full is answered in the thread, and the event is accepted once
+        // the answer is posted, so it is not replayed and the message does not run later by itself. Any other failed
+        // save, and a full one whose answer cannot be posted either, refuses the event so that the platform sends it
+        // again (FAIL-136, FAIL-137, SES-127).
+        const unsaved = (cause: Cause.Cause<unknown>) =>
+          Disk.isFull(cause)
+            ? Logger.event(
+                "disk.full",
+                "A write failed because the data volume is full",
+                { connection: connection.name, thread: key },
+                cause,
+              ).pipe(
+                Effect.andThen(ChatMarkdown.post(thread, Messages.diskFull)),
+                Effect.catchCause(
+                  refuse(
+                    "The data volume is full, and the reply could not be posted",
+                  ),
+                ),
+                Effect.as("full" as const),
+              )
+            : refuse("A message could not be saved")(cause)
+        const saved = Effect.gen(function* () {
+          // The session's row is there before the save, so the thread has a session from its first message on.
+          if ((yield* Sessions.current(key)) === undefined) {
+            yield* Sessions.open(key, yield* kind)
+          }
+          const request = Message.fromEvent(event, connection.name)
+          const sharding = yield* Sharding.Sharding
+          const storage = yield* MessageStorage.MessageStorage
+          const id = EntityId.make(key)
+          const held = yield* storage.requestIdForPrimaryKey({
             address: EntityAddress.make({
               shardId: sharding.getShardId(id, "default"),
               entityType: Session.type,
@@ -211,14 +233,14 @@ export const layer = (connection: Live) =>
             tag: "message",
             id: request.key,
           })
-          .pipe(Effect.catchCause(refuse("A message could not be saved")))
-        // Cluster drops a request it still holds by its key, and the log says that this event came a second time.
-        if (held._tag === "Some") return yield* ignored("duplicate")
-        // The event is refused only when the save fails, so that the platform sends it again.
-        yield* session
-          .message(request, { discard: true })
-          .pipe(Effect.catchCause(refuse("A message could not be saved")))
-        yield* Sessions.mark(key, mark)
+          // Cluster drops a request it still holds by its key, and the log says that this event came a second time.
+          if (held._tag === "Some") return "duplicate" as const
+          yield* session.message(request, { discard: true })
+          return "saved" as const
+        })
+        const outcome = yield* saved.pipe(Effect.catchCause(unsaved))
+        if (outcome === "duplicate") return yield* ignored("duplicate")
+        if (outcome === "saved") yield* Sessions.mark(key, mark)
       },
       Effect.catchTag("SqlError", (error) =>
         Effect.logError("A message could not be handled", error).pipe(
@@ -227,5 +249,44 @@ export const layer = (connection: Live) =>
       ),
     ),
     // effect/chat would drop chad's own messages without a word, and chad logs the drop.
+    { deliverSelf: true },
+  )
+
+/**
+ * The handler while the database cannot be opened or migrated (STO-118, FAIL-148, SES-29). An owner's message in a
+ * direct message, or one that mentions chad, gets the error, and `/status` gets the status, which renders with no
+ * database. A message in a thread that does not mention chad is ignored, because which threads are sessions is in
+ * the database (FAIL-339). Nothing is saved, so a post that fails is logged and the event is not refused.
+ */
+export const unusable = (
+  connection: Live,
+  text: string,
+  status: Effect.Effect<string>,
+) =>
+  ChatHandler.layer(
+    Effect.fnUntraced(function* (event) {
+      if (event._tag !== "MessageCreated") return
+      const { message } = event
+      const ignored = (reason: "own" | "not-owner" | "not-mentioned") =>
+        Logger.event("message.ignored", "A message was ignored", {
+          reason,
+          author: message.author.id,
+          connection: connection.name,
+        })
+      if (message.author.isSelf) return yield* ignored("own")
+      if (!connection.owners().includes(message.author.id)) {
+        return yield* ignored("not-owner")
+      }
+      if (event.kind !== "direct" && !ChatMessage.mentionsSelf(message)) {
+        return yield* ignored("not-mentioned")
+      }
+      const answer =
+        command(message) === "status" ? Messages.status(yield* status) : text
+      yield* ChatMarkdown.post(event.thread, answer).pipe(
+        Effect.catchCause((cause) =>
+          Effect.logError("A message could not be posted", cause),
+        ),
+      )
+    }),
     { deliverSelf: true },
   )

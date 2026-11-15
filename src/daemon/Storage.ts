@@ -1,5 +1,5 @@
 import { SqliteClient, SqliteMigrator } from "@effect/sql-sqlite-node"
-import { Data, Effect } from "effect"
+import { Cause, Data, Effect } from "effect"
 import { SqlClient } from "effect/sql"
 import sessions from "./migrations/0001_sessions.ts"
 import turns from "./migrations/0002_turns.ts"
@@ -55,3 +55,61 @@ export const guard = Effect.gen(function* () {
 export const migrate = SqliteMigrator.run({
   loader: SqliteMigrator.fromRecord(migrations),
 })
+
+export class UnknownMigration extends Data.TaggedError("UnknownMigration")<{
+  readonly message: string
+}> {}
+
+/**
+ * Refuses a database that holds a migration this chad does not know, as a restored file from a newer image does
+ * (STO-41). It is chad's own check, because the migrator only runs the migrations above the newest one it finds and
+ * says nothing about one it does not have.
+ */
+export const known = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient
+  const table =
+    yield* sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'effect_sql_migrations'`
+  if (table.length === 0) return
+  const rows = yield* sql<{
+    migration_id: number | bigint
+    name: string
+  }>`SELECT migration_id, name FROM effect_sql_migrations`
+  const ours = new Set(
+    Object.keys(migrations).map((key) => {
+      const [id, ...name] = key.split("_")
+      return `${Number(id)}_${name.join("_")}`
+    }),
+  )
+  const unknown = rows
+    .filter((row) => !ours.has(`${Number(row.migration_id)}_${row.name}`))
+    .map((row) => `${String(row.migration_id).padStart(4, "0")}_${row.name}`)
+  if (unknown.length > 0) {
+    return yield* new UnknownMigration({
+      message: `it holds the migration ${unknown.join(", ")}, which this chad does not know`,
+    })
+  }
+})
+
+/** The text of what made the database unusable: each distinct message down the error's chain of causes. */
+export const describe = (cause: Cause.Cause<unknown>): string => {
+  const messages: Array<string> = []
+  let at: unknown = Cause.squash(cause)
+  for (
+    let depth = 0;
+    depth < 8 && typeof at === "object" && at !== null;
+    depth++
+  ) {
+    const message = (at as { readonly message?: unknown }).message
+    if (
+      typeof message === "string" &&
+      message !== "" &&
+      !messages.includes(message)
+    ) {
+      messages.push(message)
+    }
+    at = (at as { readonly cause?: unknown }).cause
+  }
+  return messages.length === 0
+    ? String(Cause.squash(cause))
+    : messages.join(": ")
+}

@@ -74,6 +74,7 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 | FAIL-63b  | `discord-ui`     | There is no status message until `discord-ui` delivers it, so the give-up message has none to remove.                                                                                                    |
 | FAIL-114b | `apply`          | Whether the exit before the daemon's start was unclean comes from the boot counter (IMG-89 to IMG-92), which the `apply` slice delivers.                                                                 |
 | FAIL-157b | `skills-mcp`     | The expired MCP login line of FAIL-170 arrives with the `skills-mcp` slice.                                                                                                                              |
+| STO-110   | `backup`         | The prune job whose runs leave the request and reply arrives with the `backup` slice.                                                                                                                    |
 
 ## Stopped rules
 

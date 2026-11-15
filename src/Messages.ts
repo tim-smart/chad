@@ -431,6 +431,17 @@ export const fileSkipped = (name: string, bytes: number) =>
 export const diskLow = (bytes: number) =>
   `The data volume has ${megabytes(bytes)} free.`
 
+/** chad's reply when the owner's message could not be saved because the data volume is full (FAIL-136, FAIL-219). */
+export const diskFull =
+  "The data volume is full, so I stopped. Free some space and send that again."
+
+/**
+ * The answer to every owner message, and the notice at boot, while the database cannot be opened or migrated (FAIL-148,
+ * FAIL-149). "Problems" shows the same text.
+ */
+export const databaseUnusable = (error: string) =>
+  `chad's database can't be used: ${error}. Sessions are off until it is fixed. \`chad status\` has the detail.`
+
 /**
  * The line "Problems" prints for a table key: the row's text, and when chad recorded the condition as holding, in UTC
  * to the second (FAIL-320, FAIL-336).

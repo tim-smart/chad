@@ -652,6 +652,7 @@ chad enters no special mode when the disk fills. Each event is tried, and the ru
 - **FAIL-222** Withdrawn.
 - **FAIL-223** Withdrawn.
 - **FAIL-224** Withdrawn.
+- **FAIL-340** The 1 GB of the free space check (FAIL-134) is 1024³ bytes, the binary unit in which the `disk-low` notice gives its megabytes.
 
 What cluster does there, from a run on `SingleRunner` over SQLite with a real "database or disk is full" error forced by a page cap.
 
@@ -674,6 +675,7 @@ Two detections stand next to each other, and each has its own outcome.
 - **FAIL-226** A boot that opens and migrates the database removes `state/db-unusable`.
 - **FAIL-227** Only when `state/db-unusable` cannot be written does chad fall back to sending the notice once per boot.
 - **FAIL-228** While the database is unusable chad sends only the database notice. Every other live key shows under "Problems" and sends no notice, because no row can record that a notice was sent and every boot would otherwise send every held notice again.
+- **FAIL-339** While the database is unusable, an owner's message gets the answer of FAIL-148 when it is in a direct message or mentions chad, and a mention in a plain channel is answered there without opening a thread. A message in a thread that does not mention chad gets no answer, because which threads are sessions is recorded in the database.
 
 ## Notices outside a turn
 
@@ -1173,3 +1175,5 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-336 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-337 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-338 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
+| FAIL-339 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
+| FAIL-340 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |

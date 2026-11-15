@@ -22,6 +22,7 @@ import type { SqlClient } from "effect/sql"
 import * as StoredConnections from "../Connections.ts"
 import * as Lock from "../Lock.ts"
 import * as Messages from "../Messages.ts"
+import * as Paths from "../Paths.ts"
 import { Timings } from "../Timings.ts"
 import { version } from "../Version.ts"
 import type { Connection } from "./Connection.ts"
@@ -33,6 +34,8 @@ import * as Handler from "./Handler.ts"
 import * as Logger from "./Logger.ts"
 import * as Model from "./Model.ts"
 import * as Notices from "./Notices.ts"
+import * as Disk from "./Disk.ts"
+import * as Unusable from "./Unusable.ts"
 import * as Queue from "./Queue.ts"
 import * as Server from "./Server.ts"
 import * as SessionEntity from "./SessionEntity.ts"
@@ -180,21 +183,32 @@ const boot = Effect.fnUntraced(function* (
     ),
     scope,
   )
-  const base = Context.merge(
-    world,
-    yield* Layer.buildWithScope(Storage.layer(volume), scope),
-  )
 
-  // Step 6. The guard runs before the migrations, so a boot it refuses changes nothing in the database.
-  const changed = yield* Storage.guard.pipe(
-    Effect.as(Option.none<Storage.ShardCountChanged>()),
+  // Steps 6 to 8. The guard runs before the migrations, so a boot it refuses changes nothing in the database. A
+  // database that cannot be opened or migrated for any other reason keeps chad up without sessions (STO-117).
+  const opened = yield* Effect.gen(function* () {
+    const base = Context.merge(
+      world,
+      yield* Layer.buildWithScope(Storage.layer(volume), scope),
+    )
+    yield* Storage.guard.pipe(Effect.provide(base))
+    state.phase = "database"
+    yield* Storage.known.pipe(Effect.provide(base))
+    const migrated = yield* Storage.migrate.pipe(Effect.provide(base))
+    return { base, migrated }
+  }).pipe(
+    Effect.map((value) => ({ _tag: "Opened" as const, ...value })),
     Effect.catchTag("ShardCountChanged", (error) =>
-      Effect.succeed(Option.some(error)),
+      Effect.succeed({ _tag: "Changed" as const, error }),
     ),
-    Effect.provide(base),
+    Effect.catchCause((cause) =>
+      Cause.hasInterruptsOnly(cause)
+        ? Effect.failCause(cause)
+        : Effect.succeed({ _tag: "Unusable" as const, cause }),
+    ),
   )
-  if (Option.isSome(changed)) {
-    const { stored, now } = changed.value
+  if (opened._tag === "Changed") {
+    const { stored, now } = opened.error
     yield* Logger.event(
       "boot.refused",
       Messages.shardCountChanged(stored, now),
@@ -202,15 +216,37 @@ const boot = Effect.fnUntraced(function* (
     )
     return 1
   }
-
-  // Steps 7 and 8.
-  state.phase = "database"
-  const migrated = yield* Storage.migrate.pipe(Effect.provide(base))
+  if (opened._tag === "Unusable") {
+    yield* Unusable.run({
+      inputs,
+      volume,
+      state,
+      stored: stored.value,
+      world,
+      cause: opened.cause,
+    })
+    state.phase = "ready"
+    yield* Logger.event("boot.ready", "chad is ready", {
+      duration_ms: Date.now() - started,
+      connections: stored.value.length,
+      database: "unusable",
+    })
+    return yield* Effect.never
+  }
+  const { base, migrated } = opened
   if (migrated.length > 0) {
     yield* Logger.event("database.migrated", "The database was migrated", {
       migrations: migrated.map(([id, name]) => `${id}_${name}`).join(","),
     })
   }
+  // The database is usable again, so a later time it is not sends its notice again (FAIL-226, STO-186).
+  yield* fs
+    .remove(Paths.dbUnusable(volume.data), { force: true })
+    .pipe(
+      Effect.catchCause((cause) =>
+        Effect.logWarning("state/db-unusable could not be removed", cause),
+      ),
+    )
   yield* fs.writeFileString(volume.version, version + "\n")
   // "Recent" reads the `turns` table from here on. "Today" is the day in the daemon's own timezone until the owner
   // can set one (FAIL-334).
@@ -250,6 +286,7 @@ const boot = Effect.fnUntraced(function* (
   }).pipe(Effect.provideContext(base))
   state.problems.push(notices.problems)
   state.held = notices.held
+  yield* Disk.start(volume.data, inputs.timings.freeSpaceInterval, notices)
   // Cluster deletes a completed request of a session once it is a day old. The `turns` row is what is left of it.
   const retention = MessageRetention.make({
     entity: SessionEntity.Session,

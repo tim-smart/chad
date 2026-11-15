@@ -38,6 +38,10 @@ export const logFiles = (data: string): ReadonlyArray<string> => [
 export const noticeThread = (data: string): string =>
   join(data, "state/notice-thread")
 
+/** The mark that the unusable database's notice was sent, so that a restart does not send it again (STO-186, FAIL-225). */
+export const dbUnusable = (data: string): string =>
+  join(data, "state/db-unusable")
+
 /** The file that holds the chad version that last wrote the volume. */
 export const version = (data: string): string => join(data, "state/version")
 

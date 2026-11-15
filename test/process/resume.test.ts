@@ -195,7 +195,7 @@ test("SES-161 SES-101 STO-207 a kill after a compaction took the turn's prompt o
   expect(await posted(running, thread)).toEqual(["finished"])
 }, 20_000)
 
-test("SES-152 SES-153 SES-205 a stored request that the next start cannot decode ends failed with Internal and the failed-turn message at once, counts no start, runs no model and is answered, so it is not tried again", async () => {
+test("SES-152 SES-153 SES-205 TST-182 a stored request that the next start cannot decode ends failed with Internal and the failed-turn message at once, counts no start, runs no model and is answered, so it is not tried again", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([{ text: "never sent", hold: true }])
@@ -232,4 +232,6 @@ test("SES-152 SES-153 SES-205 a stored request that the next start cannot decode
     running,
     "SELECT 1 FROM cluster_replies r JOIN cluster_messages m ON m.id = r.request_id WHERE m.tag = 'message'",
   )
+  // The boot went on past the request it could not decode.
+  await lines(running, "boot.ready", 2)
 }, 20_000)

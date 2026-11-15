@@ -101,7 +101,7 @@ export const read = Effect.fnUntraced(function* (options: {
     // session's directory is resolved already, also when CHAD_DATA is relative.
     const inbox = join(options.directory, "inbox")
     const path = join(inbox, inboxName(message.id, attachment.name))
-    // A save that fails is a defect for now. What a full disk does to a turn is the failures slice's to say.
+    // A save that fails is a defect, so the turn fails as `Internal`, on a full disk too (FAIL-135).
     yield* fs
       .makeDirectory(inbox, { recursive: true })
       .pipe(Effect.andThen(fs.writeFile(path, bytes)), Effect.orDie)

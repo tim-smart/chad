@@ -37,6 +37,7 @@ import * as Messages from "../Messages.ts"
 import { Timings } from "../Timings.ts"
 import * as Attachments from "./Attachments.ts"
 import { Chats, type ChatService } from "./Chats.ts"
+import * as Disk from "./Disk.ts"
 import * as Failed from "./Failed.ts"
 import * as Logger from "./Logger.ts"
 import * as Queue from "./Queue.ts"
@@ -703,6 +704,15 @@ export const layer = Layer.unwrap(
           Effect.fnUntraced(function* (cause: Cause.Cause<unknown>) {
             const at = Date.now()
             const reason = Failed.classify(cause)
+            // A full volume is no special mode: the turn fails as `Internal`, and the log says why (FAIL-135, FAIL-281).
+            if (Disk.isFull(cause)) {
+              yield* Logger.event(
+                "disk.full",
+                "A write failed because the data volume is full",
+                { connection },
+                cause,
+              )
+            }
             const session = own.live?.id
             yield* Sessions.ended({
               key: turn.key,
