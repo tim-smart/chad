@@ -26,7 +26,7 @@ import * as Discord from "./discord.ts"
 import { type Own, start } from "./entry.ts"
 import { factor } from "./factor.ts"
 import * as Fakes from "./fakes.ts"
-import { httpClient } from "./http.ts"
+import { httpClient, webSocketConstructor } from "./http.ts"
 import * as Model from "./model.ts"
 import * as Platform from "./platform.ts"
 
@@ -71,6 +71,12 @@ export interface Options {
   readonly loading?: Promise<void>
   /** The session idle time or the message retention of this daemon, in place of the scaled length (TST-212). */
   readonly timings?: Own
+  /**
+   * A Codex token the fake model server issued, stored on the volume before the daemon starts as a login with the CLI
+   * leaves it, but readable by others, as the store writes it under a umask of 022. `expired` stores one whose access
+   * token has expired and whose refresh is good. No real login is used.
+   */
+  readonly codex?: "token" | "expired"
 }
 
 export interface Scenario {
@@ -92,6 +98,10 @@ export interface Scenario {
   }
   /** The URL of every request the daemon has made through the `HttpClient` it was given. */
   readonly requests: () => ReadonlyArray<string>
+  /** The fake model server itself, for its Codex side and the check at start, which the fakes' interface does not name. */
+  readonly model: Model.FakeModel
+  /** The Codex token of `Options.codex`, as it was stored. */
+  readonly token: Model.StoredToken | undefined
   /** The lines the daemon has logged so far. */
   readonly log: () => ReadonlyArray<LogLine>
   /** Waits for a log line with the event name, and gives the first one that passes `where`. */
@@ -230,6 +240,17 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
     )
 
   const model = await Model.start()
+  const token =
+    options.codex === undefined
+      ? undefined
+      : model.token({ expired: options.codex === "expired" })
+  if (token !== undefined) {
+    const auth = join(data, "secrets", "auth")
+    mkdirSync(auth, { recursive: true, mode: 0o755 })
+    writeFileSync(join(auth, Model.tokenFileName), JSON.stringify(token), {
+      mode: 0o644,
+    })
+  }
   const scope = Effect.runSync(Scope.make())
   const platform = await Effect.runPromise(
     Platform.make(record).pipe(Scope.provide(scope)),
@@ -286,13 +307,20 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
             )
       },
       httpClient: client,
-      // The one WebSocket a daemon opens so far is the gateway's. A Codex model's arrives with its slice.
-      webSocketConstructor: discord.gateway.layer,
+      // The gateway's sockets go to the scripted gateway and a Codex model's to the fake model server.
+      webSocketConstructor: webSocketConstructor(
+        model.socket,
+        discord.gateway.layer,
+      ),
     },
     options.timings,
   )
   for (const [name, value] of saved) set(name, value)
-  void exit.then((code) => record("daemon", { state: "ended", code }))
+  // A later scenario on the same directory stops this daemon too, since the stop reaches every daemon of the process,
+  // and it may have removed the directory before this one has ended.
+  void exit.then((code) => {
+    if (existsSync(directory)) record("daemon", { state: "ended", code })
+  })
 
   const log = (): ReadonlyArray<LogLine> => {
     try {
@@ -365,6 +393,8 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
     click: platform.click,
     discord,
     requests: () => requests,
+    model,
+    token,
     log,
     logged,
     exit,

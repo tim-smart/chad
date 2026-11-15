@@ -21,15 +21,11 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 
 | Rule      | Slice            | Reason                                                                                                                                                                                   |
 | --------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| SES-96b   | `models`         | chad sends the session id as `prompt_cache_key` and `session-id` only on a Codex login or with `openai` (OV-34), and the `models` slice delivers both; `openai-compat` sends neither.    |
 | SES-69b   | `plugin-api`     | `afterTurn` is a plugin hook, which the `plugin-api` slice delivers.                                                                                                                     |
-| SES-116b  | `models`         | The summarizer override is a setting of the `models` slice.                                                                                                                              |
-| MOD-14b   | `models`         | The summarizer override is a setting of the `models` slice.                                                                                                                              |
 | CLI-138b  | `apply`          | `/safe` arrives with the `apply` slice.                                                                                                                                                  |
 | CLI-138c  | `models`         | `/model` arrives with the `models` slice.                                                                                                                                                |
 | CLI-138d  | `settings`       | The `/secret` forms arrive with the `settings` slice.                                                                                                                                    |
 | CLI-141b  | `apply`          | The route goes through `/safe on`, which the `apply` slice delivers.                                                                                                                     |
-| MOD-11b   | `models`         | The stored override is the file `state/model`, which the `models` slice delivers.                                                                                                        |
 | IMG-85b   | `skills-mcp`     | The cut is made by the stop's 60 second deadline (IMG-82) and its line by the synchronous `stop.cut` write (IMG-139), which the `skills-mcp` slice delivers.                             |
 | IMG-88    | `backup`         | Two of the table's rows rest on later slices: the stop cut by its deadline on `skills-mcp`, and the `state/version` check (IMG-39) on `backup`.                                          |
 | STO-28b   | `backup`         | `chad backup` and `chad restore`, which hold the lock for the whole copy, arrive with the `backup` slice.                                                                                |

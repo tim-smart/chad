@@ -4,7 +4,7 @@ import { Effect } from "effect"
 import { expect, test } from "vitest"
 import { query } from "../support/database.ts"
 import { owner, type Scenario, scenario } from "../support/driver.ts"
-import { posted } from "../support/owner.ts"
+import { eventually, posted } from "../support/owner.ts"
 
 /** An owner's message, delivered to the daemon. */
 const ask = async (
@@ -36,9 +36,15 @@ test("TST-164 TST-203 TST-34 TST-35 MOD-4 MOD-8 MOD-11a MOD-73 a message in and 
   expect(call?.headers["authorization"]).toBe("Bearer fake-key")
   expect(call?.body).toMatchObject({ model: "fake" })
   expect(JSON.stringify(call?.body)).toContain("hello")
-  // The one request the daemon made went through the client it was given.
-  expect(running.requests()).toHaveLength(1)
-  expect(running.requests()[0]).toMatch(/\/v1\/chat\/completions$/)
+  // The two requests the daemon made, the check at start's and the turn's, went through the client it was given.
+  const requests = await eventually(
+    () => running.requests(),
+    (all) => all.length >= 2,
+  )
+  expect(requests).toHaveLength(2)
+  for (const url of requests) {
+    expect(url).toMatch(/\/v1\/chat\/completions$/)
+  }
 })
 
 test("MOD-98 an openai-compat request carries neither prompt_cache_key nor a session-id header", async () => {
@@ -227,8 +233,8 @@ test("TST-203 two daemons, one after another in one process, each read their own
 })
 
 test("FAIL-4 FAIL-5 FAIL-6 a line of chad's own has one message, the fixed annotation keys and no span", async () => {
-  // With no model set the turn fails, which is the one line of this slice that belongs to a session.
-  const running = await scenario({ env: { CHAD_MODEL: undefined } })
+  // A model chad refuses fails the turn, which is the one line of this slice that belongs to a session.
+  const running = await scenario({ env: { CHAD_MODEL: "claude/opus" } })
   const { fakes, data } = running
   const thread = await fakes.chat.makeThread("direct")
   await ask(running, thread, "hello")

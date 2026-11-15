@@ -42,6 +42,20 @@ export const noticeThread = (data: string): string =>
 export const dbUnusable = (data: string): string =>
   join(data, "state/db-unusable")
 
+/** The stored model override, one line of plain text (STO-142, MOD-12). */
+export const model = (data: string): string => join(data, "state/model")
+
+/** The stored sub-agent model override, beside the main one (STO-143, MOD-80). */
+export const subagentModel = (data: string): string =>
+  join(data, "state/subagent-model")
+
+/** The stored summarizer model override, beside the main one (STO-143, MOD-80). */
+export const summarizerModel = (data: string): string =>
+  join(data, "state/summarizer-model")
+
+/** The token store of the model logins, which the CLI writes with no daemon as well (STO-11, MOD-66). */
+export const auth = (data: string): string => join(data, "secrets/auth")
+
 /** The file that holds the chad version that last wrote the volume. */
 export const version = (data: string): string => join(data, "state/version")
 

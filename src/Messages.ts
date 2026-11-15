@@ -521,3 +521,31 @@ export const promptFileSkipped = (name: string, bytes: number) =>
 
 export const promptFileFailed = (name: string) =>
   `The owner attached the file ${name}. It could not be downloaded and was not saved.`
+
+/** A model setting that is not `<provider>/<model>[/<effort>]` with a provider clanka knows (MOD-8, MOD-G27). */
+export const modelUnparsable = (text: string) =>
+  `The model setting \`${text}\` is not <provider>/<model>[/<effort>] with a provider chad knows.`
+
+/** The provider `claude`, which chad refuses (MOD-5). */
+export const modelClaudeRefused =
+  "chad does not run the provider claude, because clanka reaches Claude only through an installed Claude Code, which chad does not ship. Reach Claude through an OpenAI-compatible gateway with openai-compat/<model>."
+
+/** `openai-compat` with no endpoint (MOD-4, MOD-G27). */
+export const modelCompatNoUrl =
+  "The provider openai-compat needs CHAD_OPENAI_API_URL."
+
+/** An override that names another provider than the main model (MOD-81). */
+export const modelOverrideProvider = (text: string, provider: string) =>
+  `The override \`${text}\` names another provider than the main model, which runs on ${provider}.`
+
+export { modelTrial } from "./Trial.ts"
+
+/** A check or a trial request that had no answer by its deadline (MOD-88). */
+export const modelTrialTimedOut = "no answer within the deadline"
+
+/** One model's sentence of the `model-check-failed` notice (MOD-25, FAIL-168). */
+export const modelCheckFailed = (spec: string, error: string) =>
+  `The model \`${spec}\` failed its check at start (${error}). If turns fail, set another with \`/model\`.`
+
+/** A model call needed a Codex login while chad has none and cannot post a code for one (MOD-2). */
+export const loginUnavailable = "chad is not logged in to Codex."

@@ -2,6 +2,7 @@ import { dirname } from "node:path"
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Agent from "clanka/Agent"
+import { CodexAuth } from "clanka/CodexAuth"
 import {
   Cause,
   Context,
@@ -23,6 +24,7 @@ import * as StoredConnections from "../Connections.ts"
 import * as Lock from "../Lock.ts"
 import * as Messages from "../Messages.ts"
 import * as Paths from "../Paths.ts"
+import * as TokenStore from "../TokenStore.ts"
 import { Timings } from "../Timings.ts"
 import { version } from "../Version.ts"
 import type { Connection } from "./Connection.ts"
@@ -32,6 +34,7 @@ import * as Chats from "./Chats.ts"
 import * as Filesystem from "./Filesystem.ts"
 import * as Handler from "./Handler.ts"
 import * as Logger from "./Logger.ts"
+import * as Login from "./Login.ts"
 import * as Model from "./Model.ts"
 import * as Notices from "./Notices.ts"
 import * as Disk from "./Disk.ts"
@@ -264,9 +267,25 @@ const boot = Effect.fnUntraced(function* (
 
   // Step 9.
   state.phase = "loading"
-  const model = Model.layer(environment).pipe(
-    Option.map(Layer.provide(inputs.httpClient)),
+  // The token store and the one Codex login of the process, which every session's model layer is built over. clanka's
+  // login reads the stored token once, as it is built (MOD-26, MOD-66).
+  const tokens = yield* Layer.buildWithScope(
+    TokenStore.layer(volume.data),
+    scope,
+  ).pipe(Effect.provide(world), Effect.orDie)
+  const logins = yield* Layer.buildWithScope(
+    CodexAuth.layer.pipe(
+      Layer.provide(Login.client),
+      Layer.provideMerge(Login.handler),
+    ),
+    scope,
+  ).pipe(Effect.provide(Context.merge(world, tokens)))
+  const requirements = Context.mergeAll(world, tokens, logins)
+  const settings = yield* Model.read(volume.data, environment).pipe(
+    Effect.provide(world),
+    Effect.orDie,
   )
+  const models = Model.make(settings, environment, requirements)
   const cluster = SingleRunner.layer({
     shardingConfig: {
       shardsPerGroup: Storage.shards,
@@ -305,13 +324,7 @@ const boot = Effect.fnUntraced(function* (
       Layer.provideMerge(cluster),
       Layer.provideMerge(
         Layer.mergeAll(
-          Layer.succeed(
-            SessionEntity.Model,
-            Option.map(model, (layer) => ({
-              name: environment.model ?? "",
-              layer,
-            })),
-          ),
+          Layer.succeed(Model.Models, models),
           Layer.succeed(SessionEntity.Stopping, {
             stopping: () => state.phase === "stopping",
           }),
@@ -343,6 +356,14 @@ const boot = Effect.fnUntraced(function* (
     duration_ms: Date.now() - started,
     connections: stored.value.length,
   })
+  // The check at start runs once chad is connected, and nothing waits for it (MOD-95).
+  yield* Model.check({
+    settings,
+    endpoint: environment,
+    requirements,
+    deadline: inputs.timings.modelTrial,
+    notices,
+  }).pipe(Effect.forkIn(scope))
   return yield* Effect.never
 })
 

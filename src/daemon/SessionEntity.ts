@@ -3,7 +3,6 @@ import { resolve } from "node:path"
 import * as Agent from "clanka/Agent"
 import * as AgentExecutor from "clanka/AgentExecutor"
 import type { TaskHandle } from "clanka/AgentTools"
-import * as Compaction from "clanka/Compaction"
 import {
   Cause,
   Context,
@@ -20,7 +19,6 @@ import {
   Scope,
   Stream,
 } from "effect"
-import type { LanguageModel, Model as AiModel } from "effect/ai"
 import { Prompt } from "effect/ai"
 import { ChatEvent, ChatMessage, ChatThread } from "effect/chat"
 import { ClusterSchema, Entity, type Sharding } from "effect/cluster"
@@ -34,6 +32,7 @@ import * as Disk from "./Disk.ts"
 import * as Failed from "./Failed.ts"
 import type { Format } from "./Format.ts"
 import * as Logger from "./Logger.ts"
+import * as Model from "./Model.ts"
 import * as Post from "./Post.ts"
 import * as Queue from "./Queue.ts"
 import * as Sessions from "./Sessions.ts"
@@ -126,17 +125,6 @@ export const Session = Entity.make("Session", [
   }),
 ])
 
-/** The model a turn runs on, when the environment names one: the setting as it was given, and its layer. */
-export class Model extends Context.Service<
-  Model,
-  Option.Option<{
-    readonly name: string
-    readonly layer: Layer.Layer<
-      LanguageModel.LanguageModel | AiModel.ProviderName | AiModel.ModelName
-    >
-  }>
->()("chad/SessionEntity/Model") {}
-
 /**
  * Whether the daemon is stopping. A request that would start a turn in the wait of a graceful stop starts none, and is
  * left for the next start (SES-201).
@@ -172,6 +160,17 @@ interface Live {
   unsaved: boolean
   /** Where the running turn's steps put their lines, which the executor reads for a script (DIS-24). */
   readonly view: { lines: StatusMessage.Lines }
+  /**
+   * The session's model layer, built once for a generation of the settings and kept in a scope of its own, so that a
+   * new one replaces it only when the model or the login changed (MOD-30).
+   */
+  model:
+    | {
+        readonly generation: number
+        readonly scope: Scope.Closeable
+        readonly context: Context.Context<Model.Provided>
+      }
+    | undefined
 }
 
 /** An owner's message that waits to steer the running turn. */
@@ -245,7 +244,7 @@ export const layer = Layer.unwrap(
         const thread = Option.getOrThrow(ChatThread.fromString(key))
         const scope = yield* Effect.scope
         const volume = yield* Volume
-        const model = yield* Model
+        const models = yield* Model.Models
         const chats = yield* Chats
         const fs = yield* FileSystem.FileSystem
         const services = yield* Effect.context<
@@ -535,6 +534,7 @@ export const layer = Layer.unwrap(
                 : { system: row.system, fingerprint: row.fingerprint },
             unsaved: false,
             view,
+            model: undefined,
           }
           return live
         })
@@ -729,7 +729,10 @@ export const layer = Layer.unwrap(
           )
         }, Effect.scoped)
 
-        /** The model's part with its model, and with clanka's summarizer on the same one. */
+        /**
+         * The model's part on the session's model layer. The token check comes first, then the layer is built when the
+         * session has none for the settings in force (SES-56, MOD-30).
+         */
         const ask = Effect.fnUntraced(function* (
           live: Live,
           turn: Turn,
@@ -737,14 +740,20 @@ export const layer = Layer.unwrap(
           chat: ChatService,
           format: Format,
         ) {
-          const chosen = yield* Effect.fromOption(model)
+          const prepared = yield* models.prepare(live.id)
+          if (live.model?.generation !== prepared.generation) {
+            if (live.model !== undefined) {
+              yield* Scope.close(live.model.scope, Exit.void)
+            }
+            const scope = yield* Scope.fork(live.scope)
+            live.model = {
+              generation: prepared.generation,
+              scope,
+              context: yield* Layer.buildWithScope(prepared.layer, scope),
+            }
+          }
           return yield* converse(live, turn, request, chat, format).pipe(
-            Effect.provide(
-              Layer.merge(
-                chosen.layer,
-                Compaction.layerSummarizerModel(chosen.layer),
-              ),
-            ),
+            Effect.provide(live.model.context),
           )
         })
 
@@ -922,7 +931,7 @@ export const layer = Layer.unwrap(
                 key: turn.key,
                 turn: turn.id,
                 session,
-                model: Option.getOrUndefined(model)?.name,
+                model: Model.text(models.settings()),
                 at: turn.at,
               })
               turn.id = started.turn
