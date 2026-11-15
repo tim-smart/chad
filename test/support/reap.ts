@@ -1,14 +1,20 @@
-// What the process driver knows of the processes a scenario started (TST-87). A session's background process leaves
-// its daemon's process group and is handed to init when the daemon dies, and it may run with an environment it chose,
-// so the driver keeps three records: every descendant of a daemon that the process table showed while the daemon
-// lived, the process groups those descendants lead, and, where `/proc` exists, the mark each start's environment
-// carries. It reads the table with `ps`, which Linux and macOS both have, and a table it cannot read fails the
-// scenario rather than counting as empty.
+// What the process driver knows of the processes a scenario started. A session's background process leaves its
+// daemon's process group and is handed to init when the daemon dies, and it may run with an environment it chose, so
+// the driver records every descendant of a daemon that the process table shows while it can see one, with its start
+// time, and reads the scenario's environment mark where `/proc` exists. It reads the table with `ps`, which Linux and
+// macOS both have.
+//
+// A process counts as the scenario's only while the table shows it with the pid and the start time it was recorded
+// with. A process group counts only while one of those processes is in it, because a group's id is not given to
+// another group while a process is left in it, and a process that joined such a group is recorded too. A number alone
+// is never taken as ownership. This is best effort: a background process whose parent ends between two looks, and
+// which drops the mark or runs where `/proc` does not exist, is never seen (TST-87 is on the stopped list for it).
+// A look that fails is kept and fails the scenario, and never stops a daemon's own handle from being signalled.
 import { execFile, spawnSync } from "node:child_process"
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 
 /** One line of the process table. */
-interface Row {
+export interface Row {
   readonly pid: number
   readonly ppid: number
   readonly pgid: number
@@ -20,7 +26,7 @@ interface Row {
 const columns = ["-o", "pid=,ppid=,pgid=,stat=,lstart="]
 const env = { ...process.env, LC_ALL: "C" }
 
-const parse = (text: string): ReadonlyArray<Row> =>
+export const parse = (text: string): ReadonlyArray<Row> =>
   text
     .split("\n")
     .filter((line) => line.trim() !== "")
@@ -36,7 +42,7 @@ const parse = (text: string): ReadonlyArray<Row> =>
     })
 
 /** The whole process table. */
-const table = (): ReadonlyArray<Row> => {
+export const table = (): ReadonlyArray<Row> => {
   const ran = spawnSync("ps", ["-A", ...columns], { encoding: "utf8", env })
   if (ran.error !== undefined || ran.status !== 0) {
     throw new Error(
@@ -82,95 +88,141 @@ const marked = (directory: string): ReadonlySet<number> => {
 }
 
 export interface Tracker {
-  /** Counts a daemon's pid as a root of the scenario's processes. */
-  readonly root: (pid: number) => void
-  /** Records the descendants the process table shows now. A daemon's are read before it is killed. */
+  /** Counts a daemon as a root of the scenario's processes, while its own handle says it runs. */
+  readonly root: (pid: number, running: () => boolean) => void
+  /** Records the descendants the process table shows now. A failed look is kept for `reap`, and never thrown. */
   readonly look: () => void
-  /** Kills every recorded process and waits until none is left, failing after five seconds. */
+  /**
+   * Kills every recorded process that the table still shows as recorded, and waits until none is left. It fails with
+   * every failed look once it is done, and when one outlives the bound.
+   */
   readonly reap: (wait: () => Promise<unknown>) => Promise<void>
 }
 
-export const tracker = (directory: string): Tracker => {
-  // `lstart` is to the second and counts from the boot time, which drifts from the clock, so the bound is wide. It
-  // only keeps a process older than the scenario, with a reused pid, out of the records.
-  const since = Date.now() - 60_000
-  const roots = new Set<number>()
-  const known = new Map<number, number>()
-  const groups = new Set<number>()
-  let runner: number | undefined
+export interface Seams {
+  readonly table?: () => ReadonlyArray<Row>
+  readonly kill?: (pid: number) => void
+  readonly poll?: boolean
+  readonly bound?: number
+}
+
+const key = (row: Row) => `${row.pid}/${row.started}`
+
+export const tracker = (directory: string, seams: Seams = {}): Tracker => {
+  const read = seams.table ?? table
+  const kill =
+    seams.kill ?? ((pid: number) => void process.kill(pid, "SIGKILL"))
+  const roots = new Map<
+    number,
+    { readonly running: () => boolean; started?: number }
+  >()
+  // Each recorded process, by its pid and start time.
+  const known = new Set<string>()
+  const failures: Array<string> = []
 
   const take = (rows: ReadonlyArray<Row>, marks: ReadonlySet<number>) => {
-    runner ??= rows.find((row) => row.pid === process.pid)?.pgid
-    const children = new Map<number, Array<Row>>()
+    const runner = rows.find((row) => row.pid === process.pid)?.pgid
     for (const row of rows) {
-      const list = children.get(row.ppid) ?? []
-      list.push(row)
-      children.set(row.ppid, list)
-    }
-    const queue = rows.filter(
-      (row) =>
-        row.started >= since &&
-        (roots.has(row.pid) ||
-          known.get(row.pid) === row.started ||
-          groups.has(row.pgid) ||
-          marks.has(row.pid)),
-    )
-    for (let row = queue.pop(); row !== undefined; row = queue.pop()) {
-      if (row.pid === process.pid || row.started < since) continue
-      known.set(row.pid, row.started)
-      // The runner's own group is the daemons', and is never killed.
-      if (row.pgid !== runner) groups.add(row.pgid)
-      for (const child of children.get(row.pid) ?? []) {
-        if (known.get(child.pid) !== child.started) queue.push(child)
+      const root = roots.get(row.pid)
+      if (root !== undefined && root.started === undefined && root.running()) {
+        root.started = row.started
       }
+    }
+    const ours = (row: Row) =>
+      row.pid !== process.pid &&
+      (known.has(key(row)) || roots.get(row.pid)?.started === row.started)
+    for (const row of rows) if (marks.has(row.pid)) known.add(key(row))
+    // To a fixed point: a child of one of ours, and a process in a group that one of ours is in, are ours.
+    for (let grew = true; grew;) {
+      grew = false
+      const groups = new Set(
+        rows
+          .filter(ours)
+          .map((row) => row.pgid)
+          .filter((pgid) => pgid !== runner),
+      )
+      const parents = new Set(rows.filter(ours).map((row) => row.pid))
+      for (const row of rows) {
+        if (ours(row) || row.pid === process.pid) continue
+        if (parents.has(row.ppid) || groups.has(row.pgid)) {
+          known.add(key(row))
+          grew = true
+        }
+      }
+    }
+    // A record the table no longer shows is retired, so a later process with its pid is not taken for it.
+    const shown = new Set(rows.map(key))
+    for (const entry of known) if (!shown.has(entry)) known.delete(entry)
+  }
+
+  const look = () => {
+    try {
+      take(read(), new Set())
+    } catch (error) {
+      failures.push(String(error))
     }
   }
 
   // The table is read while the daemons run as well, for a parent that ends before a kill does.
-  const poll = setInterval(() => {
-    execFile(
-      "ps",
-      ["-A", ...columns],
-      { encoding: "utf8", env },
-      (error, out) => {
-        if (error === null) take(parse(out), new Set())
-      },
-    )
-  }, 250)
-  poll.unref()
+  const poll =
+    seams.poll === false
+      ? undefined
+      : setInterval(() => {
+          execFile(
+            "ps",
+            ["-A", ...columns],
+            { encoding: "utf8", env },
+            (error, out) => {
+              if (error === null) take(parse(out), new Set())
+              else failures.push(String(error))
+            },
+          )
+        }, 250)
+  poll?.unref()
 
   return {
-    root: (pid) => void roots.add(pid),
-    look: () => take(table(), new Set()),
+    root: (pid, running) => void roots.set(pid, { running }),
+    look,
     reap: async (wait) => {
       clearInterval(poll)
-      const left = Date.now() + 5_000
-      for (;;) {
-        const rows = table()
-        take(rows, marked(directory))
-        const living = rows.filter(
-          (row) =>
-            !row.zombie &&
-            row.pid !== process.pid &&
-            !roots.has(row.pid) &&
-            (known.get(row.pid) === row.started ||
-              (groups.has(row.pgid) && row.started >= since)),
-        )
-        if (living.length === 0) return
-        if (Date.now() > left) {
-          throw new Error(
-            `processes outlived the scenario: ${living.map((row) => row.pid).join(", ")}`,
-          )
-        }
-        for (const row of living) {
+      const left = Date.now() + (seams.bound ?? 5_000)
+      let living: ReadonlyArray<Row> = []
+      try {
+        for (;;) {
+          let rows: ReadonlyArray<Row> | undefined
           try {
-            process.kill(row.pid, "SIGKILL")
-          } catch {
-            // It ended in between.
+            rows = read()
+          } catch (error) {
+            failures.push(String(error))
           }
+          if (rows !== undefined) {
+            take(rows, marked(directory))
+            living = rows.filter(
+              (row) =>
+                !row.zombie && !roots.has(row.pid) && known.has(key(row)),
+            )
+            if (living.length === 0) break
+            for (const row of living) {
+              try {
+                kill(row.pid)
+              } catch {
+                // It ended in between.
+              }
+            }
+          }
+          if (Date.now() > left) break
+          await wait()
         }
-        await wait()
+      } finally {
+        clearInterval(poll)
       }
+      const errors = failures.splice(0)
+      if (living.length > 0) {
+        errors.push(
+          `processes outlived the scenario: ${living.map((row) => row.pid).join(", ")}`,
+        )
+      }
+      if (errors.length > 0) throw new Error(errors.join("; "))
     },
   }
 }

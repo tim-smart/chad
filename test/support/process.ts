@@ -41,6 +41,8 @@ export interface Options {
   readonly timings?: Own
   /** Starts the daemon with `--expose-gc` and a collection every 200 milliseconds (TST-105). */
   readonly gc?: boolean
+  /** Stands in for the process table the driver reads, for a scenario that makes the read fail. */
+  readonly processTable?: () => ReadonlyArray<Reap.Row>
 }
 
 /** How a child ended: its exit code, or the signal that killed it. */
@@ -182,7 +184,10 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
     log().filter((line) => line.annotations["event"] === "boot.ready").length
 
   const children: Array<Daemon> = []
-  const tracked = Reap.tracker(directory)
+  const tracked = Reap.tracker(
+    directory,
+    options.processTable === undefined ? {} : { table: options.processTable },
+  )
   const spawned: Process["spawn"] = (start = {}) => {
     const out = openSync(join(directory, "daemon.out"), "a")
     const gc = start.gc ?? options.gc ?? false
@@ -208,7 +213,12 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
       }),
     )
     record("daemon", { state: "started", pid: running.pid })
-    if (running.pid !== undefined) tracked.root(running.pid)
+    if (running.pid !== undefined) {
+      tracked.root(
+        running.pid,
+        () => running.exitCode === null && running.signalCode === null,
+      )
+    }
     // The daemon's descendants are read before a signal that can end it, while they are still its descendants.
     const signal = (name: NodeJS.Signals) => {
       if (name === "SIGKILL" || name === "SIGTERM") tracked.look()
@@ -249,8 +259,9 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
     return started
   }
 
-  // The daemons, then every process the driver recorded for the scenario (`reap.ts`), so nothing a scenario started
-  // outlives it. One that a SIGKILL does not end within the bound fails the scenario.
+  // The daemons by their own handles, then every process the driver recorded for the scenario (`reap.ts`). A look at
+  // the process table that failed, or a process that a SIGKILL does not end within the bound, fails the scenario, but
+  // only after every daemon was signalled. A second close after one that failed tries again.
   let closing: Promise<void> | undefined
   const close = () =>
     (closing ??= (async () => {
@@ -258,10 +269,10 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
       for (const running of children) {
         running.signal("SIGCONT")
         running.signal("SIGKILL")
-        await running.exit
       }
+      await Promise.all(children.map((running) => running.exit))
       await tracked.reap(wait)
-    })())
+    })().finally(() => (closing = undefined)))
 
   onTestFinished(async ({ task }) => {
     const survivors = await close().then(

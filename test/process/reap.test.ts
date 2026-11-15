@@ -6,6 +6,7 @@ import { join } from "node:path"
 import { expect, test } from "vitest"
 import { eventually, says } from "../support/owner.ts"
 import { alive, daemon } from "../support/process.ts"
+import { table } from "../support/reap.ts"
 
 test("TST-87 a background process of a session outlives a kill of its daemon, whatever its environment holds, and the end of the scenario ends it", async () => {
   const running = await daemon()
@@ -47,3 +48,20 @@ console.log(one.id, two.id)`,
   await running.close()
   expect(pids.map(alive)).toEqual([false, false])
 }, 15_000)
+
+test("TST-87 a process table that cannot be read does not keep a kill or the end of the scenario from signalling the daemon, and fails the end", async () => {
+  let broken = false
+  const running = await daemon({
+    processTable: () => {
+      if (broken) throw new Error("ps exited with 2")
+      return table()
+    },
+  })
+  const first = await running.start()
+  broken = true
+  expect(await first.kill()).toMatchObject({ signal: "SIGKILL" })
+  const second = await running.start()
+  await expect(running.close()).rejects.toThrow("ps exited with 2")
+  expect([first.pid, second.pid].map(alive)).toEqual([false, false])
+  broken = false
+}, 20_000)

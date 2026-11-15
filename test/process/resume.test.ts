@@ -1,5 +1,7 @@
 // The resumed turn and the give-up in layer 4: the daemon as a child process that a scenario kills and starts again
 // on the same volume (docs/spec/17-testing.md, TST-27). A kill point is a model response the fake holds (TST-45).
+import { join } from "node:path"
+import { DatabaseSync } from "node:sqlite"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
 import {
@@ -190,3 +192,50 @@ test("SES-161 SES-101 STO-207 a kill after a compaction took the turn's prompt o
   await fakes.chat.answers(thread, 1)
   expect(await posted(running, thread)).toEqual(["finished"])
 }, 20_000)
+
+test.each([
+  ["whose prompts carry their request key", false],
+  ["written before prompts carried a key", true],
+])(
+  "SES-161 SES-101 STO-209 a turn that a kill cut on a volume %s, after its prompt was stored, resumes after the upgrade with the restart note alone",
+  async (_, untagged) => {
+    const running = await daemon()
+    const { fakes } = running
+    await fakes.model.script([
+      {
+        tool: { name: "execute", arguments: { script: 'console.log("one")' } },
+      },
+      { text: "never sent", hold: true },
+      { text: "finished" },
+    ])
+    const first = await running.start()
+    const thread = await fakes.chat.makeThread("direct")
+    await says(running, thread, "do the thing once")
+    await fakes.model.received(2)
+    await found(running, "SELECT 1 FROM prompts")
+    await first.kill()
+
+    // The volume as a build before the prompts table left it: schema 2, with or without the key on the prompt.
+    const db = new DatabaseSync(join(running.data, "db/chad.db"))
+    db.exec(`
+      DROP TABLE prompts;
+      DROP TABLE commands;
+      DELETE FROM effect_sql_migrations WHERE migration_id > 2;
+    `)
+    if (untagged) {
+      db.exec(
+        "UPDATE session_messages SET message = json_remove(message, '$.options.chad')",
+      )
+    }
+    db.close()
+
+    await running.start()
+    const calls = await fakes.model.received(3)
+    const sent = JSON.stringify(calls[2]!.body)
+    expect(sent.split("do the thing once")).toHaveLength(2)
+    expect(prompted(calls[2])).toBe(Messages.restartNote())
+    await fakes.chat.answers(thread, 1)
+    expect(await posted(running, thread)).toEqual(["finished"])
+  },
+  20_000,
+)
