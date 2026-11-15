@@ -400,18 +400,6 @@ export const holds = Effect.fnUntraced(function* (key: string) {
 })
 
 /**
- * Whether the volume shows neither that a turn's prompt was stored nor that it was not (STO-211). Such a turn's delivery
- * starts nothing until Tim rules on it.
- */
-export const unproven = Effect.fnUntraced(function* (key: string) {
-  const sql = yield* SqlClient.SqlClient
-  const rows = yield* sql<{
-    found: number
-  }>`SELECT 1 AS found FROM unproven WHERE request_key = ${key}`
-  return rows.length > 0
-})
-
-/**
  * Records that a chat command runs, by the dedupe key of its event, and says whether it is the first time. A command
  * whose key is recorded already, in this process or before a restart, does not run again (SES-203, SES-204).
  */
@@ -427,14 +415,13 @@ export const claim = Effect.fnUntraced(function* (key: string, thread: string) {
 
 /**
  * The request of a turn that a restart cut in a thread's current session: a `turns` row that has no outcome. It takes
- * the session before any other request of the thread (SES-200). A turn in `unproven` does not (STO-211).
+ * the session before any other request of the thread (SES-200).
  */
 export const unfinished = Effect.fnUntraced(function* (thread: string) {
   const sql = yield* SqlClient.SqlClient
   const rows = yield* sql<{ request_key: string }>`
     SELECT t.request_key FROM turns t JOIN sessions s ON s.id = t.session_id
     WHERE s.thread = ${thread} AND s.ended_at IS NULL AND t.outcome IS NULL
-      AND t.request_key NOT IN (SELECT request_key FROM unproven)
     ORDER BY t.started_at LIMIT 1
   `
   return rows[0]?.request_key

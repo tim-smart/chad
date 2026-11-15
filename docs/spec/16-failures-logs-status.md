@@ -669,13 +669,13 @@ Two detections stand next to each other, and each has its own outcome.
 
 - **FAIL-146** An image that finds a `state/version` newer than its own exits 1 with the exit message that 02-storage.md gives. It holds the lock by then, so its `boot.refused` line goes to both sinks (FAIL-322), and it has touched nothing else on the volume. The message names the copy of the database that was taken before the migration.
 - **FAIL-147** A database that cannot be opened or migrated for any other reason, such as a corrupt file or a migration the image does not know in a restored file, keeps chad up without sessions. chad connects to Discord from `secrets/connections.json` (see 02-storage.md).
-- **FAIL-148** In that state chad answers every owner message with "chad's database can't be used: <error>. Sessions are off until it is fixed. `chad status` has the detail." `chad status` shows the same error.
+- **FAIL-148** In that state chad answers every owner message that is a direct message or mentions chad (FAIL-339) with "chad's database can't be used: <error>. Sessions are off until it is fixed. `chad status` has the detail." `chad status` shows the same error.
 - **FAIL-149** At boot in that state chad sends the same text, without waiting for an owner's message, to the thread recorded in `state/notice-thread` (FAIL-159). It sends it once for as long as the database stays unusable, restarts included.
 - **FAIL-225** chad writes the file `state/db-unusable` when it sends that notice, and a boot that finds the file does not send the notice again. A crash loop on an unusable database would otherwise post the same message at every restart.
 - **FAIL-226** A boot that opens and migrates the database removes `state/db-unusable`.
 - **FAIL-227** Only when `state/db-unusable` cannot be written does chad fall back to sending the notice once per boot.
 - **FAIL-228** While the database is unusable chad sends only the database notice. Every other live key shows under "Problems" and sends no notice, because no row can record that a notice was sent and every boot would otherwise send every held notice again.
-- **FAIL-339** While the database is unusable, an owner's message gets the answer of FAIL-148 when it is in a direct message or mentions chad, and a mention in a plain channel is answered there without opening a thread. A message in a thread that does not mention chad gets no answer, because which threads are sessions is recorded in the database.
+- **FAIL-339** While the database is unusable, an owner's message gets the answer of FAIL-148 when it is in a direct message or mentions chad, and a mention in a plain channel is answered there without opening a thread. A message that does not mention chad, in a thread or in a plain channel, gets no answer, because which threads are sessions is recorded in the database.
 
 ## Notices outside a turn
 
@@ -984,7 +984,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-145 | TIM-557 item 34, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | FAIL-146 | TIM-541 item 14, TIM-557 item 35, TIM-559 round 3 on IMG-G19 and STO-G28; TIM-559 cold read, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | FAIL-147 | TIM-536 item 14, TIM-557 item 35, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim | not run | TIM-541, TIM-557 | `rule` | `failures` |
-| FAIL-148 | TIM-536 item 14, wording from TIM-557 item 35 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| FAIL-148 | TIM-536 item 14, wording from TIM-557 item 35, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-149 | TIM-557 items 35 and 38, amended by TIM-559 ruling on FAIL-G20 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-150 | TIM-557 item 36 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | FAIL-151 | TIM-557 item 36 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
@@ -1175,7 +1175,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-336 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-337 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-338 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
-| FAIL-339 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
+| FAIL-339 | Build, stage 2, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-340 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-341 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-342 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |

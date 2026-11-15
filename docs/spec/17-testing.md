@@ -148,7 +148,7 @@ The product carries no test code. Three seams make that possible. The daemon is 
 - **TST-43** If the archive of the Codex login prototype does not hold the server's frames, the first recording is made on Tim's login, in the `models` slice, when the fake's Codex side is written.
 - **TST-44** The image layer stays on `openai-compat`. The shipped binary cannot be pointed at a fake Codex host, and chad gets no test certificate authority and no host entries to make that possible.
 - **TST-45** A kill point is made by holding something outside the core, which is a model response, a fixture plugin's hook or an MCP server. The daemon gets no pause points.
-- **TST-213** The test of SES-20 provokes its defect with a fixture plugin's hook that dies, because clanka contains every fake model response tried for it: an unknown tool, arguments that are not an object, a failed call, and a script that throws `null`, leaves a rejection unhandled or completes with a circular value.
+- **TST-213** Withdrawn.
 - **TST-46** Layers 3 and 4 import the built package from `dist`, not chad's source through vite. A plugin's imports are answered by the host's `require`, so source loaded through vite could give a plugin a second copy of `chad/Plugin`.
 - **TST-47** One layer 3 scenario asserts that the running daemon holds one copy of `chad` and one copy of `effect`.
 
@@ -290,7 +290,7 @@ These rules come from traps the prototypes hit. Forty scenarios started at once 
 - **TST-84** Scenarios assert on the chat transcript, CLI output, `chad db query` and named log events. They never assert on internals or on message text, and they refer to a message by its name in the `Messages` module of TST-90.
 - **TST-85** A scenario that depends on an order states the order in the test. The check that a removed plugin's queued hook is dropped and logged holds the first hook open until the plugin is removed (see 08-apply-and-swap.md).
 - **TST-86** Each scenario's volume sits under a short path, because a runner's temporary path is long and a unix socket path holds at most 107 bytes on Linux and 103 bytes on macOS.
-- **TST-87** The driver kills its process group at the end of a scenario, and fails the scenario if a daemon or an MCP child process outlives it.
+- **TST-87** The driver kills its process group at the end of a scenario, and fails the scenario if a daemon or an MCP child process outlives it. It also ends every other process it recorded for the scenario, such as a session's background job that left the group. That part is best effort, because an unprivileged driver cannot find a process that left the group, dropped the scenario's mark and lost its parent.
 - **TST-189** The driver of the process scenarios points the daemon at a temporary directory with `CHAD_DATA`, and sets `HOME`, the npm prefix and the cache directory to paths inside that directory. `CHAD_DATA` moves none of the three, so without this a `bash` command in a scripted turn would write into the developer's home (see 01-image-and-volume.md for the variables).
 
 ## Checks on skills, messages and closed lists
@@ -634,7 +634,7 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-84 | TIM-558 item 30, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-85 | TIM-558 item 30, TIM-553 comment on TIM-552, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-86 | TIM-558 item 30, amended by TIM-559 round 2 R5, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
-| TST-87 | TIM-558 item 30, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-87 | TIM-558 item 30, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-88 | TIM-558 item 31, comment on TIM-549 item 4 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | TST-89 | TIM-558 item 32, comment on TIM-549 item 21, TIM-557 item 43 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | TST-90 | TIM-558 item 33, round 1 Q12 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
@@ -760,6 +760,6 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-210 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | TST-211 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | TST-212 | Build, stage 2 | Builder (Tim has not read) | run |  | `definition` | - |
-| TST-213 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `plugin-api` |
+| TST-213 | Build, stage 2, withdrawn by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | - |
 | TST-214 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
 | TST-215 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |

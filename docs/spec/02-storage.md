@@ -316,9 +316,9 @@ CREATE TABLE steers (
 
 - **STO-207** chad records each turn whose prompt the stored history took as one row of the table `prompts`, keyed by the turn's request key, in the same transaction as the batch that stores the prompt. A compaction that takes the prompt out of the history leaves the row, and the row is what tells a resume after a kill before the prompt was stored (SES-161) from one after it. `prompts` rows are never deleted.
 - **STO-208** chad records each chat command it runs as one row of the table `commands`, keyed by the dedupe key of the chat event that carried it, and writes the row before the command runs. `commands` rows are never deleted.
-- **STO-209** The migration after the one that adds `prompts` fills it from what a volume stored before: a row for each stored message that carries a turn's request key, and a row for each unfinished turn that has started once or more, whose session has a stored history in which no message carries a key. Such a history was written before prompts carried their key, and its prompt was stored with the rest.
-- **STO-210** The migration after STO-209's leaves a `prompts` row only where the volume shows that the turn's prompt was stored. It adds a row for each unfinished turn with recorded usage, because clanka puts a send's prompt batch on its output before any of its usage and chad stores each part before it reads the next. It removes the row of each unfinished turn that was already there when STO-209's migration ran, that has no recorded usage and whose key no stored message carries. Such a turn resumes as one whose prompt was not stored (SES-161), and the restart note asks the model to check before it repeats anything.
-- **STO-211** The migration after STO-210's records in the table `unproven`, by request key, each unfinished turn whose prompt the volume shows neither as stored nor as never stored: one that started before the second after STO-209's migration ran, with no recorded usage and whose key no stored message carries. STO-210's migration took the `prompts` row of each such turn that had one, and a row STO-207 wrote with the prompt looks the same there as one STO-209 inferred. The delivery of a turn in `unproven` stays unanswered and starts nothing: no start is counted, the model is not called, nothing is posted, and it does not take its session before the thread's other requests (SES-200). Every other unfinished turn has a `prompts` row exactly when its prompt was stored, from a stored message that carries its key, from recorded usage, or from STO-207, and resumes by SES-161 or SES-101. Tim rules on what a turn in `unproven` does.
+- **STO-209** Withdrawn.
+- **STO-210** Withdrawn.
+- **STO-211** Withdrawn.
 
 ```sql
 CREATE TABLE prompts (
@@ -329,10 +329,6 @@ CREATE TABLE commands (
   event_key TEXT PRIMARY KEY,    -- the dedupe key of the chat event that carried the command
   thread TEXT,                   -- the thread string of the command's chat thread
   ran_at INTEGER                 -- milliseconds since the epoch
-) STRICT;
-CREATE TABLE unproven (
-  request_key TEXT PRIMARY KEY,  -- the key of the turn's request, as in turns.request_key
-  session_id TEXT                -- the turn's session
 ) STRICT;
 ```
 
@@ -481,7 +477,7 @@ The prune is the only job in chad that deletes old session data. It runs on `Clu
 A database is unusable when it cannot be opened or cannot be migrated. Safe mode cannot fix a database. The owner still needs to be told, and the chat connection does not depend on the database, so chad stays reachable.
 
 - **STO-117** When the database cannot be opened or migrated, for any reason other than the newer `state/version` of STO-48, chad stays up without sessions. A corrupt file and a database that holds a migration the image does not know (STO-41) are both this case.
-- **STO-118** In that state chad connects to Discord from `secrets/connections.json` and answers any owner message with the message below.
+- **STO-118** In that state chad connects to Discord from `secrets/connections.json` and answers any owner message that is a direct message or mentions chad (FAIL-339) with the message below.
 - **STO-136** At a boot that ends in that state chad sends the same message without waiting for an owner message, to the thread recorded in `state/notice-thread` (STO-121), unless `state/db-unusable` exists. What chad does when no thread is recorded, when the post fails or when `state/db-unusable` cannot be written is in 16-failures-logs-status.md.
 - **STO-186** chad writes `state/db-unusable` when it sends the message of STO-136, and a boot that opens and migrates the database removes the file. A crash loop on an unusable database therefore posts the message once and not at every restart.
 - **STO-119** In that state `chad status` and `/status` show the error under "Problems", and `/status` renders with no database. Its key, `database-unusable`, is a live key (STO-169), so "Problems" shows it without reading the `notices` table. See 16-failures-logs-status.md.
@@ -632,7 +628,7 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-115 | TIM-536 item 16, amended by TIM-557 items 31 and 36, TIM-559 round 3 on FAIL-G7 for the clearing levels, amended by Tim's ruling on a full disk, chat 2026-11-15 | Tim for the 1 GB threshold. Architect (Tim has not read) for the second threshold, the keys and the clearing | not run | TIM-557 | `rule` | `failures` |
 | STO-116 | TIM-536 ("How well each is supported"), TIM-557 ("Facts found before the grilling") | Tim. Architect (Tim has not read) for `bavail * bsize` | read for `statfs`, run for `bavail * bsize` |  | `rule` | `failures` |
 | STO-117 | TIM-536 item 14, amended by TIM-557 item 35 | Tim. Architect (Tim has not read) for the split from STO-48 and the two named cases | not run | TIM-541, TIM-557 | `rule` | `failures` |
-| STO-118 | TIM-536 item 14, amended by TIM-557 item 35 | Tim. Architect (Tim has not read) for the wording | not run |  | `rule` | `failures` |
+| STO-118 | TIM-536 item 14, amended by TIM-557 item 35, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Tim. Architect (Tim has not read) for the wording | not run |  | `rule` | `failures` |
 | STO-119 | TIM-536 item 14, amended by TIM-557 item 27, TIM-559 round 3 C5 | Tim. Architect (Tim has not read) for "Problems", `/status` and the live key | not run |  | `rule` | `failures` |
 | STO-120 | TIM-536 item 14, TIM-541 item 26, TIM-550 item 8, TIM-553 item 4, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim for the database. Architect (Tim has not read) for the other three | not run | TIM-541, TIM-550, TIM-553 | `rule` | - |
 | STO-121 | TIM-557 item 38, amended by TIM-559 rulings on STO-G18 and FAIL-G9, TIM-559 round 3 C4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
@@ -722,7 +718,7 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-205 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
 | STO-206 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
 | STO-207 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
-| STO-208 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
-| STO-209 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
-| STO-210 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
-| STO-211 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| STO-208 | Build, stage 2, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| STO-209 | Build, stage 2, withdrawn by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | - |
+| STO-210 | Build, stage 2, withdrawn by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | - |
+| STO-211 | Build, stage 2, withdrawn by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | - |

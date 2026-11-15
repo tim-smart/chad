@@ -86,21 +86,40 @@ test("STO-117 STO-118 STO-119 STO-136 STO-186 FAIL-147 FAIL-148 FAIL-149 FAIL-22
   expect(existsSync(join(data, "state/db-unusable"))).toBe(false)
 })
 
-test("FAIL-148 SES-29 STO-118 on an unusable database every owner message gets the error, one without a mention in a server thread or a plain channel included, and the channel opens no thread", async () => {
+test("FAIL-148 FAIL-339 SES-29 STO-118 on an unusable database an owner message without a mention gets no answer in a server thread or a plain channel, one with a mention gets the error where it was posted, and the channel opens no thread", async () => {
   const directory = fresh()
   mkdirSync(join(directory, "data/db"), { recursive: true })
   writeFileSync(
     join(directory, "data/db/chad.db"),
     "this is not a database, ".repeat(400),
   )
-  const running = await scenario({ directory })
+  const running = await scenario({
+    directory,
+    env: { CHAD_LOG_LEVEL: "debug" },
+  })
   const text = await answer(running)
   const thread = await running.fakes.chat.makeThread("thread")
   const channel = await running.fakes.chat.makeThread("channel")
   await says(running, thread, "hello")
-  expect(await running.fakes.chat.answers(thread, 1)).toMatchObject([{ text }])
   await says(running, channel, "hello")
+  await eventually(
+    () =>
+      running
+        .log()
+        .filter(
+          (line) =>
+            line.annotations["event"] === "message.ignored" &&
+            line.annotations["reason"] === "not-mentioned",
+        ),
+    (all) => all.length >= 2,
+  )
+  await says(running, thread, "hello", { mention: true })
+  await says(running, channel, "hello", { mention: true })
+  expect(await running.fakes.chat.answers(thread, 1)).toMatchObject([{ text }])
   expect(await running.fakes.chat.answers(channel, 1)).toMatchObject([{ text }])
+  // The two messages without a mention got nothing, so each place holds the one error.
+  expect(await posted(running, thread)).toEqual([text])
+  expect(await posted(running, channel)).toEqual([text])
   const opened = (await Effect.runPromise(running.chat.calls)).filter(
     (call) => call.op === "startThread",
   )

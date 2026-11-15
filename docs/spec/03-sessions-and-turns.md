@@ -33,7 +33,7 @@ chad runs sessions on effect cluster. An entity is an addressable actor that han
 - **SES-149** The entity id is the thread string `ChatThread.toString(thread)`, which on Discord is `discord:<channel id>`. effect/chat defines that form and a codec for it, and chad defines no second format.
 - **SES-150** The same thread string is the value of every stored thread column, which covers the `sessions` rows, the `timers` rows, `PluginTurn.thread` and the cron plugin's job records (see 02-storage.md, 06-plugin-api.md and 13-timers-and-cron.md).
 - **SES-185** A session answers through the chat connection its message arrived on. Each connection has its own adapter and its own `Chat` router, because effect/chat's adapter registry holds one adapter for a platform and two connections can share a platform (see 02-storage.md). The `message` request carries the name of its connection, so a reply never goes out with another connection's token.
-- **SES-14** An owner message is a persisted request to that entity. Its primary key is `ChatEvent.dedupeKey` of the event. chad has no hand-written inbox and no dedupe table.
+- **SES-14** An owner message is a persisted request to that entity. Its primary key is `ChatEvent.dedupeKey` of the event. chad has no hand-written inbox, and no dedupe table apart from `commands` (STO-208), which holds chat commands only.
 - **SES-151** The `message` request stores the whole chat message in effect/chat's own encoded form, plus the attachment ids, so that a redelivered request rebuilds `Origin.Message` without asking Discord again.
 - **SES-152** A stored request that no longer decodes ends as `Failed` with the reason `Internal` and a message in the thread. It does not block the boot and is not retried. A deploy is a graceful stop, so a cut turn is redelivered under the new image, and effect/chat's encoding can differ between two images.
 - **SES-153** What cluster does with a stored request that does not decode has not been run. A process scenario covers it (see 17-testing.md).
@@ -53,7 +53,7 @@ chad runs sessions on effect cluster. An entity is an addressable actor that han
 - **SES-26** The shard count the database was made with is kept in a database row (see 02-storage.md). A daemon configured with another count refuses to start and names both numbers, because a changed count silently strands stored requests.
 - **SES-27** Where the shard check sits in the boot and what a boot that it refuses writes are in 01-image-and-volume.md and 16-failures-logs-status.md.
 - **SES-28** Cluster's shard lock is keyed by runner address and does not stop a second daemon on the same file. The daemon lock in 10-cli.md does that.
-- **SES-29** When the database cannot be opened or migrated, for any reason other than a `state/version` newer than the image, chad stays up without sessions and answers any owner message with the error. `/status` still answers in that state (see 02-storage.md and 16-failures-logs-status.md).
+- **SES-29** When the database cannot be opened or migrated, for any reason other than a `state/version` newer than the image, chad stays up without sessions and answers any owner message that is a direct message or mentions chad (FAIL-339) with the error. `/status` still answers in that state (see 02-storage.md and 16-failures-logs-status.md).
 - **SES-126** Every duration that chad sets in this part is a default of the `Timings` service, and the shipped daemon has no setting that changes one (see 17-testing.md).
 
 The protocol below is the one the prototype ran, with its test helpers removed. The request that carries `/new` (SES-138) was not in the prototype and is not shown. `Steered` and `Dropped` are replies that only an owner message can get. The plugin API's `Outcome` has the first three tags only (see 06-plugin-api.md).
@@ -430,7 +430,7 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-11 | TIM-536 item 10, TIM-531 item 4 | Tim | read |  | `rule` | `plugin-api` |
 | SES-12 | Map "Out of scope", TIM-532 body | charting | not run |  | `definition` | - |
 | SES-13 | TIM-532 item 2, TIM-543 | Tim | run |  | `rule` | `harness` |
-| SES-14 | TIM-532 item 2 | Tim | run |  | `rule` | `harness` |
+| SES-14 | TIM-532 item 2, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Tim | run |  | `rule` | `harness` |
 | SES-15 | TIM-532 item 2, TIM-540 item 12, amended by TIM-559 ruling on API-G6 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | SES-16 | TIM-540 item 12, TIM-532 "Not settled here" | Tim | run |  | `rule` | `timers-cron` |
 | SES-17 | TIM-532 item 2 | Tim | run |  | `rule` | `harness` |
@@ -445,7 +445,7 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-26 | TIM-553 decision 4 | Architect (Tim has not read) | run | TIM-553 | `rule` | `harness` |
 | SES-27 | TIM-553 decision 4, TIM-559 cold read, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-553 | `definition` | - |
 | SES-28 | TIM-536 "How well each is supported", TIM-543 body | Tim | read |  | `fact` | `cli` |
-| SES-29 | TIM-536 item 14, amended by TIM-557 items 27 and 35 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
+| SES-29 | TIM-536 item 14, amended by TIM-557 items 27 and 35, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | SES-30 | TIM-532 item 3, map "Facts found at charting" | Tim | read |  | `rule` | `wire` |
 | SES-31 | TIM-532 item 3 | Tim | read |  | `rule` | `turns` |
 | SES-32 | TIM-532 item 3, amended by TIM-557 item 32, TIM-559 cold read | Architect (Tim has not read) | not run | TIM-557 | `rule` | `wire` |
@@ -620,5 +620,5 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-201 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | SES-202 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | SES-203 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
-| SES-204 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| SES-204 | Build, stage 2, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | SES-205 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
