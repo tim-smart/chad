@@ -57,7 +57,7 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 | `skills-mcp` | 4 | Skills, MCP servers, `chad mcp login`, and the stop's 60 second deadline, which only an MCP server can hold a stop open long enough to reach. |
 | `timers-cron` | 4 | Timers and the cron plugin. |
 | `backup` | 5 | `chad backup` and `chad restore`, the prune job, the before-migration copy. |
-| `image` | 5 | Compose, the Kubernetes manifests and the script of their checks, the arm64 build, the image size budget, the browser sidecar wiring. |
+| `image` | 5 | Compose, the Kubernetes manifests and the script of their checks, the image size budget, the browser sidecar wiring. |
 | `bundled-skills` | 5 | The `self-edit`, `credentials` and `diagnose` skills, the skill text and its checks. |
 | `asphodel` | 5 | The check that all twelve asphodel scenarios are green. Each scenario's own rules go in the earliest slice that can run it. |
 | `live` | 5 | The rest of the live layer: the Codex list, the skill runs, the release checklist, the prototype scenario table check. |
