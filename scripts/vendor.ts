@@ -1,8 +1,8 @@
-// Replaces the vendored effect tarballs as a set. A real upgrade and the weekly job both run it.
+// Replaces the vendored effect tarballs as a set. A real upgrade runs it, by hand.
 //
 //   node scripts/vendor.ts <commit>            the snapshot of one commit of the effect pull request
 //   node scripts/vendor.ts --newest            the snapshot of the pull request's newest commit
-//   node scripts/vendor.ts --newest --clanka newest   and the newest clanka from npm, which the weekly job runs
+//   node scripts/vendor.ts --newest --clanka newest   and the newest clanka from npm
 //
 // The download is no install. The tarballs are written under vendor/, and the install that follows reads them from
 // there. A newer snapshot stays only when the harness slice's scenario of a message in and a scripted answer out

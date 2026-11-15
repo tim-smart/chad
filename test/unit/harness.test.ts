@@ -325,19 +325,14 @@ describe("the suite", () => {
   it("TST-5a TST-135 CI runs the Node major the Dockerfile names, and the local command fails at once on another", () => {
     const dockerfile = read("Dockerfile")
     const major = dockerfileNode(dockerfile)
-    const workflows = [
+    const jobs: Record<string, { steps: ReadonlyArray<Step> }> = yaml(
       ".github/workflows/gate.yml",
-      ".github/workflows/weekly.yml",
-    ]
-    for (const workflow of workflows) {
-      const jobs: Record<string, { steps: ReadonlyArray<Step> }> =
-        yaml(workflow).jobs
-      for (const job of Object.values(jobs)) {
-        const setup = job.steps.find((step) =>
-          String(step.uses).startsWith("actions/setup-node@"),
-        )
-        expect(String(setup?.with?.["node-version"])).toBe(major)
-      }
+    ).jobs
+    for (const job of Object.values(jobs)) {
+      const setup = job.steps.find((step) =>
+        String(step.uses).startsWith("actions/setup-node@"),
+      )
+      expect(String(setup?.with?.["node-version"])).toBe(major)
     }
     expect(nodeProblem(dockerfile, `v${major}.1.0`)).toBeUndefined()
     expect(nodeProblem(dockerfile, "v25.9.0")).toBe(
@@ -398,7 +393,7 @@ describe("the dependencies", () => {
     scenario: () => scenario,
   })
 
-  it("IMG-119 TST-123 one script replaces the vendored tarballs as a set, from pkg.pr.new, and a failed download leaves the old set", async () => {
+  it("IMG-119 one script replaces the vendored tarballs as a set, from pkg.pr.new, and a failed download leaves the old set", async () => {
     const { root, state } = fixture()
     try {
       const failing: Vendor.Steps = {
@@ -423,7 +418,7 @@ describe("the dependencies", () => {
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
-    // The weekly job and an upgrade by hand run the same script, and each of its command lines is read as written.
+    // An upgrade is done by hand with the script, and each of its command lines is read as written.
     expect(Vendor.request(["e1ae842"])).toEqual({
       commit: "e1ae842",
       clanka: undefined,
@@ -439,9 +434,6 @@ describe("the dependencies", () => {
     expect(Vendor.request([])).toBeUndefined()
     expect(Vendor.request(["--clanka", "newest"])).toBeUndefined()
     expect(json("package.json").scripts.vendor).toBe("node scripts/vendor.ts")
-    expect(read(".github/workflows/weekly.yml")).toContain(
-      "node scripts/vendor.ts --newest --clanka newest",
-    )
   })
 
   it("TST-185 a newer snapshot that fails the scenario of a message in and a scripted answer out is taken back out", async () => {
@@ -459,25 +451,6 @@ describe("the dependencies", () => {
     expect(read("scripts/vendor.ts")).toMatch(
       /"test\/daemon\/turn\.test\.ts",\s*"-t",\s*"TST-164"/,
     )
-  })
-
-  it("TST-123 TST-124 TST-125 the weekly job runs layers 1 to 4 and the image layer on the new set, opens an issue when it fails and gates nothing", () => {
-    const weekly = yaml(".github/workflows/weekly.yml")
-    expect(weekly.on.schedule).toHaveLength(1)
-    expect(weekly.on.pull_request).toBeUndefined()
-    const steps: ReadonlyArray<Step> = weekly.jobs.dependencies.steps
-    const runs = steps.flatMap((step) => (step.run ? [step.run] : []))
-    expect(runs.slice(0, 4)).toEqual([
-      "pnpm install --frozen-lockfile",
-      "node scripts/vendor.ts --newest --clanka newest",
-      "pnpm test",
-      "pnpm vitest run --project image",
-    ])
-    const report = steps.find((step) => step.if === "failure()")
-    expect(report?.run).toContain("gh issue create")
-    expect(weekly.permissions).toEqual({ contents: "read", issues: "write" })
-    // No job of the gate waits for it.
-    expect(read(".github/workflows/gate.yml")).not.toContain("weekly")
   })
 
   it("IMG-2 Renovate bumps the digest that the Dockerfile pins", () => {

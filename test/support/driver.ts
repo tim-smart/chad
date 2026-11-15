@@ -65,11 +65,6 @@ export interface Options {
   readonly transport?: "direct" | "socket" | "client"
   /** Environment variables for this daemon, over the driver's own. `undefined` unsets one. */
   readonly env?: Readonly<Record<string, string | undefined>>
-  /**
-   * Set by a live item only. A `discord` connection then reaches the real Discord: the real WebSocket constructor, and
-   * Discord's own REST root in place of the fake REST server.
-   */
-  readonly live?: boolean
   /** A directory from `fresh` that the scenario prepared, or an earlier scenario's, to boot on its volume. */
   readonly directory?: string
   /** A chat platform that is slow to come up: no connection loads before this resolves, so the boot stays loading. */
@@ -132,25 +127,21 @@ export const fresh = () => join(runs, `${process.pid}-${++count}`)
 export const httpClient = (
   fakes: { readonly model: string; readonly discord: string },
   requests: Array<string> = [],
-  live = false,
 ) =>
   Layer.effect(
     HttpClient.HttpClient,
     Effect.gen(function* () {
       const client = yield* HttpClient.HttpClient
-      const hosts = [fakes.model, live ? Discord.restRoot : fakes.discord].map(
-        (url) => new URL(url).host,
-      )
+      const hosts = [fakes.model, fakes.discord].map((url) => new URL(url).host)
       // This runs on the request as it leaves, after the base URL a caller prepends.
       return HttpClient.make((request) => {
         requests.push(request.url)
-        const sent =
-          !live && request.url.startsWith(Discord.restRoot)
-            ? HttpClientRequest.setUrl(
-                request,
-                fakes.discord + request.url.slice(Discord.restRoot.length),
-              )
-            : request
+        const sent = request.url.startsWith(Discord.restRoot)
+          ? HttpClientRequest.setUrl(
+              request,
+              fakes.discord + request.url.slice(Discord.restRoot.length),
+            )
+          : request
         return hosts.includes(new URL(sent.url).host)
           ? client.execute(sent)
           : Effect.die(
@@ -289,7 +280,6 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
   const client = httpClient(
     { model: model.url, discord: discord.rest.url },
     requests,
-    options.live === true,
   )
   if (!existsSync(join(data, "secrets/connections.json"))) {
     for (const connection of options.connections ?? [
@@ -318,10 +308,7 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
     },
     httpClient: client,
     // The one WebSocket a daemon opens so far is the gateway's. A Codex model's arrives with its slice.
-    webSocketConstructor:
-      options.live === true
-        ? NodeSocket.layerWebSocketConstructor
-        : discord.gateway.layer,
+    webSocketConstructor: discord.gateway.layer,
   })
   for (const [name, value] of saved) set(name, value)
   void exit.then((code) => record("daemon", { state: "ended", code }))

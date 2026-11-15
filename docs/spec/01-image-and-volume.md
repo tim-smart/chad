@@ -288,7 +288,7 @@ effect/chat is not released. It is installed from a snapshot of the effect pull 
 - **IMG-55** clanka is version 0.28.0 from npm, pinned by the lockfile. It is not vendored.
 - **IMG-56** (a) CI fails when `node_modules` holds more than one `effect`. The check counts the copies under the `node_modules` of a clean install of the checkout, so it needs no image. (b) The image build repeats the count, as the Dockerfile above shows (see 07-plugin-loading.md).
 - **IMG-57** The move to released versions of effect is one commit, which changes the catalog and the overrides and nothing else.
-- **IMG-119** One script replaces the vendored tarballs as a set. A real upgrade and the weekly job against the newest effect snapshot both use it (see 17-testing.md).
+- **IMG-119** One script replaces the vendored tarballs as a set. A real upgrade uses it (see 17-testing.md).
 
 pkg.pr.new is the only place a snapshot's packages are published, so the script of IMG-119 downloads from it. No install does (IMG-53).
 
@@ -729,7 +729,7 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-116 | TIM-558 item 17 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | IMG-117 | TIM-557 item 38, amended by TIM-559 rulings on STO-G18 and FAIL-G9, which TIM-559 round 3 C4 settles as the connection and the thread | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | IMG-118 | TIM-557 items 1 and 4 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
-| IMG-119 | TIM-558 item 44 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
+| IMG-119 | TIM-558 item 44, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | IMG-120 | TIM-557 items 10 and 33 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | IMG-121 | TIM-559 ruling on IMG-G11 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-122 | TIM-559 ruling on IMG-G2 | Architect (Tim has not read) | not run |  | `rule` | `cli` |

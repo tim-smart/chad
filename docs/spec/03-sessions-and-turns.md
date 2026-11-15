@@ -152,7 +152,7 @@ effect/chat runs chad's handler inline, one event at a time for the whole bot. U
 - **SES-171** The gateway handler writes that mark after the save of the request succeeds, and not in one transaction with the save. A mark that lags is harmless, because SES-33 and SES-90 drop a message that is read twice.
 - **SES-172** The mark only moves forward, and it advances for every message chad handled in that thread, chat commands included, so the catch-up never replays a `/new` or a `/stop`.
 - **SES-39** A mention in a plain channel with no session that the catch-up cannot find is lost. This is accepted.
-- **SES-129** The gateway behaviours in SES-4, SES-30, SES-37 and SES-38 have not been run. They are tested by the Discord wire slice and by the nightly job on a real gateway (see 17-testing.md).
+- **SES-129** The gateway behaviours in SES-4, SES-30, SES-37 and SES-38 have not been run. They are tested by the Discord wire slice. Of them only the mention of SES-4 meets a real gateway, in the hand checks (see 17-testing.md).
 - **SES-40** An image up to 10 MB goes to the model as a `FilePart`.
 - **SES-41** Every other file is saved under `inbox/` in the session's working directory, and the prompt names its path.
 - **SES-42** A file over 25 MB is skipped with a line in the prompt. The notice the owner sees is in 04-discord.md.
@@ -525,7 +525,7 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-126 | TIM-558 item 17 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | SES-127 | TIM-557 item 32 and its comment on TIM-532 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | SES-128 | TIM-557 "What this changes in closed tickets" and its comment on TIM-532, TIM-559 cold read | Architect (Tim has not read) | read | TIM-557 | `fact` | `wire` |
-| SES-129 | TIM-558 items 26, 27 and 36 and its comment on TIM-532 | Architect (Tim has not read) | not run | TIM-558 | `definition` | - |
+| SES-129 | TIM-558 items 26, 27 and 36 and its comment on TIM-532, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run | TIM-558 | `definition` | - |
 | SES-130 | TIM-557 item 30 and its comment on TIM-532 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `plugin-api` |
 | SES-131 | TIM-557 item 12 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | SES-132 | TIM-557 item 13 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `plugin-api` |

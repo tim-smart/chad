@@ -15,7 +15,7 @@ DIS-3 and DIS-4 are facts about Discord itself. A scripted gateway answers as it
 - **DIS-86** chad identifies to the gateway with the intents for guilds, guild messages, direct messages and message content.
 - **DIS-87** In a server channel the bot needs the permissions View Channel, Send Messages, Send Messages in Threads, Create Public Threads, Read Message History and Attach Files.
 - **DIS-88** One constant in chad holds the intents of DIS-86 and the permissions of DIS-87. The intents chad identifies with come from it, and so do the permissions in the invite URL that `chad connection add discord` prints and the privileged intents that its output names. Message content is the only privileged intent in the list. The constant is written when chad first identifies to the gateway, for DIS-86, and what this rule adds to it is the invite URL and the named intents. The command, the URL's scopes and what `chad setup` shows of it are in 10-cli.md.
-- **DIS-89** The intents of DIS-86 and the permissions of DIS-87 have not been run against a real Discord, and the nightly Discord job is what confirms them. chad's test bot in that job has exactly those intents and permissions and nothing more, so that an entry the two lists lack fails the job. Who sets the test bot up and what the job checks are in 17-testing.md. This rule has no test in the gate and is on the waiver list against that job.
+- **DIS-89** The intents of DIS-86 and the permissions of DIS-87 have not been run against a real Discord, and the hand checks are what confirm them (see 17-testing.md). This rule has no test in the gate and is on the waiver list against the hand checks.
 - **DIS-5** chad registers no Discord slash commands. Its chat commands, such as `/new` and `/stop`, are plain text, and none of them reaches the model. The list of the chat commands is in 10-cli.md, how they are matched is in 03-sessions-and-turns.md, and each command is specified in 03-sessions-and-turns.md, 05-model-and-login.md, 10-cli.md or 15-credentials.md.
 - **DIS-6** Only an owner's message triggers chad. A message from anyone else is ignored and never enters a session's history.
 - **DIS-80** chad drops its own messages before it checks for an owner, and an id on the allowlist is an owner whether or not it belongs to a bot. Both rules are in 03-sessions-and-turns.md.
@@ -231,7 +231,7 @@ The login itself, its single shared wait and its timeout are in 05-model-and-log
 - **DIS-83** A command run from a session that changes what is loaded or deletes stored data posts one subtext line in that session's thread (see 16-failures-logs-status.md).
 - **DIS-84** Every text chad posts in chat is a template in one `Messages` module, and tests refer to a message by its name there (see 17-testing.md).
 - **DIS-79** The local dev adapter is a connection kind whose chat platform is effect/chat's `ChatTest`, running outside the daemon. The platform lives in the repo's test support and is not in the image (see 17-testing.md, and 10-cli.md for the `connection` commands). `ChatTest` shows subtext and relative timestamps as their raw text. It can press the Stop button through `click` and `interact`, and it supports modals.
-- **DIS-85** What only a real Discord can show of this part is checked by a wire slice over a scripted gateway, a nightly job on two test bots, and three checks a person does by hand before a release (see 17-testing.md).
+- **DIS-85** What only a real Discord can show of this part is checked by a wire slice over a scripted gateway and by the checks a person does by hand before a release (see 17-testing.md).
 
 Every wording this part fixes, in one place. Text in angle brackets is filled in, and `big.zip`, "48 MB" and "48s" stand for the real name, size and duration. The wordings of a failed turn, of the give-up message, of a login that timed out or failed, of the retry line and of every notice outside a turn are in 16-failures-logs-status.md.
 
@@ -355,11 +355,11 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-82 | TIM-557 items 32 and 33 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | DIS-83 | TIM-557 item 39 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | DIS-84 | TIM-558 items 30 and 33 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
-| DIS-85 | TIM-558 items 26, 36 and 37 | Architect (Tim has not read) | not run |  | `definition` | - |
+| DIS-85 | TIM-558 items 26, 36 and 37, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | DIS-86 | TIM-559 ruling on DIS-G17 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | DIS-87 | TIM-559 ruling on DIS-G17 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | DIS-88 | TIM-559 ruling on DIS-G17, amended by TIM-559 round 3 A4, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `cli` |
-| DIS-89 | TIM-559 ruling on DIS-G17, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `wire` |
+| DIS-89 | TIM-559 ruling on DIS-G17, TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | DIS-90 | TIM-559 ruling on DIS-G8 and SES-G10 | Architect (Tim has not read) | not run |  | `rule` | `discord-ui` |
 | DIS-91 | TIM-559 ruling on DIS-G8 and SES-G10 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | DIS-92 | TIM-559 ruling on DIS-G7 and MOD-G10 | Architect (Tim has not read) | not run |  | `rule` | `models` |

@@ -687,7 +687,7 @@ Each message below is the failure text of a plugin tool call, and the table name
 ## Carried to the test suite
 
 - **SWAP-115** The check that a removed plugin's queued hook is dropped and logged depends on an order, which the test states. It holds the first hook open until the removal (see 17-testing.md).
-- **SWAP-124** How the rules of this part are tested is in 17-testing.md, which holds the layer the swap scenarios run in, the nightly run of the 30 second and 10 second deadlines at their real length and the soak of 300 applies.
+- **SWAP-124** How the rules of this part are tested is in 17-testing.md, which holds the layer the swap scenarios run in, the release list's run of the 30 second and 10 second deadlines at their real length and its soak of 300 applies.
 - **SWAP-145** One fixed task of the live skill runs is a fix to a tool that the same turn then calls, so that a real model meets message 1 (see 17-testing.md).
 - **SWAP-146** That task passes when, after message 1, the turn has no second apply and at most one more call to the refused tool, and the call in the next turn succeeds.
 
@@ -827,7 +827,7 @@ Each message below is the failure text of a plugin tool call, and the table name
 | SWAP-121 | TIM-557 item 39, defining TIM-550 item 11, changed by the TIM-559 ruling on SWAP-G13 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | SWAP-122 | TIM-557 item 8 | Architect (Tim has not read) | run |  | `rule` | `plugin-api` |
 | SWAP-123 | TIM-558 items 30 and 33 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| SWAP-124 | TIM-558 items 9, 29 and 42 | Architect (Tim has not read) | not run |  | `definition` | - |
+| SWAP-124 | TIM-558 items 9, 29 and 42, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | SWAP-125 | TIM-559 ruling on SWAP-G1 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `apply` |
 | SWAP-126 | TIM-559 ruling on SWAP-G1 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `apply` |
 | SWAP-127 | TIM-559 ruling on SWAP-G1 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |

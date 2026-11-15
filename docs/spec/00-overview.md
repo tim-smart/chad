@@ -125,7 +125,7 @@ The rules in this section follow one owner message from Discord to the answer, t
 - **OV-31** A self-edit follows one path. The agent edits files in `repo/work/` and runs `chad apply`. The daemon checks the files, commits them, moves `repo/live`, swaps the plugins that changed and bumps the generation, and each session picks the change up at the start of its next turn. A change that fails a check keeps the last good version running, an edit that was not applied stays a draft, and a boot loads the last applied commit (see 08-apply-and-swap.md, 09-repo-and-recovery.md and 07-plugin-loading.md).
 - **OV-43** A turn that fails ends as `Failed` with a reason from a closed set. For most reasons chad itself, without the model, posts one message in the thread that names the reason and the turn id, and `chad logs --turn <id>` shows what the turn did (see 16-failures-logs-status.md).
 - **OV-44** What chad tells the owner outside a turn is a notice. It is a normal message and not subtext, and in a server thread it carries the owner's mention. A notice about a condition is sent once when the condition begins and is not sent again while the condition holds (see 16-failures-logs-status.md).
-- **OV-45** The Discord gateway side of this flow is tested in two places. A wire slice runs the real `DiscordChat.layerDispatchHook` and a real dfx shard over a scripted socket, and a nightly job has a second bot drive chad on a real gateway (see 17-testing.md).
+- **OV-45** The Discord gateway side of this flow is tested by a wire slice, which runs the real `DiscordChat.layerDispatchHook` and a real dfx shard over a scripted socket. On a real gateway it is checked by hand before a release (see 17-testing.md).
 
 ## Facts about clanka and effect/chat that the design leans on
 
@@ -199,7 +199,7 @@ The parts use these terms with the meanings below. Paths are relative to the dat
 | 14-self-edit-skill.md | The bundled `self-edit` skill, the core prompt's fixed sentences and the persona. |
 | 15-credentials.md | `chad secret`, one-off codes, asking the owner for a value and the `credentials` skill. |
 | 16-failures-logs-status.md | The log formats and `chad logs`, the reasons a turn fails and what the owner is told, retries and the usage limit, the usage columns of the `turns` table, the blocks of `chad status`, a full disk, the notices and the bundled `diagnose` skill. |
-| 17-testing.md | How chad is tested, which is the six layers, the harness around `runDaemon`, the local platform, the rule ids on tests, what gates the pull request, and the nightly and live checks. |
+| 17-testing.md | How chad is tested, which is the six layers, the harness around `runDaemon`, the local platform, the rule ids on tests, what gates the pull request, and the release and live checks. |
 | 18-asphodel-plugin.md | The asphodel plugin written against the plugin API. |
 | 19-build-order.md | The order in which chad is built, which is five stages that each run a list of named slices on one shared branch and one pull request, when a stage is done, and the point from which Tim can run the image on his own server. |
 | 20-for-tim.md | What Tim has to read and answer, which is the size of the build, the questions that were his with the answers given for him, every rule that states something he agreed in person and that a ticket he has not read then changed, his to-do list, and one paragraph for each ticket he has not read. It states no rule, so it has no rule ids, no Gaps section and no Provenance table. |
@@ -277,7 +277,7 @@ Every part that states rules ends with a Provenance table that has one row per r
 | OV-42 | TIM-558 items 13, 17 and 33; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | OV-43 | TIM-557 items 11, 12, 14 and 15 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | OV-44 | TIM-557 items 36 and 37; the notice as subtext that it changes is TIM-533 item 12 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
-| OV-45 | TIM-558 items 26, 27 and 36 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
+| OV-45 | TIM-558 items 26, 27 and 36, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | OV-46 | TIM-557 items 17 and 18 | Architect (Tim has not read) | run (TIM-557) for clanka's retries and the 117 minutes; chad's count and the silence bound not run | TIM-557 | `fact` | `models` |
 | OV-47 | TIM-557 items 7 and 9 | Architect (Tim has not read) | run (TIM-557) for the one logger with the script's output unchanged; the Info cap not run |  | `fact` | `failures` |
 | OV-48 | TIM-557 item 34 | Architect (Tim has not read) | run (TIM-557) for cluster's behaviour; chad's handling not run |  | `fact` | `failures` |

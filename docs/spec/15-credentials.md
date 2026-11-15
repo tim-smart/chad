@@ -394,7 +394,7 @@ Playwright MCP masks its own text results by replacing a value with `<secret>NAM
 ## Runs owed to the test plan
 
 - **CRED-104** The build's test plan (see 17-testing.md) includes the seven runs that were asked for and not made. Six are daemon scenarios, and the container one runs in the image layer. They are listed below.
-- **CRED-110** The test plan also holds the Enter modal on the test chat platform, a negative test for a click and for a modal submit from someone who is not an owner, the 5 minute wait at its real length in a nightly job, and a real Discord modal completed by hand before a release (see 17-testing.md).
+- **CRED-110** The test plan also holds the Enter modal on the test chat platform, a negative test for a click and for a modal submit from someone who is not an owner, the 5 minute wait at its real length on the release list, and a real Discord modal completed by hand before a release (see 17-testing.md).
 
 - Retiring a forgotten button on a click (CRED-72).
 - The name limit at `request` and `/secret` (CRED-18). Only a button failing to post at a 76 character name was seen.
@@ -535,7 +535,7 @@ These were also never run. A real Discord modal, a real model following the skil
 | CRED-107 | TIM-558 item 35 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | CRED-108 | TIM-558 item 32, TIM-557 item 43 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | CRED-109 | TIM-558 items 8 and 33 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| CRED-110 | TIM-558 items 29, 35, 37 and 52 | Architect (Tim has not read) | not run |  | `rule` | `live` |
+| CRED-110 | TIM-558 items 29, 35, 37 and 52, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `live` |
 | CRED-111 | TIM-559 ruling on SET-G8 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `settings` |
 | CRED-112 | TIM-559 ruling on REC-G19 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `settings` |
 | CRED-113 | TIM-559 ruling on CRED-G11 | Architect (Tim has not read) | not run | TIM-546, TIM-559 | `rule` | `settings` |
