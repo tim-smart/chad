@@ -118,6 +118,8 @@ The persona is the owner's description of who chad is for them. It is the one pi
 - **SELF-51** The file passes `chad check` as written.
 - **SELF-52** The description of the tool in the file starts with "Replace me".
 - **SELF-53** The settings comment block at the top of a plugin file is a convention.
+- **SELF-137** `<camelName>` is the name's hyphen-separated parts joined, each part after the first with its first letter upper-cased, so `ci-sample` gives `ciSampleHello`. When that would be empty or start with a digit, `plugin` goes in front and the first part is upper-cased as well, so `2fa-codes` gives `plugin2faCodesHello`.
+- **SELF-138** The paths the header and the output of `chad plugin new` name are those of the repo under the data directory, which is `/data/repo` in the image. The output is four lines: "Wrote <path>.", "Before you change it, read the self-edit skill and <repo>/node_modules/effect/AGENTS.md.", "Working plugins to read: <repo>/examples/" and a line that says the tool's description starts with "Replace me", which `chad apply` refuses, and to describe the tool and then run `chad check` and `chad apply -m "<why>"`.
 
 ```ts
 // plugins/<name>.ts, as written by `chad plugin new <name>`.
@@ -594,12 +596,12 @@ export default Plugin.make(NotesTools, Chunk)
 ## Gaps
 
 - **SELF-G1** [builder] The path of the bundled skills directory in the image. TIM-537 item 3 says only that bundled skills ship as a directory in the image.
-- **SELF-G3** [builder] The wording of the type-check footer line, the "Replace me" error, the malformed-skill errors, the three rewritten errors, the output of `chad plugin new` and the mark in `chad status` on a repo skill that hides a bundled one. TIM-549 items 3, 18, 19, 20 and 23 give the content and no text.
+- **SELF-G3** [builder] The wording of the type-check footer line, the "Replace me" error, the malformed-skill errors, the three rewritten errors, the output of `chad plugin new` and the mark in `chad status` on a repo skill that hides a bundled one. TIM-549 items 3, 18, 19, 20 and 23 give the content and no text. SELF-138 settles the output of `chad plugin new`.
 - **SELF-G4** [builder] The wording of the safe mode line in the system prompt. TIM-549 item 15 gives its two points and no text.
 - **SELF-G5** [builder] The rest of the core prompt's text beyond the two fixed sentences. TIM-549 item 14.
 - **SELF-G6** [builder] How an empty or missing `persona.md` renders in the system prompt, and whether the persona gets a heading there. TIM-549 item 16. SELF-136 settles both.
 - **SELF-G8** [builder] How CI finds the commands, flags, exit codes, paths and quoted messages in a skill's prose. TIM-549 item 21 and TIM-558 items 32 and 33 give the rules and what a quoted message is matched against, and no method for finding one.
-- **SELF-G9** [builder] How `<camelName>` is derived from a name that has hyphens or starts with a digit. TIM-549 item 17.
+- **SELF-G9** [builder] How `<camelName>` is derived from a name that has hyphens or starts with a digit. TIM-549 item 17. SELF-137 settles it.
 - **SELF-G10** [builder] What `chad skill new` writes inside `SKILL.md`. TIM-542 item 11 gives the path only.
 - **SELF-G11** [builder] Ten of the 17 corrections to the first drafts are not listed anywhere. TIM-549 item 6 says all are applied in the drafts, and round 1 lists seven.
 - **SELF-G15** [builder] Whether `self-edit` points at the `diagnose` skill, or names `chad logs`, where its draft sends the agent to `/data/logs/chad.log`. TIM-557 items 11 and 43 add the command and the skill and say nothing about this skill's text.
@@ -743,6 +745,8 @@ export default Plugin.make(NotesTools, Chunk)
 | SELF-134 | TIM-559 round 3 A2 | Architect (Tim has not read) | not run | TIM-559 | `definition` | - |
 | SELF-135 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `harness` |
 | SELF-136 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| SELF-137 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| SELF-138 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

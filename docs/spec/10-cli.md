@@ -342,6 +342,7 @@ An apply is the only way an edit in `repo/work/` reaches the running daemon. The
 - **CLI-85** A plugin or skill name is made of lower-case letters, digits and hyphens. Both commands refuse a name that is taken or that a bundled plugin or skill uses. The rule on a plugin's name holds for every plugin in the repo and not only for one that `chad plugin new` wrote (see 07-plugin-loading.md).
 - **CLI-86** The file `chad plugin new` writes is a working plugin that passes `chad check` as written. It has one tool named `<camelName>Hello`, one setting with a default, a comment block that lists the plugin's settings, a comment that lists the other kinds of contribution, and a header that names the `self-edit` skill and effect's `AGENTS.md`. `--dir` writes the same file as `index.ts`. The tool's description starts with "Replace me", which is what an apply refuses. The file itself is in 14-self-edit-skill.md.
 - **CLI-87** The output of `chad plugin new` prints the path of effect's `AGENTS.md` and names `/data/repo/examples/`, where the bundled plugins' source can be read.
+- **CLI-249** `chad plugin new` exits 2 on a name that breaks the name rule, and exits 1 on a bundled plugin's name or a taken one. A name is taken when `work/plugins/` holds `<name>.ts` or an entry named `<name>`. Each refusal writes nothing and prints one line on stderr.
 - **CLI-88** An apply reloads a plugin when its code or its settings changed. `chad plugin reload <name>` rebuilds one plugin whose code did not change. It builds the new instance first. If the build fails, the plugin keeps its old version and the command exits 1 and names the plugin and the error.
 - **CLI-89** Deleting a plugin's file and applying unloads the plugin and keeps its data and timers, held like those of a plugin that is off. `chad plugin purge <name>` drops the plugin's key-value table and its timers.
 - **CLI-90** `chad plugin purge` refuses a plugin that is still in the applied repo. That includes a repo plugin that is turned off with `"enabled": false`. A bundled plugin is never in the applied repo and has its own rule (CLI-173).
@@ -795,6 +796,7 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-246 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 | CLI-247 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 | CLI-248 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| CLI-249 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

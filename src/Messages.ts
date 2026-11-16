@@ -1060,6 +1060,35 @@ export const reloadUnknown = (name: string) =>
 export const reloadSafe = (name: string) =>
   `Safe mode is on, so ${name} from the repo is not loaded. Turn safe mode off first.`
 
+/** A name `chad plugin new` refuses as bad usage, which exits 2 (CLI-85, SELF-48). */
+export const pluginNameInvalid = (name: string) =>
+  `"${name}" is not a plugin name. Use lower-case letters, digits and hyphens.`
+
+/** A name `chad plugin new` refuses because a bundled plugin holds it, which exits 1 (CLI-85, SET-54). */
+export const pluginNameBundled = (name: string) =>
+  `"${name}" is the name of a bundled plugin. Pick another name.`
+
+/** A name `chad plugin new` refuses because a plugin in work/ has it, which exits 1 (CLI-85, SELF-48). */
+export const pluginNameTaken = (name: string) =>
+  `work/plugins/ already holds a plugin named "${name}". Edit it, or pick another name.`
+
+/** `chad plugin new` and `chad skill new` before `chad serve` made the repo, which exits 4 (CLI-157). */
+export const workMissing = (work: string) =>
+  `${work} does not exist yet. chad serve creates the repo the first time it starts.`
+
+/** `chad plugin new` that could not write its file (CLI-84). */
+export const notWritten = (command: string, path: string, detail: string) =>
+  `chad ${command}: cannot write ${path} (${detail})`
+
+/** What `chad plugin new` prints once the file is written (CLI-87, SELF-33, SELF-138). */
+export const pluginWritten = (path: string, agents: string, examples: string) =>
+  [
+    `Wrote ${path}.`,
+    `Before you change it, read the self-edit skill and ${agents}.`,
+    `Working plugins to read: ${examples}`,
+    `Its tool's description starts with "Replace me", which chad apply refuses. Describe the tool, then run chad check and chad apply -m "<why>".`,
+  ].join("\n")
+
 /** `chad plugin purge` of a plugin still in the applied repo, which exits 1 (CLI-90, SET-40, CLI-247). */
 export const purgeInRepo = (name: string) =>
   `${name} is still in the applied repo, so its data stays. Delete its file in work/, run chad apply, then purge it.`

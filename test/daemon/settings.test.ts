@@ -1,7 +1,7 @@
 // chad.json as the owner and the agent reach it: a plugin's settings with `${NAME}` from the secret store and process
 // env, what check, apply and status list, the reload a settings change makes, a plugin turned off, safe mode's one read
 // of the file, and a boot that ignores what does not fit.
-import { mkdirSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { Config, Effect, Layer, Option, Redacted, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
@@ -54,16 +54,17 @@ const probe = () => {
   return { state, plugin }
 }
 
-/** Runs one turn whose script calls `probe`, and gives what the script printed. */
-const call = async (running: Scenario, text: string) => {
+/** Runs one turn whose script calls `probe`, or runs `source`, and gives what the script printed. */
+const call = async (
+  running: Scenario,
+  text: string,
+  source = "console.log(await probe({}))",
+) => {
   const thread = await running.fakes.chat.makeThread("direct")
   const ended = running
     .log()
     .filter((line) => line.annotations["event"] === "turn.ended").length
-  await running.fakes.model.script([
-    runs("console.log(await probe({}))"),
-    { text: "done" },
-  ])
+  await running.fakes.model.script([runs(source), { text: "done" }])
   await says(running, thread, text)
   await eventually(
     () =>
@@ -77,7 +78,7 @@ const call = async (running: Scenario, text: string) => {
 const chadJson = (plugins: object) =>
   JSON.stringify({ plugins }, null, 2) + "\n"
 
-test("SET-11 SET-12 SET-14 SET-19 SET-20 SET-21 SET-22 SET-23 SET-35 SET-62 SET-63 SET-66 SET-70 SET-72 SET-83 SET-94 SET-100 API-25 API-26 API-27 LOAD-50 LOAD-52 LOAD-88 SWAP-41 CLI-67 CLI-88 CLI-172 a bundled plugin's settings expand from the secret store and process env, are listed with no value, rebuild it only when they change, and turn it off", async () => {
+test("SET-11 SET-12 SET-14 SET-19 SET-20 SET-21 SET-22 SET-23 SET-35 SET-62 SET-63 SET-66 SET-70 SET-72 SET-83 SET-94 SET-100 API-25 API-26 API-27 LOAD-50 LOAD-52 LOAD-88 SWAP-41 CLI-67 CLI-88 CLI-172 CLI-84 CLI-85 CLI-86 CLI-87 CLI-156 CLI-163 CLI-164 SELF-47 SELF-48 SELF-49 SELF-51 SELF-52 SELF-54 SELF-110 SET-54 a bundled plugin's settings expand from the secret store and process env, are listed with no value, rebuild it only when they change, and turn it off, and chad plugin new writes a starter that a check passes, an apply refuses until its tool is described, and then loads with its setting", async () => {
   const { state, plugin } = probe()
   process.env["PROBE_HOST"] = "envhost"
   onTestFinished(() => {
@@ -209,7 +210,57 @@ test("SET-11 SET-12 SET-14 SET-19 SET-20 SET-21 SET-22 SET-23 SET-35 SET-62 SET-
     stderr: Messages.reloadOff("probe") + "\n",
   })
   expect(state.builds).toBe(3)
-})
+
+  // chad plugin new refuses a bad, a bundled and a taken name, and writes a starter while the daemon runs.
+  expect((await running.chad(["plugin", "new", "Bad_Name"])).code).toBe(2)
+  expect(await running.chad(["plugin", "new", "send-file"])).toMatchObject({
+    code: 1,
+    stderr: Messages.pluginNameBundled("send-file") + "\n",
+  })
+  const created = await running.chad(["plugin", "new", "ci-sample"])
+  expect(created.code).toBe(0)
+  expect(created.stdout).toContain(
+    join(running.data, "repo/node_modules/effect/AGENTS.md"),
+  )
+  expect(created.stdout).toContain(join(running.data, "repo/examples") + "/")
+  expect(
+    (await running.chad(["plugin", "new", "ci-sample", "--dir"])).code,
+  ).toBe(1)
+  const starter = join(work, "plugins/ci-sample.ts")
+  expect(existsSync(starter)).toBe(true)
+  expect(existsSync(join(work, "plugins/ci-sample"))).toBe(false)
+
+  // The starter passes a check as written, which names the "Replace me" tool that an apply refuses.
+  const draft = await running.chad(["check"])
+  expect(draft.code).toBe(0)
+  expect(draft.stdout).toContain(Messages.replaceMeCheck("ciSampleHello"))
+  const unedited = await running.chad(["apply", "-m", "Starter"])
+  expect(unedited.code).toBe(1)
+  expect(unedited.stderr).toContain(Messages.replaceMeRefused("ciSampleHello"))
+
+  // Described, and with its setting in chad.json, it loads and its tool answers.
+  writeFileSync(
+    starter,
+    readFileSync(starter, "utf8").replace(
+      "Replace me. Say what the tool does and when to call it.",
+      "Greets someone by name.",
+    ),
+  )
+  write(work, {
+    "chad.json": chadJson({
+      probe: { enabled: false },
+      "ci-sample": { settings: { greeting: "Hi" } },
+    }),
+  })
+  expect((await running.chad(["apply", "-m", "Sample"])).code).toBe(0)
+  expect(
+    await call(
+      running,
+      "greet",
+      'console.log((await ciSampleHello({ name: "Ada" })).message)',
+    ),
+  ).toBe("Hi, Ada")
+}, 30_000)
 
 test("SET-44 SET-46 SET-47 SET-48 SET-86 REC-52 REC-53 REC-63 SWAP-58 CLI-72 LOAD-63 in safe mode the bundled plugins build on their defaults, one the applied chad.json turns off stays off, and an apply that flips it takes effect at once", async () => {
   const names = bundled.map(({ name }) => name)
