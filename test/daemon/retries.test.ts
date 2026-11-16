@@ -277,7 +277,7 @@ test("FAIL-84 FAIL-57 a background sub-agent's model call that says nothing for 
   expect(message).toContain(Messages.silenceReason)
 })
 
-test("FAIL-84 FAIL-212 MOD-102 MOD-103 FAIL-57 a foreground sub-agent's turn timeouts count where its own call is cut, also when clanka holds its retries back behind another foreground sub-agent's answer and gives them as that agent's after the login completed: one silent call after the login does not end the turn, and the third does", async () => {
+test("FAIL-84 FAIL-212 MOD-102 MOD-103 FAIL-57 FAIL-250 FAIL-328 a foreground sub-agent's turn timeouts count where its own call is cut, also when clanka holds its retries back behind another foreground sub-agent's answer and gives them as that agent's after the login completed: one silent call after the login does not end the turn, and the third does, and the retry lines name no agent and count the turn's retries", async () => {
   const running = await scenario({
     ...codex,
     codex: "token",
@@ -347,6 +347,15 @@ test("FAIL-84 FAIL-212 MOD-102 MOD-103 FAIL-57 a foreground sub-agent's turn tim
   await eventually(
     () => posted(running, thread),
     (texts) => texts.some((text) => text.includes(Messages.silenceReason)),
+  )
+  // clanka gives B's held-back parts as A's, so a retry line names no agent, and its count is the turn's: it counts up
+  // from the first retry, B's flushed parts and A's `Usage` included.
+  const shown = retried(running)
+  expect(shown.length).toBeGreaterThanOrEqual(3)
+  for (const line of shown)
+    expect(line.annotations).not.toHaveProperty("subagent")
+  expect(shown.map((line) => line.annotations["retry"])).toEqual(
+    shown.map((_, index) => index + 1),
   )
 })
 

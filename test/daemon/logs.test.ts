@@ -151,7 +151,7 @@ await waitTasks({ ids: [behind.id] })`),
     expect(line.annotations).not.toHaveProperty("subagent")
 })
 
-test("FAIL-15 FAIL-250 the root's and a foreground sub-agent's retried model calls get one turn.retry line each, the sub-agent's with its id", async () => {
+test("FAIL-15 FAIL-250 the root's and a foreground sub-agent's retried model calls get one turn.retry line each, which names no agent and counts the turn's retries", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -170,13 +170,11 @@ test("FAIL-15 FAIL-250 the root's and a foreground sub-agent's retried model cal
   const log = running.log()
   const events = (name: string) =>
     log.filter((line) => line.annotations["event"] === name)
-  const front = events("turn.subagent-started")[0]?.annotations["subagent"]
-  expect(typeof front).toBe("number")
   const retries = events("turn.retry")
   expect(retries).toHaveLength(2)
-  expect(retries[0]?.annotations).not.toHaveProperty("subagent")
-  expect(retries[1]?.annotations).toMatchObject({ subagent: front, retry: 1 })
+  expect(retries.map((line) => line.annotations["retry"])).toEqual([1, 2])
   for (const line of retries) {
+    expect(line.annotations).not.toHaveProperty("subagent")
     expect(line.level).toBe("WARN")
     expect(typeof line.annotations["reason"]).toBe("string")
     expect(typeof line.annotations["error"]).toBe("string")

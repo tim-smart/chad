@@ -346,9 +346,9 @@ export const statusSubagent = (prompt: string) =>
 /** A compaction's line in the status message (DIS-27). */
 export const statusCompaction = () => "Compacted the history"
 
-/** The line of a model error clanka retries: its cause and the highest count of retries (DIS-28, FAIL-80). */
-export const statusRetry = (cause: string, retry: number, of: number) =>
-  `Model error (${cause}), retrying (${retry} of ${of})`
+/** The line of a model error clanka retries: its cause and the count of the turn's retries so far (DIS-28, FAIL-80). */
+export const statusRetry = (cause: string, retry: number) =>
+  `Model error (${cause}), retrying (${retry} so far in this turn)`
 
 /** The line of a steering message the agent has read: its first 60 characters, on one line (DIS-30). */
 export const statusRead = (text: string) =>

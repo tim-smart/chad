@@ -52,10 +52,11 @@ const promptChars = 200
 export interface Steps {
   readonly subagents: Map<number, number>
   /**
-   * The `ErrorRetry` parts since the agent's last `Usage`, which the status line shows (FAIL-81). The agent is the one
-   * the Agent's output names, which for a part clanka held back while another agent's output ran is that other agent.
+   * The `ErrorRetry` parts of the turn so far, which the retry's status line and log line show. They are the turn's and
+   * not an agent's: a part clanka held back while another agent's output ran comes as that other agent's, its `Usage`
+   * too, so the Agent's output cannot say whose a retry is.
    */
-  readonly retries: Map<number | undefined, number>
+  retries: number
   /**
    * The turn timeouts in a row on the agent's current model call, which the silence bound counts (FAIL-84). They are
    * counted where the agent's model is called (`watched`), so the agent is the one that made the call.
@@ -67,7 +68,7 @@ export interface Steps {
 
 export const steps = (): Steps => ({
   subagents: new Map(),
-  retries: new Map(),
+  retries: 0,
   timeouts: new Map(),
   ended: false,
 })
@@ -128,7 +129,7 @@ const subagentOf = (agent: number | undefined) =>
 
 /**
  * One part of the Agent's output. A part that is a step of the turn gets its log line here (FAIL-245 to FAIL-250), and
- * a part of a sub-agent carries the sub-agent's id (FAIL-241). A step that the status message shows gets its status line
+ * a part of a sub-agent carries the sub-agent's id (FAIL-241), apart from a retry, whose lines name no agent. A step that the status message shows gets its status line
  * here too, from the same call (FAIL-11, DIS-81). A script's own lines are not read from here: see `scriptStarted`.
  */
 export const step = Effect.fnUntraced(function* (
@@ -177,36 +178,21 @@ export const step = Effect.fnUntraced(function* (
         tokens_after: inner.tokensAfter,
       })
     }
-    case "Usage": {
-      // A retry is counted per agent, since that agent's last usage.
-      state.retries.set(agent, 0)
-      return
-    }
     case "ErrorRetry": {
       // chad's own ends are made where the model is called, which sees the agent that made the call and the login at
       // each attempt (`watched`). Here a retry is only shown and logged, and a turn chad ended gets no more of them, so
       // the one event of a usage limit is `turn.failed` (FAIL-242, MOD-114).
       if (state.ended) return
-      const retry = (state.retries.get(agent) ?? 0) + 1
-      state.retries.set(agent, retry)
-      const of = yield* Agent.MaxRetries
-      // The line shows the highest count of every agent of the turn (DIS-28, FAIL-80, FAIL-81).
+      // The count is the turn's, and the lines name no agent, because the part may be another agent's (DIS-28).
+      const retry = ++state.retries
       if (!loginPending()) {
-        yield* status.add(
-          Messages.statusRetry(
-            inner.error.reason._tag,
-            Math.max(...state.retries.values()),
-            of,
-          ),
-        )
+        yield* status.add(Messages.statusRetry(inner.error.reason._tag, retry))
       }
       return yield* Logger.event("turn.retry", "Model error, retrying", {
         ...ids,
-        ...subagentOf(agent),
         reason: inner.error.reason._tag,
         error: inner.error.message,
         retry,
-        of,
       })
     }
   }
@@ -383,7 +369,9 @@ interface Call {
   /**
    * Whether a login was pending for the session when clanka's turn timeout cut the last attempt, or `undefined` when
    * the timeout did not cut it. The cut counts at the next attempt, which is clanka's retry of it, with the login as it
-   * stood at the cut (FAIL-212, MOD-102): clanka's backoff runs between the two, and a login can complete in it.
+   * stood at the cut (FAIL-212, MOD-102): clanka's backoff runs between the two, and a login can complete in it. It
+   * counts there and not at the cut because a stop, a parent's cancel or the end of the turn after a long silence also
+   * looks like a cut, and none of them has a next attempt.
    */
   cut: boolean | undefined
 }

@@ -72,5 +72,10 @@ A binding rule (ORD-47) that a builder reported as wrong or impossible to build,
 
 A default (ORD-48) that was not built as written, with one sentence on what chad does instead. The rule-id script does not read this list. Tim reads it when he reviews the pull request.
 
-| Rule | What chad does instead |
-| ---- | ---------------------- |
+| Rule     | What chad does instead                                                                                                                                                                                                                                                          |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FAIL-80  | The line names the cause and the turn's count of retries so far, as "Model error (RateLimitError), retrying (3 so far in this turn)", because clanka gives a part it held back as the agent whose output released it, so a count per call cannot be told apart from the output. |
+| FAIL-81  | chad counts the turn's `ErrorRetry` parts from the first one, with no count per agent and no reset on `Usage`, because a held-back `Usage` and `ErrorRetry` come labelled as the releasing agent's.                                                                             |
+| FAIL-82  | The line carries no 20, because the turn's count is not the count of one model call that `MaxRetries` bounds.                                                                                                                                                                   |
+| FAIL-250 | The `turn.retry` line's count, `retry`, is the turn's count of retries so far, and the line carries no `of`.                                                                                                                                                                    |
+| FAIL-328 | A `turn.retry` line carries no `subagent`, a sub-agent's retry's included, because the agent clanka names on a held-back part may not be the one that retried.                                                                                                                  |
