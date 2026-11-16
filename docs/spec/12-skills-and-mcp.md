@@ -135,7 +135,6 @@ clanka expands names through Effect's `Config`, so the `ConfigProvider` that is 
 - **MCP-26** A value from the secret store is never copied into `process.env`.
 - **MCP-27** At load, a name that resolves nowhere and has no default marks that one server unavailable. The other servers carry on.
 - **MCP-28** `mcp.json` has no escape for a literal `${`. The name `CHAD_DOLLAR` is reserved for writing one, as `${CHAD_DOLLAR:-$}{X}`, and `chad secret set` refuses that name (see 11-settings.md, where the same expander rules apply to `chad.json`).
-- **MCP-29** Withdrawn.
 - **MCP-30** chad passes the values of an entry's `env` to `McpServers.layer` as `Redacted` values. clanka fails a server whose `env` values are plain strings with "Unable to get redacted value".
 - **MCP-31** A stdio server is started by clanka outside the spawner chad wraps. It gets the daemon's whole environment plus the entry's `env`, and so it carries `CHAD_SESSION=daemon` and not a session id (see 01-image-and-volume.md and 10-cli.md).
 - **MCP-109** chad gives every stdio entry an absolute `cwd` before it hands the config to clanka. An entry with no `cwd` gets the daemon's `HOME`.
@@ -172,51 +171,7 @@ clanka builds the MCP layer without ever failing. A server that cannot start or 
 Many hosted MCP servers answer 401 until the client has signed in with OAuth. v1 does not sign in with OAuth. clanka builds its HTTP transport with the static headers of the server's entry, so a server that wants a token gets it from a header, and a 401 at connect marks the server failed.
 
 - **MCP-139** v1 has no OAuth for MCP servers. An HTTP server signs in with the static `headers` of its entry in `mcp.json`, and a secret in a header is written as `${NAME}` (MCP-23). chad passes no `authProvider` to clanka's `McpServers.layer`, hands every server to that layer and builds no transport itself. A server that answers 401 is a failed server like any other. It is listed as unavailable with the first line of its error, in the apply output, in `chad status` and in the system prompt. There is no `chad mcp login` and no `chad mcp logout`, no `secrets/mcp-oauth.json`, no "needs login" status, and no notice, message or pending login for one. chad never consumes a pasted callback URL.
-- **MCP-46** Withdrawn.
-- **MCP-47** Withdrawn.
-- **MCP-115** Withdrawn.
-- **MCP-48** Withdrawn.
-- **MCP-49** Withdrawn.
-- **MCP-50** Withdrawn.
-- **MCP-51** Withdrawn.
-- **MCP-52** Withdrawn.
-- **MCP-116** Withdrawn.
-- **MCP-136** Withdrawn.
-- **MCP-137** Withdrawn.
-- **MCP-138** Withdrawn.
-- **MCP-117** Withdrawn.
-- **MCP-53** Withdrawn.
 - **MCP-101** Withdrawn.
-
-### The "needs login" status
-
-- **MCP-54** Withdrawn.
-- **MCP-55** Withdrawn.
-- **MCP-56** Withdrawn.
-- **MCP-57** Withdrawn.
-
-### Logging in
-
-- **MCP-58** Withdrawn.
-- **MCP-118** Withdrawn.
-- **MCP-119** Withdrawn.
-- **MCP-120** Withdrawn.
-- **MCP-121** Withdrawn.
-- **MCP-122** Withdrawn.
-- **MCP-123** Withdrawn.
-- **MCP-59** Withdrawn.
-- **MCP-60** Withdrawn.
-- **MCP-124** Withdrawn.
-- **MCP-125** Withdrawn.
-- **MCP-61** Withdrawn.
-- **MCP-62** Withdrawn.
-- **MCP-63** Withdrawn.
-- **MCP-64** Withdrawn.
-- **MCP-126** Withdrawn.
-- **MCP-127** Withdrawn.
-- **MCP-128** Withdrawn.
-- **MCP-129** Withdrawn.
-- **MCP-98** Withdrawn.
 
 ## Tool calls while the MCP layer rebuilds
 
@@ -239,24 +194,15 @@ Five facts about clanka 0.27.0 shape the rules. All five were seen in the runs.
 
 ### The rebuild path
 
-- **MCP-69** Withdrawn.
-- **MCP-70** Withdrawn.
 - **MCP-71** A rebuild interrupts every call that is in flight when it starts, at once, and each caller gets message 1 in the table below. The turn carries on.
-- **MCP-130** Withdrawn.
-- **MCP-72** Withdrawn.
 - **MCP-73** chad closes the old layer and only then connects the new one. No server of the old layer is running when a server of the new layer starts.
 - **MCP-74** The close has no deadline in a rebuild. It takes 4 seconds for each stdio server that ignores both its standard input closing and SIGTERM, one after another.
 - **MCP-75** The new layer becomes current when clanka has finished connecting it. clanka connects the servers in parallel, each under its `connectTimeout`, so one server that never answers keeps the new layer from becoming current for that timeout.
-- **MCP-76** Withdrawn.
 - **MCP-100** An MCP rebuild has no duration of chad's own, so chad's one `Timings` service holds none for it (see 17-testing.md).
 
 ### Calls held at the gate
 
 - **MCP-140** From the start of a rebuild until the new layer is current, a call fails at once with message 2. Nothing was sent, so the agent can call again. No call is held, and there is no backstop.
-- **MCP-77** Withdrawn.
-- **MCP-78** Withdrawn.
-- **MCP-79** Withdrawn.
-- **MCP-80** Withdrawn.
 
 ### What a running turn gets from the new layer
 
@@ -265,7 +211,6 @@ A running turn keeps the keys it took. After a rebuild some of those keys name t
 - **MCP-81** A call to a server that is gone from `mcp.json` fails with message 3.
 - **MCP-82** A call to a tool that its server no longer lists fails with message 4, whatever caused the rebuild.
 - **MCP-83** A call to a server that is still in `mcp.json` and is not connected fails with message 5, which carries the first line of the server's status error.
-- **MCP-84** Withdrawn.
 - **MCP-85** A call to a tool that still exists with different parameters fails clanka's validation against the new schema, and the call is not sent. chad adds nothing for this case.
 - **MCP-86** A server that a rebuild added is callable from each session's next turn. A running turn has no name for it, so a call to it throws inside the script and never reaches chad.
 - **MCP-87** When `searchTools` runs in a turn or sub-agent that holds no key for a tool the current layer has, chad adds a line to the result that names those tools and says they are callable from the next turn (message 8).
@@ -285,8 +230,6 @@ A running turn keeps the keys it took. After a rebuild some of those keys name t
 ### Stops and restarts
 
 - **MCP-94** A graceful stop abandons a rebuild that is in progress (see 01-image-and-volume.md for the stop's budget). A call made after that fails with message 2 or is cut with its turn.
-- **MCP-95** Withdrawn.
-- **MCP-96** Withdrawn.
 - **MCP-97** In a stop the plugins' scopes close before the MCP layer, so the stop's 60 second deadline cuts only MCP servers. A stop cut by the deadline exits 1, and its `stop.cut` log line names the servers that were still open. The cut stays a log line, and the owner gets no notice for it (see 16-failures-logs-status.md). The rule for the 60 second deadline and its exit code, with how the `stop.cut` line is written before the exit, is in 01-image-and-volume.md.
 - **MCP-131** chad does nothing in v1 to keep a resumed turn from sending an MCP call a second time. The paragraph below states the limit.
 
@@ -368,7 +311,6 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-26 | TIM-537 item 7 | Tim | not run |  | `rule` | `skills-mcp` |
 | MCP-27 | TIM-534, as recorded on TIM-537 | Tim | read |  | `rule` | `skills-mcp` |
 | MCP-28 | TIM-548 item 6 | Architect (Tim has not read) | read |  | `rule` | `skills-mcp` |
-| MCP-29 | TIM-546 item 8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | MCP-30 | TIM-553, as recorded on TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-31 | TIM-550 item 3, TIM-553 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-32 | TIM-537 item 5 | Tim | not run |  | `rule` | `skills-mcp` |
@@ -385,45 +327,17 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-43 | TIM-531 item 2, TIM-537 round 3 facts | Tim | read |  | `rule` | `skills-mcp` |
 | MCP-44 | TIM-537 item 8, TIM-541 item 2 | Tim; `npx` and no Python package Architect (Tim has not read) | run |  | `rule` | `harness` |
 | MCP-45 | TIM-537 item 8, TIM-541 item 12 | Tim; the cache paths Architect (Tim has not read) | run |  | `rule` | `harness` |
-| MCP-46 | TIM-537 item 9, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `definition` | - |
-| MCP-47 | TIM-537 item 9 and round 3 item 1 (TIM-545), amended by TIM-559 ruling on MCP-G1, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the signature Architect (Tim has not read) | read | TIM-559 | `rule` | - |
-| MCP-48 | TIM-537 item 9 and round 3 item 1, amended by TIM-559 ruling on MCP-G1, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the wording Architect (Tim has not read) | read |  | `definition` | - |
-| MCP-49 | TIM-537 items 9 and 14, amended by TIM-559 ruling on OV-G1, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the pin and no fallback Architect (Tim has not read) | read | TIM-559 | `fact` | - |
-| MCP-50 | TIM-537 item 12, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | - |
-| MCP-51 | TIM-537 item 12, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | read |  | `definition` | - |
-| MCP-52 | TIM-537 item 13, amended by TIM-559 ruling on MCP-G8, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the file Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
-| MCP-53 | TIM-537 item 13, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | - |
-| MCP-54 | TIM-537 item 11, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | read |  | `rule` | - |
-| MCP-55 | TIM-537 item 9 and round 3 facts, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | read |  | `rule` | - |
-| MCP-56 | TIM-537 item 13, TIM-534 item 15, TIM-557 items 36 and 40, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the notice key Architect (Tim has not read) | read; the notice key not run | TIM-557 | `rule` | - |
-| MCP-57 | TIM-537 item 13, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | - |
-| MCP-58 | TIM-537 item 11, TIM-542 item 29, amended by TIM-559 ruling on MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; dropping the `daemon` clause Architect (Tim has not read) | not run |  | `rule` | - |
-| MCP-59 | TIM-537 item 10, amended by TIM-559 ruling on MCP-G2, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the port number Architect (Tim has not read) | not run |  | `rule` | - |
-| MCP-60 | TIM-537 item 10, amended by TIM-559 ruling on MCP-G4, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; any thread Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
-| MCP-61 | TIM-537 item 10, TIM-542 item 6, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | - |
-| MCP-62 | TIM-542 item 13, TIM-537 item 10, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | - |
-| MCP-63 | TIM-537 item 11, amended by TIM-559 ruling on MCP-G6, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the condition Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
-| MCP-64 | TIM-537 item 11, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | - |
 | MCP-65 | TIM-531 item 6, TIM-537 follow-up rule 1, kept by TIM-555 | Architect (Tim has not read) | run | TIM-549, TIM-555 | `rule` | `skills-mcp` |
 | MCP-66 | TIM-537 follow-up rule 1, kept by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-67 | TIM-537 follow-up rule 1, TIM-555 item 2, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-68 | TIM-537 follow-up rule 7, TIM-555 prototype | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-69 | TIM-537 follow-up rule 2, amended by TIM-555, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| MCP-70 | TIM-537 follow-up rule 2, amended by TIM-555, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | MCP-71 | TIM-537 follow-up rule 2, amended by TIM-555 item 5, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-72 | TIM-555 item 5, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | MCP-73 | TIM-537 follow-up rule 2, kept by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-74 | TIM-555 finding 4, TIM-553 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-75 | TIM-537 follow-up rules 2 and 3, TIM-555 finding 3, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-76 | TIM-555 item 8, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| MCP-77 | TIM-537 follow-up rule 3, amended by TIM-555 item 3, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| MCP-78 | TIM-537 follow-up rule 3, amended by TIM-555 item 3, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| MCP-79 | TIM-555 item 3, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| MCP-80 | TIM-555 items 3 and 4, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | MCP-81 | TIM-537 follow-up rule 4, amended by TIM-555 item 4 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-82 | TIM-537 follow-up rule 4, amended by TIM-555 item 4 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-83 | TIM-537 follow-up rule 4, amended by TIM-555 item 4 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-84 | TIM-537 item 13, TIM-555 item 4, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the wording Architect (Tim has not read) | not run |  | `rule` | - |
 | MCP-85 | TIM-537 follow-up rule 4, kept by TIM-555 | Architect (Tim has not read) | run |  | `fact` | `skills-mcp` |
 | MCP-86 | TIM-537 follow-up rule 7, kept by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-87 | TIM-555 item 6 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
@@ -434,10 +348,7 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-92 | TIM-555 item 2, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-93 | TIM-549 item 28 (TIM-537 follow-up rule 5), kept by TIM-555, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-94 | TIM-555 item 7, TIM-553, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-95 | TIM-555 item 7, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| MCP-96 | TIM-555 item 7, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | MCP-97 | TIM-553 item 8, as recorded on TIM-555, TIM-557 item 41, TIM-559 round 2 R4 and R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | run; no notice not run |  | `rule` | `skills-mcp` |
-| MCP-98 | TIM-557 items 36 and 40, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | MCP-99 | TIM-558 item 33, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-100 | TIM-558 item 17, amended by TIM-559 ruling on MCP-G20, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-101 | TIM-558 item 52, withdrawn by TIM-559 ruling on OV-G1 | Architect (Tim has not read) | not run |  | `rule` | - |
@@ -454,29 +365,10 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-112 | TIM-559 ruling on MCP-G11 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-113 | TIM-559 ruling on MCP-G12 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-114 | TIM-559 ruling on MCP-G12 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| MCP-115 | TIM-559 ruling on MCP-G1, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | read |  | `rule` | - |
-| MCP-116 | TIM-559 ruling on MCP-G8, TIM-559 round 3 L3, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
-| MCP-117 | TIM-559 ruling on MCP-G8, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
-| MCP-118 | TIM-559 ruling on MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| MCP-119 | TIM-559 ruling on MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| MCP-120 | TIM-559 ruling on MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| MCP-121 | TIM-559 ruling on MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
-| MCP-122 | TIM-559 ruling on MCP-G6, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
-| MCP-123 | TIM-559 ruling on MCP-G6, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
-| MCP-124 | TIM-559 ruling on MCP-G4, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
-| MCP-125 | TIM-559 ruling on MCP-G4, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
-| MCP-126 | TIM-559 ruling on MCP-G7, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| MCP-127 | TIM-559 ruling on MCP-G7, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| MCP-128 | TIM-559 ruling on MCP-G8, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| MCP-129 | TIM-559 ruling on MCP-G7, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| MCP-130 | TIM-559 ruling on MCP-G20, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | MCP-131 | TIM-559 ruling on MCP-G23 | Architect (Tim has not read) | not run |  | `definition` | - |
 | MCP-132 | TIM-559 round 3 A1 | Architect (Tim has not read) | read |  | `fact` | `skills-mcp` |
 | MCP-133 | TIM-559 round 3 A1 | Architect (Tim has not read) | read |  | `fact` | `skills-mcp` |
 | MCP-134 | TIM-559 round 3 A1 | Architect (Tim has not read) | not run | TIM-559 | `definition` | - |
 | MCP-135 | TIM-559 round 3 A1, TIM-559 round 4 items 7 and 8 | Architect (Tim has not read) | not run |  | `definition` | - |
-| MCP-136 | TIM-559 round 3 L3, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
-| MCP-137 | TIM-559 round 4 item 10, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
-| MCP-138 | TIM-559 round 4 item 10, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | MCP-139 | Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-140 | Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `skills-mcp` |

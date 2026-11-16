@@ -150,7 +150,6 @@ effect/chat runs chad's handler inline, one event at a time for the whole bot. U
 - **SES-186** The reply of SES-148 is the subtext notice "There is no session in this channel. Mention me with a message and I'll open a thread for it.", posted in the channel.
 - **SES-188** `/stop` as the first message in a DM or a thread that has no `sessions` row posts "Nothing is running." and creates no row. `/new` there creates the thread's first row and posts its notice.
 - **SES-35** `/new` and `/stop` are specified in this part. `/status`, `/safe` and `/model` run the same daemon calls as the CLI, print the same text and do not go through the model (see 10-cli.md).
-- **SES-36** Withdrawn.
 - **SES-37** When dfx has to identify again instead of resuming, chad reads forward with `Chat.history` from the last message it saw in each session that was active in the past 7 days, and sends what it finds through the normal persisted path.
 - **SES-38** effect/chat does not say whether the gateway resumed or identified again. chad watches the gateway dispatch itself, where dfx's shard tells `READY` from `RESUMED`, to know when to catch up.
 - **SES-170** The last message chad saw in a session is a column on its `sessions` row, and the catch-up of SES-37 reads forward from it (see 02-storage.md).
@@ -195,7 +194,6 @@ Three clanka facts shape this. A second `send` during a turn is not rejected and
 - **SES-49** A tool handler queues a turn for its own thread with `Turns.queue`, which returns once the request is saved and does not wait for the outcome, because the queued turn runs only after the calling turn ends. `Turns.start` called from a tool handler for the thread of its own turn fails at once with a message that names `Turns.queue` (see 06-plugin-api.md and 13-timers-and-cron.md).
 - **SES-50** clanka runs with `ConversationMode` on, so a turn ends at a text reply with nothing waiting.
 - **SES-51** clanka keeps a turn open while a background sub-agent runs, even after the model has answered. An owner message sent in that time steers the open turn, and no new turn starts until the sub-agent finishes. What this means after an apply is in 08-apply-and-swap.md.
-- **SES-52** Withdrawn.
 - **SES-53** For a turn a plugin started, an answer that is exactly `[SILENT]` is not posted. In a server thread, the `mention` given to `Turns.start` or `Turns.schedule` goes at the start of the answer, and the core drops a mention whose id is not on the allowlist (see 13-timers-and-cron.md).
 
 ## What chad does when a turn starts
@@ -452,7 +450,6 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-33 | TIM-532 item 2, TIM-543 finding 4 | Tim | run |  | `rule` | `harness` |
 | SES-34 | TIM-532 item 6 | Tim | read |  | `rule` | `turns` |
 | SES-35 | TIM-542 item 22 | Tim | read |  | `rule` | `apply` |
-| SES-36 | TIM-546 item 15, comment on TIM-532, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-546 | `rule` | - |
 | SES-37 | TIM-532 item 14 | Tim | read |  | `rule` | `kills` |
 | SES-38 | TIM-532 "How well each is supported" | Tim | read |  | `rule` | `wire` |
 | SES-39 | TIM-532 item 14 | Tim | read |  | `definition` | - |
@@ -468,7 +465,6 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-49 | TIM-540 item 13, TIM-543, amended by TIM-559 ruling on API-G6 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | SES-50 | TIM-532 item 4 | Tim | run |  | `rule` | `harness` |
 | SES-51 | TIM-552 comment on TIM-543, TIM-552 question 1 (Tim agreed on the ticket) | Tim | run |  | `rule` | `turns` |
-| SES-52 | TIM-546 item 12, comment on TIM-532, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | - |
 | SES-53 | TIM-540 items 14 and 15, amended by TIM-559 ruling on CRON-G11 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | SES-54 | TIM-547 item 12, TIM-552 decision 5 (Tim agreed the TIM-552 part) | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SES-55 | TIM-531 item 1 | Tim | run |  | `rule` | `plugin-api` |

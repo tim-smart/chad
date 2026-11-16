@@ -75,7 +75,6 @@ Anything chad has to read before the database is open, or write with no daemon r
 - **STO-13** The safe mode flag and the model override are the small files `state/safe-mode` and `state/model`.
 - **STO-14** The files in STO-13 are written by writing a temporary file and renaming it over the old one.
 - **STO-15** The files in STO-13 are read before SQLite is opened, so safe mode still works when the database cannot be opened.
-- **STO-140** Withdrawn.
 - **STO-141** `state/safe-mode` holds one word, `on`. The file is absent when safe mode is off. See 09-repo-and-recovery.md.
 - **STO-142** `state/model` holds one line of plain text, the model value in the form 05-model-and-login.md gives.
 - **STO-143** The sub-agent and summarizer model overrides are kept under `state/`, beside `state/model`. See 05-model-and-login.md.
@@ -85,8 +84,6 @@ Anything chad has to read before the database is open, or write with no daemon r
 - **STO-145** `state/version` holds one line of plain text, the chad version.
 - **STO-121** `state/notice-thread` holds the thread in which chad posts a notice outside a turn, as the one JSON line `{"connection": "<name>", "thread": "<thread>"}`. `connection` is the name of the chat connection that posts, and `thread` is the thread string of STO-153. The connection's name is stored and not the platform, because two connections can share a platform and the file is read when the database cannot be. chad rewrites the file by temporary file and rename whenever that destination changes. Which thread that is is in 09-repo-and-recovery.md, and how a notice is sent is in 16-failures-logs-status.md.
 - **STO-18** chad keeps a hash of each bundled skill in `state/bundled-skills.json`. What the hash covers and the file's shape are in 12-skills-and-mcp.md.
-- **STO-19** Withdrawn.
-- **STO-146** Withdrawn.
 - **STO-20** A session works in `sessions/<session-id>/`, which is the startup directory of that session's clanka Agent.
 - **STO-194** A session id is a UUID from `crypto.randomUUID()`, in its lowercase text form. It is the name of the session's directory under `sessions/` and the `session` key of the session's log lines.
 - **STO-206** A turn id is `t_` followed by 12 lowercase hexadecimal digits.
@@ -182,7 +179,6 @@ Cluster stores each message under a shard number. If the number of shards change
 - **STO-52** The count is kept in the database and not under `state/`, so that a database restored without `state/` still carries the guard.
 - **STO-53** A daemon that finds a different shard count in that row refuses to start, exits 1 and names both numbers.
 - **STO-54** The shard count check runs before the database copy and before the migrations, so a refused boot copies nothing, migrates nothing and changes nothing in the database. The boot holds the lock by then, so its `boot.refused` line goes to the log file as well as to standard output (see 16-failures-logs-status.md).
-- **STO-55** Withdrawn.
 
 The message, as the prototype printed it for a database made at 300 shards:
 
@@ -481,7 +477,6 @@ A database is unusable when it cannot be opened or cannot be migrated. Safe mode
 - **STO-136** At a boot that ends in that state chad sends the same message without waiting for an owner message, to the thread recorded in `state/notice-thread` (STO-121), unless `state/db-unusable` exists. What chad does when no thread is recorded, when the post fails or when `state/db-unusable` cannot be written is in 16-failures-logs-status.md.
 - **STO-186** chad writes `state/db-unusable` when it sends the message of STO-136, and a boot that opens and migrates the database removes the file. A crash loop on an unusable database therefore posts the message once and not at every restart.
 - **STO-119** In that state `chad status` and `/status` show the error under "Problems", and `/status` renders with no database. Its key, `database-unusable`, is a live key (STO-169), so "Problems" shows it without reading the `notices` table. See 16-failures-logs-status.md.
-- **STO-120** Withdrawn.
 
 The message of STO-118 and STO-136:
 
@@ -529,7 +524,6 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-16 | TIM-542 item 16 | Tim | not run |  | `rule` | `settings` |
 | STO-17 | TIM-541 item 14 | Architect (Tim has not read) | run |  | `rule` | `harness` |
 | STO-18 | TIM-549 item 23, amended by TIM-559 ruling on MCP-G16 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| STO-19 | TIM-537 item 13, amended by TIM-559 rulings on STO-G19 and MCP-G8, TIM-559 round 3 L3, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim. Architect (Tim has not read) for the file and its key | not run | TIM-559 | `rule` | - |
 | STO-20 | TIM-536 item 10 | Tim | read |  | `rule` | `turns` |
 | STO-21 | TIM-536 item 10, TIM-532 item 15 | Tim | not run |  | `rule` | `turns` |
 | STO-22 | TIM-536 item 10, TIM-541 item 10 | Tim | run |  | `rule` | `turns` |
@@ -565,7 +559,6 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-52 | TIM-553 ("Where the recommendation changed") | Architect (Tim has not read) | not run |  | `definition` | - |
 | STO-53 | TIM-553 item 4 | Architect (Tim has not read) | run |  | `rule` | `harness` |
 | STO-54 | TIM-553 item 4, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| STO-55 | TIM-553 item 4, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | STO-56 | TIM-536 item 3 | Tim | not run |  | `rule` | `plugin-api` |
 | STO-57 | TIM-536 item 3 | Tim | not run |  | `rule` | `plugin-api` |
 | STO-58 | TIM-548 item 12 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
@@ -630,7 +623,6 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-117 | TIM-536 item 14, amended by TIM-557 item 35 | Tim. Architect (Tim has not read) for the split from STO-48 and the two named cases | not run | TIM-541, TIM-557 | `rule` | `failures` |
 | STO-118 | TIM-536 item 14, amended by TIM-557 item 35, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Tim. Architect (Tim has not read) for the wording | not run |  | `rule` | `failures` |
 | STO-119 | TIM-536 item 14, amended by TIM-557 item 27, TIM-559 round 3 C5 | Tim. Architect (Tim has not read) for "Problems", `/status` and the live key | not run |  | `rule` | `failures` |
-| STO-120 | TIM-536 item 14, TIM-541 item 26, TIM-550 item 8, TIM-553 item 4, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim for the database. Architect (Tim has not read) for the other three | not run | TIM-541, TIM-550, TIM-553 | `rule` | - |
 | STO-121 | TIM-557 item 38, amended by TIM-559 rulings on STO-G18 and FAIL-G9, TIM-559 round 3 C4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | STO-122 | TIM-558 item 20 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | STO-123 | TIM-557 item 29 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `turns` |
@@ -650,13 +642,11 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-137 | TIM-559 ruling on STO-G17 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | STO-138 | TIM-559 ruling on STO-G17 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | STO-139 | TIM-559 ruling on IMG-G2 and MOD-G16 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
-| STO-140 | TIM-559 ruling on STO-G18 and REC-G9, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | STO-141 | TIM-559 ruling on STO-G18 and REC-G9, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | STO-142 | TIM-559 ruling on STO-G18 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | STO-143 | TIM-559 ruling on MOD-G2 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | STO-144 | TIM-559 ruling on STO-G18 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | STO-145 | TIM-559 ruling on STO-G18 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| STO-146 | TIM-559 ruling on STO-G19, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
 | STO-147 | TIM-559 ruling on STO-G8, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | STO-148 | TIM-559 ruling on STO-G8 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | STO-149 | TIM-559 ruling on STO-G8, amended by TIM-559 round 3 L4 | Architect (Tim has not read) | not run |  | `rule` | `cli` |

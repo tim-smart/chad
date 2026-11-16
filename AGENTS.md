@@ -10,7 +10,7 @@ chad is built from the spec in `docs/spec/`. This file is the builder's contract
 
 ## Binding rules and defaults
 
-chad is one owner's assistant on one server. Build the simplest thing that keeps what the spec promises the owner, a plugin, the model and the CLI. The spec holds about 3,000 rules. Most of them are one reviewer's answer to an edge case, and Tim has not read them.
+chad is one owner's assistant on one server. Build the simplest thing that keeps what the spec promises the owner, a plugin, the model and the CLI. The spec holds about 2,800 rules. Most of them are one reviewer's answer to an edge case, and Tim has not read them.
 
 - A rule binds when it is one of these:
   - Tim agreed it. The Agreed by cell of its Provenance row names Tim without "Tim has not read". Where the cell gives Tim one clause and somebody else another, only Tim's clause binds.

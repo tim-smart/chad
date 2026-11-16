@@ -28,7 +28,6 @@ clanka's agent works by writing scripts. A script's source and its console outpu
 - **CRED-13** The test plan holds no test that a value a script printed is absent from chad's outputs. Its one check on stored values tests CRED-8. It stores a canary value, runs every `chad` command and every recipe, and looks for the value in every output and in the log (see 17-testing.md).
 - **CRED-105** chad logs each script's source and output, unmasked, to `logs/chad.log` and to the container's stdout. A value a script printed therefore goes wherever the container's logs are shipped (see 16-failures-logs-status.md).
 - **CRED-14** chad does not promise a stored value against an agent that goes looking. The agent can read `secrets/secrets.json` with clanka's `readFile`, a browser that has typed a password can be asked for it, `chad secret run -- printenv` prints a value, and a value handed to an MCP server through `mcp.json` is in that server's `/proc/<pid>/environ`. The spec states this in plain words.
-- **CRED-15** Withdrawn.
 
 One fact from the prototype belongs with CRED-14. clanka saves a command output longer than 30,000 characters to a temporary file and tells the model the path. chad does not write that file. It is mode 644 and outside the data volume, so a value that a script printed into a long output is in it.
 
@@ -41,7 +40,6 @@ A login is not a record of its own. It is plain named secrets, with the site and
 - **CRED-18** A secret's name matches `[A-Z_][A-Z0-9_]*` and is 64 characters at most. `chad secret set` enforces it.
 - **CRED-19** `chad secret set` refuses the name `CHAD_DOLLAR`, which is reserved for writing a literal `${` in configuration (see 11-settings.md).
 - **CRED-20** By convention the note holds the site and the username of the login the secret belongs to.
-- **CRED-21** Withdrawn.
 
 The store as the prototype built it, without the TOTP kind, which v1 does not have.
 
@@ -92,94 +90,23 @@ The exit codes 0, 1, 2 and 4 mean what 10-cli.md says they mean for every comman
 - **CRED-30** For `run` the CLI reads `secrets/secrets.json` itself, whether or not a daemon is running.
 - **CRED-31** A name that is not in the store makes `run` exit 125 with `chad secret run: no secret named NAME` on stderr, and the command is not started.
 - **CRED-32** Otherwise the command's own exit code is `run`'s exit code. The prototype saw 7 passed through, 143 for a command ended by SIGTERM and 127 for a command that does not exist.
-- **CRED-33** Withdrawn.
 - **CRED-113** Bad usage of `run`, which includes a bad `--env` pair, exits 125 and not the 2 that 10-cli.md gives bad usage in every other command. `run` passes its child's code through, so its own failures use codes a child rarely returns.
 - **CRED-114** A command that is not found makes `run` exit 127, which is the code a shell gives for it.
 - **CRED-115** A command that is found but is not executable makes `run` exit 126.
-
-## TOTP codes
-
-- **CRED-34** Withdrawn.
-- **CRED-35** Withdrawn.
-- **CRED-36** Withdrawn.
-- **CRED-37** Withdrawn.
-- **CRED-38** Withdrawn.
-- **CRED-116** Withdrawn.
 
 ## Asking the owner for a secret
 
 v1 has no command that asks the owner for a value and no form in chat that takes one. The owner saves a secret in a shell.
 
 - **CRED-136** The owner saves a secret with `chad secret set NAME` in a shell on the server, and that command is the only way a value gets into the store. When the agent needs a secret that is not stored, it asks the owner in chat to run that command. It never asks for the value itself.
-- **CRED-39** Withdrawn.
-- **CRED-40** Withdrawn.
-- **CRED-41** Withdrawn.
-- **CRED-42** Withdrawn.
-- **CRED-43** Withdrawn.
-- **CRED-117** Withdrawn.
-
-## One-off codes
-
-- **CRED-44** Withdrawn.
-- **CRED-45** Withdrawn.
 
 ## The Enter button and the modal
 
 - **CRED-46** v1 has one button, Stop, and no modal (see 04-discord.md).
-- **CRED-47** Withdrawn.
-- **CRED-48** Withdrawn.
-- **CRED-118** Withdrawn.
-- **CRED-107** Withdrawn.
-- **CRED-49** Withdrawn.
-- **CRED-50** Withdrawn.
-- **CRED-51** Withdrawn.
-- **CRED-52** Withdrawn.
-- **CRED-53** Withdrawn.
-- **CRED-54** Withdrawn.
-- **CRED-55** Withdrawn.
 
 ## Waiting, replies and stops
 
-- **CRED-56** Withdrawn.
-- **CRED-57** Withdrawn.
-- **CRED-58** Withdrawn.
-- **CRED-59** Withdrawn.
-- **CRED-60** Withdrawn.
-- **CRED-61** Withdrawn.
 - **CRED-62** chad leaves clanka's `scriptTimeout` limit unset.
-
-## When no owner is present
-
-- **CRED-63** Withdrawn.
-- **CRED-64** Withdrawn.
-- **CRED-65** Withdrawn.
-- **CRED-66** Withdrawn.
-- **CRED-119** Withdrawn.
-- **CRED-120** Withdrawn.
-
-## Repeat requests and forgotten buttons
-
-- **CRED-67** Withdrawn.
-- **CRED-68** Withdrawn.
-- **CRED-69** Withdrawn.
-- **CRED-70** Withdrawn.
-- **CRED-71** Withdrawn.
-- **CRED-72** Withdrawn.
-- **CRED-121** Withdrawn.
-- **CRED-122** Withdrawn.
-- **CRED-123** Withdrawn.
-- **CRED-131** Withdrawn.
-- **CRED-132** Withdrawn.
-
-## The /secret chat command
-
-- **CRED-73** Withdrawn.
-- **CRED-74** Withdrawn.
-- **CRED-75** Withdrawn.
-- **CRED-76** Withdrawn.
-- **CRED-124** Withdrawn.
-- **CRED-125** Withdrawn.
-- **CRED-126** Withdrawn.
 
 ## A password typed into the chat
 
@@ -193,9 +120,6 @@ v1 has no command that asks the owner for a value and no form in chat that takes
 - **CRED-81** `chad secret set` sends a value to the daemon as the payload of its call. Nothing comes back but flags and the names of what was reloaded.
 - **CRED-82** The daemon logs no RPC request body, no RPC response body and no interaction payload.
 - **CRED-130** When the daemon finishes a `chad secret set` or a `chad secret rm`, it writes the log event `command.ran` (see 16-failures-logs-status.md). The line carries the command, the caller, which is the owner, a session id or the daemon, and the outcome. It never carries a secret's value.
-- **CRED-133** Withdrawn.
-- **CRED-134** Withdrawn.
-- **CRED-135** Withdrawn.
 
 The two calls as the prototype defined them, without what v1 does not have. The RPC group, the socket and the session header belong to 10-cli.md.
 
@@ -240,38 +164,17 @@ The rules an agent has to follow cannot be enforced by a command, so they live i
 - **CRED-84** The skill's first rule is that no recipe prints a stored value. It names the routes that do print one, so the agent avoids them. They are `chad secret run -- printenv` and a command of a browser tool that reads a password field back.
 - **CRED-85** The skill says to ask the owner to save a secret only for a site the owner named in that session. This is the answer to a web page that tells the agent to ask for a bank password.
 - **CRED-86** The skill shows the quoting trap. `chad secret run --env P=X -- tool "$P"` expands `$P` in the outer shell, where it is empty, so the recipe is `chad secret run --env P=X -- sh -c 'tool "$P"'`.
-- **CRED-87** Withdrawn.
-- **CRED-88** Withdrawn.
-- **CRED-89** Withdrawn.
-- **CRED-90** Withdrawn.
 - **CRED-91** The skill says to ask for a secret before starting a login, since saving one restarts every MCP server that names it. A call in flight when the secret is saved is interrupted with `mcp.<server>.<tool> was interrupted by an MCP restart. It may have run in part or in full.` (see 12-skills-and-mcp.md).
 - **CRED-92** The skill treats the state of a browser tool the owner added as a secret. Cookies, saved state files and a tool's own vault are never printed, never sent with `sendFile` and never put in the repo. chad itself does nothing with browser state.
-- **CRED-93** Withdrawn.
-- **CRED-94** Withdrawn.
-- **CRED-95** Withdrawn.
 - **CRED-96** The skill carries the rules for a password typed into the chat (CRED-77, CRED-78 and CRED-79) and the rule for a secret that is not stored (CRED-136).
 - **CRED-108** The CI checks on a bundled skill, which 14-self-edit-skill.md lists, run on the `credentials` skill too (see 17-testing.md).
 - **CRED-127** Withdrawn.
 
 ## The browser sidecar
 
-- **CRED-97** Withdrawn.
-- **CRED-98** Withdrawn.
-- **CRED-99** Withdrawn.
 - **CRED-128** Withdrawn.
 
-## The Playwright MCP recipe
-
-- **CRED-100** Withdrawn.
-- **CRED-101** Withdrawn.
-- **CRED-102** Withdrawn.
-- **CRED-103** Withdrawn.
-- **CRED-129** Withdrawn.
-
 ## Runs owed to the test plan
-
-- **CRED-104** Withdrawn.
-- **CRED-110** Withdrawn.
 
 These were never run. A real model following the skill, any of it on Docker (the prototype ran on podman), `--note ""`, and the skill as a file.
 
@@ -300,13 +203,11 @@ These were never run. A real model following the skill, any of it on Docker (the
 | CRED-12 | TIM-554 decision 2, replacing TIM-546 items 18, 19 and 20; answered for Tim by Jarvis, chat 2026-11-15 | Tim; the reading that this covers chad's own outputs kept by Jarvis, delegated by Tim on 2026-11-15 (Tim has not read) | not run |  | `rule` | `settings` |
 | CRED-13 | TIM-554 "How well each is supported", amended by TIM-558 item 48 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | CRED-14 | TIM-546 item 2, TIM-542 item 31, TIM-554 decision 12 | Architect (Tim has not read) | run | TIM-546 | `definition` | - |
-| CRED-15 | TIM-546 item 3, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `definition` | - |
 | CRED-16 | TIM-546 item 4, TIM-542 item 14 | Architect (Tim has not read) | run |  | `rule` | `settings` |
 | CRED-17 | TIM-546 items 4 and 5, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | `settings` |
 | CRED-18 | TIM-554 decision 6, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-554 | `rule` | `settings` |
 | CRED-19 | TIM-548 item 6 | Architect (Tim has not read) | not run | TIM-548 | `rule` | `settings` |
 | CRED-20 | TIM-546 item 5 | Architect (Tim has not read) | not run |  | `definition` | - |
-| CRED-21 | TIM-546 item 4, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | - |
 | CRED-22 | TIM-542 item 14 | Tim | run |  | `rule` | `settings` |
 | CRED-23 | TIM-546 item 5, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `settings` |
 | CRED-24 | TIM-546 item 5, amended by TIM-554 decision 9 | Architect (Tim has not read) | not run | TIM-546, TIM-554 | `rule` | `settings` |
@@ -318,50 +219,8 @@ These were never run. A real model following the skill, any of it on Docker (the
 | CRED-30 | TIM-546 item 7, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `settings` |
 | CRED-31 | TIM-546 item 7 | Architect (Tim has not read) | run | TIM-546 | `rule` | `settings` |
 | CRED-32 | TIM-546 item 7 | Architect (Tim has not read) | run | TIM-546 | `rule` | `settings` |
-| CRED-33 | TIM-546 item 8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-34 | TIM-546 item 8, TIM-554 prototype, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | - |
-| CRED-35 | TIM-546 item 8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-36 | TIM-546 item 8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-37 | TIM-546 item 8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-546 | `rule` | - |
-| CRED-38 | TIM-546 item 8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | - |
-| CRED-39 | TIM-546 item 9, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | - |
-| CRED-40 | TIM-546 item 10, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-41 | TIM-546 item 9, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-42 | TIM-546 items 9 and 12, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-43 | TIM-546 item 12, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-44 | TIM-546 item 11, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | - |
-| CRED-45 | TIM-546 item 11, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `definition` | - |
 | CRED-46 | TIM-546 item 16, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | `settings` |
-| CRED-47 | TIM-546 items 9 and 14, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-48 | TIM-546 item 9, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-49 | TIM-546 item 9, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-50 | TIM-546 item 17, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | read |  | `fact` | - |
-| CRED-51 | TIM-554 decision 5, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-52 | TIM-554 decision 5, TIM-554 prototype, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-53 | TIM-546 item 9, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-54 | TIM-554 decision 5, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-55 | TIM-554 decision 5, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `definition` | - |
-| CRED-56 | TIM-546 item 12, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-57 | TIM-546 item 12, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-58 | TIM-546 item 12, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-59 | TIM-546 item 12, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | - |
-| CRED-60 | TIM-554 decision 8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-61 | TIM-546 item 12, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | CRED-62 | TIM-554 decision 10, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `harness` |
-| CRED-63 | TIM-546 item 13, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-64 | TIM-546 item 13, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-65 | TIM-546 item 13, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-66 | TIM-546 item 13, amended by TIM-559 ruling on CLI-G14, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-546, TIM-559 | `rule` | - |
-| CRED-67 | TIM-546 item 14, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-68 | TIM-546 item 14, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-69 | TIM-546 item 14, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-70 | TIM-546 item 14, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-71 | TIM-546 item 14, amended by TIM-554, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-72 | TIM-554 decision 7, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-73 | TIM-546 item 15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | - |
-| CRED-74 | TIM-546 item 15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | - |
-| CRED-75 | TIM-546 item 15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | - |
-| CRED-76 | TIM-546 item 15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-546 | `rule` | - |
 | CRED-77 | TIM-546 item 17, amended by Tim's ruling on the last four stopped rules, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `definition` | - |
 | CRED-78 | TIM-554 decision 3, replacing part of TIM-546 item 17, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16, amended by Tim's ruling on the last four stopped rules, chat 2026-11-16 | Architect (Tim has not read) | run |  | `definition` | - |
 | CRED-79 | TIM-546 item 17 | Architect (Tim has not read) | not run |  | `definition` | - |
@@ -372,53 +231,19 @@ These were never run. A real model following the skill, any of it on Docker (the
 | CRED-84 | TIM-554 decision 1, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim | run |  | `rule` | `bundled-skills` |
 | CRED-85 | TIM-546 item 10, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | CRED-86 | TIM-546 item 23 | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |
-| CRED-87 | TIM-546 item 23, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-88 | TIM-546 item 23, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-89 | TIM-546 item 23, TIM-554 prototype, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-90 | TIM-546 item 23, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | CRED-91 | TIM-546 item 23, amended by TIM-555 decision 5 and the TIM-537 follow-up rules 1 and 2, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |
 | CRED-92 | TIM-546 item 23, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
-| CRED-93 | TIM-546 item 23, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-94 | TIM-554 decision 11, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-95 | TIM-554 decision 11, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | CRED-96 | TIM-546 items 3 and 17, TIM-554 decision 3, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
-| CRED-97 | TIM-554 decision 4, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-98 | TIM-554 decision 4, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-99 | TIM-554 decision 4, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `definition` | - |
-| CRED-100 | TIM-554 decision 12, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-101 | TIM-554 decision 12, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CRED-102 | TIM-554 decision 12, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `definition` | - |
-| CRED-103 | TIM-554 decision 11, amended by TIM-559 ruling on CRED-G14, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-104 | TIM-554 "Not run" and "Passed on", TIM-558 items 52 and 54, amended by TIM-559 ruling on IMG-G17, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CRED-105 | TIM-557 item 4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | CRED-106 | TIM-557 item 39, amended by TIM-559 ruling on SWAP-G13 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| CRED-107 | TIM-558 item 35, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CRED-108 | TIM-558 item 32, TIM-557 item 43 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | CRED-109 | TIM-558 items 8 and 33 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| CRED-110 | TIM-558 items 29, 35, 37 and 52, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CRED-111 | TIM-559 ruling on SET-G8 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `settings` |
 | CRED-112 | TIM-559 ruling on REC-G19 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `settings` |
 | CRED-113 | TIM-559 ruling on CRED-G11 | Architect (Tim has not read) | not run | TIM-546, TIM-559 | `rule` | `settings` |
 | CRED-114 | TIM-559 ruling on CRED-G11 | Architect (Tim has not read) | not run | TIM-546, TIM-559 | `rule` | `settings` |
 | CRED-115 | TIM-559 ruling on CRED-G11 | Architect (Tim has not read) | not run | TIM-546, TIM-559 | `rule` | `settings` |
-| CRED-116 | TIM-559 ruling on SET-G8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-546, TIM-559 | `rule` | - |
-| CRED-117 | TIM-559 ruling on CRED-G2, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-118 | TIM-559 ruling on DIS-G18, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-119 | TIM-559 ruling on CRED-G6, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-120 | TIM-559 ruling on CRED-G6, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-121 | TIM-559 ruling on CRED-G3, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-122 | TIM-559 ruling on CRED-G4, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-123 | TIM-559 ruling on CRED-G9, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-124 | TIM-559 ruling on CRED-G8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-125 | TIM-559 ruling on CRED-G8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-126 | TIM-559 ruling on SES-G3, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CRED-127 | TIM-559 ruling on IMG-G17, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CRED-128 | TIM-559 ruling on IMG-G17, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | read |  | `rule` | - |
-| CRED-129 | TIM-559 ruling on CRED-G14, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `definition` | - |
 | CRED-130 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| CRED-131 | TIM-559 round 3 on CRED-G20, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-132 | TIM-559 round 3 on CRED-G20, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-133 | TIM-559 round 4 item 3, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-134 | TIM-559 round 4 item 3, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-135 | TIM-559 round 4 item 3, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CRED-136 | Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `settings` |

@@ -200,7 +200,6 @@ Nothing in chad's code enforces the rules in this section. The agent follows the
 - **SELF-76** When the owner mounts a directory, the agent records it in `persona.md` with its path under `/mnt` and what it holds.
 - **SELF-77** The agent tests a change to a plugin's code in the turn after the one that applied it.
 - **SELF-78** The skill says that the next turn cannot start while the current turn has a background sub-agent running. A message the owner sends then is steered into the running turn and runs on the old Agent, so the new version is not there yet. The refusal the agent sees ends with the sentence shown below.
-- **SELF-79** Withdrawn.
 - **SELF-80** With no owner around, the agent tests by scheduling a one-off cron job. The job's prompt stands on its own and says what to call, with what, and what counts as a pass.
 - **SELF-81** If the cron plugin is off, the agent reports what it changed and stops.
 - **SELF-82** v1 adds no command for testing a change.
@@ -688,7 +687,6 @@ export default Plugin.make(NotesTools, Chunk)
 | SELF-76 | TIM-549 item 11, TIM-534 as changed by TIM-549 | Architect (Tim has not read) | not run | TIM-549 | `rule` | `bundled-skills` |
 | SELF-77 | TIM-549 item 12 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SELF-78 | TIM-549 "Changed by TIM-552", TIM-552 decision 7 | Tim | run |  | `rule` | `bundled-skills` |
-| SELF-79 | TIM-547 item 7, TIM-552 decision 1, TIM-549 item 12 as changed by TIM-552, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
 | SELF-80 | TIM-549 item 12 and round 1 point 7 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SELF-81 | TIM-549 item 12 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SELF-82 | TIM-549 item 12 | Architect (Tim has not read) | not run |  | `definition` | - |
