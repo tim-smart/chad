@@ -876,6 +876,96 @@ export const bundledNameRefused = (name: string) =>
 export const instructionsRefused = (paths: ReadonlyArray<string>) =>
   `The repo holds ${paths.map((path) => `work/${path}`).join(", ")}. chad refuses AGENTS.md, .agents and .kiro in the repo, because clanka would read them without an apply. Put a skill under skills/<name>/SKILL.md and standing instructions in persona.md, then delete these.`
 
+// Skills (docs/spec/12-skills-and-mcp.md). A check names the file as `work/skills/<dir>/SKILL.md`, the file the agent
+// edits, and a boot's notice names the skill by its directory (MCP-17, FAIL-166).
+
+/** What is wrong with a `SKILL.md`, as a phrase that follows the file's name. */
+export const skillProblems = {
+  /** No front matter, or front matter that is not YAML (MCP-16, SELF-55). */
+  noFrontMatter: (dir: string) =>
+    `has no front matter. Start it with a line "---", then "name: ${dir}", "description: <when to read the skill>" and "---"`,
+  /** A missing or empty `name` (SELF-56). */
+  noName: (dir: string) =>
+    `has no name in its front matter. Set "name: ${dir}"`,
+  /** A missing or empty `description` (SELF-56). */
+  noDescription:
+    "has no description in its front matter. Say when a session should read the skill",
+  /** A name that differs from the directory (SELF-57, CLI-68). */
+  otherName: (name: string, dir: string) =>
+    `has the name "${name}", which differs from its directory. Set "name: ${dir}"`,
+  /** A file that cannot be read. */
+  unreadable: (error: string) => `cannot be read: ${error}`,
+} as const
+
+/** A malformed skill in a check or an apply, which names the file (MCP-16, MCP-17, SELF-59, CLI-67, CLI-75). */
+export const skillRefused = (dir: string, problem: string) =>
+  `work/skills/${dir}/SKILL.md ${problem}.`
+
+/** The notice of a skill a boot skipped (FAIL-166, MCP-18, REC-47). */
+export const skillSkipped = (name: string, problem: string) =>
+  `Skipped skill \`${name}\`: SKILL.md ${problem}.`
+
+/** The one-off notice of a bundled skill that changed while a repo skill hides it (FAIL-167, MCP-14). */
+export const bundledSkillChanged = (name: string) =>
+  `The bundled skill \`${name}\` changed in this image. The repo's copy still hides it.`
+
+/** The sentence chad appends to a repo skill's content (MCP-4, MCP-102, MCP-104, MCP-146). */
+export const repoSkillWhere = (live: string, work: string) =>
+  `This skill's files are in ${live}. To change the skill, edit its copy in ${work} and run chad apply. An edit under ${live} is lost at the next apply.`
+
+/** The sentence chad appends to a bundled skill's content (MCP-4, MCP-103, MCP-104, MCP-146). */
+export const bundledSkillWhere = (image: string, work: string) =>
+  `This skill is bundled with chad and its files are in ${image}, which is read-only. To change the skill, copy its directory to ${work}, edit it there and run chad apply. The repo's copy then hides the bundled one.`
+
+/** An apply's lines for the repo skills it added, changed and removed (CLI-70). */
+export const skillChanges = (changes: {
+  readonly added: ReadonlyArray<string>
+  readonly changed: ReadonlyArray<string>
+  readonly removed: ReadonlyArray<string>
+}) => [
+  ...(changes.added.length === 0
+    ? []
+    : [`Skills added: ${changes.added.join(", ")}.`]),
+  ...(changes.changed.length === 0
+    ? []
+    : [`Skills changed: ${changes.changed.join(", ")}.`]),
+  ...(changes.removed.length === 0
+    ? []
+    : [`Skills removed: ${changes.removed.join(", ")}.`]),
+]
+
+/** An apply's line for a repo skill that hides a bundled one (CLI-70, MCP-11, SELF-117, MCP-147). */
+export const skillHides = (name: string) =>
+  `The repo skill ${name} hides the bundled skill of the same name.`
+
+/** `chad status`'s mark on a repo skill that hides a bundled one (MCP-12, MCP-147). */
+export const skillHidesMark = (name: string) =>
+  `skill: ${name}, from the repo, hides the bundled one`
+
+/** `chad skill new` wrote its file (CLI-84). */
+export const skillWritten = (name: string) =>
+  `Wrote work/skills/${name}/SKILL.md. Fill in its description and instructions. It is a draft until chad apply.`
+
+/** The body of the `SKILL.md` that `chad skill new` writes (SELF-139). */
+export const skillBody =
+  "Write the instructions here: what the task is, the steps, and the commands to run."
+
+/** `chad skill new` with a name that breaks the name rule (CLI-85). */
+export const skillNameRule = (name: string) =>
+  `"${name}" is not a skill name. Use lower-case letters, digits and hyphens.`
+
+/** `chad skill new` with a name the repo already has (CLI-85, MCP-8). */
+export const skillTaken = (name: string) =>
+  `work/skills/${name} exists already. Pick another name, or edit the skill that is there.`
+
+/** `chad skill new` with a bundled skill's name (CLI-85, MCP-8). */
+export const skillBundledName = (name: string) =>
+  `${name} is the name of a bundled skill. Pick another name. To change the bundled one, copy its directory into work/skills/${name}.`
+
+/** `chad skill new` with no `repo/work`, which only `chad serve` creates (CLI-157). */
+export const skillNoRepo = (work: string) =>
+  `${work} does not exist yet. Start chad serve once, which creates the repo.`
+
 /** The count of the errors a failed check does not print (CLI-47). */
 export const moreErrors = (count: number) => `... and ${count} more errors.`
 
@@ -1149,6 +1239,8 @@ export const appliedOutput = (options: {
     | undefined
   /** The settings listing of the plugins the apply built (SET-66 to SET-69). */
   readonly settings?: ReadonlyArray<string>
+  /** The lines of the skills the apply added, changed or removed, and of the repo skills that hide a bundled one (CLI-70, MCP-11). */
+  readonly skills?: ReadonlyArray<string>
 }) => [
   `${options.kind === "revert" ? "Reverted" : "Applied"} ${options.commit}.`,
   ...(options.saved === undefined
@@ -1163,6 +1255,7 @@ export const appliedOutput = (options: {
   "Changed files:",
   ...options.files.map((file) => `  ${file}`),
   ...(options.settings ?? []),
+  ...(options.skills ?? []),
   ...(options.safe
     ? [
         "Safe mode is on, so nothing was loaded. The change loads when safe mode goes off.",

@@ -15,6 +15,7 @@ import * as Repo from "../Repo.ts"
 import * as SafeMode from "../SafeMode.ts"
 import * as Secrets from "../Secrets.ts"
 import * as Settings from "../Settings.ts"
+import * as Skills from "../Skills.ts"
 import * as Timezone from "../Timezone.ts"
 import * as Loader from "./Loader.ts"
 import * as Logger from "./Logger.ts"
@@ -85,6 +86,10 @@ export interface Commands {
   readonly owners: (removed: boolean) => Effect.Effect<void>
   /** The persona of the applied tree, which a session takes when its Agent is built (SELF-43, SWAP-128). */
   readonly persona: () => string
+  /** The skills a session's Agent is built with: the applied tree's and the bundled ones, these alone in safe mode (MCP-3). */
+  readonly skills: () => ReadonlyArray<Skills.Provided>
+  /** The applied tree's skills that hide a bundled one, none in safe mode, which `chad status` marks (MCP-12). */
+  readonly hiding: () => ReadonlyArray<string>
   /** The plugins the applied `chad.json` turns off, which `chad status` and `chad plugin purge` read (SET-34). */
   readonly off: () => ReadonlySet<string>
   /** The plugins whose settings in the applied `chad.json` name a secret, less those that are off (SET-26, SET-79). */
@@ -130,6 +135,12 @@ export const make = Effect.fnUntraced(function* (options: {
   readonly settings: Settings.File
   /** The applied tree's persona as the boot read it. */
   readonly persona: string
+  /** The applied tree's skills as the boot found them, and the bundled ones with their directory. */
+  readonly skills: {
+    readonly repo: Skills.Found
+    readonly bundled: Skills.Found
+    readonly bundledDirectory: string
+  }
   /**
    * Drops a plugin's key-value table, and gives the number of keys it held, or nothing when there was no table
    * (STO-61, CLI-90).
@@ -160,6 +171,10 @@ export const make = Effect.fnUntraced(function* (options: {
   let applied = options.settings
   /** The applied tree's persona, which an apply or a revert replaces before its swap bumps the generation (SWAP-128). */
   let persona = options.persona
+  /** The applied tree's skills, which an apply or a revert replaces before its swap bumps the generation (MCP-5). */
+  let skills = options.skills.repo
+  /** The repo skills whose skipped notice holds, which the next apply clears, as its tree has none (FAIL-234). */
+  let skipped = new Set(skills.bad.map(({ name }) => name))
   const guide = Messages.effectGuide(
     join(repo, "node_modules/effect/AGENTS.md"),
   )
@@ -227,6 +242,7 @@ export const make = Effect.fnUntraced(function* (options: {
           stage: "names",
           errors: [Messages.instructionsRefused([...new Set(found)])],
           loaded: [],
+          skills: Skills.none,
         }
       }
       const { errors, loaded } = yield* Loader.check(
@@ -234,7 +250,14 @@ export const make = Effect.fnUntraced(function* (options: {
         directory,
         bundledNames,
       )
-      return { stage: "check", errors, loaded }
+      // A malformed skill fails the check as a plugin does (MCP-16, CLI-75).
+      const checked = yield* Skills.check(directory)
+      return {
+        stage: "check",
+        errors: [...errors, ...checked.errors],
+        loaded,
+        skills: checked.found,
+      }
     })
 
   /**
@@ -443,6 +466,16 @@ export const make = Effect.fnUntraced(function* (options: {
                 })
           // The persona is in place before the swap's generation bump, which is its one path to a session (SWAP-128).
           persona = nextPersona
+          const skillChanges = Skills.changes(
+            skills,
+            checked.skills,
+            changes.map(({ path }) => path),
+          )
+          skills = checked.skills
+          for (const name of skipped) {
+            yield* options.notices.clear(Skills.skippedKey(name))
+          }
+          skipped = new Set()
           const swapped =
             safe === "off"
               ? yield* prepared.swap
@@ -508,6 +541,12 @@ export const make = Effect.fnUntraced(function* (options: {
               swapped,
               flipped,
               settings: listing,
+              skills: [
+                ...Messages.skillChanges(skillChanges),
+                ...Skills.hiding(skills, options.skills.bundled).map(
+                  Messages.skillHides,
+                ),
+              ],
             }),
           )
         }).pipe(
@@ -659,6 +698,11 @@ export const make = Effect.fnUntraced(function* (options: {
           notices: options.notices,
         })
         persona = yield* Persona.read(tree)
+        skills = yield* Skills.scan(
+          tree === undefined ? undefined : join(tree, "skills"),
+        )
+        yield* skipSkills(options.notices, skills)
+        skipped = new Set(skills.bad.map(({ name }) => name))
         const off = Settings.off(applied)
         const plan = planFor(
           PluginSettings.entries({
@@ -1005,6 +1049,15 @@ export const make = Effect.fnUntraced(function* (options: {
       }),
     safe: () => safe,
     persona: () => persona,
+    skills: () =>
+      Skills.provided({
+        repo: safe === "off" ? skills : undefined,
+        bundled: options.skills.bundled,
+        bundledDirectory: options.skills.bundledDirectory,
+        repoDirectory: repo,
+      }),
+    hiding: () =>
+      safe === "off" ? Skills.hiding(skills, options.skills.bundled) : [],
     // Once the owners are stored the plugins follow them, so a client that goes away does not leave a removed owner in
     // a running plugin (CLI-120b, SWAP-99).
     owners: (removed) =>
@@ -1027,3 +1080,27 @@ export const make = Effect.fnUntraced(function* (options: {
   }
   return commands
 })
+
+/**
+ * Skips the malformed skills of a tree that a boot or `chad safe off` loads, each with a notice, and clears the notice
+ * of each skill that loads (MCP-18, REC-47, FAIL-166, FAIL-234).
+ */
+export const skipSkills = (
+  notices: Notices.Notices["Service"],
+  found: Skills.Found,
+) =>
+  Effect.gen(function* () {
+    for (const { name, problem } of found.bad) {
+      yield* Logger.event("skill.skipped", "A skill was skipped", {
+        skill: name,
+        error: problem,
+      })
+      yield* notices.raise({
+        key: Skills.skippedKey(name),
+        text: Messages.skillSkipped(name, problem),
+      })
+    }
+    for (const { name } of found.skills) {
+      yield* notices.clear(Skills.skippedKey(name))
+    }
+  })

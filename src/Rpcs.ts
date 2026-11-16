@@ -134,6 +134,8 @@ export const Report = Schema.Struct({
   skipped: Schema.optionalKey(
     Schema.Array(Schema.Struct({ name: Schema.String, reason: Schema.String })),
   ),
+  /** The repo skills that hide a bundled skill of the same name (MCP-12, SELF-121). */
+  hiding: Schema.optionalKey(Schema.Array(Schema.String)),
 })
 export type Report = typeof Report.Type
 

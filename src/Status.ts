@@ -131,6 +131,8 @@ export const render = (view: View): string => {
     ...(report.skipped ?? []).map(
       ({ name, reason }) => `plugin: ${name}, skipped (${reason})`,
     ),
+    // A repo skill that hides a bundled one is marked (MCP-12, SELF-121, MCP-147).
+    ...(report.hiding ?? []).map(Messages.skillHidesMark),
     ...blocks(report),
   ].join("\n")
 }
