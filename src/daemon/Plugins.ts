@@ -472,12 +472,12 @@ export const make = Effect.fnUntraced(function* (options: {
       >
       if (hooks.length === 0)
         return yield* dropped(name, job.hook, "unregistered")
-      yield* Effect.forEach(
-        hooks,
-        (registered) =>
-          run(plugin, job.hook, registered, job.input, job.budget),
-        { discard: true },
-      )
+      for (const registered of hooks) {
+        // A swap of the plugin ends the job: the callbacks of the old version after the one the drain cut do not start
+        // on a version that is closing (SWAP-81, SWAP-82).
+        if (plugin.retired !== undefined) return
+        yield* run(plugin, job.hook, registered, job.input, job.budget)
+      }
     }).pipe(Effect.ensuring(Deferred.succeed(job.done, undefined)))
   const queueOf = Effect.fnUntraced(function* (name: string) {
     const existing = queues.get(name)
@@ -487,6 +487,12 @@ export const make = Effect.fnUntraced(function* (options: {
     yield* Queue.take(queue).pipe(
       Effect.flatMap((job) =>
         perform(name, job).pipe(
+          // A call interrupted by its version's close ends that job and not the queue, which outlives the version.
+          Effect.catchCause((cause) =>
+            Cause.hasInterruptsOnly(cause)
+              ? Effect.void
+              : Effect.failCause(cause),
+          ),
           Effect.ensuring(
             Effect.sync(() => {
               pending--
@@ -788,8 +794,9 @@ export const make = Effect.fnUntraced(function* (options: {
 
   /**
    * Closes old versions, with the close deadline less what the interrupt wait used. A close past it is abandoned and
-   * logged, and goes on detached, so neither the swap nor a later stop waits on it (SWAP-47, SWAP-48, FAIL-265). A stop
-   * that lands during the close waits at most the deadline.
+   * logged, and the swap goes on without it (SWAP-47, SWAP-48, FAIL-265). The close still runs on a fiber of the
+   * plugins' scope, so a later stop waits for it as for anything else still open, up to the stop's deadline (SWAP-154,
+   * IMG-82).
    */
   const close = (olds: ReadonlyArray<Loaded>, deadline: Duration.Duration) =>
     Effect.forEach(
@@ -797,7 +804,7 @@ export const make = Effect.fnUntraced(function* (options: {
       (old) =>
         Effect.gen(function* () {
           const closing = yield* Scope.close(old.scope, Exit.void).pipe(
-            Effect.forkDetach({ uninterruptible: true }),
+            Effect.forkIn(scope, { uninterruptible: true }),
           )
           const closed = yield* Fiber.await(closing).pipe(
             Effect.interruptible,
@@ -849,6 +856,41 @@ export const make = Effect.fnUntraced(function* (options: {
           )
         }
         if (plan.failures === "refuse") break
+      }
+      // With `keep` the running version of a plugin that failed to rebuild stays, so a new version that took one of its
+      // tool names would shadow it. That new version fails as well, and the check runs again for the version it keeps
+      // (API-33).
+      for (let clashed = plan.failures === "keep"; clashed;) {
+        clashed = false
+        const failedNames = new Set(failed.map(({ name }) => name))
+        const kept = [...current.values()].filter(
+          ({ name }) => !replaced.has(name) || failedNames.has(name),
+        )
+        for (const result of built) {
+          const clash = result.plugin.contributions.toolkits
+            .flatMap(({ toolkit }) => Object.keys(toolkit.tools))
+            .flatMap((tool) =>
+              kept
+                .filter((other) =>
+                  other.contributions.toolkits.some(({ toolkit }) =>
+                    Object.hasOwn(toolkit.tools, tool),
+                  ),
+                )
+                .map((holder) => ({ tool, holder })),
+            )[0]
+          if (clash === undefined) continue
+          built.splice(built.indexOf(result), 1)
+          yield* result.dispose
+          failed.push({
+            name: result.plugin.name,
+            error: Messages.toolTaken(
+              clash.tool,
+              `the plugin ${clash.holder.name}`,
+            ),
+          })
+          clashed = true
+          break
+        }
       }
       if (plan.failures === "keep" && plan.kept !== undefined) {
         for (const { name, error } of failed) {

@@ -195,24 +195,77 @@ export const commit = Effect.fnUntraced(function* (
 })
 
 /**
- * Moves the branch in `work/` to an applied commit. An apply keeps the files, so `git status` is clean and `git diff`
- * shows what is edited after it (LOAD-38). A revert puts the files of the commit back and deletes what the save
- * captured, which leaves ignored files where they are (REC-82, REC-139).
+ * Moves the branch in `work/` to an applied commit and keeps the files, so after an apply `git status` is clean and
+ * `git diff` shows what is edited after it (LOAD-38).
  */
-export const reset = (repo: string, sha: string, files: "keep" | "restore") =>
-  Effect.gen(function* () {
-    const { work } = paths(repo)
-    if (files === "keep") {
-      yield* git(work, ["reset", "-q", "--mixed", sha])
-      return
-    }
-    yield* git(work, ["reset", "-q", "--hard", sha])
-    yield* git(work, ["clean", "-q", "-f", "-d"])
-  })
+export const reset = (repo: string, sha: string) =>
+  git(paths(repo).work, ["reset", "-q", "--mixed", sha])
+
+/**
+ * The paths a revert to `target` would write where `work/` holds something its save did not capture, such as an
+ * ignored file (REC-139, REC-154).
+ */
+export const obstructed = Effect.fnUntraced(function* (
+  repo: string,
+  saved: string,
+  target: string,
+) {
+  const fs = yield* FileSystem.FileSystem
+  const { work } = paths(repo)
+  const added = yield* git(work, [
+    "diff-tree",
+    "-r",
+    "-z",
+    "--no-renames",
+    "--name-only",
+    "--diff-filter=A",
+    saved,
+    target,
+  ])
+  const found: Array<string> = []
+  for (const path of added.split("\0").filter((path) => path !== "")) {
+    if (yield* Effect.isSuccess(fs.lstat(join(work, path)))) found.push(path)
+  }
+  return found
+})
+
+/**
+ * Puts the files of a revert's target back in `work/` and moves its branch to the commit. Only a file the save
+ * captured and that has not changed since is replaced or deleted, so a file made or edited after the save stays. When
+ * one is in the way nothing is put back, and it gives false (REC-82, REC-139, REC-154).
+ */
+export const restore = Effect.fnUntraced(function* (
+  repo: string,
+  options: {
+    readonly saved: string
+    readonly target: string
+    readonly sha: string
+  },
+) {
+  const fs = yield* FileSystem.FileSystem
+  const { work } = paths(repo)
+  const index = join(repo, `.restore-index-${unique()}`)
+  const env = { GIT_INDEX_FILE: index }
+  // An index of what the save captured, with the stat of each file that still matches it, is what git checks the
+  // files against before it moves any.
+  const restored = yield* git(work, ["read-tree", options.saved], env).pipe(
+    Effect.andThen(
+      Effect.ignore(git(work, ["update-index", "-q", "--refresh"], env)),
+    ),
+    Effect.andThen(
+      git(work, ["read-tree", "-m", "-u", options.saved, options.target], env),
+    ),
+    Effect.as(true),
+    Effect.orElseSucceed(() => false),
+    Effect.ensuring(Effect.ignore(fs.remove(index, { force: true }))),
+  )
+  yield* reset(repo, options.sha)
+  return restored
+})
 
 /**
  * Saves what `work/` holds as a commit under `refs/chad/saved/<timestamp>`, from the same snapshot an apply takes, so
- * it keeps untracked files and respects `.gitignore` (REC-82, REC-137). It gives the ref.
+ * it keeps untracked files and respects `.gitignore` (REC-82, REC-137). It gives the ref and the saved tree.
  */
 export const save = Effect.fnUntraced(function* (repo: string) {
   const { work } = paths(repo)
@@ -229,7 +282,7 @@ export const save = Effect.fnUntraced(function* (repo: string) {
   ])
   const ref = `refs/chad/saved/${new Date().toISOString().replace(/[:.]/g, "-")}-${unique().slice(0, 4)}`
   yield* git(work, ["update-ref", ref, sha])
-  return ref
+  return { ref, tree }
 })
 
 /** The commit a revert goes back to, or the reason there is none (REC-78, REC-140, REC-141). */
@@ -344,7 +397,7 @@ const create = Effect.fnUntraced(function* (repo: string) {
     message: "First commit",
     session: undefined,
   })
-  yield* reset(repo, sha, "keep")
+  yield* reset(repo, sha)
   return sha
 })
 

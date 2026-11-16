@@ -2,13 +2,13 @@
 
 This is the builder's record of how the `apply` slice was delivered, kept in the repository so that review can read it. It is not spec. Where it and `docs/spec/` differ, the spec is right and this file is wrong. A test file is named where a test whose title names the id runs it.
 
-It accounts for every id that `node scripts/rule-ids.ts list apply` prints, which is 319 ids: the 318 of the spec as it stood and the one builder rule this slice added, SWAP-154.
+It accounts for every id that `node scripts/rule-ids.ts list apply` prints, which is 320 ids: the 318 of the spec as it stood and the two builder rules this slice added, SWAP-154 and REC-154.
 
 ## Summary
 
 Counts by status:
 
-- built: 281 (1 of them the new builder rule)
+- built: 282 (2 of them the new builder rules)
 - built, part held: 25
 - held: 12
 - simplified: 1
@@ -28,13 +28,16 @@ Simplified: SWAP-123. The six messages are functions in `Messages`, and the test
 
 The rows this slice clears from `docs/spec/delivered.md` are the 24 entries other slices held for `apply`: CLI-138b, CLI-141b, CLI-14b, CLI-31d, CLI-31h, CLI-120b, CLI-125b, CLI-125c, CLI-125d, FAIL-286b, CLI-46b, API-3, API-68, SWAP-34, FAIL-262, TST-39, LOAD-14, LOAD-23, LOAD-25, LOAD-53, LOAD-72, LOAD-92, REC-25 and TST-202. Each is built. The ones a scenario runs carry their id in a test title: CLI-120b, CLI-125b to CLI-125d, CLI-138b, LOAD-14, LOAD-23, LOAD-53, TST-39 and TST-202 in `test/daemon/apply.test.ts`, and API-68 and LOAD-25 in earlier slices' tests. The other twelve need no test of their own under the contract: CLI-141b, CLI-14b, CLI-31d, CLI-31h, FAIL-286b, CLI-46b, API-3, SWAP-34, FAIL-262, LOAD-72, LOAD-92 and REC-25.
 
-New builder rule: SWAP-154 (`docs/spec/08-apply-and-swap.md`). A close that SWAP-47 abandoned goes on by itself, and neither the swap nor a later graceful stop waits for it.
+New builder rules:
+
+- SWAP-154 (`docs/spec/08-apply-and-swap.md`). A close that SWAP-47 abandoned goes on and the daemon still owns it. The swap does not wait for it, and a later graceful stop does, up to the stop's deadline, which exits 1. Review changed it from a close that went on detached and that no stop waited for.
+- REC-154 (`docs/spec/09-repo-and-recovery.md`). A revert that would write over a file its save did not capture is refused before its commit. A file made or edited after the save stays, and when one is in the way the revert keeps its commit, puts no file back and says so.
 
 ## What changed
 
-- `src/Repo.ts`: the repo under `repo/work/`, its first commit, the snapshot through a temporary index, the export under a temporary name, the commit on `applied` with a `Chad-Session` trailer, the reset of `work/`, the saved refs under `refs/chad/saved/`, the prune of older trees, and `state`, which `chad status` and `chad log` read.
-- `src/daemon/Apply.ts`: `apply`, `check`, `revert`, `safe`, `reload` and `owners`, each through the one queue. From the commit on, an apply runs forked and uninterruptible. The line in the session's thread is forked and not waited for, and `/safe` typed in chat posts none.
-- `src/daemon/Plugins.ts`: `prepare` builds what a plan needs and gives a swap to run or discard. The swap closes the gates, drains under one deadline, interrupts what is left, closes the old scopes under the close deadline and activates the new versions. The tool wrapper refuses a call to a version a swap retired and cuts a call that outlives the drain. The hook queues belong to the plugin's name. `abandon` is what a graceful stop calls first. A plugin that kept its version after a failed owner rebuild or reload is marked in `chad status`.
+- `src/Repo.ts`: the repo under `repo/work/`, its first commit, the snapshot through a temporary index, the export under a temporary name, the commit on `applied` with a `Chad-Session` trailer, the reset of `work/` after an apply, the saved refs under `refs/chad/saved/`, the check and the restore of a revert against the tree it saved, the prune of older trees, and `state`, which `chad status` and `chad log` read.
+- `src/daemon/Apply.ts`: `apply`, `check`, `revert`, `safe`, `reload` and `owners`, each through the one queue. An apply's commit and everything after it run on a fiber of the daemon's scope that the client cannot cut (`owned`), and so do `safe on|off` once the toggle is stored and the plugin rebuild after an owner change. A stop still cuts them. The line in the session's thread is forked and not waited for, and `/safe` typed in chat posts none.
+- `src/daemon/Plugins.ts`: `prepare` builds what a plan needs and gives a swap to run or discard. The swap closes the gates, drains under one deadline, interrupts what is left, closes the old scopes under the close deadline and activates the new versions. A close past its deadline goes on in the plugins' scope, so a stop waits for it up to the stop's deadline. With `keep`, a new version that takes a tool name from a version that stays fails too. The tool wrapper refuses a call to a version a swap retired and cuts a call that outlives the drain. The hook queues belong to the plugin's name. A job stops at the callback a swap cut, and an interrupt ends the job, not the queue. `abandon` is what a graceful stop calls first. A plugin that kept its version after a failed owner rebuild or reload is marked in `chad status`.
 - `src/SafeMode.ts`: `state/safe-mode`, read before SQLite and written by temporary file and rename. `CHAD_SAFE_MODE` is read once, when `runDaemon` starts (`src/daemon/Environment.ts`).
 - CLI commands: `apply`, `check`, `revert`, `log`, `safe` and `plugin reload` (`src/cli/commands/`). `chad log` reads the commits through `src/cli/Repository.ts` and works with no daemon.
 - `chad status`: the `repository` block (safe mode and why, the applied commit, whether `work/` holds a draft), with and without a daemon.
@@ -46,7 +49,7 @@ Notes for review:
 - Every activation of the swap path bumps the generation, including a swap with nothing to build or remove, so `chad safe on` on an empty repo still renders the prompt again (SWAP-27, SWAP-126).
 - A turn waits on a running swap for at most the drain deadline plus the close deadline, which is 40 seconds with the default `Timings`.
 - An owner change rebuilds every plugin. When an owner was removed, a plugin whose build fails is unloaded. When one was added, it keeps its running version and `chad status` marks it.
-- Six existing tests changed. `test/daemon/cli.test.ts` and `test/daemon/db.test.ts` expect the new `repository` facts in `chad status`. `test/daemon/loader.test.ts` and `test/process/stop.test.ts` make their applied tree through the repo with `test/support/applied.ts`. `test/process/absent.test.ts` expects the unknown subcommand under `plugin`, which is now a command. `test/process/cli.test.ts` uses `frob` as its unknown command, since `apply` is now a command, and gives its fake CLI a `Repository`. `test/unit/loader.test.ts` reads `errors` from `Loader.check`, which now also gives the loaded plugins. `test/unit/harness.test.ts` lists `safeMode` among the environment's keys.
+- Six existing tests changed. `test/daemon/cli.test.ts` and `test/daemon/db.test.ts` expect the new `repository` facts in `chad status`. `test/daemon/loader.test.ts` and `test/process/stop.test.ts` make their applied tree through the repo with `test/support/applied.ts`. `test/process/absent.test.ts` expects the unknown subcommand under `plugin`, which is now a command. `test/process/cli.test.ts` uses `frob` as its unknown command, since `apply` is now a command, and gives its fake CLI a `Repository`. `test/unit/loader.test.ts` reads `errors` from `Loader.check`, which now also gives the loaded plugins. `test/unit/harness.test.ts` lists `safeMode` among the environment's keys. Review added one test to `test/process/stop.test.ts`, for SWAP-154.
 
 Fixed while building, each with a regression test. For CLI-120b, SWAP-101 and SWAP-154 the test was run against the code without the fix and failed.
 
@@ -54,21 +57,35 @@ Fixed while building, each with a regression test. For CLI-120b, SWAP-101 and SW
 - REC-153, CLI-169: `CHAD_SAFE_MODE` was read after the harness had put the environment back, so it never held safe mode on. It is now read when `runDaemon` starts. `test/daemon/apply.test.ts`.
 - SWAP-101: a stop that came before the swap had begun missed the abandon, and the swap then ran. An abandoned swap that has not begun now discards its builds. `test/daemon/apply.test.ts`.
 - CLI-120b, SWAP-99: a removed owner's plugin that failed to rebuild kept its old version, which still knew the removed owner. It is now unloaded. `test/daemon/apply.test.ts`.
-- SWAP-154: a close that the swap abandoned was owned by the plugins' scope and could not be interrupted, so a stop waited on it forever. It now goes on detached. `test/daemon/apply.test.ts`.
+- SWAP-154: the scenario's stop waited on a close that the swap had abandoned, and the fix ran that close detached. Review found that a detached close escapes the stop's deadline, so the close is owned again and the stop waits for it up to that deadline (below). `test/daemon/apply.test.ts`.
+
+Fixed in review of `7fb01f7`, each with a regression folded into an existing scenario. Each test was run against the code without its fix and failed.
+
+- REC-139, REC-154: a revert reset `work/` with `reset --hard` and `clean -fd`, so it overwrote an ignored file at a path the target holds and deleted a file made after its save. It now refuses before its commit when a path the target adds holds something the save lacks, and puts the files back with `read-tree -m -u` from an index of the save, which changes only files that still match it. Scenario 1 of `test/daemon/apply.test.ts`, with the commit held by a git hook while a draft is written.
+- CLI-43, REC-34: the commit ran in the cancellable caller, so a client killed after `applied` moved left `live` and the running version on the old tree. The commit now runs inside the client-proof region. `test/daemon/apply.test.ts`, the killed-CLI scenario, which now kills the CLI while a git hook holds the commit.
+- CLI-120b, SWAP-99: a client killed during the plugin rebuild of an owner removal cancelled the rebuild, and the plugin kept the removed owner. The rebuild is now client-proof. The owner scenario kills the CLI during that rebuild.
+- REC-56: a client killed during `chad safe on` left the repo's plugins loaded behind a stored `on`. The swap after the stored toggle is now client-proof. The killed-CLI scenario.
+- SWAP-154, IMG-82: the detached close of a version a swap abandoned escaped the stop. A finalizer that holds the event loop kept the process alive after `stop.ended`. The close now runs in the plugins' scope, so the stop waits for it and its deadline exits 1. A child-process test in `test/process/stop.test.ts`, and the in-process scenario now ends that close before its stop.
+- SWAP-81, SWAP-82, API-64: after the drain cut one callback of a job, the next callback started on the closing version, and the close's interrupt ended the plugin's queue for good. A job now stops at a retired version, and an interrupt ends the job and not the queue. The hook scenario gives each version a second afterTurn, the second version's interrupting itself.
+- API-33: with `keep`, a rebuilt plugin could take a tool name from a plugin whose rebuild failed and whose old version stayed, and shadow it. Such a version now fails as well and keeps its running version. The owner scenario.
+
+The SWAP-101 scenario waited only for `applied` to move, so a stop could land before the link moved, and it never restarted. It now waits until `live` and the index of `work/` name the new tree, the steps right before the swap, and boots a second daemon that runs the new version.
 
 ## Tests
 
 `test/daemon/apply.test.ts` has nine scenarios:
 
-- An apply commits `work/` and loads it at the session's next turn, a failed apply (a type error, a Layer that never builds) exits 1 and keeps the last good version, a revert saves `work/` first and leaves ignored files alone, and safe mode from chat and from the CLI unloads the repo's plugins until it goes off.
+- An apply commits `work/` and loads it at the session's next turn, a failed apply (a type error, a Layer that never builds) exits 1 and keeps the last good version, a revert that would write over an ignored file is refused, a revert saves `work/` first, leaves ignored files alone and keeps a file made after its save, and safe mode from chat and from the CLI unloads the repo's plugins until it goes off.
 - A swap interrupts a call that outlives the drain, the running turn keeps its tools and gets the refusal, a command behind it waits in the queue and says so, and the next turn has the new version.
 - A boot after a crash between an apply's commit and its link loads the head of `applied`.
-- An apply whose CLI is SIGKILLed after the commit still finishes in the daemon.
+- An apply whose CLI is SIGKILLed once its commit moved `applied` still finishes in the daemon, and `chad safe on` whose CLI is killed in its drain still unloads the repo's plugins.
 - On the Codex side, a swap rebuilds the session's Agent and keeps its socket.
-- An owner change rebuilds the plugins with the new owners, a failed rebuild after an add keeps the old version and marks it, and one after a removal unloads the plugin.
+- An owner change rebuilds the plugins with the new owners, a failed rebuild after an add keeps the old version and marks it, a rebuilt plugin cannot take that version's tool name, and a failed rebuild after a removal unloads the plugin even when the CLI is killed during it.
 - A check refuses `AGENTS.md` in `work/` and a plugin with a bundled plugin's name, and `CHAD_SAFE_MODE=1` holds safe mode on against `chad safe off`.
-- A hook running at a swap is cut at the drain deadline, the hook queued behind it runs on the new version, a turn that starts while the old version's close hangs waits for the new one, the close is abandoned at its deadline, and a hook of a kind the next version lacks is dropped.
-- A graceful stop during a swap's drain abandons the swap, and the next boot loads what the apply committed.
+- A hook running at a swap is cut at the drain deadline, the hook queued behind it runs on the new version, a turn that starts while the old version's close hangs waits for the new one, the close is abandoned at its deadline, the rest of a cut job does not start on the old version, a hook that interrupts itself leaves its queue running, and a hook of a kind the next version lacks is dropped.
+- A graceful stop while an apply's swap waits on a call in flight abandons the swap, and the next boot loads and runs what the apply committed.
+
+`test/process/stop.test.ts` adds one test: a close a swap abandoned that holds the event loop is still owned at the stop, and the deadline exits 1.
 
 ## Overview and architecture (00)
 
@@ -177,78 +194,78 @@ Fixed while building, each with a regression test. For CLI-120b, SWAP-101 and SW
 
 ## Applying a change to live sessions (08)
 
-| Rule     | Status                            | Where                                                                          | Test                        |
-| -------- | --------------------------------- | ------------------------------------------------------------------------------ | --------------------------- |
-| SWAP-1   | built                             | `src/daemon/Apply.ts` `apply`, `check`                                         | `test/daemon/apply.test.ts` |
-| SWAP-2   | built                             | `src/daemon/Apply.ts` `apply`, `check`                                         | `test/daemon/apply.test.ts` |
-| SWAP-3   | built                             | `src/daemon/Plugins.ts` `prepare` (`trial`), `src/Trial.ts`                    |                             |
-| SWAP-6   | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                            | `test/daemon/apply.test.ts` |
-| SWAP-7   | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                            |                             |
-| SWAP-27  | built                             | `src/daemon/SessionEntity.ts` the prompt, `Messages.safePrompt`                |                             |
-| SWAP-39  | built, part held for `settings`   | `src/daemon/Plugins.ts` `prepare`, `swap`                                      |                             |
-| SWAP-40  | built                             | `src/daemon/Queue.ts`                                                          |                             |
-| SWAP-41  | built, part held for `settings`   | `src/daemon/Plugins.ts` `prepare`, `swap`                                      |                             |
-| SWAP-42  | built                             | `src/daemon/Apply.ts` `apply`, `check`                                         |                             |
-| SWAP-43  | built                             | `src/daemon/Plugins.ts` `prepare`, `swap`                                      |                             |
-| SWAP-44  | built                             | `src/daemon/Plugins.ts` `prepare`, `swap`                                      | `test/daemon/apply.test.ts` |
-| SWAP-45  | built                             | `src/daemon/Plugins.ts` `prepare`, `swap`                                      |                             |
-| SWAP-46  | built                             | `src/daemon/Plugins.ts` `prepare`, `swap`                                      | `test/daemon/apply.test.ts` |
-| SWAP-47  | built                             | `src/daemon/Plugins.ts` `close`                                                | `test/daemon/apply.test.ts` |
-| SWAP-48  | built                             | `src/daemon/Plugins.ts` `prepare`, `swap`                                      |                             |
-| SWAP-49  | built                             | `src/daemon/Plugins.ts` `activate`, `Plugin.background`                        |                             |
-| SWAP-50  | built                             | `src/daemon/Plugins.ts` `activate`, `Plugin.background`                        |                             |
-| SWAP-51  | built                             | `src/daemon/Plugins.ts` `activate`, `Plugin.background`                        |                             |
-| SWAP-52  | built                             | `src/daemon/Plugins.ts` `track`, `swap.overrun`                                |                             |
-| SWAP-53  | built                             | `src/daemon/Plugins.ts` `track`, `swap.overrun`                                |                             |
-| SWAP-55  | built                             | `src/daemon/Apply.ts` the region after the commit, forked and uninterruptible  |                             |
-| SWAP-56  | built                             | `src/daemon/Apply.ts` the region after the commit, forked and uninterruptible  |                             |
-| SWAP-57  | built                             | `src/daemon/Apply.ts` `apply`, `check`                                         |                             |
-| SWAP-59  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                            |                             |
-| SWAP-60  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                            |                             |
-| SWAP-69  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                            | `test/daemon/apply.test.ts` |
-| SWAP-70  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                            |                             |
-| SWAP-71  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                            |                             |
-| SWAP-72  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                            |                             |
-| SWAP-75  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                            |                             |
-| SWAP-76  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                            |                             |
-| SWAP-77  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                            |                             |
-| SWAP-78  | built                             | `src/Messages.ts` `appliedOutput`                                              |                             |
-| SWAP-79  | built                             | `src/daemon/Plugins.ts` the hook queues, `perform`                             | `test/daemon/apply.test.ts` |
-| SWAP-80  | built                             | `src/daemon/Plugins.ts` the hook queues, `perform`                             |                             |
-| SWAP-81  | built                             | `src/daemon/Plugins.ts` the hook queues, `perform`                             | `test/daemon/apply.test.ts` |
-| SWAP-82  | built                             | `src/daemon/Plugins.ts` the hook queues, `perform`                             | `test/daemon/apply.test.ts` |
-| SWAP-83  | built                             | `src/daemon/Plugins.ts` the hook queues, `perform`                             | `test/daemon/apply.test.ts` |
-| SWAP-85  | built                             | `src/daemon/Plugins.ts` the hook queues, `perform`                             |                             |
-| SWAP-87  | built                             | `src/daemon/Plugins.ts` `ready`, `src/daemon/SessionEntity.ts`                 | `test/daemon/apply.test.ts` |
-| SWAP-88  | built                             | `src/daemon/Plugins.ts` `ready`, `src/daemon/SessionEntity.ts`                 | `test/daemon/apply.test.ts` |
-| SWAP-89  | built                             | `src/daemon/Plugins.ts` `ready`, `src/daemon/SessionEntity.ts`                 |                             |
-| SWAP-95  | built                             | `src/daemon/Apply.ts` `reload`                                                 |                             |
-| SWAP-99  | built                             | `src/daemon/Apply.ts` `owners`, `src/daemon/Connections.ts`                    | `test/daemon/apply.test.ts` |
-| SWAP-100 | built                             | `src/daemon/Apply.ts` `safe`, `src/SafeMode.ts`                                |                             |
-| SWAP-101 | built                             | `src/daemon/Plugins.ts` `abandon`, `src/daemon/runDaemon.ts` the stop          | `test/daemon/apply.test.ts` |
-| SWAP-102 | built                             | `src/daemon/Apply.ts` the region after the commit, forked and uninterruptible  |                             |
-| SWAP-103 | built                             | `src/daemon/Plugins.ts` `abandon`, `src/daemon/runDaemon.ts` the stop          | `test/daemon/apply.test.ts` |
-| SWAP-104 | built                             | `src/daemon/Plugins.ts` `abandon`, `src/daemon/runDaemon.ts` the stop          |                             |
-| SWAP-105 | built                             | `src/daemon/Plugins.ts` `abandon`, `src/daemon/runDaemon.ts` the stop          |                             |
-| SWAP-106 | built                             | `src/daemon/Plugins.ts` `abandon`, `src/daemon/runDaemon.ts` the stop          |                             |
-| SWAP-109 | built, part held for `skills-mcp` | `src/daemon/Plugins.ts` `abandon`, `src/daemon/runDaemon.ts` the stop          |                             |
-| SWAP-112 | built                             | `src/Messages.ts` `appliedOutput`                                              |                             |
-| SWAP-113 | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                            | `test/daemon/apply.test.ts` |
-| SWAP-114 | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                            |                             |
-| SWAP-115 | built                             | `test/daemon/apply.test.ts`, which holds the first hook open until the removal | `test/daemon/apply.test.ts` |
-| SWAP-118 | built                             | `src/Timings.ts`                                                               |                             |
-| SWAP-119 | built                             | `src/daemon/Plugins.ts` `track`, `swap.overrun`                                |                             |
-| SWAP-120 | built                             | `src/Events.ts`                                                                |                             |
-| SWAP-121 | built, part held for `settings`   | `src/daemon/Apply.ts` `announce`                                               |                             |
-| SWAP-123 | simplified                        | `src/Messages.ts` `toolChanged` to `toolCut`                                   |                             |
-| SWAP-125 | built                             | `src/daemon/Apply.ts` `revert`, `src/Repo.ts` `save`                           |                             |
-| SWAP-126 | built                             | `src/daemon/Plugins.ts` `prepare`, `swap`                                      |                             |
-| SWAP-141 | built                             | `src/daemon/Plugins.ts` `status`, `src/Status.ts`                              | `test/daemon/apply.test.ts` |
-| SWAP-142 | built                             | `src/daemon/Plugins.ts` `status`, `src/Status.ts`                              |                             |
-| SWAP-147 | built                             | `src/daemon/Apply.ts` `refused`, `errorLines`                                  |                             |
-| SWAP-152 | built                             | `src/daemon/Apply.ts` `safe`, `src/SafeMode.ts`                                |                             |
-| SWAP-153 | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                            | `test/daemon/apply.test.ts` |
-| SWAP-154 | built (new builder rule)          | `src/daemon/Plugins.ts` `close`                                                | `test/daemon/apply.test.ts` |
+| Rule     | Status                            | Where                                                                                | Test                                                     |
+| -------- | --------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| SWAP-1   | built                             | `src/daemon/Apply.ts` `apply`, `check`                                               | `test/daemon/apply.test.ts`                              |
+| SWAP-2   | built                             | `src/daemon/Apply.ts` `apply`, `check`                                               | `test/daemon/apply.test.ts`                              |
+| SWAP-3   | built                             | `src/daemon/Plugins.ts` `prepare` (`trial`), `src/Trial.ts`                          |                                                          |
+| SWAP-6   | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                                  | `test/daemon/apply.test.ts`                              |
+| SWAP-7   | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                                  |                                                          |
+| SWAP-27  | built                             | `src/daemon/SessionEntity.ts` the prompt, `Messages.safePrompt`                      |                                                          |
+| SWAP-39  | built, part held for `settings`   | `src/daemon/Plugins.ts` `prepare`, `swap`                                            |                                                          |
+| SWAP-40  | built                             | `src/daemon/Queue.ts`                                                                |                                                          |
+| SWAP-41  | built, part held for `settings`   | `src/daemon/Plugins.ts` `prepare`, `swap`                                            |                                                          |
+| SWAP-42  | built                             | `src/daemon/Apply.ts` `apply`, `check`                                               |                                                          |
+| SWAP-43  | built                             | `src/daemon/Plugins.ts` `prepare`, `swap`                                            |                                                          |
+| SWAP-44  | built                             | `src/daemon/Plugins.ts` `prepare`, `swap`                                            | `test/daemon/apply.test.ts`                              |
+| SWAP-45  | built                             | `src/daemon/Plugins.ts` `prepare`, `swap`                                            |                                                          |
+| SWAP-46  | built                             | `src/daemon/Plugins.ts` `prepare`, `swap`                                            | `test/daemon/apply.test.ts`                              |
+| SWAP-47  | built                             | `src/daemon/Plugins.ts` `close`                                                      | `test/daemon/apply.test.ts`                              |
+| SWAP-48  | built                             | `src/daemon/Plugins.ts` `prepare`, `swap`                                            |                                                          |
+| SWAP-49  | built                             | `src/daemon/Plugins.ts` `activate`, `Plugin.background`                              |                                                          |
+| SWAP-50  | built                             | `src/daemon/Plugins.ts` `activate`, `Plugin.background`                              |                                                          |
+| SWAP-51  | built                             | `src/daemon/Plugins.ts` `activate`, `Plugin.background`                              |                                                          |
+| SWAP-52  | built                             | `src/daemon/Plugins.ts` `track`, `swap.overrun`                                      |                                                          |
+| SWAP-53  | built                             | `src/daemon/Plugins.ts` `track`, `swap.overrun`                                      |                                                          |
+| SWAP-55  | built                             | `src/daemon/Apply.ts` the region after the commit, forked and uninterruptible        |                                                          |
+| SWAP-56  | built                             | `src/daemon/Apply.ts` the region after the commit, forked and uninterruptible        |                                                          |
+| SWAP-57  | built                             | `src/daemon/Apply.ts` `apply`, `check`                                               |                                                          |
+| SWAP-59  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                                  |                                                          |
+| SWAP-60  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                                  |                                                          |
+| SWAP-69  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                                  | `test/daemon/apply.test.ts`                              |
+| SWAP-70  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                                  |                                                          |
+| SWAP-71  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                                  |                                                          |
+| SWAP-72  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                                  |                                                          |
+| SWAP-75  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                                  |                                                          |
+| SWAP-76  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                                  |                                                          |
+| SWAP-77  | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                                  |                                                          |
+| SWAP-78  | built                             | `src/Messages.ts` `appliedOutput`                                                    |                                                          |
+| SWAP-79  | built                             | `src/daemon/Plugins.ts` the hook queues, `perform`                                   | `test/daemon/apply.test.ts`                              |
+| SWAP-80  | built                             | `src/daemon/Plugins.ts` the hook queues, `perform`                                   |                                                          |
+| SWAP-81  | built                             | `src/daemon/Plugins.ts` the hook queues, `perform`, which stops at a retired version | `test/daemon/apply.test.ts`                              |
+| SWAP-82  | built                             | `src/daemon/Plugins.ts` the hook queues, `perform`                                   | `test/daemon/apply.test.ts`                              |
+| SWAP-83  | built                             | `src/daemon/Plugins.ts` the hook queues, `perform`                                   | `test/daemon/apply.test.ts`                              |
+| SWAP-85  | built                             | `src/daemon/Plugins.ts` the hook queues, `perform`                                   |                                                          |
+| SWAP-87  | built                             | `src/daemon/Plugins.ts` `ready`, `src/daemon/SessionEntity.ts`                       | `test/daemon/apply.test.ts`                              |
+| SWAP-88  | built                             | `src/daemon/Plugins.ts` `ready`, `src/daemon/SessionEntity.ts`                       | `test/daemon/apply.test.ts`                              |
+| SWAP-89  | built                             | `src/daemon/Plugins.ts` `ready`, `src/daemon/SessionEntity.ts`                       |                                                          |
+| SWAP-95  | built                             | `src/daemon/Apply.ts` `reload`                                                       |                                                          |
+| SWAP-99  | built                             | `src/daemon/Apply.ts` `owners`, `src/daemon/Connections.ts`                          | `test/daemon/apply.test.ts`                              |
+| SWAP-100 | built                             | `src/daemon/Apply.ts` `safe`, `src/SafeMode.ts`                                      |                                                          |
+| SWAP-101 | built                             | `src/daemon/Plugins.ts` `abandon`, `src/daemon/runDaemon.ts` the stop                | `test/daemon/apply.test.ts`                              |
+| SWAP-102 | built                             | `src/daemon/Apply.ts` the region after the commit, forked and uninterruptible        |                                                          |
+| SWAP-103 | built                             | `src/daemon/Plugins.ts` `abandon`, `src/daemon/runDaemon.ts` the stop                | `test/daemon/apply.test.ts`                              |
+| SWAP-104 | built                             | `src/daemon/Plugins.ts` `abandon`, `src/daemon/runDaemon.ts` the stop                |                                                          |
+| SWAP-105 | built                             | `src/daemon/Plugins.ts` `abandon`, `src/daemon/runDaemon.ts` the stop                |                                                          |
+| SWAP-106 | built                             | `src/daemon/Plugins.ts` `abandon`, `src/daemon/runDaemon.ts` the stop                |                                                          |
+| SWAP-109 | built, part held for `skills-mcp` | `src/daemon/Plugins.ts` `abandon`, `src/daemon/runDaemon.ts` the stop                |                                                          |
+| SWAP-112 | built                             | `src/Messages.ts` `appliedOutput`                                                    |                                                          |
+| SWAP-113 | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                                  | `test/daemon/apply.test.ts`                              |
+| SWAP-114 | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                                  |                                                          |
+| SWAP-115 | built                             | `test/daemon/apply.test.ts`, which holds the first hook open until the removal       | `test/daemon/apply.test.ts`                              |
+| SWAP-118 | built                             | `src/Timings.ts`                                                                     |                                                          |
+| SWAP-119 | built                             | `src/daemon/Plugins.ts` `track`, `swap.overrun`                                      |                                                          |
+| SWAP-120 | built                             | `src/Events.ts`                                                                      |                                                          |
+| SWAP-121 | built, part held for `settings`   | `src/daemon/Apply.ts` `announce`                                                     |                                                          |
+| SWAP-123 | simplified                        | `src/Messages.ts` `toolChanged` to `toolCut`                                         |                                                          |
+| SWAP-125 | built                             | `src/daemon/Apply.ts` `revert`, `src/Repo.ts` `save`                                 |                                                          |
+| SWAP-126 | built                             | `src/daemon/Plugins.ts` `prepare`, `swap`                                            |                                                          |
+| SWAP-141 | built                             | `src/daemon/Plugins.ts` `status`, `src/Status.ts`                                    | `test/daemon/apply.test.ts`                              |
+| SWAP-142 | built                             | `src/daemon/Plugins.ts` `status`, `src/Status.ts`                                    |                                                          |
+| SWAP-147 | built                             | `src/daemon/Apply.ts` `refused`, `errorLines`                                        |                                                          |
+| SWAP-152 | built                             | `src/daemon/Apply.ts` `safe`, `src/SafeMode.ts`                                      |                                                          |
+| SWAP-153 | built                             | `src/daemon/Plugins.ts` `toolsOf`, the tool wrapper                                  | `test/daemon/apply.test.ts`                              |
+| SWAP-154 | built (new builder rule)          | `src/daemon/Plugins.ts` `close`                                                      | `test/daemon/apply.test.ts`, `test/process/stop.test.ts` |
 
 ## The repo, applying, and recovering from a bad self-edit (09)
 
@@ -293,7 +310,7 @@ Fixed while building, each with a regression test. For CLI-120b, SWAP-101 and SW
 | REC-50  | built                              | `src/daemon/Apply.ts` `safe`, `src/SafeMode.ts`                                                   |                                                          |
 | REC-54  | built                              | `src/daemon/Apply.ts` `safe`, `src/SafeMode.ts`                                                   |                                                          |
 | REC-55  | built                              | `src/daemon/Apply.ts` `safe`, `src/SafeMode.ts`                                                   |                                                          |
-| REC-56  | built                              | `src/SafeMode.ts`                                                                                 |                                                          |
+| REC-56  | built                              | `src/SafeMode.ts`, `src/daemon/Apply.ts` `switched`, run by `owned`                               | `test/daemon/apply.test.ts`                              |
 | REC-57  | built                              | `src/daemon/Apply.ts` `safe`, `src/SafeMode.ts`                                                   |                                                          |
 | REC-58  | built                              | `src/daemon/SessionEntity.ts` the prompt, `Messages.safePrompt`                                   |                                                          |
 | REC-59  | built, part held for `timers-cron` | `src/daemon/Apply.ts` `safe`, `src/SafeMode.ts`                                                   |                                                          |
@@ -335,7 +352,7 @@ Fixed while building, each with a regression test. For CLI-120b, SWAP-101 and SW
 | REC-136 | built                              | `src/daemon/Apply.ts` `revert`, `src/Repo.ts` `save`                                              |                                                          |
 | REC-137 | built                              | `src/Repo.ts` `snapshot`, `exportTree`, `commit`, `reset`, `prune`                                | `test/daemon/apply.test.ts`                              |
 | REC-138 | built                              | `src/Repo.ts` `snapshot`, `exportTree`, `commit`, `reset`, `prune`                                |                                                          |
-| REC-139 | built                              | `src/Repo.ts` `snapshot`, `exportTree`, `commit`, `reset`, `prune`                                | `test/daemon/apply.test.ts`                              |
+| REC-139 | built                              | `src/Repo.ts` `save`, `obstructed`, `restore`                                                     | `test/daemon/apply.test.ts`                              |
 | REC-140 | built                              | `src/daemon/Apply.ts` `revert`, `src/Repo.ts` `save`                                              |                                                          |
 | REC-141 | built                              | `src/daemon/Apply.ts` `revert`, `src/Repo.ts` `save`                                              |                                                          |
 | REC-142 | built                              | `src/daemon/Apply.ts` `revert`, `src/Repo.ts` `save`                                              |                                                          |
@@ -347,6 +364,7 @@ Fixed while building, each with a regression test. For CLI-120b, SWAP-101 and SW
 | REC-150 | built                              | `src/daemon/Loader.ts` `load`, `src/daemon/runDaemon.ts` step 9                                   |                                                          |
 | REC-152 | built                              | `src/daemon/Loader.ts` `check`, `instructions`                                                    | `test/daemon/apply.test.ts`                              |
 | REC-153 | built                              | `src/daemon/Apply.ts` `safe`, `src/SafeMode.ts`                                                   | `test/daemon/apply.test.ts`                              |
+| REC-154 | built (new builder rule)           | `src/daemon/Apply.ts` `change`, `src/Repo.ts` `obstructed`, `restore`                             | `test/daemon/apply.test.ts`                              |
 
 ## The chad CLI (10)
 
@@ -357,7 +375,7 @@ Fixed while building, each with a regression test. For CLI-120b, SWAP-101 and SW
 | CLI-32  | built, part held for `skills-mcp`  | `src/cli/Commands.ts` (no daemon: exit 4)                                                         |                             |
 | CLI-40  | built                              | `src/daemon/Queue.ts`                                                                             | `test/daemon/apply.test.ts` |
 | CLI-41  | built                              | `src/daemon/Queue.ts`                                                                             |                             |
-| CLI-43  | built                              | `src/daemon/Apply.ts` the region after the commit, forked and uninterruptible                     | `test/daemon/apply.test.ts` |
+| CLI-43  | built                              | `src/daemon/Apply.ts` `owned`, which runs the commit and everything after it                      | `test/daemon/apply.test.ts` |
 | CLI-44  | built                              | `src/daemon/Apply.ts` the region after the commit, forked and uninterruptible                     | `test/daemon/apply.test.ts` |
 | CLI-47  | built                              | `src/daemon/Apply.ts` `refused`, `errorLines`                                                     |                             |
 | CLI-63  | built                              | `src/Repo.ts` `commit` (the `Chad-Session` trailer), `src/daemon/Apply.ts` `apply`                |                             |

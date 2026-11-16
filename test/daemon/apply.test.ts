@@ -1,18 +1,24 @@
 // Apply, check, revert and safe mode as the owner and the agent reach them: the commit, the swap at a session's next
 // turn, the failed apply that keeps the last good version, the revert that saves work/ first, safe mode, the drain of
 // a swap with a call in flight, and an apply that a crash or a killed CLI cut after its commit.
+import { execFileSync } from "node:child_process"
 import {
+  closeSync,
+  constants,
   existsSync,
+  openSync,
   readdirSync,
   readFileSync,
   readlinkSync,
   rmSync,
   symlinkSync,
+  writeFileSync,
+  writeSync,
 } from "node:fs"
 import { join } from "node:path"
-import { Deferred, Effect, Layer, Schema } from "effect"
+import { Deferred, Effect, Exit, Layer, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
-import { expect, test } from "vitest"
+import { expect, onTestFinished, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
 import { git, applied, write } from "../support/applied.ts"
@@ -65,6 +71,50 @@ export default Plugin.make(
 )
 `
 
+/**
+ * Holds the next commit to `applied` inside its git process, after the ref moved and before the process returns, until
+ * `release` is called. The hook keeps the fifo open itself, so the release never blocks, and one whose git process
+ * was killed has nothing left to release.
+ */
+const holdCommit = (work: string) => {
+  const fifo = join(work, ".git", "test-release")
+  const marker = join(work, ".git", "test-held")
+  execFileSync("mkfifo", [fifo])
+  writeFileSync(
+    join(work, ".git", "hooks", "reference-transaction"),
+    [
+      "#!/bin/sh",
+      "input=$(cat)",
+      '[ "$1" = committed ] || exit 0',
+      'case "$input" in *" refs/heads/applied"*) ;; *) exit 0 ;; esac',
+      'rm -f "$0"',
+      `exec 3<> '${fifo}'`,
+      `: > '${marker}'`,
+      "read -r line <&3",
+      "",
+    ].join("\n"),
+    { mode: 0o755 },
+  )
+  return {
+    held: () =>
+      eventually(
+        () => existsSync(marker),
+        (held) => held,
+      ),
+    release: () => {
+      try {
+        const fd = openSync(fifo, constants.O_WRONLY | constants.O_NONBLOCK)
+        writeSync(fd, "go\n")
+        closeSync(fd)
+      } catch {
+        // No reader: the hook is gone with its git process.
+      }
+      rmSync(fifo)
+      rmSync(marker)
+    },
+  }
+}
+
 /** Runs one turn whose script rolls, and gives what the script printed. */
 const roll = async (
   running: Scenario,
@@ -92,7 +142,7 @@ const roll = async (
   }
 }
 
-test("SWAP-1 SWAP-2 SWAP-4 LOAD-14 LOAD-23 LOAD-53 LOAD-70 REC-82 REC-86 REC-116 REC-129 CLI-45 CLI-125b CLI-125c CLI-125d CLI-138b SELF-38 REC-137 REC-139 an apply commits work/ and loads it at the session's next turn, a failed apply exits 1 and keeps the last good version, a revert saves work/ first, and safe mode unloads the repo's plugins until it goes off", async () => {
+test("SWAP-1 SWAP-2 SWAP-4 LOAD-14 LOAD-23 LOAD-53 LOAD-70 REC-82 REC-86 REC-116 REC-129 CLI-45 CLI-125b CLI-125c CLI-125d CLI-138b SELF-38 REC-137 REC-139 REC-154 an apply commits work/ and loads it at the session's next turn, a failed apply exits 1 and keeps the last good version, a revert saves work/ first, and safe mode unloads the repo's plugins until it goes off", async () => {
   const running = await scenario()
   const repo = join(running.data, "repo")
   const work = join(repo, "work")
@@ -165,12 +215,30 @@ test("SWAP-1 SWAP-2 SWAP-4 LOAD-14 LOAD-23 LOAD-53 LOAD-70 REC-82 REC-86 REC-116
     "face two",
   )
 
-  // A revert goes back to the commit before the current one, and what work/ held is kept under a saved ref. An
-  // ignored file is neither saved nor deleted.
-  write(join(work, ".git/info"), { exclude: "notes.local\n" })
+  // A revert that would write over an ignored file, which its save does not hold, is refused and changes nothing.
+  write(join(work, ".git/info"), { exclude: "notes.local\nplugins/dice.ts\n" })
   write(work, { "notes.local": "mine" })
-  const reverted = await running.chad(["revert"])
+  const obstructed = await running.chad(["revert"])
+  expect(obstructed.code).toBe(1)
+  expect(obstructed.stderr).toContain("plugins/dice.ts")
+  expect(readFileSync(join(work, "plugins/dice.ts"), "utf8")).toContain(
+    "face three",
+  )
+  expect(await log()).toHaveLength(3)
+
+  // A revert goes back to the commit before the current one, and what work/ held is kept under a saved ref. An
+  // ignored file is neither saved nor deleted, and a file made after the save, while the revert runs, stays.
+  write(join(work, ".git/info"), { exclude: "notes.local\n" })
+  const hold = holdCommit(work)
+  const reverting = Cli.start(["revert"], { CHAD_DATA: running.data })
+  await hold.held()
+  write(work, { "draft.md": "written during the revert" })
+  hold.release()
+  const reverted = await reverting.done
   expect(reverted.code).toBe(0)
+  expect(readFileSync(join(work, "draft.md"), "utf8")).toBe(
+    "written during the revert",
+  )
   const saved = /refs\/chad\/saved\/\S+/
     .exec(reverted.stdout)?.[0]
     .replace(/\.$/, "")
@@ -313,47 +381,66 @@ test("REC-48 LOAD-55 LOAD-89 a boot after a crash between an apply's commit and 
   expect(readdirSync(join(repo, "versions"))).toEqual([tree])
 }, 30_000)
 
-test("CLI-43 CLI-44 REC-34 an apply whose CLI is killed after the commit still finishes in the daemon and loads the change", async () => {
-  const running = await scenario()
+test("CLI-43 CLI-44 REC-34 REC-56 a killed CLI cuts neither an apply once its commit moved applied, which finishes in the daemon and loads the change, nor safe on once the toggle is stored", async () => {
+  const running = await scenario({ env: { CHAD_LOG_LEVEL: "debug" } })
   const work = join(running.data, "repo", "work")
   write(work, { "plugins/hold.ts": hanging("one") })
   expect((await running.chad(["apply", "-m", "Hold one"])).code).toBe(0)
-  running.fakes.model.script([runs("await hang({})"), { text: "done" }])
-  const thread = await running.fakes.chat.makeThread("direct")
-  await says(running, thread, "hang")
-  await running.logged(
-    "plugin.log",
-    (line) => line.message === "hang started one",
-  )
 
-  // The call in flight holds the swap in its drain, so the CLI is killed after the commit and before the end.
+  // The CLI is killed while the commit's git process holds, after applied moved and before the process returns. The
+  // status call that follows comes back once the daemon has seen the client go.
   write(work, { "plugins/hold.ts": hanging("two") })
+  const hold = holdCommit(work)
   const apply = Cli.start(["apply", "-m", "Hold two"], {
     CHAD_DATA: running.data,
   })
-  await eventually(
-    () => git(work, ["log", "--format=%s", "-1", "applied"]),
-    (subject) => subject === "Hold two",
-  )
+  await hold.held()
   apply.child.kill("SIGKILL")
   await apply.done
+  expect((await running.chad(["status"])).code).toBe(0)
+  hold.release()
+  // The cancelled call ends only once the apply has.
+  await running.logged("rpc.cancelled")
   const commit = git(work, ["rev-parse", "applied"])
-  const done = await eventually(
-    () =>
-      running
-        .log()
-        .find(
-          (line) =>
-            line.annotations["event"] === "apply.done" &&
-            line.annotations["commit"] === commit,
-        ),
-    (line) => line !== undefined,
-  )
+  const done = running
+    .log()
+    .find(
+      (line) =>
+        line.annotations["event"] === "apply.done" &&
+        line.annotations["commit"] === commit,
+    )
   expect(done?.annotations["swapped"]).toBe("hold")
   const tree = git(work, ["rev-parse", "applied^{tree}"])
   expect(readlinkSync(join(running.data, "repo", "live"))).toBe(
     join("versions", tree),
   )
+  running.fakes.model.script([runs("await hang({})"), { text: "done" }])
+  const thread = await running.fakes.chat.makeThread("direct")
+  await says(running, thread, "hang")
+  await running.logged(
+    "plugin.log",
+    (line) => line.message === "hang started two",
+  )
+
+  // The call in flight holds safe on in its drain, and its CLI is killed once the toggle is stored. The repo's plugin
+  // still goes.
+  const status = async () =>
+    JSON.parse((await running.chad(["status", "--json"])).stdout) as {
+      repository: { safe: string }
+      plugins: Array<{ name: string }>
+    }
+  const safe = Cli.start(["safe", "on"], { CHAD_DATA: running.data })
+  await eventually(status, (report) => report.repository.safe === "toggle")
+  safe.child.kill("SIGKILL")
+  await safe.done
+  await eventually(
+    () =>
+      running
+        .log()
+        .filter((line) => line.annotations["event"] === "rpc.cancelled"),
+    (lines) => lines.length === 2,
+  )
+  expect((await status()).plugins.map(({ name }) => name)).not.toContain("hold")
 }, 30_000)
 
 test("TST-39 SWAP-4 on the Codex side a swap rebuilds the session's Agent at its next turn and keeps its model layer, so the socket the first turn opened carries the second", async () => {
@@ -387,15 +474,30 @@ const ownerTools = Toolkit.make(
   }),
 )
 
-test("CLI-120b SWAP-99 SWAP-141 an owner change rebuilds the plugins with the new owners, and when an owner was removed a plugin that fails to rebuild is unloaded", async () => {
-  let failing = false
+const spareTools = Toolkit.make(
+  Tool.make("spare", {
+    description: "Does nothing.",
+    parameters: Schema.Struct({}),
+    success: Schema.String,
+  }),
+)
+
+test("CLI-120b SWAP-99 SWAP-141 API-33 an owner change rebuilds the plugins with the new owners, a rebuilt plugin cannot take a tool name from a version that stays, and when an owner was removed a plugin that fails to rebuild is unloaded, even when the CLI is killed during the rebuild", async () => {
+  let build: "builds" | "fails" | "holds" = "builds"
+  const entered = Deferred.makeUnsafe<void>()
+  const release = Deferred.makeUnsafe<void>()
   const guard = Plugin.make(
     Plugin.toolkit(ownerTools).pipe(
       Layer.provide(
         ownerTools.toLayer(
           Effect.gen(function* () {
             const { owners } = yield* Plugin.PluginContext
-            if (failing) return yield* Effect.die("the guard cannot build")
+            if (build === "holds") {
+              yield* Deferred.succeed(entered, undefined)
+              yield* Deferred.await(release)
+            }
+            if (build !== "builds")
+              return yield* Effect.die("the guard cannot build")
             return ownerTools.of({
               owners: () => Effect.succeed(`owners ${owners.join(",")}`),
             })
@@ -404,8 +506,33 @@ test("CLI-120b SWAP-99 SWAP-141 an owner change rebuilds the plugins with the ne
       ),
     ),
   )
+  // The taker's next version takes the guard's tool name while it is set to.
+  let taking = false
+  const taker = Plugin.make(
+    Layer.unwrap(
+      Effect.sync(() =>
+        taking
+          ? Plugin.toolkit(ownerTools).pipe(
+              Layer.provide(
+                ownerTools.toLayer({
+                  owners: () => Effect.succeed("taken"),
+                }),
+              ),
+            )
+          : Plugin.toolkit(spareTools).pipe(
+              Layer.provide(
+                spareTools.toLayer({ spare: () => Effect.succeed("spare") }),
+              ),
+            ),
+      ),
+    ),
+  )
   const running = await scenario({
-    plugins: [{ name: "guard", plugin: guard }],
+    env: { CHAD_LOG_LEVEL: "debug" },
+    plugins: [
+      { name: "guard", plugin: guard },
+      { name: "taker", plugin: taker },
+    ],
   })
   const { fakes } = running
   const thread = await fakes.chat.makeThread("direct")
@@ -432,16 +559,32 @@ test("CLI-120b SWAP-99 SWAP-141 an owner change rebuilds the plugins with the ne
   expect((await running.chad(["owner", "add", "local", "ada"])).code).toBe(0)
   expect(await owners("who now")).toContain("ada")
 
-  // An owner added while the build fails leaves the running version, which status marks.
-  failing = true
+  // An owner added while the build fails leaves the running version, which status marks. The taker's new version
+  // would take the tool of the version that stays, so it keeps its running version too.
+  build = "fails"
+  taking = true
   expect((await running.chad(["owner", "add", "local", "bob"])).code).toBe(0)
-  expect(await owners("who with bob")).not.toContain("bob")
-  expect((await running.chad(["status"])).stdout).toContain(
-    `plugin: guard, ${Messages.runningPrevious("owners", "").split(":")[0]}:`,
-  )
+  const kept = await owners("who with bob")
+  expect(kept).toContain("ada")
+  expect(kept).not.toContain("bob")
+  const mark = Messages.runningPrevious("owners", "").split(":")[0]
+  const marked = (await running.chad(["status"])).stdout
+  expect(marked).toContain(`plugin: guard, ${mark}:`)
+  expect(marked).toContain(`plugin: taker, ${mark}:`)
+  taking = false
 
-  // The removal comes with a build that fails, and the version that still knows ada goes.
-  expect((await running.chad(["owner", "remove", "local", "ada"])).code).toBe(0)
+  // The removal comes with a build that fails, and the version that still knows ada goes. The CLI is killed while
+  // the rebuild runs, and the status call that follows comes back once the daemon has seen the client go.
+  build = "holds"
+  const remove = Cli.start(["owner", "remove", "local", "ada"], {
+    CHAD_DATA: running.data,
+  })
+  await Effect.runPromise(Deferred.await(entered))
+  remove.child.kill("SIGKILL")
+  await remove.done
+  expect((await running.chad(["status"])).code).toBe(0)
+  await Effect.runPromise(Deferred.succeed(release, undefined))
+  await running.logged("rpc.cancelled")
   const after = await owners("who after")
   expect(after).not.toContain("ada")
   expect(after).not.toMatch(/^owners /)
@@ -507,8 +650,12 @@ test("SWAP-47 SWAP-154 SWAP-79 SWAP-81 SWAP-82 SWAP-83 SWAP-87 SWAP-88 SWAP-115 
   let calls = 0
   const after: Array<number> = []
   const before: Array<number> = []
+  const tails: Array<number> = []
   const cut = Deferred.makeUnsafe<void>()
-  // The first version's close never ends, so the swap abandons it at the close deadline. The third has no afterTurn.
+  const closed = Deferred.makeUnsafe<void>()
+  // The first version's close holds until the end, so the swap abandons it at the close deadline. The third has no
+  // afterTurn. The second afterTurn of the first version would hold if it started, and the second version's interrupts
+  // itself, which ends its job and not the plugin's queue.
   const notes = Plugin.make(
     Layer.unwrap(
       Effect.sync(() => {
@@ -534,17 +681,28 @@ test("SWAP-47 SWAP-154 SWAP-79 SWAP-81 SWAP-82 SWAP-83 SWAP-87 SWAP-88 SWAP-115 
             }),
           { timeout: "1 hour" },
         )
-        const close = Layer.effectDiscard(
-          Effect.addFinalizer(() =>
-            version === 1 ? Effect.never : Effect.void,
+        const tail = Plugin.afterTurn(() =>
+          Effect.sync(() => {
+            tails.push(version)
+          }).pipe(
+            Effect.andThen(version === 1 ? Effect.never : Effect.interrupt),
           ),
         )
-        return Layer.mergeAll(turnStarted, turnEnded, close)
+        const close = Layer.effectDiscard(
+          Effect.addFinalizer(() =>
+            version === 1 ? Deferred.await(closed) : Effect.void,
+          ),
+        )
+        return Layer.mergeAll(turnStarted, turnEnded, tail, close)
       }),
     ),
   )
   const running = await scenario({
     plugins: [{ name: "notes", plugin: notes }],
+  })
+  // The stop at the end waits for the abandoned close, so the close ends first (SWAP-154).
+  onTestFinished(() => {
+    Deferred.doneUnsafe(closed, Exit.void)
   })
   const thread = await running.fakes.chat.makeThread("direct")
   const reload = () =>
@@ -574,12 +732,14 @@ test("SWAP-47 SWAP-154 SWAP-79 SWAP-81 SWAP-82 SWAP-83 SWAP-87 SWAP-88 SWAP-115 
   expect(before).toEqual([1, 1, 2])
   expect(logged("hook.failed")).toHaveLength(1)
   expect(logged("swap.close-abandoned")).toHaveLength(1)
-  // The queued hook ran on the new version, and the third turn's hook now holds.
+  // The queued hook ran on the new version, and the third turn's hook now holds. The rest of the cut job did not start on
+  // the old version, and the queue outlived the close that cut it.
   await eventually(
     () => after,
     (list) => list.length === 3,
   )
   expect(after).toEqual([1, 2, 2])
+  expect(tails).toEqual([2])
 
   // A hook queued behind the held one, of a kind the next version does not register, is dropped and logged.
   await answer(running, thread, "four")
@@ -589,9 +749,10 @@ test("SWAP-47 SWAP-154 SWAP-79 SWAP-81 SWAP-82 SWAP-83 SWAP-87 SWAP-88 SWAP-115 
     (lines) => lines.length === 1,
   )
   expect(after).toEqual([1, 2, 2])
+  expect(tails).toEqual([2])
 }, 30_000)
 
-test("SWAP-101 SWAP-103 CLI-43 a graceful stop during a swap's drain abandons the swap and exits 0, and the next boot loads what the apply committed", async () => {
+test("SWAP-101 SWAP-103 CLI-43 REC-121 a graceful stop while an apply's swap waits on a call in flight abandons the swap and exits 0, and the next boot loads what the apply committed", async () => {
   const directory = fresh()
   const first = await scenario({ directory })
   const work = join(first.data, "repo", "work")
@@ -605,14 +766,19 @@ test("SWAP-101 SWAP-103 CLI-43 a graceful stop during a swap's drain abandons th
     (line) => line.message === "hang started one",
   )
 
-  // The call in flight holds the swap in its drain when the stop comes.
+  // The call in flight holds the swap in its drain. The stop comes once the link moved and work/ was reset to the
+  // commit, the steps right before the swap.
   write(work, { "plugins/hold.ts": hanging("two") })
   const apply = Cli.start(["apply", "-m", "Hold two"], {
     CHAD_DATA: first.data,
   })
-  await eventually(
-    () => git(work, ["log", "--format=%s", "-1", "applied"]),
-    (subject) => subject === "Hold two",
+  const tree = await eventually(
+    () => git(work, ["rev-parse", "-q", "--verify", "applied^{tree}"]),
+    (tree) =>
+      readlinkSync(join(first.data, "repo", "live")) ===
+        join("versions", tree) &&
+      git(work, ["write-tree"]) === tree &&
+      git(work, ["log", "--format=%s", "-1", "applied"]) === "Hold two",
   )
   expect(await first.stop()).toBe(0)
   await apply.done
@@ -627,15 +793,32 @@ test("SWAP-101 SWAP-103 CLI-43 a graceful stop during a swap's drain abandons th
         line.annotations["commit"] === commit,
     )
   expect(done?.annotations["swapped"] ?? "").toBe("")
-  // The link had moved before the stop, so the next boot loads the committed version.
-  const tree = git(work, ["rev-parse", "applied^{tree}"])
-  expect(readlinkSync(join(first.data, "repo", "live"))).toBe(
+  expect(
+    first
+      .log()
+      .some(
+        (line) =>
+          line.annotations["event"] === "plugin.log" &&
+          line.message === "hang started two",
+      ),
+  ).toBe(false)
+
+  // The next boot loads the committed version.
+  const second = await scenario({ directory })
+  // The log goes on from the first daemon's, so the second boot is the second boot.ready in it.
+  await eventually(
+    () =>
+      second.log().filter((line) => line.annotations["event"] === "boot.ready")
+        .length,
+    (count) => count === 2,
+  )
+  second.fakes.model.script([runs("await hang({})"), { text: "done" }])
+  await says(second, await second.fakes.chat.makeThread("direct"), "hang")
+  await second.logged(
+    "plugin.log",
+    (line) => line.message === "hang started two",
+  )
+  expect(readlinkSync(join(second.data, "repo", "live"))).toBe(
     join("versions", tree),
   )
-  expect(
-    readFileSync(
-      join(first.data, "repo", "live", "plugins", "hold.ts"),
-      "utf8",
-    ),
-  ).toContain("hang started two")
 }, 30_000)

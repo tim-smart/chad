@@ -137,6 +137,15 @@ export const make = Effect.fnUntraced(function* (options: {
           Effect.asVoid,
         )
 
+  /**
+   * Runs work that has to finish once it begins, on a fiber of the daemon's scope. A client that goes away does not cut
+   * it, and a stop still does (CLI-43, CLI-120b, REC-56).
+   */
+  const owned = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Effect.forkIn(effect, options.scope).pipe(
+      Effect.flatMap((fiber) => Effect.uninterruptible(Fiber.join(fiber))),
+    )
+
   const refused = (stage: string, errors: ReadonlyArray<string>) =>
     Logger.event("apply.failed", "An apply was refused", {
       stage,
@@ -259,83 +268,111 @@ export const make = Effect.fnUntraced(function* (options: {
         repo,
         yield* Repo.treeOf(work, head),
         tree,
-      )
-      // A revert saves what `work/` holds before anything moves (REC-82, REC-137).
+      ).pipe(Effect.onError(() => abandon))
+      // A revert saves what `work/` holds before anything moves, and is refused when it would write over something the
+      // save did not capture (REC-82, REC-137, REC-139, REC-154).
       const saved =
         kind === "revert"
           ? yield* Repo.save(repo).pipe(Effect.onError(() => abandon))
           : undefined
-      const sha = yield* Repo.commit(repo, {
-        tree,
-        parent: head,
-        message: options_.message,
-        session: caller.session,
-      }).pipe(Effect.onError(() => abandon))
-      // From the commit on the apply finishes even when its client has gone. A graceful stop abandons the swap, and
-      // the next boot loads the commit (CLI-43, CLI-44, LOAD-55).
-      const after = Effect.gen(function* () {
-        yield* Repo.point(repo, tree)
-        yield* Repo.reset(repo, sha, kind === "revert" ? "restore" : "keep")
-        const swapped =
-          safe === "off"
-            ? yield* prepared.swap
-            : yield* Effect.as(prepared.discard, undefined)
-        yield* Repo.prune(repo, tree)
-        yield* Logger.event("apply.done", "An apply finished", {
-          kind,
-          commit: sha,
-          caller: Queue.caller(caller.session),
-          ...(swapped === undefined
-            ? {}
-            : {
-                swapped: swapped.swapped.join(","),
-                removed: swapped.removed.join(","),
-              }),
-        })
-        yield* Queue.ran(kind, Queue.caller(caller.session), "changed", {
-          commit: sha,
-        })
-        yield* announce(
-          caller,
-          kind === "revert"
-            ? Messages.revertedLine(sha.slice(0, 7), head.slice(0, 7))
-            : Messages.appliedLine(
-                sha.slice(0, 7),
-                Messages.firstLine(options_.message),
-              ),
+      if (saved !== undefined) {
+        const blocked = yield* Repo.obstructed(repo, saved.tree, tree).pipe(
+          Effect.onError(() => abandon),
         )
-        return done(
-          ...Messages.appliedOutput({
+        if (blocked.length > 0) {
+          yield* abandon
+          return yield* refused("revert", [
+            Messages.revertObstructed(blocked, saved.ref),
+          ])
+        }
+      }
+      // From the commit on the apply finishes even when its client has gone, so the commit itself runs where a client
+      // cannot cut it. A graceful stop abandons the swap, and the next boot loads the commit (CLI-43, CLI-44, LOAD-55).
+      const after = (sha: string) =>
+        Effect.gen(function* () {
+          yield* Repo.point(repo, tree)
+          const restored =
+            saved === undefined
+              ? yield* Effect.as(Repo.reset(repo, sha), true)
+              : yield* Repo.restore(repo, {
+                  saved: saved.tree,
+                  target: tree,
+                  sha,
+                })
+          const swapped =
+            safe === "off"
+              ? yield* prepared.swap
+              : yield* Effect.as(prepared.discard, undefined)
+          yield* Repo.prune(repo, tree)
+          yield* Logger.event("apply.done", "An apply finished", {
             kind,
-            commit: sha.slice(0, 7),
-            files: changes.map(({ status, path }) => `${status} ${path}`),
-            safe: safe !== "off",
-            saved,
-            swapped,
-          }),
-        )
-      }).pipe(
-        Effect.catchCause((cause) =>
-          Cause.hasInterruptsOnly(cause)
-            ? Effect.interrupt
-            : Logger.event("apply.failed", "An apply failed after its commit", {
-                stage: "after-commit",
-                commit: sha,
-                error: Messages.firstLine(Cause.pretty(cause)),
-              }).pipe(
-                Effect.as(
-                  failed(
-                    Messages.failedAfterCommit(
-                      sha.slice(0, 7),
-                      Messages.firstLine(Cause.pretty(cause)),
+            commit: sha,
+            caller: Queue.caller(caller.session),
+            ...(swapped === undefined
+              ? {}
+              : {
+                  swapped: swapped.swapped.join(","),
+                  removed: swapped.removed.join(","),
+                }),
+          })
+          yield* Queue.ran(kind, Queue.caller(caller.session), "changed", {
+            commit: sha,
+          })
+          yield* announce(
+            caller,
+            kind === "revert"
+              ? Messages.revertedLine(sha.slice(0, 7), head.slice(0, 7))
+              : Messages.appliedLine(
+                  sha.slice(0, 7),
+                  Messages.firstLine(options_.message),
+                ),
+          )
+          return done(
+            ...Messages.appliedOutput({
+              kind,
+              commit: sha.slice(0, 7),
+              files: changes.map(({ status, path }) => `${status} ${path}`),
+              safe: safe !== "off",
+              saved: saved?.ref,
+              restored,
+              swapped,
+            }),
+          )
+        }).pipe(
+          Effect.catchCause((cause) =>
+            Cause.hasInterruptsOnly(cause)
+              ? Effect.interrupt
+              : Logger.event(
+                  "apply.failed",
+                  "An apply failed after its commit",
+                  {
+                    stage: "after-commit",
+                    commit: sha,
+                    error: Messages.firstLine(Cause.pretty(cause)),
+                  },
+                ).pipe(
+                  Effect.as(
+                    failed(
+                      Messages.failedAfterCommit(
+                        sha.slice(0, 7),
+                        Messages.firstLine(Cause.pretty(cause)),
+                      ),
                     ),
                   ),
                 ),
-              ),
+          ),
+        )
+      return yield* owned(
+        Repo.commit(repo, {
+          tree,
+          parent: head,
+          message: options_.message,
+          session: caller.session,
+        }).pipe(
+          Effect.onError(() => abandon),
+          Effect.flatMap(after),
         ),
       )
-      const fiber = yield* Effect.forkIn(after, options.scope)
-      return yield* Effect.uninterruptible(Fiber.join(fiber))
     })
 
   const apply = (message: string, caller: Caller) =>
@@ -404,6 +441,12 @@ export const make = Effect.fnUntraced(function* (options: {
       if (to === "off" && options.forced) return failed(Messages.safeForced)
       if ((to === "on") === (safe !== "off"))
         return done(Messages.safeState(safe))
+      // Once the toggle is stored the plugins follow it, so a client that goes away does not leave the two apart.
+      return yield* owned(switched(to, caller))
+    })
+
+  const switched = (to: "on" | "off", caller: Caller) =>
+    Effect.gen(function* () {
       yield* SafeMode.write(options.data, to === "on")
       if (to === "on") {
         const remove = [
@@ -540,18 +583,22 @@ export const make = Effect.fnUntraced(function* (options: {
         )
       }),
     safe: () => safe,
+    // Once the owners are stored the plugins follow them, so a client that goes away does not leave a removed owner in
+    // a running plugin (CLI-120b, SWAP-99).
     owners: (removed) =>
-      Effect.gen(function* () {
-        const prepared = yield* plugins.prepare({
-          build: plugins.versions().map(({ entry }) => entry),
-          remove: [],
-          reason: "removed",
-          failures: removed ? "skip" : "keep",
-          kept: "owners",
-          trial: false,
-        })
-        yield* prepared.swap
-      }),
+      owned(
+        Effect.gen(function* () {
+          const prepared = yield* plugins.prepare({
+            build: plugins.versions().map(({ entry }) => entry),
+            remove: [],
+            reason: "removed",
+            failures: removed ? "skip" : "keep",
+            kept: "owners",
+            trial: false,
+          })
+          yield* prepared.swap
+        }),
+      ),
   }
   return commands
 })

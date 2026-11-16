@@ -904,6 +904,10 @@ export const revertNoEarlier =
 export const revertNotApplied = (commit: string) =>
   `${commit} is not an applied commit. \`chad log\` lists them.`
 
+/** A revert that would write over files its save did not capture, such as ignored ones (REC-139, REC-154). */
+export const revertObstructed = (paths: ReadonlyArray<string>, saved: string) =>
+  `The revert would write over ${paths.join(", ")} in work/, which the save at ${saved} does not hold. Nothing was reverted. Move ${paths.length === 1 ? "it" : "them"} away and run chad revert again.`
+
 /** The message of a revert's commit, which names the commit it went back to (REC-136). */
 export const revertMessage = (commit: string) => `Revert to ${commit}`
 
@@ -962,6 +966,7 @@ export const appliedOutput = (options: {
   readonly files: ReadonlyArray<string>
   readonly safe: boolean
   readonly saved: string | undefined
+  readonly restored: boolean
   readonly swapped:
     | {
         readonly swapped: ReadonlyArray<string>
@@ -980,6 +985,11 @@ export const appliedOutput = (options: {
   ...(options.saved === undefined
     ? []
     : [`What work/ held is saved at ${options.saved}.`]),
+  ...(options.restored
+    ? []
+    : [
+        "A file in work/ changed after the save, so no file was put back. git diff in work/ shows how it differs from the revert.",
+      ]),
   "Changed files:",
   ...options.files.map((file) => `  ${file}`),
   ...(options.safe

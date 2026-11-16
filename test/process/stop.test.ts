@@ -126,3 +126,35 @@ export default Plugin.make(
   await running.logged("plugin.skipped")
   expect(await current.stop()).toEqual({ code: 1, signal: null })
 })
+
+test("SWAP-154 IMG-82 a close that a swap abandoned, which never ends and holds the event loop, is still owned at the stop, and the deadline exits 1", async () => {
+  const running = await daemon()
+  applied(join(running.data, "repo"), {
+    "plugins/stuck.ts": `import { Effect, Layer } from "effect"
+import { Plugin } from "chad"
+
+let builds = 0
+
+export default Plugin.make(
+  Layer.unwrap(
+    Effect.sync(() => {
+      const version = ++builds
+      return Layer.effectDiscard(
+        Effect.addFinalizer(() =>
+          version === 1
+            ? Effect.sync(() => setInterval(() => {}, 1000)).pipe(
+                Effect.andThen(Effect.never),
+              )
+            : Effect.void,
+        ),
+      )
+    }),
+  ),
+)
+`,
+  })
+  const current = await running.start()
+  expect((await running.chad(["plugin", "reload", "stuck"])).code).toBe(0)
+  await running.logged("swap.close-abandoned")
+  expect(await current.stop()).toEqual({ code: 1, signal: null })
+})

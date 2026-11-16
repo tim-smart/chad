@@ -199,6 +199,7 @@ chad revert <commit>    go back to an earlier applied commit
 - **REC-137** The save of REC-82 is a commit made from the same temporary index snapshot an apply takes (REC-22), so it keeps untracked files and respects `.gitignore`. chad stores it under the ref `refs/chad/saved/<timestamp>`, and the agent can restore from that ref with plain git.
 - **REC-138** chad never prunes the saved refs in v1.
 - **REC-139** The reset of `work/` in a revert deletes nothing that the save did not capture, so ignored files stay where they are.
+- **REC-154** A revert that would put a file where `work/` holds one its save did not capture, such as an ignored file, is refused before its commit. It names the path and changes nothing. A file made or edited in `work/` after the save stays as it is. When such a file is in the way of one the revert puts back or deletes, the revert keeps its commit, puts no file back and says so in its output.
 - **REC-140** `chad revert` with no applied commit before the current one exits 1 with a message and changes nothing.
 - **REC-141** `chad revert <commit>` with a commit that is not on the `applied` branch exits 1 with a message and changes nothing.
 - **REC-142** A revert whose target has the same tree as the current applied commit exits 0, makes no commit and leaves `work/` as it is, as an apply with nothing changed does.
@@ -424,6 +425,7 @@ A notice is a short message chad posts on its own account, as opposed to the age
 | REC-151 | TIM-559 round 3 L2, TIM-559 round 4 item 6 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | REC-152 | TIM-559 round 3 A1, TIM-559 round 4 items 7 and 8 | Architect (Tim has not read) | read for clanka's walk; the refusal and the boot not run |  | `rule` | `apply` |
 | REC-153 | Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `apply` |
+| REC-154 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `apply` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 
