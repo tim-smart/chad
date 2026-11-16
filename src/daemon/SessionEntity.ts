@@ -288,6 +288,8 @@ export const system = (
   safe = false,
   persona = "",
 ) => `You are a world-class software engineer: precise and efficient.
+
+${Messages.selfEditPrompt}
 ${safe ? `\n${Messages.safePrompt}\n` : PersonaFile.section(persona)}
 ${options.toolInstructions}
 

@@ -18,7 +18,12 @@ import * as Repository from "../Repository.ts"
  */
 
 /** The exit codes of `chad secret run`'s own failures, which a child rarely returns (CRED-113 to CRED-115). */
-const RunCode = { usage: 125, notExecutable: 126, notFound: 127 } as const
+/** The codes `chad secret run` exits with for its own failures (CRED-31, CRED-32, CRED-115). */
+export const RunCode = {
+  usage: 125,
+  notExecutable: 126,
+  notFound: 127,
+} as const
 
 /** A store that cannot be read or holds no store ends the command with exit 1, naming the file and nothing it holds. */
 const broken = (command: string) => (error: Secrets.SecretsError) =>

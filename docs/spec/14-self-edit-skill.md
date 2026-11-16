@@ -265,6 +265,7 @@ The image:
 
 - **SELF-107** The skill teaches that the agent has no sudo and no apt, that `node` is in the image, and that npm globals, uv tools and binaries in `~/.local/bin` persist on the volume and sit last on PATH, so they cannot replace the image's own tools.
 - **SELF-108** The skill teaches that the daemon's log is `/data/logs/chad.log` and that the directories the owner mounts sit under `/mnt`.
+- **SELF-140** To find out why a turn, a hook or a plugin failed, the skill sends the agent to the `diagnose` skill, and it names `chad logs --plugin <name>` for a hook's entries. It names `/data/logs/chad.log` only as where the log is.
 
 ```json
 { "plugins": { "<name>": { "enabled": false, "settings": { ... } } } }
@@ -605,7 +606,7 @@ export default Plugin.make(NotesTools, Chunk)
 - **SELF-G9** [builder] How `<camelName>` is derived from a name that has hyphens or starts with a digit. TIM-549 item 17. SELF-137 settles it.
 - **SELF-G10** [builder] What `chad skill new` writes inside `SKILL.md`. TIM-542 item 11 gives the path only. SELF-139 settles it.
 - **SELF-G11** [builder] Ten of the 17 corrections to the first drafts are not listed anywhere. TIM-549 item 6 says all are applied in the drafts, and round 1 lists seven.
-- **SELF-G15** [builder] Whether `self-edit` points at the `diagnose` skill, or names `chad logs`, where its draft sends the agent to `/data/logs/chad.log`. TIM-557 items 11 and 43 add the command and the skill and say nothing about this skill's text.
+- **SELF-G15** [builder] Whether `self-edit` points at the `diagnose` skill, or names `chad logs`, where its draft sends the agent to `/data/logs/chad.log`. TIM-557 items 11 and 43 add the command and the skill and say nothing about this skill's text. SELF-140 settles it.
 - **SELF-G16** [builder] Which command is effect's build step in SELF-27, and how the image build gets effect's source when it holds only the tarballs under `vendor/`. TIM-549 item 22 names the step and no command, and nobody has run it. Recommended: the build clones effect at the manifest's commit and runs the script of that repository that fills the `AGENTS.md` and `ai-docs/**/*` entries of the `files` list in `packages/effect/package.json`. If the repository has no such script, the build copies `AGENTS.md` and `ai-docs/` as they sit in that tree.
 
 ## Provenance
@@ -749,6 +750,7 @@ export default Plugin.make(NotesTools, Chunk)
 | SELF-137 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | SELF-138 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | SELF-139 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| SELF-140 | Build, stage 5 | Builder (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

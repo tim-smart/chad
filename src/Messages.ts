@@ -1148,6 +1148,10 @@ export const safeState = (state: "off" | "variable" | "toggle") =>
 export const safeForced =
   "CHAD_SAFE_MODE=1 is set and holds safe mode on. Nothing was changed. Unset it on the container and restart chad to turn safe mode off."
 
+/** The two fixed sentences of the core prompt, which send the agent to the `self-edit` skill (SELF-37). */
+export const selfEditPrompt =
+  "Your plugins, skills, MCP servers, settings and persona are files you can change with the `chad` CLI. Read the `self-edit` skill before you do."
+
 /** The line the system prompt has while safe mode is on (SELF-38, REC-58, SWAP-G10). */
 export const safePrompt =
   "Safe mode is on. Nothing from the repo is loaded: no repo plugins, skills, MCP servers or persona."

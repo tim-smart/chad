@@ -23,24 +23,16 @@ The slices that are delivered, in build order. The builder who finishes a slice 
 - `timers-cron`
 - `backup`
 - `image`
+- `bundled-skills`
 
 ## Held rules
 
 A rule, or one letter of a rule, whose slice is delivered and which cannot be built yet because it rests on a later slice. The entry goes when that slice is delivered.
 
-| Rule      | Slice            | Reason                                                                                                                                                 |
-| --------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| CLI-97b   | `bundled-skills` | The `credentials` skill arrives with the `bundled-skills` slice.                                                                                       |
-| CRED-136b | `bundled-skills` | What the agent asks the owner is taught by the `credentials` skill, which arrives with the `bundled-skills` slice (CRED-96).                           |
-| CLI-137e  | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                          |
-| STO-83b   | `bundled-skills` | The `self-edit` skill arrives with the `bundled-skills` slice.                                                                                         |
-| STO-133c  | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                          |
-| FAIL-108c | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                          |
-| LOAD-20   | `bundled-skills` | Every package of the image resolves for a plugin, and the `self-edit` skill that says which ones are promised arrives with the `bundled-skills` slice. |
-| IMG-42c   | `bundled-skills` | The agent records a mount in `persona.md` as the `self-edit` skill teaches (SELF-76), and that skill arrives with the `bundled-skills` slice.          |
-| MCP-145   | `bundled-skills` | The image copies `skills/` to `/opt/chad/skills` once the `bundled-skills` slice adds the first bundled skill, and until then no bundled skill exists. |
-| ASP-7     | `asphodel`       | The asphodel plugin arrives with the `asphodel` slice. A plugin's settings under `plugins.<name>.settings` in `chad.json` are built.                   |
-| ASP-9     | `asphodel`       | The asphodel plugin and its bearer token arrive with the `asphodel` slice. The expansion of `${NAME}` from the secret store or process env is built.   |
+| Rule  | Slice      | Reason                                                                                                                                               |
+| ----- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ASP-7 | `asphodel` | The asphodel plugin arrives with the `asphodel` slice. A plugin's settings under `plugins.<name>.settings` in `chad.json` are built.                 |
+| ASP-9 | `asphodel` | The asphodel plugin and its bearer token arrive with the `asphodel` slice. The expansion of `${NAME}` from the secret store or process env is built. |
 
 ## Stopped rules
 

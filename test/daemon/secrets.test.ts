@@ -16,6 +16,7 @@ import * as Plugin from "../../dist/Plugin.js"
 import { applied } from "../support/applied.ts"
 import * as Cli from "../support/cli.ts"
 import { fresh, scenario, type Scenario } from "../support/driver.ts"
+import * as Skills from "../support/skills.ts"
 import {
   eventually,
   posted,
@@ -365,15 +366,30 @@ const everyCommand: ReadonlyArray<ReadonlyArray<string>> = [
   ["setup", "--skip-login"],
 ]
 
-test("TST-97 CLI-97 CRED-9 CRED-10 CRED-11 CRED-80 CRED-81 CRED-82 CRED-130 CRED-140 SET-21 a stored canary is in no output of any command and nowhere in the log, a damaged store included", async () => {
+/** The credentials skill's recipes, and the names of the secrets they read that no recipe of theirs saves. */
+const credentials = Skills.recipes(
+  Skills.files().find(({ name }) => name === "credentials/SKILL.md")!.text,
+)
+const recipeSecrets = [
+  ...new Set(
+    credentials.flatMap((recipe) =>
+      [...recipe.matchAll(/--env [A-Z_]+=([A-Z_]+)|--stdin ([A-Z_]+)/g)].map(
+        (match) => match[1] ?? match[2]!,
+      ),
+    ),
+  ),
+]
+
+test("TST-97 CLI-97 CRED-8 CRED-9 CRED-10 CRED-11 CRED-80 CRED-81 CRED-82 CRED-108 CRED-130 CRED-140 SET-21 a stored canary is in no output of any command or of any credentials recipe, and nowhere in the log, a damaged store included", async () => {
   const canary = "canary-7e3b9d41c5"
   const directory = fresh()
   const data = join(directory, "data")
   mkdirSync(data, { recursive: true })
-  expect(
-    (await Cli.chad(["secret", "set", "CANARY"], { CHAD_DATA: data }, canary))
-      .code,
-  ).toBe(0)
+  for (const name of ["CANARY", ...recipeSecrets])
+    expect(
+      (await Cli.chad(["secret", "set", name], { CHAD_DATA: data }, canary))
+        .code,
+    ).toBe(0)
   applied(join(data, "repo"), {
     "chad.json": chadJson({ canary: { settings: { token: "${CANARY}" } } }),
     "persona.md": "",
@@ -390,10 +406,22 @@ test("TST-97 CLI-97 CRED-9 CRED-10 CRED-11 CRED-80 CRED-81 CRED-82 CRED-130 CRED
   // The daemon runs in this process, and the value its plugin read is not in its environment.
   expect(Object.values(process.env)).not.toContain(canary)
 
-  const outputs = await Promise.all(
+  const outputs: Array<Cli.Ran> = await Promise.all(
     everyCommand.map((args) => running.chad(args)),
   )
   expect(outputs[0]?.stdout).not.toContain(" get ")
+
+  // Each recipe runs as the skill writes it, with `gh` and `curl` as commands that read what they are given and print
+  // only that they ran. A recipe that saves a secret reads the canary on stdin.
+  const bin = Skills.toolbox(join(directory, "bin"), ["gh", "curl"])
+  const recipes = []
+  for (const recipe of credentials)
+    recipes.push(await Skills.shell(recipe, bin, { CHAD_DATA: data }, canary))
+  expect(recipes.length).toBeGreaterThan(3)
+  expect(
+    recipes.filter(({ code, stderr }) => code !== 0 || stderr !== ""),
+  ).toEqual([])
+  outputs.push(...recipes)
   const changes: Array<Cli.Ran> = []
   const change = async (args: ReadonlyArray<string>, input?: string) => {
     changes.push(await running.chad(args, {}, input))

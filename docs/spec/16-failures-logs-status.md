@@ -757,6 +757,7 @@ A command that changes chad leaves a line in the thread of the session it ran fr
 - **FAIL-183** chad ships a third bundled skill, `diagnose`, next to `self-edit` and `credentials` (see 14-self-edit-skill.md and 15-credentials.md).
 - **FAIL-184** The skill teaches the agent to answer "why did that fail?" with `chad logs --turn`, `chad status` and `chad db query` recipes over the `turns` table. The recipes stand in for a `chad turns` command.
 - **FAIL-185** CI runs each recipe against a freshly migrated database, and the skill gets the same checks as the other two bundled skills (see 17-testing.md).
+- **FAIL-349** The skill's description sends the agent to it when the owner asks why a turn failed, why chad did not answer, why a plugin or a hook did nothing, or what went wrong recently. Its recipes give the last turns, the failed turns of the last day, the failures by reason over a week, the turns that have not ended, the turns a plugin started, one turn in full, and tokens by day and model. A table gives each of the seven failure reasons with what to do about it.
 
 ## Follow-ups outside chad
 
@@ -1141,6 +1142,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-346 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 | FAIL-347 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 | FAIL-348 | Build, stage 5 | Builder (Tim has not read) | run |  | `rule` | `backup` |
+| FAIL-349 | Build, stage 5 | Builder (Tim has not read) | run |  | `rule` | `bundled-skills` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

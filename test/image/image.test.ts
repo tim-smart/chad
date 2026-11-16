@@ -3,6 +3,11 @@ import { existsSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import * as Messages from "../../dist/Messages.js"
+import * as McpFile from "../../dist/McpFile.js"
+import * as Settings from "../../dist/Settings.js"
+import * as SkillFile from "../../dist/Skills.js"
+import { ExitCode } from "../../dist/cli/Failure.js"
+import { RunCode } from "../../dist/cli/commands/secret.js"
 import { compilerOptions } from "../../dist/daemon/Loader.js"
 import { owner } from "../support/driver.ts"
 import {
@@ -40,6 +45,7 @@ import {
 } from "../support/image.ts"
 import type * as Model from "../support/model.ts"
 import { json, read, root } from "../support/repo.ts"
+import * as Skills from "../support/skills.ts"
 
 vi.setConfig({ testTimeout: 120_000 })
 
@@ -997,5 +1003,151 @@ describe("effect's AGENTS.md and ai-docs", () => {
     expect(vendored).toContain("  AGENTS.md\n")
     expect(vendored).toContain("  ai-docs/src/")
     expect(output(docs(effect))).toBe(vendored)
+  })
+})
+
+describe("the bundled skills in the image, on a volume that booted once", () => {
+  let container: string
+  const files = Skills.files()
+  const skills = files.filter(({ name }) => name.endsWith("/SKILL.md"))
+
+  beforeAll(async () => {
+    container = start("--volume", volume() + ":/data")
+    await ready(container)
+  })
+
+  afterAll(() => {
+    stop(container)
+  })
+
+  it("IMG-111 MCP-9 MCP-145 SELF-115 TST-89 the image holds the three skills of the repo file for file, and each passes the check an apply runs on a skill", () => {
+    const hashes = (directory: string) =>
+      `(cd ${directory} && find . -type f | LC_ALL=C sort | xargs sha256sum)`
+    expect(exec(container, hashes("/opt/chad/skills"))).toBe(
+      spawnSync("sh", ["-c", hashes(Skills.directory)], {
+        encoding: "utf8",
+      }).stdout.trimEnd(),
+    )
+    expect(skills.map(({ name }) => name)).toEqual([
+      "credentials/SKILL.md",
+      "diagnose/SKILL.md",
+      "self-edit/SKILL.md",
+    ])
+    for (const { name, text } of skills) {
+      expect(SkillFile.parse(name.split("/")[0]!, text)).not.toHaveProperty(
+        "problem",
+      )
+    }
+  })
+
+  it("IMG-12 MCP-19 SELF-111 SELF-112 SELF-113 TST-91 TST-109 every chad command, flag and exit code, every path and every quoted message in each bundled skill exists in the image and in Messages", () => {
+    const marker = "\n=== next ===\n"
+    const tree = Skills.tree((paths) =>
+      run(
+        "exec",
+        container,
+        "sh",
+        "-c",
+        paths
+          .map((words) => `chad ${words.join(" ")} --help`)
+          .join(`; printf '${marker.replaceAll("\n", "\\n")}'; `),
+      ).stdout.split(marker),
+    )
+    expect(tree.get("secret")?.subcommands).toContain("run")
+    const codes = new Set<number>([
+      ...Object.values(ExitCode),
+      ...Object.values(RunCode),
+    ])
+    const templates = Skills.templates(read("src/Messages.ts"))
+    const roots = new Set(["data", "mnt", "opt"])
+    const problems = files.flatMap(({ name, text }) => [
+      ...Skills.commands(text).flatMap((words) =>
+        Skills.problems(tree, words).map((problem) => `${name}: ${problem}`),
+      ),
+      ...Skills.exitCodes(text)
+        .filter((code) => !codes.has(code))
+        .map((code) => `${name}: exit code ${code}`),
+      ...Skills.quoted(text)
+        .filter((quote) => !Skills.inMessages(quote, templates))
+        .map((quote) => `${name}: no message "${quote}"`),
+    ])
+    expect(problems).toEqual([])
+
+    const paths = [
+      ...new Set(files.flatMap(({ text }) => Skills.paths(text, roots))),
+    ]
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        "/data/repo/examples/",
+        "/data/repo/examples/cron/",
+        "/data/repo/examples/send-file.ts",
+        "/data/repo/node_modules/effect/AGENTS.md",
+      ]),
+    )
+    expect(
+      exec(
+        container,
+        `for p in ${paths.map((p) => `'${p}'`).join(" ")}; do test -e "$p" || echo "missing $p"; done`,
+      ),
+    ).toBe("")
+  })
+
+  it("SELF-109 SELF-114 SET-56 the ts blocks of every bundled skill type-check in the image, and its chad.json and mcp.json blocks decode with the apply's own code", () => {
+    const blocks = files.flatMap(({ text }) => Skills.blocks(text))
+    const ts = blocks.filter(({ lang }) => lang === "ts")
+    expect(ts.length).toBeGreaterThan(0)
+    ts.forEach(({ body }, index) =>
+      exec(
+        container,
+        `mkdir -p /data/repo/versions/skills/plugins && cat > /data/repo/versions/skills/plugins/block${index}.ts <<'EOF'\n${body}EOF`,
+      ),
+    )
+    exec(
+      container,
+      `cat > /data/repo/versions/skills.tsconfig.json <<'EOF'\n${JSON.stringify({ compilerOptions, include: ["skills/plugins/**/*.ts"] })}\nEOF`,
+    )
+    expect(
+      run(
+        "exec",
+        "--workdir",
+        "/data/repo",
+        container,
+        "node_modules/.bin/tsc",
+        "-p",
+        "versions/skills.tsconfig.json",
+        "--pretty",
+        "false",
+      ),
+    ).toMatchObject({ status: 0, stdout: "" })
+
+    const json = blocks.filter(({ lang }) => lang === "json")
+    expect(
+      json.map(({ body }) => Object.keys(JSON.parse(body))).sort(),
+    ).toEqual([["mcpServers"], ["plugins"]])
+    for (const { body } of json) {
+      const value = JSON.parse(body)
+      if ("mcpServers" in value)
+        expect(McpFile.parse(body)).toMatchObject({ _tag: "File" })
+      else
+        expect(
+          Settings.validate(body, new Set(Object.keys(value.plugins))).errors,
+        ).toEqual([])
+    }
+  })
+
+  it("TST-169 each recipe of the diagnose skill runs against the freshly migrated database and prints no error", () => {
+    const diagnose = files.find(({ name }) => name === "diagnose/SKILL.md")!
+    const recipes = Skills.recipes(diagnose.text)
+    expect(
+      recipes.filter((line) => line.startsWith("chad db query")).length,
+    ).toBeGreaterThan(3)
+    expect(
+      recipes
+        .map((recipe) => ({
+          recipe,
+          ...run("exec", container, "sh", "-c", recipe),
+        }))
+        .filter(({ status, stderr }) => status !== 0 || stderr !== ""),
+    ).toEqual([])
   })
 })

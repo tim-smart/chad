@@ -172,6 +172,7 @@ The rules an agent has to follow cannot be enforced by a command, so they live i
 - **CRED-92** The skill treats the state of a browser tool the owner added as a secret. Cookies, saved state files and a tool's own vault are never printed, never sent with `sendFile` and never put in the repo. chad itself does nothing with browser state.
 - **CRED-96** The skill carries the rules for a password typed into the chat (CRED-77, CRED-78 and CRED-79) and the rule for a secret that is not stored (CRED-136).
 - **CRED-108** The CI checks on a bundled skill, which 14-self-edit-skill.md lists, run on the `credentials` skill too (see 17-testing.md).
+- **CRED-141** The skill's description sends the agent to it before a tool or a script signs in with a password, a token or an API key, when it needs a secret that is not stored, and when the owner pastes a password into the chat. Its recipes hand a value over with `--env`, with `--stdin` and with `sh -c` in single quotes, and the canary check of CRED-13 runs each of them.
 
 ## Runs owed to the test plan
 
@@ -180,7 +181,7 @@ These were never run. A real model following the skill, any of it on Docker (the
 ## Gaps
 
 - **CRED-G10** [builder] The wordings in "Command messages" that no rule quotes. They are the prototype's and no ticket decides them. Closest is TIM-554. CRED-139 settles the ones `chad secret` prints.
-- **CRED-G16** [builder] The text of the `credentials` skill. No draft exists. Closest is TIM-546 items 22 and 23.
+- **CRED-G16** [builder] The text of the `credentials` skill. No draft exists. Closest is TIM-546 items 22 and 23. CRED-141 settles it.
 - **CRED-G21** [builder] The wording of the message `chad secret run` prints with exit 126 (CRED-115). It has no wording from the prototype. Closest is the TIM-559 ruling on CRED-G11. CRED-139 settles it.
 - **CRED-G23** [builder] Whether `chad secret set` and `chad secret rm` write `command.ran` when they run with no daemon. CRED-130 has the daemon write the event, and no ticket says whether a CLI with no daemon writes to the log. 10-cli.md holds the same gap for every command that works with no daemon. Closest is TIM-559 round 2 R4. CRED-138 settles it.
 
@@ -248,6 +249,7 @@ These were never run. A real model following the skill, any of it on Docker (the
 | CRED-138 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 | CRED-139 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 | CRED-140 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| CRED-141 | Build, stage 5 | Builder (Tim has not read) | run |  | `rule` | `bundled-skills` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

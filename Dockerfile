@@ -72,6 +72,8 @@ COPY --from=build /opt/chad/node_modules /opt/chad/node_modules
 COPY --from=build /opt/chad/dist /opt/chad/dist
 COPY --from=build /opt/chad/bin /opt/chad/bin
 COPY --from=build /opt/chad/plugins /opt/chad/plugins
+# The bundled skills, which nothing builds (MCP-145).
+COPY skills /opt/chad/skills
 RUN ln -s /opt/chad/bin/chad.js /usr/local/bin/chad && install -d -o node -g node /data
 # A login shell resets PATH from /etc/profile. This puts the volume's bin directories back, last, and only once.
 RUN printf '%s\n' 'for d in /data/home/.npm-global/bin /data/home/.local/bin; do case ":$PATH:" in *":$d:"*) ;; *) PATH="$PATH:$d" ;; esac; done; export PATH' > /etc/profile.d/chad.sh
