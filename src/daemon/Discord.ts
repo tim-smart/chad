@@ -12,6 +12,7 @@ import { KeyValueStore } from "effect/persistence"
 import { Socket } from "effect/socket"
 import { intents } from "../Discord.ts"
 import * as CatchUp from "./CatchUp.ts"
+import * as Chats from "./Chats.ts"
 import type { Connection } from "./Connection.ts"
 import * as Logger from "./Logger.ts"
 
@@ -92,6 +93,7 @@ const connected = (connection: Connection) =>
     DispatchHook,
     Effect.gen(function* () {
       const hook = yield* DispatchHook
+      const up = yield* Chats.Connected
       const identified = yield* Queue.unbounded<void>()
       yield* Queue.take(identified).pipe(
         Effect.andThen(CatchUp.run("discord")),
@@ -107,6 +109,8 @@ const connected = (connection: Connection) =>
               connection: connection.name,
               resumed: payload.t === "RESUMED",
             }).pipe(
+              // The session is up, which is when the daemon has connected to Discord (MOD-95, MOD-127).
+              Effect.andThen(up),
               Effect.andThen(hook(payload, context)),
               Effect.andThen(
                 payload.t === "READY"

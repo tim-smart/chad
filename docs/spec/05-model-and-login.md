@@ -74,6 +74,7 @@ chad model [<provider>/<model>[/<effort>]]
 - **MOD-93** The startup check of a model whose provider needs a login is skipped when no token is stored.
 - **MOD-94** The startup check runs as a turn with no owner present, so it starts no device flow and posts no login code. When the stored token's refresh fails during the check, the check counts as skipped.
 - **MOD-95** The startup check runs after chad has connected to Discord, and nothing waits for it.
+- **MOD-127** A connection has connected when its session with its platform is up: a Discord connection at the gateway's `READY` or `RESUMED`, and a `local` connection when its platform first answers on `run/local.sock`. The startup check waits for the first connection of the boot to connect. With no connection stored at startup it runs at once, so a failure is still logged and listed under "Problems".
 
 The check makes a model request at every boot, with `openai-compat` as well, and nothing orders it against the first turn. Its request can reach the provider before or after the first turn's request. It sends the fixed prompt of MOD-86, which is how a test that scripts the fake model server by call order tells the check's request from a turn's (see 17-testing.md).
 
@@ -554,3 +555,4 @@ The prices are what models.dev listed on 2026-11-14.
 | MOD-124 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
 | MOD-125 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
 | MOD-126 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
+| MOD-127 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |

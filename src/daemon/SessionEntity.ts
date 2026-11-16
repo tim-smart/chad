@@ -224,8 +224,6 @@ interface Turn {
   readonly settings: Model.Settings
   /** What the turn's steps have seen, which a wait on a login resets the silence count of (MOD-103). */
   steps: TurnLog.Steps
-  /** Whether a model call of the turn has succeeded, which clears the model's conditions (FAIL-94, FAIL-235). */
-  succeeded: boolean
 }
 
 /** What the entity holds for the thread's current session. A `/new` puts a fresh one in its place. */
@@ -685,6 +683,13 @@ export const layer = Layer.unwrap(
           const owner: TurnLog.Owner = {
             steps,
             loginPending: () => login.pendingFor(live.id),
+            // Every model call that succeeds clears the conditions a model call or the check at start began, whichever
+            // turn makes it and however many of its calls came before (FAIL-94, FAIL-235). A key whose row does not
+            // hold costs no read.
+            succeeded: Effect.andThen(
+              notices.clear(Notices.usageLimitKey),
+              notices.clear(Model.checkKey),
+            ),
             end: (reason) =>
               Deferred.doneUnsafe(
                 ended,
@@ -735,18 +740,6 @@ export const layer = Layer.unwrap(
                     part.messages,
                     live.agent.environment.current,
                   )
-                }
-                if (
-                  !turn.succeeded &&
-                  (part._tag === "Usage" ||
-                    (part._tag === "SubagentPart" &&
-                      part.part._tag === "Usage"))
-                ) {
-                  // A model call that succeeds clears the conditions a model call or the check at start began (FAIL-94,
-                  // FAIL-235).
-                  turn.succeeded = true
-                  yield* notices.clear(Notices.usageLimitKey)
-                  yield* notices.clear(Model.checkKey)
                 }
                 if (part._tag === "Usage") {
                   // A part holds the running totals of this `send`, and the context size of the latest call.
@@ -1538,7 +1531,6 @@ export const layer = Layer.unwrap(
                     status: undefined,
                     settings: models.settings(),
                     steps: TurnLog.steps(),
-                    succeeded: false,
                   }
                   own.turn = turn
                   yield* take(payload.key)

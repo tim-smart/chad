@@ -285,6 +285,8 @@ const hidden = Effect.map(chain, (found) => {
 export interface Owner {
   readonly steps: Steps
   readonly loginPending: () => boolean
+  /** What a model call of the turn that succeeds does, see `succeeding` (FAIL-94, FAIL-235). */
+  readonly succeeded: Effect.Effect<void>
   /** Ends the turn as `step` ends it at an `ErrorRetry` part, with `Failed.Ended`. */
   readonly end: (reason: Failed.Reason) => void
 }
@@ -307,16 +309,55 @@ type Provided =
  */
 export const watched = <E, R>(
   layer: Layer.Layer<Provided, E, R>,
+): Layer.Layer<Provided, E, R> => wrapped(layer, watch)
+
+/**
+ * A model whose calls that succeed run the turn's `succeeded`, which clears the conditions a model call or the check
+ * at start began (FAIL-94, FAIL-235). A call has succeeded when its stream gives the `finish` part. That holds for
+ * every agent of the turn, a hidden one too, and for a provider that reports no usage, which gives no `Usage` part.
+ */
+export const succeeding = <E, R>(
+  layer: Layer.Layer<Provided, E, R>,
 ): Layer.Layer<Provided, E, R> =>
-  Layer.effectContext(
-    Effect.gen(function* () {
-      const model = yield* LanguageModel.LanguageModel
-      return Context.make(LanguageModel.LanguageModel, watch(model)).pipe(
-        Context.add(AiModel.ProviderName, yield* AiModel.ProviderName),
-        Context.add(AiModel.ModelName, yield* AiModel.ModelName),
+  wrapped(layer, (model) => {
+    const streamText = (...options: Parameters<typeof model.streamText>) =>
+      Stream.unwrap(
+        Effect.gen(function* () {
+          const owner = yield* CurrentOwner
+          const stream = model.streamText(...options)
+          return owner === undefined
+            ? stream
+            : stream.pipe(
+                Stream.tap((part) =>
+                  part.type === "finish" ? owner.succeeded : Effect.void,
+                ),
+              )
+        }),
       )
-    }),
-  ).pipe(Layer.provide(layer))
+    return {
+      ...model,
+      streamText:
+        streamText as unknown as LanguageModel.LanguageModel["streamText"],
+    }
+  })
+
+/**
+ * A model layer with its `LanguageModel` replaced by `f` of it. Everything else the layer gives is kept, such as the
+ * socket and the response ids of a model on clanka's WebSocket mode, which are the model's own and not its agent's.
+ */
+const wrapped = <E, R>(
+  layer: Layer.Layer<Provided, E, R>,
+  f: (model: LanguageModel.LanguageModel) => LanguageModel.LanguageModel,
+): Layer.Layer<Provided, E, R> =>
+  Layer.flatMap(layer, (context) =>
+    Layer.succeedContext(
+      Context.add(
+        context,
+        LanguageModel.LanguageModel,
+        f(Context.get(context, LanguageModel.LanguageModel)),
+      ),
+    ),
+  )
 
 const watch = (
   model: LanguageModel.LanguageModel,

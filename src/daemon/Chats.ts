@@ -23,8 +23,27 @@ export class Chats extends Context.Service<
      * post made as the daemon boots waits for it, so that it is not refused for want of the adapter.
      */
     readonly ready: (connection: string) => Effect.Effect<void>
+    /**
+     * Waits until a connection of the daemon has first connected (MOD-95, MOD-127). A `local` connection has when its
+     * adapter registers, which it does once its platform answers. A Discord adapter registers before its gateway
+     * dials, so its gateway says when its session is up, through `Connected`.
+     */
+    readonly connected: Effect.Effect<void>
   }
 >()("chad/Chats") {}
+
+/**
+ * Tells the daemon that a connection whose adapter registers before it is connected is connected now. Each
+ * connection's platform has it. Outside one, as when a test builds the Discord layer alone, it does nothing.
+ */
+export const Connected = Context.Reference<Effect.Effect<void>>(
+  "chad/Chats/Connected",
+  { defaultValue: () => Effect.void },
+)
+
+/** Whether a connection is connected once its adapter registers, see `connected`. */
+const connectsAtRegister = (connection: Connection) =>
+  connection.kind !== "discord"
 
 /**
  * A connection as its handler sees it while it runs: the name, the owner ids as they stand at each message, and its
@@ -62,7 +81,7 @@ interface Entry {
 }
 
 /** The connection's adapter registry, which says when an adapter has registered in it. */
-const announcing = (entry: Entry) =>
+const announcing = (entry: Entry, connected: Effect.Effect<void>) =>
   Layer.effect(
     ChatAdapter.Registry,
     Effect.map(ChatAdapter.Registry, (inner) => ({
@@ -72,6 +91,9 @@ const announcing = (entry: Entry) =>
           .register(adapter)
           .pipe(
             Effect.andThen(Deferred.succeed(entry.registered, undefined)),
+            Effect.andThen(
+              connectsAtRegister(entry.connection) ? connected : Effect.void,
+            ),
             Effect.asVoid,
           ),
     })),
@@ -92,6 +114,8 @@ export const make = <R>(
     // stop waits for the turns in flight (SES-110), and they still post through their connection meanwhile.
     const parent = yield* Scope.fork(yield* Effect.scope)
     const entries = new Map<string, Entry>()
+    const first = yield* Deferred.make<void>()
+    const connected = Effect.asVoid(Deferred.succeed(first, undefined))
 
     // The entry is in place before the platform is built, so a session that answers meanwhile waits for it.
     const place = Effect.fnUntraced(function* (connection: Connection) {
@@ -116,8 +140,9 @@ export const make = <R>(
       }
       return Layer.buildWithScope(
         Layer.mergeAll(registered, layer(entry.connection, live)).pipe(
-          Layer.provide(announcing(entry)),
+          Layer.provide(announcing(entry, connected)),
           Layer.provide(Layer.fresh(Chat.layer)),
+          Layer.provide(Layer.succeed(Connected, connected)),
         ),
         entry.scope,
       )
@@ -143,6 +168,7 @@ export const make = <R>(
             ? Effect.die(new Error(`there is no chat connection ${connection}`))
             : Deferred.await(entry.registered)
         },
+        connected: Deferred.await(first),
       },
       list: () => [...entries.values()].map((entry) => entry.connection),
       set: Effect.fnUntraced(function* (connections) {

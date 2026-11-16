@@ -327,3 +327,125 @@ test("FAIL-89 a background sub-agent's usage_not_included error ends the owner's
   expect(running.model.calls()).toHaveLength(2)
   expect(retried(running)).toEqual([])
 })
+
+/** A usage limit on the Codex socket, as the fake model sends one. */
+const limited = {
+  status: 429,
+  error: {
+    type: "usage_limit_reached",
+    message: "The usage limit has been reached",
+  },
+}
+
+/** The `holds` of each notices row, by key. */
+const holding = (running: Scenario) =>
+  Object.fromEntries(
+    rows(running, "SELECT key, holds FROM notices").map((row) => [
+      row["key"],
+      row["holds"],
+    ]),
+  )
+
+test("FAIL-94 FAIL-235 the next model call that succeeds clears the usage limit and a failed check at start, also when it is a later call of a turn whose first call succeeded before the condition began", async () => {
+  let loaded!: () => void
+  const running = await scenario({
+    ...codex,
+    codex: "token",
+    loading: new Promise<void>((resolve) => (loaded = resolve)),
+  })
+  const { fakes, model } = running
+  // The check at start waits for the connection, which waits for `loaded`, so it is held before it is sent.
+  const check = model.holdChecks("gpt-6-astra")
+  model.failChecks(500)
+  await fakes.model.script([
+    runs('console.log("first")'),
+    { text: "first is done", hold: true },
+    limited,
+  ])
+  loaded()
+  await check.reached
+
+  // A's first call succeeds, and A waits on its next one.
+  const first = await fakes.chat.makeThread("direct")
+  await says(running, first, "hello")
+  await model.received(2)
+  // B hits the usage limit, and the check at start fails, while A waits.
+  const second = await fakes.chat.makeThread("direct")
+  await says(running, second, "hi")
+  await lines(running, "turn.failed", 1)
+  check.release()
+  await lines(running, "model.check-failed", 1)
+  expect(
+    await eventually(
+      () => holding(running),
+      (held) => held["model-check-failed"] === 1,
+    ),
+  ).toEqual({ "usage-limit": 1, "model-check-failed": 1 })
+
+  // A's next call succeeds, and the answer goes after the call's usage, so both rows are clear by then.
+  model.release(1)
+  await eventually(
+    () => posted(running, first),
+    (texts) => texts.includes("first is done"),
+  )
+  expect(holding(running)).toEqual({
+    "usage-limit": 0,
+    "model-check-failed": 0,
+  })
+})
+
+test("FAIL-94 FAIL-87 a background sub-agent's model call that succeeds clears the usage limit, although its parts are not in the turn's output", async () => {
+  const running = await scenario({ ...codex, codex: "token" })
+  const { fakes, model } = running
+  await fakes.model.script([
+    behind,
+    { ...runs('console.log("child")'), hold: true },
+    limited,
+    runs('await taskComplete("done")'),
+    { text: "answered" },
+  ])
+  const first = await fakes.chat.makeThread("direct")
+  await says(running, first, "hello")
+  // The sub-agent's call waits while another turn hits the usage limit.
+  await model.received(2)
+  const second = await fakes.chat.makeThread("direct")
+  await says(running, second, "hi")
+  await lines(running, "turn.failed", 1)
+  expect(
+    await eventually(
+      () => holding(running),
+      (held) => held["usage-limit"] === 1,
+    ),
+  ).toMatchObject({ "usage-limit": 1 })
+
+  // The sub-agent's call succeeds and it makes its next one. The root's call is still in its script, which waits for
+  // the sub-agent, so only the sub-agent's call can have cleared the row by then.
+  model.release(1)
+  await model.received(4)
+  expect(holding(running)).toMatchObject({ "usage-limit": 0 })
+  await fakes.chat.answers(first, 1)
+})
+
+test("FAIL-235 FAIL-94 a model call that succeeds clears a failed check at start on a provider that reports no usage", async () => {
+  let loaded!: () => void
+  const running = await scenario({
+    loading: new Promise<void>((resolve) => (loaded = resolve)),
+  })
+  const { fakes, model } = running
+  model.failChecks(500)
+  loaded()
+  await lines(running, "model.check-failed", 1)
+  await eventually(
+    () => holding(running),
+    (held) => held["model-check-failed"] === 1,
+  )
+  model.failChecks(undefined)
+  await fakes.model.script([{ text: "unmetered", unmetered: true }])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+  await eventually(
+    () => posted(running, thread),
+    (texts) => texts.includes("unmetered"),
+  )
+  expect(holding(running)).toEqual({ "model-check-failed": 0 })
+})

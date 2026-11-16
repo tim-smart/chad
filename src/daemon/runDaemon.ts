@@ -416,11 +416,11 @@ const boot = Effect.fnUntraced(function* (
     duration_ms: Date.now() - started,
     connections: stored.value.length,
   })
-  // The check at start runs once chad is connected, which is when the first connection's platform has answered, and
-  // nothing waits for it (MOD-95). With no connection there is nobody to tell, so it runs at once.
-  const connected = stored.value.map(({ name }) => running.chats.ready(name))
+  // The check at start runs once chad is connected, which is when the first connection of the boot has connected, a
+  // Discord one at its gateway's `READY`, and nothing waits for it (MOD-95, MOD-127). With no connection there is
+  // nothing to wait for, so it runs at once.
   yield* Effect.gen(function* () {
-    if (connected.length > 0) yield* Effect.raceAll(connected)
+    if (stored.value.length > 0) yield* running.chats.connected
     yield* Model.check({
       settings,
       endpoint: environment,

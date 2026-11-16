@@ -241,6 +241,17 @@ export const make = Effect.fnUntraced(function* (options: {
   const pending = new Map<string, Row>()
   /** The live keys that hold in this daemon, with their text. */
   const live = new Map<string, string>()
+  /**
+   * The keys whose row holds, read once here and kept by `write`, so that a clear of a key that does not hold reads
+   * nothing. Every model call that succeeds clears two keys (FAIL-94, FAIL-235). `undefined` when the table could not
+   * be read, and then a clear reads the row.
+   */
+  const holding = yield* sql<{
+    key: string
+  }>`SELECT key FROM notices WHERE holds = 1`.pipe(
+    Effect.map((found) => new Set(found.map(({ key }) => key))),
+    Effect.orElseSucceed(() => undefined),
+  )
 
   const stored = yield* readDestination(options.data)
   // The file does not say whether its thread is a direct message (STO-121), so that is looked up when it first matters.
@@ -310,6 +321,8 @@ export const make = Effect.fnUntraced(function* (options: {
   /** Writes a key's row together with every row that is still held in memory, or holds them all (FAIL-230). */
   const write = (key: string, row: Row) => {
     pending.set(key, row)
+    if (row.holds) holding?.add(key)
+    else holding?.delete(key)
     const all = [...pending]
     return sql
       .withTransaction(
@@ -495,6 +508,7 @@ export const make = Effect.fnUntraced(function* (options: {
     rows.withPermits(1)(
       Effect.gen(function* () {
         live.delete(key)
+        if (holding !== undefined && !holding.has(key)) return
         const row = yield* read(key)
         if (row?.holds === true) yield* write(key, { ...row, holds: false })
       }),
