@@ -883,16 +883,19 @@ export const instructionsRefused = (paths: ReadonlyArray<string>) =>
 export const skillProblems = {
   /** No front matter, or front matter that is not YAML (MCP-16, SELF-55). */
   noFrontMatter: (dir: string) =>
-    `has no front matter. Start it with a line "---", then "name: ${dir}", "description: <when to read the skill>" and "---"`,
+    `has no front matter. Start it with a line "---", then 'name: "${dir}"', "description: <when to read the skill>" and "---"`,
   /** A missing or empty `name` (SELF-56). */
   noName: (dir: string) =>
-    `has no name in its front matter. Set "name: ${dir}"`,
+    `has no name in its front matter. Set 'name: "${dir}"'`,
   /** A missing or empty `description` (SELF-56). */
   noDescription:
     "has no description in its front matter. Say when a session should read the skill",
   /** A name that differs from the directory (SELF-57, CLI-68). */
   otherName: (name: string, dir: string) =>
-    `has the name "${name}", which differs from its directory. Set "name: ${dir}"`,
+    `has the name "${name}", which differs from its directory. Set 'name: "${dir}"'`,
+  /** A `SKILL.md` that resolves outside the applied tree (REC-11). */
+  outside:
+    "links to a file outside the repo. An applied skill holds only what the apply committed, so put the file itself in skills/",
   /** A file that cannot be read. */
   unreadable: (error: string) => `cannot be read: ${error}`,
 } as const

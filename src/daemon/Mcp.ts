@@ -29,7 +29,8 @@ type OnImage = Parameters<McpServers.McpServers["Service"]["handlers"]>[0]
 /** One clanka layer and what chad keeps of it. */
 interface Built {
   readonly services: McpServers.McpServers["Service"]
-  readonly status: Readonly<Record<string, McpServers.ServerStatus>>
+  /** Keeps the values of the layer's `${NAME}`s out of what it says (CRED-80). */
+  readonly scrub: (text: string) => string
   /** Each server's name by the identifier its keys carry. */
   readonly names: ReadonlyMap<string, string>
   /** Done when a rebuild starts, which interrupts every call this layer has in flight (MCP-71). */
@@ -51,14 +52,16 @@ export interface Mcp {
     file: McpFile.File,
   ) => Effect.Effect<ReadonlyMap<string, McpFile.Resolved>>
   /**
-   * A rebuild, run in the service's own scope so a caller that goes away does not stop it, and joined. It gives each
-   * server's state once the new layer is current.
+   * Starts a rebuild in the service's own scope, so a caller that goes away once it has started does not stop it, and
+   * gives the wait for it, which gives each server's state once the new layer is current (CLI-102b).
    */
-  readonly rebuild: Effect.Effect<ReadonlyArray<Messages.McpServerState>>
+  readonly rebuild: Effect.Effect<
+    Effect.Effect<ReadonlyArray<Messages.McpServerState>>
+  >
   /** A rebuild nothing waits for, as a boot's (MCP-90). */
   readonly start: Effect.Effect<void>
-  /** Each server for `chad status` (CLI-125f). */
-  readonly report: () => ReadonlyArray<Messages.McpServerState>
+  /** Each server for `chad status`, as its transport is now (MCP-38, CLI-125f). */
+  readonly report: Effect.Effect<ReadonlyArray<Messages.McpServerState>>
   /** The servers of every layer whose close has not ended, which a stop cut by its deadline names (MCP-97). */
   readonly open: () => ReadonlyArray<string>
   /** A stop abandons a rebuild in progress (MCP-94). */
@@ -93,13 +96,16 @@ export const atBoot = Effect.fnUntraced(function* (
   return undefined
 })
 
+/** Each server of a layer as clanka sees it now, which a server that exits after connecting changes. */
 const states = (
-  status: Readonly<Record<string, McpServers.ServerStatus>>,
-): ReadonlyArray<Messages.McpServerState> =>
-  Object.entries(status).map(([name, server]) =>
-    server._tag === "Connected"
-      ? { name, state: "connected", tools: server.tools.length }
-      : { name, state: "failed", error: server.error },
+  layer: Built,
+): Effect.Effect<ReadonlyArray<Messages.McpServerState>> =>
+  Effect.map(layer.services.status, (status) =>
+    Object.entries(status).map(([name, server]) =>
+      server._tag === "Connected"
+        ? { name, state: "connected", tools: server.tools.length }
+        : { name, state: "failed", error: layer.scrub(server.error) },
+    ),
   )
 
 /** The server and tool identifiers of a key, which clanka writes as `<server>.<tool>`. */
@@ -146,9 +152,10 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
       const id = McpServers.identifier(name)
       if (!names.has(id)) names.set(id, name)
     }
+    const scrub = McpFile.scrubber(resolved.values())
     const built: Built = {
       services: undefined as never,
-      status: {},
+      scrub,
       names,
       restart: yield* Deferred.make<void>(),
       scope,
@@ -163,17 +170,16 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
           ),
         ),
         scope,
-      ),
+      ).pipe(Effect.provideService(Logger.Scrub, scrub)),
       McpServers.McpServers,
     )
-    const status = yield* services.status
-    const next: Built = Object.assign(built, { services, status })
+    const next: Built = Object.assign(built, { services })
     // The new layer is current once clanka has connected it (MCP-75), and sessions follow it on their next turn
     // (MCP-68, SWAP-127).
     current = next
     rebuilding = false
     generation++
-    const servers = states(status)
+    const servers = yield* states(next)
     for (const server of servers) {
       if (server.state === "failed")
         yield* Logger.event(
@@ -212,43 +218,58 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
       const layer = current
       if (layer === undefined) return Effect.fail(Messages.mcpNotRunning)
       const handlers = handlersOf(layer)
-      if (key === "searchTools") {
-        const search = handlers["searchTools"]
-        if (search === undefined)
-          return Effect.fail(Messages.mcpNoServerConnected)
-        // A tool the current layer has and this turn holds no key for is named, callable from the next turn (MCP-87).
-        const fresh = Object.keys(handlers).filter(
-          (name) => name !== "searchTools" && !held.has(name),
-        )
-        return Effect.map(search(params), (result) =>
-          fresh.length === 0
-            ? result
-            : `${String(result)}\n\n${Messages.mcpNextTurn(fresh)}`,
-        )
-      }
-      const handler = handlers[key]
-      if (handler !== undefined)
-        return Effect.raceFirst(
-          handler(params),
-          Effect.andThen(
-            Deferred.await(layer.restart),
-            Effect.fail(Messages.mcpInterrupted(key)),
-          ),
-        )
-      // chad words what the new layer lacks itself, from its config and status (MCP-81 to MCP-83).
-      const ids = split(key)
-      const name = layer.names.get(ids.server)
-      if (name === undefined)
-        return Effect.fail(
-          Messages.mcpRemoved(key, origin.names.get(ids.server) ?? ids.server),
-        )
-      const status = layer.status[name]
-      return Effect.fail(
-        status?._tag === "Failed"
-          ? Messages.mcpNotConnected(key, name, status.error)
-          : Messages.mcpToolGone(key, name),
+      return Effect.mapError(
+        route(key, params, layer, origin, held, handlers),
+        layer.scrub,
       )
     })
+
+  const route = (
+    key: string,
+    params: unknown,
+    layer: Built,
+    origin: Built,
+    held: ReadonlySet<string>,
+    handlers: Handlers,
+  ): Effect.Effect<unknown, string> => {
+    if (key === "searchTools") {
+      const search = handlers["searchTools"]
+      if (search === undefined)
+        return Effect.fail(Messages.mcpNoServerConnected)
+      // A tool the current layer has and this turn holds no key for is named, callable from the next turn (MCP-87).
+      const fresh = Object.keys(handlers).filter(
+        (name) => name !== "searchTools" && !held.has(name),
+      )
+      return Effect.map(search(params), (result) =>
+        fresh.length === 0
+          ? result
+          : `${String(result)}\n\n${Messages.mcpNextTurn(fresh)}`,
+      )
+    }
+    const handler = handlers[key]
+    if (handler !== undefined)
+      return Effect.raceFirst(
+        handler(params),
+        Effect.andThen(
+          Deferred.await(layer.restart),
+          Effect.fail(Messages.mcpInterrupted(key)),
+        ),
+      )
+    // chad words what the new layer lacks itself, from its config and status (MCP-81 to MCP-83).
+    const ids = split(key)
+    const name = layer.names.get(ids.server)
+    if (name === undefined)
+      return Effect.fail(
+        Messages.mcpRemoved(key, origin.names.get(ids.server) ?? ids.server),
+      )
+    return Effect.flatMap(layer.services.status, (status) =>
+      Effect.fail(
+        status[name]?._tag === "Failed"
+          ? Messages.mcpNotConnected(key, name, status[name].error)
+          : Messages.mcpToolGone(key, name),
+      ),
+    )
+  }
 
   const servers = McpServers.McpServers.of({
     status: Effect.suspend(
@@ -258,7 +279,7 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
     // rebuild takes those of the last layer that finished connecting, and one before the first layer has none and
     // message 7 when servers are on their way (MCP-89, MCP-91, MCP-92).
     get prompt() {
-      if (current !== undefined) return current.services.prompt
+      if (current !== undefined) return current.scrub(current.services.prompt)
       return rebuilding && (wanted?.size ?? 0) > 0 ? Messages.mcpStarting : ""
     },
     get dts() {
@@ -299,21 +320,25 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
         Effect.provideContext(context),
       ),
     // A rebuild a stop abandoned gives nothing to print.
-    rebuild: Effect.flatMap(fork, (fiber) =>
+    rebuild: Effect.map(fork, (fiber) =>
       Effect.map(Fiber.await(fiber), (exit) =>
         Exit.isSuccess(exit) ? exit.value : [],
       ),
     ),
     start: Effect.asVoid(fork),
-    report: () =>
-      rebuilding
-        ? [...(wanted?.keys() ?? [])].map((name) => ({
-            name,
-            state: "starting" as const,
-          }))
-        : current === undefined
-          ? []
-          : states(current.status),
+    report: Effect.suspend(
+      (): Effect.Effect<ReadonlyArray<Messages.McpServerState>> =>
+        rebuilding
+          ? Effect.succeed(
+              [...(wanted?.keys() ?? [])].map((name) => ({
+                name,
+                state: "starting" as const,
+              })),
+            )
+          : current === undefined
+            ? Effect.succeed([])
+            : states(current),
+    ),
     open: () =>
       [...layers]
         .filter((layer) => layer.open)

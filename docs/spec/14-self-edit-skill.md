@@ -179,7 +179,7 @@ These checks exist because of the skill and the starter file. They run with the 
 - **SELF-59** Each of these skill errors names the file.
 - **SELF-60** At boot a skill with one of these faults is skipped, and chad sends a notice. The notice's wording, where it is posted and when it may be sent again are in 16-failures-logs-status.md.
 - **SELF-61** A repo skill with a bundled skill's name is an override and not an error.
-- **SELF-139** `chad skill new <name>` writes a `SKILL.md` whose front matter has `name: <name>` and an empty `description`, and whose body is the line "Write the instructions here: what the task is, the steps, and the commands to run." A check refuses the file until its description is filled in (SELF-56), so an unfinished skill is never applied.
+- **SELF-139** `chad skill new <name>` writes a `SKILL.md` whose front matter has `name: "<name>"`, quoted so that YAML reads a name such as `123` or `true` as a string, and an empty `description`, and whose body is the line "Write the instructions here: what the task is, the steps, and the commands to run." A check refuses the file until its description is filled in (SELF-56), so an unfinished skill is never applied.
 - **SELF-133** What `chad check` and `chad apply` do with a file named `AGENTS.md` or a directory named `.agents` or `.kiro` in the repo is specified in 07-plugin-loading.md. Both refuse them wherever they sit in the repo, one that `.gitignore` covers included, because both look on disk in `repo/work/` as well as in the exported tree. The message names `skills/` and `persona.md`.
 - **SELF-62** An error whose fix is known says the fix.
 - **SELF-63** chad rewrites the error for a plugin with top-level await so that it says the fix.

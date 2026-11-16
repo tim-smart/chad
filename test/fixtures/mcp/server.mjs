@@ -4,6 +4,7 @@
 //   --gate FILE    it answers initialize only once FILE is gone
 //   --stubborn     it ignores its standard input closing and SIGTERM
 //   --exit         it exits at once, as a server that cannot start
+// A tool call named quit answers, then the server exits, as one that drops after it connected.
 // The tools: echo gives its arguments back, token the sha256 of TOKEN with CHAD_SESSION, cwd its working directory,
 // hang never answers, and any other gives its own name.
 import { createHash } from "node:crypto"
@@ -83,6 +84,10 @@ const answer = (request) => {
         ),
       })
     if (name === "cwd") return send({ id, result: text(process.cwd()) })
+    if (name === "quit") {
+      send({ id, result: text("bye") })
+      return setTimeout(() => process.exit(0), 20)
+    }
     return send({ id, result: text(name) })
   }
   if (id !== undefined) send({ id, result: {} })

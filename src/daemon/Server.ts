@@ -98,7 +98,7 @@ export interface State {
   /** The repo skills that hide a bundled one, once the repo is set up (MCP-12, SELF-121). */
   hiding: () => ReadonlyArray<string>
   /** Each MCP server's state, once the boot has read `mcp.json` (CLI-125f). */
-  mcp: () => ReadonlyArray<Messages.McpServerState>
+  mcp: Effect.Effect<ReadonlyArray<Messages.McpServerState>>
   /** The MCP servers whose close has not ended, which a stop cut by its deadline names (IMG-85b, MCP-97). */
   open: () => ReadonlyArray<string>
 }
@@ -187,7 +187,7 @@ export const makeState = (): State => ({
   off: () => [],
   skipped: () => [],
   hiding: () => [],
-  mcp: () => [],
+  mcp: Effect.succeed([]),
   open: () => [],
   repositoryState: Effect.succeed(undefined),
 })
@@ -233,8 +233,9 @@ const report = (state: State): Effect.Effect<Report> =>
       model(state),
       // `/status` holds its effect from before the boot sets the repo up, so the field is read when the report is.
       Effect.suspend(() => state.repositoryState),
+      Effect.suspend(() => state.mcp),
     ]),
-    ([recent, held, model, repository]) => ({
+    ([recent, held, model, repository, mcp]) => ({
       version: Version.version,
       effect: Version.effect() ?? "unknown",
       phase: state.phase,
@@ -255,7 +256,7 @@ const report = (state: State): Effect.Effect<Report> =>
       off: state.off(),
       skipped: state.skipped(),
       hiding: state.hiding(),
-      ...(state.mcp().length === 0 ? {} : { mcp: state.mcp() }),
+      ...(mcp.length === 0 ? {} : { mcp }),
       ...(repository === undefined ? {} : { repository }),
     }),
   )

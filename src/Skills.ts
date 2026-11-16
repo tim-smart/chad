@@ -3,7 +3,7 @@
  * chad scans them itself and hands clanka the list, so a skill reaches a session only through an apply (MCP-1 to MCP-4).
  */
 import { createHash } from "node:crypto"
-import { join } from "node:path"
+import { dirname, join, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Effect, FileSystem, Schema } from "effect"
 import { Yaml } from "effect/encoding"
@@ -85,7 +85,9 @@ export const parse = (dir: string, text: string): Skill | Bad => {
 
 /**
  * The skills of a `skills/` directory: each directory in it that holds a `SKILL.md`. Anything else is not a skill, and a
- * directory that is missing or cannot be read holds none.
+ * directory that is missing or cannot be read holds none. A `SKILL.md` that resolves outside the tree the directory is
+ * in, through its own link or a linked directory, fails the checks, so a skill only ever holds what was applied
+ * (MCP-1, MCP-2, REC-11).
  */
 export const scan = Effect.fnUntraced(function* (
   directory: string | undefined,
@@ -95,13 +97,21 @@ export const scan = Effect.fnUntraced(function* (
   const entries = yield* fs
     .readDirectory(directory)
     .pipe(Effect.orElseSucceed((): Array<string> => []))
+  const root = yield* fs
+    .realPath(dirname(directory))
+    .pipe(Effect.orElseSucceed(() => dirname(directory)))
   const skills: Array<Skill> = []
   const bad: Array<Bad> = []
   for (const entry of [...entries].sort()) {
     const file = join(directory, entry, fileName)
     const info = yield* Effect.option(fs.stat(file))
     if (info._tag === "None" || info.value.type !== "File") continue
-    const read = yield* Effect.result(fs.readFileString(file))
+    const real = yield* fs.realPath(file).pipe(Effect.orElseSucceed(() => ""))
+    if (!real.startsWith(root + sep)) {
+      bad.push({ name: entry, problem: Messages.skillProblems.outside })
+      continue
+    }
+    const read = yield* Effect.result(fs.readFileString(real))
     const parsed =
       read._tag === "Failure"
         ? {
@@ -261,7 +271,8 @@ export const skippedKey = (name: string) => `skill-skipped:${name}`
 
 /**
  * What `chad skill new` writes: front matter with the name and an empty description, which a check refuses until the
- * agent says when to read the skill, and a line on what the body holds (SELF-139).
+ * agent says when to read the skill, and a line on what the body holds (SELF-139). The name is quoted, as YAML reads
+ * a name such as `123` or `true` as something other than a string.
  */
 export const template = (name: string) =>
-  `---\nname: ${name}\ndescription:\n---\n\n${Messages.skillBody}\n`
+  `---\nname: "${name}"\ndescription:\n---\n\n${Messages.skillBody}\n`

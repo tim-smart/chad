@@ -1,6 +1,7 @@
 import { join } from "node:path"
 import { Console, Effect, FileSystem } from "effect"
 import { Argument, Command } from "effect/cli"
+import * as Errno from "../../Errno.ts"
 import * as Messages from "../../Messages.ts"
 import * as Skills from "../../Skills.ts"
 import { Environment } from "../Environment.ts"
@@ -51,10 +52,23 @@ const create = Command.make(
         message: Messages.skillTaken(name),
       })
     }
-    yield* fs.makeDirectory(directory, { recursive: true })
-    yield* fs.writeFileString(
-      join(directory, Skills.fileName),
-      Skills.template(name),
+    const path = join(directory, Skills.fileName)
+    yield* Effect.gen(function* () {
+      yield* fs.makeDirectory(directory, { recursive: true })
+      // "wx" refuses a file another writer made since the test above.
+      yield* fs.writeFileString(path, Skills.template(name), { flag: "wx" })
+    }).pipe(
+      Effect.catchTag("PlatformError", (error) =>
+        Effect.fail(
+          new Failure({
+            code: ExitCode.failed,
+            message:
+              Errno.code(error) === "EEXIST"
+                ? Messages.skillTaken(name)
+                : Messages.notWritten("skill new", path, Errno.code(error)),
+          }),
+        ),
+      ),
     )
     yield* Console.log(Messages.skillWritten(name))
   }),

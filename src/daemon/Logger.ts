@@ -134,6 +134,15 @@ export const PluginName = Context.Reference<string | undefined>(
 )
 
 /**
+ * What a fiber's lines pass through before a sink writes them. The MCP layer's fibers carry one that keeps the values
+ * its `${NAME}`s expanded to out of the log (CRED-80).
+ */
+export const Scrub = Context.Reference<((line: string) => string) | undefined>(
+  "chad/Logger/Scrub",
+  { defaultValue: () => undefined },
+)
+
+/**
  * The counts of the plugin chad runs something for, which every warning and error line it logs adds to (FAIL-117).
  */
 export const PluginCounts = Context.Reference<
@@ -234,8 +243,9 @@ export const layer = (options: {
     options.stdout ?? ((line: string) => void process.stdout.write(line + "\n"))
   const sinks = (entry: Entry) => {
     if (LogLevel.isLessThan(entry.logLevel, options.level)) return
-    stdout(Logger.formatLogFmt.log(entry))
-    options.file.write(Logger.formatJson.log(entry))
+    const scrub = entry.fiber.getRef(Scrub) ?? ((line: string) => line)
+    stdout(scrub(Logger.formatLogFmt.log(entry)))
+    options.file.write(scrub(Logger.formatJson.log(entry)))
   }
   const logger = Logger.make<unknown, void>((entry) => {
     const ids = idsOf(entry.fiber)

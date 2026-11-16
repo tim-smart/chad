@@ -38,7 +38,11 @@ export interface Output {
  * What a command gives the queue. `mcp` asks for an MCP rebuild once the queue is released, whose lines follow what
  * the command printed (MCP-40, MCP-111, MCP-112, CLI-160).
  */
-type Performed = Output & { readonly mcp?: boolean }
+/** A command's output, and the wait for the MCP rebuild it started, which the output's lines end with. */
+type Performed = Output & {
+  readonly mcp?:
+    Effect.Effect<ReadonlyArray<Messages.McpServerState>> | undefined
+}
 
 const done = (...stdout: ReadonlyArray<string>): Output => ({
   stdout,
@@ -238,6 +242,14 @@ export const make = Effect.fnUntraced(function* (options: {
     Effect.forkIn(effect, options.scope).pipe(
       Effect.flatMap((fiber) => Effect.uninterruptible(Fiber.join(fiber))),
     )
+
+  /**
+   * Starts the MCP rebuild a change needs from inside the work that made it, which a client that goes away does not
+   * cut, so the change is never left without its rebuild. The rebuild runs in the MCP service's scope and holds no
+   * queue (CLI-43, CLI-102b, MCP-111).
+   */
+  const rebuildIf = (needed: boolean) =>
+    needed ? options.mcp.rebuild : Effect.succeed(undefined)
 
   const refused = (stage: string, errors: ReadonlyArray<string>) =>
     Logger.event("apply.failed", "An apply was refused", {
@@ -589,7 +601,7 @@ export const make = Effect.fnUntraced(function* (options: {
                 ),
           )
           return {
-            mcp: mcpChanged,
+            mcp: yield* rebuildIf(mcpChanged),
             ...done(
               ...Messages.appliedOutput({
                 kind,
@@ -793,7 +805,7 @@ export const make = Effect.fnUntraced(function* (options: {
       // The MCP layer follows when there were servers before or are now.
       return {
         ...done(Messages.safeState(safe)),
-        mcp: servers + (options.mcp.file()?.size ?? 0) > 0,
+        mcp: yield* rebuildIf(servers + (options.mcp.file()?.size ?? 0) > 0),
       } satisfies Performed as Performed
     })
 
@@ -1015,7 +1027,7 @@ export const make = Effect.fnUntraced(function* (options: {
               Messages.keptPrevious(name, error),
             ),
             code: kept.length === 0 ? (0 as const) : (1 as const),
-            mcp,
+            mcp: yield* rebuildIf(mcp),
           } satisfies Performed as Performed
         }),
       )
@@ -1093,9 +1105,15 @@ export const make = Effect.fnUntraced(function* (options: {
       case "Purge":
         return purge(request.name, caller)
       case "McpRestart":
-        return Effect.as(
-          Queue.ran("mcp restart", Queue.caller(caller.session), "changed"),
-          { ...done(), mcp: true },
+        return owned(
+          Queue.ran(
+            "mcp restart",
+            Queue.caller(caller.session),
+            "changed",
+          ).pipe(
+            Effect.andThen(rebuildIf(true)),
+            Effect.map((mcp): Performed => ({ ...done(), mcp })),
+          ),
         )
     }
   }
@@ -1124,17 +1142,17 @@ export const make = Effect.fnUntraced(function* (options: {
           ),
           labels[request._tag],
         )
-        if (mcp !== true) return output
-        // What the command printed comes first, the commit line of an apply included, and the rebuild runs once the
-        // queue is released, in a fiber a CLI that goes away does not stop. An apply's closing line stays last
-        // (MCP-111, MCP-112, CLI-70, CLI-160).
+        if (mcp === undefined) return output
+        // What the command printed comes first, the commit line of an apply included, and the rebuild, which the
+        // command started in a fiber a CLI that goes away does not stop, is waited for once the queue is released. An
+        // apply's closing line stays last (MCP-111, MCP-112, CLI-70, CLI-160).
         const closing = output.stdout.at(-1) === Messages.appliedClosing
         const head = closing ? output.stdout.slice(0, -1) : output.stdout
         const before =
           print === undefined || head.length === 0
             ? head
             : yield* Effect.as(print(head), [])
-        const servers = yield* options.mcp.rebuild
+        const servers = yield* mcp
         return {
           ...output,
           stdout: [

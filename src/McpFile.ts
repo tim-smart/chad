@@ -5,7 +5,7 @@
  */
 import { join, isAbsolute } from "node:path"
 import type * as McpServers from "clanka/McpServers"
-import { Duration, Effect, FileSystem, Redacted, Schema } from "effect"
+import { Duration, Effect, FileSystem, Option, Redacted, Schema } from "effect"
 import * as Errno from "./Errno.ts"
 import * as Messages from "./Messages.ts"
 import * as Settings from "./Settings.ts"
@@ -118,11 +118,39 @@ export const names = (file: File | undefined): ReadonlySet<string> => {
   return found
 }
 
-/** One server after expansion: the entry clanka takes, and the name that resolved nowhere or the relative `cwd`. */
+/**
+ * One server after expansion: the entry clanka takes, the name that resolved nowhere or the relative `cwd`, and each
+ * name that expanded with the value it gave, which `scrubber` keeps out of what chad prints, logs and tells the model.
+ */
 export interface Resolved {
   readonly config: McpServers.ServerEntry
   readonly missing?: string
+  /** The relative `cwd`, scrubbed. */
   readonly relative?: string
+  readonly values: ReadonlyMap<string, string>
+}
+
+/**
+ * Puts `${NAME}` back in place of each value the names expanded to, as it is and as JSON escapes it. An error from
+ * clanka, a spawn's included, can quote a command, an argument, a `cwd`, a URL or a server's stderr, so every
+ * diagnostic of a layer passes through it before it reaches the CLI, the log or the model (CRED-80).
+ */
+export const scrubber = (
+  servers: Iterable<{ readonly values: ReadonlyMap<string, string> }>,
+) => {
+  const pairs = new Map<string, string>()
+  for (const { values } of servers)
+    for (const [name, value] of values) if (value !== "") pairs.set(value, name)
+  // The longest value first, so one that holds another is replaced whole.
+  const ordered = [...pairs].sort(([a], [b]) => b.length - a.length)
+  return (text: string): string =>
+    ordered.reduce(
+      (out, [value, name]) =>
+        out
+          .replaceAll(value, `\${${name}}`)
+          .replaceAll(JSON.stringify(value).slice(1, -1), `\${${name}}`),
+      text,
+    )
 }
 
 /**
@@ -136,6 +164,23 @@ export const resolveServer = <E, R>(
   lookup: Settings.Lookup<E, R>,
   home: string,
 ): Effect.Effect<Resolved, never, R> =>
+  Effect.suspend(() => {
+    const values = new Map<string, string>()
+    const recorded: Settings.Lookup<E, R> = (name) =>
+      Effect.tap(lookup(name), (found) =>
+        Effect.sync(() => {
+          if (Option.isSome(found)) values.set(name, found.value.value)
+        }),
+      )
+    return resolveWith(server, recorded, home, values)
+  })
+
+const resolveWith = <E, R>(
+  server: Server,
+  lookup: Settings.Lookup<E, R>,
+  home: string,
+  values: ReadonlyMap<string, string>,
+): Effect.Effect<Resolved, never, R> =>
   Effect.gen(function* () {
     const { entry } = server
     if (server.kind === "sse")
@@ -144,6 +189,7 @@ export const resolveServer = <E, R>(
           type: "unavailable",
           error: Messages.mcpSse,
         },
+        values,
       } satisfies Resolved as Resolved
     const text = (value: string) =>
       Effect.map(Settings.expandString(value, lookup), ({ text }) => text)
@@ -176,14 +222,21 @@ export const resolveServer = <E, R>(
           ...(headers === undefined ? {} : { headers }),
           ...timeouts,
         },
+        values,
       } satisfies Resolved as Resolved
     }
     const cwd = entry.cwd === undefined ? home : yield* text(entry.cwd)
-    if (!isAbsolute(cwd))
+    if (!isAbsolute(cwd)) {
+      const relative = scrubber([{ values }])(cwd)
       return {
-        config: { type: "unavailable", error: Messages.mcpRelativeCwd(cwd) },
-        relative: cwd,
+        config: {
+          type: "unavailable",
+          error: Messages.mcpRelativeCwd(relative),
+        },
+        relative,
+        values,
       } satisfies Resolved as Resolved
+    }
     const env = yield* record(entry.env)
     return {
       config: {
@@ -196,6 +249,7 @@ export const resolveServer = <E, R>(
         cwd,
         ...timeouts,
       },
+      values,
     } satisfies Resolved as Resolved
   }).pipe(
     Effect.catch((error) =>
@@ -207,6 +261,7 @@ export const resolveServer = <E, R>(
                 error: Messages.mcpUnresolved(error.variable),
               },
               missing: error.variable,
+              values,
             }
           : {
               config: {
@@ -215,6 +270,7 @@ export const resolveServer = <E, R>(
                   error instanceof Error ? error.message : String(error),
                 ),
               },
+              values,
             },
       ),
     ),

@@ -2,7 +2,13 @@
 // it is applied, a repo skill hides a bundled one of the same name, safe mode lists the bundled ones alone, a boot
 // skips a malformed skill, and a bundled skill that changed under a repo skill is announced once
 // (docs/spec/12-skills-and-mcp.md, 14-self-edit-skill.md). The last test holds clanka's own walk.
-import { mkdirSync, readFileSync, rmSync } from "node:fs"
+import {
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs"
 import { join } from "node:path"
 import type { ChatThread } from "effect/chat"
 import { expect, test } from "vitest"
@@ -60,7 +66,7 @@ const skillNotices = (running: Scenario) =>
     "SELECT key, text FROM notices WHERE key LIKE 'skill-%' ORDER BY key",
   )
 
-test("MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-13 MCP-14 MCP-16 MCP-17 MCP-18 MCP-102 MCP-103 MCP-104 MCP-105 MCP-106 MCP-107 MCP-145 MCP-146 MCP-147 SELF-55 SELF-56 SELF-57 SELF-59 SELF-60 SELF-61 SELF-117 SELF-119 SELF-120 SELF-121 SELF-139 REC-47 REC-51 SWAP-9 LOAD-87 CLI-67 CLI-68 CLI-70 CLI-75 CLI-84 CLI-85 CLI-156 FAIL-166 FAIL-234 FAIL-167 TST-217 an applied skill reaches the next turn's prompt and readSkill, hides a bundled one, leaves safe mode, and a boot skips a malformed one and announces a changed bundled skill once", async () => {
+test("REC-11 MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-13 MCP-14 MCP-16 MCP-17 MCP-18 MCP-102 MCP-103 MCP-104 MCP-105 MCP-106 MCP-107 MCP-145 MCP-146 MCP-147 SELF-55 SELF-56 SELF-57 SELF-59 SELF-60 SELF-61 SELF-117 SELF-119 SELF-120 SELF-121 SELF-139 REC-47 REC-51 SWAP-9 LOAD-87 CLI-67 CLI-68 CLI-70 CLI-75 CLI-84 CLI-85 CLI-156 FAIL-166 FAIL-234 FAIL-167 TST-217 an applied skill reaches the next turn's prompt and readSkill, hides a bundled one, leaves safe mode, and a boot skips a malformed one and announces a changed bundled skill once", async () => {
   const bundled = join(fresh(), "bundled")
   write(bundled, {
     "alpha/SKILL.md": skill("alpha", "Bundled alpha.", "alpha body"),
@@ -105,6 +111,8 @@ test("MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-13 MCP-
   )
   expect((await first.chad(["skill", "new", "mine"])).code).toBe(1)
   expect((await first.chad(["skill", "new", "Mine_1"])).code).toBe(2)
+  // A name YAML would read as a number is written quoted, so it parses once a description is in.
+  expect((await first.chad(["skill", "new", "123"])).code).toBe(0)
 
   // A check and an apply refuse a malformed skill and name its file. The drafts reach no session.
   write(work, {
@@ -112,6 +120,17 @@ test("MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-13 MCP-
     "skills/bad/SKILL.md": skill("other", "Misnamed.", "bad body"),
     "skills/raw/SKILL.md": "no front matter\n",
   })
+  // A SKILL.md that resolves outside the applied tree, by its own link or a linked directory, is refused, so editing
+  // its target without an apply never reaches a session (MCP-1, MCP-2, REC-11).
+  const outside = join(first.directory, "outside")
+  mkdirSync(outside, { recursive: true })
+  writeFileSync(
+    join(outside, "SKILL.md"),
+    skill("linkdir", "Outside.", "outside body"),
+  )
+  mkdirSync(join(work, "skills/linked"), { recursive: true })
+  symlinkSync(join(outside, "SKILL.md"), join(work, "skills/linked/SKILL.md"))
+  symlinkSync(outside, join(work, "skills/linkdir"))
   const refusals = [
     Messages.skillRefused(
       "bad",
@@ -119,6 +138,9 @@ test("MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-13 MCP-
     ),
     Messages.skillRefused("mine", Messages.skillProblems.noDescription),
     Messages.skillRefused("raw", Messages.skillProblems.noFrontMatter("raw")),
+    Messages.skillRefused("123", Messages.skillProblems.noDescription),
+    Messages.skillRefused("linked", Messages.skillProblems.outside),
+    Messages.skillRefused("linkdir", Messages.skillProblems.outside),
   ]
   for (const command of [["check"], ["apply", "-m", "Skills"]]) {
     const refused = await first.chad(command)
@@ -132,6 +154,16 @@ test("MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-13 MCP-
   // Applied, the repo skills reach the open session at its next turn, through repo/live, and the repo's notes wins.
   rmSync(join(work, "skills/bad"), { recursive: true })
   rmSync(join(work, "skills/raw"), { recursive: true })
+  rmSync(join(work, "skills/linked"), { recursive: true })
+  rmSync(join(work, "skills/linkdir"))
+  const numbered = join(work, "skills/123/SKILL.md")
+  writeFileSync(
+    numbered,
+    readFileSync(numbered, "utf8").replace(
+      "description:\n",
+      "description: Numbered.\n",
+    ),
+  )
   write(work, {
     "skills/mine/SKILL.md": skill("mine", "My skill.", "mine body"),
   })
@@ -140,7 +172,7 @@ test("MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-13 MCP-
   expect(apply.stdout).toContain(
     [
       ...Messages.skillChanges({
-        added: ["mine", "notes"],
+        added: ["123", "mine", "notes"],
         changed: [],
         removed: [],
       }),
@@ -154,6 +186,7 @@ test("MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-13 MCP-
     'console.log(await readSkill("mine")); console.log(await readSkill("notes"))',
   )
   expect(live.system).toContain("- mine: My skill.")
+  expect(live.system).toContain("- 123: Numbered.")
   expect(live.system).toContain("- notes: Repo notes.")
   expect(live.system).not.toContain("Bundled notes.")
   expect(live.printed).toContain(

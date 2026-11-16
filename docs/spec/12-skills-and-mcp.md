@@ -95,6 +95,7 @@ The walk was read in clanka 0.28.0, at `src/AgentEnvironment.ts:62-117`, and not
 - **MCP-16** `chad check` and `chad apply` fail on a `SKILL.md` with no front matter, on a missing or empty `name` or `description`, on a name that differs from the skill's directory, and on two skills in the repo that share one name.
 - **MCP-17** The error names the file. For a name that differs from its directory it says to set `name: <dir>`.
 - **MCP-18** At boot a skill that would fail this check is skipped with a notice, and the rest load. The notice rule and the wording are in 16-failures-logs-status.md.
+- **MCP-149** A `SKILL.md` that resolves outside the tree it was read from, through a link of its own or a linked directory, fails the check with "links to a file outside the repo. An applied skill holds only what the apply committed, so put the file itself in skills/". A check and an apply refuse it and a boot skips it, so editing the target without an apply never changes a skill.
 - **MCP-19** CI on the image runs the same check on every bundled skill (see 17-testing.md).
 
 ## The MCP config file
@@ -140,6 +141,7 @@ clanka expands names through Effect's `Config`, so the `ConfigProvider` that is 
 - **MCP-27** At load, a name that resolves nowhere and has no default marks that one server unavailable. The other servers carry on.
 - **MCP-28** `mcp.json` has no escape for a literal `${`. The name `CHAD_DOLLAR` is reserved for writing one, as `${CHAD_DOLLAR:-$}{X}`, and `chad secret set` refuses that name (see 11-settings.md, where the same expander rules apply to `chad.json`).
 - **MCP-30** chad passes the values of an entry's `env` to `McpServers.layer` as `Redacted` values. clanka fails a server whose `env` values are plain strings with "Unable to get redacted value".
+- **MCP-148** Every text chad prints, logs or hands the model about the MCP layer has each value a name of `mcp.json` expanded to put back as `${NAME}`, both as written and as JSON escapes it: a check's or an apply's refusal, each server's line and status, a server's failure and stderr tail, a call's error, the prompt's list of servers, and the lines clanka logs while the layer runs.
 - **MCP-31** A stdio server is started by clanka outside the spawner chad wraps. It gets the daemon's whole environment plus the entry's `env`, and so it carries `CHAD_SESSION=daemon` and not a session id (see 01-image-and-volume.md and 10-cli.md).
 - **MCP-109** chad gives every stdio entry an absolute `cwd` before it hands the config to clanka. An entry with no `cwd` gets the daemon's `HOME`.
 - **MCP-110** `chad check` and `chad apply` fail on a stdio entry whose `cwd` is relative. clanka would resolve it against the directory of the config file, which under `live` is deleted after the next apply, and the same file must not mean two things.
@@ -382,6 +384,8 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-145 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-146 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-147 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-148 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-149 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

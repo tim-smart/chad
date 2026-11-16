@@ -11,8 +11,10 @@ import {
 } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { Effect, Layer } from "effect"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
+import * as Plugin from "../../dist/Plugin.js"
 import { applied as committed, write } from "../support/applied.ts"
 import * as Cli from "../support/cli.ts"
 import { fresh, scenario, type Scenario } from "../support/driver.ts"
@@ -74,8 +76,29 @@ const before = (message: (text: string) => string) =>
 const apply = (running: Scenario, message: string) =>
   running.chad(["apply", "-m", message])
 
-test("MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-32 MCP-33 MCP-34 MCP-35 MCP-36 MCP-40 MCP-43 MCP-109 MCP-110 MCP-111 MCP-112 MCP-113 MCP-114 CLI-67 CLI-70 CLI-74 CLI-102 CLI-125f CRED-25 CRED-27 REC-28 an applied mcp.json connects its servers with names from the secret store that never reach the environment or any output, a failed or unavailable server does not block the apply, a secret it names rebuilds it, and a malformed file or a relative cwd fails the check and the apply", async () => {
-  const running = await scenario()
+/** A plugin whose settings name TOKEN, and whose build waits while `gate` is set. */
+const gated = () => {
+  const state = { builds: 0, gate: undefined as Promise<void> | undefined }
+  const plugin = Plugin.make(
+    Layer.effectDiscard(
+      Effect.gen(function* () {
+        state.builds++
+        const gate = state.gate
+        if (gate !== undefined) yield* Effect.promise(() => gate)
+      }),
+    ),
+  )
+  return { state, plugin }
+}
+
+const count = (running: Scenario, event: string) =>
+  running.log().filter((line) => line.annotations["event"] === event).length
+
+test("CRED-80 MCP-38 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-32 MCP-33 MCP-34 MCP-35 MCP-36 MCP-40 MCP-43 MCP-109 MCP-110 MCP-111 MCP-112 MCP-113 MCP-114 CLI-67 CLI-70 CLI-74 CLI-102 CLI-125f CRED-25 CRED-27 REC-28 an applied mcp.json connects its servers with names from the secret store that never reach the environment or any output, a failed or unavailable server does not block the apply, a secret it names rebuilds it, and a malformed file or a relative cwd fails the check and the apply", async () => {
+  const held = gated()
+  const running = await scenario({
+    plugins: [{ name: "held", plugin: held.plugin }],
+  })
   const work = join(running.data, "repo/work")
   const canary = "canary-7f3e-not-in-env"
   expect(
@@ -91,13 +114,20 @@ test("MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-
       broken: fixture("--exit"),
       missing: { ...fixture(), args: [server, "${NOPE_NOT_SET}"] },
       legacy: { type: "sse", url: "http://127.0.0.1:1/sse" },
+      // The spawn's error quotes the command, which here is the secret (CRED-80).
+      typo: { command: "${TOKEN}" },
+      dropping: fixture("--tools", "quit"),
     }),
+    "chad.json":
+      JSON.stringify({
+        plugins: { held: { settings: { token: "${TOKEN}" } } },
+      }) + "\n",
   })
   // A check connects nothing, names what an apply adds and warns of the name that resolves nowhere (MCP-36, MCP-113).
   const check = await running.chad(["check"])
   expect(check.code).toBe(0)
   for (const line of Messages.mcpCheckLines({
-    added: ["tools", "broken", "missing", "legacy"],
+    added: ["tools", "broken", "missing", "legacy", "typo", "dropping"],
     removed: [],
     changed: [],
   }))
@@ -120,22 +150,34 @@ test("MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-
     unavailable("missing", Messages.mcpUnresolved("NOPE_NOT_SET")),
   )
   expect(applied.stdout).toContain(unavailable("legacy", Messages.mcpSse))
+  expect(applied.stdout).toContain("spawn ${TOKEN} ENOENT")
+  expect(applied.stdout).not.toContain(canary)
 
   // The model calls the server. The token reached it from the store, and it runs in HOME as the daemon (MCP-31, MCP-109).
   const calls = await turn(
     running,
-    "console.log(await mcp.tools.echo({ x: 1 })); console.log(await mcp.tools.token({})); console.log(await mcp.tools.cwd({}))",
+    "console.log(await mcp.tools.echo({ x: 1 })); console.log(await mcp.tools.token({})); console.log(await mcp.tools.cwd({})); console.log(await mcp.dropping.quit({}))",
   )
   expect(systemText(calls[0])).toContain("- tools (3 tools)")
   expect(systemText(calls[0])).toContain("- broken: failed to connect")
+  expect(systemText(calls[0])).toContain("spawn ${TOKEN} ENOENT")
+  expect(systemText(calls[0])).not.toContain(canary)
   const printed = results(calls[1]).join("\n")
   expect(printed).toContain('{"x":1}')
   expect(printed).toContain(`${sha(canary)} daemon`)
   expect(printed).toContain(`\n${process.env["HOME"]}\n`)
 
-  const status = await running.chad(["status"])
+  // A server that exits after it connected shows as it is now, not as it connected (MCP-38).
+  const status = await eventually(
+    () => running.chad(["status"]),
+    ({ stdout }) => !stdout.includes("mcp: dropping, connected"),
+  )
   expect(status.stdout).toContain("mcp: tools, connected, 3 tools")
   expect(status.stdout).toContain(`mcp: legacy, failed (${Messages.mcpSse})`)
+  expect(status.stdout).toContain(
+    "mcp: dropping, failed (disconnected: connection closed)",
+  )
+  expect(status.stdout).not.toContain(canary)
 
   // A secret mcp.json names rebuilds the layer and prints it, and one it does not name rebuilds nothing (MCP-40).
   const second = "second-91aa-not-in-env"
@@ -152,16 +194,42 @@ test("MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-
       (await turn(running, "console.log(await mcp.tools.token({}))"))[1],
     ).join("\n"),
   ).toContain(sha(second))
-  for (const value of [canary, second]) {
-    expect(Object.values(process.env)).not.toContain(value)
-    expect(
-      readFileSync(join(running.data, "logs/chad.log"), "utf8"),
-    ).not.toContain(value)
-  }
+
+  // A CLI killed once the store is written, while a plugin that names the secret rebuilds, still leaves the change its
+  // MCP rebuild (CLI-43, CLI-102b).
+  const third = "third-5b0d-not-in-env"
+  let release = () => {}
+  held.state.gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const builds = held.state.builds
+  const rebuilt = count(running, "mcp.rebuilt")
+  const killed = Cli.start(
+    ["secret", "set", "TOKEN"],
+    { CHAD_DATA: running.data },
+    third + "\n",
+  )
+  await eventually(
+    () => held.state.builds,
+    (now) => now > builds,
+  )
+  killed.child.kill("SIGKILL")
+  await killed.done
+  held.state.gate = undefined
+  release()
+  await lines(running, "mcp.rebuilt", rebuilt + 1)
+  expect(
+    results(
+      (await turn(running, "console.log(await mcp.tools.token({}))"))[1],
+    ).join("\n"),
+  ).toContain(sha(third))
 
   // A relative cwd and a malformed file fail the check and the apply, and the servers stay as they were (MCP-33, MCP-110).
   write(work, {
-    "mcp.json": mcpJson({ tools: { ...fixture(), cwd: "notes" } }),
+    "mcp.json": mcpJson({
+      tools: { ...fixture(), cwd: "notes" },
+      hidden: { ...fixture(), cwd: "${TOKEN}" },
+    }),
   })
   for (const args of [["check"], ["apply", "-m", "Relative"]]) {
     const refused = await running.chad(args)
@@ -169,6 +237,10 @@ test("MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-
     expect(refused.stderr).toContain(
       Messages.mcpRelativeCwdRefused("tools", "notes"),
     )
+    expect(refused.stderr).toContain(
+      Messages.mcpRelativeCwdRefused("hidden", "${TOKEN}"),
+    )
+    expect(refused.stdout + refused.stderr).not.toContain(third)
   }
   write(work, { "mcp.json": "{ not json" })
   const malformed = await apply(running, "Malformed")
@@ -179,6 +251,13 @@ test("MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-
   expect((await running.chad(["status"])).stdout).toContain(
     "mcp: tools, connected, 3 tools",
   )
+  // No value reached the environment or the log, failed spawns and refusals included (CRED-80).
+  for (const value of [canary, second, third]) {
+    expect(Object.values(process.env)).not.toContain(value)
+    expect(
+      readFileSync(join(running.data, "logs/chad.log"), "utf8"),
+    ).not.toContain(value)
+  }
 }, 60_000)
 
 /** A script that prints what each call gave, or what it failed with. */
