@@ -5,7 +5,7 @@ import { mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { Config, Effect, Layer, Option, Redacted, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
-import { expect, onTestFinished, test } from "vitest"
+import { expect, onTestFinished, test, vi } from "vitest"
 import { bundled } from "../../dist/Bundled.js"
 import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
@@ -212,6 +212,19 @@ test("SET-11 SET-12 SET-14 SET-19 SET-20 SET-21 SET-22 SET-23 SET-35 SET-62 SET-
 })
 
 test("SET-44 SET-46 SET-47 SET-48 SET-86 REC-52 REC-53 REC-63 SWAP-58 CLI-72 LOAD-63 in safe mode the bundled plugins build on their defaults, one the applied chad.json turns off stays off, and an apply that flips it takes effect at once", async () => {
+  // A previous boot's repo must work without a developer's global Git identity, as on the gate.
+  vi.stubEnv("GIT_CONFIG_GLOBAL", "/dev/null")
+  vi.stubEnv("GIT_CONFIG_NOSYSTEM", "1")
+  for (const key of [
+    "GIT_AUTHOR_NAME",
+    "GIT_AUTHOR_EMAIL",
+    "GIT_COMMITTER_NAME",
+    "GIT_COMMITTER_EMAIL",
+  ])
+    vi.stubEnv(key, undefined)
+  onTestFinished(() => {
+    vi.unstubAllEnvs()
+  })
   const names = bundled.map(({ name }) => name)
   const { state, plugin } = probe()
   const directory = fresh()
@@ -244,7 +257,7 @@ test("SET-44 SET-46 SET-47 SET-48 SET-86 REC-52 REC-53 REC-63 SWAP-58 CLI-72 LOA
   const work = join(running.data, "repo/work")
   write(work, { "chad.json": chadJson({ probe: { settings: { a: 1 } } }) })
   const on = await running.chad(["apply", "-m", "Probe on"])
-  expect(on.code).toBe(0)
+  expect(on.code, on.stderr).toBe(0)
   expect(state.builds).toBe(1)
   expect(await call(running, "probe")).toBe("url=none token=false home=false")
 
