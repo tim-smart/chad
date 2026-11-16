@@ -109,15 +109,16 @@ describe("the durations", () => {
     )
   })
 
-  it("TST-33 TST-201 runDaemon takes the four inputs of the table and no other, now that the daemon reads its connections from storage", () => {
+  it("TST-33 TST-201 TST-202 runDaemon takes the four inputs of the table and the plugins, and no other", () => {
     // The type-check fails on a key that is missing here or that DaemonInputs does not have.
     const inputs: Record<keyof DaemonInputs, true> = {
       chat: true,
       httpClient: true,
       webSocketConstructor: true,
       timings: true,
+      plugins: true,
     }
-    expect(Object.keys(inputs)).toHaveLength(4)
+    expect(Object.keys(inputs)).toHaveLength(5)
     const serve = read("src/daemon.ts")
     for (const name of Object.keys(inputs)) {
       expect(serve).toMatch(new RegExp(`^  ${name}: `, "m"))

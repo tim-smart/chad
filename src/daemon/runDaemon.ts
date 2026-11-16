@@ -18,6 +18,7 @@ import {
   Scope,
 } from "effect"
 import {
+  Chat,
   type ChatAdapter,
   type ChatHandler,
   type ChatInteraction,
@@ -45,6 +46,8 @@ import * as Logger from "./Logger.ts"
 import * as Login from "./Login.ts"
 import * as Model from "./Model.ts"
 import * as Notices from "./Notices.ts"
+import * as PluginTurns from "./PluginTurns.ts"
+import * as Plugins from "./Plugins.ts"
 import * as Disk from "./Disk.ts"
 import * as Unusable from "./Unusable.ts"
 import * as Queue from "./Queue.ts"
@@ -79,6 +82,8 @@ export interface DaemonInputs {
   readonly webSocketConstructor: Layer.Layer<Socket.WebSocketConstructor>
   /** One complete set of durations. */
   readonly timings: Timings
+  /** The plugins the daemon loads at boot, which `chad serve` gives as the bundled ones (LOAD-74). */
+  readonly plugins?: ReadonlyArray<Plugins.Entry> | undefined
 }
 
 /** Resolves on the first SIGTERM or SIGINT, and takes its handlers off the process when it is done with. */
@@ -327,7 +332,10 @@ const boot = Effect.fnUntraced(function* (
         ),
         Effect.orElseSucceed(() => undefined),
       ),
-    loggedIn: notices.clear(Notices.usageLimitKey),
+    loggedIn: Effect.andThen(
+      notices.clear(Notices.usageLimitKey),
+      notices.clear(Notices.loggedOutKey),
+    ),
   }).pipe(Effect.provide(Context.merge(world, tokens)))
   const requirements = Context.mergeAll(
     world,
@@ -371,6 +379,25 @@ const boot = Effect.fnUntraced(function* (
       Duration.minutes(1),
     ),
   })
+  // The plugins are loaded once the sessions can take their turns, and every turn waits for them. Their scope is
+  // forked here, so it closes after the sessions' and a graceful stop runs their queued hooks after the turns end
+  // (API-67).
+  const pluginScope = yield* Scope.fork(scope)
+  let host: Plugins.Plugins["Service"] | undefined
+  const loaded = yield* Deferred.make<Plugins.Plugins["Service"]>()
+  const plugins: Plugins.Plugins["Service"] = {
+    ready: Effect.flatMap(Deferred.await(loaded), (host) => host.ready),
+    tools: (current) => host?.tools(current),
+    chunks: (session) =>
+      Effect.flatMap(Deferred.await(loaded), (host) => host.chunks(session)),
+    beforeTurn: (turn) =>
+      Effect.flatMap(Deferred.await(loaded), (host) => host.beforeTurn(turn)),
+    afterTurn: (ended) =>
+      Effect.flatMap(Deferred.await(loaded), (host) => host.afterTurn(ended)),
+    onSession: (event) =>
+      Effect.flatMap(Deferred.await(loaded), (host) => host.onSession(event)),
+    status: () => host?.status() ?? [],
+  }
   const sessions = yield* Layer.buildWithScope(
     Layer.merge(SessionEntity.layer, retention).pipe(
       Layer.provideMerge(cluster),
@@ -378,6 +405,16 @@ const boot = Effect.fnUntraced(function* (
         Layer.mergeAll(
           Layer.succeed(Model.Models, models),
           Layer.succeed(Login.Login, login),
+          Layer.succeed(Plugins.Plugins, plugins),
+          Layer.succeed(SessionEntity.Support, {
+            loggedOut: Effect.gen(function* () {
+              const { needsLogin } = account.model()
+              return needsLogin && !login.pending() && !(yield* account.stored)
+            }),
+            owners: (connection) =>
+              running.list().find(({ name }) => name === connection)?.owners ??
+              [],
+          }),
           Layer.succeed(SessionEntity.Stopping, {
             stopping: () => state.phase === "stopping",
           }),
@@ -405,6 +442,35 @@ const boot = Effect.fnUntraced(function* (
   // The rows of Discord shard state that a connection removed with no daemon left behind go before any gateway dials.
   yield* Connections.forget(stored.value).pipe(Effect.provide(sessions))
   yield* running.set(stored.value).pipe(Effect.provide(sessions))
+  host = yield* Plugins.make({
+    entries: inputs.plugins ?? [],
+    owners: () =>
+      running
+        .list()
+        .flatMap((connection) =>
+          connection.owners.map((id) => `${connection.kind}:${id}`),
+        ),
+    timings: inputs.timings,
+    notices,
+    turns: PluginTurns.make({
+      client: yield* SessionEntity.Session.client.pipe(
+        Effect.provide(sessions),
+      ),
+      chats: running.chats,
+      connections: running.list,
+    }),
+  }).pipe(
+    Effect.provideContext(
+      Context.mergeAll(
+        world,
+        base,
+        Context.make(Chat.Chat, PluginTurns.chat(running.chats, running.list)),
+      ),
+    ),
+    Scope.provide(pluginScope),
+  )
+  yield* Deferred.succeed(loaded, host)
+  state.plugins = host.status
   yield* Deferred.succeed(
     state.commands,
     yield* Connections.make(volume, state, running, Queue.make()).pipe(

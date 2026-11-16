@@ -84,6 +84,17 @@ export const Report = Schema.Struct({
   recent: Schema.optionalKey(Recent),
   /** The main model and the login state, once the models are loaded (CLI-125). */
   model: Schema.optionalKey(ModelState),
+  /** Each loaded plugin's count of warnings and errors since it loaded, with the latest of those lines (FAIL-117). */
+  plugins: Schema.optionalKey(
+    Schema.Array(
+      Schema.Struct({
+        name: Schema.String,
+        warnings: Schema.Number,
+        errors: Schema.Number,
+        latest: Schema.optionalKey(Schema.String),
+      }),
+    ),
+  ),
 })
 export type Report = typeof Report.Type
 

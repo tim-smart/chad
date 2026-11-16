@@ -43,6 +43,9 @@ export const isTableKey = (key: string) => tableKeys.has(key)
 /** The key of "the last model call hit the usage limit" (FAIL-94, FAIL-319). */
 export const usageLimitKey = "usage-limit"
 
+/** The key of "chad is logged out and a turn with no owner present could not run" (FAIL-175). */
+export const loggedOutKey = "logged-out"
+
 /** The notice of `disk-low`, a live key (FAIL-171, STO-115). */
 export const diskLow = (bytes: number): Notice => ({
   key: "disk-low",

@@ -131,6 +131,7 @@ A plugin reads its settings and secrets with Effect's `Config`. The file that ho
 - **API-30** `Plugin.toolkit(toolkit)` adds an Effect `Toolkit` to every session's agent. It takes the toolkit only. The handlers come from `toolkit.toLayer`, which the plugin provides to the Layer that `Plugin.toolkit` returns.
 - **API-31** A tool learns its session and turn by listing `Session.CurrentSession` in its `dependencies`. Any other dependency of a tool comes from the plugin's own Layers.
 - **API-32** chad builds one clanka Agent per session and provides `CurrentSession` to it. `CurrentSession.session` is the session, and `CurrentSession.turn` reads a reference that chad sets when a turn starts.
+- **API-136** A `Session` carries `directory`, the absolute path of the directory its agent works in. The agent's scripts run there, so a tool handler resolves a relative path the agent gives against it.
 - **API-105** The type of `CurrentSession.turn` is `Effect<Option<Turn>>`. It stays an `Option` although clanka keeps a turn open while a background sub-agent runs, so a tool handler handles `None`.
 - **API-33** A tool name that another plugin or clanka already uses fails the load, and the error names who holds the name. What a boot does with such a plugin is in 07-plugin-loading.md.
 - **API-34** A sub-agent shares the main agent's handlers, and a handler cannot tell which of the two called it. A sub-agent inside a turn the owner started can therefore call a plugin's owner-only tools, which is accepted.
@@ -231,12 +232,12 @@ A turn is one run of the agent in a session, from the prompt that starts it to i
 - **API-78** `Turns.start` returns the turn's `Outcome`, which is `Answered` with the answer text, `Failed` with a reason, or `Stopped`. `Failed.reason` is a tagged value from a closed set of seven tags, which are `ThreadGone`, `ModelError`, `UsageLimit`, `LoginFailed`, `LoggedOut`, `GaveUp` and `Internal`. What each tag means, and what chad posts for it, is in 16-failures-logs-status.md.
 - **API-112** The fields of `Failed.reason` have these types. `ModelError.reason` and `ModelError.message` are strings, and `ModelError.retries` is a number. `UsageLimit.resetsAt` is an optional `DateTime.Utc`. `LoginFailed.reason` is one of `TimedOut`, `DeviceFlowFailed`, `TokenExchangeFailed` and `RefreshFailed`. `Internal.message` is a string.
 - **API-113** `ModelError.reason` holds the reason tag of the `AiError`, with one exception. A turn that chad ended at the silence bound has the reason `TurnTimeout`, which is chad's own value. The silence bound is in 16-failures-logs-status.md.
-- **API-79** `Turns.start` called from a tool handler for the thread of the handler's own turn fails at once, with a defect whose message names `Turns.queue`. The turn it asked for would queue behind the turn that called the tool, so a call that waited would deadlock.
+- **API-79** `Turns.start` called from a tool handler for the thread of the handler's own turn fails at once, with a defect whose message names `Turns.queue`. The turn it asked for would queue behind the turn that called the tool, so a call that waited would deadlock. The message reads "Turns.start cannot run a turn in the thread of the turn that called this tool, because that turn would wait for this one. Use Turns.queue, which returns once the turn is queued."
 - **API-114** `Turns.queue(options)` takes the same options as `Turns.start` and returns `Effect<void>`. It returns once the request is saved and does not wait for the turn. A tool handler uses it to queue a turn in its own thread.
 - **API-115** A turn queued with `Turns.queue` is started and treated the way a turn from `Turns.start` is. Every call queues its own turn, and a plugin that needs the outcome reads it in `afterTurn`.
 - **API-129** `Turns.start`, `Turns.queue`, `Turns.schedule` and `Turns.cancel` declare no error type, and no release adds one, because a new error type would fail the type-check of every applied plugin at an image upgrade. A failure of the call itself is therefore a defect, and its message is a text written for the model. API-79, API-130, API-133 and API-135 name the failures. clanka returns a handler's defect to the calling script, as API-35 says.
-- **API-130** `Turns.queue` fails with such a defect when the request cannot be saved, which happens on a full disk. The message says that the turn was not queued and why.
-- **API-135** `Turns.start` fails with such a defect when its request cannot be saved, which happens on a full disk. The message says that the turn was not started and why. No turn starts, so the call has no `Outcome` to return, and no `afterTurn` hook runs for a turn that did not run.
+- **API-130** `Turns.queue` fails with such a defect when the request cannot be saved, which happens on a full disk. The message says that the turn was not queued and why. It reads "The turn was not queued, because chad could not save the request: <reason>", where the reason is the first line of the failure.
+- **API-135** `Turns.start` fails with such a defect when its request cannot be saved, which happens on a full disk. The message says that the turn was not started and why. It reads "The turn was not started, because chad could not save the request: <reason>", where the reason is the first line of the failure. No turn starts, so the call has no `Outcome` to return, and no `afterTurn` hook runs for a turn that did not run.
 - **API-80** `Turns.start` and `Turns.queue`, called by a version that is not active yet, wait for the activation.
 - **API-131** A `Turns` call that a plugin's Layer build waits on cannot return, because the activation it waits for comes after the build. The deadline of the Layer build ends it, and the load's error names `Plugin.background` as the place for the call. The deadline is in 07-plugin-loading.md. `Turns.scheduled` is the call most likely to be written there, by a plugin that reads its timers while it builds.
 - **API-81** A background fiber of an old version that is waiting on `Turns.start` when the version closes loses the outcome, while the turn carries on. A plugin that needs the outcome reads it in `afterTurn` or from its store.
@@ -506,6 +507,11 @@ export interface Session {
   readonly thread: ChatThread.ChatThread
   /** The kind of chat thread the session is in. */ // adjusted: TIM-558
   readonly kind: "direct" | "channel" | "thread"
+  /**
+   * The absolute path of the directory the session's agent works in. Its
+   * scripts run there, so a relative path the agent names is relative to it.
+   */ // adjusted: API-136
+  readonly directory: string
 }
 
 /** What started a turn. A plugin started it when there is no chat message behind it. */
@@ -953,3 +959,4 @@ export declare class Turns extends Turns_base {}
 | API-133 | TIM-559 round 3 on API-G13 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
 | API-134 | TIM-559 round 4 item 1 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | API-135 | TIM-559 round 4 item 2 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
+| API-136 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `plugin-api` |

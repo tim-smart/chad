@@ -3,6 +3,7 @@ import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient"
 import * as NodeSocket from "@effect/platform-node/NodeSocket"
 import * as Chat from "./daemon/Chat.ts"
 import { runDaemon } from "./daemon/runDaemon.ts"
+import sendFile from "./plugins/send-file.ts"
 import { defaults } from "./Timings.ts"
 
 process.exitCode = await runDaemon({
@@ -10,4 +11,6 @@ process.exitCode = await runDaemon({
   httpClient: NodeHttpClient.layerUndici,
   webSocketConstructor: NodeSocket.layerWebSocketConstructor,
   timings: defaults,
+  // The bundled plugins (LOAD-74). cron arrives with the timers-cron slice.
+  plugins: [{ name: "send-file", plugin: sendFile }],
 })

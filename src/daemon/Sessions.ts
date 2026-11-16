@@ -70,6 +70,8 @@ export interface Session {
   readonly environment: string | null
   readonly system: string | null
   readonly fingerprint: string | null
+  /** The chunk texts the session last saw, as a JSON object by plugin name (SWAP-11). */
+  readonly chunks: string | null
   readonly tasks: string
 }
 
@@ -77,7 +79,7 @@ export interface Session {
 export const current = Effect.fnUntraced(function* (thread: string) {
   const sql = yield* SqlClient.SqlClient
   const rows = yield* sql<Session>`
-    SELECT id, thread, kind, environment, system, fingerprint, tasks FROM sessions
+    SELECT id, thread, kind, environment, system, fingerprint, chunks, tasks FROM sessions
     WHERE thread = ${thread} AND ended_at IS NULL
     ORDER BY created_at DESC, rowid DESC LIMIT 1
   `
@@ -165,6 +167,12 @@ export const mark = Effect.fnUntraced(function* (thread: string, to: Mark) {
 })
 
 /** The system prompt a session last sent, with the fingerprint of what chad rendered for it. */
+/** Forgets the system prompt a session sent, so that its next turn renders one again. */
+export const thaw = Effect.fnUntraced(function* (id: string) {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql`UPDATE sessions SET system = NULL, fingerprint = NULL WHERE id = ${id}`
+})
+
 export const freeze = Effect.fnUntraced(function* (
   id: string,
   system: string,
@@ -172,6 +180,15 @@ export const freeze = Effect.fnUntraced(function* (
 ) {
   const sql = yield* SqlClient.SqlClient
   yield* sql`UPDATE sessions SET system = ${system}, fingerprint = ${fingerprint} WHERE id = ${id}`
+})
+
+/** Records the chunk texts a session has seen, by plugin name (SWAP-11). */
+export const chunks = Effect.fnUntraced(function* (
+  id: string,
+  seen: Readonly<Record<string, string>>,
+) {
+  const sql = yield* SqlClient.SqlClient
+  yield* sql`UPDATE sessions SET chunks = ${JSON.stringify(seen)} WHERE id = ${id}`
 })
 
 /** The background tasks a session has running, as the JSON list of their ids and kinds. */
@@ -317,6 +334,9 @@ export const started = Effect.fnUntraced(function* (start: {
   readonly session: string
   readonly model: string | undefined
   readonly at: number
+  /** The plugin and label of a turn a plugin started. An owner's message has none. */
+  readonly plugin?:
+    { readonly name: string; readonly label: string } | undefined
 }) {
   const sql = yield* SqlClient.SqlClient
   const earlier = yield* sql<Usage>`
@@ -331,8 +351,9 @@ export const started = Effect.fnUntraced(function* (start: {
     status_message_id: string | null
     started_at: number | null
   }>`
-    INSERT INTO turns (request_key, turn_id, session_id, origin, started_at, starts, model)
-    VALUES (${start.key}, ${start.turn}, ${start.session}, 'message', ${start.at}, 1, ${start.model ?? null})
+    INSERT INTO turns (request_key, turn_id, session_id, origin, origin_plugin, origin_label, started_at, starts, model)
+    VALUES (${start.key}, ${start.turn}, ${start.session}, ${start.plugin === undefined ? "message" : "plugin"},
+      ${start.plugin?.name ?? null}, ${start.plugin?.label ?? null}, ${start.at}, 1, ${start.model ?? null})
     ON CONFLICT (request_key) DO UPDATE SET
       starts = starts + 1, session_id = excluded.session_id, model = excluded.model
     RETURNING turn_id, starts, graceful_cuts, status_message_id, started_at

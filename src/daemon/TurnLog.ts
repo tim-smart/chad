@@ -523,7 +523,7 @@ export const scriptEnded = (
   }).pipe(Logger.ownConsole)
 
 /** Where a turn came from. Only an owner's message starts one so far. */
-export type Origin = "message"
+export type Origin = "message" | "plugin"
 
 /** The first start of a turn (FAIL-244, FAIL-326). */
 export const started = (ids: Ids, origin: Origin) =>

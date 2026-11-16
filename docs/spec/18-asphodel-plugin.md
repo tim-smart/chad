@@ -862,6 +862,11 @@ The scenarios ran on a stand-in host with a test clock, the owner `discord:1234`
 
 - **ASP-102** The fixture's scenarios are the twelve in the table above, with both variants of scenario 7. Each scenario of the prototype's final pass is mapped to a test or to a reason there is none, in the table that 17-testing.md describes.
 - **ASP-103** The scenarios run against the fake asphodel daemon. The fake carries over from the prototype because it stands in for something outside chad. The stand-in host does not carry over.
+- **ASP-118** Scenario 6 is not run through chad's daemon, because clanka keeps a turn open while any task of it runs, so the daemon makes no tool call with no turn. The type-check of the fixture holds the `None` branch of ASP-81. This settles ASP-G4.
+- **ASP-119** Scenario 10 runs in layer 4, where the daemon is a child process that is killed and started again on the same volume, and the test process serves the fake over HTTP so that the fake outlives the kill. The other scenarios run in layer 3. This settles ASP-G5.
+- **ASP-120** The scenarios give the fixture's Layer a `Clock` that the test advances, so the fixture keeps the printed 30 second cooldown and one minute replay, and scenarios 7 and 11 advance that clock past them instead of waiting. This settles ASP-G6.
+- **ASP-121** In layer 3 the fake is the fixture's `HttpClient`, given to its Layer with `Layer.provide` before `Plugin.make`, so the plugin's requests never reach the daemon's own client. In layer 4 the child gives the fixture a client of its own that reaches the fake's HTTP server. This settles ASP-G7.
+- **ASP-122** The fixture is `test/fixtures/asphodel/asphodel.ts` and the fake is `test/fixtures/asphodel/daemon.ts`. The repo's `tsc` checks the fixture against `dist/*.d.ts` through the package's own name `chad`, and the scenarios hand it to `runDaemon` through the plugins input (TST-202) instead of writing it into the volume's repo. This settles ASP-G8.
 
 ## Out of scope
 
@@ -1005,6 +1010,11 @@ These notes are for whoever ports the plugin. They are not rules for chad.
 | ASP-115 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | ASP-116 | TIM-559 round 3 C1 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | ASP-117 | TIM-559 round 3 C1, TIM-559 ruling on SES-G2 for the two bounds | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
+| ASP-118 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `plugin-api` |
+| ASP-119 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `plugin-api` |
+| ASP-120 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `plugin-api` |
+| ASP-121 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `plugin-api` |
+| ASP-122 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `plugin-api` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

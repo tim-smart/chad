@@ -3,9 +3,11 @@
 // with the product's chat layer: the local platform and the scripted gateway live in the driver, behind sockets,
 // because a process that is killed cannot hold them (TST-28).
 import { writeFileSync } from "node:fs"
+import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient"
 import { Duration, Layer } from "effect"
 import { Socket } from "effect/socket"
 import * as Chat from "../../dist/daemon/Chat.js"
+import * as Plugin from "../../dist/Plugin.js"
 import { start } from "./entry.ts"
 import { httpClient } from "./http.ts"
 
@@ -26,6 +28,11 @@ export interface Config {
    * or nothing when it forces none.
    */
   readonly gc: string | undefined
+  /**
+   * The asphodel fixture's settings when the scenario loads it, its `url` at the fake the driver serves. The fixture
+   * gets its own HttpClient, as in layer 3, so its requests never reach the world's (TST-161).
+   */
+  readonly asphodel?: { readonly settings: unknown } | undefined
 }
 
 const config: Config = JSON.parse(process.env["CHAD_TEST_CHILD"] ?? "{}")
@@ -46,9 +53,25 @@ const millis = (value: number | undefined) =>
 const idle = millis(config.timings.sessionIdle)
 const retention = millis(config.timings.messageRetention)
 
+const plugins =
+  config.asphodel === undefined
+    ? []
+    : [
+        {
+          name: "asphodel",
+          plugin: Plugin.make(
+            (await import("../fixtures/asphodel/asphodel.ts")).default.pipe(
+              Layer.provide(NodeHttpClient.layerUndici),
+            ),
+          ),
+          settings: config.asphodel.settings,
+        },
+      ]
+
 const code = await start(
   {
     chat: Chat.layer,
+    plugins,
     httpClient: httpClient({ model: config.model, discord: config.discord }),
     // dfx asks for Discord's gateway, and the socket goes to the driver's server with that URL as a parameter.
     webSocketConstructor: Layer.succeed(

@@ -19,6 +19,7 @@ import { onTestFinished, vi } from "vitest"
 import { runCli } from "../../dist/cli/runCli.js"
 import * as Chat from "../../dist/daemon/Chat.js"
 import type { Connection } from "../../dist/daemon/Connection.js"
+import type { DaemonInputs } from "../../dist/daemon/runDaemon.js"
 import * as LocalChat from "../../dist/daemon/LocalChat.js"
 import { defaults, scale } from "../../dist/Timings.js"
 import * as Cli from "./cli.ts"
@@ -77,6 +78,8 @@ export interface Options {
    * token has expired and whose refresh is good. No real login is used.
    */
   readonly codex?: "token" | "expired"
+  /** The plugins handed to `runDaemon` (TST-202), none by default. */
+  readonly plugins?: DaemonInputs["plugins"]
 }
 
 export interface Scenario {
@@ -312,6 +315,7 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
         model.socket,
         discord.gateway.layer,
       ),
+      ...(options.plugins === undefined ? {} : { plugins: options.plugins }),
     },
     options.timings,
   )

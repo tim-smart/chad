@@ -2,10 +2,12 @@ import { createHash } from "node:crypto"
 import { resolve } from "node:path"
 import * as Agent from "clanka/Agent"
 import * as AgentExecutor from "clanka/AgentExecutor"
-import type { TaskHandle } from "clanka/AgentTools"
+import type { Task, TaskHandle } from "clanka/AgentTools"
+import { DiscordChat } from "@effect/chat-discord"
 import {
   Cause,
   Context,
+  DateTime,
   Deferred,
   Effect,
   Exit,
@@ -25,6 +27,7 @@ import { ClusterSchema, Entity, type Sharding } from "effect/cluster"
 import { Rpc } from "effect/rpc"
 import { SqlClient } from "effect/sql"
 import * as Messages from "../Messages.ts"
+import * as PublicSession from "../Session.ts"
 import { Timings } from "../Timings.ts"
 import * as Attachments from "./Attachments.ts"
 import { Chats, type ChatService } from "./Chats.ts"
@@ -35,6 +38,7 @@ import * as Logger from "./Logger.ts"
 import * as Login from "./Login.ts"
 import * as Model from "./Model.ts"
 import * as Notices from "./Notices.ts"
+import { Plugins } from "./Plugins.ts"
 import * as Post from "./Post.ts"
 import * as Queue from "./Queue.ts"
 import * as Sessions from "./Sessions.ts"
@@ -77,6 +81,26 @@ export class Message extends Schema.Class<Message>("chad/Session/Message")({
 }
 
 /**
+ * A turn a plugin asked for with `Turns.start` or `Turns.queue`, as cluster persists it, so it survives a restart and
+ * restores a passivated session (API-72). Its primary key is `start/<random UUID>` (CRON-99).
+ */
+export class PluginTurn extends Schema.Class<PluginTurn>(
+  "chad/Session/PluginTurn",
+)({
+  key: Schema.String,
+  /** The connection whose platform has the thread. */
+  connection: Schema.String,
+  plugin: Schema.String,
+  label: Schema.String,
+  prompt: Schema.String,
+  mention: Schema.optionalKey(Schema.String),
+}) {
+  [PrimaryKey.symbol]() {
+    return this.key
+  }
+}
+
+/**
  * How a request ended. The entity posts to chat itself, so `Answered` is the only reply that carries a text.
  * `Steered` and `Dropped` are replies that only an owner's message gets: it joined a running turn, or the turn it was
  * waiting to steer was stopped.
@@ -90,12 +114,20 @@ export const Outcome = Schema.Union([
 ])
 export type Outcome = typeof Outcome.Type
 
-/** A request with its chat message decoded. */
+/** A request with its chat message decoded: an owner's message, or a turn a plugin asked for. */
 interface Request {
   readonly key: string
   readonly connection: string
-  readonly message: ChatMessage.ChatMessage
+  readonly message: ChatMessage.ChatMessage | undefined
   readonly attachments: ReadonlyArray<string>
+  readonly plugin:
+    | {
+        readonly name: string
+        readonly label: string
+        readonly prompt: string
+        readonly mention: string | undefined
+      }
+    | undefined
 }
 
 /** What a `/stop` or a `/new` carries: who sent it, and the connection it arrived on. */
@@ -107,6 +139,10 @@ const Command = {
 /** One session thread. The entity id is the thread string `ChatThread.toString(thread)`. */
 export const Session = Entity.make("Session", [
   Rpc.make("message", { payload: Message, success: Outcome }).annotate(
+    ClusterSchema.Persisted,
+    true,
+  ),
+  Rpc.make("plugin", { payload: PluginTurn, success: Outcome }).annotate(
     ClusterSchema.Persisted,
     true,
   ),
@@ -136,6 +172,61 @@ export const Stopping = Context.Reference<{ readonly stopping: () => boolean }>(
   { defaultValue: () => ({ stopping: () => false }) },
 )
 
+/**
+ * What the entity needs of the daemon for a turn a plugin started: whether chad is logged out with no login pending,
+ * which ends such a turn before the model (API-83), and the owner ids of a connection, which a mention must be one of
+ * (API-76).
+ */
+export const Support = Context.Reference<{
+  readonly loggedOut: Effect.Effect<boolean>
+  readonly owners: (connection: string) => ReadonlyArray<string>
+}>("chad/SessionEntity/Support", {
+  defaultValue: () => ({
+    loggedOut: Effect.succeed(false),
+    owners: () => [],
+  }),
+})
+
+/** The answer of a plugin-started turn that is not posted (API-77). */
+const silent = "[SILENT]"
+
+/** The text parts of a message, as `Turn.prompt` holds them. */
+const textOf = (message: Prompt.Message) =>
+  message.role === "user" || message.role === "assistant"
+    ? message.content
+        .flatMap((part) => (part.type === "text" ? [part.text] : []))
+        .join("\n")
+    : ""
+
+/** Whether two sets of chunk texts are the same. */
+const sameChunks = (
+  a: ReadonlyMap<string, string>,
+  b: ReadonlyMap<string, string>,
+) => a.size === b.size && [...a].every(([name, text]) => b.get(name) === text)
+
+/** The chunks folded into a system prompt that is rendered, in plugin name order (SWAP-36). */
+const folded = (chunks: ReadonlyMap<string, string>) =>
+  [...chunks]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([name, text]) => `\n## ${name}\n\n${text}\n`)
+    .join("")
+
+/** A failure reason as a plugin sees it, with times as `DateTime.Utc` (API-112). */
+const publicReason = (reason: Failed.Reason): PublicSession.FailedReason =>
+  reason._tag === "UsageLimit"
+    ? reason.resetsAt === undefined
+      ? { _tag: "UsageLimit" }
+      : { _tag: "UsageLimit", resetsAt: DateTime.makeUnsafe(reason.resetsAt) }
+    : reason
+
+/** An outcome as a plugin sees it. A steer's and a drop's never reach one. */
+export const publicOutcome = (outcome: Outcome): PublicSession.Outcome =>
+  outcome._tag === "Failed"
+    ? { _tag: "Failed", reason: publicReason(outcome.reason) }
+    : outcome._tag === "Answered"
+      ? outcome
+      : { _tag: "Stopped" }
+
 /** The system prompt as chad renders it, which is what a session freezes and what its fingerprint is taken of. */
 export const system = (options: {
   readonly toolInstructions: string
@@ -152,10 +243,23 @@ interface Live {
   readonly id: string
   /** The scope of the Agent and its executor, which a `/new` closes. */
   readonly scope: Scope.Closeable
-  readonly agent: Agent.Agent
+  agent: Agent.Agent
+  /**
+   * Builds a new Agent on the same executor, moves the history and the environment onto it and closes the old one's
+   * scope. It runs only at a turn's start, when the Agent has nothing running (SWAP-5, SWAP-12 to SWAP-14).
+   */
+  readonly rebuild: Effect.Effect<void>
+  /** The notices of background tasks that ended after the Agent that started them was discarded (SWAP-17). */
+  readonly ended: Effect.Effect<ReadonlyArray<string>>
   readonly directory: string
   /** The ids the session's log lines carry, whose turn is the one running (FAIL-25, FAIL-26). */
   readonly ids: Logger.SessionLogIds
+  /** The session as a plugin sees it. */
+  readonly session: PublicSession.Session
+  /** The turn a tool call of the session reads through `CurrentSession.turn` (API-32, API-105). */
+  readonly current: { turn: PublicSession.Turn | undefined }
+  /** The chunk texts the session last saw, by plugin name (SWAP-30). */
+  chunks: ReadonlyMap<string, string>
   /** The system prompt the session last sent, with the fingerprint of what chad rendered for it. */
   frozen: { readonly system: string; readonly fingerprint: string } | undefined
   /** Whether the frozen prompt has changed since it was stored. */
@@ -179,6 +283,7 @@ interface Live {
 interface Steer {
   readonly key: string
   readonly text: string
+  readonly message: ChatMessage.ChatMessage
   /** The reply, or `next` when the turn ended before a run read the message. */
   readonly done: Deferred.Deferred<Outcome | "next">
   fiber: Fiber.Fiber<void> | undefined
@@ -224,6 +329,14 @@ interface Turn {
   readonly settings: Model.Settings
   /** What the turn's steps have seen, which a wait on a login resets the silence count of (MOD-103). */
   steps: TurnLog.Steps
+  /** The owner's messages that chad recorded as having steered the turn (API-55). */
+  readonly steered: Array<ChatMessage.ChatMessage>
+  /** The history as the turn's `send` began, which what the turn appended is told from (API-55). */
+  initial: ReadonlyArray<Prompt.Message> | undefined
+  /** Whether the turn's stream carried a compaction (API-60). */
+  compacted: boolean
+  /** The turn as a plugin sees it, once its start is counted. */
+  public: PublicSession.Turn | undefined
 }
 
 /** What the entity holds for the thread's current session. A `/new` puts a fresh one in its place. */
@@ -232,6 +345,8 @@ interface State {
   turn: Turn | undefined
   /** Resolves when the `/new` that made this state has finished. No turn starts before it. */
   readonly ready: Deferred.Deferred<void> | undefined
+  /** The plugin hooks a compaction queued, which the next turn waits for (SWAP-38). */
+  hooks: Effect.Effect<void> | undefined
 }
 
 /** What a turn whose end could not be written gives in place of an outcome. */
@@ -258,6 +373,8 @@ export const layer = Layer.unwrap(
         const notices = yield* Notices.Notices
         const chats = yield* Chats
         const fs = yield* FileSystem.FileSystem
+        const plugins = yield* Plugins
+        const support = yield* Support
         const services = yield* Effect.context<
           Sharding.Sharding | Entity.CurrentAddress | SqlClient.SqlClient
         >()
@@ -265,6 +382,7 @@ export const layer = Layer.unwrap(
           live: undefined,
           turn: undefined,
           ready: undefined,
+          hooks: undefined,
         }
         const stopping = yield* Stopping
         // The request of a turn that a restart cut takes the session before any other request of the thread, so
@@ -303,15 +421,62 @@ export const layer = Layer.unwrap(
          * so does a turn whose message is in the channel that chad opened the thread from (DIS-118). A kind that cannot
          * be read counts as a server thread's, which keeps the ping.
          */
-        const replyTo = (request: Request) =>
-          ChatThread.toString(request.message.thread) !== key
+        const replyTo = (request: Request) => {
+          const message = request.message
+          return message === undefined ||
+            ChatThread.toString(message.thread) !== key
             ? Effect.succeed(undefined)
             : Sessions.kindOf(key).pipe(
                 Effect.orElseSucceed(() => undefined),
                 Effect.map((kind) =>
-                  kind === "direct" ? undefined : request.message.id,
+                  kind === "direct" ? undefined : message.id,
                 ),
               )
+        }
+
+        /**
+         * The mention a plugin-started turn's posts start with: only in a server thread or channel, and only of an
+         * owner, so a plugin can ping no one else (API-76). Discord is the one platform with mentions.
+         */
+        const mentionOf = (request: Request) =>
+          Effect.gen(function* () {
+            const id = request.plugin?.mention
+            if (id === undefined || thread.platform !== "discord")
+              return undefined
+            if (!support.owners(request.connection).includes(id))
+              return undefined
+            const kind = yield* Sessions.kindOf(key).pipe(
+              Effect.orElseSucceed(() => undefined),
+            )
+            return kind === "direct" ? undefined : id
+          })
+
+        /** Posts with a mention in front, which notifies only that user. */
+        const mentioned = (
+          chat: ChatService,
+          format: Format,
+          mention: string | undefined,
+          markdown: string,
+          options?: Post.Options,
+        ) =>
+          mention === undefined
+            ? post(chat, format, markdown, options)
+            : post(chat, format, `<@${mention}> ${markdown}`, options).pipe(
+                DiscordChat.withPostOptions({ notify: { users: [mention] } }),
+              )
+
+        /** A plugin-started turn whose thread is gone tells the owner by the notice route (FAIL-173). */
+        const threadGone = (request: Request) =>
+          request.plugin === undefined
+            ? Effect.void
+            : notices
+                .announce(
+                  Messages.threadGone(
+                    request.plugin.name,
+                    request.plugin.label,
+                  ),
+                )
+                .pipe(Effect.asVoid)
 
         /**
          * Tells the owner about the files of a message that chad skipped, once for a message, though a message that
@@ -361,12 +526,30 @@ export const layer = Layer.unwrap(
               tasks.size === 0 ? Effect.void : Entity.keepAlive(false),
             ).pipe(Effect.provideContext(services)),
           )
+          // The Agents of the session are numbered as they are built. A task that ends is kept with the number of the Agent
+          // that started it, so a later Agent can announce it once that Agent is discarded (SWAP-17, SWAP-132).
+          const agents = { current: 0 }
+          const starters = new Map<string, number>()
+          const endings: Array<{
+            readonly agent: number
+            readonly handle: TaskHandle
+            readonly task: Task
+          }> = []
           const track = (task: TaskHandle) =>
             Effect.gen(function* () {
               tasks.set(task.id, task.kind)
               yield* record
               yield* Entity.keepAlive(true)
               yield* task.await.pipe(
+                Effect.tap((ended) =>
+                  Effect.sync(() => {
+                    endings.push({
+                      agent: starters.get(task.id) ?? agents.current,
+                      handle: task,
+                      task: ended,
+                    })
+                  }),
+                ),
                 Effect.andThen(
                   Effect.gen(function* () {
                     tasks.delete(task.id)
@@ -385,6 +568,22 @@ export const layer = Layer.unwrap(
             turn: undefined,
             subagents: new Map(),
           }
+          const session: PublicSession.Session = {
+            id,
+            thread,
+            kind: row.kind ?? "thread",
+            directory,
+          }
+          const current: { turn: PublicSession.Turn | undefined } = {
+            turn: undefined,
+          }
+          // Every plugin's tools, whose handlers see this session and the turn that runs (API-30 to API-32).
+          const tools = plugins.tools(
+            PublicSession.CurrentSession.of({
+              session,
+              turn: Effect.sync(() => Option.fromUndefinedOr(current.turn)),
+            }),
+          )
           const view = { lines: StatusMessage.none }
           const built = yield* Layer.buildWithScope(
             AgentExecutor.layerLocal({ directory }).pipe(
@@ -512,11 +711,47 @@ export const layer = Layer.unwrap(
               ).pipe(Stream.provideService(Logger.CurrentSubagent, subagent))
             },
           })
-          const agent = yield* Agent.make.pipe(
-            Effect.provideService(AgentExecutor.AgentExecutor, executor),
-            Effect.provideService(Scope.Scope, own),
-            Effect.provideService(Logger.CurrentLogIds, ids),
-          )
+          /**
+           * One Agent in a scope of its own, on the session's one executor. Its root agent's scripts run under the session
+           * id as their task owner, so a later Agent lists and reads the tasks an earlier one started (SWAP-15, SWAP-16).
+           */
+          const build = Effect.fnUntraced(function* () {
+            const number = ++agents.current
+            const agentScope = yield* Scope.fork(own)
+            let root: string | undefined
+            const owned = AgentExecutor.AgentExecutor.of({
+              ...executor,
+              execute: (options) => {
+                root ??= options.agentId
+                return executor.execute({
+                  ...options,
+                  ...(options.agentId === root ? { agentId: id } : {}),
+                  onTask: (task) =>
+                    Effect.andThen(
+                      Effect.sync(() => starters.set(task.id, number)),
+                      options.onTask?.(task) ?? Effect.void,
+                    ),
+                })
+              },
+            })
+            const agent = yield* (
+              tools === undefined
+                ? Agent.make
+                : (Agent.makeWith({ loopTools: tools.toolkit }).pipe(
+                    Effect.provide(tools.context),
+                  ) as Effect.Effect<
+                    Agent.Agent,
+                    never,
+                    AgentExecutor.AgentExecutor | Scope.Scope
+                  >)
+            ).pipe(
+              Effect.provideService(AgentExecutor.AgentExecutor, owned),
+              Effect.provideService(Scope.Scope, agentScope),
+              Effect.provideService(Logger.CurrentLogIds, ids),
+            )
+            return { agent, scope: agentScope }
+          })
+          let { agent, scope: agentScope } = yield* build()
           const messages = yield* Sessions.history(id)
           if (messages.length > 0) {
             MutableRef.set(agent.history, Prompt.fromMessages(messages))
@@ -537,8 +772,41 @@ export const layer = Layer.unwrap(
             id,
             scope: own,
             agent,
+            rebuild: Effect.gen(function* () {
+              const next = yield* build()
+              MutableRef.set(next.agent.history, live.agent.history.current)
+              MutableRef.set(
+                next.agent.environment,
+                live.agent.environment.current,
+              )
+              yield* Scope.close(agentScope, Exit.void)
+              agent = live.agent = next.agent
+              agentScope = next.scope
+            }),
+            // Each task is announced once: only one an earlier Agent started, and only if nothing reported it yet
+            // (SWAP-134 to SWAP-137).
+            ended: Effect.gen(function* () {
+              const due = endings.filter(
+                (entry) => entry.agent < agents.current,
+              )
+              for (const entry of due) endings.splice(endings.indexOf(entry), 1)
+              const notices: Array<string> = []
+              for (const { handle, task } of due) {
+                if (yield* handle.claim) notices.push(Messages.taskEnded(task))
+              }
+              return notices
+            }),
             directory,
             ids,
+            session,
+            current,
+            chunks: new Map(
+              Object.entries(
+                row.chunks === null
+                  ? {}
+                  : (JSON.parse(row.chunks) as Record<string, string>),
+              ),
+            ),
             frozen:
               row.system === null || row.fingerprint === null
                 ? undefined
@@ -555,17 +823,18 @@ export const layer = Layer.unwrap(
          * as the fingerprint of what chad would render now is the one it was frozen with.
          */
         const frozen =
-          (live: Live) =>
+          (live: Live, chunks: ReadonlyMap<string, string>) =>
           (options: {
             readonly toolInstructions: string
             readonly agentsMd: string
           }) => {
             const rendered = system(options)
+            // The fingerprint leaves the chunks out, so a chunk change keeps the prompt frozen (SWAP-129).
             const fingerprint = createHash("sha256")
               .update(rendered)
               .digest("hex")
             if (live.frozen?.fingerprint !== fingerprint) {
-              live.frozen = { system: rendered, fingerprint }
+              live.frozen = { system: rendered + folded(chunks), fingerprint }
               live.unsaved = true
             }
             return live.frozen.system
@@ -590,6 +859,7 @@ export const layer = Layer.unwrap(
         ) {
           for (const steer of steers) {
             turn.steers.splice(turn.steers.indexOf(steer), 1)
+            turn.steered.push(steer.message)
             // The status message's line and the log line of a steer the agent read come from here (DIS-30, FAIL-11).
             yield* (turn.status ?? StatusMessage.none).add(
               Messages.statusRead(steer.text),
@@ -637,43 +907,111 @@ export const layer = Layer.unwrap(
           // A resumed start sends the restart note in place of the owner's message when the stored history holds that
           // message. When a kill came before it was stored, the message goes first and the note after it (SES-161).
           const held = turn.resumed && (yield* Sessions.holds(turn.key))
-          const read = held
-            ? undefined
-            : yield* Attachments.read({
-                chat,
-                format,
-                message: request.message,
-                attachments: request.attachments,
-                directory: live.directory,
-                asImages: true,
-              })
+          const message = request.message
+          const read =
+            held || message === undefined
+              ? undefined
+              : yield* Attachments.read({
+                  chat,
+                  format,
+                  message,
+                  attachments: request.attachments,
+                  directory: live.directory,
+                  asImages: true,
+                })
           if (read !== undefined) yield* tell(chat, format, request, read)
-          // What chad posted in the thread since the last answer the owner read goes ahead of the prompt, in one update
-          // message that the system prompt does not change for (FAIL-125, FAIL-127, FAIL-131).
-          const pending = yield* Sessions.updates(live.id)
-          const text = Messages.update(pending.lines)
-          const update =
-            text === undefined || pending.last === undefined
-              ? []
-              : [
-                  Prompt.userMessage({
-                    content: [Prompt.textPart({ text })],
-                    options: Sessions.updateOf(pending.last),
-                  }),
-                ]
+          // The turn's own message: the owner's with the lines for its files, or the plugin's prompt, to which chad's
+          // core adds no line (SELF-40, API-82).
+          const own = held
+            ? undefined
+            : read !== undefined
+              ? Attachments.prompt(read, Sessions.promptOf(turn.key))
+              : request.plugin !== undefined
+                ? Prompt.userMessage({
+                    content: [Prompt.textPart({ text: request.plugin.prompt })],
+                    options: Sessions.promptOf(turn.key),
+                  })
+                : undefined
           const note = Prompt.userMessage({
             content: [Prompt.textPart({ text: Messages.restartNote() })],
           })
+          const main =
+            own === undefined ? [note] : [own, ...(turn.resumed ? [note] : [])]
+          // `Turn.prompt` is the text that starts the turn, with the lines for files and the restart note (API-50).
+          const publicTurn: PublicSession.Turn = {
+            ...turn.public!,
+            prompt: main.map(textOf).join("\n\n"),
+          }
+          turn.public = publicTurn
+          live.current.turn = publicTurn
+
+          // Every chunk is rendered and compared with what the session last saw. A render that failed keeps that text,
+          // and a plugin with no chunk now has its section removed (SWAP-30, SWAP-33, SWAP-35).
+          const rendered = yield* plugins.chunks(live.session)
+          const next = new Map<string, string>()
+          for (const [name, text] of rendered) {
+            const kept = text === undefined ? live.chunks.get(name) : text
+            if (kept !== undefined && kept !== "") next.set(name, kept)
+          }
+          // A session with no frozen prompt renders one now with the chunks folded in, and needs no update for them.
+          const fresh = live.frozen === undefined
+          const changes = fresh
+            ? []
+            : [
+                ...[...next]
+                  .filter(([name, text]) => live.chunks.get(name) !== text)
+                  .map(([plugin, text]) => ({ plugin, text })),
+                ...[...live.chunks.keys()]
+                  .filter((name) => !next.has(name))
+                  .map((plugin) => ({ plugin, text: undefined })),
+              ].sort((a, b) => (a.plugin < b.plugin ? -1 : 1))
+          // A prompt rendered again keeps the chunks the session saw before the turn, so the update says the rest.
+          const fold = fresh ? next : live.chunks
+
+          // What chad posted in the thread since the last answer the owner read and the chunks that changed go ahead
+          // of the prompt, in one update message that the system prompt does not change for (FAIL-125, FAIL-127,
+          // FAIL-131, SWAP-31, SWAP-117).
+          const pending = yield* Sessions.updates(live.id)
+          const outlived = yield* live.ended
+          const sections = [
+            ...outlived,
+            ...(changes.length === 0 ? [] : [Messages.chunksChanged(changes)]),
+            ...[Messages.updateBody(pending.lines)].filter(
+              (body): body is string => body !== undefined,
+            ),
+          ]
+          const update =
+            sections.length === 0
+              ? []
+              : [
+                  Prompt.userMessage({
+                    content: [
+                      Prompt.textPart({
+                        text: Messages.environmentUpdate(sections),
+                      }),
+                    ],
+                    ...(pending.last === undefined
+                      ? {}
+                      : { options: Sessions.updateOf(pending.last) }),
+                  }),
+                ]
+          // The `beforeTurn` texts follow the update, each its own message, in plugin name order (SES-60, API-49).
+          const contexts = yield* plugins.beforeTurn(publicTurn)
           const messages = [
             ...update,
-            ...(read === undefined
-              ? [note]
-              : [
-                  Attachments.prompt(read, Sessions.promptOf(turn.key)),
-                  ...(turn.resumed ? [note] : []),
-                ]),
+            ...contexts.map(({ plugin, text }) =>
+              Prompt.userMessage({
+                content: [
+                  Prompt.textPart({
+                    text: Messages.pluginContext(plugin, text),
+                  }),
+                ],
+              }),
+            ),
+            ...main,
           ]
           turn.size = messages.length
+          turn.initial = live.agent.history.current.content
           const known = new Set(live.agent.history.current.content)
           turn.known = known
           const steps = TurnLog.steps()
@@ -686,9 +1024,13 @@ export const layer = Layer.unwrap(
             // Every model call that succeeds clears the conditions a model call or the check at start began, whichever
             // turn makes it and however many of its calls came before (FAIL-94, FAIL-235). A key whose row does not
             // hold costs no read.
-            succeeded: Effect.andThen(
-              notices.clear(Notices.usageLimitKey),
-              notices.clear(Model.checkKey),
+            succeeded: Effect.all(
+              [
+                notices.clear(Notices.usageLimitKey),
+                notices.clear(Model.checkKey),
+                notices.clear(Notices.loggedOutKey),
+              ],
+              { discard: true },
             ),
             end: (reason) =>
               Deferred.doneUnsafe(
@@ -700,13 +1042,17 @@ export const layer = Layer.unwrap(
           const output = yield* live.agent
             .send({
               prompt:
-                read === undefined && update.length === 0
+                messages.length === 1 && messages[0] === note
                   ? Messages.restartNote()
                   : Prompt.fromMessages(messages),
-              system: frozen(live),
+              system: frozen(live, fold),
             })
             .pipe(Effect.provideService(TurnLog.CurrentOwner, owner))
           yield* saveFrozen(live)
+          if (!sameChunks(live.chunks, next)) {
+            live.chunks = next
+            yield* Sessions.chunks(live.id, Object.fromEntries(next))
+          }
           const ids = { session: live.id, turn: turn.id }
           return yield* output.pipe(
             Stream.runForEach((part) =>
@@ -734,6 +1080,7 @@ export const layer = Layer.unwrap(
                   )
                   yield* steered(live, turn, steers)
                 } else if (part._tag === "HistoryReplaced") {
+                  turn.compacted = true
                   for (const message of part.messages) known.add(message)
                   yield* Sessions.replace(
                     live.id,
@@ -772,6 +1119,8 @@ export const layer = Layer.unwrap(
               readonly chat: ChatService
               readonly format: Format
               waited: boolean
+              /** Whether an owner's message started the turn (MOD-42). */
+              readonly owner: boolean
             }
           | undefined
         let reference:
@@ -791,7 +1140,9 @@ export const layer = Layer.unwrap(
             ).pipe(Effect.asVoid)
           const ref: Login.SessionRef = {
             id: live.id,
-            ownerPresent: true,
+            get ownerPresent() {
+              return asking?.owner ?? true
+            },
             link: format.link(thread),
             post: (markdown) => say(() => markdown),
             notice: (line) => say((format) => format.subtext(line)),
@@ -829,12 +1180,24 @@ export const layer = Layer.unwrap(
           format: Format,
         ) =>
           Effect.suspend(() => {
-            asking = { turn, chat, format, waited: false }
+            asking = {
+              turn,
+              chat,
+              format,
+              waited: false,
+              owner: request.plugin === undefined,
+            }
             return modelPart(live, turn, request, chat, format)
           }).pipe(
             Effect.provideService(
               Login.CurrentSession,
               sessionRef(live, format),
+            ),
+            // A turn with no owner present never starts a login. It joins one that is pending, and otherwise takes
+            // only a token that is good or refreshes (API-83, MOD-94).
+            Effect.provideService(
+              Login.Unattended,
+              request.plugin !== undefined && !login.pending(),
             ),
           )
 
@@ -847,8 +1210,11 @@ export const layer = Layer.unwrap(
         ) {
           const prepared = yield* models.prepare(live.id, turn.settings)
           if (live.model?.generation !== prepared.generation) {
+            // A session behind the generation rebuilds its Agent here, at a turn's start, through the same bump a
+            // model change makes (SWAP-4, SWAP-8, MOD-18).
             if (live.model !== undefined) {
               yield* Scope.close(live.model.scope, Exit.void)
+              yield* live.rebuild
             }
             const scope = yield* Scope.fork(live.scope)
             live.model = {
@@ -889,6 +1255,8 @@ export const layer = Layer.unwrap(
             turn.steers.map((steer) => steer.text),
             candidates.map(Sessions.textOf),
           ).map((index) => turn.steers[index]!)
+          // A replace that no `HistoryReplaced` announced is a compaction of this turn all the same (SES-135).
+          if (!prefix) turn.compacted = true
           const write = prefix ? Sessions.append : Sessions.replace
           yield* write(
             live.id,
@@ -919,6 +1287,9 @@ export const layer = Layer.unwrap(
             }
             if (own.turn === turn) own.turn = undefined
             if (own.live?.ids.turn === turn.id) own.live.ids.turn = undefined
+            if (own.live?.current.turn?.id === turn.id) {
+              own.live.current.turn = undefined
+            }
             if (own.live !== undefined && own.live.view.lines === turn.status) {
               own.live.view.lines = StatusMessage.none
             }
@@ -931,11 +1302,15 @@ export const layer = Layer.unwrap(
           })
 
         /** Whether a reason's turn posts the failed-turn message. The others post a message of their own or nothing. */
-        const posted = (reason: Failed.Reason): reason is Messages.Posted =>
+        const posted = (
+          reason: Failed.Reason,
+          request: Request,
+        ): reason is Messages.Posted =>
           reason._tag === "ModelError" ||
           reason._tag === "Internal" ||
-          reason._tag === "LoginFailed" ||
-          reason._tag === "UsageLimit"
+          // A plugin-started turn posts nothing for these, and a notice goes instead (API-120).
+          (request.plugin === undefined &&
+            (reason._tag === "LoginFailed" || reason._tag === "UsageLimit"))
 
         /** What a failed turn's row records of its reason: the tag and the whole reason (STO-76). */
         const recorded = (reason: Failed.Reason) => ({
@@ -984,16 +1359,18 @@ export const layer = Layer.unwrap(
             // when it is delivered again.
             if (turn.status !== undefined) yield* turn.status.remove
             // In a server thread it replies to the owner's message, which pings them (FAIL-66).
-            if (posted(reason)) {
+            if (posted(reason, request)) {
               yield* Effect.all([
                 chats.get(connection),
                 chats.format(connection),
                 replyTo(request),
+                mentionOf(request),
               ]).pipe(
-                Effect.flatMap(([chat, format, reply]) =>
-                  post(
+                Effect.flatMap(([chat, format, reply, mention]) =>
+                  mentioned(
                     chat,
                     format,
+                    mention,
                     Messages.failedTurn(format, at - turn.at, reason, turn.id),
                     { replyTo: reply },
                   ),
@@ -1026,12 +1403,24 @@ export const layer = Layer.unwrap(
           const chat = yield* chats.get(request.connection)
           const format = yield* chats.format(request.connection)
           const reply = yield* replyTo(request)
+          const mention = yield* mentionOf(request)
           if (own.ready !== undefined) yield* Deferred.await(own.ready)
+          // The plugins are loaded before a turn starts, and the hooks a compaction queued have run (SWAP-38).
+          yield* plugins.ready
+          if (own.hooks !== undefined) {
+            const hooks = own.hooks
+            own.hooks = undefined
+            yield* hooks
+          }
           // The start is counted first, since the row holds the status message an earlier start posted.
           const counted = yield* Effect.exit(
             Effect.gen(function* () {
               // The gateway handler opens the row before it saves a message, and a `/new` swaps it in one transaction.
-              const session = own.live?.id ?? (yield* Sessions.current(key))?.id
+              const row =
+                own.live === undefined
+                  ? yield* Sessions.current(key)
+                  : undefined
+              const session = own.live?.id ?? row?.id
               if (session === undefined) {
                 return yield* Effect.die(new Error(`no session row for ${key}`))
               }
@@ -1041,10 +1430,38 @@ export const layer = Layer.unwrap(
                 session,
                 model: Model.text(turn.settings),
                 at: turn.at,
+                plugin:
+                  request.plugin === undefined
+                    ? undefined
+                    : {
+                        name: request.plugin.name,
+                        label: request.plugin.label,
+                      },
               })
               turn.id = started.turn
               turn.usage = turn.earlier = started.earlier
               turn.resumed = started.starts > 1
+              // A resumed turn keeps the first attempt's id and origin (API-51).
+              turn.public = {
+                id: turn.id,
+                session: own.live?.session ?? {
+                  id: session,
+                  thread,
+                  kind: row?.kind ?? "thread",
+                  directory: resolve(volume.sessions, session),
+                },
+                origin:
+                  request.plugin === undefined
+                    ? { _tag: "Message", message: request.message! }
+                    : {
+                        _tag: "Plugin",
+                        plugin: request.plugin.name,
+                        label: request.plugin.label,
+                      },
+                prompt: request.plugin?.prompt ?? request.message?.text ?? "",
+                startedAt: DateTime.makeUnsafe(started.at),
+                resumed: turn.resumed,
+              }
               return { session, started }
             }),
           )
@@ -1069,9 +1486,15 @@ export const layer = Layer.unwrap(
             if (started.status !== undefined) {
               yield* StatusMessage.discard(chat, thread, started.status)
             }
-            yield* post(chat, format, Messages.gaveUp(format, turn.id), {
-              replyTo: reply,
-            })
+            yield* mentioned(
+              chat,
+              format,
+              mention,
+              Messages.gaveUp(format, turn.id),
+              {
+                replyTo: reply,
+              },
+            )
             yield* TurnLog.failed(
               {
                 ...ids,
@@ -1087,28 +1510,17 @@ export const layer = Layer.unwrap(
           // gives up, above, writes neither. They come before anything that can fail, so that a turn that ends early has
           // its start in the log too (FAIL-12). A later start's status line waits for the status message.
           const early = StatusMessage.pending()
+          const origin = request.plugin === undefined ? "message" : "plugin"
           if (turn.resumed) {
-            yield* TurnLog.resumed(ids, "message", started.starts, early)
+            yield* TurnLog.resumed(ids, origin, started.starts, early)
           } else {
-            yield* TurnLog.started(ids, "message")
+            yield* TurnLog.started(ids, origin)
           }
-          // The status message comes before the Agent is built and before anything the turn sends (DIS-19). A
-          // delivery at boot comes before the platform may have answered.
-          yield* chats.ready(request.connection)
-          const status = yield* StatusMessage.open({
-            chat,
-            thread,
-            format,
-            // A resumed turn's header keeps the time its first attempt started.
-            at: started.at,
-            stored: started.status,
-            interval: timings.statusEditInterval,
-            scope,
-          })
-          // A thread that is gone ends the turn before the model runs, and nothing is posted (DIS-94, FAIL-207).
-          if (status === "gone") {
+          /** Ends the turn before the model runs and before anything is posted in its thread. */
+          const endsEarly = Effect.fnUntraced(function* (
+            reason: Failed.Reason,
+          ) {
             const at = Date.now()
-            const reason: Failed.Reason = { _tag: "ThreadGone" }
             yield* Sessions.ended({
               key: turn.key,
               outcome: "failed",
@@ -1125,6 +1537,33 @@ export const layer = Layer.unwrap(
               reason._tag,
             )
             return { _tag: "Failed", reason } as const
+          })
+          // A turn a plugin started on a chad that is logged out, with no login pending, ends before its status message
+          // is posted, so a skipped run makes no sound in the thread (API-83, DIS-91, FAIL-175).
+          if (request.plugin !== undefined && (yield* support.loggedOut)) {
+            yield* notices.raise({
+              key: Notices.loggedOutKey,
+              text: Messages.loggedOutNotice,
+            })
+            return yield* endsEarly({ _tag: "LoggedOut" })
+          }
+          // The status message comes before the Agent is built and before anything the turn sends (DIS-19). A
+          // delivery at boot comes before the platform may have answered.
+          yield* chats.ready(request.connection)
+          const status = yield* StatusMessage.open({
+            chat,
+            thread,
+            format,
+            // A resumed turn's header keeps the time its first attempt started.
+            at: started.at,
+            stored: started.status,
+            interval: timings.statusEditInterval,
+            scope,
+          })
+          // A thread that is gone ends the turn before the model runs, and nothing is posted (DIS-94, FAIL-207).
+          if (status === "gone") {
+            yield* threadGone(request)
+            return yield* endsEarly({ _tag: "ThreadGone" })
           }
           turn.status = status
           // The id goes into the row as soon as the post returns, before anything else of the turn (DIS-90, STO-75).
@@ -1215,18 +1654,29 @@ export const layer = Layer.unwrap(
           }
           if (outcome._tag === "Failed") {
             const reason = outcome.reason
-            // The owner is told in the thread, so the condition's row records the limit and no notice goes (FAIL-94,
-            // FAIL-319).
+            // An owner's turn tells the owner in the thread, so the condition's row records the limit and no notice goes
+            // (FAIL-94, FAIL-319). A plugin's turn posts nothing for it, so the notice goes (FAIL-174, FAIL-210).
             if (reason._tag === "UsageLimit") {
-              yield* notices.record({
+              const notice = {
                 key: Notices.usageLimitKey,
                 text: Messages.usageLimitNotice(reason.resetsAt),
+              }
+              yield* request.plugin === undefined
+                ? notices.record(notice)
+                : notices.raise(notice)
+            }
+            // A plugin's turn that a failed login ended begins the logged-out condition (FAIL-210, MOD-106).
+            if (reason._tag === "LoginFailed" && request.plugin !== undefined) {
+              yield* notices.raise({
+                key: Notices.loggedOutKey,
+                text: Messages.loggedOutNotice,
               })
             }
-            if (posted(outcome.reason)) {
-              yield* post(
+            if (posted(outcome.reason, request)) {
+              yield* mentioned(
                 chat,
                 format,
+                mention,
                 Messages.failedTurn(
                   format,
                   at - turn.at,
@@ -1251,8 +1701,15 @@ export const layer = Layer.unwrap(
           // server thread (DIS-55). An answer that could not be posted, also the second time (DIS-54), leaves the turn
           // `Answered`, because the history holds it (FAIL-51), and the model is told that the owner has not read it
           // (FAIL-129).
+          // A plugin-started turn's answer that is exactly `[SILENT]` is not posted (API-77). Its answer starts with
+          // the mention it asked for (API-76).
           const delivered = yield* outcome._tag === "Answered"
-            ? post(chat, format, outcome.text, { replyTo: reply, answer: ids })
+            ? request.plugin !== undefined && outcome.text.trim() === silent
+              ? Effect.succeed("posted" as const)
+              : mentioned(chat, format, mention, outcome.text, {
+                  replyTo: reply,
+                  answer: ids,
+                })
             : post(chat, format, Messages.stopped(format, at - turn.at))
           // An answer for a thread that no longer exists ends the turn `ThreadGone`, which posts nothing (FAIL-44,
           // FAIL-64).
@@ -1271,6 +1728,7 @@ export const layer = Layer.unwrap(
               ),
             )
             yield* TurnLog.failed(fields, reason._tag)
+            yield* threadGone(request)
             return { _tag: "Failed", reason } as const
           }
           if (delivered === "failed" && outcome._tag === "Answered") {
@@ -1301,6 +1759,7 @@ export const layer = Layer.unwrap(
           turn: Turn,
           request: Request,
         ) {
+          const message = request.message!
           // A message that was on its way into a turn when the turn was stopped is dropped with the ones that waited.
           const arrived = !turn.stopped
           const missed = Effect.map(
@@ -1317,7 +1776,7 @@ export const layer = Layer.unwrap(
           const read = yield* Attachments.read({
             chat,
             format,
-            message: request.message,
+            message,
             attachments: request.attachments,
             directory: live.directory,
             asImages: false,
@@ -1327,6 +1786,7 @@ export const layer = Layer.unwrap(
           const entry: Steer = {
             key: request.key,
             text: read.text,
+            message,
             done: Deferred.makeUnsafe(),
             fiber: undefined,
           }
@@ -1372,11 +1832,32 @@ export const layer = Layer.unwrap(
           // Closing the old executor stops the background processes it started.
           if (old.live !== undefined)
             yield* Scope.close(old.live.scope, Exit.void)
+          const previous = yield* Sessions.current(key)
           const id = yield* Sessions.renew(key, payload.kind, {
             id: payload.message,
             at: payload.at,
           })
           yield* post(chat, format, Messages.newSession(format))
+          // The new session's first turn waits for the hooks each plugin queued ahead of `Reset`, and for `Reset`
+          // itself, each inside its budget (API-59, API-61, SWAP-150).
+          if (previous !== undefined) {
+            const hooks = yield* plugins.onSession({
+              _tag: "Reset",
+              previous: {
+                id: previous.id,
+                thread,
+                kind: previous.kind ?? "thread",
+                directory: resolve(volume.sessions, previous.id),
+              },
+              session: {
+                id,
+                thread,
+                kind: payload.kind,
+                directory: resolve(volume.sessions, id),
+              },
+            })
+            yield* hooks
+          }
           yield* Queue.ran("/new", Queue.caller(undefined), "changed", {
             session: id,
           })
@@ -1433,6 +1914,89 @@ export const layer = Layer.unwrap(
           return { _tag: "Failed", reason } as const
         })
 
+        /**
+         * Runs one turn of a request on the session as it is now, and queues the plugins' `afterTurn` for it however
+         * it ended, a stop included (API-54, SES-69). A compaction in it queues `Compacted` after that (API-60).
+         */
+        const runTurn = Effect.fnUntraced(function* (
+          own: State,
+          request: Request,
+        ) {
+          const turn: Turn = {
+            id: Sessions.turnId(),
+            key: request.key,
+            at: Date.now(),
+            open: Deferred.makeUnsafe(),
+            ended: Deferred.makeUnsafe(),
+            steers: [],
+            usage: Sessions.noUsage,
+            earlier: Sessions.noUsage,
+            fiber: undefined,
+            stopped: false,
+            reset: false,
+            closing: false,
+            known: undefined,
+            prompted: false,
+            size: 1,
+            resumed: false,
+            status: undefined,
+            settings: models.settings(),
+            steps: TurnLog.steps(),
+            steered: [],
+            initial: undefined,
+            compacted: false,
+            public: undefined,
+          }
+          own.turn = turn
+          yield* take(request.key)
+          const outcome = yield* run(own, turn, request).pipe(
+            Effect.catchCause(failed(turn, own, request)),
+            Effect.ensuring(close(own, turn)),
+          )
+          if (outcome !== unrecorded && turn.public !== undefined) {
+            yield* ended(own, turn, turn.public, outcome)
+          }
+          return outcome
+        })
+
+        /** Hands a turn that ended to the plugins, off the reply path. */
+        const ended = Effect.fnUntraced(function* (
+          own: State,
+          turn: Turn,
+          publicTurn: PublicSession.Turn,
+          outcome: Outcome,
+        ) {
+          const live = own.live
+          const initial = new Set(turn.initial ?? [])
+          // Built after the reconcile, so it has what only the reconcile wrote (API-107).
+          const appended =
+            live === undefined || turn.initial === undefined
+              ? []
+              : live.agent.history.current.content.filter(
+                  (message) =>
+                    message.role !== "system" && !initial.has(message),
+                )
+          yield* plugins.afterTurn({
+            turn: publicTurn,
+            steers: turn.steered,
+            outcome: publicOutcome(outcome),
+            appended,
+          })
+          if (turn.compacted) {
+            // clanka dropped the update messages when it compacted, so the next turn renders the system prompt again
+            // with the chunks folded in. The row forgets it too, for a restart before that turn (SES-121, SWAP-25, SWAP-36).
+            if (live !== undefined) {
+              live.frozen = undefined
+              live.unsaved = false
+              yield* Sessions.thaw(live.id)
+            }
+            own.hooks = yield* plugins.onSession({
+              _tag: "Compacted",
+              session: publicTurn.session,
+            })
+          }
+        })
+
         return Session.of({
           message: ({ payload }) =>
             Effect.gen(function* () {
@@ -1486,6 +2050,7 @@ export const layer = Layer.unwrap(
                 connection: payload.connection,
                 message: decoded.value,
                 attachments: payload.attachments,
+                plugin: undefined,
               }
               if (first !== undefined && first.key !== payload.key) {
                 yield* Deferred.await(first.taken)
@@ -1497,33 +2062,7 @@ export const layer = Layer.unwrap(
                 if (running === undefined) {
                   // No turn starts in the wait of a graceful stop. The request stays unanswered for the next start.
                   if (stopping.stopping()) return yield* Effect.never
-                  const turn: Turn = {
-                    id: Sessions.turnId(),
-                    key: payload.key,
-                    at: Date.now(),
-                    open: Deferred.makeUnsafe(),
-                    ended: Deferred.makeUnsafe(),
-                    steers: [],
-                    usage: Sessions.noUsage,
-                    earlier: Sessions.noUsage,
-                    fiber: undefined,
-                    stopped: false,
-                    reset: false,
-                    closing: false,
-                    known: undefined,
-                    prompted: false,
-                    size: 1,
-                    resumed: false,
-                    status: undefined,
-                    settings: models.settings(),
-                    steps: TurnLog.steps(),
-                  }
-                  own.turn = turn
-                  yield* take(payload.key)
-                  const outcome = yield* run(own, turn, request).pipe(
-                    Effect.catchCause(failed(turn, own, request)),
-                    Effect.ensuring(close(own, turn)),
-                  )
+                  const outcome = yield* runTurn(own, request)
                   // A turn whose end could not be written leaves its request unprocessed, as a crash would, and
                   // cluster delivers it at the next start (FAIL-135). The turn is closed, so the thread goes on.
                   if (outcome === unrecorded) return yield* Effect.never
@@ -1531,6 +2070,70 @@ export const layer = Layer.unwrap(
                 }
                 const outcome = yield* steer(running, request)
                 if (outcome !== "next") return outcome
+              }
+            }).pipe(Effect.ensuring(take(payload.key)), Effect.orDie),
+          plugin: ({ payload }) =>
+            Effect.gen(function* () {
+              // A request whose turn already ended is answered from the row, and starts nothing.
+              const row = yield* Sessions.turn(payload.key)
+              if (row !== undefined && row.outcome !== null) {
+                return row.outcome === "answered"
+                  ? ({ _tag: "Answered", text: "" } as const)
+                  : row.outcome === "stopped"
+                    ? ({ _tag: "Stopped" } as const)
+                    : ({
+                        _tag: "Failed",
+                        reason: Failed.fromRow(row.failure, row.failure_detail),
+                      } as const)
+              }
+              const request: Request = {
+                key: payload.key,
+                connection: payload.connection,
+                message: undefined,
+                attachments: [],
+                plugin: {
+                  name: payload.plugin,
+                  label: payload.label,
+                  prompt: payload.prompt,
+                  mention: payload.mention,
+                },
+              }
+              if (first !== undefined && first.key !== payload.key) {
+                yield* Deferred.await(first.taken)
+              }
+              // A thread with no session gets one for the turn, of the kind effect/chat reads for it. A thread the
+              // platform does not have ends the turn `ThreadGone` (API-116 to API-118).
+              if ((yield* Sessions.current(key)) === undefined) {
+                yield* chats.ready(payload.connection)
+                const chat = yield* chats.get(payload.connection)
+                const info = yield* Effect.exit(chat.getThread(thread))
+                if (Exit.isFailure(info) && Post.notFound(info.cause)) {
+                  yield* take(payload.key)
+                  yield* threadGone(request)
+                  return {
+                    _tag: "Failed",
+                    reason: { _tag: "ThreadGone" },
+                  } as const
+                }
+                const kind = Exit.isSuccess(info) ? info.value.kind : "thread"
+                yield* Sessions.open(
+                  key,
+                  kind === "direct" || kind === "channel" ? kind : "thread",
+                )
+              }
+              // A plugin's turn waits for the session to be idle and never steers (API-72). Owners' messages that
+              // waited on the same turn take the session first (SES-164).
+              while (true) {
+                const own = state
+                if (own.turn !== undefined) {
+                  yield* Deferred.await(own.turn.ended)
+                  yield* Effect.yieldNow
+                  continue
+                }
+                if (stopping.stopping()) return yield* Effect.never
+                const outcome = yield* runTurn(own, request)
+                if (outcome === unrecorded) return yield* Effect.never
+                return outcome
               }
             }).pipe(Effect.ensuring(take(payload.key)), Effect.orDie),
           stop: ({ payload }) =>
@@ -1549,7 +2152,12 @@ export const layer = Layer.unwrap(
               // From here on a message belongs to the new session, whatever is left to do for the old one.
               const old = state
               const ready = Deferred.makeUnsafe<void>()
-              state = { live: undefined, turn: undefined, ready }
+              state = {
+                live: undefined,
+                turn: undefined,
+                ready,
+                hooks: undefined,
+              }
               yield* reset(old, payload).pipe(
                 Effect.catchCause((cause) =>
                   Effect.logError("A reset could not be finished", cause),

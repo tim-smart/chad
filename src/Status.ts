@@ -86,9 +86,17 @@ export const render = (view: View): string => {
     ...report.filesystem.map((warning) => `filesystem: ${warning}`),
     ...model(report.model),
     ...connections(report.connections),
+    ...plugins(report.plugins),
     ...blocks(report),
   ].join("\n")
 }
+
+/** One line per loaded plugin, with its warnings and errors since it loaded and the latest of them (FAIL-117). */
+const plugins = (list: Report["plugins"]): ReadonlyArray<string> =>
+  (list ?? []).map(
+    ({ name, warnings, errors, latest }) =>
+      `plugin: ${name}, ${warnings} warnings, ${errors} errors${latest === undefined ? "" : ` (latest: ${latest})`}`,
+  )
 
 /** A time as the blocks print it: UTC, to the second. */
 const time = (at: number) => `${new Date(at).toISOString().slice(0, 19)}Z`

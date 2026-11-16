@@ -452,6 +452,18 @@ const cut = (line: TurnUpdate) =>
  * drops. Nothing is sent when there is no line.
  */
 export const update = (lines: ReadonlyArray<Update>): string | undefined => {
+  const body = updateBody(lines)
+  return body === undefined ? undefined : environmentUpdate([body])
+}
+
+/** One `<environment-update>` message of several sections, which a compaction drops (SWAP-117). */
+export const environmentUpdate = (sections: ReadonlyArray<string>) =>
+  `<environment-update>\n${sections.join("\n\n")}\n</environment-update>`
+
+/** The section of the update message that tells what chad posted in the thread, or nothing when there is no line. */
+export const updateBody = (
+  lines: ReadonlyArray<Update>,
+): string | undefined => {
   const turns = lines.filter((line): line is TurnUpdate => "turn" in line)
   const notices = lines.filter(
     (line): line is Exclude<Update, TurnUpdate> => !("turn" in line),
@@ -485,7 +497,7 @@ export const update = (lines: ReadonlyArray<Update>): string | undefined => {
     body.push("chad also posted these notices in the thread:")
     for (const notice of notices) body.push(`- ${notice.text}`)
   }
-  return `<environment-update>\n# What chad posted in this thread\n\n${body.join("\n")}\n</environment-update>`
+  return `# What chad posted in this thread\n\n${body.join("\n")}`
 }
 
 /** `/stop` found nothing running (DIS-76). */
@@ -692,3 +704,61 @@ export const alreadyLoggedIn =
 /** `chad logout`, which stops no running turn (MOD-61, CLI-111, MOD-121). */
 export const loggedOut =
   "chad is logged out of Codex. A turn that is running is not stopped: it finishes on the connection it has, and the next one asks for a login."
+
+/** A hook ran past its budget, as the first line of its failure (API-43). */
+export const hookTimedOut = "ran past its budget"
+
+/** The same hook failed 3 times in a row (FAIL-163). */
+export const hookFailing = (plugin: string, hook: string, first: string) =>
+  `\`${plugin}\`'s \`${hook}\` hook has failed 3 times in a row (${first}). It stays on.`
+
+/** A plugin's tool has a name that someone else holds, which fails its load (API-33). */
+export const toolTaken = (name: string, holder: string) =>
+  `The tool name "${name}" is already used by ${holder}.`
+
+/** A plugin-started turn whose thread is gone (FAIL-173). */
+export const threadGone = (plugin: string, label: string) =>
+  `\`${plugin}\` could not run \`${label}\` because its thread is gone.`
+
+/** The update message's part for the chunks that changed or went (SWAP-31, SWAP-33). */
+export const chunksChanged = (
+  changes: ReadonlyArray<{
+    readonly plugin: string
+    readonly text: string | undefined
+  }>,
+) =>
+  [
+    "# Plugin context changed",
+    ...changes.map((change) =>
+      change.text === undefined
+        ? `\nThe "${change.plugin}" section of your instructions no longer applies.`
+        : `\nThe "${change.plugin}" section of your instructions is replaced by:\n\n${change.text}`,
+    ),
+  ].join("\n")
+
+/** A `beforeTurn` text, as its own user message (SES-60). */
+export const pluginContext = (plugin: string, text: string) =>
+  `<plugin-context plugin="${plugin}">\n${text}\n</plugin-context>`
+
+/** `Turns.start` called from a tool for the thread of its own turn (API-79, API-G17). */
+export const startInOwnThread =
+  "Turns.start cannot run a turn in the thread of the turn that called this tool, because that turn would wait for this one. Use Turns.queue, which returns once the turn is queued."
+
+/** A `Turns` call whose request could not be saved (API-130, API-135, API-133, API-G17). */
+export const turnNotSaved = (what: "started" | "queued", why: string) =>
+  `The turn was not ${what}, because chad could not save the request: ${why}`
+
+/** The `logged-out` notice (FAIL-175). */
+export const loggedOutNotice =
+  "chad is logged out. Send a message or run `chad login`. Scheduled runs are skipped until then."
+
+/** A background task that ended after the Agent that started it was rebuilt, in clanka's own form (SWAP-134). */
+export const taskEnded = (task: {
+  readonly id: string
+  readonly kind: string
+  readonly status: string
+  readonly exitCode?: number | undefined
+}) =>
+  `<task id="${task.id}" kind="${task.kind}" status="${task.status}"${task.exitCode === undefined ? "" : ` exitCode="${task.exitCode}"`}>
+To read the output, call taskOutput(${JSON.stringify(task.id)}).
+</task>`

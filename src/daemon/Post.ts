@@ -42,7 +42,7 @@ const failure = (cause: Cause.Cause<unknown>) =>
   cause.reasons.find((reason) => reason._tag === "Fail")?.error
 
 /** Whether a post failed because the platform does not have the thread or the message (FAIL-44). */
-const notFound = (cause: Cause.Cause<unknown>) => {
+export const notFound = (cause: Cause.Cause<unknown>) => {
   const error = failure(cause)
   const chat =
     error instanceof ChatMarkdown.ChatMarkdownError &&

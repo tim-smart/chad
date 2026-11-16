@@ -103,6 +103,7 @@ test("CLI-46a CLI-237 chad status --json prints the facts as one JSON object on 
     problems: [],
     recent: { failed: [], last: [], today: 0, week: 0 },
     model: { spec: "openai-compat/fake", login: "not-needed" },
+    plugins: [],
   })
   expect(Array.isArray(answered.filesystem)).toBe(true)
 

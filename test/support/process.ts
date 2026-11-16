@@ -43,6 +43,8 @@ export interface Options {
   readonly gc?: boolean
   /** Stands in for the process table the driver reads, for a scenario that makes the read fail. */
   readonly processTable?: () => ReadonlyArray<Reap.Row>
+  /** Loads the asphodel fixture on every start, see `Config`. */
+  readonly asphodel?: Config["asphodel"]
 }
 
 /** How a child ended: its exit code, or the signal that killed it. */
@@ -147,6 +149,7 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
       messageRetention: ms(options.timings?.messageRetention),
     },
     gc: undefined,
+    asphodel: options.asphodel,
   }
   const environment = {
     CHAD_DATA: data,

@@ -133,6 +133,27 @@ export const PluginName = Context.Reference<string | undefined>(
   { defaultValue: () => undefined },
 )
 
+/**
+ * The counts of the plugin chad runs something for, which every warning and error line it logs adds to (FAIL-117).
+ */
+export const PluginCounts = Context.Reference<
+  { warnings: number; errors: number; latest: string | undefined } | undefined
+>("chad/PluginCounts", { defaultValue: () => undefined })
+
+/** Adds a plugin's line to its counts, when it is a warning or an error. */
+const count = (entry: Entry) => {
+  const counts = entry.fiber.getRef(PluginCounts)
+  if (counts === undefined || LogLevel.isLessThan(entry.logLevel, "Warn")) {
+    return
+  }
+  if (LogLevel.isLessThan(entry.logLevel, "Error")) counts.warnings++
+  else counts.errors++
+  const message = Array.isArray(entry.message)
+    ? entry.message[0]
+    : entry.message
+  counts.latest = typeof message === "string" ? message : String(message)
+}
+
 /** The console a fiber sees when nothing provided one. clanka provides a script's own console to its fibers. */
 const daemonConsole = Effect.runSync(Console.consoleWith(Effect.succeed))
 
@@ -173,8 +194,13 @@ const withIds = (
 ) => {
   if (Object.keys(ids).length === 0) return entry
   const own = entry.fiber.getRef(References.CurrentLogAnnotations)
+  // A plugin's own line carries `plugin.log` unless it set an event itself (FAIL-30).
   const annotations = {
-    ...("event" in own ? { event: own["event"] } : {}),
+    ...("event" in own
+      ? { event: own["event"] }
+      : ids["plugin"] === undefined
+        ? {}
+        : { event: "plugin.log" }),
     ...ids,
     ...own,
   }
@@ -213,6 +239,7 @@ export const layer = (options: {
   }
   const logger = Logger.make<unknown, void>((entry) => {
     const ids = idsOf(entry.fiber)
+    if (ids["plugin"] !== undefined) count(entry)
     if (entry.fiber.getRef(Console.Console) !== daemonConsole) {
       if (!LogLevel.isLessThan(entry.logLevel, "Info")) {
         Logger.defaultLogger.log(entry)

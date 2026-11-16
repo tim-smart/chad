@@ -66,6 +66,15 @@ export interface State {
   recent: Effect.Effect<RecentTurns, unknown> | undefined
   /** The model and the login, which the boot hands over once it has loaded them. */
   readonly account: Deferred.Deferred<Account>
+  /** The loaded plugins' counts, which the boot hands over once it has loaded them (FAIL-117). */
+  plugins: () => ReadonlyArray<{
+    readonly name: string
+    readonly counts: {
+      readonly warnings: number
+      readonly errors: number
+      readonly latest: string | undefined
+    }
+  }>
 }
 
 /** What `chad login`, `chad logout` and `chad status` reach of the model in the daemon. */
@@ -145,6 +154,7 @@ export const makeState = (): State => ({
   problems: [],
   held: undefined,
   recent: undefined,
+  plugins: () => [],
 })
 
 /**
@@ -193,6 +203,12 @@ const report = (state: State): Effect.Effect<Report> =>
       problems: [...state.problems.flatMap((check) => check()), ...held],
       recent,
       ...(model === undefined ? {} : { model }),
+      plugins: state.plugins().map(({ name, counts }) => ({
+        name,
+        warnings: counts.warnings,
+        errors: counts.errors,
+        ...(counts.latest === undefined ? {} : { latest: counts.latest }),
+      })),
     }),
   )
 

@@ -163,6 +163,7 @@ Incoming files are handled when a turn starts, and the rules for them are in 03-
 - **DIS-69** The `sendFile` plugin uses only the plugin API. It posts through effect/chat's `Chat` service and finds the session's thread through `Session.CurrentSession` (see 06-plugin-api.md). Its source ships with chad and is reachable as an example at `/data/repo/examples/send-file.ts` (see 14-self-edit-skill.md).
 - **DIS-105** The `caption` given to `sendFile` is the text of the message that carries the file.
 - **DIS-106** The description of the `sendFile` tool says that it sends any file the agent can read.
+- **DIS-120** `sendFile` resolves a relative path against the session's directory (API-136), where the agent's scripts run. On success it returns "sent <file name>". Its errors are "cannot read <path>: <reason>", "<path> is not a file", "<path> is <size> bytes, and a file over 10 MiB cannot be sent" and "the chat refused <file name>: <reason>". This settles DIS-G15.
 - **DIS-107** `sendFile` is not an owner-only tool (see 06-plugin-api.md). It posts only in the session's own thread, and a plugin-started turn such as a cron job can call it.
 
 The stand-in for the plugin that the image prototype shipped, with the caption added. Its handler is a stub that posts nothing.
@@ -362,6 +363,7 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-117 | Build, stage 2, amended by Tim's ruling that a background sub-agent and every sub-agent under it show no scripts, TIM-560 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | `discord-ui` |
 | DIS-118 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `discord-ui` |
 | DIS-119 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `discord-ui` |
+| DIS-120 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `plugin-api` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 
