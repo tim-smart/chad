@@ -65,12 +65,8 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 
 A binding rule (ORD-47) that a builder reported as wrong or impossible to build, with one sentence on what is wrong. Tim rules on each one. An entry on a rule that is a default does not wait for Tim: the open stage settles it and moves it to the simplified rules (ORD-51).
 
-| Rule    | What is wrong                                                                                                                                                                                                                                                                                                                               |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CRED-77 | It says what the agent does, which only a real model following the `credentials` skill can show, and Tim's fifth ruling of 2026-11-15 withdrew the skill runs, the one check that watched a real model follow a bundled skill.                                                                                                              |
-| CRED-78 | As CRED-77, only a real model that is handed a pasted password can show it, and the skill runs are withdrawn.                                                                                                                                                                                                                               |
-| IMG-130 | It says when a stop makes IMG-120's attempt to write turn ends, and Tim's fifth ruling of 2026-11-15 took that attempt out of IMG-120 without naming this rule, so there is nothing left for it to time.                                                                                                                                    |
-| CLI-161 | A statement of `chad db query` or `chad db check` holds the CLI's one thread until SQLite returns, so no handler can run and SIGTERM ends the command by the signal itself, which a shell reports as 143, and exiting 130 there would take a second process, which STO-80 rules out; every other client command exits 130 for both signals. |
+| Rule | What is wrong |
+| ---- | ------------- |
 
 ## Simplified rules
 

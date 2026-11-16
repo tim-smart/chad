@@ -181,7 +181,7 @@ Several things change what chad has loaded, and two of them running at once coul
 - **CLI-49** (a) A usage error exits 2. effect's CLI module exits 1 for a usage error unless chad maps it. (b) The exception is `chad secret run`, whose own usage errors exit 125 (CLI-103).
 - **CLI-50** Every boolean flag is declared with a default, because effect's CLI module treats a bare boolean flag as required.
 - **CLI-51** (a) The client commands use the exit codes in the table below and no others. (b) The one exception is `chad secret run`, which passes its child's exit code through, so any code can come out of it.
-- **CLI-161** A client command that is ended by a signal exits 130. Ctrl-C gives that code, and so does SIGTERM, because effect's default teardown exits 130 for both. `chad serve` keeps its own codes of 0 and 1.
+- **CLI-161** A client command that is ended by a signal exits 130. Ctrl-C gives that code, and so does SIGTERM, because effect's default teardown exits 130 for both. The exception is `chad db query` and `chad db check` while their statement runs. `node:sqlite` holds the CLI's one thread until SQLite returns, so no handler runs and the signal ends the process by its default action, which a shell reports as 130 for Ctrl-C and 143 for SIGTERM. `chad serve` keeps its own codes of 0 and 1.
 - **CLI-162** Of the flags that effect's CLI module adds by itself, chad keeps `--help` and `--version` and removes `--completions`, `--wizard` and `--log-level`. `--log-level` would be a second switch next to `CHAD_LOG_LEVEL`, and a wizard would prompt an agent that has no terminal.
 - **CLI-216** A usage error prints the usage of the command it was made on and then the error, as effect's CLI module words them, and exits 2. An unknown command is a usage error. `chad` with no command prints the usage and exits 0, as `chad --help` does, and `chad --version` prints `chad v<version>`.
 
@@ -195,7 +195,7 @@ Several things change what chad has loaded, and two of them running at once coul
 | 125 | `chad secret run` was used wrongly or was given a secret name that does not exist. | The message is on stderr and the child is not started. |
 | 126 | `chad secret run` found its command and could not execute it. | The command is a file that is not executable. |
 | 127 | `chad secret run` did not find its command. | The message is on stderr. |
-| 130 | Interrupted by a signal. | Ctrl-C. SIGTERM. |
+| 130 | Interrupted by a signal. | Ctrl-C. SIGTERM. For the exception during a `chad db` statement, see CLI-161. |
 
 `chad serve` has its own exit codes, which are 0 for a stop it finished, 1 for a stop cut by its own deadline, 1 when it was refused the lock and 1 when it found a newer `state/version`. They are in 01-image-and-volume.md, 02-storage.md and 16-failures-logs-status.md.
 
@@ -721,7 +721,7 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-158 | TIM-559 ruling on CLI-G6 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | CLI-159 | TIM-559 ruling on CLI-G7 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | CLI-160 | TIM-559 ruling on CLI-G7 and MCP-G6, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
-| CLI-161 | TIM-559 ruling on CLI-G5 | Architect (Tim has not read) | read | TIM-559 | `rule` | `cli` |
+| CLI-161 | TIM-559 ruling on CLI-G5, amended by Tim's ruling on the last four stopped rules, chat 2026-11-16 | Architect (Tim has not read) | read | TIM-559 | `rule` | `cli` |
 | CLI-162 | TIM-559 ruling on CLI-G17 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | CLI-163 | TIM-559 ruling on CLI-G11 and SELF-G2 | Architect (Tim has not read) | not run | TIM-549, TIM-559 | `rule` | `apply` |
 | CLI-164 | TIM-559 ruling on CLI-G11 and SELF-G2 | Architect (Tim has not read) | not run | TIM-549, TIM-559 | `rule` | `apply` |

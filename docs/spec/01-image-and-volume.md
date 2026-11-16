@@ -476,7 +476,7 @@ A graceful stop starts when the daemon gets SIGTERM, which `docker stop` and Kub
 - **IMG-86** The daemon logs what a stop dropped, as the event `stop.dropped`. Hooks dropped in a stop and a stop cut by the deadline are log lines only, and no notice is sent for them (see 16-failures-logs-status.md).
 - **IMG-87** The examples set a 90 second grace period.
 - **IMG-120** The log writer flushes on every exit path chad controls (see 16-failures-logs-status.md).
-- **IMG-130** The attempt of IMG-120 to write turn ends runs straight after step 2 of IMG-83, the wait for requests in flight. No turn ends after that step, so the deadline can cut the attempt only when the disk is still full.
+- **IMG-130** Withdrawn.
 - **IMG-131** A stop gives a nightly prune that is in progress no wait of its own (see 02-storage.md for the prune and for how its next run finishes one that an exit cut).
 
 A stop also writes `stop.started` when the SIGTERM handler runs and `stop.ended`, with the duration, when it finishes inside the deadline. The rules for both, and the full table of event names, are in 16-failures-logs-status.md.
@@ -735,7 +735,7 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-127 | TIM-559 ruling on IMG-G5 and STO-G5, TIM-559 cold read, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | IMG-128 | TIM-559 ruling on IMG-G4 (support: the stand-in daemon of TIM-553 used these names) | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | IMG-129 | TIM-559 ruling on IMG-G7 (support: the prototype run exited 1) | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| IMG-130 | TIM-559 ruling on IMG-G9 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| IMG-130 | TIM-559 ruling on IMG-G9, withdrawn by Tim's ruling on the last four stopped rules, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | IMG-131 | TIM-559 ruling on IMG-G8, STO-G25 and SES-G16 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | IMG-132 | TIM-559 rulings on IMG-G5 and IMG-G6, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
 | IMG-133 | TIM-559 main session ruling on Q8, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `repo` |

@@ -362,8 +362,8 @@ These were never run. A real model following the skill, any of it on Docker (the
 | CRED-74 | TIM-546 item 15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | - |
 | CRED-75 | TIM-546 item 15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | - |
 | CRED-76 | TIM-546 item 15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-546 | `rule` | - |
-| CRED-77 | TIM-546 item 17 | Architect (Tim has not read) | not run |  | `rule` | `live` |
-| CRED-78 | TIM-554 decision 3, replacing part of TIM-546 item 17, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `live` |
+| CRED-77 | TIM-546 item 17, amended by Tim's ruling on the last four stopped rules, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `definition` | - |
+| CRED-78 | TIM-554 decision 3, replacing part of TIM-546 item 17, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16, amended by Tim's ruling on the last four stopped rules, chat 2026-11-16 | Architect (Tim has not read) | run |  | `definition` | - |
 | CRED-79 | TIM-546 item 17 | Architect (Tim has not read) | not run |  | `definition` | - |
 | CRED-80 | TIM-546 item 21, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `settings` |
 | CRED-81 | TIM-546 item 21 | Architect (Tim has not read) | run |  | `rule` | `settings` |
