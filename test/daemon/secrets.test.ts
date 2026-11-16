@@ -376,6 +376,7 @@ test("TST-97 CLI-97 CRED-9 CRED-10 CRED-11 CRED-80 CRED-81 CRED-82 CRED-130 CRED
   }
   await change(["secret", "set", "CANARY"], canary)
   await change(["plugin", "reload", "canary"])
+  await change(["plugin", "purge", "canary"])
   await change(["apply", "-m", "Nothing"])
   await change(["timezone", "Europe/Berlin"])
   await change(["owner", "add", "local", "someone"])
