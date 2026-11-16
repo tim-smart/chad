@@ -32,6 +32,9 @@ export const applied = (repo: string, files: Record<string, string>) => {
   const work = join(repo, "work")
   mkdirSync(work, { recursive: true })
   git(work, ["init", "-q", "-b", "main"])
+  // Match Repo.create: later applies run outside this helper's identity environment.
+  git(work, ["config", "user.name", identity.GIT_AUTHOR_NAME])
+  git(work, ["config", "user.email", identity.GIT_AUTHOR_EMAIL])
   write(work, files)
   git(work, ["add", "-A"])
   git(work, ["commit", "-q", "--allow-empty", "-m", "Applied by the test"])

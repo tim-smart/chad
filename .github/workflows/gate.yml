@@ -46,12 +46,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       # A scenario that passed removed its directory, so what is left is each failed one, database included.
+      # tar keeps symlinks as links; upload-artifact otherwise follows repo/node_modules into the toolchain.
+      - name: Archive failed scenarios without following symlinks
+        if: failure()
+        run: find /tmp -maxdepth 1 -type d -name 'chad-*' -printf '%f\0' | tar -czf "$RUNNER_TEMP/failed-scenarios.tar.gz" -C /tmp --null -T -
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: failed-scenarios
-          path: /tmp/chad-*/
-          include-hidden-files: true
+          path: ${{ runner.temp }}/failed-scenarios.tar.gz
 
   image:
     name: image layer on amd64
@@ -67,12 +70,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm vitest run --project image
       # A failed image scenario left what its two containers wrote, with the daemon's log and the database.
+      - name: Archive failed image scenarios without following symlinks
+        if: failure()
+        run: find /tmp -maxdepth 1 -type d -name 'chad-*' -printf '%f\0' | tar -czf "$RUNNER_TEMP/failed-image-scenarios.tar.gz" -C /tmp --null -T -
       - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: failed-image-scenarios
-          path: /tmp/chad-*/
-          include-hidden-files: true
+          path: ${{ runner.temp }}/failed-image-scenarios.tar.gz
 
   rule-ids:
     name: rule ids
