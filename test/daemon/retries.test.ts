@@ -43,10 +43,10 @@ test("SES-133 DIS-61 FAIL-84 FAIL-203 FAIL-204 FAIL-205 FAIL-57 API-113 TST-181 
     retries: 3,
   })
   if (reason._tag !== "ModelError") throw new Error("not a ModelError")
-  // The first two timeouts were retried, and the third ended the turn.
+  // clanka retried each of the three timeouts, and chad ended the turn where the third retry started.
   expect(
     running.log().filter((line) => line.annotations["event"] === "turn.retry"),
-  ).toHaveLength(2)
+  ).toHaveLength(3)
   const [message] = await eventually(
     () => posted(running, thread),
     (texts) => texts.length > 0,
@@ -275,6 +275,79 @@ test("FAIL-84 FAIL-57 a background sub-agent's model call that says nothing for 
     (texts) => texts.length > 0,
   )
   expect(message).toContain(Messages.silenceReason)
+})
+
+test("FAIL-84 FAIL-212 MOD-102 MOD-103 FAIL-57 a foreground sub-agent's turn timeouts count where its own call is cut, also when clanka holds its retries back behind another foreground sub-agent's answer and gives them as that agent's after the login completed: one silent call after the login does not end the turn, and the third does", async () => {
+  const running = await scenario({
+    ...codex,
+    codex: "token",
+    timings: { turnTimeout: Duration.millis(400) },
+  })
+  const { fakes, model } = running
+  model.holdPolls()
+  // The markers are joined in the script, so only each sub-agent's own calls carry its marker.
+  await fakes.model.script([
+    runs(`await Promise.all([
+  subagent({ prompt: "Long" + "-answer" }),
+  subagent({ prompt: "Silent" + "-call" }),
+])`),
+  ])
+  const long = model.route("Long-answer", [
+    { stream: true },
+    runs('await taskComplete("done")'),
+    runs('await taskComplete("done")'),
+  ])
+  const silent = model.route(
+    "Silent-call",
+    Array.from({ length: 8 }, () => ({ hold: true })),
+  )
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+  // A's answer streams and holds clanka's output, so B's parts wait in clanka's buffer from here on.
+  const [streaming] = await long.received(1)
+  // B's second call is out before its first timeout's retry part could show, and the logout comes before the second cut,
+  // so the retry after it needs the login.
+  await silent.received(2)
+  expect((await running.cli(["logout"])).code).toBe(0)
+  await lines(running, "turn.login-wait", 1)
+  model.approve()
+  // After the login B's call says nothing once more, and its next attempt is held here while A still streams.
+  await silent.received(4)
+  // clanka has shown none of B's retries yet: they are behind A's answer.
+  expect(retried(running)).toEqual([])
+  model.release(streaming!.index)
+
+  // clanka gives B's held-back retries as A's when A's answer ends. One timeout came after the login, so the turn goes
+  // on, and A completes. A turn that failed here would have ended A as cancelled.
+  const started = await lines(running, "turn.subagent-started", 2)
+  const a = started.find((line) =>
+    String(line.annotations["prompt"]).includes("Long"),
+  )?.annotations["subagent"]
+  const events = await eventually(
+    () => running.log(),
+    (log) =>
+      log.some(
+        (line) =>
+          line.annotations["event"] === "turn.failed" ||
+          (line.annotations["event"] === "turn.subagent-ended" &&
+            line.annotations["subagent"] === a &&
+            line.annotations["status"] === "completed"),
+      ),
+  )
+  expect(
+    events.filter((line) => line.annotations["event"] === "turn.failed"),
+  ).toEqual([])
+  // B's call goes on saying nothing, and its third timeout in a row after the login ends the turn.
+  expect(await outcome(running)).toBe("failed")
+  expect(recorded(running)).toMatchObject({
+    _tag: "ModelError",
+    reason: "TurnTimeout",
+  })
+  // The thread's first post is the login's code.
+  await eventually(
+    () => posted(running, thread),
+    (texts) => texts.some((text) => text.includes(Messages.silenceReason)),
+  )
 })
 
 test("FAIL-87 FAIL-88 a background sub-agent's usage limit on the Codex socket ends the owner's turn as UsageLimit at once, with no retry", async () => {

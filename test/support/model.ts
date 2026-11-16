@@ -26,6 +26,12 @@ export interface Reply {
   /** Whether the response waits until the test releases it. */
   readonly hold?: boolean
   /**
+   * Whether the answer's text streams until the test releases it: the response starts, and a delta follows every 50 ms
+   * until the release, as a model that answers at length sends one. clanka shows such an agent's output and holds back
+   * the other shown agents' parts while it runs (`Agent.ts:432-470`).
+   */
+  readonly stream?: boolean
+  /**
    * The reply when the call is clanka's summarizer, which sends no tool results, in place of this one. A compaction
    * runs beside the turn, so which of the two takes a call index is not known in advance.
    */
@@ -116,6 +122,12 @@ export interface FakeModel {
   readonly holdPolls: () => void
   /** Sets the replies, by call index from 0, and forgets the calls received so far. */
   readonly script: (replies: ReadonlyArray<Reply>) => void
+  /**
+   * The replies, in their own order, to the calls whose request holds `marker`, such as a sub-agent's task. Those calls
+   * take no reply of the script, and the calls the routes do not take get the script's replies in order. Two agents that
+   * call at once can each be given their own replies so.
+   */
+  readonly route: (marker: string, replies: ReadonlyArray<Reply>) => Route
   /** Lets the held response of a call go. */
   readonly release: (index: number) => void
   readonly calls: () => ReadonlyArray<Call>
@@ -131,6 +143,13 @@ const chunk = (delta: object, finish: string | null) => ({
   model: "fake",
   choices: [{ index: 0, delta, finish_reason: finish }],
 })
+
+/** The calls of one route of the fake (`FakeModel.route`). */
+export interface Route {
+  readonly calls: () => ReadonlyArray<Call>
+  /** Resolves once the route has taken `count` calls. */
+  readonly received: (count: number) => Promise<ReadonlyArray<Call>>
+}
 
 /** The reply that makes the model run a script, which is how the agent runs a command. */
 export const runs = (script: string): Reply => ({
@@ -478,6 +497,14 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
   const host = options.host ?? "127.0.0.1"
   let replies: ReadonlyArray<Reply> = []
   let calls: Array<Call> = []
+  // The calls the script answers so far, which are every call when there are no routes.
+  let scripted = 0
+  let routes: Array<{
+    readonly marker: string
+    readonly replies: ReadonlyArray<Reply>
+    readonly calls: Array<Call>
+  }> = []
+  let closed = false
   const checks: Array<Call> = []
   let checkFailure: number | undefined
   const heldChecks = new Map<
@@ -587,11 +614,17 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
     options.heard?.(recorded)
     for (const wake of waiting.splice(0)) wake()
     if (refusal !== undefined) return refusal
-    const scripted = replies[index]
+    const text = JSON.stringify(call.body)
+    const route = routes.find((route) => text.includes(route.marker))
+    route?.calls.push(recorded)
+    const next =
+      route === undefined
+        ? replies[scripted++]
+        : route.replies[route.calls.length - 1]
     const reply =
-      scripted?.summary !== undefined && !hasResults(call.body)
-        ? scripted.summary
-        : scripted
+      next?.summary !== undefined && !hasResults(call.body)
+        ? next.summary
+        : next
     if (reply === undefined) {
       return {
         status: 500,
@@ -608,6 +641,35 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
       }
     }
     return { index, reply }
+  }
+
+  /** The events of a reply in the order they are sent. A streamed reply's deltas go on until the test releases it. */
+  const sent = async function* (
+    index: number,
+    reply: Reply,
+    model: string,
+  ): AsyncGenerator<object> {
+    const events = responses(
+      index,
+      reply.stream === true ? { ...reply, text: "." } : reply,
+      model,
+    )
+    const delta = events.findIndex(
+      (event) =>
+        (event as { type?: string }).type === "response.output_text.delta",
+    )
+    if (reply.stream !== true || delta === -1) return yield* events
+    let sequence = 0
+    const numbered = (event: object) => ({
+      ...event,
+      sequence_number: sequence++,
+    })
+    for (const event of events.slice(0, delta + 1)) yield numbered(event)
+    while (!released.has(index) && !closed) {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      yield numbered(events[delta]!)
+    }
+    for (const event of events.slice(delta + 1)) yield numbered(event)
   }
 
   const json = (
@@ -684,13 +746,13 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
         return json(response, result.status, { error: result.error })
       response.writeHead(200, { "content-type": "text/event-stream" })
       const events = responsesApi
-        ? responses(
+        ? sent(
             result.index,
             result.reply,
             String((call.body as { model?: unknown } | null)?.model),
           )
         : completion(result.index, result.reply)
-      for (const event of events) {
+      for await (const event of events) {
         const type = (event as { type?: string }).type
         response.write(
           (type === undefined ? "" : `event: ${type}\n`) +
@@ -740,7 +802,7 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
                 true,
               ).then(async (result) => {
                 if ("status" in result) return send(refusalFrame(result))
-                for (const event of responses(
+                for await (const event of sent(
                   result.index,
                   result.reply,
                   String((body as { model?: unknown }).model),
@@ -799,8 +861,23 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
     script: (next) => {
       replies = next
       calls = []
+      scripted = 0
+      routes = []
       held.clear()
       released.clear()
+    },
+    route: (marker, replies) => {
+      const route = { marker, replies, calls: [] as Array<Call> }
+      routes.push(route)
+      return {
+        calls: () => route.calls,
+        received: async (count) => {
+          while (route.calls.length < count) {
+            await new Promise<void>((resolve) => waiting.push(resolve))
+          }
+          return route.calls
+        },
+      }
     },
     release: (index) => {
       released.add(index)
@@ -814,6 +891,7 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
       return calls
     },
     close: async () => {
+      closed = true
       for (const release of held.values()) release()
       await Effect.runPromise(Scope.close(scope, Exit.void))
       server.closeAllConnections()
