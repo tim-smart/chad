@@ -178,14 +178,20 @@ const roll = async (
 
 test("SWAP-1 SWAP-2 SWAP-4 LOAD-14 LOAD-23 LOAD-53 LOAD-70 REC-82 REC-86 REC-116 REC-129 CLI-45 CLI-125b CLI-125c CLI-125d CLI-138b SELF-38 REC-137 REC-139 REC-154 an apply commits work/ and loads it at the session's next turn, a failed apply exits 1 and keeps the last good version, a revert saves work/ first, and safe mode unloads the repo's plugins until it goes off", async () => {
   const running = await scenario()
+  // scenario starts the daemon but does not wait for boot. log reads Git directly, so unlike an RPC it cannot
+  // wait for the initial repo to be created on our behalf.
+  await running.logged("boot.ready")
   const repo = join(running.data, "repo")
   const work = join(repo, "work")
-  const log = async () =>
-    JSON.parse((await running.chad(["log", "--json"])).stdout) as Array<{
+  const log = async () => {
+    const result = await running.chad(["log", "--json"])
+    expect(result.code, result.stderr).toBe(0)
+    return JSON.parse(result.stdout) as Array<{
       commit: string
       session: string
       message: string
     }>
+  }
   expect((await log()).map(({ message }) => message)).toEqual(["First commit"])
   expect((await running.chad(["status"])).stdout).toContain(
     "work: no changes since the applied commit",
