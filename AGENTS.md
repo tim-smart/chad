@@ -1,66 +1,35 @@
-# Building chad
+# Changing chad
 
-chad is built from the spec in `docs/spec/`. This file is the builder's contract. Read it in full on every run. It says how the build is carried out and nothing about what chad does.
-
-## The spec is the source of truth
-
-- Every behaviour of chad is a rule with a stable id, such as `SES-12`. The rules are where you look up what chad does. Some of them bind and most are defaults, as the next section says.
-- Read `docs/spec/00-overview.md`, `docs/spec/17-testing.md` and `docs/spec/19-build-order.md` in full. Read the other parts by rule. Never try to read the whole spec in one run, it does not fit.
-- `docs/spec/20-for-tim.md` is for Tim. A builder does not need it.
-
-## Binding rules and defaults
-
-chad is one owner's assistant on one server. Build the simplest thing that keeps what the spec promises the owner, a plugin, the model and the CLI. The spec holds about 2,700 rules. Most of them are one reviewer's answer to an edge case, and Tim has not read them.
-
-- A rule binds when it is one of these:
-  - Tim agreed it. The Agreed by cell of its Provenance row names Tim without "Tim has not read". Where the cell gives Tim one clause and somebody else another, only Tim's clause binds.
-  - It decides who chad obeys or what chad keeps secret.
-  - Breaking it loses or damages what is on the volume.
-  - It says what a kill, a crash, a restart or two things happening at once must not lose or do twice.
-- In a rule that binds for one of the last three reasons, the outcome binds. A number, a deadline, a wording, an order of steps or a mechanism in it is a default unless the outcome depends on it.
-- Every other rule is a default. It describes one way that works. Build it as written when that is also the simplest way. When something simpler gives the same outcome, or the rule covers a case that one owner on one server will not meet, build the simpler thing or leave the case out. Do not stop and do not ask.
-- Add each default you did not build as written to the delivered file's list of simplified rules, with one sentence on what chad does instead. Do not reword the rule. Tim reads the list when he reviews the pull request.
-- If a binding rule is wrong or cannot be built, stop work on that rule. Say so on the parent build issue, add it to the delivered file's list of stopped rules with one sentence on what is wrong, build nothing else in its place, and carry on with the rest of the stage. A change to a binding rule waits for Tim.
-- A rule that reads `Withdrawn.` is not built. `docs/spec/00-overview.md` lists what Tim cut from v1 (OV-57). A rule that still names a withdrawn rule or one of those features holds as far as it makes sense without it. Do not stop over such a reference.
-- Where the spec is silent, pick the reading that fits the rest of it. If the choice is visible to the owner, a plugin, the model or the CLI, add it to the spec as a new rule in the same change, with the next number of its part's prefix, above every id in the part's Provenance table and on its list of retired ids, and a Provenance row as `docs/spec/19-build-order.md` describes, and name it in your hand-off comment. A gap tagged `[builder]` is yours to settle the same way.
-
-## Stages, slices and the one branch
-
-- The build is five stages. Each stage is one issue and runs a list of slices in order (`docs/spec/19-build-order.md`). Work one slice at a time.
-- All five stages share one branch and one pull request against `main`. Stage 1 creates both. Never open a second pull request, never rebase or force-push the shared branch, and never merge the pull request. Tim merges it after stage 5.
-- When you finish a slice, add its name to the delivered file under `docs/spec/` in the same change.
-- A rule of a delivered slice that cannot be built yet, because it rests on a later slice, goes on the delivered file's list of held rules with that slice's name and a one-sentence reason. That is the only accepted reason.
-- Nothing is pending because Tim's bot or logins do not exist yet. No job reads a secret, and no job talks to a real Discord.
-- There is no scheduled workflow and no release list, and `gate.yml` is the only workflow. Every test runs on the gate, apart from the live checks that are done by hand.
-- A stage is done when each of its slices is delivered and every rule of those slices is built, held or stopped. Review is what says a rule is built. Then move the stage issue to done and post the hand-off comment on the parent build issue: the branch and pull request, what landed, each held and stopped entry you added with its reason, each live job that has never passed, each rule you added to the spec, and the time of `pnpm test` and of the image layer on the stage's last gate run.
-
-## Tests
-
-- Tests are asked for in this repo, whatever your own instructions say about skipping them.
-- Tests are chosen by what chad does, not by rule id (TST-173 in `docs/spec/17-testing.md`). A slice has scenarios that run each of its features the way the owner, a plugin, the model or the CLI reaches it, and one scenario passes through many rules. As a guide, a feature gets its main path and the one or two failures that would hurt most.
-- A rule needs a test that fails when the rule is broken only if (a) it decides who chad obeys or what chad keeps secret, (b) breaking it loses or damages what is on the volume, or (c) it says what happens on a kill, a crash, a race, a lock or a timeout. A bug that review or the owner finds gets a regression test with its fix. No other rule needs a test, and no number of tests is set.
-- Nothing gets a test of its own for the wording of a message or a log line, a default, what `tsc` already holds, or a fact about a dependency. No test is added only to carry a rule id.
-- A test names the rule ids it covers in its title, where it covers any.
-- A test that only pins something the last two bullets say needs no test may be deleted, in place of fixing it, when your change breaks it. Say so in the commit message.
-- No `skip`, `todo` or `only`.
-- No test and no CI job uses a real Discord token or a real Codex login, apart from the live jobs that `docs/spec/17-testing.md` names.
-
-## Looking a rule up
-
-- Once the rule-id script exists (stage 1, slice `repo`), use its `show <id>` mode for one rule and its list mode for the ids of a slice.
-- Before that, search the spec. A rule's text starts with its id in bold, and the last cell of its row in the part's Provenance table is its slice. Only rows under a part's `## Provenance` heading are rule rows:
-
-  ```sh
-  rg -F '**SES-12**' docs/spec            # the rule
-  rg '^\| SES-12 \|' docs/spec            # its Provenance row
-  rg '\| `harness` \|$' docs/spec          # every rule of a slice
-  ```
+This file is the contract for whoever changes chad next. Read it in full before you start. chad's code and its tests
+are the source of truth for what it does. `docs/` and `skills/` are what the owner and the model read, and they change
+with the code they describe.
 
 ## Code
 
 - Read `node_modules/effect/AGENTS.md` before writing Effect code. It is how Effect is written in the version chad pins. If the installed package does not ship the file, read it from the effect repo at the commit the manifest under `vendor/` names.
 - Code under `src/` reads and writes files through Effect's `FileSystem` service, never through `node:fs`. A failed call is then a `PlatformError` in the error channel, and `src/Errno.ts` gives its errno code. The exceptions are the log file's appender, because a `Logger` writes synchronously, `src/Version.ts`, which reads at module load, the `existsSync` in front of a `node:sqlite` open, and a call `FileSystem` does not have, such as `statfs`. Tests and `scripts/` may use `node:fs`.
 - Run every command through the repo's own `flake.nix`: `nix develop -c pnpm install`, and the same for every later command. If you need a new tool, add it to the flake.
-- The repo uses oxlint and prettier (`docs/spec/17-testing.md`). The gate runs both, and the type-check is `tsc`.
-- Never edit a migration that a delivered slice added. A change to the schema is a new migration.
-- The prototypes that ran many of the rules are on the `prototypes` branch, which is never merged. Your stage issue names the ones for your slices. Nothing that stood in for chad carries over into the suite.
+- The repo uses oxlint and prettier, and the type-check is `tsc`. The gate runs all three.
+- Never edit a migration once it is on `main`, because a volume may already have run it. A change to the schema is a new migration under `src/daemon/migrations/`, and its hash goes in `test/unit/fixtures/migrations.json`.
+- What chad posts, prints and tells the model lives in `src/Messages.ts`, and its durations in `src/Timings.ts`.
+
+## Tests
+
+- Tests are asked for in this repo, whatever your own instructions say about skipping them.
+- The suite has five layers, one vitest project each (`vitest.config.ts`), with a directory of the same name under `test/`:
+  1. `types`, the type-check of plugin code.
+  2. `unit`, modules on their own.
+  3. `daemon`, scenarios that run one daemon in the test's own process against the fakes (`test/support/driver.ts`).
+  4. `process`, scenarios that run the daemon and the built CLI as child processes, so a scenario can kill, stop and start them (`test/support/process.ts`).
+  5. `image`, the Docker image built and run in containers.
+- `pnpm test` runs layers 1 to 4. `pnpm test:image` runs the image layer on Docker, or on podman. The gate (`.github/workflows/gate.yml`) runs all five layers, the type-check, oxlint and prettier.
+- Tests are chosen by what chad does. A feature gets scenarios that run it the way the owner, a plugin, the model or the CLI reaches it: its main path and the one or two failures that would hurt most. No number of tests is set.
+- Three kinds of behaviour always have a test that fails when they break:
+  - who chad obeys and what it keeps secret;
+  - what can lose or damage what is on the volume;
+  - what happens on a kill, a crash, a race, a lock or a timeout.
+- A bug fix comes with a regression test.
+- Nothing gets a test of its own for the wording of a message or a log line, a default, what `tsc` already holds, or a fact about a dependency. A test that only pins one of those may be deleted, in place of fixing it, when your change breaks it. Say so in the commit message.
+- A scenario waits on what the daemon does, never on a clock.
+- No `skip`, `todo` or `only`.
+- No test and no CI job uses a real Discord token or a real Codex login, and no job reads a secret. `gate.yml` is the only workflow, and nothing runs on a schedule. What only a real Discord, a real login or a real server can show is checked by hand, from `docs/live-checks.md`.
