@@ -411,6 +411,15 @@ const settle = (cron: Cron["Service"], { turn, outcome }: TurnEnded) =>
     const job = yield* jobOf(cron, turn)
     if (job === undefined) return
     const oneShot = job.cron === undefined
+    // A one-shot moved to a new time while this run was in progress keeps its new time (CRON-67).
+    const timer = turn.origin._tag === "Plugin" ? turn.origin.timer : undefined
+    if (
+      oneShot &&
+      timer !== undefined &&
+      DateTime.toEpochMillis(timer.scheduledAt) !== job.at
+    ) {
+      return
+    }
     if (outcome._tag === "Failed") {
       const reason = outcome.reason
       switch (reason._tag) {
