@@ -553,7 +553,7 @@ describe("the links under repo/ and a plugin's type-check in the image", () => {
         container,
         "cd /data/repo && test -s node_modules/effect/AGENTS.md && ls node_modules/effect/ai-docs/src | head -n 1 && ls examples",
       ).split("\n"),
-    ).toEqual([expect.any(String), "send-file.ts"])
+    ).toEqual([expect.any(String), "cron", "send-file.ts"])
     expect(
       run(
         "exec",

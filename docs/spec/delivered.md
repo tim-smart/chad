@@ -20,6 +20,7 @@ The slices that are delivered, in build order. The builder who finishes a slice 
 - `apply`
 - `settings`
 - `skills-mcp`
+- `timers-cron`
 
 ## Held rules
 
@@ -36,7 +37,6 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 | CLI-58b   | `backup`         | The commands the list names arrive with later slices, and the last of them, `chad backup <path>`, with the `backup` slice.                             |
 | CLI-97b   | `bundled-skills` | The `credentials` skill arrives with the `bundled-skills` slice.                                                                                       |
 | CRED-136b | `bundled-skills` | What the agent asks the owner is taught by the `credentials` skill, which arrives with the `bundled-skills` slice (CRED-96).                           |
-| CLI-137c  | `timers-cron`    | The cron plugin and its tools arrive with the `timers-cron` slice.                                                                                     |
 | CLI-137e  | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                          |
 | STO-83b   | `bundled-skills` | The `self-edit` skill arrives with the `bundled-skills` slice.                                                                                         |
 | STO-133c  | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                          |
@@ -93,3 +93,4 @@ A default (ORD-48) that was not built as written, with one sentence on what chad
 | MCP-17   | For a name that differs from its directory, and for a missing name, the error says to set `name: "<dir>"` quoted, so the line it suggests also works for a name YAML would read as a number or a boolean.                                                                       |
 | CLI-74   | As MCP-36.                                                                                                                                                                                                                                                                      |
 | REC-45   | chad catches the error of its own decoder of `mcp.json` (MCP-141), in place of `McpConfig.load`'s.                                                                                                                                                                              |
+| CRON-72  | A scheduled run and a `cronRun` run go to the session of the job's thread, which runs one turn at a time, so a job moved to another thread while a run is in progress can have a second run in the new thread before the first ends.                                            |
