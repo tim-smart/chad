@@ -25,6 +25,7 @@ The slices that are delivered, in build order. The builder who finishes a slice 
 - `image`
 - `bundled-skills`
 - `asphodel`
+- `live`
 
 ## Held rules
 

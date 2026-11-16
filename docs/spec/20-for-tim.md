@@ -470,7 +470,7 @@ Each bullet gives the rules, what you agreed, what the spec says now and, in bra
 5. Stage 1, `repo` slice: set branch protection with the gate's jobs as required checks (TST-165, TST-112). Without it the gate stops nothing.
 6. Stage 1, `wire` slice: nothing. You ruled in chat on 2026-11-15 that chad has no nightly Discord job, no weekly dependency job and no other scheduled job, so you create no test bots and no scratch server and put no token in the repository's secrets. You do the hand checks on your own bot and your own server (item 9).
 7. From the first usable build on, once: the Codex check, one turn on your login on the image you run on your own server (TST-145, TST-147). The stage 2 hand-off gives you the steps. You ruled in chat on 2026-11-15 that the builder makes the first Codex recording through the OpenAI endpoint and key of its own environment (TST-43), so the `models` slice needs nothing from you.
-8. Stage 5, `live` slice, once, at the end of the build: do the hand checks on your own bot and your own server: a direct message, a click on Stop, the Enter modal, a mention in a server channel that opens a thread with a message in that thread that does not mention chad, and `chad setup` (TST-144).
+8. Stage 5, `live` slice, once, at the end of the build: do the hand checks on your own bot and your own server: a direct message, a click on Stop, a mention in a server channel that opens a thread with a message in that thread that does not mention chad, and `chad setup` (TST-144). `docs/live-checks.md` gives the steps, with the Codex check and the deployment checks.
 9. After stage 5: merge the build pull request (ORD-3). No stage merges it.
 
 ## The tickets you have not read
