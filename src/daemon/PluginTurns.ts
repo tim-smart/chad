@@ -46,6 +46,8 @@ const connectionOf = (
 ) =>
   Effect.gen(function* () {
     for (const connection of connections()) {
+      // A timer released as the daemon boots can run before the connection's adapter registers (CRON-26).
+      yield* chats.ready(connection.name)
       const chat = yield* chats.get(connection.name)
       const found = yield* Effect.exit(chat.descriptor(platform))
       if (found._tag === "Success") return connection.name

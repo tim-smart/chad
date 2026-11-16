@@ -1,4 +1,5 @@
 import {
+  Cause,
   Context,
   Cron,
   DateTime,
@@ -235,7 +236,17 @@ export const layer = Timer.toLayer(
             if (!wanted(again)) return
             current = again
           }
-          yield* support.run(current, at)
+          // A run that dies is logged and not run again, and the chain goes on, so one bad run never ends a recurring
+          // timer (FAIL-71).
+          yield* support.run(current, at).pipe(
+            Effect.catchCause((cause) =>
+              Cause.hasInterruptsOnly(cause)
+                ? Effect.failCause(cause)
+                : Effect.logError("A timer's run failed", cause).pipe(
+                    Effect.annotateLogs({ plugin, timer: name }),
+                  ),
+            ),
+          )
           // A cancel or a replace during the run stays in force (CRON-23).
           const after = yield* read(plugin, name)
           if (!wanted(after)) return
