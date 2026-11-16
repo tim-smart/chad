@@ -387,21 +387,25 @@ export const make = Effect.fnUntraced(function* (options: {
             Context.make(DateTime.CurrentTimeZone, DateTime.zoneMakeLocal()),
           )
           // The daemon owns the deadline of the build. A `Turns` call the build waits on never returns, and the deadline
-          // ends it (LOAD-14, API-131).
-          yield* Layer.buildWithScope(entry.plugin, own).pipe(
+          // ends it (LOAD-14, API-131). The build runs on a fiber of its own, so a part of it that cannot be interrupted,
+          // such as an `acquireRelease` acquisition, holds only that fiber: it is interrupted without a wait.
+          const building = yield* Layer.buildWithScope(entry.plugin, own).pipe(
             Effect.provideContext(services),
             as(plugin),
             Logger.ownConsole,
-            Effect.timeoutOrElse({
-              duration: timings.pluginBuild,
-              orElse: () =>
-                Effect.fail(
-                  Messages.buildTimedOut(
-                    Duration.toSeconds(timings.pluginBuild),
-                  ),
-                ),
-            }),
+            Effect.forkDetach,
           )
+          const ended = yield* Effect.timeoutOption(
+            Fiber.await(building),
+            timings.pluginBuild,
+          )
+          if (Option.isNone(ended)) {
+            yield* Effect.forkDetach(Fiber.interrupt(building))
+            return yield* Effect.fail(
+              Messages.buildTimedOut(Duration.toSeconds(timings.pluginBuild)),
+            )
+          }
+          yield* ended.value
           // A tool name that clanka or a plugin loaded before already has fails the load, and names who has it
           // (API-33).
           for (const { toolkit } of plugin.contributions.toolkits) {
@@ -424,7 +428,11 @@ export const make = Effect.fnUntraced(function* (options: {
         }),
       )
       if (Exit.isFailure(built)) {
-        yield* Scope.close(own, Exit.void)
+        // The finalizers of a failed build get the same deadline, and one that has not ended by then goes on alone.
+        yield* Effect.timeoutOption(
+          Fiber.await(yield* Effect.forkDetach(Scope.close(own, Exit.void))),
+          timings.pluginBuild,
+        )
         yield* skip(entry.name, Cause.pretty(built.cause), built.cause)
         return
       }

@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs"
 import { dirname, join } from "node:path"
-import { Effect, Layer } from "effect"
+import { Deferred, Effect, Layer } from "effect"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
@@ -183,4 +183,34 @@ test("LOAD-14 API-131 TST-202 a plugin whose Layer build waits on a Turns call i
   const status = (await running.chad(["status"])).stdout
   expect(status).toContain("plugin: send-file, 0 warnings")
   expect(status).toContain("plugin: stuck, skipped (")
+})
+
+test("LOAD-14 a Layer build that cannot be interrupted, and a failed build whose finalizer never ends, are skipped at the deadline and the boot goes on", async () => {
+  const release = Deferred.makeUnsafe<void>()
+  const held = Plugin.make(
+    Layer.effectDiscard(
+      Effect.acquireRelease(Deferred.await(release), () => Effect.void),
+    ),
+  )
+  const cleanup = Plugin.make(
+    Layer.effectDiscard(
+      Effect.gen(function* () {
+        yield* Effect.addFinalizer(() => Deferred.await(release))
+        return yield* Effect.never
+      }),
+    ),
+  )
+  const running = await scenario({
+    plugins: [
+      { name: "held", plugin: held },
+      { name: "cleanup", plugin: cleanup },
+      { name: "send-file", plugin: sendFile },
+    ],
+  })
+  await running.logged("boot.ready")
+  const status = (await running.chad(["status"])).stdout
+  expect(status).toContain("plugin: send-file, 0 warnings")
+  expect(status).toContain("plugin: held, skipped (")
+  expect(status).toContain("plugin: cleanup, skipped (")
+  await Effect.runPromise(Deferred.succeed(release, undefined))
 })

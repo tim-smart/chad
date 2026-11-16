@@ -16,7 +16,7 @@ import {
 } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import * as vm from "node:vm"
-import { Cause, Data, Effect, FileSystem, Scope, Stream } from "effect"
+import { Cause, Data, Effect, FileSystem, Option, Scope, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/process"
 import * as esbuild from "esbuild"
 import * as Messages from "../Messages.ts"
@@ -79,13 +79,16 @@ export const discover = Effect.fnUntraced(function* (tree: string) {
   if (!(yield* fs.exists(directory))) return { found, problems }
   const files = new Map<string, Array<string>>()
   for (const entry of (yield* fs.readDirectory(directory)).sort()) {
-    const info = yield* fs.stat(join(directory, entry))
+    // An entry that cannot be read, such as a link to a missing file, is one plugin's problem: a `.ts` entry goes on
+    // as a file and fails its own bundle, and the others load.
+    const info = yield* Effect.option(fs.stat(join(directory, entry)))
+    const type = Option.isSome(info) ? info.value.type : "File"
     const add = (name: string, file: string) =>
       files.set(name, [...(files.get(name) ?? []), file])
-    if (info.type === "File" && entry.endsWith(".ts")) {
+    if (type === "File" && entry.endsWith(".ts")) {
       add(entry.slice(0, -3), `plugins/${entry}`)
     } else if (
-      info.type === "Directory" &&
+      type === "Directory" &&
       (yield* fs.exists(join(directory, entry, "index.ts")))
     ) {
       add(entry, `plugins/${entry}/index.ts`)
@@ -182,6 +185,12 @@ export const typecheck = Effect.fnUntraced(function* (
     .split("\n")
     .map((line) => line.trimEnd())
     .filter((line) => line !== "")
+  // A tree with no file under `plugins/` has nothing to check, which `tsc` reports as TS18003.
+  if (
+    lines.length > 0 &&
+    lines.every((line) => line.includes("error TS18003:"))
+  )
+    return undefined
   if (code === 0 && lines.length === 0) return undefined
   const rewritten = lines.map((line) =>
     toWork(line, tree, repo)
@@ -235,6 +244,9 @@ const build = (tree: string, file: string) =>
         target: "node26",
         sourcemap: "external",
         packages: "external",
+        // A tsconfig of the tree's own is not read, so its `paths` cannot point a package at a file of the tree. The
+        // type-check ignores it too, and the two resolve packages alike (LOAD-9, LOAD-29).
+        tsconfigRaw: { compilerOptions: { verbatimModuleSyntax: true } },
         logLevel: "silent",
       }),
     catch: (error) => error,
@@ -381,7 +393,11 @@ export const run = (bundle: Bundle) =>
       const compiled = vm.compileFunction(
         bundle.code,
         ["require", "module", "exports"],
-        { filename: bundle.filename },
+        {
+          filename: bundle.filename,
+          // An `import()` of a package goes to the host's own loader, so it gets the host's instance (LOAD-17).
+          importModuleDynamically: vm.constants.USE_MAIN_CONTEXT_DEFAULT_LOADER,
+        },
       )
       const module = { exports: {} as Record<string, unknown> }
       compiled(hostRequire, module, module.exports)
@@ -418,11 +434,20 @@ export interface Loaded {
  * Loads every plugin of an exported tree: each one bundled and run, with no type-check (LOAD-61). A plugin that
  * breaks a name rule, does not bundle, throws or exports no `Plugin` is skipped with its error, and the others load.
  */
-export const load = Effect.fnUntraced(function* (tree: string) {
+export const load = Effect.fnUntraced(function* (
+  tree: string,
+  bundled: ReadonlySet<string> = new Set(),
+) {
   const { found, problems } = yield* discover(tree)
   const loaded: Array<Loaded> = []
-  const skipped: Array<Skipped> = [...problems]
-  for (const plugin of found) {
+  // A plugin with a bundled plugin's name is skipped before its module runs, since the bundled one loads (REC-42).
+  const skipped: Array<Skipped> = [
+    ...problems.filter(({ name }) => !bundled.has(name)),
+    ...[...problems, ...found]
+      .filter(({ name }) => bundled.has(name))
+      .map(({ name }) => ({ name, message: Messages.bundledName(name) })),
+  ]
+  for (const plugin of found.filter(({ name }) => !bundled.has(name))) {
     const exit = yield* Effect.exit(
       Effect.flatMap(bundle(tree, plugin), (bundle) =>
         Effect.map(run(bundle), (value) => ({

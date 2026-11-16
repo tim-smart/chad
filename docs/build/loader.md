@@ -34,6 +34,16 @@ Notes for review:
 - The links and the bundles of the applied tree are made at the start of step 9, before the sessions and the connections start. Their Layers build where the bundled plugins' do. Bundling later held up the connections, and a resumed turn then posted before its connection was there.
 - Three existing tests changed. `test/daemon/cli.test.ts` lists the volume without following links, since `repo/node_modules` leads back into the checkout through `node_modules/chad -> ..`. API-33 in `test/daemon/plugins.test.ts` waits for the turn's end, because the skipped plugin's notice now goes to the same direct message. CLI-46a in `test/daemon/db.test.ts` expects `skipped` in `chad status --json`.
 
+Fixed in review of `5ecd8bd`, each with a regression test:
+
+- LOAD-14: the Layer build runs on a fiber of its own, and the deadline waits on that fiber, so a build that cannot be interrupted (an `acquireRelease` acquisition) no longer holds the boot. The interrupt is sent without a wait. Closing a failed build's scope gets the same deadline, and a finalizer that has not ended by then goes on alone. `test/daemon/loader.test.ts`.
+- LOAD-5: an entry of `plugins/` that cannot be read, such as a link to a missing file, skips only that plugin. It used to fail the whole load. `test/unit/loader.test.ts`.
+- IMG-46, IMG-143: a move aside whose name is taken gets a counter, so it never replaces what an earlier move kept. `test/unit/loader.test.ts`.
+- REC-42: `Loader.load` is given the bundled plugins' names and skips those before the module runs, always with the shared-table notice. `test/unit/loader.test.ts`.
+- LOAD-25: a tree with no file under `plugins/` passes the check. `tsc` reports it as TS18003, which is dropped only when it is the whole output. `test/unit/loader.test.ts`.
+- LOAD-17: an `import()` of a package in a plugin goes to the host's loader (`importModuleDynamically`), so it runs and gets the host's instance. `test/unit/loader.test.ts`.
+- LOAD-9, LOAD-29: esbuild is given its tsconfig (`tsconfigRaw`) and reads none from the tree, so a tree's `paths` cannot send a package import to a file of the tree. `test/unit/loader.test.ts`.
+
 ## Tests
 
 - `test/daemon/loader.test.ts`: a boot on an applied tree with two plugins that load (one file, one directory with a helper), one whose module throws at load and one that has a bundled plugin's name. The tools run, a tool's error and the load error carry `work/` paths, the skipped plugins get notices and `chad status` lines, and the links under `repo/` are made with what was there moved aside. A second scenario has a plugin whose Layer build waits on a `Turns` call and is skipped at the deadline (1.5 s on the scaled timings), with the others loaded.

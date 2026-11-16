@@ -1,27 +1,49 @@
 // The check of an exported tree that an apply and `chad check` run before any Layer is built (LOAD-53).
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs"
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import * as NodeServices from "@effect/platform-node/NodeServices"
-import { Effect } from "effect"
-import { expect, it } from "vitest"
+import { Effect, Layer } from "effect"
+import { expect, it, vi } from "vitest"
+import * as Messages from "../../src/Messages.ts"
 import * as Loader from "../../src/daemon/Loader.ts"
 import * as RepoLinks from "../../src/daemon/RepoLinks.ts"
 
-const check = (files: Record<string, string>) => {
+/** A repo with the links of a boot and one exported tree of the given files. */
+const repoWith = async (files: Record<string, string>) => {
   const repo = mkdtempSync(join(tmpdir(), "chad-loader-"))
   const tree = join(repo, "versions", "t1")
+  mkdirSync(tree, { recursive: true })
   for (const [file, text] of Object.entries(files)) {
     mkdirSync(dirname(join(tree, file)), { recursive: true })
     writeFileSync(join(tree, file), text)
   }
-  return Effect.runPromise(
-    Effect.gen(function* () {
-      yield* RepoLinks.prepare(repo)
-      return { repo, errors: yield* Loader.check(repo, tree) }
-    }).pipe(Effect.provide(NodeServices.layer)),
-  )
+  await provided(RepoLinks.prepare(repo))
+  return { repo, tree }
 }
+
+const provided = <A, E>(
+  effect: Effect.Effect<A, E, NodeServices.NodeServices>,
+) => Effect.runPromise(effect.pipe(Effect.provide(NodeServices.layer)))
+
+const check = async (files: Record<string, string>) => {
+  const { repo, tree } = await repoWith(files)
+  return { repo, errors: await provided(Loader.check(repo, tree)) }
+}
+
+const empty = `import { Layer } from "effect"
+import { Plugin } from "chad"
+
+export default Plugin.make(Layer.empty)
+`
 
 const plugin = `import { Effect } from "effect"
 import { readFileSync } from "node:fs"
@@ -55,4 +77,70 @@ it("LOAD-22 LOAD-25 LOAD-27 LOAD-29 LOAD-30 LOAD-31 LOAD-53 LOAD-76 a tree that 
     "work/plugins/clock.ts(5,7): error TS2322: Type 'string' is not assignable to type 'number'.",
     `Read ${failed.repo}/node_modules/effect/AGENTS.md before you write Effect code.`,
   ])
+})
+
+it("LOAD-5 LOAD-17 LOAD-25 LOAD-9 LOAD-29 REC-42 a dangling link skips only its plugin, a bundled name never runs, a tree with no plugin passes, an import() of a package runs, and the tree's tsconfig moves no package", async () => {
+  const marker = join(tmpdir(), `chad-loader-ran-${process.pid}`)
+  rmSync(marker, { force: true })
+  const { repo, tree } = await repoWith({
+    "plugins/good.ts": empty,
+    "plugins/same.ts": `import { writeFileSync } from "node:fs"
+writeFileSync(${JSON.stringify(marker)}, "ran")
+`,
+    "plugins/dynamic.ts": `import { Effect, Layer } from "effect"
+import { Plugin } from "chad"
+
+export default Plugin.make(
+  Layer.effectDiscard(Effect.promise(() => import("effect"))),
+)
+`,
+    "plugins/aliased.ts": empty,
+    "plugins/lib/fake.ts": 'throw new Error("the wrong effect")\n',
+    "tsconfig.json": JSON.stringify({
+      compilerOptions: { paths: { effect: ["./plugins/lib/fake.ts"] } },
+    }),
+  })
+  symlinkSync("./missing.ts", join(tree, "plugins", "broken.ts"))
+  const { loaded, skipped } = await provided(
+    Loader.load(tree, new Set(["same"])),
+  )
+  expect(loaded.map(({ name }) => name)).toEqual(["aliased", "dynamic", "good"])
+  expect(skipped.map(({ name }) => name)).toEqual(["same", "broken"])
+  expect(skipped[0]!.message).toBe(Messages.bundledName("same"))
+  expect(existsSync(marker)).toBe(false)
+  const dynamic = loaded.find(({ name }) => name === "dynamic")!
+  await provided(
+    Effect.scoped(
+      Layer.build(
+        // The plugin asks for no service of the API, so it builds with none.
+        dynamic.plugin as unknown as Layer.Layer<never>,
+      ),
+    ),
+  )
+
+  const none = await repoWith({ "skills/tool/run.ts": "export {}\n" })
+  expect(await provided(Loader.check(none.repo, none.tree))).toEqual([])
+  expect(repo).not.toBe(none.repo)
+})
+
+it("IMG-46 IMG-143 a move aside never replaces what an earlier one kept, in the same millisecond", async () => {
+  const repo = mkdtempSync(join(tmpdir(), "chad-repolinks-"))
+  const path = join(repo, "node_modules")
+  const saved = `${path}.replaced-2026-11-16T06-28-57-056Z`
+  vi.useFakeTimers({ toFake: ["Date"] })
+  vi.setSystemTime(new Date("2026-11-16T06:28:57.056Z"))
+  try {
+    for (const text of ["first", "second", "third"]) {
+      rmSync(path, { force: true })
+      writeFileSync(path, text)
+      await provided(RepoLinks.prepare(repo))
+    }
+  } finally {
+    vi.useRealTimers()
+  }
+  expect(
+    [saved, `${saved}-1`, `${saved}-2`].map((file) =>
+      readFileSync(file, "utf8"),
+    ),
+  ).toEqual(["first", "second", "third"])
 })

@@ -288,7 +288,12 @@ const boot = Effect.fnUntraced(function* (
   yield* RepoLinks.prepare(volume.repo)
   const live = join(volume.repo, "live")
   const fromRepo = (yield* fs.exists(live))
-    ? yield* Loader.load(yield* fs.realPath(live))
+    ? // A repo plugin with a bundled plugin's name is skipped before it runs, since the two would share one table
+      // (REC-42).
+      yield* Loader.load(
+        yield* fs.realPath(live),
+        new Set((inputs.plugins ?? []).map(({ name }) => name)),
+      )
     : { loaded: [], skipped: [] }
   // The token store and the one Codex login of the process, which every session's model layer is built over. clanka's
   // login reads the stored token once, as it is built (MOD-26, MOD-66).
@@ -455,19 +460,9 @@ const boot = Effect.fnUntraced(function* (
   // The rows of Discord shard state that a connection removed with no daemon left behind go before any gateway dials.
   yield* Connections.forget(stored.value).pipe(Effect.provide(sessions))
   yield* running.set(stored.value).pipe(Effect.provide(sessions))
-  // A repo plugin with a bundled plugin's name is skipped, since the two would share one table (REC-42).
-  const bundled = new Set((inputs.plugins ?? []).map(({ name }) => name))
   host = yield* Plugins.make({
-    entries: [
-      ...(inputs.plugins ?? []),
-      ...fromRepo.loaded.filter(({ name }) => !bundled.has(name)),
-    ],
-    unloadable: [
-      ...fromRepo.skipped,
-      ...fromRepo.loaded
-        .filter(({ name }) => bundled.has(name))
-        .map(({ name }) => ({ name, message: Messages.bundledName(name) })),
-    ],
+    entries: [...(inputs.plugins ?? []), ...fromRepo.loaded],
+    unloadable: fromRepo.skipped,
     owners: () =>
       running
         .list()

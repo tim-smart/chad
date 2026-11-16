@@ -45,7 +45,11 @@ export const prepare = Effect.fnUntraced(function* (repo: string) {
     )
     if (found === "link") yield* fs.remove(path)
     if (found === "other") {
-      const to = `${path}.replaced-${new Date().toISOString().replace(/[:.]/g, "-")}`
+      // A name that is taken already, by an earlier move in the same millisecond or by the owner, gets a counter, so
+      // the move never replaces what an earlier one kept (IMG-143).
+      const stamped = `${path}.replaced-${new Date().toISOString().replace(/[:.]/g, "-")}`
+      let to = stamped
+      for (let n = 1; yield* fs.exists(to); n++) to = `${stamped}-${n}`
       yield* fs.rename(path, to)
       yield* Logger.event("boot.moved-aside", Messages.movedAside(path, to), {
         path,
