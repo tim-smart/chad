@@ -12,6 +12,7 @@ import {
   rmSync,
   statSync,
   symlinkSync,
+  truncateSync,
   watch,
   writeFileSync,
 } from "node:fs"
@@ -23,7 +24,7 @@ import * as Messages from "../../dist/Messages.js"
 import { version } from "../../dist/Version.js"
 import { chad, owner, type Running, start } from "../support/cli.ts"
 import { execute, query } from "../support/database.ts"
-import { runs } from "../support/model.ts"
+import { runs, start as fakeModel } from "../support/model.ts"
 import { eventually, posted, rows, says } from "../support/owner.ts"
 import { daemon } from "../support/process.ts"
 import { path } from "../support/repo.ts"
@@ -96,6 +97,37 @@ const manifest = (into: string) =>
     join(into, "manifest.json"),
     JSON.stringify({ format: 1, version }),
   )
+
+/** The pid of the `tar` a process runs, read off `/proc`. */
+const tarRunBy = (parent: number | undefined) => {
+  for (const entry of readdirSync("/proc")) {
+    if (!/^\d+$/.test(entry)) continue
+    try {
+      const stat = readFileSync(`/proc/${entry}/stat`, "utf8")
+      const name = stat.slice(stat.indexOf("(") + 1, stat.lastIndexOf(")"))
+      const ppid = Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[1])
+      if (name === "tar" && ppid === parent) return Number(entry)
+    } catch {
+      // The process ended while it was read.
+    }
+  }
+  return undefined
+}
+
+/** Whether a stopped process has ended, or has a SIGTERM or a SIGKILL waiting for it to go on. */
+const toldToEnd = (pid: number) => {
+  try {
+    const status = readFileSync(`/proc/${pid}/status`, "utf8")
+    if (/^State:\s+Z/m.test(status)) return true
+    let pending = 0n
+    for (const [, mask] of status.matchAll(/^(?:SigPnd|ShdPnd):\s+(\w+)$/gm)) {
+      pending |= BigInt(`0x${mask}`)
+    }
+    return (pending & ((1n << 14n) | (1n << 8n))) !== 0n
+  } catch {
+    return true
+  }
+}
 
 const entries = (tar: string) =>
   execFileSync("tar", ["--list", "--file", tar], { encoding: "utf8" })
@@ -416,9 +448,21 @@ it("STO-99 STO-179 STO-216 STO-217 CLI-135 a restore holds the lock against chad
   expect(readFileSync(join(data, "secrets/later"), "utf8")).toBe("since")
 }, 60_000)
 
-it("STO-216 STO-217 CLI-133 a restore cut while it replaces the volume leaves it to the restore alone: chad serve and a command that writes are refused, and the restore run again finishes it into a volume that boots", async () => {
+it("STO-216 STO-217 CLI-133 MOD-90 a restore cut while it replaces the volume leaves it to the restore alone: chad serve, a command that writes and one that was already waiting on its model's trial are refused, and the restore run again finishes it into a volume that boots", async () => {
   const tar = await backedUp()
   const data = directory("chad-target-")
+  // A chad model with no daemon that passed its check of the volume before the restore, and waits on its trial.
+  const model = await fakeModel()
+  onTestFinished(() => model.close())
+  const trial = model.holdChecks("fenced")
+  const inFlight = start(["model", "openai-compat/fenced"], {
+    CHAD_DATA: data,
+    CHAD_MODEL: "openai-compat/fake",
+    CHAD_OPENAI_API_URL: model.url,
+    CHAD_OPENAI_API_KEY: "fake-key",
+  })
+  onTestFinished(() => void inFlight.child.kill("SIGKILL"))
+  await trial.reached
   // A directory the restore cannot remove cuts it after it has begun to replace what is on the volume.
   mkdirSync(join(data, "repo/work/stuck"), { recursive: true })
   writeFileSync(join(data, "repo/work/stuck/file"), "stuck")
@@ -439,6 +483,13 @@ it("STO-216 STO-217 CLI-133 a restore cut while it replaces the volume leaves it
     stderr: `${Messages.restoreUnfinished("timezone", data)}\n`,
     code: 1,
   })
+  trial.release()
+  expect(await inFlight.done).toMatchObject({
+    code: 1,
+    stdout: "",
+    stderr: expect.stringContaining(Messages.restoreUnfinished("model", data)),
+  })
+  expect(existsSync(join(data, "state/model"))).toBe(false)
 
   execFileSync("chmod", ["0755", join(data, "repo/work/stuck")])
   expect(await chad(["restore", tar], { CHAD_DATA: data })).toMatchObject({
@@ -508,7 +559,7 @@ it("STO-98 STO-215 CLI-135 CLI-132 a restore refuses a tar whose state is a link
   expect(terminal.stdout).toContain(Messages.backupTerminal())
 }, 60_000)
 
-it("STO-93 CLI-218 CLI-133 a backup whose daemon goes away while it holds the queue ends with exit 4 and never finishes the tar, and one that SIGINT ends frees the queue at once", async () => {
+it("STO-93 CLI-218 CLI-133 STO-218 a backup whose daemon goes away while it holds the queue ends with exit 4 and never finishes the tar, and one to a file that SIGINT ends removes its partial file, leaves the backup already at that path as it was and frees the queue at once", async () => {
   const data = directory("chad-lost-")
   const daemon = await serve(data)
   mkdirSync(join(data, "home"), { recursive: true })
@@ -545,10 +596,41 @@ it("STO-93 CLI-218 CLI-133 a backup whose daemon goes away while it holds the qu
     bytes += (chunk as Buffer).length
   expect(bytes).toBeLessThan(8 * 1024 * 1024)
 
+  // A file takes what tar writes as fast as it writes, so tar itself is stopped once the partial file exists, and goes
+  // on only once the CLI has told it to end. A sparse gigabyte keeps tar writing long enough to be stopped.
   const again = await serve(data)
-  const interrupted = await stalled()
-  interrupted.backup.kill("SIGINT")
-  expect(await interrupted.ended).toBe(130)
+  writeFileSync(join(data, "home/sparse"), "")
+  truncateSync(join(data, "home/sparse"), 1024 ** 3)
+  const target = join(directory("chad-tar-"), "chad.tar")
+  writeFileSync(target, "the previous backup")
+  const interrupted = spawn(
+    process.execPath,
+    [path("bin/chad.js"), "backup", target],
+    { env: owner({ CHAD_DATA: data }), stdio: ["ignore", "pipe", "pipe"] },
+  )
+  onTestFinished(() => void interrupted.kill("SIGKILL"))
+  const interruptedEnded = new Promise<number | null>((resolve) =>
+    interrupted.on("close", resolve),
+  )
+  await eventually(
+    () => existsSync(`${target}.partial`),
+    (there) => there,
+  )
+  const writing = await eventually(
+    () => tarRunBy(interrupted.pid),
+    (pid) => pid !== undefined,
+  )
+  process.kill(writing!, "SIGSTOP")
+  onTestFinished(() => void spawnSync("kill", ["-CONT", String(writing)]))
+  interrupted.kill("SIGINT")
+  await eventually(
+    () => toldToEnd(writing!),
+    (told) => told,
+  )
+  spawnSync("kill", ["-CONT", String(writing)])
+  expect(await interruptedEnded).toBe(130)
+  expect(existsSync(`${target}.partial`)).toBe(false)
+  expect(readFileSync(target, "utf8")).toBe("the previous backup")
   const change = await chad(["timezone", "Europe/London"], { CHAD_DATA: data })
   expect(change.code).toBe(0)
   expect(change.stdout + change.stderr).not.toContain(

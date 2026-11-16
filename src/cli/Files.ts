@@ -56,6 +56,36 @@ export const writable = Effect.fn("Files.writable")(function* (
 })
 
 /**
+ * Takes the daemon lock for a write with no daemon, and gives its release. It fails when a daemon holds the lock, and
+ * when a `chad restore` left the volume half replaced, which is checked again under the lock because the restore may
+ * have been cut while this command waited on something before its write (STO-217). The lock is released on a refusal. The lock's directory exists already.
+ * `started` is what the command says when a daemon holds the lock.
+ */
+export const take = Effect.fnUntraced(function* (
+  command: string,
+  started = Messages.daemonStarted(command),
+) {
+  const environment = yield* Environment
+  const fs = yield* FileSystem.FileSystem
+  const release = Lock.take(environment.lock, Duration.zero)
+  if (release === undefined) {
+    return yield* new Failure({ code: ExitCode.failed, message: started })
+  }
+  const cut = yield* fs.exists(Paths.restoreCut(environment.data)).pipe(
+    Effect.orDie,
+    Effect.onError(() => Effect.sync(release)),
+  )
+  if (cut) {
+    release()
+    return yield* new Failure({
+      code: ExitCode.failed,
+      message: Messages.restoreUnfinished(command, environment.data),
+    })
+  }
+  return release
+})
+
+/**
  * Runs a write while this CLI holds the daemon lock, so no daemon can start between the lock test and the write and
  * miss the change. The lock is taken only now, after anything the command waited on. A daemon that started in the
  * meantime holds it, and the command then fails and writes nothing.
@@ -73,13 +103,7 @@ export const locked = <A, E, R>(
       fs.makeDirectory(dirname(environment.lock), { recursive: true }),
     )
     return yield* Effect.gen(function* () {
-      const release = Lock.take(environment.lock, Duration.zero)
-      if (release === undefined) {
-        return yield* new Failure({
-          code: ExitCode.failed,
-          message: Messages.daemonStarted(command),
-        })
-      }
+      const release = yield* take(command)
       return yield* Effect.ensuring(write, Effect.sync(release))
     }).pipe(Effect.uninterruptible)
   })

@@ -83,7 +83,7 @@ const alone = (request: ModelSpec.Request) =>
     }
     yield* Files.writable("model")
     const timings = yield* Timings
-    const { auth, store, handler } = yield* Login.terminal
+    const { auth, store, handler } = yield* Login.terminal("model")
     yield* Spec.prepare({
       current,
       request,

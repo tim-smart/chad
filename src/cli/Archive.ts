@@ -129,7 +129,7 @@ const copyDatabase = (from: string, to: string) =>
 /**
  * Writes the tar to `to`, or to standard output when it is undefined. The manifest and the online copy of the database
  * are made in a directory under `cache/`, which no backup holds, and a tar written to a path is renamed into place once
- * it is complete. GNU tar's exit code 1 is a file that changed while it was read, as a running session's may.
+ * it is complete, and removed when it is not (STO-218). GNU tar's exit code 1 is a file that changed while it was read, as a running session's may.
  */
 export const create = (options: {
   readonly data: string

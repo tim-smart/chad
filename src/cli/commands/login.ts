@@ -1,10 +1,9 @@
 import { dirname } from "node:path"
 import { CodexAuth } from "clanka/CodexAuth"
 import { DeviceCodeHandler } from "clanka/DeviceCodeHandler"
-import { Console, Duration, Effect, FileSystem, Stream } from "effect"
+import { Console, Effect, FileSystem, Stream } from "effect"
 import { Command } from "effect/cli"
 import { KeyValueStore } from "effect/persistence"
-import * as Lock from "../../Lock.ts"
 import * as Messages from "../../Messages.ts"
 import { Timings } from "../../Timings.ts"
 import * as TokenStore from "../../TokenStore.ts"
@@ -53,10 +52,11 @@ export const throughDaemon = Effect.gen(function* () {
 
 /**
  * clanka's login with no daemon, over the token store. The code goes to the terminal, and the daemon's lock is taken
- * only to store the token, so a daemon that started meanwhile wins and the command fails (MOD-57, MOD-58).
- * `chad model <spec>` with no daemon runs its login and its trial request on it (MOD-90).
+ * only to store the token, so a daemon that started meanwhile wins and the command fails (MOD-57, MOD-58), and so does
+ * a `chad restore` that was cut meanwhile (STO-217). `chad model <spec>` with no daemon runs its login and its trial
+ * request on it (MOD-90).
  */
-export const terminal = Effect.gen(function* () {
+export const terminal = Effect.fnUntraced(function* (command: string) {
   const environment = yield* Environment
   const fs = yield* FileSystem.FileSystem
   yield* Effect.orDie(
@@ -67,16 +67,14 @@ export const terminal = Effect.gen(function* () {
       return yield* KeyValueStore.KeyValueStore
     }).pipe(Effect.provide(TokenStore.layer(environment.data))),
   )
-  const raced = new Failure({
-    code: ExitCode.failed,
-    message: Messages.loginRaced,
-  })
+  // clanka stores with `orDie`, so a refusal is a defect that `run` turns back into the command's failure.
   const guarded = TokenStore.guarded(
     store,
-    Effect.suspend(() => {
-      const release = Lock.take(environment.lock, Duration.zero)
-      return release === undefined ? Effect.die(raced) : Effect.succeed(release)
-    }),
+    Files.take(command, Messages.loginRaced).pipe(
+      Effect.orDie,
+      Effect.provideService(Environment, environment),
+      Effect.provideService(FileSystem.FileSystem, fs),
+    ),
   )
   let told = false
   const handler = DeviceCodeHandler.of({
@@ -128,7 +126,7 @@ export const alone = Effect.gen(function* () {
   yield* Files.writable("login")
   const { spec, needsLogin } = yield* Account.model
   if (!needsLogin) return yield* Console.log(Messages.loginNotNeeded(spec))
-  const { auth, told } = yield* terminal
+  const { auth, told } = yield* terminal("login")
   yield* run(auth, failed)
   yield* Console.log(told() ? Messages.loggedIn : Messages.alreadyLoggedIn)
 })
