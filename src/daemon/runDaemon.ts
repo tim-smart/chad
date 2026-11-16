@@ -1,4 +1,4 @@
-import { dirname } from "node:path"
+import { dirname, join } from "node:path"
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Agent from "clanka/Agent"
@@ -41,6 +41,7 @@ import * as Connections from "./Connections.ts"
 import * as Environment from "./Environment.ts"
 import * as Chats from "./Chats.ts"
 import * as Filesystem from "./Filesystem.ts"
+import * as Loader from "./Loader.ts"
 import * as Handler from "./Handler.ts"
 import * as Logger from "./Logger.ts"
 import * as Login from "./Login.ts"
@@ -51,6 +52,7 @@ import * as Plugins from "./Plugins.ts"
 import * as Disk from "./Disk.ts"
 import * as Unusable from "./Unusable.ts"
 import * as Queue from "./Queue.ts"
+import * as RepoLinks from "./RepoLinks.ts"
 import * as Server from "./Server.ts"
 import * as SessionEntity from "./SessionEntity.ts"
 import * as Sessions from "./Sessions.ts"
@@ -280,6 +282,14 @@ const boot = Effect.fnUntraced(function* (
 
   // Step 9.
   state.phase = "loading"
+  // The plugins of the applied tree load beside the bundled ones, through the bundle loader and with no type-check
+  // (LOAD-61). They are bundled before any session or connection starts, and their Layers build once the sessions
+  // can take turns. `repo/`'s links come first, so the agent finds the packages and the examples (IMG-44 to IMG-46).
+  yield* RepoLinks.prepare(volume.repo)
+  const live = join(volume.repo, "live")
+  const fromRepo = (yield* fs.exists(live))
+    ? yield* Loader.load(yield* fs.realPath(live))
+    : { loaded: [], skipped: [] }
   // The token store and the one Codex login of the process, which every session's model layer is built over. clanka's
   // login reads the stored token once, as it is built (MOD-26, MOD-66).
   const tokens = yield* Layer.buildWithScope(
@@ -398,6 +408,7 @@ const boot = Effect.fnUntraced(function* (
     onSession: (event) =>
       Effect.flatMap(Deferred.await(loaded), (host) => host.onSession(event)),
     status: () => host?.status() ?? [],
+    skipped: () => host?.skipped() ?? [],
   }
   const sessions = yield* Layer.buildWithScope(
     Layer.merge(SessionEntity.layer, retention).pipe(
@@ -444,8 +455,19 @@ const boot = Effect.fnUntraced(function* (
   // The rows of Discord shard state that a connection removed with no daemon left behind go before any gateway dials.
   yield* Connections.forget(stored.value).pipe(Effect.provide(sessions))
   yield* running.set(stored.value).pipe(Effect.provide(sessions))
+  // A repo plugin with a bundled plugin's name is skipped, since the two would share one table (REC-42).
+  const bundled = new Set((inputs.plugins ?? []).map(({ name }) => name))
   host = yield* Plugins.make({
-    entries: inputs.plugins ?? [],
+    entries: [
+      ...(inputs.plugins ?? []),
+      ...fromRepo.loaded.filter(({ name }) => !bundled.has(name)),
+    ],
+    unloadable: [
+      ...fromRepo.skipped,
+      ...fromRepo.loaded
+        .filter(({ name }) => bundled.has(name))
+        .map(({ name }) => ({ name, message: Messages.bundledName(name) })),
+    ],
     owners: () =>
       running
         .list()
@@ -476,6 +498,7 @@ const boot = Effect.fnUntraced(function* (
   )
   yield* Deferred.succeed(loaded, host)
   state.plugins = host.status
+  state.skipped = host.skipped
   yield* Deferred.succeed(
     state.commands,
     yield* Connections.make(volume, state, running, Queue.make()).pipe(

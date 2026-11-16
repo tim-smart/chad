@@ -87,6 +87,9 @@ export const render = (view: View): string => {
     ...model(report.model),
     ...connections(report.connections),
     ...plugins(report.plugins),
+    ...(report.skipped ?? []).map(
+      ({ name, reason }) => `plugin: ${name}, skipped (${reason})`,
+    ),
     ...blocks(report),
   ].join("\n")
 }

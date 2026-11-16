@@ -33,6 +33,7 @@ import {
 import type { Timings } from "../Timings.ts"
 import { Turns } from "../Turns.ts"
 import * as Contributions from "./Contributions.ts"
+import * as Loader from "./Loader.ts"
 import * as Logger from "./Logger.ts"
 import type * as Notices from "./Notices.ts"
 
@@ -48,7 +49,18 @@ export interface Entry {
   readonly plugin: Plugin.Plugin
   /** The plugin's `settings` object, which its `Config` reads (API-25). */
   readonly settings?: unknown
+  /** The bundle of a plugin from the repo, whose source map is kept while the plugin runs (LOAD-85). */
+  readonly bundle?: Loader.Bundle
 }
+
+/** A plugin that was skipped, and the first line of why (CLI-125). */
+export interface Skipped {
+  readonly name: string
+  readonly reason: string
+}
+
+/** The key of the notice about a plugin skipped at boot (REC-101, FAIL-150). */
+export const skippedKey = (name: string) => `plugin-skipped:${name}`
 
 /** The hooks, as their names go in log lines and notices. */
 export type HookName = "prompt" | "beforeTurn" | "afterTurn" | "onSession"
@@ -117,6 +129,8 @@ export class Plugins extends Context.Service<
       readonly name: string
       readonly counts: Counts
     }>
+    /** The plugins skipped at boot and why, in name order (CLI-125). */
+    readonly skipped: () => ReadonlyArray<Skipped>
   }
 >()("chad/Plugins") {}
 
@@ -129,6 +143,7 @@ export const empty: Plugins["Service"] = {
   afterTurn: () => Effect.void,
   onSession: () => Effect.succeed(Effect.void),
   status: () => [],
+  skipped: () => [],
 }
 
 /** The services the host supplies to every plugin, apart from its own `PluginContext` and `Turns`. */
@@ -154,6 +169,8 @@ const clankaTools: ReadonlySet<string> = new Set([
  */
 export const make = Effect.fnUntraced(function* (options: {
   readonly entries: ReadonlyArray<Entry>
+  /** The plugins from the repo that could not be bundled or run, which are skipped as one whose Layer fails is. */
+  readonly unloadable?: ReadonlyArray<Loader.Skipped>
   readonly owners: () => ReadonlyArray<string>
   readonly timings: Timings
   /** When the stop began, in milliseconds since the epoch, or nothing before a stop. */
@@ -169,7 +186,28 @@ export const make = Effect.fnUntraced(function* (options: {
   const supplied = yield* Effect.context<Supplied>()
   const timings = options.timings
   const loaded: Array<Loaded> = []
+  const skipped: Array<Skipped> = []
   const ready = yield* Deferred.make<void>()
+
+  /**
+   * A plugin that is skipped at boot: a log line with the error, a line in `chad status`, and a notice to the owner
+   * under its key, which a plugin skipped at every boot sends once (FAIL-268, CLI-125, REC-101, FAIL-150).
+   */
+  const skip = (name: string, error: string, cause?: Cause.Cause<unknown>) =>
+    Effect.gen(function* () {
+      const reason = Messages.firstLine(error)
+      skipped.push({ name, reason })
+      yield* Logger.event(
+        "plugin.skipped",
+        "A plugin was skipped",
+        { plugin: name, reason, ...(cause === undefined ? { error } : {}) },
+        cause,
+      )
+      yield* options.notices.raise({
+        key: skippedKey(name),
+        text: Messages.pluginSkipped(name, reason),
+      })
+    })
 
   /**
    * Runs an effect as the plugin's: its name on every line, its settings for every `Config` read, and no `SqlClient`
@@ -179,6 +217,8 @@ export const make = Effect.fnUntraced(function* (options: {
     (plugin: Loaded) =>
     <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       effect.pipe(
+        // Frames inside a bundle name the source file, both in the log and in the error the model reads (LOAD-86).
+        Effect.tapCause((cause) => Effect.sync(() => Loader.remap(cause))),
         Effect.updateContext(
           (context: Context.Context<R>) =>
             Context.omit(SqlClient.SqlClient)(context) as Context.Context<R>,
@@ -298,6 +338,7 @@ export const make = Effect.fnUntraced(function* (options: {
   const load = (entry: Entry) =>
     Effect.gen(function* () {
       const own = yield* Scope.fork(scope)
+      if (entry.bundle !== undefined) yield* Loader.register(entry.bundle, own)
       const plugin: Loaded = {
         name: entry.name,
         scope: own,
@@ -345,10 +386,21 @@ export const make = Effect.fnUntraced(function* (options: {
             ),
             Context.make(DateTime.CurrentTimeZone, DateTime.zoneMakeLocal()),
           )
+          // The daemon owns the deadline of the build. A `Turns` call the build waits on never returns, and the deadline
+          // ends it (LOAD-14, API-131).
           yield* Layer.buildWithScope(entry.plugin, own).pipe(
             Effect.provideContext(services),
             as(plugin),
             Logger.ownConsole,
+            Effect.timeoutOrElse({
+              duration: timings.pluginBuild,
+              orElse: () =>
+                Effect.fail(
+                  Messages.buildTimedOut(
+                    Duration.toSeconds(timings.pluginBuild),
+                  ),
+                ),
+            }),
           )
           // A tool name that clanka or a plugin loaded before already has fails the load, and names who has it
           // (API-33).
@@ -373,18 +425,11 @@ export const make = Effect.fnUntraced(function* (options: {
       )
       if (Exit.isFailure(built)) {
         yield* Scope.close(own, Exit.void)
-        yield* Logger.event(
-          "plugin.skipped",
-          "A plugin was skipped",
-          {
-            plugin: entry.name,
-            reason: Messages.firstLine(Cause.pretty(built.cause)),
-          },
-          built.cause,
-        )
+        yield* skip(entry.name, Cause.pretty(built.cause), built.cause)
         return
       }
       loaded.push(plugin)
+      yield* options.notices.clear(skippedKey(entry.name))
     })
 
   /** Starts a version's background fibers and lets its `Turns` calls through (API-68, API-80). */
@@ -443,6 +488,10 @@ export const make = Effect.fnUntraced(function* (options: {
     a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
   )
   for (const entry of sorted) yield* load(entry)
+  for (const { name, message } of options.unloadable ?? []) {
+    yield* skip(name, message)
+  }
+  skipped.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
   for (const plugin of loaded) yield* activate(plugin)
   yield* Deferred.succeed(ready, undefined)
 
@@ -570,5 +619,6 @@ export const make = Effect.fnUntraced(function* (options: {
     onSession: (event) => queued("onSession", event, timings.hookOnSession),
     status: () =>
       loaded.map((plugin) => ({ name: plugin.name, counts: plugin.counts })),
+    skipped: () => skipped,
   })
 })

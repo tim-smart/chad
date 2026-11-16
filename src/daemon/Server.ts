@@ -77,6 +77,11 @@ export interface State {
       readonly latest: string | undefined
     }
   }>
+  /** The plugins skipped at boot and why, which the boot hands over with the counts (CLI-125). */
+  skipped: () => ReadonlyArray<{
+    readonly name: string
+    readonly reason: string
+  }>
 }
 
 /** What `chad login`, `chad logout` and `chad status` reach of the model in the daemon. */
@@ -158,6 +163,7 @@ export const makeState = (): State => ({
   held: undefined,
   recent: undefined,
   plugins: () => [],
+  skipped: () => [],
 })
 
 /**
@@ -212,6 +218,7 @@ const report = (state: State): Effect.Effect<Report> =>
         errors: counts.errors,
         ...(counts.latest === undefined ? {} : { latest: counts.latest }),
       })),
+      skipped: state.skipped(),
     }),
   )
 

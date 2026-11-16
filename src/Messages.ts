@@ -762,3 +762,56 @@ export const taskEnded = (task: {
   `<task id="${task.id}" kind="${task.kind}" status="${task.status}"${task.exitCode === undefined ? "" : ` exitCode="${task.exitCode}"`}>
 To read the output, call taskOutput(${JSON.stringify(task.id)}).
 </task>`
+
+/** A plugin kept both as a file and as a directory (LOAD-72). */
+export const twoEntries = (name: string, file: string, index: string) =>
+  `The plugin "${name}" has two entry files, ${file} and ${index}. Keep one of them.`
+
+/** A plugin whose name breaks the name rule (LOAD-92). */
+export const pluginName = (name: string, file: string) =>
+  `The plugin name "${name}" (${file}) may hold only lower-case letters, digits and hyphens. Rename it.`
+
+/** The line after a TS2307 for a package (LOAD-22, SELF-64). */
+export const importable =
+  "A plugin has no packages of its own. It can import chad, effect and Node's built-in modules, such as node:fs."
+
+/** The last line of a failed type-check of plugins (LOAD-31). */
+export const effectGuide = (path: string) =>
+  `Read ${path} before you write Effect code.`
+
+/** A plugin with top-level await (LOAD-23, SELF-63). */
+export const topLevelAwait = (name: string, at: string) =>
+  `${name}: top-level await at ${at}. A plugin runs as a CommonJS bundle, which has no top-level await. Move the awaited work into the plugin's Layer, for example inside Layer.effect(Effect.gen(...)).`
+
+/** A plugin esbuild could not bundle. */
+export const notBundled = (name: string, errors: ReadonlyArray<string>) =>
+  [`${name}: could not be bundled`, ...errors].join("\n")
+
+/** A bundle that threw when it ran, with the error's stack (LOAD-41). */
+export const notLoaded = (name: string, stack: string) =>
+  `${name} could not be loaded: ${stack}`
+
+/**
+ * A default export that is not a `Plugin` (LOAD-6). A file directly in `plugins/` with no default export is most
+ * likely a helper file, and the error says where one goes (LOAD-73).
+ */
+export const notPlugin = (name: string, file: string, helper: boolean) =>
+  helper
+    ? `${name}: ${file} has no default export. Every .ts file directly in plugins/ is a plugin's entry file, so a helper file goes in a subdirectory, such as plugins/<plugin>/<helper>.ts.`
+    : `${name}: the default export of ${file} is not a Plugin. Wrap it in Plugin.make(...).`
+
+/** A plugin's Layer that did not build in time (LOAD-14, API-131). */
+export const buildTimedOut = (seconds: number) =>
+  `The plugin's Layer did not build within ${seconds} seconds. A Turns call made while it builds never returns, so make it in Plugin.background.`
+
+/** The notice of a plugin skipped at boot, one for each plugin (FAIL-161, REC-101). */
+export const pluginSkipped = (name: string, reason: string) =>
+  `Skipped at start: \`${name}\` (${reason})\n\`chad status\` has the rest.`
+
+/** The line of `boot.moved-aside` (IMG-46, FAIL-289). */
+export const movedAside = (path: string, to: string) =>
+  `${path} was not a link, so it was moved to ${to}`
+
+/** A repo plugin that has a bundled plugin's name, which is skipped at boot (REC-42). */
+export const bundledName = (name: string) =>
+  `${name}: a bundled plugin has this name, so the bundled one loads and this one is skipped. The two share one key-value table, and renaming this plugin does not move its data.`

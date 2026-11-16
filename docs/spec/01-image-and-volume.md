@@ -241,6 +241,8 @@ A plugin is a TypeScript file in the repo that the daemon type-checks, bundles a
 - **IMG-49** The image makes `chad` resolvable from `repo/node_modules` by a link from the chad package to itself (`node_modules/chad -> ..`), so `import { Plugin } from "chad"` passes the type-check. The package's `exports` lists `.`, `./Plugin`, `./Session` and `./Turns` and nothing else, so `import "chad/daemon"` fails the type-check.
 - **IMG-50** A plugin can import `chad`, `effect` and Node's built-in modules, and those three are the promised list that is part of the plugin API. chad's other direct dependencies also resolve from `repo/node_modules`, and they are not promised (see 06-plugin-api.md).
 - **IMG-51** The package that `import { Plugin } from "chad"` resolves to carries the bundled plugins' TypeScript source.
+- **IMG-143** The name a boot moves something aside to under IMG-46 carries the boot's time in UTC, in ISO 8601 with each `:` and `.` turned into `-`, as in `node_modules.replaced-2026-11-16T06-28-57-056Z`.
+- **IMG-144** The examples under `repo/examples` import chad's modules as a repo plugin does, from `chad/Plugin`, `chad/Session` and `chad/Turns`. The image build writes them from the bundled plugins' source with each relative import of a chad module turned into that package import, so an example type-checks as it is written.
 
 These paths exist in the image, and the `self-edit` skill names them:
 
@@ -718,6 +720,8 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-140 | TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `kills` |
 | IMG-141 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | IMG-142 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
+| IMG-143 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `loader` |
+| IMG-144 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `loader` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

@@ -9,3 +9,4 @@
 !tsconfig.build.json
 !bin
 !src
+!scripts/examples.ts

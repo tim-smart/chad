@@ -1,3 +1,4 @@
 node_modules
 dist
 .rule-ids
+/plugins

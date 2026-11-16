@@ -234,7 +234,8 @@ test("API-33 a plugin whose tool name another plugin holds is skipped with the h
   ])
   const thread = await fakes.chat.makeThread("direct")
   await says(running, thread, "hello")
-  await fakes.chat.answers(thread, 1)
+  // The skipped plugin's notice goes to this direct message too, so the turn's end is what is waited for.
+  await running.logged("turn.ended")
   expect(results((await fakes.model.calls())[1]).join("\n")).toContain("ok")
 })
 

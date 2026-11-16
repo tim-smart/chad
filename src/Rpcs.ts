@@ -95,6 +95,10 @@ export const Report = Schema.Struct({
       }),
     ),
   ),
+  /** Each plugin skipped at boot, with the first line of why (CLI-125). */
+  skipped: Schema.optionalKey(
+    Schema.Array(Schema.Struct({ name: Schema.String, reason: Schema.String })),
+  ),
 })
 export type Report = typeof Report.Type
 

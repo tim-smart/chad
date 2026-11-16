@@ -47,8 +47,10 @@ RUN sh /opt/effect-docs.sh
 COPY tsconfig.json tsconfig.build.json ./
 COPY bin ./bin
 COPY src ./src
-# The self-link is what makes `import { Plugin } from "chad"` resolve from /data/repo/node_modules.
-RUN pnpm run build && ln -s .. node_modules/chad && chmod +x bin/chad.js
+COPY scripts/examples.ts ./scripts/examples.ts
+# The build's last step writes the examples to plugins/ and makes the self-link node_modules/chad -> .., which is what
+# makes `import { Plugin } from "chad"` resolve from /data/repo/node_modules.
+RUN pnpm run build && chmod +x bin/chad.js
 # The checks the image's CI makes: one effect, no Claude platform binary, and clanka's Claude module still imports.
 RUN test "$(find node_modules -name package.json -path '*/node_modules/effect/package.json' | wc -l)" = 1 \
  && test -z "$(find node_modules/.pnpm -maxdepth 1 -name '@anthropic-ai+claude-agent-sdk-*')" \
@@ -69,6 +71,7 @@ COPY --from=build /opt/chad/package.json /opt/chad/package.json
 COPY --from=build /opt/chad/node_modules /opt/chad/node_modules
 COPY --from=build /opt/chad/dist /opt/chad/dist
 COPY --from=build /opt/chad/bin /opt/chad/bin
+COPY --from=build /opt/chad/plugins /opt/chad/plugins
 RUN ln -s /opt/chad/bin/chad.js /usr/local/bin/chad && install -d -o node -g node /data
 # A login shell resets PATH from /etc/profile. This puts the volume's bin directories back, last, and only once.
 RUN printf '%s\n' 'for d in /data/home/.npm-global/bin /data/home/.local/bin; do case ":$PATH:" in *":$d:"*) ;; *) PATH="$PATH:$d" ;; esac; done; export PATH' > /etc/profile.d/chad.sh

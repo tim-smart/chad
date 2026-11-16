@@ -23,6 +23,7 @@ chad runs on Node. The loader prototype also ran unchanged on Bun 1.3.13, so the
 A plugin's name is written into the name of its key-value table (see 02-storage.md), so the name rule that `chad plugin new` applies to the name it is given (see 10-cli.md) holds for every plugin in the repo, whichever way its file got there.
 
 - **LOAD-92** `chad check` and `chad apply` fail when the exported tree holds a plugin whose name has a character other than a lower-case letter, a digit or a hyphen. The name is the one LOAD-5 defines, so the rule covers a plugin kept as one file and a plugin kept as a directory.
+- **LOAD-98** The check of plugin names, LOAD-72 and LOAD-92, runs first. A check or an apply that a name fails stops there, before `tsc`, with one error for each such name. The steps of LOAD-53 follow.
 - **LOAD-93** At a boot a plugin under `repo/live` whose name breaks the rule of LOAD-92 is skipped, and the other plugins load. It is announced like any other skipped plugin, under the notice key `plugin-skipped:<name>` (see 09-repo-and-recovery.md for the boot, and 16-failures-logs-status.md for the notice, which quotes the name as it is written and cuts it).
 
 A bundled plugin is one that ships inside the chad package in the image, such as cron. It is not a file in the repo, so the rules of this part about bundling, the bundle hash and `import()` do not cover it.
@@ -505,3 +506,4 @@ No run checked a volume on a filesystem other than ext4, or a repo with many fil
 | LOAD-95 | TIM-559 round 3 A1 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | LOAD-96 | TIM-559 round 4 item 7 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | LOAD-97 | TIM-559 round 4 item 8 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
+| LOAD-98 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `loader` |

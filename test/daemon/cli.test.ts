@@ -21,6 +21,15 @@ import { version } from "../../dist/Version.js"
 import { fresh, scenario } from "../support/driver.ts"
 import { json, read } from "../support/repo.ts"
 
+/** Every path under a directory, relative to it. A link is listed and not followed, as `repo/node_modules` leads back into the checkout. */
+const listing = (directory: string, prefix = ""): Array<string> =>
+  readdirSync(join(directory, prefix), { withFileTypes: true }).flatMap(
+    (entry) => {
+      const path = join(prefix, entry.name)
+      return entry.isDirectory() ? [path, ...listing(directory, path)] : [path]
+    },
+  )
+
 const mode = (path: string) => (statSync(path).mode & 0o777).toString(8)
 
 /** What the daemon wrote to stdout, one entry for each line. */
@@ -117,7 +126,7 @@ test("OV-20 IMG-59 IMG-60 IMG-126 CLI-13 CLI-25 STO-26 STO-196 FAIL-286a FAIL-32
   const { data } = first
   await first.logged("boot.ready")
   const before = {
-    files: readdirSync(data, { recursive: true }).sort(),
+    files: listing(data).sort(),
     log: readFileSync(join(data, "logs/chad.log"), "utf8"),
     socket: statSync(join(data, "run/chad.sock")).ino,
     lines: printed().length,
@@ -130,7 +139,7 @@ test("OV-20 IMG-59 IMG-60 IMG-126 CLI-13 CLI-25 STO-26 STO-196 FAIL-286a FAIL-32
   expect(lines[0]).toContain("reason=lock")
   expect(lines[0]).toContain(Messages.lockHeld(data))
 
-  expect(readdirSync(data, { recursive: true }).sort()).toEqual(before.files)
+  expect(listing(data).sort()).toEqual(before.files)
   expect(readFileSync(join(data, "logs/chad.log"), "utf8")).toBe(before.log)
   expect(statSync(join(data, "run/chad.sock")).ino).toBe(before.socket)
   // No journal file was ever written beside the lock.

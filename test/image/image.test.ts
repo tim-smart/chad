@@ -2,6 +2,7 @@ import { existsSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import * as Messages from "../../dist/Messages.js"
+import { compilerOptions } from "../../dist/daemon/Loader.js"
 import { owner } from "../support/driver.ts"
 import {
   buildImage,
@@ -27,6 +28,7 @@ import {
   ready,
   type Result,
   reserve,
+  run,
   scenario,
   sh,
   start,
@@ -521,6 +523,97 @@ describe("the image booted on an empty named volume, and then stopped", () => {
     ).toEqual([])
     expect(run).not.toContain("local.sock")
     expect(stdout).toMatch(/event=boot\.ready .*\bconnections=0\b/)
+  })
+})
+
+describe("the links under repo/ and a plugin's type-check in the image", () => {
+  let container: string
+
+  beforeAll(async () => {
+    container = start("--volume", volume() + ":/data")
+    await ready(container)
+  })
+
+  afterAll(() => {
+    stop(container)
+  })
+
+  it("IMG-11 IMG-44 IMG-45 IMG-48 IMG-51 SELF-26 LOAD-26 a boot links repo/node_modules and repo/examples into the image, effect's docs and the examples are there, and uid 1000 cannot write through the link", () => {
+    expect(exec(container, "readlink /data/repo/node_modules")).toBe(
+      "/opt/chad/node_modules",
+    )
+    expect(exec(container, "readlink /data/repo/examples")).toBe(
+      "/opt/chad/plugins",
+    )
+    expect(exec(container, "cat /data/repo/package.json")).toContain(
+      '"type": "module"',
+    )
+    expect(
+      exec(
+        container,
+        "cd /data/repo && test -s node_modules/effect/AGENTS.md && ls node_modules/effect/ai-docs/src | head -n 1 && ls examples",
+      ).split("\n"),
+    ).toEqual([expect.any(String), "send-file.ts"])
+    expect(
+      run(
+        "exec",
+        container,
+        "sh",
+        "-c",
+        "touch /data/repo/examples/mine.ts || touch /data/repo/node_modules/chad/mine.ts",
+      ).status,
+    ).not.toBe(0)
+  })
+
+  it("TST-188 IMG-49 IMG-50 LOAD-27 LOAD-28 LOAD-76 LOAD-80 a plugin under /data/repo that imports chad, effect and node:fs type-checks with the check's options, as the example does, and chad/daemon does not", () => {
+    const write = (file: string, text: string) =>
+      exec(
+        container,
+        `mkdir -p "$(dirname ${file})" && cat > ${file} <<'EOF'\n${text}EOF`,
+      )
+    const config = (name: string) =>
+      write(
+        `/data/repo/versions/${name}.tsconfig.json`,
+        JSON.stringify({
+          compilerOptions,
+          include: [`${name}/plugins/**/*.ts`],
+        }) + "\n",
+      )
+    const tsc = (name: string) =>
+      run(
+        "exec",
+        "--workdir",
+        "/data/repo",
+        container,
+        "node_modules/.bin/tsc",
+        "-p",
+        `versions/${name}.tsconfig.json`,
+        "--pretty",
+        "false",
+      )
+    write(
+      "/data/repo/versions/good/plugins/clock.ts",
+      `import { Effect } from "effect"
+import { existsSync } from "node:fs"
+import { Plugin } from "chad"
+
+export default Plugin.make(
+  Plugin.prompt(() => Effect.sync(() => String(existsSync("/data")))),
+)
+`,
+    )
+    exec(
+      container,
+      "cp /data/repo/examples/send-file.ts /data/repo/versions/good/plugins/",
+    )
+    config("good")
+    expect(tsc("good")).toMatchObject({ status: 0, stdout: "" })
+
+    write("/data/repo/versions/bad/plugins/inside.ts", 'import "chad/daemon"\n')
+    config("bad")
+    const bad = tsc("bad")
+    expect(bad.status).not.toBe(0)
+    expect(bad.stdout).toContain("bad/plugins/inside.ts(1,8)")
   })
 })
 
