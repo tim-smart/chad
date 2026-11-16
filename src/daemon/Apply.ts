@@ -1,6 +1,7 @@
 /**
  * The commands that change what is loaded from the repo: `chad apply`, `chad check`, `chad revert`, `chad safe` and
- * `chad plugin reload`, and `chad timezone`, which reloads every plugin (docs/spec/08-apply-and-swap.md, 09-repo-and-recovery.md, 10-cli.md). Each runs alone through
+ * `chad plugin reload`, `chad timezone`, which reloads every plugin, and `chad plugin purge`, which drops the data of a
+ * plugin that is gone (docs/spec/08-apply-and-swap.md, 09-repo-and-recovery.md, 10-cli.md). Each runs alone through
  * the daemon's one queue (SWAP-40). An apply checks and builds everything before its commit, so a failure changes
  * nothing, and from its commit on it runs in a fiber of the daemon's scope that the client cannot interrupt (CLI-43,
  * CLI-44, REC-34).
@@ -57,6 +58,7 @@ export type Request =
   | { readonly _tag: "Safe"; readonly to: "on" | "off" | undefined }
   | { readonly _tag: "Reload"; readonly name: string }
   | { readonly _tag: "Timezone"; readonly zone: string }
+  | { readonly _tag: "Purge"; readonly name: string }
 
 export interface Commands {
   /** Runs a command in the queue. `waiting` is told what it waits on when the queue is busy (CLI-40). */
@@ -112,6 +114,11 @@ export const make = Effect.fnUntraced(function* (options: {
   readonly settings: Settings.File
   /** The applied tree's persona as the boot read it. */
   readonly persona: string
+  /**
+   * Drops a plugin's key-value table, and gives the number of keys it held, or nothing when there was no table
+   * (STO-61, CLI-90).
+   */
+  readonly drop: (name: string) => Effect.Effect<number | undefined>
   /** The notices, of which an apply clears the two about `chad.json` once the file it applied passed its checks. */
   readonly notices: Notices.Notices["Service"]
   readonly queue: Queue.Queue
@@ -764,6 +771,42 @@ export const make = Effect.fnUntraced(function* (options: {
       )
     })
 
+  /**
+   * `chad plugin purge <name>` drops the key-value table of a plugin that is gone. It refuses a plugin that is still in
+   * the applied repo, one that is off or that a boot skipped included, and a bundled plugin that is on, so a loaded
+   * plugin never loses its data underneath it (CLI-90, SET-40, SET-95). A plugin with no table changes nothing and
+   * posts nothing (CLI-248).
+   */
+  const purge = (name: string, caller: Caller) =>
+    Effect.gen(function* () {
+      if (bundledNames.has(name)) {
+        if (!Settings.off(applied).has(name))
+          return failed(Messages.purgeBundledOn(name))
+      } else {
+        const tree = (yield* fs.exists(live))
+          ? yield* fs.realPath(live)
+          : undefined
+        const { found, problems } =
+          tree === undefined
+            ? { found: [], problems: [] }
+            : yield* Loader.discover(tree)
+        if ([...found, ...problems].some((plugin) => plugin.name === name))
+          return failed(Messages.purgeInRepo(name))
+      }
+      const keys = yield* owned(options.drop(name))
+      if (keys === undefined) return done(Messages.purgeNothing(name))
+      yield* Queue.ran(
+        "plugin purge",
+        Queue.caller(caller.session),
+        "changed",
+        {
+          plugin: name,
+        },
+      )
+      yield* announce(caller, Messages.purgedLine(name))
+      return done(Messages.purged(name, keys))
+    })
+
   const labels: Record<Request["_tag"], string> = {
     Apply: "chad apply",
     Check: "chad check",
@@ -771,6 +814,7 @@ export const make = Effect.fnUntraced(function* (options: {
     Safe: "chad safe",
     Reload: "chad plugin reload",
     Timezone: "chad timezone",
+    Purge: "chad plugin purge",
   }
 
   const perform = (
@@ -790,6 +834,8 @@ export const make = Effect.fnUntraced(function* (options: {
         return reload(request.name)
       case "Timezone":
         return timezone(request.zone, caller)
+      case "Purge":
+        return purge(request.name, caller)
     }
   }
 

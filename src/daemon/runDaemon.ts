@@ -608,6 +608,11 @@ const boot = Effect.fnUntraced(function* (
     bundled: inputs.plugins ?? [],
     settings: appliedSettings,
     persona,
+    drop: (name) =>
+      Storage.dropPluginTable(name).pipe(
+        Effect.provideContext(base),
+        Effect.orDie,
+      ),
     notices,
     queue,
     scope,

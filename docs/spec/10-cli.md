@@ -348,6 +348,8 @@ An apply is the only way an edit in `repo/work/` reaches the running daemon. The
 - **CLI-171** `chad plugin reload <name>` also builds a plugin that a boot skipped and loads it when the build succeeds (see 09-repo-and-recovery.md).
 - **CLI-172** `chad plugin reload <name>` refuses a plugin that is off. It exits 1 and says the plugin is off in `chad.json` (see 11-settings.md).
 - **CLI-173** `chad plugin purge <name>` refuses a bundled plugin that is on and allows one that is turned off with `"enabled": false`. A bundled plugin cannot be deleted, so off is the nearest it comes to deleted, and a loaded plugin never loses its data and timers underneath it. A purge prints what it deleted, with the jobs and the timers counted. The rule is in 11-settings.md, and the cron plugin's jobs are in 13-timers-and-cron.md.
+- **CLI-247** `chad plugin purge <name>` prints "Purged <name>: its key-value table and its <n> keys are deleted.", with "key" for one, when it drops the table. A plugin still in the applied repo gets "<name> is still in the applied repo, so its data stays. Delete its file in work/, run chad apply, then purge it." and a bundled plugin that is on gets "<name> is a bundled plugin and it is on, so its data stays. Turn it off with "enabled": false in work/chad.json, run chad apply, then purge it.", each on stderr with exit 1.
+- **CLI-248** `chad plugin purge <name>` of a plugin that has no key-value table prints "Nothing is stored for <name>.", exits 0 and posts no line in a session.
 
 ### MCP servers
 
@@ -791,6 +793,8 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-244 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 | CLI-245 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 | CLI-246 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| CLI-247 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| CLI-248 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

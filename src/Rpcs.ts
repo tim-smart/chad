@@ -219,7 +219,7 @@ export class ModelUnchanged extends Schema.TaggedError<ModelUnchanged>(
   "chad/Rpcs/ModelUnchanged",
 )("ModelUnchanged", { text: Schema.String }) {}
 
-/** What `chad apply`, `check`, `revert`, `safe` and `plugin reload` ask the daemon for. */
+/** What `chad apply`, `check`, `revert`, `safe`, `plugin reload`, `timezone` and `plugin purge` ask the daemon for. */
 export const RepoRequest = Schema.Union([
   Schema.TaggedStruct("Apply", { message: Schema.String }),
   Schema.TaggedStruct("Check", {}),
@@ -229,6 +229,7 @@ export const RepoRequest = Schema.Union([
   }),
   Schema.TaggedStruct("Reload", { name: Schema.String }),
   Schema.TaggedStruct("Timezone", { zone: Schema.String }),
+  Schema.TaggedStruct("Purge", { name: Schema.String }),
 ])
 export type RepoRequest = typeof RepoRequest.Type
 
