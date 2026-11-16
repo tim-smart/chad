@@ -945,19 +945,23 @@ test("SWAP-101 SWAP-103 CLI-43 REC-121 a graceful stop while an apply's swap wai
   const apply = Cli.start(["apply", "-m", "Hold two"], {
     CHAD_DATA: first.data,
   })
-  const tree = await eventually(
-    () => git(work, ["rev-parse", "-q", "--verify", "applied^{tree}"]),
-    (tree) =>
+  // Resolve applied once per poll: separate tree and subject reads can straddle the ref update.
+  const [commit, tree] = await eventually(
+    () =>
+      git(work, ["log", "-1", "--format=%H%x00%T%x00%s", "applied"]).split(
+        "\0",
+      ),
+    ([, tree, subject]) =>
+      subject === "Hold two" &&
       readlinkSync(join(first.data, "repo", "live")) ===
-        join("versions", tree) &&
-      git(work, ["write-tree"]) === tree &&
-      git(work, ["log", "--format=%s", "-1", "applied"]) === "Hold two",
+        join("versions", tree!) &&
+      git(work, ["write-tree"]) === tree,
   )
   expect(await first.stop()).toBe(0)
   await apply.done
 
   // The swap was abandoned, so the version that holds the call was never replaced in this daemon.
-  const commit = git(work, ["rev-parse", "applied"])
+  expect(git(work, ["rev-parse", "applied"])).toBe(commit)
   const done = first
     .log()
     .find(
@@ -992,6 +996,6 @@ test("SWAP-101 SWAP-103 CLI-43 REC-121 a graceful stop while an apply's swap wai
     (line) => line.message === "hang started two",
   )
   expect(readlinkSync(join(second.data, "repo", "live"))).toBe(
-    join("versions", tree),
+    join("versions", tree!),
   )
 }, 30_000)
