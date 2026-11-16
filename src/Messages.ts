@@ -909,11 +909,11 @@ export const skillSkipped = (name: string, problem: string) =>
 export const bundledSkillChanged = (name: string) =>
   `The bundled skill \`${name}\` changed in this image. The repo's copy still hides it.`
 
-/** The sentence chad appends to a repo skill's content (MCP-4, MCP-102, MCP-104, MCP-142). */
+/** The sentence chad appends to a repo skill's content (MCP-4, MCP-102, MCP-104, MCP-146). */
 export const repoSkillWhere = (live: string, work: string) =>
   `This skill's files are in ${live}. To change the skill, edit its copy in ${work} and run chad apply. An edit under ${live} is lost at the next apply.`
 
-/** The sentence chad appends to a bundled skill's content (MCP-4, MCP-103, MCP-104, MCP-142). */
+/** The sentence chad appends to a bundled skill's content (MCP-4, MCP-103, MCP-104, MCP-146). */
 export const bundledSkillWhere = (image: string, work: string) =>
   `This skill is bundled with chad and its files are in ${image}, which is read-only. To change the skill, copy its directory to ${work}, edit it there and run chad apply. The repo's copy then hides the bundled one.`
 
@@ -934,11 +934,11 @@ export const skillChanges = (changes: {
     : [`Skills removed: ${changes.removed.join(", ")}.`]),
 ]
 
-/** An apply's line for a repo skill that hides a bundled one (CLI-70, MCP-11, SELF-117, MCP-143). */
+/** An apply's line for a repo skill that hides a bundled one (CLI-70, MCP-11, SELF-117, MCP-147). */
 export const skillHides = (name: string) =>
   `The repo skill ${name} hides the bundled skill of the same name.`
 
-/** `chad status`'s mark on a repo skill that hides a bundled one (MCP-12, MCP-143). */
+/** `chad status`'s mark on a repo skill that hides a bundled one (MCP-12, MCP-147). */
 export const skillHidesMark = (name: string) =>
   `skill: ${name}, from the repo, hides the bundled one`
 
@@ -946,7 +946,7 @@ export const skillHidesMark = (name: string) =>
 export const skillWritten = (name: string) =>
   `Wrote work/skills/${name}/SKILL.md. Fill in its description and instructions. It is a draft until chad apply.`
 
-/** The body of the `SKILL.md` that `chad skill new` writes (SELF-137). */
+/** The body of the `SKILL.md` that `chad skill new` writes (SELF-139). */
 export const skillBody =
   "Write the instructions here: what the task is, the steps, and the commands to run."
 

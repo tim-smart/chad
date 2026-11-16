@@ -60,7 +60,7 @@ const skillNotices = (running: Scenario) =>
     "SELECT key, text FROM notices WHERE key LIKE 'skill-%' ORDER BY key",
   )
 
-test("MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-13 MCP-14 MCP-16 MCP-17 MCP-18 MCP-102 MCP-103 MCP-104 MCP-105 MCP-106 MCP-107 MCP-141 MCP-142 MCP-143 SELF-55 SELF-56 SELF-57 SELF-59 SELF-60 SELF-61 SELF-117 SELF-119 SELF-120 SELF-121 SELF-137 REC-47 REC-51 SWAP-9 LOAD-87 CLI-67 CLI-68 CLI-70 CLI-75 CLI-84 CLI-85 CLI-156 FAIL-166 FAIL-234 FAIL-167 TST-217 an applied skill reaches the next turn's prompt and readSkill, hides a bundled one, leaves safe mode, and a boot skips a malformed one and announces a changed bundled skill once", async () => {
+test("MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-13 MCP-14 MCP-16 MCP-17 MCP-18 MCP-102 MCP-103 MCP-104 MCP-105 MCP-106 MCP-107 MCP-145 MCP-146 MCP-147 SELF-55 SELF-56 SELF-57 SELF-59 SELF-60 SELF-61 SELF-117 SELF-119 SELF-120 SELF-121 SELF-139 REC-47 REC-51 SWAP-9 LOAD-87 CLI-67 CLI-68 CLI-70 CLI-75 CLI-84 CLI-85 CLI-156 FAIL-166 FAIL-234 FAIL-167 TST-217 an applied skill reaches the next turn's prompt and readSkill, hides a bundled one, leaves safe mode, and a boot skips a malformed one and announces a changed bundled skill once", async () => {
   const bundled = join(fresh(), "bundled")
   write(bundled, {
     "alpha/SKILL.md": skill("alpha", "Bundled alpha.", "alpha body"),

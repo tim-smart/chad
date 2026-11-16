@@ -71,7 +71,7 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 | SELF-110  | `skills-mcp`     | The CI job runs `chad plugin new`, which arrives with the `skills-mcp` slice (CLI-84).                                                                                                          |
 | SET-54    | `skills-mcp`     | The apply's refusal is built. `chad plugin new` arrives with the `skills-mcp` slice.                                                                                                            |
 | SWAP-109  | `skills-mcp`     | The plugins' scopes close in the stop's last step now. The MCP layer and the stop's 60 second deadline arrive with `skills-mcp`.                                                                |
-| MCP-141   | `bundled-skills` | The image copies `skills/` to `/opt/chad/skills` once the `bundled-skills` slice adds the first bundled skill, and until then no bundled skill exists.                                          |
+| MCP-145   | `bundled-skills` | The image copies `skills/` to `/opt/chad/skills` once the `bundled-skills` slice adds the first bundled skill, and until then no bundled skill exists.                                          |
 | ASP-7     | `asphodel`       | The asphodel plugin arrives with the `asphodel` slice. A plugin's settings under `plugins.<name>.settings` in `chad.json` are built.                                                            |
 | ASP-9     | `asphodel`       | The asphodel plugin and its bearer token arrive with the `asphodel` slice. The expansion of `${NAME}` from the secret store or process env is built.                                            |
 

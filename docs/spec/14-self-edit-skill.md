@@ -177,7 +177,7 @@ These checks exist because of the skill and the starter file. They run with the 
 - **SELF-59** Each of these skill errors names the file.
 - **SELF-60** At boot a skill with one of these faults is skipped, and chad sends a notice. The notice's wording, where it is posted and when it may be sent again are in 16-failures-logs-status.md.
 - **SELF-61** A repo skill with a bundled skill's name is an override and not an error.
-- **SELF-137** `chad skill new <name>` writes a `SKILL.md` whose front matter has `name: <name>` and an empty `description`, and whose body is the line "Write the instructions here: what the task is, the steps, and the commands to run." A check refuses the file until its description is filled in (SELF-56), so an unfinished skill is never applied.
+- **SELF-139** `chad skill new <name>` writes a `SKILL.md` whose front matter has `name: <name>` and an empty `description`, and whose body is the line "Write the instructions here: what the task is, the steps, and the commands to run." A check refuses the file until its description is filled in (SELF-56), so an unfinished skill is never applied.
 - **SELF-133** What `chad check` and `chad apply` do with a file named `AGENTS.md` or a directory named `.agents` or `.kiro` in the repo is specified in 07-plugin-loading.md. Both refuse them wherever they sit in the repo, one that `.gitignore` covers included, because both look on disk in `repo/work/` as well as in the exported tree. The message names `skills/` and `persona.md`.
 - **SELF-62** An error whose fix is known says the fix.
 - **SELF-63** chad rewrites the error for a plugin with top-level await so that it says the fix.
@@ -601,7 +601,7 @@ export default Plugin.make(NotesTools, Chunk)
 - **SELF-G6** [builder] How an empty or missing `persona.md` renders in the system prompt, and whether the persona gets a heading there. TIM-549 item 16. SELF-136 settles both.
 - **SELF-G8** [builder] How CI finds the commands, flags, exit codes, paths and quoted messages in a skill's prose. TIM-549 item 21 and TIM-558 items 32 and 33 give the rules and what a quoted message is matched against, and no method for finding one.
 - **SELF-G9** [builder] How `<camelName>` is derived from a name that has hyphens or starts with a digit. TIM-549 item 17.
-- **SELF-G10** [builder] What `chad skill new` writes inside `SKILL.md`. TIM-542 item 11 gives the path only. SELF-137 settles it.
+- **SELF-G10** [builder] What `chad skill new` writes inside `SKILL.md`. TIM-542 item 11 gives the path only. SELF-139 settles it.
 - **SELF-G11** [builder] Ten of the 17 corrections to the first drafts are not listed anywhere. TIM-549 item 6 says all are applied in the drafts, and round 1 lists seven.
 - **SELF-G15** [builder] Whether `self-edit` points at the `diagnose` skill, or names `chad logs`, where its draft sends the agent to `/data/logs/chad.log`. TIM-557 items 11 and 43 add the command and the skill and say nothing about this skill's text.
 - **SELF-G16** [builder] Which command is effect's build step in SELF-27, and how the image build gets effect's source when it holds only the tarballs under `vendor/`. TIM-549 item 22 names the step and no command, and nobody has run it. Recommended: the build clones effect at the manifest's commit and runs the script of that repository that fills the `AGENTS.md` and `ai-docs/**/*` entries of the `files` list in `packages/effect/package.json`. If the repository has no such script, the build copies `AGENTS.md` and `ai-docs/` as they sit in that tree.
@@ -744,7 +744,7 @@ export default Plugin.make(NotesTools, Chunk)
 | SELF-134 | TIM-559 round 3 A2 | Architect (Tim has not read) | not run | TIM-559 | `definition` | - |
 | SELF-135 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `harness` |
 | SELF-136 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
-| SELF-137 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| SELF-139 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

@@ -9,7 +9,7 @@ import { Effect, FileSystem, Schema } from "effect"
 import { Yaml } from "effect/encoding"
 import * as Messages from "./Messages.ts"
 
-/** The bundled skills, `skills/` at the root of the package, next to `dist/`: `/opt/chad/skills` in the image (MCP-141). */
+/** The bundled skills, `skills/` at the root of the package, next to `dist/`: `/opt/chad/skills` in the image (MCP-145). */
 export const bundledDirectory = fileURLToPath(
   new URL("../skills", import.meta.url),
 )
@@ -164,7 +164,7 @@ export interface Provided {
  * The list a session's Agent is built with. A repo skill wins over a bundled one of the same name, and safe mode lists
  * the bundled skills alone (MCP-3, MCP-7, MCP-10, MCP-105). Each one's content ends with where its files are: a repo
  * skill's through `repo/live`, unresolved, and a bundled one's in the image, and with where an edit goes (MCP-4,
- * MCP-102 to MCP-104, LOAD-87, MCP-142).
+ * MCP-102 to MCP-104, LOAD-87, MCP-146).
  */
 export const provided = (options: {
   readonly repo: Found | undefined
@@ -261,7 +261,7 @@ export const skippedKey = (name: string) => `skill-skipped:${name}`
 
 /**
  * What `chad skill new` writes: front matter with the name and an empty description, which a check refuses until the
- * agent says when to read the skill, and a line on what the body holds (SELF-137).
+ * agent says when to read the skill, and a line on what the body holds (SELF-139).
  */
 export const template = (name: string) =>
   `---\nname: ${name}\ndescription:\n---\n\n${Messages.skillBody}\n`

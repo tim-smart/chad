@@ -30,7 +30,7 @@ clanka can find skills in two ways. Left alone it discovers them in `.agents/ski
 - **MCP-5** A session sees a new, removed or renamed skill on its next turn, when it rebuilds its Agent. A skill change renders the session's system prompt again (see 08-apply-and-swap.md).
 - **MCP-6** A plugin contributes no skills and no MCP servers in v1.
 - **MCP-7** Safe mode loads no skills and no MCP servers from the repo (see 09-repo-and-recovery.md).
-- **MCP-142** The sentence chad appends to a repo skill's content is "This skill's files are in <live path>. To change the skill, edit its copy in <work path> and run chad apply. An edit under <live path> is lost at the next apply." For a bundled skill it is "This skill is bundled with chad and its files are in <image path>, which is read-only. To change the skill, copy its directory to <work path>, edit it there and run chad apply. The repo's copy then hides the bundled one." The sentence follows the skill's trimmed text after a blank line.
+- **MCP-146** The sentence chad appends to a repo skill's content is "This skill's files are in <live path>. To change the skill, edit its copy in <work path> and run chad apply. An edit under <live path> is lost at the next apply." For a bundled skill it is "This skill is bundled with chad and its files are in <image path>, which is read-only. To change the skill, copy its directory to <work path>, edit it there and run chad apply. The repo's copy then hides the bundled one." The sentence follows the skill's trimmed text after a blank line.
 - **MCP-105** Bundled skills stay listed in safe mode. They are part of the image, and `self-edit` and `diagnose` are what the agent needs to repair the repo from safe mode.
 - **MCP-8** `chad skill new <name>` writes `skills/<name>/SKILL.md` into `work/` and does nothing else. A name is made of lower-case letters, digits and hyphens, and the command refuses a name that is taken or that a bundled skill uses (see 10-cli.md).
 
@@ -78,11 +78,11 @@ The walk was read in clanka 0.28.0, at `src/AgentEnvironment.ts:62-117`, and not
 ## Bundled skills and shadowing
 
 - **MCP-9** Bundled skills ship as a directory in the image. v1 bundles three, `self-edit` (see 14-self-edit-skill.md), `credentials` (see 15-credentials.md) and `diagnose` (see 16-failures-logs-status.md).
-- **MCP-141** The bundled skills directory is `skills/` at the root of chad's package, next to `dist/`, which is `/opt/chad/skills` in the image. A missing directory holds no bundled skill.
+- **MCP-145** The bundled skills directory is `skills/` at the root of chad's package, next to `dist/`, which is `/opt/chad/skills` in the image. A missing directory holds no bundled skill.
 - **MCP-10** A repo skill with the same name as a bundled skill wins. Sessions get the repo skill in place of the bundled one. This is an override and not an error, and it applies to `self-edit` as well.
 - **MCP-11** The output of an apply says when a repo skill hides a bundled one.
 - **MCP-12** `chad status` marks a repo skill that hides a bundled one.
-- **MCP-143** The apply's line for a repo skill that hides a bundled one is "The repo skill <name> hides the bundled skill of the same name.", after the settings lines. Before it come the lines "Skills added: <names>.", "Skills changed: <names>." and "Skills removed: <names>.", each only when it names a skill, where a skill changed when the commit changed a file under its directory. The mark in `chad status` is the line "skill: <name>, from the repo, hides the bundled one", after the skipped plugins.
+- **MCP-147** The apply's line for a repo skill that hides a bundled one is "The repo skill <name> hides the bundled skill of the same name.", after the settings lines. Before it come the lines "Skills added: <names>.", "Skills changed: <names>." and "Skills removed: <names>.", each only when it names a skill, where a skill changed when the commit changed a file under its directory. The mark in `chad status` is the line "skill: <name>, from the repo, hides the bundled one", after the skipped plugins.
 - **MCP-13** chad keeps a hash of each bundled skill under `state/`. A first boot stores the hashes and says nothing.
 - **MCP-106** The hashes are kept in `state/bundled-skills.json`, one JSON object from a skill's name to its hash. chad writes the file to a temporary name and renames it.
 - **MCP-107** A bundled skill's hash is a SHA-256 over the sorted relative paths of the files in its directory and the contents of those files.
@@ -272,10 +272,10 @@ The log events that this part's behaviour writes are `skill.skipped`, `skill.bun
 
 ## Gaps
 
-- **MCP-G10** [builder] The wording of the apply's line for a repo skill that hides a bundled one, and of the per-server status lines. TIM-537 items 3 and 6. MCP-143 settles the skill's line and mark.
+- **MCP-G10** [builder] The wording of the apply's line for a repo skill that hides a bundled one, and of the per-server status lines. TIM-537 items 3 and 6. MCP-147 settles the skill's line and mark.
 - **MCP-G13** [builder] How chad keeps clanka's `McpConfig.load` to the one file. As read, `load` also reads `$XDG_CONFIG_HOME/clanka/mcp.json` or `$HOME/.config/clanka/mcp.json`, and `.mcp.json` in the directory it is given, before the files it is passed. TIM-537 item 5 says "one `mcp.json`".
-- **MCP-G15** [builder] Where in the image the bundled skills directory is. TIM-537 item 3. MCP-141 settles it.
-- **MCP-G17** [builder] The sentence chad appends to a skill's content around the path of MCP-102 or MCP-103, which has to say what MCP-104 requires. TIM-537 item 1 and TIM-538. MCP-142 settles it.
+- **MCP-G15** [builder] Where in the image the bundled skills directory is. TIM-537 item 3. MCP-145 settles it.
+- **MCP-G17** [builder] The sentence chad appends to a skill's content around the path of MCP-102 or MCP-103, which has to say what MCP-104 requires. TIM-537 item 1 and TIM-538. MCP-146 settles it.
 - **MCP-G21** [builder] Two texts the prototype used and no ticket decides. They are "searchTools: no MCP server is connected.", for a `searchTools` call the current layer cannot answer, and "MCP servers are not running.", for a call made when no layer exists and none is being built. TIM-555 prototype.
 - **MCP-G22** [builder] How message 8 is shortened or grouped when many tools are new. TIM-555 lists the long list as not run.
 
@@ -373,9 +373,9 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-135 | TIM-559 round 3 A1, TIM-559 round 4 items 7 and 8 | Architect (Tim has not read) | not run |  | `definition` | - |
 | MCP-139 | Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-140 | Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| MCP-141 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-142 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-143 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-145 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-146 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-147 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

@@ -97,7 +97,7 @@ export interface DaemonInputs {
   readonly timings: Timings
   /** The plugins the daemon loads at boot, which `chad serve` gives as the bundled ones (LOAD-74). */
   readonly plugins?: ReadonlyArray<Plugins.Entry> | undefined
-  /** The directory of the bundled skills, which `chad serve` gives as the image's (MCP-9, MCP-141). None by default. */
+  /** The directory of the bundled skills, which `chad serve` gives as the image's (MCP-9, MCP-145). None by default. */
   readonly skills?: string | undefined
 }
 
