@@ -352,7 +352,7 @@ test("API-67 IMG-83 the hooks a stop drains have until stopHooksUntil after the 
   }).pipe(Effect.provide(services), Effect.runPromise)
 })
 
-test("SES-125 API-100 Turns.start returns the turn's outcome when cluster cannot save the reply", async () => {
+test("SES-125 API-100 Turns.start returns the turn's outcome when cluster cannot save the reply, a missing thread's ThreadGone included", async () => {
   let turns: Turns["Service"] | undefined
   const plugin = Plugin.make(
     Layer.effectDiscard(
@@ -374,6 +374,15 @@ test("SES-125 API-100 Turns.start returns the turn's outcome when cluster cannot
     turns!.start({ thread, prompt: "plugin says hello", label: "probe" }),
   )
   expect(outcome).toMatchObject({ _tag: "Answered", text: "done anyway" })
+  // The handler returns early for a thread the platform does not have, and that outcome reaches the caller too.
+  const gone = await Effect.runPromise(
+    turns!.start({
+      thread: ChatThread.make(thread.platform, "missing"),
+      prompt: "plugin says hello",
+      label: "probe",
+    }),
+  )
+  expect(gone).toMatchObject({ _tag: "Failed", reason: { _tag: "ThreadGone" } })
   execute(running.data, "DROP TRIGGER full")
 })
 

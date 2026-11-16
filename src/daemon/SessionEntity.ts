@@ -2148,11 +2148,18 @@ export const layer = Layer.unwrap(
                 if (stopping.stopping()) return yield* Effect.never
                 const outcome = yield* runTurn(own, request)
                 if (outcome === unrecorded) return yield* Effect.never
-                // The caller learns the end from here and not from cluster's reply alone, which may never be saved.
-                support.ended(payload.key, outcome)
                 return outcome
               }
-            }).pipe(Effect.ensuring(take(payload.key)), Effect.orDie),
+            }).pipe(
+              // Every outcome the handler returns, the early ones for a thread that is gone and a turn that already
+              // ended included, reaches a caller waiting in this process here, and not from cluster's reply alone,
+              // which may never be saved (SES-125, API-100).
+              Effect.tap((outcome) =>
+                Effect.sync(() => support.ended(payload.key, outcome)),
+              ),
+              Effect.ensuring(take(payload.key)),
+              Effect.orDie,
+            ),
           stop: ({ payload }) =>
             Effect.gen(function* () {
               if (yield* interrupt(state.turn)) return { stopped: true }
