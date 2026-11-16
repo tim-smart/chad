@@ -23,6 +23,8 @@ export const through = (command: string, request: RepoRequest) =>
           Effect.gen(function* () {
             if (event._tag === "Waiting")
               return yield* Console.error(event.text)
+            if (event._tag === "Printed")
+              return yield* Console.log(event.stdout.join("\n"))
             if (event.stdout.length > 0)
               yield* Console.log(event.stdout.join("\n"))
             code = event.code

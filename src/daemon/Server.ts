@@ -97,6 +97,10 @@ export interface State {
   }>
   /** The repo skills that hide a bundled one, once the repo is set up (MCP-12, SELF-121). */
   hiding: () => ReadonlyArray<string>
+  /** Each MCP server's state, once the boot has read `mcp.json` (CLI-125f). */
+  mcp: () => ReadonlyArray<Messages.McpServerState>
+  /** The MCP servers whose close has not ended, which a stop cut by its deadline names (IMG-85b, MCP-97). */
+  open: () => ReadonlyArray<string>
 }
 
 /** What `chad login`, `chad logout` and `chad status` reach of the model in the daemon. */
@@ -183,6 +187,8 @@ export const makeState = (): State => ({
   off: () => [],
   skipped: () => [],
   hiding: () => [],
+  mcp: () => [],
+  open: () => [],
   repositoryState: Effect.succeed(undefined),
 })
 
@@ -249,6 +255,7 @@ const report = (state: State): Effect.Effect<Report> =>
       off: state.off(),
       skipped: state.skipped(),
       hiding: state.hiding(),
+      ...(state.mcp().length === 0 ? {} : { mcp: state.mcp() }),
       ...(repository === undefined ? {} : { repository }),
     }),
   )
@@ -418,6 +425,10 @@ const handlers = (state: State) => {
               { session: headers[sessionHeader] },
               (text) =>
                 Mailbox.offer(queue, { _tag: "Waiting", text }).pipe(
+                  Effect.asVoid,
+                ),
+              (stdout) =>
+                Mailbox.offer(queue, { _tag: "Printed", stdout }).pipe(
                   Effect.asVoid,
                 ),
             )
