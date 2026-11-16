@@ -32,6 +32,11 @@ export interface Reply {
   readonly summary?: Reply
   /** Whether the response leaves out its usage, as a provider that reports none does. */
   readonly unmetered?: boolean
+  /**
+   * The error a Responses stream fails with, in `response.failed` after the response starts and in place of the answer.
+   * No failed response was recorded, so it follows the pattern of the recorded `response.completed`.
+   */
+  readonly failed?: { readonly code: string; readonly message: string }
   /** What the call used, in place of one token in and one out. `reasoning` is a part of `output`. */
   readonly usage?: {
     readonly input: number
@@ -326,6 +331,18 @@ export const responses = (
     user: null,
     metadata: {},
   }
+  const numbered = (events: ReadonlyArray<object>) =>
+    events.map((event, sequence_number) => ({ ...event, sequence_number }))
+  if (reply.failed !== undefined) {
+    return numbered([
+      { type: "response.created", response },
+      { type: "response.in_progress", response },
+      {
+        type: "response.failed",
+        response: { ...response, status: "failed", error: reply.failed },
+      },
+    ])
+  }
   const { tool } = reply
   const text = reply.text ?? ""
   const part = { type: "output_text", annotations: [], logprobs: [], text }
@@ -433,10 +450,7 @@ export const responses = (
       },
     },
   ]
-  return events.map((event, sequence_number) => ({
-    ...event,
-    sequence_number,
-  }))
+  return numbered(events)
 }
 
 /** A refusal: its HTTP status and the error object Codex sends. */

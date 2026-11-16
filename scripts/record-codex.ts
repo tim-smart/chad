@@ -10,7 +10,9 @@
  * `<url>/responses`), and writes test/unit/fixtures/codex-frames.json only through the stripper of
  * test/support/recording.ts. It writes nothing when the stripped result still holds the key, the endpoint, a part of
  * its host or a JWT, and then prints only where. Of what it was given or received it prints no more than how
- * each call ended: an event type, a status and an error code.
+ * each call ended: an event type, a status and an error code. A call that cannot be made, or a step that fails, ends
+ * the run with a `Failure`: the CLI prints its category and never the error under it, whose message or cause can hold
+ * the endpoint or its host, exits 1 and writes nothing.
  */
 import { writeFileSync } from "node:fs"
 import { join, relative } from "node:path"
@@ -24,6 +26,22 @@ import {
 } from "../test/support/recording.ts"
 
 const root = join(import.meta.dirname, "..")
+
+/** What went wrong, in words that hold no value the recorder was given or received. */
+export class Failure extends Error {}
+
+/** `f`, with any error it throws or rejects with replaced by a `Failure` that says only `category`. */
+const step = async <A>(category: string, f: () => A | Promise<A>) => {
+  try {
+    return await f()
+  } catch (error) {
+    if (error instanceof Failure) throw error
+    throw new Failure(category)
+  }
+}
+
+/** What the CLI prints for an error that is not a `Failure`, which is never printed. */
+const unprinted = "the recorder failed, and its error is not printed"
 
 export interface Options {
   /** The endpoint, as in `CLANKA_OPENAI_API_URL`, which serves `/responses`. */
@@ -97,24 +115,36 @@ const ending = (events: ReadonlyArray<object>, status?: number): string => {
 
 const responses = (url: string) => `${url.replace(/\/+$/, "")}/responses`
 
+/** The URL `url` names, or a `Failure` that does not repeat it. */
+const parse = (url: string, what: string) => {
+  if (!URL.canParse(url)) throw new Failure(`${what} could not be parsed`)
+  return url
+}
+
 /** One call over server-sent events. */
 const overHttp = async (options: Options) => {
-  const response = await fetch(responses(options.url), {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${options.key}`,
-      "content-type": "application/json",
-      accept: "text/event-stream",
-    },
-    body: JSON.stringify({
-      model: options.model,
-      instructions,
-      input,
-      stream: true,
-      store: false,
+  const url = parse(responses(options.url), "the endpoint URL")
+  const response = await step("the HTTP request failed", () =>
+    fetch(url, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${options.key}`,
+        "content-type": "application/json",
+        accept: "text/event-stream",
+      },
+      body: JSON.stringify({
+        model: options.model,
+        instructions,
+        input,
+        stream: true,
+        store: false,
+      }),
     }),
-  })
-  const text = await response.text()
+  )
+  const text = await step(
+    `the HTTP response could not be read, status ${response.status}`,
+    () => response.text(),
+  )
   const events = response.ok ? sse(text) : [parsed(text) as object]
   return { events, outcome: ending(events, response.status) }
 }
@@ -126,42 +156,69 @@ const ended = (type: string | undefined) =>
   type === "error"
 
 /** One call over WebSocket: a `response.create` message, and every frame up to the one that ends the response. */
-const overSocket = (options: Options) =>
-  new Promise<{ events: Array<object>; outcome: string }>((resolve) => {
-    const events: Array<object> = []
-    const url =
-      options.socketUrl ?? responses(options.url).replace(/^http/, "ws")
-    // Node's WebSocket takes the opening request's headers as an option of its own.
-    const socket = new WebSocket(url, {
-      headers: { authorization: `Bearer ${options.key}` },
-    } as unknown as string)
-    const finish = (outcome: string) => {
-      clearTimeout(timer)
-      socket.close()
-      resolve({ events, outcome })
-    }
-    const timer = setTimeout(() => finish("not answered, timed out"), 120_000)
-    socket.addEventListener("open", () =>
-      socket.send(
-        JSON.stringify({
-          type: "response.create",
-          model: options.model,
-          instructions,
-          input,
-          store: false,
-        }),
-      ),
-    )
-    socket.addEventListener("message", (message) => {
-      const event = parsed(String(message.data)) as object
-      events.push(event)
-      if (ended(typeOf(event))) finish(ending(events))
-    })
-    socket.addEventListener("error", () => finish("not answered, socket error"))
-    socket.addEventListener("close", (event) =>
-      finish(`not answered, closed ${event.code}`),
-    )
-  })
+const overSocket = (options: Options) => {
+  const url = parse(
+    options.socketUrl ?? responses(options.url).replace(/^http/, "ws"),
+    "the WebSocket URL",
+  )
+  return new Promise<{ events: Array<object>; outcome: string }>(
+    (resolve, reject) => {
+      const events: Array<object> = []
+      let socket: WebSocket
+      try {
+        // Node's WebSocket takes the opening request's headers as an option of its own.
+        socket = new WebSocket(url, {
+          headers: { authorization: `Bearer ${options.key}` },
+        } as unknown as string)
+      } catch {
+        reject(new Failure("the WebSocket could not be opened"))
+        return
+      }
+      // The first of these ends the call, and a later event of the socket does nothing.
+      let done = false
+      const finish = (outcome: string) => {
+        if (done) return
+        done = true
+        clearTimeout(timer)
+        try {
+          socket.close()
+        } catch {
+          // The socket is going already.
+        }
+        resolve({ events, outcome })
+      }
+      const timer = setTimeout(() => finish("not answered, timed out"), 120_000)
+      socket.addEventListener("open", () => {
+        try {
+          socket.send(
+            JSON.stringify({
+              type: "response.create",
+              model: options.model,
+              instructions,
+              input,
+              store: false,
+            }),
+          )
+        } catch {
+          finish("not answered, the request could not be sent")
+        }
+      })
+      socket.addEventListener("message", (message) => {
+        if (done) return
+        events.push(parsed(String(message.data)) as object)
+        if (ended(typeOf(events.at(-1)))) finish(ending(events))
+      })
+      socket.addEventListener("error", () =>
+        finish("not answered, socket error"),
+      )
+      socket.addEventListener("close", (event) =>
+        finish(
+          `not answered, the WebSocket closed before an answer, code ${event.code}`,
+        ),
+      )
+    },
+  )
+}
 
 /** The fixture's `source` line. */
 export const source =
@@ -192,26 +249,39 @@ export const record = async (options: Options): Promise<Outcome> => {
     options.raw !== undefined &&
     !relative(root, options.raw).startsWith("..")
   ) {
-    throw new Error("--raw must name a file outside the repository")
+    throw new Failure("--raw must name a file outside the repository")
   }
   const http = await overHttp(options)
   const socket = await overSocket(options)
   const calls = { http: http.outcome, socket: socket.outcome }
-  if (options.raw !== undefined) {
-    writeFileSync(
-      options.raw,
-      `${JSON.stringify({ http: http.events, socket: socket.events }, null, 2)}\n`,
+  const answered = http.outcome === "answered" && socket.outcome === "answered"
+  // Stripping comes before any write, so a run that fails writes nothing.
+  const assembled = answered
+    ? await step("the recording could not be stripped", () =>
+        assemble({ http: http.events, socket: socket.events }, [
+          options.key,
+          options.url,
+          ...hostParts(options.url),
+        ]),
+      )
+    : undefined
+  const raw = options.raw
+  if (raw !== undefined) {
+    await step("the raw recording could not be written", () =>
+      writeFileSync(
+        raw,
+        `${JSON.stringify({ http: http.events, socket: socket.events }, null, 2)}\n`,
+      ),
     )
   }
-  if (http.outcome !== "answered" || socket.outcome !== "answered") {
-    return { written: false, calls, leftover: [] }
+  if (assembled === undefined) return { written: false, calls, leftover: [] }
+  if (assembled.leftover.length > 0) {
+    return { written: false, calls, leftover: assembled.leftover }
   }
-  const { recording, leftover: left } = assemble(
-    { http: http.events, socket: socket.events },
-    [options.key, options.url, ...hostParts(options.url)],
+  const { recording } = assembled
+  await step("the recording could not be written", () =>
+    writeFileSync(options.out, `${JSON.stringify(recording, null, 2)}\n`),
   )
-  if (left.length > 0) return { written: false, calls, leftover: left }
-  writeFileSync(options.out, `${JSON.stringify(recording, null, 2)}\n`)
   return { written: true, calls, leftover: [] }
 }
 
@@ -220,7 +290,16 @@ const flag = (name: string) => {
   return at === -1 ? undefined : process.argv[at + 1]
 }
 
+/** Ends the CLI with `category` alone on stderr. */
+const failed = (category: string): never => {
+  console.error(`record-codex: ${category}`)
+  process.exit(1)
+}
+
 if (import.meta.main) {
+  // An error outside the awaited calls, such as a socket's, would otherwise be printed with its message and cause.
+  process.on("uncaughtException", () => failed(unprinted))
+  process.on("unhandledRejection", () => failed(unprinted))
   const url = process.env["CLANKA_OPENAI_API_URL"]
   const key = process.env["CLANKA_OPENAI_API_KEY"]
   if (url === undefined || url === "" || key === undefined || key === "") {
@@ -236,7 +315,9 @@ if (import.meta.main) {
     model: flag("--model") ?? "gpt-6-astra",
     out: fixture,
     ...(raw === undefined ? {} : { raw }),
-  })
+  }).catch((error: unknown) =>
+    failed(error instanceof Failure ? error.message : unprinted),
+  )
   console.log(JSON.stringify(outcome, null, 2))
   process.exit(outcome.written ? 0 : 1)
 }

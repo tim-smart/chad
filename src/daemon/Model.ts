@@ -73,8 +73,9 @@ export type Provided =
  * The model layer of one session: the main model, the sub-agents' and the summarizer's, over the session's one client
  * (MOD-81, MOD-96). Without an override the sub-agents and the summarizer run on their own copies of the main model
  * (MOD-13). The summarizer layer is always there, so a summary still running when its turn ends keeps a working model
- * (MOD-14, SES-116). The sub-agents' model is watched for the ends their hidden calls make (FAIL-84, FAIL-87, FAIL-89),
- * and a call of any of the three that succeeds clears the model's conditions (FAIL-94, FAIL-235).
+ * (MOD-14, SES-116). The agents' models are watched for the ends hidden calls make and for a login at a cut (FAIL-84,
+ * FAIL-87, FAIL-89, FAIL-212), and a call of any of the three that succeeds clears the model's conditions (FAIL-94,
+ * FAIL-235).
  */
 export const session = (
   settings: Settings & { readonly main: Result.Success<Spec, unknown> },
@@ -84,7 +85,7 @@ export const session = (
   const main = settings.main.success
   return sessionModels(main, id, endpoint).over((model) =>
     Layer.mergeAll(
-      TurnLog.succeeding(model(main)),
+      TurnLog.watched(TurnLog.succeeding(model(main))),
       Agent.layerSubagentModel(
         TurnLog.watched(TurnLog.succeeding(model(settings.subagent ?? main))),
       ),

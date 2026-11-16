@@ -457,3 +457,38 @@ test("FAIL-235 FAIL-94 a model call that succeeds clears a failed check at start
   )
   expect(holding(running)).toEqual({ "model-check-failed": 0 })
 })
+
+test("FAIL-94 FAIL-235 a response that fails is no model call that succeeds: a failed check at start still holds while clanka retries the call, and the retry that answers clears it", async () => {
+  let loaded!: () => void
+  const running = await scenario({
+    ...codex,
+    codex: "token",
+    loading: new Promise<void>((resolve) => (loaded = resolve)),
+  })
+  const { fakes, model } = running
+  model.failChecks(500)
+  loaded()
+  await lines(running, "model.check-failed", 1)
+  await eventually(
+    () => holding(running),
+    (held) => held["model-check-failed"] === 1,
+  )
+  model.failChecks(undefined)
+  // The decoder gives `response.failed` as an error part and a finish with the reason "error".
+  await fakes.model.script([
+    { failed: { code: "server_error", message: "The response failed" } },
+    { text: "recovered", hold: true },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+  await lines(running, "turn.retry", 1)
+  await model.received(2)
+  expect(holding(running)).toEqual({ "model-check-failed": 1 })
+
+  model.release(1)
+  await eventually(
+    () => posted(running, thread),
+    (texts) => texts.includes("recovered"),
+  )
+  expect(holding(running)).toEqual({ "model-check-failed": 0 })
+})

@@ -55,12 +55,19 @@ export interface Steps {
   readonly retries: Map<number | undefined, number>
   /** The turn timeouts in a row on the agent's current model call, which the silence bound counts (FAIL-84). */
   readonly timeouts: Map<number | undefined, number>
+  /**
+   * Whether a login was pending for the session when the agent's last model call was cut. clanka makes a turn
+   * timeout's `ErrorRetry` part at the cut, and the part, or a hidden agent's retry, can come after the login completed,
+   * so the timeout counts as the login stood at the cut (FAIL-212, MOD-102).
+   */
+  readonly cuts: Map<number | undefined, boolean>
 }
 
 export const steps = (): Steps => ({
   subagents: new Map(),
   retries: new Map(),
   timeouts: new Map(),
+  cuts: new Map(),
 })
 
 /**
@@ -177,11 +184,15 @@ export const step = Effect.fnUntraced(function* (
       const retry = (state.retries.get(agent) ?? 0) + 1
       state.retries.set(agent, retry)
       // A turn chad ends here gets no retry line, so its one event is `turn.failed` (FAIL-242, MOD-114).
-      const reason = ends(state, agent, inner.error, retry, loginPending())
+      // A turn timeout counts as the login stood where clanka cut the call (`Steps.cuts`).
+      const login = Failed.isTurnTimeout(inner.error)
+        ? (state.cuts.get(agent) ?? loginPending())
+        : loginPending()
+      const reason = ends(state, agent, inner.error, retry, login)
       if (reason !== undefined) return yield* new Failed.Ended({ reason })
       const of = yield* Agent.MaxRetries
       // The line shows the highest count of every agent of the turn (DIS-28, FAIL-80, FAIL-81).
-      if (!loginPending()) {
+      if (!login) {
         yield* status.add(
           Messages.statusRetry(
             inner.error.reason._tag,
@@ -301,11 +312,12 @@ type Provided =
   LanguageModel.LanguageModel | AiModel.ProviderName | AiModel.ModelName
 
 /**
- * A sub-agent's model, watched for the ends that `step` makes at an `ErrorRetry` part: a usage limit, a plan that does
- * not include the usage, and the third turn timeout in a row on one model call (FAIL-84, FAIL-87, FAIL-89). The Agent's
- * output leaves out the parts of a background sub-agent and of every agent under one, so for such an agent the model
- * calls are where the errors are seen. Nothing is logged and no status line is added for them (ruling 98c53ea). Each
- * sub-agent builds its own copy of the layer, so the counts here are one agent's.
+ * A model of the turn's agents, watched for the ends that `step` makes at an `ErrorRetry` part: a usage limit, a plan
+ * that does not include the usage, and the third turn timeout in a row on one model call (FAIL-84, FAIL-87, FAIL-89). The
+ * Agent's output leaves out the parts of a background sub-agent and of every agent under one, so for such an agent the
+ * model calls are where the errors are seen. Nothing is logged and no status line is added for them (ruling 98c53ea).
+ * Each sub-agent builds its own copy of the layer, so the counts here are one agent's. For every agent, a cut call
+ * records whether a login was pending at the cut (`Steps.cuts`).
  */
 export const watched = <E, R>(
   layer: Layer.Layer<Provided, E, R>,
@@ -313,8 +325,10 @@ export const watched = <E, R>(
 
 /**
  * A model whose calls that succeed run the turn's `succeeded`, which clears the conditions a model call or the check
- * at start began (FAIL-94, FAIL-235). A call has succeeded when its stream gives the `finish` part. That holds for
- * every agent of the turn, a hidden one too, and for a provider that reports no usage, which gives no `Usage` part.
+ * at start began (FAIL-94, FAIL-235). A call has succeeded when its stream gives the `finish` part, unless the call
+ * failed: the finish reason is `error`, or an `error` part came before it, which is how the decoder gives a
+ * `response.failed` and which clanka retries. That holds for every agent of the turn, a hidden one too, and for a
+ * provider that reports no usage, which gives no `Usage` part.
  */
 export const succeeding = <E, R>(
   layer: Layer.Layer<Provided, E, R>,
@@ -325,13 +339,17 @@ export const succeeding = <E, R>(
         Effect.gen(function* () {
           const owner = yield* CurrentOwner
           const stream = model.streamText(...options)
-          return owner === undefined
-            ? stream
-            : stream.pipe(
-                Stream.tap((part) =>
-                  part.type === "finish" ? owner.succeeded : Effect.void,
-                ),
-              )
+          if (owner === undefined) return stream
+          let failed = false
+          return stream.pipe(
+            Stream.tap((part) => {
+              if (part.type === "error") failed = true
+              if (part.type !== "finish") return Effect.void
+              return failed || part.reason === "error"
+                ? Effect.void
+                : owner.succeeded
+            }),
+          )
         }),
       )
     return {
@@ -371,31 +389,41 @@ const watch = (
     Stream.unwrap(
       Effect.gen(function* () {
         const owner = yield* CurrentOwner
-        const agent = yield* hidden
-        if (owner === undefined || agent === undefined) {
-          return model.streamText(...options)
-        }
+        if (owner === undefined) return model.streamText(...options)
         const { steps } = owner
+        const agent = (yield* chain).at(-1)
+        const cut = () => steps.cuts.set(agent?.id, owner.loginPending())
+        // A shown agent's ends are made by `step`, which reads the login at the cut from here.
+        if (agent?.hidden !== true) {
+          return model.streamText(...options).pipe(
+            Stream.onExit((exit) =>
+              Effect.sync(() => {
+                if (
+                  Exit.isFailure(exit) &&
+                  Cause.hasInterruptsOnly(exit.cause)
+                ) {
+                  cut()
+                }
+              }),
+            ),
+          )
+        }
         if (first) {
           first = false
           steps.timeouts.set(agent.id, 0)
         }
-        const ended = (error: AiError.AiError) => {
+        const ended = (error: AiError.AiError, login: boolean) => {
           retry++
-          const reason = ends(
-            steps,
-            agent.id,
-            error,
-            retry,
-            owner.loginPending(),
-          )
+          const reason = ends(steps, agent.id, error, retry, login)
           if (reason !== undefined) owner.end(reason)
           return reason !== undefined
         }
         // This call is clanka's retry of the one its turn timeout cut, which is where its `ErrorRetry` part was made.
         if (timedOut) {
           timedOut = false
-          if (ended(Failed.turnTimeout)) return Stream.never
+          if (ended(Failed.turnTimeout, steps.cuts.get(agent.id) === true)) {
+            return Stream.never
+          }
         }
         const clock = yield* Clock.Clock
         const timeout = Duration.toMillis(yield* Agent.TurnTimeout)
@@ -418,11 +446,12 @@ const watch = (
                 // clanka's timer runs from the start of the call and from each part, so its cut comes after a whole
                 // timeout of silence, and a cut at a steer comes right after a part.
                 timedOut = clock.currentTimeMillisUnsafe() - last >= timeout / 2
+                cut()
                 return
               }
               const error = Cause.findError(exit.cause)
               if (Result.isSuccess(error) && AiError.isAiError(error.success)) {
-                ended(error.success)
+                ended(error.success, owner.loginPending())
               }
             }),
           ),

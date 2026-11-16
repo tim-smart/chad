@@ -26,7 +26,7 @@ clanka decodes the reshaped frames. Every Codex scenario of the suite passes on 
 ## What it does not show
 
 - The recording is what the proxy relays over the `openai` path. It is not shown to be what `chatgpt.com/backend-api/codex` sends to chad directly.
-- A run through the proxy goes through chad's `openai` path, which is `Codex.model` over HTTP with a key (`src/ModelSpec.ts`). It never touches the Codex login, the token store, the `session-id` header or the WebSocket transport at chatgpt.com. Nothing here is evidence for a rule about that path. Tim's one Codex check is what covers it (TST-147, `docs/build/stage-2-login-check.md`).
+- A run through the proxy goes through chad's `openai` path, which is `Codex.model` over HTTP with a key (`src/ModelSpec.ts`). It never touches the Codex login, the token store or the WebSocket transport at chatgpt.com. It does send the `session-id` header and `prompt_cache_key`, as chad does on `openai` with a key (MOD-96, `src/ModelSpec.ts`), so the header is not what tells the two paths apart. Nothing here is evidence for a rule about that path. Tim's one Codex check is what covers it (TST-147, `docs/build/stage-2-login-check.md`).
 - The opening request's headers are chad's own. They come from chad's Codex path against the fake, not from this recording.
 
 ## What stays hand-made
@@ -34,6 +34,7 @@ clanka decodes the reshaped frames. Every Codex scenario of the suite passes on 
 - The usage-limit frame under `refusal` in `test/unit/fixtures/codex-frames.json`. Nobody has recorded one, so it is written from the error schema clanka decodes (TST-41). The proxy cannot produce a usage limit on demand, and an error that passes through it may not be the frame chatgpt.com sends.
 - What a new connection gets while a limit is in force. In the fake it is a socket that opens and answers `response.create` with that frame.
 - A tool call. The recorder made no call with tools. The fake's `function_call` events follow the pattern of the recorded answer.
+- A failed response. The fake's `failed` reply sends `response.created`, `response.in_progress` and `response.failed` with the response's `error`, following the pattern of the recorded answer.
 
 The fixture's `source` line says the same. No later capture or comparison is planned. The first real limit on Tim's login is what shows the real frame, and `chad logs` holds a frame that fails a turn.
 
@@ -58,6 +59,8 @@ Before it writes, the recorder looks for the key, the endpoint and each part of 
    ```
 
    It prints how each call ended and where a secret was left, never a value. `--model <model>` records on another model. `--raw` refuses a path inside the repository.
+
+   A call that cannot be made, or a step that fails, prints one line on stderr that names only what failed, such as "the endpoint URL could not be parsed", "the HTTP request failed" or "the HTTP response could not be read", with the status where there is one. A call that is made but not answered is reported in the outcome, such as a status or "the WebSocket closed before an answer" with its close code. The error under a failure is never printed, because its message or cause can hold the endpoint or its host, and so is an error outside the awaited calls, such as a socket's. A run that fails exits 1 and writes neither the fixture nor the raw copy. `test/unit/record-codex.test.ts` runs the script as a child process on a malformed and on an unreachable endpoint, with a synthetic key.
 
 3. Check the fixture in code, so that no value is printed: it must not contain the key, the endpoint, the host or any part of the host longer than a common word. It must hold no JWT, and every field listed above must be blank. If another field names the account or the proxy, add it to `strip`. Then re-strip the raw copy without a second call:
 

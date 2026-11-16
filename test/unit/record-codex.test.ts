@@ -1,10 +1,18 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
+import { spawnSync } from "node:child_process"
+import { randomUUID } from "node:crypto"
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, expect, it } from "vitest"
 import { record } from "../../scripts/record-codex.ts"
 import { type FakeModel, responses, start } from "../support/model.ts"
-import { load, shapes, strip } from "../support/recording.ts"
+import { path as fixture, load, shapes, strip } from "../support/recording.ts"
 
 const cleanups: Array<() => Promise<void> | void> = []
 afterEach(async () => {
@@ -66,4 +74,45 @@ it("TST-43 TST-41 the recorder writes nothing when the key is left after strippi
   expect(outcome.written).toBe(false)
   expect(outcome.leftover).toContain("$.answer.http[4].delta")
   expect(existsSync(out)).toBe(false)
+})
+
+/** The recorder as the builder runs it: a child process, here with a synthetic endpoint and key only. */
+const recorder = (url: string, key: string, raw: string) =>
+  spawnSync(
+    process.execPath,
+    [join(import.meta.dirname, "../../scripts/record-codex.ts"), "--raw", raw],
+    {
+      env: {
+        ...process.env,
+        CLANKA_OPENAI_API_URL: url,
+        CLANKA_OPENAI_API_KEY: key,
+      },
+      encoding: "utf8",
+      timeout: 60_000,
+    },
+  )
+
+it("TST-41 TST-43 a recorder whose endpoint cannot be parsed or reached prints neither the endpoint, its host nor the key, exits non-zero and writes nothing", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chad-record-"))
+  cleanups.push(() => rmSync(dir, { recursive: true, force: true }))
+  const raw = join(dir, "raw.json")
+  const marker = `chad-marker-${randomUUID().slice(0, 8)}`
+  const key = `sk-synthetic-${randomUUID()}`
+  const kept = {
+    at: statSync(fixture).mtimeMs,
+    text: readFileSync(fixture, "utf8"),
+  }
+  // A malformed endpoint, and one whose host the reserved `.invalid` domain makes unreachable.
+  for (const url of [`%%${marker}`, `http://${marker}.invalid/v1`]) {
+    const ran = recorder(url, key, raw)
+    const printed = `${ran.stdout}${ran.stderr}`
+    expect(ran.error).toBeUndefined()
+    expect(ran.status).toBe(1)
+    expect(printed).not.toContain(marker)
+    expect(printed).not.toContain(key)
+    expect(ran.stderr).not.toBe("")
+    expect(existsSync(raw)).toBe(false)
+  }
+  expect(statSync(fixture).mtimeMs).toBe(kept.at)
+  expect(readFileSync(fixture, "utf8")).toBe(kept.text)
 })
