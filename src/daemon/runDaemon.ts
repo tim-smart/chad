@@ -1,4 +1,4 @@
-import { dirname } from "node:path"
+import { dirname, join } from "node:path"
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Agent from "clanka/Agent"
@@ -55,6 +55,7 @@ import * as Login from "./Login.ts"
 import * as Model from "./Model.ts"
 import * as Notices from "./Notices.ts"
 import * as Persona from "./Persona.ts"
+import * as Skills from "../Skills.ts"
 import * as PluginTurns from "./PluginTurns.ts"
 import * as Plugins from "./Plugins.ts"
 import * as PluginSettings from "./PluginSettings.ts"
@@ -96,6 +97,8 @@ export interface DaemonInputs {
   readonly timings: Timings
   /** The plugins the daemon loads at boot, which `chad serve` gives as the bundled ones (LOAD-74). */
   readonly plugins?: ReadonlyArray<Plugins.Entry> | undefined
+  /** The directory of the bundled skills, which `chad serve` gives as the image's (MCP-9, MCP-141). None by default. */
+  readonly skills?: string | undefined
 }
 
 /** Resolves on the first SIGTERM or SIGINT, and takes its handlers off the process when it is done with. */
@@ -375,6 +378,49 @@ const boot = Effect.fnUntraced(function* (
   const persona = yield* Persona.read(
     Option.isSome(applied) ? applied.value.directory : undefined,
   )
+  // The bundled skills and the applied tree's. A malformed one is skipped with a notice and the rest load, and safe mode
+  // loads none from the repo (MCP-7, MCP-18, REC-47). The repo's are still read in safe mode for what they hide, so a
+  // bundled skill that changed is announced once whatever mode the boot is in (MCP-14).
+  const bundledSkills = yield* Skills.scan(inputs.skills)
+  const repoSkills = yield* Skills.scan(
+    Option.isSome(applied)
+      ? join(applied.value.directory, "skills")
+      : undefined,
+  )
+  yield* Apply.skipSkills(notices, bundledSkills)
+  if (safe === "off") yield* Apply.skipSkills(notices, repoSkills)
+  if (inputs.skills !== undefined) {
+    yield* Skills.bundledChanged({
+      data: volume.data,
+      bundled: bundledSkills,
+      bundledDirectory: inputs.skills,
+      hiding: Skills.hiding(repoSkills, bundledSkills),
+    }).pipe(
+      Effect.flatMap((names) =>
+        Effect.forEach(names, (name) =>
+          Logger.event(
+            "skill.bundled-changed",
+            "A bundled skill that a repo skill hides changed",
+            { skill: name },
+          ).pipe(
+            // A one-off notice, which waits for its connection on a fiber of its own (FAIL-155, FAIL-167).
+            Effect.andThen(
+              Effect.forkIn(
+                notices.announce(Messages.bundledSkillChanged(name)),
+                scope,
+              ),
+            ),
+          ),
+        ),
+      ),
+      Effect.catchCause((cause) =>
+        Effect.logWarning(
+          "The bundled skills' hashes could not be kept",
+          cause,
+        ),
+      ),
+    )
+  }
   // The one Codex login of the process. Its code goes to the thread of the turn that asked, or by the notice route,
   // and its wait is the daemon's, so a turn or a CLI that goes does not end it (MOD-36, MOD-41, MOD-101).
   const login = yield* Login.make({
@@ -497,6 +543,17 @@ const boot = Effect.fnUntraced(function* (
             text: () =>
               repository === undefined ? persona : repository.persona(),
           }),
+          Layer.succeed(SessionEntity.SkillList, {
+            list: () =>
+              repository === undefined
+                ? Skills.provided({
+                    repo: safe === "off" ? repoSkills : undefined,
+                    bundled: bundledSkills,
+                    bundledDirectory: inputs.skills ?? "",
+                    repoDirectory: volume.repo,
+                  })
+                : repository.skills(),
+          }),
           Layer.succeed(SessionEntity.Stopping, {
             stopping: () => state.phase === "stopping",
           }),
@@ -608,6 +665,11 @@ const boot = Effect.fnUntraced(function* (
     bundled: inputs.plugins ?? [],
     settings: appliedSettings,
     persona,
+    skills: {
+      repo: repoSkills,
+      bundled: bundledSkills,
+      bundledDirectory: inputs.skills ?? "",
+    },
     drop: (name) =>
       Storage.dropPluginTable(name).pipe(
         Effect.provideContext(base),
@@ -638,6 +700,7 @@ const boot = Effect.fnUntraced(function* (
     Effect.provideContext(world),
   )
   state.plugins = host.status
+  state.hiding = commands.hiding
   state.off = () => [...commands.off()].sort()
   state.skipped = host.skipped
   yield* Deferred.succeed(

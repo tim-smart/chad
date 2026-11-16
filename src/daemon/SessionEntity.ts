@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { resolve } from "node:path"
 import * as Agent from "clanka/Agent"
 import * as AgentExecutor from "clanka/AgentExecutor"
+import * as AgentSkills from "clanka/AgentSkills"
 import type { Task, TaskHandle } from "clanka/AgentTools"
 import { DiscordChat } from "@effect/chat-discord"
 import {
@@ -27,6 +28,7 @@ import { ClusterSchema, Entity, type Sharding } from "effect/cluster"
 import { Rpc } from "effect/rpc"
 import { SqlClient } from "effect/sql"
 import * as Messages from "../Messages.ts"
+import type * as Skills from "../Skills.ts"
 import * as PublicSession from "../Session.ts"
 import { Timings } from "../Timings.ts"
 import * as Attachments from "./Attachments.ts"
@@ -183,6 +185,16 @@ export const Persona = Context.Reference<{ readonly text: () => string }>(
   "chad/SessionEntity/Persona",
   { defaultValue: () => ({ text: () => "" }) },
 )
+
+/**
+ * The skills a session's Agent is built with, which an apply, a revert or `chad safe` replaces before the generation
+ * bump it comes with. The list takes the place of clanka's own discovery, empty or not (MCP-3, MCP-5, REC-51).
+ */
+export const SkillList = Context.Reference<{
+  readonly list: () => ReadonlyArray<Skills.Provided>
+}>("chad/SessionEntity/SkillList", {
+  defaultValue: () => ({ list: () => [] }),
+})
 
 export const Stopping = Context.Reference<{ readonly stopping: () => boolean }>(
   "chad/SessionEntity/Stopping",
@@ -427,6 +439,7 @@ export const layer = Layer.unwrap(
         const stopping = yield* Stopping
         const safe = yield* Safe
         const persona = yield* Persona
+        const skills = yield* SkillList
         // The request of a turn that a restart cut takes the session before any other request of the thread, so
         // that the messages that waited to steer it steer it again (SES-200).
         const unfinished = yield* Sessions.unfinished(key).pipe(Effect.orDie)
@@ -787,12 +800,16 @@ export const layer = Layer.unwrap(
               subagents,
               () => tasks.size,
             )
+            const made = Agent.makeWith({
+              ...(tools === undefined ? {} : { loopTools: tools.toolkit }),
+              skills: skills
+                .list()
+                .map((skill) => new AgentSkills.ProvidedSkill(skill)),
+            })
             const agent = yield* (
               tools === undefined
-                ? Agent.make
-                : (Agent.makeWith({ loopTools: tools.toolkit }).pipe(
-                    Effect.provide(tools.context),
-                  ) as Effect.Effect<
+                ? made
+                : (made.pipe(Effect.provide(tools.context)) as Effect.Effect<
                     Agent.Agent,
                     never,
                     AgentExecutor.AgentExecutor | Scope.Scope

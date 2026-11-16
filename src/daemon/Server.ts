@@ -95,6 +95,8 @@ export interface State {
     readonly name: string
     readonly reason: string
   }>
+  /** The repo skills that hide a bundled one, once the repo is set up (MCP-12, SELF-121). */
+  hiding: () => ReadonlyArray<string>
 }
 
 /** What `chad login`, `chad logout` and `chad status` reach of the model in the daemon. */
@@ -180,6 +182,7 @@ export const makeState = (): State => ({
   plugins: () => [],
   off: () => [],
   skipped: () => [],
+  hiding: () => [],
   repositoryState: Effect.succeed(undefined),
 })
 
@@ -245,6 +248,7 @@ const report = (state: State): Effect.Effect<Report> =>
       })),
       off: state.off(),
       skipped: state.skipped(),
+      hiding: state.hiding(),
       ...(repository === undefined ? {} : { repository }),
     }),
   )

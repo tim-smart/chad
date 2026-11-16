@@ -115,6 +115,7 @@ test("CLI-46a CLI-237 chad status --json prints the facts as one JSON object on 
     plugins: [],
     skipped: [],
     off: [],
+    hiding: [],
     repository,
   })
   expect(Array.isArray(answered.filesystem)).toBe(true)
