@@ -3,13 +3,24 @@ import { join } from "node:path"
 
 /**
  * A recording of the Codex side, which the fake's frames are shaped on (TST-41). `opening` is the request that opened
- * the socket, `answer` the frames of one call that answered with text, and `refusal` the frame of a usage limit.
+ * the socket, `answer` the frames of one call that answered with text, and `refusal` the frame of a usage limit. A
+ * recording made by `scripts/record-codex.ts` also has every flow it ran, and the flows it could not provoke
+ * (TST-216). It has no `refusal` until a run at the usage limit adds one.
  */
 export interface Recording {
   readonly source: string
   readonly opening: { readonly headers: Readonly<Record<string, string>> }
   readonly answer: ReadonlyArray<object>
-  readonly refusal: object
+  readonly refusal?: object
+  readonly flows?: Readonly<Record<string, Flow>>
+  readonly missing?: ReadonlyArray<string>
+}
+
+/** One flow of a recorder run: what it was for, how it ended, and each HTTP exchange and socket frame in order. */
+export interface Flow {
+  readonly note: string
+  readonly outcome: string
+  readonly events: ReadonlyArray<object>
 }
 
 /** Where the kept recording is. */
@@ -18,13 +29,16 @@ export const path = join(
   "../unit/fixtures/codex-frames.json",
 )
 
-export const load = (): Recording =>
-  JSON.parse(readFileSync(path, "utf8")) as Recording
+export const load = (file: string = path): Recording =>
+  JSON.parse(readFileSync(file, "utf8")) as Recording
 
 /** What a stripped value is replaced with. */
 export const stripped = "<stripped>"
 
-/** The fields that hold a token or the account id, by name, in headers and in bodies alike. */
+/**
+ * The fields that hold a token, the account id, a code of the login or a cookie, by name, in headers and in bodies
+ * alike.
+ */
 const secret = new Set([
   "authorization",
   "chatgpt-account-id",
@@ -34,8 +48,22 @@ const secret = new Set([
   "account_id",
   "chatgpt_account_id",
   "user_id",
+  "user",
   "email",
+  "safety_identifier",
+  "device_auth_id",
+  "user_code",
+  "authorization_code",
+  "code_verifier",
+  "cookie",
+  "set-cookie",
 ])
+
+/**
+ * The fields of a form body, which the recorder keeps under `form`, that are kept as they are. Every other field of a
+ * form, such as the token exchange's `code`, is stripped.
+ */
+const formKept = new Set(["grant_type", "client_id", "redirect_uri", "scope"])
 
 /** A JWT, which is what Codex's tokens are, wherever it appears in a string. */
 const jwt = /eyJ[\w-]+\.[\w-]+\.[\w-]+/g
@@ -50,11 +78,49 @@ export const strip = (value: unknown): unknown => {
         key,
         secret.has(key.toLowerCase()) && field !== null
           ? stripped
-          : strip(field),
+          : key === "form" && typeof field === "object" && field !== null
+            ? Object.fromEntries(
+                Object.entries(field).map(([name, text]) => [
+                  name,
+                  formKept.has(name) ? text : stripped,
+                ]),
+              )
+            : strip(field),
       ]),
     )
   }
   return value
+}
+
+/**
+ * Where a stripped recording still holds a secret: a JWT, a secret field that was not stripped, or one of the values
+ * the recorder saw as a token, an id or a code of the login. It gives each place as a path, never the value, so that
+ * the recorder can refuse to write and say where (TST-216).
+ */
+export const leftover = (
+  value: unknown,
+  known: ReadonlyArray<string>,
+  at = "$",
+): ReadonlyArray<string> => {
+  if (typeof value === "string") {
+    jwt.lastIndex = 0
+    return jwt.test(value) || known.some((secret) => value.includes(secret))
+      ? [at]
+      : []
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) =>
+      leftover(item, known, `${at}[${index}]`),
+    )
+  }
+  if (typeof value === "object" && value !== null) {
+    return Object.entries(value).flatMap(([key, field]) =>
+      secret.has(key.toLowerCase()) && field !== null && field !== stripped
+        ? [`${at}.${key}`]
+        : leftover(field, known, `${at}.${key}`),
+    )
+  }
+  return []
 }
 
 /**
