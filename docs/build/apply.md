@@ -31,7 +31,7 @@ The rows this slice clears from `docs/spec/delivered.md` are the 24 entries othe
 New builder rules:
 
 - SWAP-154 (`docs/spec/08-apply-and-swap.md`). A close that SWAP-47 abandoned goes on and the daemon still owns it. The swap does not wait for it, and a later graceful stop does, up to the stop's deadline, which exits 1. Review changed it from a close that went on detached and that no stop waited for.
-- REC-154 (`docs/spec/09-repo-and-recovery.md`). A revert that would write over a file its save did not capture is refused before its commit. A file made or edited after the save stays, and when one is in the way the revert keeps its commit, puts no file back and says so.
+- REC-154 (`docs/spec/09-repo-and-recovery.md`). A revert that would write over a file its save did not capture, or put one under it, is refused before its commit. A file made, edited or ignored after the save stays, and when one is in the way the revert keeps its commit, puts no file back and says so.
 
 ## What changed
 
@@ -61,7 +61,7 @@ Fixed while building, each with a regression test. For CLI-120b, SWAP-101 and SW
 
 Fixed in review of `7fb01f7`, each with a regression folded into an existing scenario. Each test was run against the code without its fix and failed.
 
-- REC-139, REC-154: a revert reset `work/` with `reset --hard` and `clean -fd`, so it overwrote an ignored file at a path the target holds and deleted a file made after its save. It now refuses before its commit when a path the target adds holds something the save lacks, and puts the files back with `read-tree -m -u` from an index of the save, which changes only files that still match it. Scenario 1 of `test/daemon/apply.test.ts`, with the commit held by a git hook while a draft is written.
+- REC-139, REC-154: a revert reset `work/` with `reset --hard` and `clean -fd`, so it overwrote an ignored file at a path the target holds and deleted a file made after its save. It now refuses before its commit when a path the target adds holds something the save lacks, and puts the files back from an index of the save, which changes only files that still match it. Scenario 1 of `test/daemon/apply.test.ts`, with the commit held by a git hook while a draft is written. The second review found two gaps in this, below.
 - CLI-43, REC-34: the commit ran in the cancellable caller, so a client killed after `applied` moved left `live` and the running version on the old tree. The commit now runs inside the client-proof region. `test/daemon/apply.test.ts`, the killed-CLI scenario, which now kills the CLI while a git hook holds the commit.
 - CLI-120b, SWAP-99: a client killed during the plugin rebuild of an owner removal cancelled the rebuild, and the plugin kept the removed owner. The rebuild is now client-proof. The owner scenario kills the CLI during that rebuild.
 - REC-56: a client killed during `chad safe on` left the repo's plugins loaded behind a stored `on`. The swap after the stored toggle is now client-proof. The killed-CLI scenario.
@@ -71,16 +71,21 @@ Fixed in review of `7fb01f7`, each with a regression folded into an existing sce
 
 The SWAP-101 scenario waited only for `applied` to move, so a stop could land before the link moved, and it never restarted. It now waits until `live` and the index of `work/` name the new tree, the steps right before the swap, and boots a second daemon that runs the new version.
 
+Fixed in review of `91cebff`, each with a regression folded into an existing scenario that failed with its fix taken out:
+
+- REC-139, REC-154: the check before the commit looked only at the full path the target adds, so an ignored file named `notes` where the target puts `notes/entry.txt` passed it, and `read-tree -m -u` overwrites ignored files, so an ignored file made after the check was replaced too. The check now also refuses a parent directory that `work/` holds as a file or a link, unless it is a file of the save that the target deletes, and a directory where the target puts a file when it holds anything but files of the save. The restore is now `git checkout --no-overwrite-ignore` from the saved commit to the revert's, in a temporary git directory that shares the repo's objects, so `work/`'s HEAD and index never move to anything else. git checks every path as it writes it and refuses any file the save did not capture, ignored or not, as it already did for a tracked file edited after the save. Scenario 1 of `test/daemon/apply.test.ts` refuses a revert past an ignored parent, and keeps an ignored file made while a git hook holds the revert's commit.
+- CLI-120b, SWAP-99: a `chad connection remove` (or `owner remove`) whose client went away before the rebuild began stored the change and skipped the rebuild, because the rebuild was called after the region that a client cannot cut. The rebuild now runs inside that region, on the daemon's fiber that `owned` forks, which a stop can still interrupt. The owner scenario removes a Discord connection whose teardown is held, kills its CLI, and then sees the connection's owner gone from the plugin. `test/support/driver.ts` gained `closing`, a finalizer for a named connection's chat layer.
+
 ## Tests
 
 `test/daemon/apply.test.ts` has nine scenarios:
 
-- An apply commits `work/` and loads it at the session's next turn, a failed apply (a type error, a Layer that never builds) exits 1 and keeps the last good version, a revert that would write over an ignored file is refused, a revert saves `work/` first, leaves ignored files alone and keeps a file made after its save, and safe mode from chat and from the CLI unloads the repo's plugins until it goes off.
+- An apply commits `work/` and loads it at the session's next turn, a failed apply (a type error, a Layer that never builds) exits 1 and keeps the last good version, a revert that would write over an ignored file, or put one under it, is refused, a revert saves `work/` first, leaves ignored files alone and keeps a file made after its save, an ignored one included, and safe mode from chat and from the CLI unloads the repo's plugins until it goes off.
 - A swap interrupts a call that outlives the drain, the running turn keeps its tools and gets the refusal, a command behind it waits in the queue and says so, and the next turn has the new version.
 - A boot after a crash between an apply's commit and its link loads the head of `applied`.
 - An apply whose CLI is SIGKILLed once its commit moved `applied` still finishes in the daemon, and `chad safe on` whose CLI is killed in its drain still unloads the repo's plugins.
 - On the Codex side, a swap rebuilds the session's Agent and keeps its socket.
-- An owner change rebuilds the plugins with the new owners, a failed rebuild after an add keeps the old version and marks it, a rebuilt plugin cannot take that version's tool name, and a failed rebuild after a removal unloads the plugin even when the CLI is killed during it.
+- An owner change rebuilds the plugins with the new owners, a removed connection's owner leaves the plugins even when its CLI is killed during the teardown, a failed rebuild after an add keeps the old version and marks it, a rebuilt plugin cannot take that version's tool name, and a failed rebuild after a removal unloads the plugin even when the CLI is killed during it.
 - A check refuses `AGENTS.md` in `work/` and a plugin with a bundled plugin's name, and `CHAD_SAFE_MODE=1` holds safe mode on against `chad safe off`.
 - A hook running at a swap is cut at the drain deadline, the hook queued behind it runs on the new version, a turn that starts while the old version's close hangs waits for the new one, the close is abandoned at its deadline, the rest of a cut job does not start on the old version, a hook that interrupts itself leaves its queue running, and a hook of a kind the next version lacks is dropped.
 - A graceful stop while an apply's swap waits on a call in flight abandons the swap, and the next boot loads and runs what the apply committed.

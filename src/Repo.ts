@@ -202,8 +202,9 @@ export const reset = (repo: string, sha: string) =>
   git(paths(repo).work, ["reset", "-q", "--mixed", sha])
 
 /**
- * The paths a revert to `target` would write where `work/` holds something its save did not capture, such as an
- * ignored file (REC-139, REC-154).
+ * The paths where a revert to `target` would write over something in `work/` that its save did not capture, such as
+ * an ignored file: a path the target adds that `work/` already holds, or one of its parent directories that `work/`
+ * holds as a file (REC-139, REC-154).
  */
 export const obstructed = Effect.fnUntraced(function* (
   repo: string,
@@ -212,52 +213,112 @@ export const obstructed = Effect.fnUntraced(function* (
 ) {
   const fs = yield* FileSystem.FileSystem
   const { work } = paths(repo)
-  const added = yield* git(work, [
+  const fields = (yield* git(work, [
     "diff-tree",
     "-r",
     "-z",
     "--no-renames",
-    "--name-only",
-    "--diff-filter=A",
+    "--name-status",
+    "--diff-filter=AD",
     saved,
     target,
-  ])
-  const found: Array<string> = []
-  for (const path of added.split("\0").filter((path) => path !== "")) {
-    if (yield* Effect.isSuccess(fs.lstat(join(work, path)))) found.push(path)
+  ])).split("\0")
+  const added: Array<string> = []
+  // The files of the save that the target deletes, which the revert may replace with a directory or a file.
+  const deleted = new Set<string>()
+  for (let i = 0; i + 1 < fields.length; i += 2) {
+    if (fields[i] === "A") added.push(fields[i + 1]!)
+    else deleted.add(fields[i + 1]!)
   }
-  return found
+  // A link counts as a file, as git counts it.
+  const kind = (path: string) =>
+    fs.lstat(join(work, path)).pipe(
+      Effect.map((info) => (info.type === "Directory" ? "directory" : "file")),
+      Effect.orElseSucceed(() => "absent" as const),
+    )
+  const found = new Set<string>()
+  for (const path of added) {
+    const parts = path.split("/")
+    let blocked: string | undefined
+    for (
+      let depth = 1;
+      depth <= parts.length && blocked === undefined;
+      depth++
+    ) {
+      const prefix = parts.slice(0, depth).join("/")
+      const held = yield* kind(prefix)
+      if (held === "absent") break
+      if (depth < parts.length) {
+        // A parent that is a directory is where the file goes. One that is a file or a link is in the way, unless it
+        // is a file of the save that the target deletes.
+        if (held !== "directory" && !deleted.has(prefix)) blocked = prefix
+      } else if (held !== "directory") {
+        blocked = prefix
+      } else {
+        // A directory where the target puts a file is in the way when it holds anything but files of the save.
+        const entries = yield* fs
+          .readDirectory(join(work, prefix), { recursive: true })
+          .pipe(Effect.orElseSucceed((): ReadonlyArray<string> => ["?"]))
+        for (const entry of entries) {
+          const inner = `${prefix}/${entry}`
+          if (!deleted.has(inner) && (yield* kind(inner)) !== "directory") {
+            blocked = prefix
+            break
+          }
+        }
+      }
+    }
+    if (blocked !== undefined) found.add(blocked)
+  }
+  return [...found]
 })
 
 /**
- * Puts the files of a revert's target back in `work/` and moves its branch to the commit. Only a file the save
- * captured and that has not changed since is replaced or deleted, so a file made or edited after the save stays. When
- * one is in the way nothing is put back, and it gives false (REC-82, REC-139, REC-154).
+ * Puts the files of a revert's target back in `work/` and moves its branch to the commit. git does it with
+ * `checkout --no-overwrite-ignore` from the saved commit to the revert's, in a git directory of its own that shares the
+ * repo's objects, so `work/`'s HEAD and index never point anywhere else. It checks every path at the moment it writes:
+ * a file the save captured is replaced or deleted only while it still matches the save, and nothing that the save did
+ * not capture is written over, an ignored file included. A file made or edited after the save therefore stays, and
+ * when one is in the way nothing is put back and it gives false (REC-82, REC-139, REC-154).
  */
 export const restore = Effect.fnUntraced(function* (
   repo: string,
   options: {
+    /** The commit the save made. */
     readonly saved: string
-    readonly target: string
+    /** The revert's commit. */
     readonly sha: string
   },
 ) {
   const fs = yield* FileSystem.FileSystem
   const { work } = paths(repo)
-  const index = join(repo, `.restore-index-${unique()}`)
-  const env = { GIT_INDEX_FILE: index }
-  // An index of what the save captured, with the stat of each file that still matches it, is what git checks the
-  // files against before it moves any.
-  const restored = yield* git(work, ["read-tree", options.saved], env).pipe(
-    Effect.andThen(
-      Effect.ignore(git(work, ["update-index", "-q", "--refresh"], env)),
-    ),
-    Effect.andThen(
-      git(work, ["read-tree", "-m", "-u", options.saved, options.target], env),
-    ),
+  const directory = join(repo, `.restore-${unique()}`)
+  const env = { GIT_DIR: directory, GIT_WORK_TREE: work }
+  const restored = yield* Effect.gen(function* () {
+    yield* git(repo, ["init", "-q", "--bare", "--template=", directory])
+    yield* git(work, ["config", "core.bare", "false"], env)
+    yield* fs.makeDirectory(join(directory, "objects", "info"), {
+      recursive: true,
+    })
+    yield* fs.writeFileString(
+      join(directory, "objects", "info", "alternates"),
+      `${join(work, ".git", "objects")}\n`,
+    )
+    yield* git(work, ["update-ref", "--no-deref", "HEAD", options.saved], env)
+    // An index of what the save captured, with the stat of each file that still matches it.
+    yield* git(work, ["read-tree", options.saved], env)
+    yield* Effect.ignore(git(work, ["update-index", "-q", "--refresh"], env))
+    yield* git(
+      work,
+      ["checkout", "-q", "--no-overwrite-ignore", "--detach", options.sha],
+      env,
+    )
+  }).pipe(
     Effect.as(true),
     Effect.orElseSucceed(() => false),
-    Effect.ensuring(Effect.ignore(fs.remove(index, { force: true }))),
+    Effect.ensuring(
+      Effect.ignore(fs.remove(directory, { recursive: true, force: true })),
+    ),
   )
   yield* reset(repo, options.sha)
   return restored
@@ -265,7 +326,7 @@ export const restore = Effect.fnUntraced(function* (
 
 /**
  * Saves what `work/` holds as a commit under `refs/chad/saved/<timestamp>`, from the same snapshot an apply takes, so
- * it keeps untracked files and respects `.gitignore` (REC-82, REC-137). It gives the ref and the saved tree.
+ * it keeps untracked files and respects `.gitignore` (REC-82, REC-137). It gives the ref, the saved tree and the commit.
  */
 export const save = Effect.fnUntraced(function* (repo: string) {
   const { work } = paths(repo)
@@ -282,7 +343,7 @@ export const save = Effect.fnUntraced(function* (repo: string) {
   ])
   const ref = `refs/chad/saved/${new Date().toISOString().replace(/[:.]/g, "-")}-${unique().slice(0, 4)}`
   yield* git(work, ["update-ref", ref, sha])
-  return { ref, tree }
+  return { ref, tree, commit: sha }
 })
 
 /** The commit a revert goes back to, or the reason there is none (REC-78, REC-140, REC-141). */

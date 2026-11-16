@@ -65,7 +65,8 @@ export const make = Effect.fnUntraced(function* <R>(
   queue: Queue.Queue,
   /**
    * Rebuilds the plugins after the owners changed, already inside the queue. With an owner removed, a plugin that fails
-   * to rebuild is unloaded, so it cannot keep answering the removed person (CLI-120b).
+   * to rebuild is unloaded, so it cannot keep answering the removed person (CLI-120b). It is called where nothing
+   * interrupts the caller, so it has to run its work on a fiber that a stop can interrupt.
    */
   owners: (removed: boolean) => Effect.Effect<void> = () => Effect.void,
 ) {
@@ -79,7 +80,8 @@ export const make = Effect.fnUntraced(function* <R>(
       // The list may have moved while the platform was asked, so the change is made on the list as it stands now.
       const next = yield* Connections.apply(connections, change)
       if (next.changed) {
-        // A client that goes away now does not leave the file and the running connections apart.
+        // A client that goes away now does not leave the file, the running connections and the plugins' owners apart.
+        // The rebuild runs on a fiber of the daemon's scope, which a stop still interrupts (CLI-120b, SWAP-99).
         yield* Effect.gen(function* () {
           yield* Effect.orDie(Connections.write(volume.data, next.connections))
           connections = next.connections
@@ -88,10 +90,10 @@ export const make = Effect.fnUntraced(function* <R>(
           if (change._tag === "Remove") {
             yield* deleteShardState((name) => name === change.name)
           }
+          if (change._tag !== "Add" && change._tag !== "Token") {
+            yield* owners(change._tag !== "OwnerAdd")
+          }
         }).pipe(Effect.uninterruptible)
-        if (change._tag !== "Add" && change._tag !== "Token") {
-          yield* owners(change._tag !== "OwnerAdd")
-        }
       }
       return application === undefined
         ? { changed: next.changed }

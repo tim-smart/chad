@@ -988,7 +988,7 @@ export const appliedOutput = (options: {
   ...(options.restored
     ? []
     : [
-        "A file in work/ changed after the save, so no file was put back. git diff in work/ shows how it differs from the revert.",
+        "A file in work/ changed or appeared after the save, so no file was put back. git diff in work/ shows how the tracked files differ from the revert.",
       ]),
   "Changed files:",
   ...options.files.map((file) => `  ${file}`),

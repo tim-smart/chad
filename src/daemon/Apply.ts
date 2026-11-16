@@ -139,7 +139,8 @@ export const make = Effect.fnUntraced(function* (options: {
 
   /**
    * Runs work that has to finish once it begins, on a fiber of the daemon's scope. A client that goes away does not cut
-   * it, and a stop still does (CLI-43, CLI-120b, REC-56).
+   * it, and a stop still does, since the forked fiber is interruptible even when its caller is not (CLI-43, CLI-120b,
+   * REC-56).
    */
   const owned = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     Effect.forkIn(effect, options.scope).pipe(
@@ -295,8 +296,7 @@ export const make = Effect.fnUntraced(function* (options: {
             saved === undefined
               ? yield* Effect.as(Repo.reset(repo, sha), true)
               : yield* Repo.restore(repo, {
-                  saved: saved.tree,
-                  target: tree,
+                  saved: saved.commit,
                   sha,
                 })
           const swapped =

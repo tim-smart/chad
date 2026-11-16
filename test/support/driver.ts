@@ -80,6 +80,8 @@ export interface Options {
   readonly codex?: "token" | "expired"
   /** The plugins handed to `runDaemon` (TST-202), none by default. */
   readonly plugins?: DaemonInputs["plugins"]
+  /** A finalizer for the chat layer of a connection, by its name, which runs when the daemon tears the connection down. */
+  readonly closing?: Readonly<Record<string, Effect.Effect<void>>>
 }
 
 export interface Scenario {
@@ -295,10 +297,18 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
     {
       // A `discord` connection always gets the product's adapter, over the scripted gateway and the fake REST server.
       chat: (connection) => {
-        const layer =
+        const made =
           transport === "direct" && connection.kind === "local"
             ? platform.layer
             : Chat.layer(connection)
+        const closing = options.closing?.[connection.name]
+        const layer =
+          closing === undefined
+            ? made
+            : Layer.merge(
+                made,
+                Layer.effectDiscard(Effect.addFinalizer(() => closing)),
+              )
         const { loading } = options
         return loading === undefined
           ? layer

@@ -23,7 +23,7 @@ import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
 import { git, applied, write } from "../support/applied.ts"
 import * as Cli from "../support/cli.ts"
-import { scenario, fresh, type Scenario } from "../support/driver.ts"
+import { scenario, fresh, owner, type Scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
 import { eventually, posted, says, sessions } from "../support/owner.ts"
 
@@ -279,7 +279,37 @@ test("SWAP-1 SWAP-2 SWAP-4 LOAD-14 LOAD-23 LOAD-53 LOAD-70 REC-82 REC-86 REC-116
   const back = await roll(running, thread, "safe mode is off")
   expect(back.system).not.toContain(Messages.safePrompt)
   expect(back.output).toContain("face one")
-}, 60_000)
+
+  // A revert to a tree with notes/entry.txt, where work/ holds an ignored file named notes, is refused and leaves it.
+  write(work, { "notes/entry.txt": "applied notes" })
+  expect((await running.chad(["apply", "-m", "Add notes"])).code).toBe(0)
+  rmSync(join(work, "notes"), { recursive: true })
+  expect((await running.chad(["apply", "-m", "Drop notes"])).code).toBe(0)
+  write(join(work, ".git/info"), { exclude: "notes.local\nnotes\n" })
+  write(work, { notes: "ignored notes" })
+  const commits = (await log()).length
+  const parent = await running.chad(["revert"])
+  expect(parent.code).toBe(1)
+  expect(parent.stderr).toContain("notes")
+  expect(readFileSync(join(work, "notes"), "utf8")).toBe("ignored notes")
+  expect(await log()).toHaveLength(commits)
+
+  // An ignored file made where the revert puts one back, after the check and the save, stays: the revert keeps its
+  // commit, puts no file back and says so.
+  rmSync(join(work, "notes"))
+  const late = holdCommit(work)
+  const holding = Cli.start(["revert"], { CHAD_DATA: running.data })
+  await late.held()
+  write(work, { "notes/entry.txt": "ignored, written during the revert" })
+  late.release()
+  const kept = await holding.done
+  expect(kept.code).toBe(0)
+  expect(kept.stdout).toContain("no file was put back")
+  expect(readFileSync(join(work, "notes/entry.txt"), "utf8")).toBe(
+    "ignored, written during the revert",
+  )
+  expect(await log()).toHaveLength(commits + 1)
+}, 90_000)
 
 const slowTools = Toolkit.make(
   Tool.make("hang", {
@@ -482,10 +512,15 @@ const spareTools = Toolkit.make(
   }),
 )
 
-test("CLI-120b SWAP-99 SWAP-141 API-33 an owner change rebuilds the plugins with the new owners, a rebuilt plugin cannot take a tool name from a version that stays, and when an owner was removed a plugin that fails to rebuild is unloaded, even when the CLI is killed during the rebuild", async () => {
+test("CLI-120b SWAP-99 SWAP-141 API-33 an owner change rebuilds the plugins with the new owners, a removed connection's owners go even when its CLI is killed before the rebuild begins, a rebuilt plugin cannot take a tool name from a version that stays, and when an owner was removed a plugin that fails to rebuild is unloaded, even when the CLI is killed during the rebuild", async () => {
   let build: "builds" | "fails" | "holds" = "builds"
   const entered = Deferred.makeUnsafe<void>()
   const release = Deferred.makeUnsafe<void>()
+  const closing = Deferred.makeUnsafe<void>()
+  const closed = Deferred.makeUnsafe<void>()
+  onTestFinished(() => {
+    Deferred.doneUnsafe(closed, Exit.void)
+  })
   const guard = Plugin.make(
     Plugin.toolkit(ownerTools).pipe(
       Layer.provide(
@@ -529,11 +564,35 @@ test("CLI-120b SWAP-99 SWAP-141 API-33 an owner change rebuilds the plugins with
   )
   const running = await scenario({
     env: { CHAD_LOG_LEVEL: "debug" },
+    connections: [
+      { name: "local", kind: "local", owners: [owner] },
+      {
+        name: "home",
+        kind: "discord",
+        token: "home-token",
+        owners: ["700000000000000001"],
+      },
+    ],
+    // The home connection's teardown waits until the scenario lets it end.
+    closing: {
+      home: Deferred.succeed(closing, undefined).pipe(
+        Effect.andThen(Deferred.await(closed)),
+      ),
+    },
     plugins: [
       { name: "guard", plugin: guard },
       { name: "taker", plugin: taker },
     ],
   })
+  const cancelled = (count: number) =>
+    eventually(
+      () =>
+        running
+          .log()
+          .filter((line) => line.annotations["event"] === "rpc.cancelled")
+          .length,
+      (seen) => seen === count,
+    )
   const { fakes } = running
   const thread = await fakes.chat.makeThread("direct")
   const owners = async (text: string) => {
@@ -557,7 +616,24 @@ test("CLI-120b SWAP-99 SWAP-141 API-33 an owner change rebuilds the plugins with
   expect(await owners("who")).not.toContain("ada")
 
   expect((await running.chad(["owner", "add", "local", "ada"])).code).toBe(0)
-  expect(await owners("who now")).toContain("ada")
+  const both = await owners("who now")
+  expect(both).toContain("ada")
+  expect(both).toContain("discord:700000000000000001")
+
+  // A connection removed while its teardown hangs: the CLI is killed before the rebuild has begun, and the rebuild
+  // still runs once the teardown ends, so the removed connection's owner is gone from the plugin.
+  const removal = Cli.start(["connection", "remove", "home", "--force"], {
+    CHAD_DATA: running.data,
+  })
+  await Effect.runPromise(Deferred.await(closing))
+  removal.child.kill("SIGKILL")
+  await removal.done
+  expect((await running.chad(["status"])).code).toBe(0)
+  await Effect.runPromise(Deferred.succeed(closed, undefined))
+  await cancelled(1)
+  const left = await owners("who is left")
+  expect(left).toContain("ada")
+  expect(left).not.toContain("discord:")
 
   // An owner added while the build fails leaves the running version, which status marks. The taker's new version
   // would take the tool of the version that stays, so it keeps its running version too.
@@ -584,7 +660,7 @@ test("CLI-120b SWAP-99 SWAP-141 API-33 an owner change rebuilds the plugins with
   await remove.done
   expect((await running.chad(["status"])).code).toBe(0)
   await Effect.runPromise(Deferred.succeed(release, undefined))
-  await running.logged("rpc.cancelled")
+  await cancelled(2)
   const after = await owners("who after")
   expect(after).not.toContain("ada")
   expect(after).not.toMatch(/^owners /)
