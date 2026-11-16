@@ -75,7 +75,7 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 
 - **ORD-22** The first usable build is the end of stage 2, after the `models` slice. From there Tim can run the image on his own server.
 - **ORD-23** At the first usable build an owner can add a Discord connection and an owner with the CLI, log in to Codex, and talk to chad in a thread. Turns, steering, `/new`, `/stop`, `/model`, the status message, the failed-turn messages, notices, `chad status` and `chad logs` work, and a turn survives a restart.
-- **ORD-24** The first usable build has no plugins, no apply, no `chad.json`, no secrets, no skills, no MCP servers, no timers, no cron, no backup and no `chad setup`. It is set up with `chad connection` and `chad owner`, and it runs from the Dockerfile alone, since the Kubernetes manifests arrive in `image`. A connection or an owner that is changed while the daemon runs takes effect at once with no restart, because the swap of a running connection's gateway arrives with `cli` (see 10-cli.md).
+- **ORD-24** The first usable build has no plugins, no apply, no `chad.json`, no secrets, no skills, no MCP servers, no timers, no cron, no backup and no `chad setup`. It is set up with `chad connection` and `chad owner`, and it runs from the Dockerfile alone. A connection or an owner that is changed while the daemon runs takes effect at once with no restart, because the swap of a running connection's gateway arrives with `cli` (see 10-cli.md).
 - **ORD-25** The rule that a changed model reaches a session that is already open at the start of its next turn is delivered with `plugin-api`, because it rests on the rebuild of the Agent by generation. At the first usable build that rule has no test yet, and a changed model is only sure to reach a session opened after the change (see 05-model-and-login.md and 08-apply-and-swap.md).
 ## How the build starts
 
@@ -132,7 +132,7 @@ A builder reads `AGENTS.md` at the root of the repo on every run and may not rea
 | ORD-21 | TIM-559 round 2 R6 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-22 | TIM-559 round 2 R10 item 4; Tim, chat 2026-11-15, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Tim for stage 2. Architect (Tim has not read) for the mark | not run |  | `definition` | - |
 | ORD-23 | Tim, chat 2026-11-15; the slice tags of the parts | Jarvis, assembling the spec (Tim has not read) | not run |  | `definition` | - |
-| ORD-24 | Tim, chat 2026-11-15; the slice tags of the parts; TIM-559 cold read, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Jarvis, assembling the spec (Tim has not read) | not run |  | `definition` | - |
+| ORD-24 | Tim, chat 2026-11-15; the slice tags of the parts; TIM-559 cold read, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15, amended by Tim's ruling that chad ships no Kubernetes manifests, scripts or tests, chat 2026-11-16 | Jarvis, assembling the spec (Tim has not read) | not run |  | `definition` | - |
 | ORD-25 | The slice tags of MOD-18 and SWAP-8 | Jarvis, assembling the spec (Tim has not read) | not run |  | `definition` | - |
 | ORD-26 | TIM-559 round 2 R1; Tim, chat 2026-11-15 | Architect (Tim has not read). Tim created the repo himself and made it public | not run |  | `definition` | - |
 | ORD-27 | TIM-559 round 2 R1 | Architect (Tim has not read) | not run |  | `definition` | - |
