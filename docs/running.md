@@ -108,24 +108,24 @@ you can read it. With chad running:
 
 ```sh
 backup="chad-$(date +%F).tar"
-rm -f "$backup"
-(umask 077 && docker exec chad chad backup - > "$backup") || rm -f "$backup"
-ls -l "$backup"   # -rw-------
+tmp=$(mktemp "$backup.XXXXXX") &&
+  { docker exec chad chad backup - > "$tmp" && mv -f "$tmp" "$backup" ||
+    { rc=$?; rm -f "$tmp"; (exit "$rc"); }; }
 ```
 
-The `umask` makes a new file owner-only. It does nothing to a file that already exists: a redirect into one keeps its
-old mode, and anyone who already opened it reads what is written into it. That is why `rm -f` comes first. A backup that fails is deleted
-rather than left as a partial tar.
+The tar is written to a new file next to the target, which `mktemp` makes readable by you alone whatever the umask, and
+it replaces the target only once the backup has succeeded. A backup that fails removes only that new file and exits
+with the backup's status, so an earlier backup of the same name is kept as it was. When the directory cannot be written
+to, `mktemp` fails and nothing is touched. Once it succeeds, `ls -l "$backup"` shows `-rw-------`.
 
 asphodel's store is not in that tar. It holds what asphodel remembers about you, so back it up next to it the same way.
-`asphodel backup --out -` streams the copy and exits non-zero when its length or hash does not check out, and the
-`rm` then deletes what it wrote:
+`asphodel backup --out -` streams the copy and exits non-zero when its length or hash does not check out:
 
 ```sh
 backup="asphodel-$(date +%F).db"
-rm -f "$backup"
-(umask 077 && docker exec asphodel asphodel backup --out - > "$backup") || rm -f "$backup"
-ls -l "$backup"   # -rw-------
+tmp=$(mktemp "$backup.XXXXXX") &&
+  { docker exec asphodel asphodel backup --out - > "$tmp" && mv -f "$tmp" "$backup" ||
+    { rc=$?; rm -f "$tmp"; (exit "$rc"); }; }
 ```
 
 ### Restore
