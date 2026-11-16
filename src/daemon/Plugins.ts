@@ -258,6 +258,13 @@ export class Plugins extends Context.Service<
     readonly prepare: (plan: Plan) => Effect.Effect<Prepared>
     /** Abandons a swap that is running, which a graceful stop does first (SWAP-101). */
     readonly abandon: Effect.Effect<void>
+    /** Whether the plugin of that name has a version that is active and in no swap, so its timers can fire (CRON-30). */
+    readonly active: (name: string) => boolean
+    /**
+     * Waits until the plugin of that name is active and in no swap. A timer of a plugin that is not loaded, is off or
+     * is in the middle of a swap waits here, inside its request (CRON-30, CRON-40, SWAP-91).
+     */
+    readonly whenActive: (name: string) => Effect.Effect<void>
   }
 >()("chad/Plugins") {}
 
@@ -289,6 +296,8 @@ export const empty: Plugins["Service"] = {
       discard: Effect.void,
     }),
   abandon: Effect.void,
+  active: () => false,
+  whenActive: () => Effect.never,
 }
 
 /** The services the host supplies to every plugin, apart from its own `PluginContext` and `Turns`. */
@@ -373,6 +382,28 @@ export const make = Effect.fnUntraced(function* (options: {
   let abandoned = false
   /** The marks of plugins that kept their running version, by name (SWAP-141, SWAP-142). */
   const previous = new Map<string, string>()
+  /** Done, and replaced, whenever a version is activated or a swap ends, which is when a held timer looks again. */
+  let changed = Deferred.makeUnsafe<void>()
+  const change = () => {
+    const done = changed
+    changed = Deferred.makeUnsafe<void>()
+    Deferred.doneUnsafe(done, Exit.void)
+  }
+  const active = (name: string) => {
+    const plugin = current.get(name)
+    return (
+      plugin !== undefined &&
+      plugin.retired === undefined &&
+      Deferred.isDoneUnsafe(plugin.active) &&
+      swapping?.names.has(name) !== true
+    )
+  }
+  const whenActive = (name: string): Effect.Effect<void> =>
+    Effect.suspend(() =>
+      active(name)
+        ? Effect.void
+        : Effect.andThen(Deferred.await(changed), whenActive(name)),
+    )
 
   const byName = (
     a: { readonly name: string },
@@ -773,6 +804,7 @@ export const make = Effect.fnUntraced(function* (options: {
         )
       }
       yield* Deferred.succeed(plugin.active, undefined)
+      change()
     })
 
   /**
@@ -1089,6 +1121,7 @@ export const make = Effect.fnUntraced(function* (options: {
             Effect.sync(() => {
               if (swapping === swap) swapping = undefined
               Deferred.doneUnsafe(gate, Exit.void)
+              change()
             }),
           ),
         )
@@ -1354,5 +1387,7 @@ export const make = Effect.fnUntraced(function* (options: {
         ? Effect.void
         : Fiber.interrupt(swapping.fiber)
     }),
+    active,
+    whenActive,
   })
 })

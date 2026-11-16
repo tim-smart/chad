@@ -120,6 +120,12 @@ export const Report = Schema.Struct({
   ),
   /** The plugins the applied `chad.json` turns off (SET-34). */
   off: Schema.optionalKey(Schema.Array(Schema.String)),
+  /** The held timers of each plugin that is off or deleted from the repo, which "Problems" leaves out (SET-41, SET-85). */
+  held: Schema.optionalKey(
+    Schema.Array(
+      Schema.Struct({ plugin: Schema.String, count: Schema.Number }),
+    ),
+  ),
   /** Safe mode and what turned it on, the applied commit and whether `work/` holds a draft (CLI-125b to CLI-125d). */
   repository: Schema.optionalKey(
     Schema.Struct({

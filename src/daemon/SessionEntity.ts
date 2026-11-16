@@ -85,8 +85,9 @@ export class Message extends Schema.Class<Message>("chad/Session/Message")({
 }
 
 /**
- * A turn a plugin asked for with `Turns.start` or `Turns.queue`, as cluster persists it, so it survives a restart and
- * restores a passivated session (API-72). Its primary key is `start/<random UUID>` (CRON-99).
+ * A turn a plugin asked for with `Turns.start` or `Turns.queue`, or that a timer started, as cluster persists it, so it
+ * survives a restart and restores a passivated session (API-72, CRON-21). Its primary key is `start/<random UUID>`
+ * (CRON-99), or `timer/<plugin>/<name>/<scheduled time>` for a timer's run (CRON-98).
  */
 export class PluginTurn extends Schema.Class<PluginTurn>(
   "chad/Session/PluginTurn",
@@ -98,6 +99,10 @@ export class PluginTurn extends Schema.Class<PluginTurn>(
   label: Schema.String,
   prompt: Schema.String,
   mention: Schema.optionalKey(Schema.String),
+  /** The timer that started the turn and the time its run was due, in milliseconds since the epoch (CRON-9). */
+  timer: Schema.optionalKey(
+    Schema.Struct({ name: Schema.String, scheduledAt: Schema.Number }),
+  ),
 }) {
   [PrimaryKey.symbol]() {
     return this.key
@@ -130,6 +135,8 @@ interface Request {
         readonly label: string
         readonly prompt: string
         readonly mention: string | undefined
+        readonly timer:
+          { readonly name: string; readonly scheduledAt: number } | undefined
       }
     | undefined
 }
@@ -1567,6 +1574,16 @@ export const layer = Layer.unwrap(
                         _tag: "Plugin",
                         plugin: request.plugin.name,
                         label: request.plugin.label,
+                        ...(request.plugin.timer === undefined
+                          ? {}
+                          : {
+                              timer: {
+                                name: request.plugin.timer.name,
+                                scheduledAt: DateTime.makeUnsafe(
+                                  request.plugin.timer.scheduledAt,
+                                ),
+                              },
+                            }),
                       },
                 prompt: request.plugin?.prompt ?? request.message?.text ?? "",
                 startedAt: DateTime.makeUnsafe(started.at),
@@ -2212,6 +2229,7 @@ export const layer = Layer.unwrap(
                   label: payload.label,
                   prompt: payload.prompt,
                   mention: payload.mention,
+                  timer: payload.timer,
                 },
               }
               if (first !== undefined && first.key !== payload.key) {

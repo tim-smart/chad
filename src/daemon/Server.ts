@@ -84,6 +84,11 @@ export interface State {
   }>
   /** The plugins the applied `chad.json` turns off, once the plugins load (SET-34). */
   off: () => ReadonlyArray<string>
+  /** How many timers each plugin has, once the boot has the database. */
+  timers: Effect.Effect<
+    ReadonlyArray<{ readonly plugin: string; readonly count: number }>,
+    unknown
+  >
   /** Safe mode, the applied commit and the draft as `chad status` shows them, once the repo is set up (CLI-125). */
   repositoryState: Effect.Effect<Status.Repository | undefined>
   /** The commands that change what is loaded from the repo, which the boot hands over once the plugins load. */
@@ -185,6 +190,7 @@ export const makeState = (): State => ({
   recent: undefined,
   plugins: () => [],
   off: () => [],
+  timers: Effect.succeed([]),
   skipped: () => [],
   hiding: () => [],
   mcp: Effect.succeed([]),
@@ -234,31 +240,61 @@ const report = (state: State): Effect.Effect<Report> =>
       // `/status` holds its effect from before the boot sets the repo up, so the field is read when the report is.
       Effect.suspend(() => state.repositoryState),
       Effect.suspend(() => state.mcp),
+      Effect.suspend(() => state.timers).pipe(
+        Effect.orElseSucceed(
+          (): ReadonlyArray<{ plugin: string; count: number }> => [],
+        ),
+      ),
     ]),
-    ([recent, held, model, repository, mcp]) => ({
-      version: Version.version,
-      effect: Version.effect() ?? "unknown",
-      phase: state.phase,
-      filesystem: state.filesystem,
-      connections: state.connections,
-      started: state.started,
-      problems: [...state.problems.flatMap((check) => check()), ...held],
-      recent,
-      ...(model === undefined ? {} : { model }),
-      plugins: state.plugins().map(({ name, counts, previous, settings }) => ({
-        name,
-        warnings: counts.warnings,
-        errors: counts.errors,
-        ...(counts.latest === undefined ? {} : { latest: counts.latest }),
-        ...(previous === undefined ? {} : { previous }),
-        settings,
-      })),
-      off: state.off(),
-      skipped: state.skipped(),
-      hiding: state.hiding(),
-      ...(mcp.length === 0 ? {} : { mcp }),
-      ...(repository === undefined ? {} : { repository }),
-    }),
+    ([recent, held, model, repository, mcp, timers]) => {
+      // A timer of a plugin that is not loaded is held. One of a plugin that is off or deleted from the repo shows on
+      // the plugin's line, and any other, a skipped plugin's or one safe mode keeps out, under "Problems" (FAIL-113,
+      // SET-84, SET-85).
+      const loaded = new Set(state.plugins().map(({ name }) => name))
+      const off = new Set(state.off())
+      const skipped = new Set(state.skipped().map(({ name }) => name))
+      const safe = repository !== undefined && repository.safe !== "off"
+      const unloaded = timers.filter(({ plugin }) => !loaded.has(plugin))
+      const problem = ({ plugin }: { readonly plugin: string }) =>
+        !off.has(plugin) && (skipped.has(plugin) || safe)
+      return {
+        version: Version.version,
+        effect: Version.effect() ?? "unknown",
+        phase: state.phase,
+        filesystem: state.filesystem,
+        connections: state.connections,
+        started: state.started,
+        problems: [
+          ...state.problems.flatMap((check) => check()),
+          ...held,
+          ...unloaded
+            .filter(problem)
+            .map(({ plugin, count }) =>
+              Messages.timersHeldProblem(plugin, count),
+            ),
+        ],
+        recent,
+        ...(model === undefined ? {} : { model }),
+        plugins: state
+          .plugins()
+          .map(({ name, counts, previous, settings }) => ({
+            name,
+            warnings: counts.warnings,
+            errors: counts.errors,
+            ...(counts.latest === undefined ? {} : { latest: counts.latest }),
+            ...(previous === undefined ? {} : { previous }),
+            settings,
+          })),
+        off: state.off(),
+        held: unloaded
+          .filter((entry) => !problem(entry))
+          .map(({ plugin, count }) => ({ plugin, count })),
+        skipped: state.skipped(),
+        hiding: state.hiding(),
+        ...(mcp.length === 0 ? {} : { mcp }),
+        ...(repository === undefined ? {} : { repository }),
+      }
+    },
   )
 
 /** The text `chad status` prints for a daemon that answers, which `/status` posts as it is. */

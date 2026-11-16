@@ -127,7 +127,15 @@ export const render = (view: View): string => {
     ...model(report.model),
     ...connections(report.connections),
     ...plugins(report.plugins),
-    ...(report.off ?? []).map((name) => `plugin: ${name}, off`),
+    ...(report.off ?? []).map((name) =>
+      Messages.offPlugin(
+        name,
+        report.held?.find(({ plugin }) => plugin === name)?.count ?? 0,
+      ),
+    ),
+    ...(report.held ?? [])
+      .filter(({ plugin }) => !(report.off ?? []).includes(plugin))
+      .map(({ plugin, count }) => Messages.timersDeletedPlugin(plugin, count)),
     ...(report.skipped ?? []).map(
       ({ name, reason }) => `plugin: ${name}, skipped (${reason})`,
     ),
