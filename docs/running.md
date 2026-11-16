@@ -122,13 +122,17 @@ A restore goes onto an empty volume, with chad stopped:
 
 ```sh
 docker stop chad
+docker rename chad chad-old
 docker volume create chad-restored
 docker run --rm -i -v chad-restored:/data ghcr.io/tim-smart/chad:0.0.0 restore - < chad-2026-11-16.tar
-docker rm chad
 docker run -d --name chad --restart unless-stopped --stop-timeout 90 \
   -v chad-restored:/data \
   ghcr.io/tim-smart/chad:0.0.0
 ```
+
+If chad uses asphodel, add `--network chad` to the last `docker run`, or chad cannot reach `http://asphodel:7720`.
+Keep `chad-old` and the old volume until the restored chad answers, then remove them with `docker rm chad-old` and
+`docker volume rm chad-data`. `docs/live-checks.md`, check D4, restores asphodel next to it.
 
 `chad restore` refuses a volume that holds secrets or sessions, and a volume a running chad holds. A restore that was
 cut part way leaves the volume to `chad restore` alone: run the same restore again and it finishes. A newer chad
