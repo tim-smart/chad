@@ -131,6 +131,7 @@ export const render = (view: View): string => {
     ...(report.skipped ?? []).map(
       ({ name, reason }) => `plugin: ${name}, skipped (${reason})`,
     ),
+    ...(report.mcp ?? []).map(mcp),
     ...blocks(report),
   ].join("\n")
 }
@@ -148,6 +149,14 @@ const plugins = (list: Report["plugins"]): ReadonlyArray<string> =>
         ? [line]
         : [line, `  settings: ${Messages.settingsStatus(settings)}`]
     })
+
+/** One line per MCP server, with its tool count or the first line of its error (CLI-125f, MCP-144). */
+const mcp = (server: NonNullable<Report["mcp"]>[number]) =>
+  server.state === "connected"
+    ? `mcp: ${server.name}, connected, ${server.tools ?? 0} tools`
+    : server.state === "failed"
+      ? `mcp: ${server.name}, failed (${Messages.firstLine(server.error ?? "")})`
+      : `mcp: ${server.name}, starting`
 
 /** A time as the blocks print it: UTC, to the second. */
 const time = (at: number) => `${new Date(at).toISOString().slice(0, 19)}Z`

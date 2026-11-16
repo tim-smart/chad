@@ -10,6 +10,7 @@ import { join } from "node:path"
 import { Cause, Effect, Fiber, FileSystem, Path, Scope } from "effect"
 import type { ChildProcessSpawner } from "effect/process"
 import * as Errno from "../Errno.ts"
+import * as McpFile from "../McpFile.ts"
 import * as Messages from "../Messages.ts"
 import * as Repo from "../Repo.ts"
 import * as SafeMode from "../SafeMode.ts"
@@ -18,6 +19,7 @@ import * as Settings from "../Settings.ts"
 import * as Timezone from "../Timezone.ts"
 import * as Loader from "./Loader.ts"
 import * as Logger from "./Logger.ts"
+import * as Mcp from "./Mcp.ts"
 import type * as Notices from "./Notices.ts"
 import * as Persona from "./Persona.ts"
 import * as PluginSettings from "./PluginSettings.ts"
@@ -30,6 +32,12 @@ export interface Output {
   readonly stderr: ReadonlyArray<string>
   readonly code: 0 | 1
 }
+
+/**
+ * What a command gives the queue. `mcp` asks for an MCP rebuild once the queue is released, whose lines follow what
+ * the command printed (MCP-40, MCP-111, MCP-112, CLI-160).
+ */
+type Performed = Output & { readonly mcp?: boolean }
 
 const done = (...stdout: ReadonlyArray<string>): Output => ({
   stdout,
@@ -68,13 +76,18 @@ export type Request =
     }
   | { readonly _tag: "SecretRm"; readonly name: string }
   | { readonly _tag: "Purge"; readonly name: string }
+  | { readonly _tag: "McpRestart" }
 
 export interface Commands {
-  /** Runs a command in the queue. `waiting` is told what it waits on when the queue is busy (CLI-40). */
+  /**
+   * Runs a command in the queue. `waiting` is told what it waits on when the queue is busy (CLI-40), and `print` gets
+   * what a command prints before it ends, which is otherwise put before the rest of what it prints.
+   */
   readonly run: (
     request: Request,
     caller: Caller,
     waiting: (line: string) => Effect.Effect<void>,
+    print?: (lines: ReadonlyArray<string>) => Effect.Effect<void>,
   ) => Effect.Effect<Output>
   /** Whether safe mode is on now, and what turned it on (REC-129). */
   readonly safe: () => SafeMode.State
@@ -124,6 +137,8 @@ export const make = Effect.fnUntraced(function* (options: {
   /** The safe mode the boot found. */
   readonly initial: SafeMode.State
   readonly plugins: Plugins.Plugins["Service"]
+  /** The MCP layer, which an apply that changed `mcp.json`, a secret it names, `chad safe` and `chad mcp restart` rebuild. */
+  readonly mcp: Mcp.Mcp
   /** The bundled plugins, by name, which a repo plugin may not share and which `chad plugin reload` builds again. */
   readonly bundled: ReadonlyArray<Plugins.Entry>
   /** The applied `chad.json` as the boot read it. */
@@ -367,6 +382,28 @@ export const make = Effect.fnUntraced(function* (options: {
         return yield* refused("settings", validated.errors)
       }
       const file = validated.file
+      // `mcp.json` is read from the tree the change exported. A malformed file and a relative `cwd` fail the change,
+      // and a name that resolves nowhere leaves that server unavailable (REC-11, MCP-33, MCP-110, MCP-113, MCP-114).
+      const mcpRead = yield* McpFile.read(exported.directory)
+      if (mcpRead._tag === "Malformed") {
+        yield* cleanup
+        return yield* refused("mcp", [Messages.mcpRefused(mcpRead.error)])
+      }
+      const mcpResolved = [...(yield* options.mcp.resolve(mcpRead.file))]
+      const relative = mcpResolved.flatMap(([name, { relative }]) =>
+        relative === undefined
+          ? []
+          : [Messages.mcpRelativeCwdRefused(name, relative)],
+      )
+      if (relative.length > 0) {
+        yield* cleanup
+        return yield* refused("mcp", relative)
+      }
+      const mcpWarnings = mcpResolved.flatMap(([name, { missing }]) =>
+        missing === undefined
+          ? []
+          : [Messages.mcpCheckUnresolved(name, missing)],
+      )
       // The persona is read from the tree the change exported, never from work/ (REC-11).
       const nextPersona = yield* Persona.read(exported.directory)
       const { build, remove } = planOf(checked.loaded, file)
@@ -395,10 +432,22 @@ export const make = Effect.fnUntraced(function* (options: {
       )
       if (kind === "check") {
         yield* abandon
+        // The servers an apply would add, remove or change, against the applied tree. Nothing connects (MCP-36, CLI-74).
+        const before = yield* McpFile.read(
+          (yield* fs.exists(live)) ? yield* fs.realPath(live) : undefined,
+        )
+        const diff = McpFile.diff(
+          before._tag === "File" ? before.file : McpFile.empty,
+          mcpRead.file,
+        )
+        const mcpChanged =
+          diff.added.length + diff.removed.length + diff.changed.length > 0
         // "Replace me" is the one finding a check passes with (CLI-163, CLI-164).
         return done(
           ...listing,
           ...replaceMe.map(Messages.replaceMeCheck),
+          ...(mcpChanged ? Messages.mcpCheckLines(diff) : []),
+          ...mcpWarnings,
           Messages.checkPassed,
         )
       }
@@ -473,6 +522,15 @@ export const make = Effect.fnUntraced(function* (options: {
             unparsable: undefined,
             ignored: [],
           })
+          // A changed `mcp.json` rebuilds the MCP layer once the queue is released, and the plugins do not wait for it.
+          // In safe mode it loads when safe mode goes off (MCP-7, MCP-32, MCP-93, SWAP-54, API-94).
+          const mcpChanged =
+            safe === "off" &&
+            changes.some(({ path }) => path === McpFile.fileName)
+          if (mcpChanged) {
+            options.mcp.set(mcpRead.file)
+            yield* options.notices.clear(Mcp.unreadableKey)
+          }
           yield* Repo.prune(repo, tree)
           yield* Logger.event("apply.done", "An apply finished", {
             kind,
@@ -497,19 +555,22 @@ export const make = Effect.fnUntraced(function* (options: {
                   Messages.firstLine(options_.message),
                 ),
           )
-          return done(
-            ...Messages.appliedOutput({
-              kind,
-              commit: sha.slice(0, 7),
-              files: changes.map(({ status, path }) => `${status} ${path}`),
-              safe: safe !== "off",
-              saved: saved?.ref,
-              restored,
-              swapped,
-              flipped,
-              settings: listing,
-            }),
-          )
+          return {
+            mcp: mcpChanged,
+            ...done(
+              ...Messages.appliedOutput({
+                kind,
+                commit: sha.slice(0, 7),
+                files: changes.map(({ status, path }) => `${status} ${path}`),
+                safe: safe !== "off",
+                saved: saved?.ref,
+                restored,
+                swapped,
+                flipped,
+                settings: listing,
+              }),
+            ),
+          } satisfies Performed as Performed
         }).pipe(
           Effect.catchCause((cause) =>
             Cause.hasInterruptsOnly(cause)
@@ -619,6 +680,7 @@ export const make = Effect.fnUntraced(function* (options: {
 
   const switched = (to: "on" | "off", caller: Caller) =>
     Effect.gen(function* () {
+      const servers = options.mcp.file()?.size ?? 0
       yield* SafeMode.write(options.data, to === "on")
       if (to === "on") {
         // Everything from the repo goes, and a bundled plugin with settings is built again on its defaults (SET-46).
@@ -639,6 +701,8 @@ export const make = Effect.fnUntraced(function* (options: {
         })
         safe = "toggle"
         yield* prepared.swap
+        // Safe mode loads no MCP servers (MCP-7).
+        options.mcp.set(undefined)
       } else {
         // `live` loads as a boot loads it, `chad.json` included (REC-60).
         const tree = (yield* fs.exists(live))
@@ -659,6 +723,7 @@ export const make = Effect.fnUntraced(function* (options: {
           notices: options.notices,
         })
         persona = yield* Persona.read(tree)
+        options.mcp.set(yield* Mcp.atBoot(tree, options.notices))
         const off = Settings.off(applied)
         const plan = planFor(
           PluginSettings.entries({
@@ -681,7 +746,11 @@ export const make = Effect.fnUntraced(function* (options: {
       }
       yield* Queue.ran(`safe ${to}`, Queue.caller(caller.session), "changed")
       yield* announce(caller, Messages.safeLine(to === "on"))
-      return done(Messages.safeState(safe))
+      // The MCP layer follows when there were servers before or are now.
+      return {
+        ...done(Messages.safeState(safe)),
+        mcp: servers + (options.mcp.file()?.size ?? 0) > 0,
+      } satisfies Performed as Performed
     })
 
   /**
@@ -882,6 +951,8 @@ export const make = Effect.fnUntraced(function* (options: {
             "secret",
           )
           yield* Queue.ran(command, who, "changed", { name })
+          // The MCP layer is rebuilt when `mcp.json` names the secret, and only then (MCP-40, CRED-25, CRED-27).
+          const mcp = McpFile.names(options.mcp.file()).has(name)
           const line =
             changed.success._tag === "Saved"
               ? Messages.secretSaved(name, changed.success.replaced, swapped)
@@ -900,7 +971,8 @@ export const make = Effect.fnUntraced(function* (options: {
               Messages.keptPrevious(name, error),
             ),
             code: kept.length === 0 ? (0 as const) : (1 as const),
-          }
+            mcp,
+          } satisfies Performed as Performed
         }),
       )
     })
@@ -951,12 +1023,13 @@ export const make = Effect.fnUntraced(function* (options: {
     SecretSet: "chad secret set",
     SecretRm: "chad secret rm",
     Purge: "chad plugin purge",
+    McpRestart: "chad mcp restart",
   }
 
   const perform = (
     request: Request,
     caller: Caller,
-  ): Effect.Effect<Output, unknown, Services> => {
+  ): Effect.Effect<Performed, unknown, Services> => {
     switch (request._tag) {
       case "Apply":
         return apply(request.message, caller)
@@ -975,18 +1048,23 @@ export const make = Effect.fnUntraced(function* (options: {
         return secret(request, caller)
       case "Purge":
         return purge(request.name, caller)
+      case "McpRestart":
+        return Effect.as(
+          Queue.ran("mcp restart", Queue.caller(caller.session), "changed"),
+          { ...done(), mcp: true },
+        )
     }
   }
 
   const commands: Commands = {
-    run: (request, caller, waiting) =>
+    run: (request, caller, waiting, print) =>
       Effect.gen(function* () {
         // `chad safe` with no argument only reads (REC-129).
         if (request._tag === "Safe" && request.to === undefined)
           return done(Messages.safeState(safe))
         const busy = options.queue.busy()
         if (busy !== undefined) yield* waiting(Messages.queueWaiting(busy))
-        return yield* options.queue.run(
+        const { mcp, ...output }: Performed = yield* options.queue.run(
           perform(request, caller).pipe(
             Effect.catchCause((cause) =>
               Cause.hasInterruptsOnly(cause)
@@ -1002,6 +1080,18 @@ export const make = Effect.fnUntraced(function* (options: {
           ),
           labels[request._tag],
         )
+        if (mcp !== true) return output
+        // What the command printed comes first, the commit line of an apply included, and the rebuild runs once the
+        // queue is released, in a fiber a CLI that goes away does not stop (MCP-111, MCP-112, CLI-160).
+        const before =
+          print === undefined || output.stdout.length === 0
+            ? output.stdout
+            : yield* Effect.as(print(output.stdout), [])
+        const servers = yield* options.mcp.rebuild
+        return {
+          ...output,
+          stdout: [...before, ...Messages.mcpRebuilt(servers)],
+        }
       }),
     safe: () => safe,
     persona: () => persona,

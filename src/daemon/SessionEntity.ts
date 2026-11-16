@@ -3,6 +3,7 @@ import { resolve } from "node:path"
 import * as Agent from "clanka/Agent"
 import * as AgentExecutor from "clanka/AgentExecutor"
 import type { Task, TaskHandle } from "clanka/AgentTools"
+import * as McpServers from "clanka/McpServers"
 import { DiscordChat } from "@effect/chat-discord"
 import {
   Cause,
@@ -414,6 +415,8 @@ export const layer = Layer.unwrap(
         const chats = yield* Chats
         const fs = yield* FileSystem.FileSystem
         const plugins = yield* Plugins
+        // The one MCP wrapper of the process, which every Agent is handed (MCP-65).
+        const mcp = yield* Effect.serviceOption(McpServers.McpServers)
         const support = yield* Support
         const services = yield* Effect.context<
           Sharding.Sharding | Entity.CurrentAddress | SqlClient.SqlClient
@@ -801,6 +804,14 @@ export const layer = Layer.unwrap(
               Effect.provideService(AgentExecutor.AgentExecutor, owned),
               Effect.provideService(Scope.Scope, agentScope),
               Effect.provideService(Logger.CurrentLogIds, ids),
+              (effect) =>
+                Option.isSome(mcp)
+                  ? Effect.provideService(
+                      effect,
+                      McpServers.McpServers,
+                      mcp.value,
+                    )
+                  : effect,
             )
             return {
               agent,

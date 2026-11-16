@@ -1373,3 +1373,118 @@ export const setupLoggedIn = "chad is logged in to Codex."
 
 export const setupNeeded =
   "chad has no chat connection. Add one with chad connection add."
+
+// mcp.json and the MCP layer (docs/spec/12-skills-and-mcp.md). The seven texts the model reads are exact (MCP-99).
+
+/** Message 1: a call in flight when a rebuild started (MCP-71). */
+export const mcpInterrupted = (key: string) =>
+  `mcp.${key} was interrupted by an MCP restart. It may have run in part or in full.`
+
+/** Message 2: a call made during a rebuild, before the new layer is current (MCP-140). */
+export const mcpRestarting =
+  "MCP servers are restarting. This call was not sent."
+
+/** Message 3: a server that is gone from `mcp.json` (MCP-81). */
+export const mcpRemoved = (key: string, name: string) =>
+  `mcp.${key}: MCP server "${name}" was removed from mcp.json.`
+
+/** Message 4: a tool its connected server no longer lists (MCP-82). */
+export const mcpToolGone = (key: string, name: string) =>
+  `mcp.${key}: "${name}" no longer lists this tool.`
+
+/** Message 5: a server that is configured and not connected (MCP-83). */
+export const mcpNotConnected = (key: string, name: string, error: string) =>
+  `mcp.${key}: MCP server "${name}" is not connected: ${firstLine(error)}`
+
+/** Message 7: the prompt of a turn that started at boot before the first layer connected (MCP-92). */
+export const mcpStarting =
+  "MCP servers were still starting when this turn began. They are available from your next turn."
+
+/** The most tools message 8 names before it counts the rest (MCP-142). */
+export const mcpNextTurnShown = 10
+
+/** Message 8, added to a `searchTools` result after a blank line (MCP-87, MCP-142). */
+export const mcpNextTurn = (keys: ReadonlyArray<string>) => {
+  const shown = keys.slice(0, mcpNextTurnShown).map((key) => `mcp.${key}`)
+  const rest = keys.length - shown.length
+  return `${shown.join(", ")}${rest > 0 ? `, and ${rest} more` : ""} ${keys.length === 1 ? "is" : "are"} callable from your next turn.`
+}
+
+/** A `searchTools` call when no server of the current layer is connected (MCP-G21, MCP-143). */
+export const mcpNoServerConnected = "searchTools: no MCP server is connected."
+
+/** A call made when no layer exists and none is being built (MCP-G21, MCP-143). */
+export const mcpNotRunning = "MCP servers are not running."
+
+/** `mcp.json` that is not JSON (MCP-33). */
+export const mcpNotJson = (error: string) => `it is not JSON: ${error}`
+
+/** `mcp.json` whose top level is not an object. */
+export const mcpNotObject = "its top level is not a JSON object"
+
+/** An `mcpServers` that is not an object. */
+export const mcpServersNotObject = '"mcpServers" is not a JSON object'
+
+/** An entry that clanka's loader would refuse. */
+export const mcpEntry = (name: string, error: string) =>
+  `MCP server "${name}": ${firstLine(error)}`
+
+/** A file that cannot be read at all. */
+export const mcpFileUnreadable = (code: string) => `it cannot be read (${code})`
+
+/** A malformed `mcp.json`, which fails an apply and a check (MCP-33, REC-28). */
+export const mcpRefused = (error: string) => `work/mcp.json: ${error}.`
+
+/** A stdio entry whose `cwd` is relative (MCP-110). */
+export const mcpRelativeCwdRefused = (name: string, cwd: string) =>
+  `work/mcp.json: MCP server "${name}" has the relative cwd "${cwd}". Give an absolute path.`
+
+/** The status error of a server whose `cwd` expanded to a relative path. */
+export const mcpRelativeCwd = (cwd: string) =>
+  `its cwd "${cwd}" is not an absolute path`
+
+/** The status error of a server with a `${NAME}` that resolves nowhere (MCP-27, MCP-114). */
+export const mcpUnresolved = (name: string) =>
+  `\${${name}} is in neither the secret store nor the daemon's environment`
+
+/** `chad check`'s warning for such a name, which leaves the check passing (MCP-113, CLI-74). */
+export const mcpCheckUnresolved = (server: string, name: string) =>
+  `Warning: MCP server "${server}" names \${${name}}, which is in neither the secret store nor the daemon's environment. An apply lists it as unavailable.`
+
+/** What `chad check` says of `mcp.json` when it changed: the servers an apply would add, remove or change (MCP-36). */
+export const mcpCheckLines = (diff: {
+  readonly added: ReadonlyArray<string>
+  readonly removed: ReadonlyArray<string>
+  readonly changed: ReadonlyArray<string>
+}) => [
+  ...diff.added.map((name) => `MCP server ${name}: an apply adds it.`),
+  ...diff.removed.map((name) => `MCP server ${name}: an apply removes it.`),
+  ...diff.changed.map((name) => `MCP server ${name}: an apply changes it.`),
+  "The check connected no MCP server.",
+]
+
+/** The notice of an `mcp.json` that cannot be read at boot (FAIL-165). */
+export const mcpUnreadable = (error: string) =>
+  `\`mcp.json\` can't be read (${firstLine(error)}), so no MCP servers are running.`
+
+/** One MCP server as status and an apply show it (MCP-35, CLI-125f, MCP-144). */
+export interface McpServerState {
+  readonly name: string
+  readonly state: "connected" | "failed" | "starting"
+  readonly tools?: number
+  readonly error?: string
+}
+
+/** One MCP server's line in what an apply, a secret change or `chad mcp restart` prints (MCP-35, MCP-144). */
+export const mcpServerLine = (server: McpServerState) =>
+  server.state === "connected"
+    ? `MCP server ${server.name}: connected, ${server.tools ?? 0} tools.`
+    : server.state === "failed"
+      ? `MCP server ${server.name}: unavailable: ${firstLine(server.error ?? "")}`
+      : `MCP server ${server.name}: starting.`
+
+/** What a rebuild prints: each server's line, or that none is configured. */
+export const mcpRebuilt = (servers: ReadonlyArray<McpServerState>) =>
+  servers.length === 0
+    ? ["No MCP servers are configured."]
+    : servers.map(mcpServerLine)

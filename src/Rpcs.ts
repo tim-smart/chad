@@ -134,6 +134,17 @@ export const Report = Schema.Struct({
   skipped: Schema.optionalKey(
     Schema.Array(Schema.Struct({ name: Schema.String, reason: Schema.String })),
   ),
+  /** Each MCP server, with its tool count or the first line of its error (CLI-125f). */
+  mcp: Schema.optionalKey(
+    Schema.Array(
+      Schema.Struct({
+        name: Schema.String,
+        state: Schema.Literals(["connected", "failed", "starting"]),
+        tools: Schema.optionalKey(Schema.Number),
+        error: Schema.optionalKey(Schema.String),
+      }),
+    ),
+  ),
 })
 export type Report = typeof Report.Type
 
@@ -240,12 +251,16 @@ export const RepoRequest = Schema.Union([
   }),
   Schema.TaggedStruct("SecretRm", { name: Schema.String }),
   Schema.TaggedStruct("Purge", { name: Schema.String }),
+  /** `chad mcp restart` (MCP-39, MCP-42). */
+  Schema.TaggedStruct("McpRestart", {}),
 ])
 export type RepoRequest = typeof RepoRequest.Type
 
 /** What such a command hears: that it waits behind another command, then what it prints and its exit code (CLI-40). */
 export const RepoEvent = Schema.Union([
   Schema.TaggedStruct("Waiting", { text: Schema.String }),
+  /** Lines printed before the command ends, as an apply's commit line before it waits for the MCP rebuild (MCP-112). */
+  Schema.TaggedStruct("Printed", { stdout: Schema.Array(Schema.String) }),
   Schema.TaggedStruct("Ended", {
     stdout: Schema.Array(Schema.String),
     stderr: Schema.Array(Schema.String),
