@@ -189,6 +189,7 @@ Cron is a bundled plugin, which means it ships in the image and not in the owner
 - **CRON-114** A job records whether its timezone was given or taken from the default.
 - **CRON-115** A job whose timezone was defaulted follows the owner's timezone. A change made with `chad timezone` reloads every plugin (see 08-apply-and-swap.md), and cron's reconcile then reschedules those jobs in the new timezone.
 - **CRON-116** A job whose timezone was given keeps it when the owner's timezone changes. `cronUpdate` changes it.
+- **CRON-146** Cron has no settings of its own. It reads nothing from `plugins.cron.settings` in `chad.json`, and `"enabled": false` under `plugins.cron` is the only key that changes it.
 
 What a job carries:
 
@@ -214,10 +215,14 @@ What a job carries:
 - **CRON-66** `cronRun` runs a job now. It calls `Turns.queue`, leaves the schedule alone and returns "queued" once the request is saved, without waiting for the outcome. A run fired from the job's own thread queues behind the turn that called the tool and starts after that turn ends. In the prototype such a tool returned in 8 ms.
 - **CRON-67** A change to a job never touches a run that has started. `cronUpdate`, `cronRemove` and a pause apply from the next run. Stopping a run in progress is the Stop button or `/stop`.
 - **CRON-68** Cron's prompt chunk is two static lines on how to schedule. It never lists the jobs.
+- **CRON-143** The prompt chunk is "Scheduled jobs: cronCreate runs a prompt later in this thread, once (at a time or in a delay) or on a 5-field cron expression, and cronList, cronUpdate, cronRemove and cronRun see and manage the jobs." and "A job's prompt runs with nobody there to answer questions, so write it to be done alone and to say what to post. A run may answer [SILENT] to post nothing.", one per line.
 - **CRON-117** Each tool takes the fields of the job table in this part and nothing else.
 - **CRON-118** `cronList` also returns each job's next run and whether failures paused it, because the model cannot work out a cron time across a daylight saving change. CRON-137 adds a mark for a one-shot whose outcome was not recorded.
 - **CRON-119** `cronCreate` and `cronUpdate` fail with a message that names the bad field, and change nothing, when they are given a time in the past, an invalid cron expression, an unknown timezone or a duplicate name.
 - **CRON-120** `cronRun` runs a paused job, because it leaves the schedule alone.
+- **CRON-140** `cronCreate` takes `name`, `prompt`, exactly one of `at`, `in` and `cron`, and an optional `timezone` and `notify`. `at` is an ISO 8601 time, read in the job's timezone when it carries no offset. `in` is a delay in the form `<number> <unit>` that Effect's `Duration` reads, such as "20 minutes" or "2 hours". `cron` is a 5-field cron expression. `cronUpdate` takes `name` and any of `prompt`, `at`, `in`, `cron`, `timezone`, `notify` and `enabled`, and a field left out keeps its value. `cronRemove` and `cronRun` take `name`, and `cronList` takes nothing.
+- **CRON-141** `cronList` returns an array with one object per job, sorted by name. Each object has `name`, `prompt`, which is the owner's prompt without the wrapper lines, `at` for a one-shot or `cron` for a recurring job, `timezone`, `timezoneGiven`, `thread`, `enabled`, `notify` and `failures`, the count of failed runs in a row. It has `pausedBy` when cron paused the job, with the reason of CRON-147, `nextRun` when the job is enabled and has a timer, and `note` with the text "fired, outcome not recorded" for the one-shot of CRON-137. Times are ISO 8601 in the job's timezone, with the zone's name.
+- **CRON-145** The tools' results are 'Created "<name>". Next run: <time>.' for `cronCreate`, 'Updated "<name>". Next run: <time>.' or 'Updated "<name>". It is paused.' for `cronUpdate`, 'Removed "<name>".' for `cronRemove` and "queued" for `cronRun`. A refused call fails with a text that starts with the field it names: 'name: a job named "<name>" already exists.', 'name: no job is named "<name>".', 'timezone: "<zone>" is not an IANA timezone.', 'cron: "<expression>" is not a 5-field cron expression (minute hour day-of-month month day-of-week).', 'cron: "<expression>" is invalid: <reason>.', 'at: "<text>" is not an ISO 8601 time.', 'in: "<text>" is not a delay such as "20 minutes" or "2 hours".', and 'at: <time> is in the past.' or the same with `in`. A call with none or more than one of `at`, `in` and `cron`, where a schedule is needed, fails with "Give exactly one of at, in and cron for the schedule.".
 
 ## What a run looks like
 
@@ -225,7 +230,9 @@ The prompt wrapper is the set of lines cron puts around the owner's prompt so th
 
 - **CRON-69** The wrapper lines that never change are stored with the job's prompt. They say that this is a scheduled run, that nobody is there to answer questions, and that an answer of `[SILENT]` is allowed. The rule in 14-self-edit-skill.md that an unattended turn does not apply changes is written against this wording.
 - **CRON-121** The stored wrapper lines contain the phrase "scheduled run" and the phrase "nobody is there to answer questions" word for word. The unattended-turn line of the skill in 14-self-edit-skill.md matches on those two phrases, so a change to either phrase is a change to both parts.
+- **CRON-142** The stored wrapper lines are 'This is a scheduled run of the cron job "<name>", and nobody is there to answer questions.' and 'Do the task below on your own and answer with what the owner should read. Answer exactly [SILENT] when there is nothing worth posting.', then an empty line and the owner's prompt.
 - **CRON-70** Cron's `beforeTurn` hook reads the timer name and the scheduled time from `Origin.Plugin` and adds when the run was due and how late it is. If the hook fails, the run goes ahead without that line.
+- **CRON-144** The due and late line is 'This run of "<name>" was due at <time> and started <lateness> late.', with the time in ISO 8601 in the job's timezone and the lateness in whole seconds as Effect's `Duration.format` writes it, such as "2m 5s". A run that started less than half a second late says "and started on time". A run that `cronRun` started has no timer and gets no line.
 - **CRON-71** A job's answer pings the owner in a server thread by default. `notify: false` on the job turns the ping off.
 - **CRON-72** One run of a job is in progress at a time.
 
@@ -237,6 +244,7 @@ The prompt wrapper is the set of lines cron puts around the owner's prompt so th
 - **CRON-76** When a run ends as `Failed` with `ThreadGone`, cron pauses the job at once, without waiting for three failures.
 - **CRON-89** When a run ends as `Failed` with `GaveUp`, cron pauses the job at once, like `ThreadGone`. A job whose run kills the daemon twice would otherwise take six crashes to pause.
 - **CRON-77** A run that fails with `LoggedOut`, `LoginFailed` or `UsageLimit` is not a failure of the job. It neither adds to the count of three in a row nor resets it, cron posts nothing in the job's thread for it, and it is not run again later, which differs on purpose from a run missed while chad was down.
+- **CRON-147** The reason that FAIL-72's line names is the `Failed` reason's tag, and for `ModelError` the tag, a comma and the `AiError` reason, as "ModelError, RateLimitError". When cron pauses a job itself, `cronList` gives the reason as `pausedBy`: "3 failed runs in a row (<reason>)", or the tag `ThreadGone`, `GaveUp`, `LoggedOut`, `LoginFailed` or `UsageLimit`. Only the pause after three failures posts a line. A pause or resume with `cronUpdate` clears `pausedBy`.
 - **CRON-122** The count of failures in a row is kept in the job's entry in the key-value store.
 - **CRON-123** A run started by `cronRun` counts toward the three in a row like a scheduled run.
 - **CRON-124** A stopped run neither adds to the count nor resets it, the same as the failures that do not count.
@@ -265,10 +273,7 @@ The prompt wrapper is the set of lines cron puts around the owner's prompt so th
 
 ## Gaps
 
-- **CRON-G1** [builder] The names of the fields of each tool's input and of what `cronList` returns. TIM-540 lists the tool fields as not settled.
 - **CRON-G5** [builder] The retention period of `MessageRetention` on the `Timer` entity. TIM-543 turns it on without a period.
-- **CRON-G13** [builder] The wording of the due and late line, of the two-line prompt chunk and of every tool result other than "queued" (TIM-540).
-- **CRON-G20** [builder] Whether cron has any settings of its own. No ticket names one (TIM-548).
 
 ## Provenance
 
@@ -412,3 +417,11 @@ The prompt wrapper is the set of lines cron puts around the owner's prompt so th
 | CRON-136 | TIM-559 round 3 API-G13 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
 | CRON-137 | TIM-559 round 3 on CRON-G21 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `timers-cron` |
 | CRON-138 | TIM-559 round 3 on CRON-G21 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `timers-cron` |
+| CRON-140 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |
+| CRON-141 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |
+| CRON-142 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |
+| CRON-143 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |
+| CRON-144 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |
+| CRON-145 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |
+| CRON-146 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |
+| CRON-147 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |
