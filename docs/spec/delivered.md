@@ -18,6 +18,7 @@ The slices that are delivered, in build order. The builder who finishes a slice 
 - `plugin-api`
 - `loader`
 - `apply`
+- `settings`
 
 ## Held rules
 
@@ -50,22 +51,16 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 | CRON-43   | `timers-cron`    | The mention is built for every plugin turn, and the turns `Turns.schedule` starts arrive with the `timers-cron` slice.                                                                          |
 | LOAD-64   | `skills-mcp`     | Plugins stop after the sessions at the stop, the swap's part of the order arrives with the `apply` slice, and the MCP servers' part with the `skills-mcp` slice.                                |
 | LOAD-20   | `bundled-skills` | Every package of the image resolves for a plugin, and the `self-edit` skill that says which ones are promised arrives with the `bundled-skills` slice.                                          |
-| API-23    | `settings`       | `"enabled": false` keeps a plugin's table and data now. `chad plugin purge` (CLI-90) arrives with the `settings` slice.                                                                         |
-| CLI-32    | `skills-mcp`     | `apply`, `check`, `revert` and `plugin reload` exit 4 with no daemon now. `plugin purge` arrives with `settings` (CLI-90) and `mcp restart` with `skills-mcp`.                                  |
+| CLI-32    | `skills-mcp`     | `apply`, `check`, `revert`, `plugin reload` and `plugin purge` exit 4 with no daemon now. `mcp restart` arrives with `skills-mcp`.                                                              |
 | CLI-67    | `skills-mcp`     | Every check that rests on no later slice is built, the `chad.json` rules and a `${NAME}` that resolves nowhere included. A malformed `mcp.json` and a malformed skill arrive with `skills-mcp`. |
 | CLI-68    | `skills-mcp`     | The error for a skill whose name differs from its directory arrives with skills. The other rewrites are built.                                                                                  |
 | CLI-70    | `skills-mcp`     | What changed per skill and per MCP server arrives with skills and MCP servers. The commit, the plugin lines and the closing line are built.                                                     |
 | CLI-71    | `timers-cron`    | The count of overdue held timers arrives with `timers-cron`. The settings keys, the wait, the interrupted calls and the affected sessions with their sub-agents and background tasks are built. |
 | CLI-86    | `skills-mcp`     | `chad plugin new` arrives with the `skills-mcp` slice (CLI-84).                                                                                                                                 |
 | CLI-87    | `skills-mcp`     | `chad plugin new` arrives with the `skills-mcp` slice (CLI-84).                                                                                                                                 |
-| CLI-150   | `settings`       | The line for every other command is built, a reload that keeps some plugins included. `chad plugin purge` arrives with `settings` (CLI-90).                                                     |
-| CLI-158   | `settings`       | `chad plugin purge` arrives with the `settings` slice (CLI-90).                                                                                                                                 |
-| DIS-83    | `settings`       | The line for every other command is built. `chad plugin purge` arrives with `settings` (CLI-90).                                                                                                |
 | LOAD-52   | `timers-cron`    | A new plugin loads, and a deleted one or one turned off with `"enabled": false` unloads with its data kept. The plugin's timers arrive with `timers-cron`.                                      |
-| REC-11    | `skills-mcp`     | Plugins and `chad.json` load only from an exported tree. The persona arrives with `settings`, and skills and `mcp.json` with `skills-mcp`.                                                      |
+| REC-11    | `skills-mcp`     | Plugins, `chad.json` and the persona load only from an exported tree. Skills and `mcp.json` arrive with `skills-mcp`.                                                                           |
 | REC-59    | `timers-cron`    | `chad safe on` is a swap to nothing that drops queued hooks and refuses calls. Holding the plugins' timers arrives with `timers-cron`.                                                          |
-| REC-108   | `settings`       | The line for every other command is built. `chad plugin purge` arrives with `settings` (CLI-90).                                                                                                |
-| SELF-126  | `settings`       | The line for every other command is built. `chad plugin purge` arrives with `settings` (CLI-90).                                                                                                |
 | SELF-32   | `skills-mcp`     | `chad plugin new` arrives with the `skills-mcp` slice (CLI-84).                                                                                                                                 |
 | SELF-33   | `skills-mcp`     | `chad plugin new` arrives with the `skills-mcp` slice (CLI-84).                                                                                                                                 |
 | SELF-47   | `skills-mcp`     | `chad plugin new` arrives with the `skills-mcp` slice (CLI-84).                                                                                                                                 |
@@ -79,7 +74,6 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 | SWAP-109  | `skills-mcp`     | The plugins' scopes close in the stop's last step now. The MCP layer and the stop's 60 second deadline arrive with `skills-mcp`.                                                                |
 | ASP-7     | `asphodel`       | The asphodel plugin arrives with the `asphodel` slice. A plugin's settings under `plugins.<name>.settings` in `chad.json` are built.                                                            |
 | ASP-9     | `asphodel`       | The asphodel plugin and its bearer token arrive with the `asphodel` slice. The expansion of `${NAME}` from the secret store or process env is built.                                            |
-| ASP-14    | `asphodel`       | The asphodel plugin and its `ingest` setting arrive with the `asphodel` slice.                                                                                                                  |
 
 ## Stopped rules
 

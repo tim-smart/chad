@@ -1060,6 +1060,24 @@ export const reloadUnknown = (name: string) =>
 export const reloadSafe = (name: string) =>
   `Safe mode is on, so ${name} from the repo is not loaded. Turn safe mode off first.`
 
+/** `chad plugin purge` of a plugin still in the applied repo, which exits 1 (CLI-90, SET-40, CLI-247). */
+export const purgeInRepo = (name: string) =>
+  `${name} is still in the applied repo, so its data stays. Delete its file in work/, run chad apply, then purge it.`
+
+/** `chad plugin purge` of a bundled plugin that is on, which exits 1 (SET-95, CLI-247). */
+export const purgeBundledOn = (name: string) =>
+  `${name} is a bundled plugin and it is on, so its data stays. Turn it off with "enabled": false in work/chad.json, run chad apply, then purge it.`
+
+/** `chad plugin purge` of a plugin chad holds no data for, which exits 0 (CLI-248). */
+export const purgeNothing = (name: string) => `Nothing is stored for ${name}.`
+
+/** What `chad plugin purge` prints once it dropped the plugin's table (CLI-247). */
+export const purged = (name: string, keys: number) =>
+  `Purged ${name}: its key-value table and its ${keys} ${keys === 1 ? "key" : "keys"} are deleted.`
+
+/** The session line of `chad plugin purge` (FAIL-176, FAIL-347). */
+export const purgedLine = (name: string) => `Purged the data of plugin ${name}.`
+
 /** `chad plugin reload` that swapped. */
 export const reloaded = (name: string) =>
   `Reloaded ${name}. Sessions pick it up on their next message.`

@@ -103,6 +103,7 @@ The persona is the owner's description of who chad is for them. It is the one pi
 - **SELF-43** An applied change to `persona.md` renders each session's system prompt again on that session's next turn.
 - **SELF-44** The first commit chad makes in a new repo includes an empty `persona.md`.
 - **SELF-45** Safe mode leaves the persona out of the system prompt.
+- **SELF-136** A `persona.md` that is missing, cannot be read, or holds only whitespace adds nothing to the system prompt. Any other persona goes in trimmed, under the heading "## Persona".
 - **SELF-46** The persona is where the agent learns that the owner mounted a directory.
 
 ## The starter file from chad plugin new
@@ -596,7 +597,7 @@ export default Plugin.make(NotesTools, Chunk)
 - **SELF-G3** [builder] The wording of the type-check footer line, the "Replace me" error, the malformed-skill errors, the three rewritten errors, the output of `chad plugin new` and the mark in `chad status` on a repo skill that hides a bundled one. TIM-549 items 3, 18, 19, 20 and 23 give the content and no text.
 - **SELF-G4** [builder] The wording of the safe mode line in the system prompt. TIM-549 item 15 gives its two points and no text.
 - **SELF-G5** [builder] The rest of the core prompt's text beyond the two fixed sentences. TIM-549 item 14.
-- **SELF-G6** [builder] How an empty or missing `persona.md` renders in the system prompt, and whether the persona gets a heading there. TIM-549 item 16.
+- **SELF-G6** [builder] How an empty or missing `persona.md` renders in the system prompt, and whether the persona gets a heading there. TIM-549 item 16. SELF-136 settles both.
 - **SELF-G8** [builder] How CI finds the commands, flags, exit codes, paths and quoted messages in a skill's prose. TIM-549 item 21 and TIM-558 items 32 and 33 give the rules and what a quoted message is matched against, and no method for finding one.
 - **SELF-G9** [builder] How `<camelName>` is derived from a name that has hyphens or starts with a digit. TIM-549 item 17.
 - **SELF-G10** [builder] What `chad skill new` writes inside `SKILL.md`. TIM-542 item 11 gives the path only.
@@ -741,6 +742,7 @@ export default Plugin.make(NotesTools, Chunk)
 | SELF-133 | TIM-559 round 3 A1, TIM-559 round 4 item 7 | Architect (Tim has not read) | not run | TIM-559 | `definition` | - |
 | SELF-134 | TIM-559 round 3 A2 | Architect (Tim has not read) | not run | TIM-559 | `definition` | - |
 | SELF-135 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `harness` |
+| SELF-136 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

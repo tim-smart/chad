@@ -38,6 +38,7 @@ import * as Logger from "./Logger.ts"
 import * as Login from "./Login.ts"
 import * as Model from "./Model.ts"
 import * as Notices from "./Notices.ts"
+import * as PersonaFile from "./Persona.ts"
 import { Plugins } from "./Plugins.ts"
 import * as Post from "./Post.ts"
 import * as Queue from "./Queue.ts"
@@ -173,6 +174,16 @@ export const Safe = Context.Reference<{ readonly on: () => boolean }>(
   { defaultValue: () => ({ on: () => false }) },
 )
 
+/**
+ * The persona of the applied tree, which an apply, a revert or `chad safe off` replaces before the generation bump it
+ * comes with. A session takes it when its Agent is built, so a change reaches it through the rebuild of its next turn
+ * (SELF-43, SWAP-128).
+ */
+export const Persona = Context.Reference<{ readonly text: () => string }>(
+  "chad/SessionEntity/Persona",
+  { defaultValue: () => ({ text: () => "" }) },
+)
+
 export const Stopping = Context.Reference<{ readonly stopping: () => boolean }>(
   "chad/SessionEntity/Stopping",
   { defaultValue: () => ({ stopping: () => false }) },
@@ -242,15 +253,19 @@ export const publicOutcome = (outcome: Outcome): PublicSession.Outcome =>
       ? outcome
       : { _tag: "Stopped" }
 
-/** The system prompt as chad renders it, which is what a session freezes and what its fingerprint is taken of. */
+/**
+ * The system prompt as chad renders it, which is what a session freezes and what its fingerprint is taken of. The
+ * persona follows the core block, and safe mode leaves it out (SELF-42, SELF-45, SWAP-28).
+ */
 export const system = (
   options: {
     readonly toolInstructions: string
     readonly agentsMd: string
   },
   safe = false,
+  persona = "",
 ) => `You are a world-class software engineer: precise and efficient.
-${safe ? `\n${Messages.safePrompt}\n` : ""}
+${safe ? `\n${Messages.safePrompt}\n` : PersonaFile.section(persona)}
 ${options.toolInstructions}
 
 ${options.agentsMd}
@@ -281,6 +296,8 @@ interface Live {
   }
   /** The plugin generation the Agent was built on, which a turn's start compares with the plugins' (SWAP-1, SWAP-4). */
   plugins: number
+  /** The persona as it was when the Agent was built, which a rebuild takes again (SWAP-128). */
+  persona: string
   /** The chunk texts the session last saw, by plugin name (SWAP-30). */
   chunks: ReadonlyMap<string, string>
   /** The system prompt the session last sent, with the fingerprint of what chad rendered for it. */
@@ -409,6 +426,7 @@ export const layer = Layer.unwrap(
         }
         const stopping = yield* Stopping
         const safe = yield* Safe
+        const persona = yield* Persona
         // The request of a turn that a restart cut takes the session before any other request of the thread, so
         // that the messages that waited to steer it steer it again (SES-200).
         const unfinished = yield* Sessions.unfinished(key).pipe(Effect.orDie)
@@ -784,9 +802,19 @@ export const layer = Layer.unwrap(
               Effect.provideService(Scope.Scope, agentScope),
               Effect.provideService(Logger.CurrentLogIds, ids),
             )
-            return { agent, scope: agentScope, generation }
+            return {
+              agent,
+              scope: agentScope,
+              generation,
+              persona: persona.text(),
+            }
           })
-          let { agent, scope: agentScope, generation } = yield* build()
+          let {
+            agent,
+            scope: agentScope,
+            generation,
+            persona: firstPersona,
+          } = yield* build()
           const messages = yield* Sessions.history(id)
           if (messages.length > 0) {
             MutableRef.set(agent.history, Prompt.fromMessages(messages))
@@ -818,6 +846,7 @@ export const layer = Layer.unwrap(
               agent = live.agent = next.agent
               agentScope = next.scope
               live.plugins = next.generation
+              live.persona = next.persona
             }),
             // Each task is announced once: only one an earlier Agent started, and only if nothing reported it yet
             // (SWAP-134 to SWAP-137).
@@ -851,6 +880,7 @@ export const layer = Layer.unwrap(
             view,
             model: undefined,
             plugins: generation,
+            persona: firstPersona,
           }
           return live
         })
@@ -867,7 +897,7 @@ export const layer = Layer.unwrap(
           }) => {
             // Safe mode is one line of the prompt, which is part of the fingerprint, so turning it on or off renders
             // the prompt again (SELF-38, SELF-39).
-            const rendered = system(options, safe.on())
+            const rendered = system(options, safe.on(), live.persona)
             // The fingerprint leaves the chunks out, so a chunk change keeps the prompt frozen (SWAP-129).
             const fingerprint = createHash("sha256")
               .update(rendered)

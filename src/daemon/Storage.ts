@@ -46,6 +46,28 @@ export const guard = Effect.gen(function* () {
 })
 
 /** Runs the migrations that the database does not hold yet, under `Migrator`'s default table name. */
+/**
+ * Drops one plugin's key-value table, `plugin_kv_<name>` quoted as `layerSql` quotes it, in one transaction, and gives
+ * the number of keys it held, or nothing when the plugin has no table. No other table is touched (STO-61, STO-162).
+ */
+export const dropPluginTable = (name: string) =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    const table = `plugin_kv_${name}`
+    return yield* sql.withTransaction(
+      Effect.gen(function* () {
+        const found =
+          yield* sql`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ${table}`
+        if (found.length === 0) return undefined
+        const [row] = yield* sql<{
+          readonly count: number | bigint
+        }>`SELECT COUNT(*) AS count FROM ${sql(table)}`
+        yield* sql`DROP TABLE ${sql(table)}`
+        return Number(row?.count ?? 0)
+      }),
+    )
+  })
+
 export const migrate = SqliteMigrator.run({
   loader: SqliteMigrator.fromRecord(migrations),
 })

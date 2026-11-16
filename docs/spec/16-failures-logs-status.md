@@ -743,6 +743,7 @@ A command that changes chad leaves a line in the thread of the session it ran fr
 - **FAIL-238** A reload that is not an apply, and that exits 1 because some plugins failed to build while the others swapped, still posts the line, and the line names the plugins that were kept on their previous version (see 08-apply-and-swap.md).
 - **FAIL-345** For `chad timezone` the line is "Timezone set to <zone>.", and when some plugins kept their previous version it goes on "Still on the previous timezone: <plugin names>."
 - **FAIL-346** For `chad secret rm` the line is "Secret <NAME> removed.", and when some plugins kept their previous version it goes on "Still on the previous secret: <plugin names>."
+- **FAIL-347** For `chad plugin purge` the line is "Purged the data of plugin <name>."
 - **FAIL-180** The post is forked into the daemon's scope and the command does not wait for it (see 10-cli.md).
 
 ## What stays in the log only
@@ -1137,6 +1138,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-344 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `loader` |
 | FAIL-345 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 | FAIL-346 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| FAIL-347 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 
