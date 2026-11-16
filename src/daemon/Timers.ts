@@ -24,7 +24,7 @@ import { SqlClient } from "effect/sql"
 import * as Messages from "../Messages.ts"
 import type { Timer as PublicTimer } from "../Turns.ts"
 import * as Logger from "./Logger.ts"
-import type { Outcome } from "./SessionEntity.ts"
+import { Outcome } from "./SessionEntity.ts"
 
 // The timers of docs/spec/13-timers-and-cron.md. A timer is a `timers` row, which says whether a run is still wanted,
 // and one persisted wake-up at the timer's own address of the `Timer` entity, which says when to look (CRON-12 to
@@ -62,6 +62,37 @@ export const Timer = Entity.make("Timer", [
   Rpc.make("fire", { payload: Fire }).annotate(ClusterSchema.Persisted, true),
 ])
 
+/**
+ * One run of a timer, as its `TimerRuns` entity takes it: a scheduled run, which has `scheduledAt`, or a run that
+ * `Turns.queue` asked for with the timer's name. One key is one turn (API-137).
+ */
+export class Queued extends Schema.Class<Queued>("chad/TimerRuns/Run")({
+  key: Schema.String,
+  plugin: Schema.String,
+  name: Schema.String,
+  thread: Schema.String,
+  prompt: Schema.String,
+  label: Schema.String,
+  mention: Schema.optionalKey(Schema.String),
+  scheduledAt: Schema.optionalKey(Schema.Number),
+}) {
+  [PrimaryKey.symbol]() {
+    return this.key
+  }
+}
+
+/**
+ * The runs of one timer, at the timer's entity id. The entity takes one request at a time in the order they were saved,
+ * so the timer's scheduled runs and the turns queued for it run one at a time, across threads and across a kill, and
+ * a cancel or a replace of the timer, which clears the `Timer` address, leaves them (API-137, CRON-148).
+ */
+export const TimerRuns = Entity.make("TimerRuns", [
+  Rpc.make("run", { payload: Queued, success: Outcome }).annotate(
+    ClusterSchema.Persisted,
+    true,
+  ),
+])
+
 /** The entity id of a timer (CRON-96). */
 export const entityId = (plugin: string, name: string) => `${plugin}/${name}`
 
@@ -87,8 +118,8 @@ export const next = (
 export const Support = Context.Reference<{
   readonly active: (plugin: string) => boolean
   readonly whenActive: (plugin: string) => Effect.Effect<void>
-  /** Runs the row's turn under the key of its scheduled run, and gives its outcome once the session has it. */
-  readonly run: (row: Row, at: number) => Effect.Effect<Outcome>
+  /** Runs a timer's run as its turn, and gives the outcome once the session has it. */
+  readonly run: (run: Queued) => Effect.Effect<Outcome>
 }>("chad/Timers/Support", {
   defaultValue: () => ({
     active: () => false,
@@ -223,6 +254,7 @@ export const layer = Timer.toLayer(
     const sql = yield* SqlClient.SqlClient
     const storage = yield* MessageStorage.MessageStorage
     const client = yield* Timer.client
+    const runs = yield* TimerRuns.client
     return Timer.of({
       fire: ({ payload }) =>
         Effect.gen(function* () {
@@ -246,8 +278,22 @@ export const layer = Timer.toLayer(
           }
           // A run that dies is logged and not run again, and the chain goes on, so one bad run never ends a recurring
           // timer (FAIL-71).
-          yield* support
-            .run(current, at)
+          // The run waits its place among the timer's runs (API-137).
+          yield* runs(entityId(plugin, name))
+            .run(
+              new Queued({
+                key: turnKey(plugin, name, at),
+                plugin,
+                name,
+                thread: current.thread,
+                prompt: current.prompt,
+                label: current.label,
+                ...(current.mention === null
+                  ? {}
+                  : { mention: current.mention }),
+                scheduledAt: at,
+              }),
+            )
             .pipe(
               Effect.catchCause((cause) =>
                 Cause.hasInterruptsOnly(cause)
@@ -285,6 +331,16 @@ export const layer = Timer.toLayer(
           )
         }).pipe(Effect.orDie),
     })
+  }),
+  // A defect fails that one request, and the entity carries on (SES-20).
+  { disableFatalDefects: true },
+)
+
+/** The handler of a timer's runs, which runs each as its turn and waits for its end before it takes the next. */
+export const runsLayer = TimerRuns.toLayer(
+  Effect.gen(function* () {
+    const support = yield* Support
+    return TimerRuns.of({ run: ({ payload }) => support.run(payload) })
   }),
   // A defect fails that one request, and the entity carries on (SES-20).
   { disableFatalDefects: true },

@@ -49,6 +49,11 @@ export type Origin =
             readonly scheduledAt: DateTime.Utc
           }
         | undefined
+      /**
+       * The name of the timer whose runs the turn waited its place among,
+       * set when `Turns.queue` was given `timer`.
+       */
+      readonly queuedFor?: string | undefined
     }
 
 /** One run of the agent in a session, from the prompt that starts it to its outcome. */

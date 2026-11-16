@@ -523,6 +523,15 @@ const boot = Effect.fnUntraced(function* (
       Duration.minutes(1),
     ),
   })
+  // A timer's finished runs are pruned the same way, since a run delivered again reads the `turns` row (CRON-29).
+  const runsRetention = MessageRetention.make({
+    entity: Timers.TimerRuns,
+    retention: inputs.timings.messageRetention,
+    interval: Duration.min(
+      inputs.timings.messageRetention,
+      Duration.minutes(1),
+    ),
+  })
   let host: Plugins.Plugins["Service"] | undefined
   const loaded = yield* Deferred.make<Plugins.Plugins["Service"]>()
   const plugins: Plugins.Plugins["Service"] = {
@@ -556,7 +565,9 @@ const boot = Effect.fnUntraced(function* (
       SessionEntity.layer,
       retention,
       Timers.layer,
+      Timers.runsLayer,
       timerRetention,
+      runsRetention,
     ).pipe(
       Layer.provideMerge(cluster),
       Layer.provideMerge(
@@ -578,9 +589,9 @@ const boot = Effect.fnUntraced(function* (
           Layer.succeed(Timers.Support, {
             active: plugins.active,
             whenActive: plugins.whenActive,
-            run: (row, at) =>
+            run: (queued) =>
               Effect.flatMap(Deferred.await(turnOptions), (options) =>
-                PluginTurns.runTimer(options)(row, at),
+                PluginTurns.runQueued(options)(queued),
               ),
           }),
           Layer.succeed(SessionEntity.Safe, {
@@ -657,6 +668,7 @@ const boot = Effect.fnUntraced(function* (
     waiting,
     scope: pluginScope,
     client: yield* SessionEntity.Session.client.pipe(Effect.provide(sessions)),
+    runs: yield* Timers.TimerRuns.client.pipe(Effect.provide(sessions)),
     chats: running.chats,
     connections: running.list,
     timers,

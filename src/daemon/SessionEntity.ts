@@ -103,6 +103,8 @@ export class PluginTurn extends Schema.Class<PluginTurn>(
   timer: Schema.optionalKey(
     Schema.Struct({ name: Schema.String, scheduledAt: Schema.Number }),
   ),
+  /** The timer whose runs the turn was queued among, by `Turns.queue` with `timer`. */
+  queuedFor: Schema.optionalKey(Schema.String),
 }) {
   [PrimaryKey.symbol]() {
     return this.key
@@ -137,6 +139,7 @@ interface Request {
         readonly mention: string | undefined
         readonly timer:
           { readonly name: string; readonly scheduledAt: number } | undefined
+        readonly queuedFor: string | undefined
       }
     | undefined
 }
@@ -1584,6 +1587,9 @@ export const layer = Layer.unwrap(
                                 ),
                               },
                             }),
+                        ...(request.plugin.queuedFor === undefined
+                          ? {}
+                          : { queuedFor: request.plugin.queuedFor }),
                       },
                 prompt: request.plugin?.prompt ?? request.message?.text ?? "",
                 startedAt: DateTime.makeUnsafe(started.at),
@@ -2230,6 +2236,7 @@ export const layer = Layer.unwrap(
                   prompt: payload.prompt,
                   mention: payload.mention,
                   timer: payload.timer,
+                  queuedFor: payload.queuedFor,
                 },
               }
               if (first !== undefined && first.key !== payload.key) {

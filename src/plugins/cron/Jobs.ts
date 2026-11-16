@@ -5,21 +5,6 @@ import { ChatThread } from "effect/chat"
 import type { FailedReason } from "../../Session.ts"
 import type { Timer } from "../../Turns.ts"
 
-/**
- * The runs of a job that are queued by `cronRun` or in progress. They are all in one thread, whose session runs them one
- * at a time, and the job's new runs go there too until they have ended (CRON-72, CRON-148).
- */
-export const Runs = Schema.Struct({
-  thread: Schema.String,
-  /** Runs `cronRun` queued that have not started. */
-  queued: Schema.Number,
-  /** The id of the turn of the run in progress. */
-  turn: Schema.optionalKey(Schema.String),
-  /** A one-shot's time when the run in progress started (CRON-67). */
-  at: Schema.optionalKey(Schema.Number),
-})
-export type Runs = typeof Runs.Type
-
 /** One job. The key is its name, which never changes (CRON-109, CRON-110). */
 export const Job = Schema.Struct({
   name: Schema.String,
@@ -41,9 +26,15 @@ export const Job = Schema.Struct({
   failures: Schema.Number,
   /** Why cron paused the job, when cron did. An owner's pause leaves it absent. */
   pausedBy: Schema.optionalKey(Schema.String),
-  /** When the job was created, in milliseconds since the epoch. A run that started earlier is another job's (CRON-149). */
-  created: Schema.Number,
-  runs: Schema.optionalKey(Runs),
+  /**
+   * Made when the job is created. The job's timer is named after it, and each run carries that name, so a run's outcome
+   * goes only to the job that asked for the run (CRON-149).
+   */
+  id: Schema.String,
+  /** A one-shot's run by `cronRun` that is in progress, and the job's time when it started (CRON-67, CRON-149). */
+  started: Schema.optionalKey(
+    Schema.Struct({ turn: Schema.String, at: Schema.Number }),
+  ),
 })
 export type Job = typeof Job.Type
 
@@ -67,54 +58,22 @@ export const mentionOf = (job: Job) => (job.notify ? job.owner : undefined)
 /** The job's timezone: the one it was given, or the owner's (CRON-115, CRON-116). */
 export const zoneOf = (job: Job, owner: string) => job.timezone ?? owner
 
-export const parse = (thread: string) =>
-  Option.getOrThrow(ChatThread.fromString(thread))
-
-/** The thread the job was created in or moved to, which cron's own lines go to. */
-export const threadOf = (job: Job) => parse(job.thread)
-
-/** The thread the job's next run goes to: that of its runs still queued or in progress, or its own (CRON-148). */
-export const runsIn = (job: Job) => job.runs?.thread ?? job.thread
-
-/** A job's runs once a run of it started in `thread`. A run `cronRun` queued is no longer waiting. */
-export const started = (
-  job: Job,
-  thread: string,
-  turn: string,
-  manual: boolean,
-): Runs => ({
-  thread,
-  queued: Math.max(0, (job.runs?.queued ?? 0) - (manual ? 1 : 0)),
-  turn,
-  ...(job.at === undefined ? {} : { at: job.at }),
-})
+/** The thread the job was created in or moved to, where its runs go and cron's own lines go. */
+export const threadOf = (job: Job) =>
+  Option.getOrThrow(ChatThread.fromString(job.thread))
 
 /**
- * A job's runs once a run of it ended, or none when nothing is left. A queued run that ended without starting, as one
- * whose thread is gone does, is no longer waiting either.
+ * The name of the job's timer, which every run of the job is queued for, so the runs go one at a time (CRON-72,
+ * CRON-148, CRON-149).
  */
-export const ended = (
-  runs: Runs | undefined,
-  turn: string,
-  manual: boolean,
-): Runs | undefined => {
-  if (runs === undefined) return undefined
-  const { turn: current, at: _at, ...rest } = runs
-  const left: Runs =
-    current === turn
-      ? rest
-      : manual
-        ? { ...runs, queued: Math.max(0, runs.queued - 1) }
-        : runs
-  return left.queued === 0 && left.turn === undefined ? undefined : left
-}
+export const timerName = (job: Job) => `${job.name}#${job.id}`
 
 /** What `Turns.schedule` is given for an enabled job. */
 export const timerOf = (job: Job, owner: string) => ({
   ...(job.cron === undefined
-    ? { name: job.name, at: DateTime.makeUnsafe(job.at ?? 0) }
-    : { name: job.name, cron: job.cron, timezone: zoneOf(job, owner) }),
-  thread: parse(runsIn(job)),
+    ? { name: timerName(job), at: DateTime.makeUnsafe(job.at ?? 0) }
+    : { name: timerName(job), cron: job.cron, timezone: zoneOf(job, owner) }),
+  thread: threadOf(job),
   prompt: job.prompt,
   label: job.name,
   mention: mentionOf(job),
@@ -122,7 +81,7 @@ export const timerOf = (job: Job, owner: string) => ({
 
 /** Whether the core's timer matches the job record in everything `Turns.schedule` was given (CRON-128). */
 export const matches = (timer: Timer, job: Job, owner: string) =>
-  ChatThread.toString(timer.thread) === runsIn(job) &&
+  ChatThread.toString(timer.thread) === job.thread &&
   timer.prompt === job.prompt &&
   timer.label === job.name &&
   timer.mention === mentionOf(job) &&

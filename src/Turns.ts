@@ -112,6 +112,15 @@ export class Turns extends Context.Service<
       readonly label: string
       /** A user id that chad mentions at the start of the answer in a server thread. */
       readonly mention?: string | undefined
+      /**
+       * The name of one of this plugin's timers, scheduled or not. The turn
+       * is then one of that timer's runs: it waits for the timer's runs that
+       * are queued or in progress, and the timer's runs that come due after
+       * it wait for it, so they run one at a time in the order they were
+       * asked, whichever threads they run in. Hooks see the name on
+       * `origin.queuedFor`.
+       */
+      readonly timer?: string | undefined
     }) => Effect.Effect<void>
     /**
      * Schedules a turn that survives a restart, once at `at` or repeating on

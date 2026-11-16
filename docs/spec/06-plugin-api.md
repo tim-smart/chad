@@ -235,6 +235,7 @@ A turn is one run of the agent in a session, from the prompt that starts it to i
 - **API-79** `Turns.start` called from a tool handler for the thread of the handler's own turn fails at once, with a defect whose message names `Turns.queue`. The turn it asked for would queue behind the turn that called the tool, so a call that waited would deadlock. The message reads "Turns.start cannot run a turn in the thread of the turn that called this tool, because that turn would wait for this one. Use Turns.queue, which returns once the turn is queued."
 - **API-114** `Turns.queue(options)` takes the same options as `Turns.start` and returns `Effect<void>`. It returns once the request is saved and does not wait for the turn. A tool handler uses it to queue a turn in its own thread.
 - **API-115** A turn queued with `Turns.queue` is started and treated the way a turn from `Turns.start` is. Every call queues its own turn, and a plugin that needs the outcome reads it in `afterTurn`.
+- **API-137** `Turns.queue` takes an optional `timer`, the name of one of the plugin's timers, scheduled or not. The turn is then one of that timer's runs. The timer's scheduled runs and the turns queued for it start one at a time, in the order they were saved, whichever threads they run in, and this holds across a kill and a restart. A cancel or a replace of the timer leaves the turns queued for it. Hooks see the name on `origin.queuedFor`. The request is the only thing the call saves.
 - **API-129** `Turns.start`, `Turns.queue`, `Turns.schedule` and `Turns.cancel` declare no error type, and no release adds one, because a new error type would fail the type-check of every applied plugin at an image upgrade. A failure of the call itself is therefore a defect, and its message is a text written for the model. API-79, API-130, API-133 and API-135 name the failures. clanka returns a handler's defect to the calling script, as API-35 says.
 - **API-130** `Turns.queue` fails with such a defect when the request cannot be saved, which happens on a full disk. The message says that the turn was not queued and why. It reads "The turn was not queued, because chad could not save the request: <reason>", where the reason is the first line of the failure.
 - **API-135** `Turns.start` fails with such a defect when its request cannot be saved, which happens on a full disk. The message says that the turn was not started and why. It reads "The turn was not started, because chad could not save the request: <reason>", where the reason is the first line of the failure. No turn starts, so the call has no `Outcome` to return, and no `afterTurn` hook runs for a turn that did not run.
@@ -532,6 +533,8 @@ export type Origin =
      * `Turns.start`.
      */ // adjusted: TIM-540
     readonly timer?: { readonly name: string; readonly scheduledAt: DateTime.Utc } | undefined // adjusted: TIM-540
+    /** The timer named by `Turns.queue`'s `timer`, among whose runs the turn waited its place. */ // adjusted: API-137
+    readonly queuedFor?: string | undefined // adjusted: API-137
   }
 
 /** One run of the agent in a session, from the prompt that starts it to its outcome. */ // adjusted: TIM-549
@@ -755,6 +758,8 @@ declare const Turns_base: Context.ServiceClass<
       readonly prompt: string // adjusted: TIM-559
       readonly label: string // adjusted: TIM-559
       readonly mention?: string | undefined // adjusted: TIM-559
+      /** A timer of this plugin's, whose runs the turn goes one at a time with (API-137). */ // adjusted: API-137
+      readonly timer?: string | undefined // adjusted: API-137
     }) => Effect.Effect<void> // adjusted: TIM-559
     /**
      * Schedules a turn that survives a restart, once at `at` or repeating on
@@ -960,3 +965,4 @@ export declare class Turns extends Turns_base {}
 | API-134 | TIM-559 round 4 item 1 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | API-135 | TIM-559 round 4 item 2 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | API-136 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `plugin-api` |
+| API-137 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |

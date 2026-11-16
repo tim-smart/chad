@@ -69,6 +69,8 @@ interface Asked {
 /** What the `Turns` of every plugin share. */
 export interface Options {
   readonly client: Client
+  /** The client of the `TimerRuns` entity, which a turn queued for a timer goes through. */
+  readonly runs: Effect.Success<typeof Timers.TimerRuns.client>
   readonly chats: Chats["Service"]
   readonly connections: () => ReadonlyArray<Connection>
   readonly waiting: Waiting
@@ -90,6 +92,7 @@ const request = (
   turn: Asked,
   key: string,
   timer?: { readonly name: string; readonly scheduledAt: number },
+  queuedFor?: string,
 ) =>
   Effect.gen(function* () {
     const connection = yield* connectionOf(
@@ -117,6 +120,7 @@ const request = (
         prompt: turn.prompt,
         ...(turn.mention === undefined ? {} : { mention: turn.mention }),
         ...(timer === undefined ? {} : { timer }),
+        ...(queuedFor === undefined ? {} : { queuedFor }),
       }),
     }
   })
@@ -141,6 +145,7 @@ const run = (
   turn: Asked,
   key: string,
   timer?: { readonly name: string; readonly scheduledAt: number },
+  queuedFor?: string,
 ) =>
   Effect.gen(function* () {
     const { entity, payload } = yield* request(
@@ -150,6 +155,7 @@ const run = (
       turn,
       key,
       timer,
+      queuedFor,
     )
     const waiter = Deferred.makeUnsafe<Outcome>()
     options.waiting.set(payload.key, waiter)
@@ -166,32 +172,36 @@ const run = (
   })
 
 /**
- * Runs a timer's turn, as the `Timer` entity's handler asks: the row's thread, prompt, label and mention under the key
- * of the scheduled run, with the timer on the turn's origin (CRON-9, CRON-19, CRON-20).
+ * Runs one of a timer's runs, as the `TimerRuns` entity's handler asks: a scheduled run with the timer on the turn's
+ * origin (CRON-9, CRON-19, CRON-20), or a queued one with the timer's name on `origin.queuedFor` (API-137).
  */
-export const runTimer = (options: Options) => (row: Timers.Row, at: number) =>
+export const runQueued = (options: Options) => (queued: Timers.Queued) =>
   Effect.gen(function* () {
-    const key = Timers.turnKey(row.plugin, row.name, at)
     // A run whose turn ended before a kill gets its outcome from the row and starts nothing (CRON-29).
-    const ended = yield* options.database(Sessions.turn(key)).pipe(Effect.orDie)
+    const ended = yield* options
+      .database(Sessions.turn(queued.key))
+      .pipe(Effect.orDie)
     if (ended !== undefined && ended.outcome !== null) {
       return { _tag: "Stopped" } as Outcome
     }
-    const thread = ChatThread.fromString(row.thread)
+    const thread = ChatThread.fromString(queued.thread)
     if (Option.isNone(thread)) {
-      return yield* Effect.die(new Error(`${row.thread} is not a thread`))
+      return yield* Effect.die(new Error(`${queued.thread} is not a thread`))
     }
     return yield* run(
       options,
-      row.plugin,
+      queued.plugin,
       {
         thread: thread.value,
-        prompt: row.prompt,
-        label: row.label,
-        mention: row.mention ?? undefined,
+        prompt: queued.prompt,
+        label: queued.label,
+        mention: queued.mention,
       },
-      key,
-      { name: row.name, scheduledAt: at },
+      queued.key,
+      queued.scheduledAt === undefined
+        ? undefined
+        : { name: queued.name, scheduledAt: queued.scheduledAt },
+      queued.scheduledAt === undefined ? queued.name : undefined,
     )
   })
 
@@ -234,9 +244,25 @@ export const make =
             turn,
             `start/${randomUUID()}`,
           )
-          yield* entity
-            .plugin(payload, { discard: true })
-            .pipe(Effect.catchCause(unsaved("queued")))
+          // A turn queued for a timer is one request at the timer's runs, which run one at a time (API-137).
+          const saved =
+            turn.timer === undefined
+              ? entity.plugin(payload, { discard: true })
+              : options.runs(Timers.entityId(plugin, turn.timer)).run(
+                  new Timers.Queued({
+                    key: payload.key,
+                    plugin,
+                    name: turn.timer,
+                    thread: ChatThread.toString(turn.thread),
+                    prompt: turn.prompt,
+                    label: turn.label,
+                    ...(turn.mention === undefined
+                      ? {}
+                      : { mention: turn.mention }),
+                  }),
+                  { discard: true },
+                )
+          yield* saved.pipe(Effect.catchCause(unsaved("queued")))
         }),
       schedule: (timer) =>
         Effect.gen(function* () {

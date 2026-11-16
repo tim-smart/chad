@@ -22,12 +22,12 @@ const jobs = (running: Pick<Scenario, "data">) =>
     ),
   ) as Record<string, Record<string, unknown>>
 
-/** The names of cron's timers in the core. */
+/** The jobs that have a timer in the core, by the label of its turns, which is the job's name. */
 const timers = (running: Pick<Scenario, "data">) =>
   rows(
     running,
-    "SELECT name FROM timers WHERE plugin = 'cron' ORDER BY name",
-  ).map((row) => String(row["name"]))
+    "SELECT label FROM timers WHERE plugin = 'cron' ORDER BY label",
+  ).map((row) => String(row["label"]))
 
 test("CRON-60 CRON-61 CRON-62 CRON-118 CRON-141 CRON-54 CRON-55 CRON-69 CRON-121 CRON-70 CRON-111 CRON-112 CRON-52 CRON-25 a job created with cronCreate is listed with its next run, runs in its thread's session with the wrapper and the due line, posts its answer there, and the one-shot is deleted after its run", async () => {
   const running = await scenario({ plugins })
@@ -207,7 +207,7 @@ test("CRON-77 CRON-126 CRON-147 a run that ends as UsageLimit is not a failure o
   ).toEqual([])
 })
 
-test("CRON-72 CRON-64 CRON-67 CRON-148 CRON-149 a job moved while its run is in progress runs once at a time, queuing its next run behind that one in the old thread and moving its timer once it ends, a one-shot moved on during a manual run keeps its new time, and a run of a removed job leaves a new job of its name alone", async () => {
+test("CRON-72 CRON-64 CRON-67 CRON-148 CRON-149 a job's runs go one at a time across threads: a run asked for after the job moved waits for the run in progress and then runs in the new thread, a cronRun needs no write to the job's store, a one-shot moved on during a manual run keeps its new time, and runs of a removed job, in progress or queued, leave a new job of its name alone", async () => {
   const running = await scenario({ plugins })
   const { fakes } = running
   const a = await fakes.chat.makeThread("direct")
@@ -216,7 +216,7 @@ test("CRON-72 CRON-64 CRON-67 CRON-148 CRON-149 a job moved while its run is in 
   const timerThread = (name: string) =>
     rows(
       running,
-      `SELECT thread FROM timers WHERE plugin = 'cron' AND name = '${name}'`,
+      `SELECT thread FROM timers WHERE plugin = 'cron' AND label = '${name}'`,
     ).map((row) => String(row["thread"]))
   /** The start and end of each run of a job, in the order they started. */
   const runsOf = (name: string) =>
@@ -247,44 +247,55 @@ test("CRON-72 CRON-64 CRON-67 CRON-148 CRON-149 a job moved while its run is in 
     )
   }
 
-  // A run held in thread A, and the job moved to B and run again from there: the second run waits for the first.
+  // A run held in thread A. From B the job is run again while its store cannot be written, then moved to B and run
+  // a third time. The runs go one after another, each in the thread the job had when it was asked for.
   await fakes.model.script([
     runs(
       'await cronCreate({ name: "daily", prompt: "Daily.", cron: "0 9 * * *" }); console.log(await cronRun({ name: "daily" }))',
     ),
     { text: "Queued." },
     { text: "daily one", hold: true },
+    runs('console.log(await cronRun({ name: "daily" }))'),
+    { text: "Asked." },
     runs(
       'await cronUpdate({ name: "daily" }); console.log(await cronRun({ name: "daily" }))',
     ),
     { text: "Moved." },
     { text: "daily two" },
+    { text: "daily three" },
   ])
   await says(running, a, "make daily and run it")
   await fakes.model.received(3)
-  await says(running, b, "move daily here and run it")
+  execute(
+    running.data,
+    "CREATE TRIGGER full BEFORE INSERT ON plugin_kv_cron BEGIN SELECT RAISE(ABORT, 'database or disk is full'); END",
+  )
+  await says(running, b, "run daily")
   await fakes.chat.answers(b, 1)
+  execute(running.data, "DROP TRIGGER full")
+  await says(running, b, "move daily here and run it")
+  await fakes.chat.answers(b, 2)
+  const asked = await fakes.model.received(7)
+  expect(printed(asked[4])).toEqual(["queued\n"])
   expect(jobs(running)["daily"]).toMatchObject({
     thread: ChatThread.toString(b),
   })
-  expect(timerThread("daily")).toEqual([ChatThread.toString(a)])
+  expect(timerThread("daily")).toEqual([ChatThread.toString(b)])
   await fakes.model.release(2)
-  const [first, second] = await eventually(
+  const ran = await eventually(
     () => runsOf("daily"),
-    (both) => both.length === 2 && both.every((run) => run.ended > 0),
+    (all) => all.length === 3 && all.every((run) => run.ended > 0),
   )
-  expect(second!.started).toBeGreaterThanOrEqual(first!.ended)
+  expect(ran[1]!.started).toBeGreaterThanOrEqual(ran[0]!.ended)
+  expect(ran[2]!.started).toBeGreaterThanOrEqual(ran[1]!.ended)
   await fakes.chat.answers(a, 3)
+  await fakes.chat.answers(b, 3)
   expect(await posted(running, a)).toEqual([
     "Queued.",
     "daily one",
     "daily two",
   ])
-  await eventually(
-    () => timerThread("daily"),
-    (threads) => threads[0] === ChatThread.toString(b),
-  )
-  expect(jobs(running)["daily"]).not.toHaveProperty("runs")
+  expect(await posted(running, b)).toEqual(["Asked.", "Moved.", "daily three"])
 
   // A one-shot run by hand and moved on an hour from B while the run is held: the run's end keeps the new time.
   await fakes.model.script([
@@ -300,28 +311,32 @@ test("CRON-72 CRON-64 CRON-67 CRON-148 CRON-149 a job moved while its run is in 
   await fakes.model.received(3)
   const due = jobs(running)["note"]!["at"] as number
   await says(running, b, "move note on an hour")
-  await fakes.chat.answers(b, 2)
+  await fakes.chat.answers(b, 4)
   await fakes.model.release(2)
   await settled(a, "ping1")
   expect(jobs(running)["note"]!["at"]).toBeGreaterThan(due)
-  expect(jobs(running)["note"]).not.toHaveProperty("runs")
+  expect(jobs(running)["note"]).not.toHaveProperty("started")
   expect(timerThread("note")).toEqual([ChatThread.toString(b)])
 
-  // A recurring run held in B, the job removed and made again from A, and the old run failing: the new job's count is
-  // untouched.
+  // Two runs of daily asked for in B, the first held and the second queued behind it. From A daily is removed and
+  // made again as a one-shot. Both old runs fail, and the new job is left as it was made.
   await fakes.model.script([
-    runs('console.log(await cronRun({ name: "daily" }))'),
+    runs(
+      'console.log(await cronRun({ name: "daily" })); console.log(await cronRun({ name: "daily" }))',
+    ),
     { text: "Running." },
     { status: 400, hold: true },
     runs(
-      'await cronRemove({ name: "daily" }); console.log(await cronCreate({ name: "daily", prompt: "Other.", cron: "0 10 * * *" }))',
+      'await cronRemove({ name: "daily" }); console.log(await cronCreate({ name: "daily", prompt: "Other.", in: "1 hour" }))',
     ),
     { text: "Replaced." },
+    { status: 400 },
   ])
-  await says(running, b, "run daily")
+  await says(running, b, "run daily twice")
   await fakes.model.received(3)
   await says(running, a, "replace daily")
   await fakes.chat.answers(a, 8)
+  const made = jobs(running)["daily"]!
   await fakes.model.release(2)
   await eventually(
     () =>
@@ -329,15 +344,18 @@ test("CRON-72 CRON-64 CRON-67 CRON-148 CRON-149 a job moved while its run is in 
         running,
         "SELECT 1 FROM turns WHERE origin_label = 'daily' AND outcome = 'failed'",
       ),
-    (failed) => failed.length === 1,
+    (failed) => failed.length === 2,
   )
   await settled(a, "ping2")
-  expect(jobs(running)["daily"]).toMatchObject({
+  expect(jobs(running)["daily"]).toEqual(made)
+  expect(made).toMatchObject({
     enabled: true,
     failures: 0,
     thread: ChatThread.toString(a),
+    at: expect.any(Number),
   })
-  expect(jobs(running)["daily"]!["prompt"]).toContain("Other.")
+  expect(made["prompt"]).toContain("Other.")
+  expect(timerThread("daily")).toEqual([ChatThread.toString(a)])
 })
 
 test("CRON-78 CRON-128 CRON-131 CRON-132 the reconcile at activation cancels a timer that has no job and schedules an enabled job that has none", async () => {
@@ -357,7 +375,7 @@ test("CRON-78 CRON-128 CRON-131 CRON-132 the reconcile at activation cancels a t
   execute(running.data, "DELETE FROM plugin_kv_cron WHERE id = 'orphan'")
   execute(
     running.data,
-    "DELETE FROM timers WHERE plugin = 'cron' AND name = 'kept'",
+    "DELETE FROM timers WHERE plugin = 'cron' AND label = 'kept'",
   )
 
   expect((await running.chad(["plugin", "reload", "cron"])).code).toBe(0)

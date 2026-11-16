@@ -49,7 +49,7 @@ class Cron extends Context.Service<
     /** Writes the record, then cancels the job's timer (CRON-130). */
     readonly disable: (job: Jobs.Job) => Effect.Effect<void>
     /** Deletes the record, then cancels the job's timer (CRON-65, CRON-130). */
-    readonly delete: (name: string) => Effect.Effect<void>
+    readonly delete: (job: Jobs.Job) => Effect.Effect<void>
   }
 >()("chad/plugins/cron/Cron") {
   static readonly layer = Layer.effect(
@@ -82,8 +82,10 @@ class Cron extends Context.Service<
         zone,
         enable: (job) =>
           Effect.andThen(turns.schedule(Jobs.timerOf(job, zone)), set(job)),
-        disable: (job) => Effect.andThen(set(job), turns.cancel(job.name)),
-        delete: (key) => Effect.andThen(remove(key), turns.cancel(key)),
+        disable: (job) =>
+          Effect.andThen(set(job), turns.cancel(Jobs.timerName(job))),
+        delete: (job) =>
+          Effect.andThen(remove(job.name), turns.cancel(Jobs.timerName(job))),
       })
     }),
   )
@@ -190,8 +192,7 @@ const ownerOf = (cron: Cron["Service"], turn: Option.Option<Turn>) =>
     if (Option.isNone(turn)) return undefined
     const origin = turn.value.origin
     if (origin._tag === "Message") return origin.message.author.id
-    if (origin.plugin !== cron.name) return undefined
-    return (yield* cron.get(origin.label))?.owner
+    return (yield* jobOf(cron, turn.value))?.owner
   })
 
 const unknown = (job: string) => `name: no job is named "${job}".`
@@ -246,7 +247,7 @@ const handlers = tools.toLayer(
               notify: input.notify ?? true,
               ...(owner === undefined ? {} : { owner }),
               failures: 0,
-              created: DateTime.toEpochMillis(now),
+              id: crypto.randomUUID(),
             }
             yield* cron.enable(job)
             return `Created "${job.name}". Next run: ${yield* next(job, schedule.success)}.`
@@ -262,7 +263,7 @@ const handlers = tools.toLayer(
             const now = DateTime.toEpochMillis(yield* DateTime.now)
             return jobs.map((job) => {
               const zone = Jobs.zoneOf(job, cron.zone)
-              const timer = timers.get(job.name)
+              const timer = timers.get(Jobs.timerName(job))
               // An enabled one-shot past its time with no timer fired, and its outcome never reached cron (CRON-137).
               const fired =
                 job.enabled &&
@@ -345,10 +346,9 @@ const handlers = tools.toLayer(
       cronRemove: ({ name }) =>
         cron.locked(
           Effect.gen(function* () {
-            if ((yield* cron.get(name)) === undefined) {
-              return yield* Effect.fail(unknown(name))
-            }
-            yield* cron.delete(name)
+            const job = yield* cron.get(name)
+            if (job === undefined) return yield* Effect.fail(unknown(name))
+            yield* cron.delete(job)
             return `Removed "${name}".`
           }),
         ),
@@ -357,22 +357,15 @@ const handlers = tools.toLayer(
           Effect.gen(function* () {
             const job = yield* cron.get(name)
             if (job === undefined) return yield* Effect.fail(unknown(name))
-            // The schedule is left alone, so a paused job runs too (CRON-66, CRON-120). The run queues behind the job's
-            // runs that are queued or in progress, in their thread (CRON-72, CRON-148).
-            const thread = Jobs.runsIn(job)
+            // The schedule is left alone, so a paused job runs too (CRON-66, CRON-120). The run is queued for the job's
+            // timer, behind the job's runs that are queued or in progress wherever they are, and runs in the job's
+            // thread (CRON-72, CRON-148). The one request is all that is saved.
             yield* turns.queue({
-              thread: Jobs.parse(thread),
+              thread: Jobs.threadOf(job),
               prompt: job.prompt,
               label: job.name,
               mention: Jobs.mentionOf(job),
-            })
-            yield* cron.set({
-              ...job,
-              runs: {
-                ...job.runs,
-                thread,
-                queued: (job.runs?.queued ?? 0) + 1,
-              },
+              timer: Jobs.timerName(job),
             })
             return "queued"
           }),
@@ -386,14 +379,19 @@ const chunk =
   "Scheduled jobs: cronCreate runs a prompt later in this thread, once (at a time or in a delay) or on a 5-field cron expression, and cronList, cronUpdate, cronRemove and cronRun see and manage the jobs.\n" +
   "A job's prompt runs with nobody there to answer questions, so write it to be done alone and to say what to post. A run may answer [SILENT] to post nothing."
 
-/** Cron's own turn: the job's name is the turn's label (CRON-111). */
+/**
+ * The job a turn of cron's is a run of: the job its label names, when the turn carries that job's timer name. A run
+ * of an earlier job of the same name carries another one, and has no job (CRON-111, CRON-149).
+ */
 const jobOf = (cron: Cron["Service"], turn: Turn) =>
   Effect.gen(function* () {
     const origin = turn.origin
     if (origin._tag !== "Plugin" || origin.plugin !== cron.name) {
       return undefined
     }
-    return yield* cron.get(origin.label)
+    const job = yield* cron.get(origin.label)
+    const timer = origin.timer?.name ?? origin.queuedFor
+    return job !== undefined && Jobs.timerName(job) === timer ? job : undefined
   })
 
 /** When a scheduled run was due and how late it started (CRON-70, CRON-144). */
@@ -407,7 +405,7 @@ const due = (cron: Cron["Service"], turn: Turn) =>
     ) {
       return
     }
-    const job = yield* cron.get(origin.label)
+    const job = yield* jobOf(cron, turn)
     const zone = job === undefined ? cron.zone : Jobs.zoneOf(job, cron.zone)
     const late = Math.max(
       0,
@@ -418,25 +416,23 @@ const due = (cron: Cron["Service"], turn: Turn) =>
     return `This run of "${origin.label}" was due at ${Jobs.show(origin.timer.scheduledAt, zone)} and started ${seconds === 0 ? "on time" : `${Duration.format(Duration.seconds(seconds))} late`}.`
   })
 
-/** Whether a turn of cron's was started by `cronRun` rather than by the job's timer. */
-const manual = (turn: Turn) =>
-  turn.origin._tag !== "Plugin" || turn.origin.timer === undefined
-
-/** Records the run that started as the job's run in progress, in the thread it runs in (CRON-72, CRON-148). */
+/**
+ * Records a one-shot's time when a `cronRun` run of it starts, so a change of the time during the run outlives the
+ * run (CRON-67, CRON-149). A resumed turn keeps its id, and the time recorded at its first start.
+ */
 const mark = (cron: Cron["Service"], turn: Turn) =>
   Effect.gen(function* () {
     const job = yield* jobOf(cron, turn)
-    // A resumed turn keeps its id, and its start is recorded already.
-    if (job === undefined || job.runs?.turn === turn.id) return
-    yield* cron.set({
-      ...job,
-      runs: Jobs.started(
-        job,
-        ChatThread.toString(turn.session.thread),
-        turn.id,
-        manual(turn),
-      ),
-    })
+    if (
+      job === undefined ||
+      job.at === undefined ||
+      turn.origin._tag !== "Plugin" ||
+      turn.origin.timer !== undefined ||
+      job.started?.turn === turn.id
+    ) {
+      return
+    }
+    yield* cron.set({ ...job, started: { turn: turn.id, at: job.at } })
   })
 
 /**
@@ -485,39 +481,27 @@ const afterRun = (
   return { job: outcome._tag === "Answered" ? { ...job, failures: 0 } : job }
 }
 
-/** Counts a run's outcome against its job, pausing or deleting it, and moves the job's timer once its runs elsewhere end. */
+/** Counts a run's outcome against its job, pausing or deleting it. */
 const settle = (cron: Cron["Service"], { turn, outcome }: TurnEnded) =>
   Effect.gen(function* () {
-    const job = yield* jobOf(cron, turn)
-    if (job === undefined) return
-    const { runs: _runs, ...rest } = job
-    const runs = Jobs.ended(job.runs, turn.id, manual(turn))
-    const left: Jobs.Job = runs === undefined ? rest : { ...rest, runs }
-    // The job's last run in the thread it moved from has ended, so its timer moves to the job's thread (CRON-148).
-    const moved = Jobs.runsIn(left) !== Jobs.runsIn(job)
+    const found = yield* jobOf(cron, turn)
+    if (found === undefined || turn.origin._tag !== "Plugin") return
+    const { started, ...job } = found
     const save = (next: Jobs.Job) =>
-      !next.enabled
-        ? cron.disable(next)
-        : moved
-          ? cron.enable(next)
-          : cron.set(next)
-    // A run that started before the job was made is a run of an earlier job of the same name (CRON-149).
-    if (DateTime.toEpochMillis(turn.startedAt) < job.created) {
-      return yield* save(left)
-    }
+      next.enabled ? cron.set(next) : cron.disable(next)
     // A one-shot moved to a new time while this run was in progress keeps its new time (CRON-67, CRON-149).
-    const timer = turn.origin._tag === "Plugin" ? turn.origin.timer : undefined
+    const timer = turn.origin.timer
     const at =
-      job.runs?.turn === turn.id
-        ? job.runs.at
-        : timer === undefined
-          ? undefined
-          : DateTime.toEpochMillis(timer.scheduledAt)
-    if (job.cron === undefined && at !== undefined && at !== job.at) {
-      return yield* save(left)
+      timer !== undefined
+        ? DateTime.toEpochMillis(timer.scheduledAt)
+        : started?.turn === turn.id
+          ? started.at
+          : job.at
+    if (job.cron === undefined && at !== job.at) {
+      return started?.turn === turn.id ? yield* cron.set(job) : undefined
     }
-    const after = afterRun(left, outcome)
-    if (after.job === undefined) return yield* cron.delete(job.name)
+    const after = afterRun(job, outcome)
+    if (after.job === undefined) return yield* cron.delete(job)
     yield* save(after.job)
     if (after.line !== undefined) {
       const chat = yield* Chat.Chat
@@ -536,14 +520,18 @@ const reconcile = (cron: Cron["Service"]) =>
     const jobs = new Map((yield* cron.all).map((job) => [job.name, job]))
     const timers = yield* turns.scheduled()
     const now = DateTime.toEpochMillis(yield* DateTime.now)
+    const wanted = new Set(
+      [...jobs.values()]
+        .filter((job) => job.enabled)
+        .map((job) => Jobs.timerName(job)),
+    )
     for (const timer of timers) {
-      if (jobs.get(timer.name)?.enabled !== true)
-        yield* turns.cancel(timer.name)
+      if (!wanted.has(timer.name)) yield* turns.cancel(timer.name)
     }
     const scheduled = new Map(timers.map((timer) => [timer.name, timer]))
     for (const job of jobs.values()) {
       if (!job.enabled) continue
-      const timer = scheduled.get(job.name)
+      const timer = scheduled.get(Jobs.timerName(job))
       if (timer !== undefined && Jobs.matches(timer, job, cron.zone)) continue
       // A one-shot past its time with no timer fired, and cron leaves it for its outcome (CRON-79, CRON-138).
       if (timer === undefined && job.at !== undefined && job.at <= now) continue
