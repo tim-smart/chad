@@ -749,6 +749,14 @@ export const startInOwnThread =
 export const turnNotSaved = (what: "started" | "queued", why: string) =>
   `The turn was not ${what}, because chad could not save the request: ${why}`
 
+/** A `Turns.schedule` or `Turns.cancel` whose change could not be saved (API-133). */
+export const timerNotSaved = (why: string) =>
+  `Nothing was changed, because chad could not save the timer: ${why}`
+
+/** A `Turns.schedule` given a schedule chad cannot read, which changes nothing either. */
+export const timerInvalid = (why: string) =>
+  `Nothing was changed, because the schedule is not valid: ${why}`
+
 /** The `logged-out` notice (FAIL-175). */
 export const loggedOutNotice =
   "chad is logged out. Send a message or run `chad login`. Scheduled runs are skipped until then."
@@ -1197,8 +1205,35 @@ export const purgeBundledOn = (name: string) =>
 export const purgeNothing = (name: string) => `Nothing is stored for ${name}.`
 
 /** What `chad plugin purge` prints once it dropped the plugin's table (CLI-247). */
-export const purged = (name: string, keys: number) =>
-  `Purged ${name}: its key-value table and its ${keys} ${keys === 1 ? "key" : "keys"} are deleted.`
+export const purged = (name: string, keys: number, timers = 0) =>
+  `Purged ${name}: its key-value table and its ${keys} ${keys === 1 ? "key" : "keys"} are deleted${timers === 0 ? "" : `, and its ${timersCount(timers)}`}.`
+
+/** A purge of a plugin that had timers and no table (CRON-35). */
+export const purgedTimers = (name: string, timers: number) =>
+  `Purged ${name}: its ${timersCount(timers)} ${timers === 1 ? "is" : "are"} deleted.`
+
+const timersCount = (count: number) =>
+  `${count} ${count === 1 ? "timer" : "timers"}`
+
+/** The apply line of a plugin back on, or back in the repo, with overdue held timers (CLI-71, SET-43, CRON-37). */
+export const timersWillFire = (name: string, overdue: number) =>
+  `${name}: ${overdue} overdue held ${overdue === 1 ? "timer fires" : "timers fire"} once now.`
+
+/** The apply line of a plugin the apply unloaded that has timers, which are kept and held (CRON-34, CRON-41). */
+export const timersHeldLine = (name: string, count: number) =>
+  `${name}: its ${timersCount(count)} ${count === 1 ? "is" : "are"} kept and held until it loads again. chad plugin purge ${name} deletes them.`
+
+/** The "Problems" line of timers held for a plugin that is not loaded, and neither off nor deleted (FAIL-113). */
+export const timersHeldProblem = (name: string, count: number) =>
+  `${timersCount(count)} held for plugin ${name}, which is not loaded`
+
+/** The `chad status` line of a plugin deleted from the repo that still has timers (SET-85). */
+export const timersDeletedPlugin = (name: string, count: number) =>
+  `plugin: ${name}, deleted from the repo, ${timersCount(count)} held (chad plugin purge ${name} deletes them)`
+
+/** The `chad status` line of a plugin that is off, with its held timers (SET-41, CLI-126). */
+export const offPlugin = (name: string, count: number) =>
+  `plugin: ${name}, off${count === 0 ? "" : `, ${timersCount(count)} held`}`
 
 /** The session line of `chad plugin purge` (FAIL-176, FAIL-347). */
 export const purgedLine = (name: string) => `Purged the data of plugin ${name}.`

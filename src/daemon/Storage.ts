@@ -5,6 +5,7 @@ import sessions from "./migrations/0001_sessions.ts"
 import turns from "./migrations/0002_turns.ts"
 import kills from "./migrations/0003_kills.ts"
 import updates from "./migrations/0004_updates.ts"
+import timers from "./migrations/0005_timers.ts"
 import type { Volume } from "./Volume.ts"
 
 /** The number of cluster shards chad runs with, from the first release. */
@@ -16,6 +17,7 @@ export const migrations = {
   "0002_turns": turns,
   "0003_kills": kills,
   "0004_updates": updates,
+  "0005_timers": timers,
 }
 
 /** The one connection to `db/chad.db`, serialized, in WAL mode and with the driver's 5 second busy timeout. */

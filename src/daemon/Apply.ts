@@ -165,6 +165,19 @@ export const make = Effect.fnUntraced(function* (options: {
    * (STO-61, CLI-90).
    */
   readonly drop: (name: string) => Effect.Effect<number | undefined>
+  /**
+   * The timers of each plugin, with how many are overdue, which an apply reads to say what a plugin it loads fires and
+   * what one it unloads holds (CLI-71, CRON-34, CRON-37).
+   */
+  readonly timers: Effect.Effect<
+    ReadonlyArray<{
+      readonly plugin: string
+      readonly count: number
+      readonly overdue: number
+    }>
+  >
+  /** Deletes a plugin's timers and gives how many there were (CRON-35). */
+  readonly purgeTimers: (name: string) => Effect.Effect<number>
   /** The notices, of which an apply clears the two about `chad.json` once the file it applied passed its checks. */
   readonly notices: Notices.Notices["Service"]
   readonly queue: Queue.Queue
@@ -537,6 +550,10 @@ export const make = Effect.fnUntraced(function* (options: {
             yield* options.notices.clear(Skills.skippedKey(name))
           }
           skipped = new Set()
+          // Timers held before the swap fire once each when their plugin loads (CRON-32, CRON-37, SET-42).
+          const heldBefore = (yield* options.timers).filter(
+            ({ plugin }) => !plugins.active(plugin),
+          )
           const swapped =
             safe === "off"
               ? yield* prepared.swap
@@ -563,6 +580,22 @@ export const make = Effect.fnUntraced(function* (options: {
                   }
                 })
           applied = file
+          const loadedNow = new Set(swapped?.swapped ?? flipped?.on ?? [])
+          const unloadedNow = new Set(swapped?.removed ?? flipped?.off ?? [])
+          const timerLines = [
+            ...heldBefore
+              .filter(
+                ({ plugin, overdue }) => loadedNow.has(plugin) && overdue > 0,
+              )
+              .map(({ plugin, overdue }) =>
+                Messages.timersWillFire(plugin, overdue),
+              ),
+            ...(unloadedNow.size === 0 ? [] : yield* options.timers)
+              .filter(({ plugin }) => unloadedNow.has(plugin))
+              .map(({ plugin, count }) =>
+                Messages.timersHeldLine(plugin, count),
+              ),
+          ]
           yield* PluginSettings.announce(options.notices, {
             unparsable: undefined,
             ignored: [],
@@ -612,7 +645,7 @@ export const make = Effect.fnUntraced(function* (options: {
                 restored,
                 swapped,
                 flipped,
-                settings: listing,
+                settings: [...listing, ...timerLines],
                 skills: [
                   ...Messages.skillChanges(skillChanges),
                   ...Skills.hiding(skills, options.skills.bundled).map(
@@ -1056,7 +1089,10 @@ export const make = Effect.fnUntraced(function* (options: {
           return failed(Messages.purgeInRepo(name))
       }
       const keys = yield* owned(options.drop(name))
-      if (keys === undefined) return done(Messages.purgeNothing(name))
+      // A plugin's timers go with its table, and with nothing else (CRON-35, STO-61).
+      const timers = yield* owned(options.purgeTimers(name))
+      if (keys === undefined && timers === 0)
+        return done(Messages.purgeNothing(name))
       yield* Queue.ran(
         "plugin purge",
         Queue.caller(caller.session),
@@ -1066,7 +1102,11 @@ export const make = Effect.fnUntraced(function* (options: {
         },
       )
       yield* announce(caller, Messages.purgedLine(name))
-      return done(Messages.purged(name, keys))
+      return done(
+        keys === undefined
+          ? Messages.purgedTimers(name, timers)
+          : Messages.purged(name, keys, timers),
+      )
     })
 
   const labels: Record<Request["_tag"], string> = {

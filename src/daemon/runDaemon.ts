@@ -67,6 +67,7 @@ import * as Queue from "./Queue.ts"
 import * as RepoLinks from "./RepoLinks.ts"
 import * as Server from "./Server.ts"
 import * as SessionEntity from "./SessionEntity.ts"
+import * as Timers from "./Timers.ts"
 import * as Sessions from "./Sessions.ts"
 import * as Spawner from "./Spawner.ts"
 import * as Storage from "./Storage.ts"
@@ -510,6 +511,18 @@ const boot = Effect.fnUntraced(function* (
   const pluginScope = yield* Scope.fork(scope)
   let repository: Apply.Commands | undefined
   const waiting: PluginTurns.Waiting = new Map()
+  // A timer's handler can run as soon as cluster is up, and runs its turn once the plugins' `Turns` are made.
+  const turnOptions = yield* Deferred.make<PluginTurns.Options>()
+  // Completed wake-ups are pruned like a session's requests, because the handler checks each one against the
+  // `timers` row and never reads a stored reply (CRON-18, STO-113, SES-22).
+  const timerRetention = MessageRetention.make({
+    entity: Timers.Timer,
+    retention: inputs.timings.messageRetention,
+    interval: Duration.min(
+      inputs.timings.messageRetention,
+      Duration.minutes(1),
+    ),
+  })
   let host: Plugins.Plugins["Service"] | undefined
   const loaded = yield* Deferred.make<Plugins.Plugins["Service"]>()
   const plugins: Plugins.Plugins["Service"] = {
@@ -532,11 +545,19 @@ const boot = Effect.fnUntraced(function* (
     prepare: (plan) =>
       Effect.flatMap(Deferred.await(loaded), (host) => host.prepare(plan)),
     abandon: Effect.suspend(() => host?.abandon ?? Effect.void),
+    active: (name) => host?.active(name) ?? false,
+    whenActive: (name) =>
+      Effect.flatMap(Deferred.await(loaded), (host) => host.whenActive(name)),
   }
   // A stop abandons a swap and an MCP rebuild in progress (SWAP-101, MCP-94).
   state.abandon = Effect.andThen(plugins.abandon, mcp.abandon)
   const sessions = yield* Layer.buildWithScope(
-    Layer.merge(SessionEntity.layer, retention).pipe(
+    Layer.mergeAll(
+      SessionEntity.layer,
+      retention,
+      Timers.layer,
+      timerRetention,
+    ).pipe(
       Layer.provideMerge(cluster),
       Layer.provideMerge(
         Layer.mergeAll(
@@ -553,6 +574,14 @@ const boot = Effect.fnUntraced(function* (
               [],
             ended: (key, outcome) => PluginTurns.ended(waiting, key, outcome),
             timezone,
+          }),
+          Layer.succeed(Timers.Support, {
+            active: plugins.active,
+            whenActive: plugins.whenActive,
+            run: (row, at) =>
+              Effect.flatMap(Deferred.await(turnOptions), (options) =>
+                PluginTurns.runTimer(options)(row, at),
+              ),
           }),
           Layer.succeed(SessionEntity.Safe, {
             on: () =>
@@ -616,6 +645,24 @@ const boot = Effect.fnUntraced(function* (
   // The rows of Discord shard state that a connection removed with no daemon left behind go before any gateway dials.
   yield* Connections.forget(stored.value).pipe(Effect.provide(sessions))
   yield* running.set(stored.value).pipe(Effect.provide(sessions))
+  // Each stored timer's wake-up is saved again, which a kill between a row and its wake-up needs, and which changes
+  // nothing for one that is stored.
+  const timers = yield* Timers.make.pipe(Effect.provide(sessions))
+  yield* timers.rearm.pipe(
+    Effect.catchCause((cause) =>
+      Effect.logError("The timers' wake-ups could not be saved again", cause),
+    ),
+  )
+  const options: PluginTurns.Options = {
+    waiting,
+    scope: pluginScope,
+    client: yield* SessionEntity.Session.client.pipe(Effect.provide(sessions)),
+    chats: running.chats,
+    connections: running.list,
+    timers,
+    database: (effect) => Effect.provideContext(effect, base),
+  }
+  yield* Deferred.succeed(turnOptions, options)
   host = yield* Plugins.make({
     entries: PluginSettings.entries({
       file: appliedSettings,
@@ -654,15 +701,7 @@ const boot = Effect.fnUntraced(function* (
           ),
         ),
       ) as Effect.Effect<void, string>,
-    turns: PluginTurns.make({
-      waiting,
-      scope: pluginScope,
-      client: yield* SessionEntity.Session.client.pipe(
-        Effect.provide(sessions),
-      ),
-      chats: running.chats,
-      connections: running.list,
-    }),
+    turns: PluginTurns.make(options),
   }).pipe(
     Effect.provideContext(
       Context.mergeAll(
@@ -696,6 +735,12 @@ const boot = Effect.fnUntraced(function* (
         Effect.provideContext(base),
         Effect.orDie,
       ),
+    timers: Effect.suspend(() => Timers.counts(Date.now())).pipe(
+      Effect.provideContext(base),
+      Effect.orElseSucceed(() => []),
+    ),
+    purgeTimers: (name) =>
+      timers.purge(name).pipe(Effect.provideContext(base), Effect.orDie),
     notices,
     queue,
     scope,
@@ -723,6 +768,9 @@ const boot = Effect.fnUntraced(function* (
   state.plugins = host.status
   state.hiding = commands.hiding
   state.off = () => [...commands.off()].sort()
+  state.timers = Effect.suspend(() => Timers.counts(Date.now())).pipe(
+    Effect.provideContext(base),
+  )
   state.skipped = host.skipped
   yield* Deferred.succeed(
     state.commands,
