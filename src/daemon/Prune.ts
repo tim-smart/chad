@@ -59,16 +59,13 @@ export const run = Effect.fnUntraced(function* (options: {
 export const layer = (options: {
   readonly sessions: string
   readonly zone: string
-  readonly at: { readonly hour: number; readonly minute: number }
+  readonly at: string
   readonly age: Duration.Duration
   readonly notices: Notices.Notices["Service"]
 }) =>
   ClusterCron.make({
     name: "prune",
-    cron: Cron.parseUnsafe(
-      `${options.at.minute} ${options.at.hour} * * *`,
-      options.zone,
-    ),
+    cron: Cron.parseUnsafe(options.at, options.zone),
     execute: Effect.suspend(() =>
       run({
         sessions: options.sessions,

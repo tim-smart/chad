@@ -1,4 +1,4 @@
-import { dirname, join } from "node:path"
+import { basename, dirname, join } from "node:path"
 import {
   Console,
   Duration,
@@ -49,29 +49,30 @@ const holdLock = Effect.fnUntraced(function* (command: string) {
 
 /**
  * Takes a place in the running daemon's queue and holds it for as long as the scope lasts. Closing the scope ends the
- * call, which frees the place, and a CLI that dies frees it the same way (STO-93).
+ * call, which frees the place, and a CLI that dies frees it the same way (STO-93). It gives an effect that fails once
+ * the place is lost, because the daemon went away, so the tar is never finished without it (CLI-218).
  */
 const holdQueue = Effect.fnUntraced(function* (
   command: string,
   client: Daemon.Client,
 ) {
   const pull = yield* Stream.toPull(client.Backup())
-  while (true) {
-    const events = yield* Daemon.call(
-      command,
-      pull.pipe(
-        Pull.catchDone(() =>
-          Effect.fail(
-            new Failure({
-              code: ExitCode.daemon,
-              message: Messages.daemonGone(command),
-            }),
-          ),
+  const next = Daemon.call(
+    command,
+    pull.pipe(
+      Pull.catchDone(() =>
+        Effect.fail(
+          new Failure({
+            code: ExitCode.daemon,
+            message: Messages.daemonGone(command),
+          }),
         ),
       ),
-    )
-    for (const event of events) {
-      if (event._tag === "Held") return
+    ),
+  )
+  while (true) {
+    for (const event of yield* next) {
+      if (event._tag === "Held") return Effect.forever(next)
       yield* Console.error(event.text)
     }
   }
@@ -111,8 +112,11 @@ export const backup = Command.make(
     if (client === undefined) yield* Files.writable(command)
     const written = yield* Effect.scoped(
       Effect.gen(function* () {
+        const lost =
+          client === undefined
+            ? Effect.never
+            : yield* holdQueue(command, client)
         if (client === undefined) yield* holdLock(command)
-        else yield* holdQueue(command, client)
         return yield* Archive.create({
           data: environment.data,
           to: stdout ? undefined : path,
@@ -131,6 +135,8 @@ export const backup = Command.make(
                 message: Messages.backupFailed(error.message),
               }),
           ),
+          // A lost place ends the tar, which removes a partial file and leaves a pipe's reader a cut tar.
+          Effect.raceFirst(lost),
         )
       }),
     )
@@ -167,6 +173,52 @@ const used = Effect.fnUntraced(function* (data: string) {
   )
 })
 
+/** The directories a backup holds beside its manifest, which are all that a restore moves onto the volume (STO-86). */
+const parts: ReadonlySet<string> = new Set([
+  "db",
+  "repo",
+  "secrets",
+  "state",
+  "home",
+  "sessions",
+])
+
+/** The parts whose files chad itself opens and writes, which hold no link, so nothing follows one off the volume. */
+const plain = ["db", "secrets", "state"]
+
+/**
+ * Why the unpacked tar is not a backup to move onto the volume, or `undefined`. Each part is a directory and no link,
+ * and nothing else is there, so the install never reaches outside `staging`. The lock's file is never in a backup,
+ * and one that a tar brings is refused, because the restore holds the volume's (STO-98, STO-215).
+ */
+const unfit = Effect.fnUntraced(function* (staging: string) {
+  const fs = yield* FileSystem.FileSystem
+  for (const entry of yield* fs.readDirectory(staging)) {
+    const info = yield* fs.lstat(join(staging, entry))
+    if (entry === Archive.manifestName) {
+      if (info.type !== "File") return `${entry} is not a file`
+    } else if (!parts.has(entry)) {
+      return `it holds ${entry}, which no backup holds`
+    } else if (info.type !== "Directory") {
+      return `${entry} is not a directory`
+    }
+  }
+  for (const part of plain) {
+    const root = join(staging, part)
+    if (!(yield* fs.exists(root))) continue
+    for (const entry of yield* fs.readDirectory(root, { recursive: true })) {
+      const info = yield* fs.lstat(join(root, entry))
+      if (info.type !== "File" && info.type !== "Directory") {
+        return `${part}/${entry} is neither a file nor a directory`
+      }
+    }
+  }
+  if (yield* fs.exists(join(staging, "state", basename(Paths.lock(""))))) {
+    return "it holds the daemon lock's file"
+  }
+  return undefined
+})
+
 /**
  * Moves what the tar held from `staging` onto the volume. `db/`, `repo/` and every other directory the tar holds
  * replace the volume's, and `state/` is replaced file by file, because the daemon lock's file is in it and is held
@@ -200,8 +252,10 @@ const install = Effect.fnUntraced(function* (data: string, staging: string) {
 /**
  * `chad restore`: a tar of `chad backup` onto an empty volume, with no daemon and the lock held for the whole copy.
  * Everything it refuses for is checked before it writes, and the tar is unpacked under `restore.partial` on the volume
- * before anything is moved. A restore that a kill cut leaves that directory, and the next `chad restore` starts over
- * without the check for an empty volume, which the cut one passed (STO-99 to STO-103, STO-179 to STO-182, STO-216).
+ * and checked before anything is moved. An unpacking that fails or is cut leaves the volume as it was, so the next
+ * restore checks it again. Only once the unpacked tar is checked does `restore.installing` mark the volume as the
+ * restore's: no daemon boots and no command writes while it exists, and the next `chad restore` replaces the volume
+ * without the check for an empty one, which this one passed (STO-99 to STO-103, STO-179 to STO-182, STO-216, STO-217).
  */
 export const restore = Command.make(
   "restore",
@@ -228,7 +282,8 @@ export const restore = Command.make(
       Effect.gen(function* () {
         yield* holdLock(command)
         const staging = Paths.restoring(data)
-        const resumed = yield* fs.exists(staging)
+        const cut = Paths.restoreCut(data)
+        const resumed = yield* fs.exists(cut)
         if (!resumed) {
           const what = yield* used(data)
           if (what !== undefined)
@@ -247,9 +302,21 @@ export const restore = Command.make(
         )
         yield* fs.remove(staging, { recursive: true, force: true })
         yield* fs.makeDirectory(staging, { recursive: true })
-        yield* Archive.extract(whole, staging)
+        const discard = Effect.ignore(
+          fs.remove(staging, { recursive: true, force: true }),
+        )
+        yield* Archive.extract(whole, staging).pipe(
+          Effect.onError(() => discard),
+        )
+        const why = yield* unfit(staging).pipe(Effect.onError(() => discard))
+        if (why !== undefined) {
+          yield* discard
+          return yield* failed(Messages.restoreNotBackup(tar, why))
+        }
+        if (!resumed) yield* fs.writeFileString(cut, "")
         yield* install(data, staging)
         yield* fs.remove(staging, { recursive: true })
+        yield* fs.remove(cut)
         yield* Console.log(Messages.restored(data, manifest.version))
       }),
     ).pipe(

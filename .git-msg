@@ -1,0 +1,21 @@
+Fix the four backup review blockers and cover the slice's crash and lock outcomes
+
+- A restore marks the volume as its own with restore.installing only after the
+  tar is unpacked and checked, and only that mark lets the next restore skip the
+  check for a used volume. While it exists chad serve and offline writes are
+  refused (STO-217). A failed unpacking removes restore.partial.
+- A restore refuses an unpacked tar with anything beside the backup's parts, a
+  part that is not a directory, a link under db, secrets or state, or a
+  state/daemon.lock of its own (STO-215).
+- A backup that holds the daemon's queue watches the call for its whole life
+  and ends with exit 4, removing a partial file, once the daemon goes away.
+- Timings.pruneAt is a cron expression, so a scenario can run the prune on its
+  schedule.
+
+New scenarios: kills during the before-migration copy and during the migration,
+a restore killed while unpacking and one cut while installing, crafted tars,
+the lock against serve, a backup that loses its daemon and one ended by SIGINT,
+CHAD_SESSION and terminal refusals, a seeded round trip that resumes the
+conversation and fires a pending cron job, and the scheduled prune failing part
+way and recovering. The old pre-created state/migrating scenario is replaced by
+the kill scenario. util-linux joins the flake for script(1).

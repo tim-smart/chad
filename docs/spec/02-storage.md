@@ -420,7 +420,7 @@ chad restore <tar>
 - **STO-88** `sessions/` goes into the tar only when `--sessions` is given.
 - **STO-89** The tar carries a manifest, `manifest.json` at the root of the tar, with the chad version and a format number.
 - **STO-178** `manifest.json` is the first entry in the tar, so `chad restore` can read it before anything else when the tar arrives on a pipe.
-- **STO-215** `manifest.json` holds `{"format":1,"version":"<chad version>"}`. `chad restore` refuses a tar whose first entry is not `manifest.json` or whose manifest cannot be read, one whose format is above its own and one whose version is newer than its own or is no version, each with exit 1 before it writes anything. Its refusals for a held lock and for a volume that is not empty also exit 1.
+- **STO-215** `manifest.json` holds `{"format":1,"version":"<chad version>"}`. `chad restore` refuses a tar whose first entry is not `manifest.json` or whose manifest cannot be read, one whose format is above its own and one whose version is newer than its own or is no version, each with exit 1 before it writes anything. Its refusals for a held lock and for a volume that is not empty also exit 1. Once the tar is unpacked, it is refused as no backup, with exit 1 and before anything on the volume is replaced, when it holds anything beside `manifest.json` and the directories `db`, `repo`, `secrets`, `state`, `home` and `sessions`, when one of those is not a directory, when anything under `db`, `secrets` or `state` is neither a file nor a directory, or when it holds `state/daemon.lock`.
 - **STO-90** The tar never holds `cache/`, `logs/` or the copy of the database taken before a migration.
 - **STO-91** The tar holds tokens, so it is a secret.
 - **STO-92** `chad backup` copies the database in the CLI's own process, on a read-only connection, with SQLite's online backup.
@@ -437,7 +437,8 @@ chad restore <tar>
 - **STO-180** A volume whose database cannot be read is not empty.
 - **STO-181** `chad restore` replaces `db/`, `repo/` and `state/` on the volume.
 - **STO-182** `chad restore` refuses a tar whose manifest names a newer chad, before it writes anything.
-- **STO-216** `chad restore -` reads the tar from standard input. `chad restore` unpacks the tar into `restore.partial` on the volume and only then replaces what STO-181 names, leaving `state/daemon.lock` in place because it holds the lock. A restore that a kill cuts leaves `restore.partial`, and the next `chad restore` finds it, skips the check for an empty volume that the cut one passed, and starts over.
+- **STO-216** `chad restore -` reads the tar from standard input. `chad restore` unpacks the tar into `restore.partial` on the volume, checks it (STO-215), writes `restore.installing` on the volume, and only then replaces what STO-181 names and the tar's other directories, leaving `state/daemon.lock` in place because it holds the lock. It removes `restore.partial` and then `restore.installing` when it is done. An unpacking that fails removes `restore.partial`, and one that a kill cuts leaves it, but neither has changed the volume, so the next `chad restore` checks the volume again and starts over. A restore cut after `restore.installing` was written leaves it, and the next `chad restore` finds it, skips the check for an empty volume that the cut one passed, and starts over.
+- **STO-217** While `restore.installing` is on the volume, `chad serve` refuses to boot with exit 1 and a `boot.refused` line with reason `restore`, and a command that writes the volume with no daemon is refused with exit 1, both saying "chad <command>: refused: a chad restore into <data> did not finish, so the volume is half replaced. Run chad restore again with the same tar." Only `chad restore` goes on.
 - **STO-100** `chad restore` is an owner command and is refused with exit code 3 when `CHAD_SESSION` is set.
 - **STO-101** The first boot after a restore rebuilds `repo/versions/`, `repo/live` and the `repo/node_modules` link from the head of the `applied` branch.
 - **STO-102** A restore into a newer image migrates the database forward on first boot.
@@ -714,6 +715,7 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-214 | Build, stage 5 | Builder (Tim has not read) | run |  | `rule` | `backup` |
 | STO-215 | Build, stage 5 | Builder (Tim has not read) | run |  | `rule` | `backup` |
 | STO-216 | Build, stage 5 | Builder (Tim has not read) | run |  | `rule` | `backup` |
+| STO-217 | Build, stage 5 | Builder (Tim has not read) | run |  | `rule` | `backup` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

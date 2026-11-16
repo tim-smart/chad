@@ -28,6 +28,9 @@ export const writable = Effect.fn("Files.writable")(function* (
   if (!present) {
     return yield* failed(Messages.volumeMissing(command, environment.data))
   }
+  if (yield* fs.exists(Paths.restoreCut(environment.data)).pipe(Effect.orDie)) {
+    return yield* failed(Messages.restoreUnfinished(command, environment.data))
+  }
   const path = Paths.version(environment.data)
   const read = yield* fs
     .readFileString(path)

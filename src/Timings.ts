@@ -44,8 +44,11 @@ export interface Timings {
   readonly lockBusy: Duration.Duration
   /** Free space check, interval after the check at boot. */
   readonly freeSpaceInterval: Duration.Duration
-  /** Prune, time of day in the owner's timezone. It is not a length, so no scale factor changes it. */
-  readonly pruneAt: { readonly hour: number; readonly minute: number }
+  /**
+   * Prune, its schedule in the owner's timezone as a cron expression, which is 04:00 every day. It is not a length, so
+   * no scale factor changes it, and a scenario that runs the prune on its schedule gives one of its own.
+   */
+  readonly pruneAt: string
   /** Prune, age of a reset session's history. */
   readonly pruneAge: Duration.Duration
   /** Notice, time after a key's last notice in which the key is not announced again. */
@@ -85,7 +88,7 @@ export const defaults: Timings = {
   cliAnswer: Duration.seconds(2),
   lockBusy: Duration.seconds(3),
   freeSpaceInterval: Duration.hours(1),
-  pruneAt: { hour: 4, minute: 0 },
+  pruneAt: "0 4 * * *",
   pruneAge: Duration.days(30),
   noticeQuiet: Duration.hours(24),
   statusFailedWindow: Duration.hours(24),

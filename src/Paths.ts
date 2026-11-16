@@ -67,8 +67,15 @@ export const beforeMigration = (data: string): string =>
 export const beforeMigrationVersion = (data: string): string =>
   join(data, "db/chad.db.before-migration.version")
 
-/** Where `chad restore` unpacks a tar before it moves it into place. Its presence marks a restore a kill cut (STO-216). */
+/** Where `chad restore` unpacks a tar before it moves it into place (STO-216). */
 export const restoring = (data: string): string => join(data, "restore.partial")
+
+/**
+ * The mark that `chad restore` has begun to replace what is on the volume and has not finished. While it exists, no
+ * daemon boots and no command writes, and only `chad restore` may go on (STO-217).
+ */
+export const restoreCut = (data: string): string =>
+  join(data, "restore.installing")
 
 /** The mark that a boot copied the database and has not written `state/version` yet (STO-157, STO-158). */
 export const migrating = (data: string): string => join(data, "state/migrating")

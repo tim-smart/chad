@@ -1731,3 +1731,7 @@ export const restoreFailed = (error: string) =>
 /** `chad restore` finished (STO-101, STO-102). */
 export const restored = (data: string, made: string) =>
   `Restored a backup of chad ${made} into ${data}. Start chad serve: its first start rebuilds repo/versions, repo/live and repo/node_modules from the applied branch, and migrates the database when this chad is newer.`
+
+/** A command, or `chad serve` as `serve`, on a volume that a cut `chad restore` left half replaced (STO-217). */
+export const restoreUnfinished = (command: string, data: string) =>
+  `chad ${command}: refused: a chad restore into ${data} did not finish, so the volume is half replaced. Run chad restore again with the same tar.`

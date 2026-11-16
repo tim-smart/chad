@@ -185,6 +185,15 @@ const boot = Effect.fnUntraced(function* (
     yield* Logger.event("boot.refused", newer, { reason: "version" })
     return 1
   }
+  // A volume that a cut `chad restore` left half replaced is the restore's until it runs again (STO-217).
+  if (yield* fs.exists(Paths.restoreCut(volume.data))) {
+    yield* Logger.event(
+      "boot.refused",
+      Messages.restoreUnfinished("serve", volume.data),
+      { reason: "restore" },
+    )
+    return 1
+  }
   yield* Volume.prepare(volume)
 
   // The stored connections are read before the socket listens, so that status names them from its first answer.

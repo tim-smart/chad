@@ -81,7 +81,7 @@ describe("the durations", () => {
       statusFailedWindow: 24 * 3600,
       statusTokenWindow: 7 * 24 * 3600,
     })
-    expect(pruneAt).toEqual({ hour: 4, minute: 0 })
+    expect(pruneAt).toBe("0 4 * * *")
     // clanka's turn timeout is not chad's to set, and clanka keeps its default (FAIL-79, TST-215).
     expect(turnTimeout).toBeUndefined()
     // The longest wait of a turn that starts during a swap has no value of its own.

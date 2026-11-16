@@ -15,6 +15,8 @@
           git
           nodejs_26
           pnpm_12
+          # `script`, which gives a scenario's command a terminal.
+          util-linux
         ];
       };
     });
