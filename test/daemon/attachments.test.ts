@@ -27,7 +27,7 @@ const inbox = (running: Scenario) =>
 const saved = (running: Scenario) =>
   existsSync(inbox(running)) ? readdirSync(inbox(running)).toSorted() : []
 
-test("OV-37 SES-40 SES-41 SES-43 SES-189 SES-191 DIS-63 STO-21 STO-67 STO-204 on a message that starts a turn an image goes to the model and into the history as base64, every other file and an image over 10 MB are saved under inbox/ and named in the prompt, and the stored request holds ids and no bytes", async () => {
+test("on a message that starts a turn an image goes to the model and into the history as base64, every other file and an image over 10 MB are saved under inbox/ and named in the prompt, and the stored request holds ids and no bytes", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([{ text: "done" }])
@@ -99,7 +99,7 @@ test("OV-37 SES-40 SES-41 SES-43 SES-189 SES-191 DIS-63 STO-21 STO-67 STO-204 on
   expect(String(request?.["payload"]).length).toBeLessThan(10_000)
 })
 
-test("SES-42 SES-190 DIS-64 a file over 25 MB is not downloaded and one whose download fails is skipped, each with a subtext notice that names it and a line in the prompt, and the turn carries on", async () => {
+test("a file over 25 MB is not downloaded and one whose download fails is skipped, each with a subtext notice that names it and a line in the prompt, and the turn carries on", async () => {
   const running = await scenario()
   const { fakes, chat } = running
   await fakes.model.script([{ text: "done" }])
@@ -142,7 +142,7 @@ test("SES-42 SES-190 DIS-64 a file over 25 MB is not downloaded and one whose do
   ])
 })
 
-test("SES-154 on a message that steers a running turn every file is saved under inbox/ before the message joins the turn, an image included, and the steering text carries the path in place of the image", async () => {
+test("on a message that steers a running turn every file is saved under inbox/ before the message joins the turn, an image included, and the steering text carries the path in place of the image", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -179,7 +179,7 @@ test("SES-154 on a message that steers a running turn every file is saved under 
   expect(rows(running, "SELECT * FROM steers")).toHaveLength(1)
 })
 
-test("SES-41 SES-198 STO-21 a file the owner sends after the Agent has changed its directory is named by a path that reaches the saved file from there", async () => {
+test("a file the owner sends after the Agent has changed its directory is named by a path that reaches the saved file from there", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -212,7 +212,7 @@ test("SES-41 SES-198 STO-21 a file the owner sends after the Agent has changed i
   expect(readFileSync(resolve(cwd, path), "utf8")).toBe("a note")
 })
 
-test("SES-41 SES-198 STO-21 with a relative CHAD_DATA the prompt still names a saved file by its absolute path, which reaches the file from the Agent's directory", async () => {
+test("with a relative CHAD_DATA the prompt still names a saved file by its absolute path, which reaches the file from the Agent's directory", async () => {
   const directory = fresh()
   const running = await scenario({
     directory,

@@ -2,7 +2,7 @@ import { expect, it } from "vitest"
 import { refusalFrame, responses } from "../support/model.ts"
 import { load, shape, shapes, strip, stripped } from "../support/recording.ts"
 
-it("TST-41 the kept recording of the Codex side holds no token and no account id", () => {
+it("the kept recording of the Codex side holds no token and no account id", () => {
   const recording = load()
   expect(strip(recording)).toEqual(recording)
   // The stripper finds what a real recording holds: a JWT anywhere, the fields that name the login, and the fields of a
@@ -38,7 +38,7 @@ it("TST-41 the kept recording of the Codex side holds no token and no account id
   })
 })
 
-it("TST-41 TST-43 the fake's Codex frames have the shape of the kept recording's, for an answer on each transport and for a usage limit", () => {
+it("the fake's Codex frames have the shape of the kept recording's, for an answer on each transport and for a usage limit", () => {
   const recording = load()
   const answer = shapes(responses(0, { text: "Hello" }, "gpt-6-astra"))
   expect(answer).toEqual(shapes(recording.answer.http))

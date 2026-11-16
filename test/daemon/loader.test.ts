@@ -52,7 +52,7 @@ export default Plugin.make(
 )
 `
 
-test("API-1 LOAD-5 LOAD-7 LOAD-9 LOAD-10 LOAD-12 LOAD-16 LOAD-17 LOAD-41 LOAD-61 LOAD-73 LOAD-86 REC-42 REC-101 CLI-125 IMG-44 IMG-45 IMG-46 IMG-143 FAIL-289 FAIL-344 a boot loads the applied tree's plugins with the host's packages, gives work/ paths in a load error and a tool error, skips what cannot load, and keeps what it found at repo/node_modules", async () => {
+test("a boot loads the applied tree's plugins with the host's packages, gives work/ paths in a load error and a tool error, skips what cannot load, and keeps what it found at repo/node_modules", async () => {
   const directory = fresh()
   const repo = join(directory, "data", "repo")
   applied(repo, {
@@ -154,7 +154,7 @@ export default Plugin.make(Layer.empty)
   ).toEqual([])
 })
 
-test("LOAD-14 API-131 TST-202 a plugin whose Layer build waits on a Turns call is skipped at the deadline with the place for the call, and the others load", async () => {
+test("a plugin whose Layer build waits on a Turns call is skipped at the deadline with the place for the call, and the others load", async () => {
   const stuck = Plugin.make(
     Layer.effectDiscard(
       Effect.gen(function* () {
@@ -177,7 +177,7 @@ test("LOAD-14 API-131 TST-202 a plugin whose Layer build waits on a Turns call i
   expect(status).toContain("plugin: stuck, skipped (")
 })
 
-test("LOAD-14 IMG-82 a Layer build that cannot be interrupted, and a failed build whose finalizer never ends, are skipped at the deadline, the boot goes on, and nothing the build acquired is released until it ends", async () => {
+test("a Layer build that cannot be interrupted, and a failed build whose finalizer never ends, are skipped at the deadline, the boot goes on, and nothing the build acquired is released until it ends", async () => {
   const release = Deferred.makeUnsafe<void>()
   const first = { released: false, releasedWhileHeld: false }
   const second = Deferred.makeUnsafe<void>()
@@ -224,7 +224,7 @@ test("LOAD-14 IMG-82 a Layer build that cannot be interrupted, and a failed buil
   expect(first.releasedWhileHeld).toBe(false)
 })
 
-test("LOAD-14 IMG-82 a stop while a plugin's Layer builds interrupts the build", async () => {
+test("a stop while a plugin's Layer builds interrupts the build", async () => {
   const entered = Deferred.makeUnsafe<void>()
   const gate = Deferred.makeUnsafe<void>()
   let interrupted = false

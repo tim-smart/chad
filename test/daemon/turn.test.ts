@@ -22,7 +22,7 @@ const ask = async (
   return event
 }
 
-test("TST-164 TST-203 TST-34 TST-35 MOD-4 MOD-8 MOD-11a MOD-73 a message in and a scripted answer out, on the openai-compat model the environment names", async () => {
+test("a message in and a scripted answer out, on the openai-compat model the environment names", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([{ text: "Hello from the script." }])
@@ -47,7 +47,7 @@ test("TST-164 TST-203 TST-34 TST-35 MOD-4 MOD-8 MOD-11a MOD-73 a message in and 
   }
 })
 
-test("MOD-98 an openai-compat request carries neither prompt_cache_key nor a session-id header", async () => {
+test("an openai-compat request carries neither prompt_cache_key nor a session-id header", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([{ text: "ok" }])
@@ -61,7 +61,7 @@ test("MOD-98 an openai-compat request carries neither prompt_cache_key nor a ses
   expect(Object.keys(call?.headers ?? {})).not.toContain("session_id")
 })
 
-test("SES-17 SES-44 SES-50 DIS-7 DIS-11 DIS-50 TST-56 OV-28 DIS-35 the entity posts the clean final answer once, as a normal post in the thread the message came from, after it removed the status message", async () => {
+test("the entity posts the clean final answer once, as a normal post in the thread the message came from, after it removed the status message", async () => {
   const running = await scenario()
   const { fakes, chat, data } = running
   await fakes.model.script([{ text: "The **final** answer." }])
@@ -94,7 +94,7 @@ test("SES-17 SES-44 SES-50 DIS-7 DIS-11 DIS-50 TST-56 OV-28 DIS-35 the entity po
   })
 })
 
-test("SES-1 SES-2 SES-13 SES-149 STO-194 each DM and each thread is one Session entity, keyed by the thread string, with a session id of its own", async () => {
+test("each DM and each thread is one Session entity, keyed by the thread string, with a session id of its own", async () => {
   const running = await scenario()
   const { fakes, data } = running
   await fakes.model.script(
@@ -135,7 +135,7 @@ test("SES-1 SES-2 SES-13 SES-149 STO-194 each DM and each thread is one Session 
   ])
 })
 
-test("SES-14 SES-33 SES-151 an owner message is a persisted request keyed by the event's dedupe key, and a second delivery starts no second turn", async () => {
+test("an owner message is a persisted request keyed by the event's dedupe key, and a second delivery starts no second turn", async () => {
   const running = await scenario()
   const { fakes, data } = running
   await fakes.model.script([{ text: "first" }, { text: "second" }])
@@ -166,7 +166,7 @@ test("SES-14 SES-33 SES-151 an owner message is a persisted request keyed by the
   expect(payload.attachments).toEqual([])
 })
 
-test("TST-36 a script holds a response until the scenario releases it", async () => {
+test("a script holds a response until the scenario releases it", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([{ text: "held", hold: true }])
@@ -180,7 +180,7 @@ test("TST-36 a script holds a response until the scenario releases it", async ()
   expect(answer?.text).toBe("held")
 })
 
-test("TST-26 TST-31 TST-32 IMG-114 runDaemon owns the signals, the exit code and CHAD_SESSION=daemon, in the test's own process", async () => {
+test("runDaemon owns the signals, the exit code and CHAD_SESSION=daemon, in the test's own process", async () => {
   const handlers = process.listenerCount("SIGTERM")
   const running = await scenario()
   await running.logged("boot.ready")
@@ -201,7 +201,7 @@ test("TST-26 TST-31 TST-32 IMG-114 runDaemon owns the signals, the exit code and
   }
 })
 
-test("TST-46 TST-47 LOAD-2 STO-29 the running daemon is the built package, with one copy of chad and of effect, on node:sqlite", async () => {
+test("the running daemon is the built package, with one copy of chad and of effect, on node:sqlite", async () => {
   const running = await scenario()
   await running.logged("boot.ready")
 
@@ -216,7 +216,7 @@ test("TST-46 TST-47 LOAD-2 STO-29 the running daemon is the built package, with 
   expect(resolved.filter((url) => /better-sqlite3/.test(url))).toEqual([])
 })
 
-test("TST-203 two daemons, one after another in one process, each read their own data path, and a chad command's environment has no CHAD_SESSION", async () => {
+test("two daemons, one after another in one process, each read their own data path, and a chad command's environment has no CHAD_SESSION", async () => {
   const first = await scenario()
   const started = await first.logged("boot.started")
   expect(started.annotations["data"]).toBe(first.data)
@@ -232,8 +232,8 @@ test("TST-203 two daemons, one after another in one process, each read their own
   expect(second.data).not.toBe(first.data)
 })
 
-test("FAIL-4 FAIL-5 FAIL-6 a line of chad's own has one message, the fixed annotation keys and no span", async () => {
-  // A model chad refuses fails the turn, which is the one line of this slice that belongs to a session.
+test("a line of chad's own has one message, the fixed annotation keys and no span", async () => {
+  // A model chad refuses fails the turn, so the test has a line of chad's own that belongs to a session.
   const running = await scenario({ env: { CHAD_MODEL: "claude/opus" } })
   const { fakes, data } = running
   const thread = await fakes.chat.makeThread("direct")

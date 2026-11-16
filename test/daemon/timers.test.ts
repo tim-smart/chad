@@ -1,5 +1,5 @@
 // The timers in chad's core, as a plugin reaches them through `Turns` and the owner sees them in `chad status` and
-// `chad apply` (docs/spec/13-timers-and-cron.md).
+// `chad apply`.
 import { join } from "node:path"
 import { DateTime, Effect, Layer } from "effect"
 import type { ChatThread } from "effect/chat"
@@ -65,7 +65,7 @@ const passes = async (
       label: "clock",
     }),
   )
-  // The one-shot's row goes once its turn has ended (CRON-25).
+  // The one-shot's row goes once its turn has ended.
   await eventually(
     () => [
       runs(running, name).length,
@@ -101,7 +101,7 @@ const everySecond = (thread: ChatThread.ChatThread) => ({
   label: "tick",
 })
 
-test("CRON-6 CRON-7 CRON-9 API-133 CRON-15 CRON-16 CRON-19 CRON-20 CRON-23 CRON-25 CRON-84 API-87 API-90 API-121 API-122 API-137 a one-shot fires once in its thread with the timer on the turn's origin and is gone after its turn, a replace fires only the new time, a recurring chain runs one turn per scheduled time, a cancel stops it, a chain goes on when its runs' replies cannot be saved, a run that waited behind a queued turn does not start after a cancel or a replace, and a replace that cannot be saved keeps the earlier timer", async () => {
+test("a one-shot fires once in its thread with the timer on the turn's origin and is gone after its turn, a replace fires only the new time, a recurring chain runs one turn per scheduled time, a cancel stops it, a chain goes on when its runs' replies cannot be saved, a run that waited behind a queued turn does not start after a cancel or a replace, and a replace that cannot be saved keeps the earlier timer", async () => {
   const probed = probe()
   const clock = probe("clock")
   const running = await scenario({ plugins: [probed.entry, clock.entry] })
@@ -173,7 +173,7 @@ test("CRON-6 CRON-7 CRON-9 API-133 CRON-15 CRON-16 CRON-19 CRON-20 CRON-23 CRON-
   expect(await call(turns.scheduled())).toEqual([])
 
   // A recurring timer whose runs' replies cannot be saved: each run's end still reaches the wake-up in this process, so
-  // the chain goes on without a restart (CRON-84).
+  // the chain goes on without a restart.
   await fakes.model.script(Array.from({ length: 20 }, () => ({ text: "ok" })))
   const unsaved =
     "SELECT id FROM cluster_messages WHERE entity_type = 'TimerRuns' AND entity_id = 'probe/chain'"
@@ -205,7 +205,7 @@ test("CRON-6 CRON-7 CRON-9 API-133 CRON-15 CRON-16 CRON-19 CRON-20 CRON-23 CRON-
 
   // A scheduled run that waits in its timer's queue behind a queued run in another thread is checked again when it
   // reaches its session. Cancelled or replaced in the wait, it does not run, and the turns queued for the timer still
-  // run in order (CRON-6, CRON-7, API-137).
+  // run in order.
   // Each change has a thread of its own for the queued turns, so a chain turn that is still ending takes none of
   // their replies.
   for (const change of ["cancel", "replace"] as const) {
@@ -293,7 +293,7 @@ test("CRON-6 CRON-7 CRON-9 API-133 CRON-15 CRON-16 CRON-19 CRON-20 CRON-23 CRON-
   expect(pending(running, "later")).toBe(1)
 }, 30_000)
 
-test("CRON-26 CRON-27 CRON-30 CRON-31 CRON-32 CRON-35 CRON-36 CRON-37 SES-16 SES-113 SET-41 SET-42 SET-43 SET-84 FAIL-113 CLI-71 CLI-126 API-137 a timer of a plugin that is off is held across a restart, shows on the plugin's off line and not under Problems, fires once for all its missed runs when the plugin is back on, as the apply says, and goes with chad plugin purge, and a run that waited behind a queued turn is held and then does not start once purged", async () => {
+test("a timer of a plugin that is off is held across a restart, shows on the plugin's off line and not under Problems, fires once for all its missed runs when the plugin is back on, as the apply says, and goes with chad plugin purge, and a run that waited behind a queued turn is held and then does not start once purged", async () => {
   const first = probe()
   const before = await scenario({
     plugins: [first.entry, probe("clock").entry],
@@ -365,7 +365,7 @@ test("CRON-26 CRON-27 CRON-30 CRON-31 CRON-32 CRON-35 CRON-36 CRON-37 SES-16 SES
   expect(new Set(fired).size).toBe(fired.length)
 
   // A scheduled run that waits in its timer's queue while the plugin goes off is held when it reaches its session, and
-  // the run queued ahead of it, already in its session, finishes (CRON-30, API-137).
+  // the run queued ahead of it, already in its session, finishes.
   const turns = second.seen.turns!
   const lateThread = await fakes.chat.makeThread("direct")
   const route = running.model.route("late-run", [

@@ -1,6 +1,6 @@
-// Scenario 10 of the asphodel fixture in layer 4 (docs/spec/18-asphodel-plugin.md, "The twelve scenarios", ASP-G5): the
-// daemon is a child process that a kill cuts in the middle of a turn. The fake asphodel daemon stays in the test's
-// process behind an HTTP server, so it outlives the kill and keeps every request both starts sent.
+// The asphodel fixture across a kill in layer 4: the daemon is a child process that a kill cuts in the middle of a
+// turn. The fake asphodel daemon stays in the test's process behind an HTTP server, so it outlives the kill and keeps
+// every request both starts sent.
 import { DateTime } from "effect"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
@@ -13,7 +13,7 @@ import { daemon } from "../support/process.ts"
 const route = (request: Daemon.Request) =>
   `${request.method} ${request.path.replace(/^\/v1(\/banks\/chad)?/, "")}`
 
-test("ASP-44 ASP-46 ASP-60 ASP-16 ASP-23 a turn that a kill cut after its prefetch is resumed with no second prefetch and no second block fetch, and is ingested once with the owner's message, its time and the first attempt's recall id", async () => {
+test("a turn that a kill cut after its prefetch is resumed with no second prefetch and no second block fetch, and is ingested once with the owner's message, its time and the first attempt's recall id", async () => {
   const fake = Daemon.make()
   const url = await serve(fake)
   const running = await daemon({

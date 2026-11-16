@@ -1,4 +1,4 @@
-// One of the six deliberate mistakes of TST-22. It must fail to compile.
+// One of the six deliberate mistakes a plugin can make. It must fail to compile.
 import { Context, Effect, Layer } from "effect"
 import { Plugin } from "chad"
 

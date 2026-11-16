@@ -1,5 +1,5 @@
 // The bundled cron plugin as the model reaches it through its five tools, and as its jobs run, fail and are reconciled
-// with the core's timers (docs/spec/13-timers-and-cron.md).
+// with the core's timers.
 import { Effect } from "effect"
 import { ChatError, ChatThread } from "effect/chat"
 import { expect, test } from "vitest"
@@ -29,7 +29,7 @@ const timers = (running: Pick<Scenario, "data">) =>
     "SELECT label FROM timers WHERE plugin = 'cron' ORDER BY label",
   ).map((row) => String(row["label"]))
 
-test("CRON-60 CRON-61 CRON-62 CRON-118 CRON-141 CRON-54 CRON-55 CRON-69 CRON-121 CRON-70 CRON-111 CRON-112 CRON-52 CRON-25 a job created with cronCreate is listed with its next run, runs in its thread's session with the wrapper and the due line, posts its answer there, and the one-shot is deleted after its run", async () => {
+test("a job created with cronCreate is listed with its next run, runs in its thread's session with the wrapper and the due line, posts its answer there, and the one-shot is deleted after its run", async () => {
   const running = await scenario({ plugins })
   const { fakes } = running
   await fakes.model.script([
@@ -92,7 +92,7 @@ test("CRON-60 CRON-61 CRON-62 CRON-118 CRON-141 CRON-54 CRON-55 CRON-69 CRON-121
   ])
 })
 
-test("CRON-74 FAIL-72 CRON-123 CRON-66 CRON-120 CRON-125 CRON-76 FAIL-78 CRON-130 three failed runs in a row pause a recurring job with the pause line and cancel its timer, and once resumed a run whose thread is gone pauses it at once", async () => {
+test("three failed runs in a row pause a recurring job with the pause line and cancel its timer, and once resumed a run whose thread is gone pauses it at once", async () => {
   const running = await scenario({ plugins })
   const { fakes, chat } = running
   await fakes.model.script([
@@ -155,7 +155,7 @@ test("CRON-74 FAIL-72 CRON-123 CRON-66 CRON-120 CRON-125 CRON-76 FAIL-78 CRON-13
   expect(timers(running)).toEqual([])
 })
 
-test("CRON-77 CRON-126 CRON-147 a run that ends as UsageLimit is not a failure of the job: it keeps and pauses a one-shot, leaves a recurring job's count and timer as they were, and posts no pause line", async () => {
+test("a run that ends as UsageLimit is not a failure of the job: it keeps and pauses a one-shot, leaves a recurring job's count and timer as they were, and posts no pause line", async () => {
   const running = await scenario({
     plugins,
     env: {
@@ -207,7 +207,7 @@ test("CRON-77 CRON-126 CRON-147 a run that ends as UsageLimit is not a failure o
   ).toEqual([])
 })
 
-test("CRON-72 CRON-64 CRON-67 CRON-148 CRON-149 a job's runs go one at a time across threads: a run asked for after the job moved waits for the run in progress and then runs in the new thread, a cronRun needs no write to the job's store, a one-shot moved on during a manual run keeps its new time, and runs of a removed job, in progress or queued, leave a new job of its name alone", async () => {
+test("a job's runs go one at a time across threads: a run asked for after the job moved waits for the run in progress and then runs in the new thread, a cronRun needs no write to the job's store, a one-shot moved on during a manual run keeps its new time, and runs of a removed job, in progress or queued, leave a new job of its name alone", async () => {
   const running = await scenario({ plugins })
   const { fakes } = running
   const a = await fakes.chat.makeThread("direct")
@@ -358,7 +358,7 @@ test("CRON-72 CRON-64 CRON-67 CRON-148 CRON-149 a job's runs go one at a time ac
   expect(timerThread("daily")).toEqual([ChatThread.toString(a)])
 })
 
-test("CRON-78 CRON-128 CRON-131 CRON-132 the reconcile at activation cancels a timer that has no job and schedules an enabled job that has none", async () => {
+test("the reconcile at activation cancels a timer that has no job and schedules an enabled job that has none", async () => {
   const running = await scenario({ plugins })
   const { fakes } = running
   await fakes.model.script([

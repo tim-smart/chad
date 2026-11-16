@@ -1,5 +1,5 @@
-// What the image layer of docs/spec/17-testing.md shares: one build of the Dockerfile, the second container that holds
-// the fakes, and containers, volumes and networks that are removed when the tests end.
+// What the image layer of the tests shares: one build of the Dockerfile, the second container that holds the fakes, and
+// containers, volumes and networks that are removed when the tests end.
 import { type ChildProcessByStdio, spawn, spawnSync } from "node:child_process"
 import { randomBytes } from "node:crypto"
 import {

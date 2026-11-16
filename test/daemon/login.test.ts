@@ -46,7 +46,7 @@ const postedWith = (
 /** The token file on a scenario's volume. */
 const tokenFile = (data: string) => join(data, "secrets", "auth", tokenFileName)
 
-test("MOD-33 MOD-35 MOD-38 MOD-39 MOD-41 MOD-42 MOD-43 MOD-56 MOD-59 MOD-100 MOD-101 MOD-107 MOD-112 DIS-70 DIS-72 CLI-110 CLI-159 FAIL-251 FAIL-259 a turn with no login posts one code in its own thread, another thread's turn and chad login join that login, a killed chad login leaves it running, and every waiter runs once it completes, with no code or token in the log", async () => {
+test("a turn with no login posts one code in its own thread, another thread's turn and chad login join that login, a killed chad login leaves it running, and every waiter runs once it completes, with no code or token in the log", async () => {
   const running = await scenario(codex)
   const { fakes, model, data } = running
   model.holdPolls()
@@ -107,7 +107,7 @@ test("MOD-33 MOD-35 MOD-38 MOD-39 MOD-41 MOD-42 MOD-43 MOD-56 MOD-59 MOD-100 MOD
   }
 })
 
-test("MOD-44 MOD-45 MOD-74 MOD-75 DIS-71 TST-214 a login whose time runs out ends every waiting turn as LoginFailed with the reason TimedOut and the timeout message, and no waiter starts a second login", async () => {
+test("a login whose time runs out ends every waiting turn as LoginFailed with the reason TimedOut and the timeout message, and no waiter starts a second login", async () => {
   const running = await scenario({
     ...codex,
     timings: { modelLogin: Duration.seconds(3) },
@@ -144,7 +144,7 @@ test("MOD-44 MOD-45 MOD-74 MOD-75 DIS-71 TST-214 a login whose time runs out end
   expect(await fakes.model.calls()).toEqual([])
 })
 
-test("MOD-47 MOD-48 MOD-60 MOD-61 CLI-111 a chad logout during a turn does not stop it, and a turn that then loses its login waits where it is with a code in its thread and carries on once the login completes", async () => {
+test("a chad logout during a turn does not stop it, and a turn that then loses its login waits where it is with a code in its thread and carries on once the login completes", async () => {
   const running = await scenario({ ...codex, codex: "token" })
   const { fakes, model } = running
   model.holdPolls()
@@ -182,7 +182,7 @@ test("MOD-47 MOD-48 MOD-60 MOD-61 CLI-111 a chad logout during a turn does not s
   expect(model.deviceCodes()).toBe(1)
 })
 
-test("MOD-36 MOD-60 MOD-118 MOD-119 a chad login through the daemon with no turn waiting posts its code by the notice route as well as printing it, a turn then waits on it, and a second chad login with the token good says so", async () => {
+test("a chad login through the daemon with no turn waiting posts its code by the notice route as well as printing it, a turn then waits on it, and a second chad login with the token good says so", async () => {
   const running = await scenario({ ...codex, codex: "token" })
   const { fakes, model } = running
   model.holdPolls()
@@ -219,7 +219,7 @@ test("MOD-36 MOD-60 MOD-118 MOD-119 a chad login through the daemon with no turn
   expect(model.deviceCodes()).toBe(1)
 })
 
-test("MOD-57 MOD-58 MOD-62 MOD-64 MOD-109 MOD-110 CLI-34 CLI-57c with no daemon chad login runs the device flow itself and stores a private token, fails when a daemon took the lock before it stored, logout clears the token, and both are refused to the agent", async () => {
+test("with no daemon chad login runs the device flow itself and stores a private token, fails when a daemon took the lock before it stored, logout clears the token, and both are refused to the agent", async () => {
   const running = await scenario(codex)
   const { model, data } = running
   model.holdPolls()
@@ -274,7 +274,7 @@ test("MOD-57 MOD-58 MOD-62 MOD-64 MOD-109 MOD-110 CLI-34 CLI-57c with no daemon 
   })
 })
 
-test("MOD-55 MOD-118 MOD-36 a chad login through the daemon prints its code and completes while the notice route's thread lookup does not answer", async () => {
+test("a chad login through the daemon prints its code and completes while the notice route's thread lookup does not answer", async () => {
   const first = await scenario()
   const direct = await first.fakes.chat.makeThread("direct")
   await says(first, direct, "/status")

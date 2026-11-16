@@ -10,7 +10,7 @@ import { posted, prompted, says } from "../support/owner.ts"
 const full =
   "CREATE TRIGGER full BEFORE INSERT ON cluster_messages BEGIN SELECT RAISE(ABORT, 'database or disk is full'); END"
 
-test("FAIL-136 FAIL-137 FAIL-219 SES-127 DIS-82 TST-62 a message the full volume cannot save is answered in the thread and accepted, refused when the answer cannot be posted either, and never runs later by itself", async () => {
+test("a message the full volume cannot save is answered in the thread and accepted, refused when the answer cannot be posted either, and never runs later by itself", async () => {
   const chad = await scenario()
   await chad.fakes.model.script([{ text: "there is space again" }])
   await chad.logged("boot.ready")

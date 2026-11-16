@@ -1,8 +1,8 @@
-// The fake model server of docs/spec/17-testing.md. It is an HTTP server that the test starts, scripted by call index,
-// and a script can hold a response until the test releases it. It speaks the `openai-compat` endpoint, the Responses
-// endpoint of `openai` with a key, and Codex: the device-code, token and model endpoints, the model over HTTP and over
-// WebSocket (TST-37). Its Codex side refuses what Codex refuses (TST-40). The check at start and a trial request send
-// the fixed prompt, which the fake answers outside the script, so a scenario's call indexes are its turns' alone.
+// The fake model server of the tests. It is an HTTP server that the test starts, scripted by call index, and a script
+// can hold a response until the test releases it. It speaks the `openai-compat` endpoint, the Responses endpoint of
+// `openai` with a key, and Codex: the device-code, token and model endpoints, the model over HTTP and over WebSocket.
+// Its Codex side refuses what Codex refuses. The check at start and a trial request send the fixed prompt, which the
+// fake answers outside the script, so a scenario's call indexes are its turns' alone.
 import { createServer, type IncomingMessage } from "node:http"
 import type { AddressInfo } from "node:net"
 import * as NodeSocketServer from "@effect/platform-node/NodeSocketServer"
@@ -20,7 +20,7 @@ export interface Reply {
   readonly status?: number
   /**
    * The provider's error object, sent with `status` in place of the fake's own: the body of an HTTP refusal, or the
-   * `error` of a WebSocket error frame, such as a usage limit's (FAIL-88).
+   * `error` of a WebSocket error frame, such as a usage limit's.
    */
   readonly error?: Refusal["error"]
   /** Whether the response waits until the test releases it. */
@@ -77,7 +77,7 @@ export interface StoredToken {
 /** The name of the token's file in `secrets/auth/`: clanka's key, `codex.auth/token`, as the file store encodes it. */
 export const tokenFileName = encodeURIComponent("codex.auth/token")
 
-/** The models a Codex login accepts (MOD-71). */
+/** The models a Codex login accepts. */
 export const accepted: ReadonlyArray<string> = [
   "gpt-6-astra",
   "gpt-6.1-sol",
@@ -88,7 +88,7 @@ export const accepted: ReadonlyArray<string> = [
 export interface FakeModel {
   /** The value for `CHAD_OPENAI_API_URL`. */
   readonly url: string
-  /** Where the test's client sends Codex's two hosts: the model endpoint and the login's issuer (TST-38). */
+  /** Where the test's client sends Codex's two hosts: the model endpoint and the login's issuer. */
   readonly codex: string
   readonly auth: string
   /** Where the test's WebSocket constructor sends a socket to the Codex model endpoint. */
@@ -180,7 +180,7 @@ const textOf = (content: unknown): string =>
           .join("")
       : ""
 
-/** Whether a call is the check at start or a trial request, by its fixed prompt (MOD-86). */
+/** Whether a call is the check at start or a trial request, by its fixed prompt. */
 const isTrial = (body: unknown) => {
   const users = items(body).filter((item) => item["role"] === "user")
   return users.length === 1 && textOf(users[0]?.["content"]) === modelTrial
@@ -199,7 +199,7 @@ export const results = (call: Call | undefined): ReadonlyArray<string> =>
         : textOf(item["output"]),
     )
 
-/** A line that effect's default logger printed into a script's output, as plain clanka prints its own (FAIL-23). */
+/** A line that effect's default logger printed into a script's output, as plain clanka prints its own. */
 const logged = /^\[\d{2}:\d{2}:\d{2}\.\d{3}\] [A-Z]+ \(#\d+\): .*\n?/gm
 
 /** The results of a call with the log lines taken out, which leaves what the scripts and their commands printed. */
@@ -259,7 +259,7 @@ const completion = (index: number, reply: Reply): ReadonlyArray<object> => {
   return events
 }
 
-/** A refusal on the Codex socket, as an `error` frame with the status and the provider's error (TST-41, FAIL-88). */
+/** A refusal on the Codex socket, as an `error` frame with the status and the provider's error. */
 export const refusalFrame = (refusal: Refusal) => ({
   type: "error",
   status: refusal.status,
@@ -276,8 +276,8 @@ const counts = (input: number, output: number, cached = 0) => ({
 
 /**
  * The events of a Responses stream, which Codex sends as server-sent events and as WebSocket frames alike. Their shape
- * is the kept recording's (TST-41), which has every field the proxy relayed, the image tool it adds among them. An
- * answer is the nine event types of the recording, and a tool call, which was not recorded, follows the same pattern.
+ * is the kept recording's, which has every field the proxy relayed, the image tool it adds among them. An answer is the
+ * nine event types of the recording, and a tool call, which was not recorded, follows the same pattern.
  */
 export const responses = (
   index: number,
@@ -768,7 +768,7 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
   const { port } = server.address() as AddressInfo
 
   // The Codex model endpoint over WebSocket. The opening request carries the headers, and every `response.create`
-  // message on the socket is a call with them (MOD-32). A refusal is an `error` frame, as Codex sends one.
+  // message on the socket is a call with them. A refusal is an `error` frame, as Codex sends one.
   const scope = Effect.runSync(Scope.make())
   const sockets = await Effect.runPromise(
     NodeSocketServer.makeWebSocket({

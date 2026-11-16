@@ -1,6 +1,5 @@
 // MCP servers as the owner, the model and the CLI reach them: `mcp.json` checked, applied and rebuilt, `${NAME}` from
-// the secret store, the calls the model makes while the layer rebuilds, and a boot on a malformed or slow file
-// (docs/spec/12-skills-and-mcp.md).
+// the secret store, the calls the model makes while the layer rebuilds, and a boot on a malformed or slow file.
 import { createHash } from "node:crypto"
 import {
   existsSync,
@@ -94,7 +93,7 @@ const gated = () => {
 const count = (running: Scenario, event: string) =>
   running.log().filter((line) => line.annotations["event"] === event).length
 
-test("CRED-80 MCP-38 MCP-148 FAIL-2 FAIL-3 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-32 MCP-33 MCP-34 MCP-35 MCP-36 MCP-40 MCP-43 MCP-109 MCP-110 MCP-111 MCP-112 MCP-113 MCP-114 CLI-67 CLI-70 CLI-74 CLI-102 CLI-125f CRED-25 CRED-27 REC-28 an applied mcp.json connects its servers with names from the secret store that never reach the environment or any output, a failed or unavailable server does not block the apply, a secret it names rebuilds it, and a malformed file or a relative cwd fails the check and the apply", async () => {
+test("an applied mcp.json connects its servers with names from the secret store that never reach the environment or any output, a failed or unavailable server does not block the apply, a secret it names rebuilds it, and a malformed file or a relative cwd fails the check and the apply", async () => {
   const held = gated()
   const running = await scenario({
     plugins: [{ name: "held", plugin: held.plugin }],
@@ -104,7 +103,7 @@ test("CRED-80 MCP-38 MCP-148 FAIL-2 FAIL-3 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 
   expect(
     (await running.chad(["secret", "set", "TOKEN"], {}, canary + "\n")).code,
   ).toBe(0)
-  // A value made of the log's own syntax, which a scrub of the serialized line would break it on (FAIL-2, MCP-148).
+  // A value made of the log's own syntax, which a scrub of the serialized line would break it on.
   const punct = '":"'
   expect(
     (await running.chad(["secret", "set", "PUNCT"], {}, punct + "\n")).code,
@@ -119,7 +118,7 @@ test("CRED-80 MCP-38 MCP-148 FAIL-2 FAIL-3 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 
       broken: fixture("--exit"),
       missing: { ...fixture(), args: [server, "${NOPE_NOT_SET}"] },
       legacy: { type: "sse", url: "http://127.0.0.1:1/sse" },
-      // The spawn's error quotes the command, which here is the secret (CRED-80).
+      // The spawn's error quotes the command, which here is the secret.
       typo: { command: "${TOKEN}" },
       punct: { command: "${PUNCT}" },
       dropping: fixture("--tools", "quit"),
@@ -129,7 +128,7 @@ test("CRED-80 MCP-38 MCP-148 FAIL-2 FAIL-3 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 
         plugins: { held: { settings: { token: "${TOKEN}" } } },
       }) + "\n",
   })
-  // A check connects nothing, names what an apply adds and warns of the name that resolves nowhere (MCP-36, MCP-113).
+  // A check connects nothing, names what an apply adds and warns of the name that resolves nowhere.
   const check = await running.chad(["check"])
   expect(check.code).toBe(0)
   for (const line of Messages.mcpCheckLines({
@@ -150,7 +149,7 @@ test("CRED-80 MCP-38 MCP-148 FAIL-2 FAIL-3 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 
     Messages.mcpCheckUnresolved("missing", "NOPE_NOT_SET"),
   )
 
-  // The apply prints its commit line first, then each server once the layer is current (MCP-35, MCP-111, MCP-112).
+  // The apply prints its commit line first, then each server once the layer is current.
   const applied = await apply(running, "Add MCP servers")
   expect(applied.code).toBe(0)
   const out = applied.stdout.split("\n")
@@ -167,7 +166,7 @@ test("CRED-80 MCP-38 MCP-148 FAIL-2 FAIL-3 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 
   expect(applied.stdout).toContain("spawn ${TOKEN} ENOENT")
   expect(applied.stdout).not.toContain(canary)
 
-  // The model calls the server. The token reached it from the store, and it runs in HOME as the daemon (MCP-31, MCP-109).
+  // The model calls the server. The token reached it from the store, and it runs in HOME as the daemon.
   const calls = await turn(
     running,
     "console.log(await mcp.tools.echo({ x: 1 })); console.log(await mcp.tools.token({})); console.log(await mcp.tools.cwd({})); console.log(await mcp.dropping.quit({}))",
@@ -181,7 +180,7 @@ test("CRED-80 MCP-38 MCP-148 FAIL-2 FAIL-3 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 
   expect(printed).toContain(`${sha(canary)} daemon`)
   expect(printed).toContain(`\n${process.env["HOME"]}\n`)
 
-  // A server that exits after it connected shows as it is now, not as it connected (MCP-38).
+  // A server that exits after it connected shows as it is now, not as it connected.
   const status = await eventually(
     () => running.chad(["status"]),
     ({ stdout }) => !stdout.includes("mcp: dropping, connected"),
@@ -193,7 +192,7 @@ test("CRED-80 MCP-38 MCP-148 FAIL-2 FAIL-3 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 
   )
   expect(status.stdout).not.toContain(canary)
 
-  // A secret mcp.json names rebuilds the layer and prints it, and one it does not name rebuilds nothing (MCP-40).
+  // A secret mcp.json names rebuilds the layer and prints it, and one it does not name rebuilds nothing.
   const second = "second-91aa-not-in-env"
   const changed = await running.chad(
     ["secret", "set", "TOKEN"],
@@ -210,7 +209,7 @@ test("CRED-80 MCP-38 MCP-148 FAIL-2 FAIL-3 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 
   ).toContain(sha(second))
 
   // A CLI killed once the store is written, while a plugin that names the secret rebuilds, still leaves the change its
-  // MCP rebuild (CLI-43, CLI-102b).
+  // MCP rebuild.
   const third = "third-5b0d-not-in-env"
   let release = () => {}
   held.state.gate = new Promise<void>((resolve) => {
@@ -238,7 +237,7 @@ test("CRED-80 MCP-38 MCP-148 FAIL-2 FAIL-3 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 
     ).join("\n"),
   ).toContain(sha(third))
 
-  // A relative cwd and a malformed file fail the check and the apply, and the servers stay as they were (MCP-33, MCP-110).
+  // A relative cwd and a malformed file fail the check and the apply, and the servers stay as they were.
   write(work, {
     "mcp.json": mcpJson({
       tools: { ...fixture(), cwd: "notes" },
@@ -266,7 +265,7 @@ test("CRED-80 MCP-38 MCP-148 FAIL-2 FAIL-3 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 
     "mcp: tools, connected, 3 tools",
   )
   // Every line of the log still parses, and clanka's line for the failed spawn says ${PUNCT} where its value was, with
-  // its keys as they were (FAIL-2, FAIL-3, MCP-148).
+  // its keys as they were.
   const entries = readFileSync(join(running.data, "logs/chad.log"), "utf8")
     .split("\n")
     .filter((line) => line !== "")
@@ -288,7 +287,7 @@ test("CRED-80 MCP-38 MCP-148 FAIL-2 FAIL-3 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 
   for (const { message, annotations } of spawned)
     for (const value of [message, ...Object.values(annotations)])
       expect(String(value)).not.toContain(punct)
-  // No value reached the environment or the log, failed spawns and refusals included (CRED-80).
+  // No value reached the environment or the log, failed spawns and refusals included.
   for (const value of [canary, second, third]) {
     expect(Object.values(process.env)).not.toContain(value)
     expect(
@@ -306,7 +305,7 @@ const tries = (...calls: ReadonlyArray<string>) =>
     )
     .join("\n")
 
-test("MCP-38 MCP-39 MCP-41 MCP-42 MCP-66 MCP-67 MCP-68 MCP-71 MCP-73 MCP-81 MCP-82 MCP-86 MCP-87 MCP-89 MCP-140 OV-35 SWAP-10 SWAP-19 SWAP-93 SWAP-127 CLI-91 CLI-92 CLI-160 a running turn's call in flight is cut by a restart, a call during the rebuild is not sent, and once a new layer is current the turn's old keys are routed to it and words what is gone", async () => {
+test("a running turn's call in flight is cut by a restart, a call during the rebuild is not sent, and once a new layer is current the turn's old keys are routed to it and words what is gone", async () => {
   const running = await scenario()
   const { fakes } = running
   const work = join(running.data, "repo/work")
@@ -343,7 +342,7 @@ test("MCP-38 MCP-39 MCP-41 MCP-42 MCP-66 MCP-67 MCP-68 MCP-71 MCP-73 MCP-81 MCP-
   await says(running, thread, "go")
   await eventually(() => existsSync(join(mark, "hang")), Boolean)
 
-  // The restart cuts the call in flight at once, and a call while the new layer connects is not sent (MCP-71, MCP-140).
+  // The restart cuts the call in flight at once, and a call while the new layer connects is not sent.
   writeFileSync(gate, "")
   const restart = Cli.start(["mcp", "restart"], { CHAD_DATA: running.data })
   const calls = await fakes.model.received(3)
@@ -356,8 +355,7 @@ test("MCP-38 MCP-39 MCP-41 MCP-42 MCP-66 MCP-67 MCP-68 MCP-71 MCP-73 MCP-81 MCP-
   expect(restarted).toMatchObject({ code: 0 })
   expect(restarted.stdout).toContain(connected("slow", 2))
 
-  // An apply drops a server and a tool and adds a tool while the turn runs. Its old keys reach the new layer
-  // (MCP-66, MCP-81, MCP-82, MCP-87).
+  // An apply drops a server and a tool and adds a tool while the turn runs. Its old keys reach the new layer.
   write(work, { "mcp.json": mcpJson({ slow: slow("echo,fresh") }) })
   expect((await apply(running, "Drop other")).code).toBe(0)
   await fakes.model.release(2)
@@ -368,14 +366,14 @@ test("MCP-38 MCP-39 MCP-41 MCP-42 MCP-66 MCP-67 MCP-68 MCP-71 MCP-73 MCP-81 MCP-
   expect(last).toContain(Messages.mcpRemoved("other.ping", "other"))
   expect(last).toContain(`\n\n${Messages.mcpNextTurn(["slow.fresh"])}`)
 
-  // The next turn takes the new layer (MCP-68, MCP-86).
+  // The next turn takes the new layer.
   const next = await turn(running, tries("mcp.slow.fresh({})"))
   expect(systemText(next[0])).toContain("- slow (2 tools)")
   expect(systemText(next[0])).not.toContain("- other")
   expect(results(next[1]).join("\n")).toContain("fresh")
 }, 60_000)
 
-test("MCP-7 MCP-37 MCP-90 MCP-91 MCP-92 REC-11 REC-45 LOAD-46 FAIL-165 FAIL-272 a malformed applied mcp.json boots with no servers and a notice that an apply clears, a turn before the first connect has message 7 and no MCP, and safe mode loads no server", async () => {
+test("a malformed applied mcp.json boots with no servers and a notice that an apply clears, a turn before the first connect has message 7 and no MCP, and safe mode loads no server", async () => {
   const directory = fresh()
   const gate = join(directory, "gate")
   committed(join(directory, "data/repo"), {
@@ -399,7 +397,7 @@ test("MCP-7 MCP-37 MCP-90 MCP-91 MCP-92 REC-11 REC-45 LOAD-46 FAIL-165 FAIL-272 
   expect((await first.chad(["status"])).stdout).not.toContain(unreadable)
   expect(await first.stop()).toBe(0)
 
-  // A boot is a rebuild in the background: a turn before the first layer connects starts without MCP (MCP-90, MCP-92).
+  // A boot is a rebuild in the background: a turn before the first layer connects starts without MCP.
   writeFileSync(gate, "")
   const second = await scenario({ directory })
   // The log goes on from the first daemon's, so this boot is the second boot.ready in it.
@@ -416,7 +414,7 @@ test("MCP-7 MCP-37 MCP-90 MCP-91 MCP-92 REC-11 REC-45 LOAD-46 FAIL-165 FAIL-272 
     "- slow (1 tools)",
   )
 
-  // Safe mode stops every server, and safe off brings them back (MCP-7).
+  // Safe mode stops every server, and safe off brings them back.
   expect((await second.chad(["safe", "on"])).stdout).not.toContain(
     connected("slow", 1),
   )

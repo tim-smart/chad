@@ -1,21 +1,20 @@
-// The asphodel fixture through the real daemon in layer 3 (docs/spec/18-asphodel-plugin.md, "The twelve scenarios",
-// and docs/spec/17-testing.md, TST-161). The fixture is handed to `runDaemon` through the plugins input (TST-202), with
+// The asphodel fixture through the real daemon. The fixture is handed to `runDaemon` through the plugins input, with
 // the fake asphodel daemon provided as its HttpClient and an adjustable clock as its Clock, so a scenario moves past the
-// breaker's 30 seconds and the replay's minute instead of waiting them out (ASP-G6).
+// breaker's 30 seconds and the replay's minute instead of waiting them out.
 //
-// Each scenario of the prototype's final pass and its test (ASP-102):
+// Each of the fixture's twelve scenarios and the test that covers it, or why none does:
 //   1  the plugin loads                        "the plugin loads", and the token and timezone tests after it
 //   2  two owner turns in a direct message     "two owner turns in a direct message"
 //   3  a message steers the turn               "a message that steers the turn"
 //   4  a cron turn                             "a turn a plugin started"
 //   5  the owner asks to forget                "the owner's memory_forget"
-//   6  a tool call after its turn ended        none: the daemon makes no tool call with no turn (ASP-118), and the
+//   6  a tool call after its turn ended        none: the daemon makes no tool call with no turn, and the
 //                                              type layer holds the fixture's None branch (test/types/plugins.test.ts)
 //   7  the daemon down for a turn              "with the asphodel daemon down a turn runs without memories"
 //   7b the spool replayed by the fiber         "when the owner says nothing more after an outage"
 //   8  a compaction                            "after a compaction"; the variant with no wait has no counterpart
 //   9  /new                                    "/new clears the old session"
-//   10 a restart in the middle of a turn       layer 4, test/process/asphodel.test.ts (ASP-119)
+//   10 a restart in the middle of a turn       the process test, test/process/asphodel.test.ts
 //   11 a session starts while the daemon is down  "a session that starts while the asphodel daemon is down"
 //   12 the plugin unloads                      "the plugin unloads at the stop"
 import { Clock, DateTime, Effect, Layer } from "effect"
@@ -151,7 +150,7 @@ const compacted = (running: Scenario) =>
           Number(line.annotations["tokens_before"]),
     )
 
-test("TST-161 ASP-26 ASP-30 ASP-11 ASP-12 ASP-31 API-25 the plugin loads: the health probe, then the bank PUT with chad's owner ids and timezone and the owner name from its settings", async () => {
+test("the plugin loads: the health probe, then the bank PUT with chad's owner ids and timezone and the owner name from its settings", async () => {
   const { load } = await boot()
   expect(load.map(route)).toEqual(["GET /health", "PUT "])
   expect(load[1]?.body).toEqual({
@@ -167,7 +166,7 @@ test("TST-161 ASP-26 ASP-30 ASP-11 ASP-12 ASP-31 API-25 the plugin loads: the he
   ])
 })
 
-test("ASP-9 API-25 a token written ${ASPHODEL_TOKEN} reaches the asphodel daemon as a bearer token on every request, from the secret store and with the value in no log line", async () => {
+test("a token written ${ASPHODEL_TOKEN} reaches the asphodel daemon as a bearer token on every request, from the secret store and with the value in no log line", async () => {
   const token = "asphodel-token-5f2a9c"
   const directory = fresh()
   const data = join(directory, "data")
@@ -195,7 +194,7 @@ test("ASP-9 API-25 a token written ${ASPHODEL_TOKEN} reaches the asphodel daemon
   expect(JSON.stringify(running.log())).not.toContain(token)
 })
 
-test("ASP-12 ASP-13 API-17 a timezone change reloads the plugin, which sends the bank again with the new zone", async () => {
+test("a timezone change reloads the plugin, which sends the bank again with the new zone", async () => {
   const { running, daemon } = await boot()
   expect((await running.chad(["timezone", "Europe/Berlin"])).code).toBe(0)
   const reload = await sent(daemon, 2)
@@ -203,7 +202,7 @@ test("ASP-12 ASP-13 API-17 a timezone change reloads the plugin, which sends the
   expect(reload[1]?.body).toMatchObject({ timezone: "Europe/Berlin" })
 })
 
-test("ASP-87 ASP-16 ASP-38 ASP-39 ASP-48 ASP-49 ASP-50 ASP-55 ASP-57 ASP-58 ASP-100 API-38 API-41 API-49 API-53 two owner turns in a direct message: one block fetch, a prefetch and an ingest each, and the second prefetch carries the first query and reply", async () => {
+test("two owner turns in a direct message: one block fetch, a prefetch and an ingest each, and the second prefetch carries the first query and reply", async () => {
   const { running, daemon } = await boot()
   const { fakes } = running
   await fakes.model.script([{ text: "Booked." }, { text: "Friday works." }])
@@ -257,7 +256,7 @@ test("ASP-87 ASP-16 ASP-38 ASP-39 ASP-48 ASP-49 ASP-50 ASP-55 ASP-57 ASP-58 ASP-
   expect(keys(running)).toEqual([`block/${session}`])
 })
 
-test("ASP-14 with ingest set to false two turns each get the block and a prefetch, and no turn reaches the asphodel daemon", async () => {
+test("with ingest set to false two turns each get the block and a prefetch, and no turn reaches the asphodel daemon", async () => {
   const { running, daemon } = await boot([], { ...settings, ingest: false })
   const { fakes } = running
   await fakes.model.script([{ text: "Booked." }, { text: "Friday works." }])
@@ -275,7 +274,7 @@ test("ASP-14 with ingest set to false two turns each get the block and a prefetc
   ])
 })
 
-test("ASP-51 ASP-59 API-53 a message that steers the turn gets no prefetch and joins the ingest's user_text after a blank line", async () => {
+test("a message that steers the turn gets no prefetch and joins the ingest's user_text after a blank line", async () => {
   const { running, daemon } = await boot()
   const { fakes } = running
   await fakes.model.script([
@@ -301,7 +300,7 @@ test("ASP-51 ASP-59 API-53 a message that steers the turn gets no prefetch and j
   })
 })
 
-test("ASP-45 ASP-54 ASP-78 ASP-80 ASP-81 API-31 API-32 a turn a plugin started can recall and is refused memory_forget, and sends no prefetch and no ingest", async () => {
+test("a turn a plugin started can recall and is refused memory_forget, and sends no prefetch and no ingest", async () => {
   const thread = Promise.withResolvers<ChatThread.ChatThread>()
   // A plugin of the test's that starts one turn, as a cron job does.
   const cron = Plugin.make(
@@ -350,7 +349,7 @@ console.log(await memory_forget({ ids: ["m7"] }).catch((error) => "refused: " + 
   expect(requests[3]?.body).toMatchObject({ user_text: "thanks" })
 })
 
-test("ASP-61 ASP-80 ASP-84 ASP-85 ASP-55 the owner's memory_forget carries the session id, the turn is ingested with forget_requested, and the next prefetch has no previous_query", async () => {
+test("the owner's memory_forget carries the session id, the turn is ingested with forget_requested, and the next prefetch has no previous_query", async () => {
   const { running, daemon } = await boot()
   const { fakes } = running
   await fakes.model.script([
@@ -391,7 +390,7 @@ test("ASP-61 ASP-80 ASP-84 ASP-85 ASP-55 the owner's memory_forget carries the s
   expect(keys(running)).toEqual([`block/${session}`])
 })
 
-test("ASP-95 ASP-52 ASP-62 ASP-63 ASP-66 ASP-69 API-43 with the asphodel daemon down a turn runs without memories and is spooled as one key, and once it is back the next turn's ingest is followed by the spooled turn", async () => {
+test("with the asphodel daemon down a turn runs without memories and is spooled as one key, and once it is back the next turn's ingest is followed by the spooled turn", async () => {
   const { running, daemon } = await boot()
   const { fakes } = running
   await fakes.model.script([
@@ -442,7 +441,7 @@ test("ASP-95 ASP-52 ASP-62 ASP-63 ASP-66 ASP-69 API-43 with the asphodel daemon 
   )
 })
 
-test("ASP-98 ASP-32 ASP-70 API-68 when the owner says nothing more after an outage, the plugin's background fiber delivers the spooled turn with no turn running", async () => {
+test("when the owner says nothing more after an outage, the plugin's background fiber delivers the spooled turn with no turn running", async () => {
   const { running, daemon, clock } = await boot()
   const { fakes } = running
   await fakes.model.script([{ text: "Booked." }, { text: "Nothing today." }])
@@ -472,7 +471,7 @@ test("ASP-98 ASP-32 ASP-70 API-68 when the owner says nothing more after an outa
   ).toHaveLength(2)
 })
 
-test("SES-121 SWAP-25 SWAP-36 SES-135 ASP-90 ASP-89 ASP-72 ASP-73 ASP-74 ASP-91 API-58 API-60 API-61 after a compaction the turn's ingest and the session's clear reach the asphodel daemon before the next turn's fresh block fetch and prefetch", async () => {
+test("after a compaction the turn's ingest and the session's clear reach the asphodel daemon before the next turn's fresh block fetch and prefetch", async () => {
   const { running, daemon } = await boot()
   const { fakes } = running
   await fakes.model.script([
@@ -528,7 +527,7 @@ test("SES-121 SWAP-25 SWAP-36 SES-135 ASP-90 ASP-89 ASP-72 ASP-73 ASP-74 ASP-91 
   expect(prompt).not.toContain("[asphodel agenda, block-1]")
 })
 
-test("ASP-72 ASP-73 ASP-75 ASP-116 API-59 /new clears the old session and sends nothing else, and the new session's first turn fetches its own block", async () => {
+test("/new clears the old session and sends nothing else, and the new session's first turn fetches its own block", async () => {
   const { running, daemon } = await boot()
   const { fakes } = running
   await fakes.model.script([{ text: "Booked." }, { text: "Hello again." }])
@@ -556,7 +555,7 @@ test("ASP-72 ASP-73 ASP-75 ASP-116 API-59 /new clears the old session and sends 
   expect(keys(running)).toEqual([`block/${session}`])
 })
 
-test("ASP-96 ASP-97 ASP-34 ASP-35 ASP-36 ASP-40 ASP-41 a session that starts while the asphodel daemon is down: three refused requests open the breaker and the turn is spooled, and once it is back the next turn fetches the block and delivers the spooled turn after its own ingest", async () => {
+test("a session that starts while the asphodel daemon is down: three refused requests open the breaker and the turn is spooled, and once it is back the next turn fetches the block and delivers the spooled turn after its own ingest", async () => {
   const { running, daemon, clock } = await boot()
   const { fakes } = running
   await fakes.model.script([{ text: "Booked." }, { text: "Rain." }])
@@ -598,7 +597,7 @@ test("ASP-96 ASP-97 ASP-34 ASP-35 ASP-36 ASP-40 ASP-41 a session that starts whi
   )
 })
 
-test("ASP-33 ASP-111 ASP-115 API-106 the plugin unloads at the stop and logs asphodel: unloaded under its name", async () => {
+test("the plugin unloads at the stop and logs asphodel: unloaded under its name", async () => {
   const { running } = await boot()
   expect(await running.stop()).toBe(0)
   expect(

@@ -1,4 +1,4 @@
-// The CLI against a daemon that goes away in the middle of a call (docs/spec/10-cli.md, CLI-19).
+// The CLI against a daemon that goes away in the middle of a call.
 import { expect, test } from "vitest"
 import type { Connection } from "../../dist/daemon/Connection.js"
 import * as Messages from "../../dist/Messages.js"
@@ -27,7 +27,7 @@ const checking = async (running: Process) => {
   return { check, release }
 }
 
-test("CLI-19 a daemon stopped in the middle of a call ends the command with exit 4 and the message to run chad status and chad logs", async () => {
+test("a daemon stopped in the middle of a call ends the command with exit 4 and the message to run chad status and chad logs", async () => {
   const running = await daemon({ connections: [home] })
   const current = await running.start()
   const { check, release } = await checking(running)
@@ -38,7 +38,7 @@ test("CLI-19 a daemon stopped in the middle of a call ends the command with exit
   expect(ran.stderr).toContain(Messages.daemonGone("connection check"))
 }, 20_000)
 
-test("CLI-19 a daemon that stops answering in the middle of a call ends the command with exit 4 once the RPC ping of 5 seconds goes unanswered", async () => {
+test("a daemon that stops answering in the middle of a call ends the command with exit 4 once the RPC ping of 5 seconds goes unanswered", async () => {
   const running = await daemon({ connections: [home] })
   const current = await running.start()
   const { check, release } = await checking(running)

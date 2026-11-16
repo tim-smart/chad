@@ -26,7 +26,7 @@ const numbered = (count: number) => `
   INSERT INTO numbers SELECT n FROM counted
 `
 
-it("STO-80 CLI-31f CLI-130 CLI-131 chad db query and chad db check answer beside a running daemon, beside one that SIGSTOP has frozen and with no daemon, so neither goes through the daemon or waits in its queue", async () => {
+it("chad db query and chad db check answer beside a running daemon, beside one that SIGSTOP has frozen and with no daemon, so neither goes through the daemon or waits in its queue", async () => {
   const data = mkdtempSync(join(tmpdir(), "chad-db-"))
   onTestFinished(() => rmSync(data, { recursive: true, force: true }))
   const daemon = start(["serve"], { CHAD_DATA: data })
@@ -50,7 +50,7 @@ it("STO-80 CLI-31f CLI-130 CLI-131 chad db query and chad db check answer beside
   expect(await db(data, "check")).toEqual(sound)
 }, 30_000)
 
-it("STO-79 STO-175 STO-202 chad db query refuses a statement that writes, in the database or anywhere else, and still answers a PRAGMA that reads: a refusal exits 1 with SQLite's own message on stderr and nothing on stdout, as any statement that fails does, and a volume with no database is named", async () => {
+it("chad db query refuses a statement that writes, in the database or anywhere else, and still answers a PRAGMA that reads: a refusal exits 1 with SQLite's own message on stderr and nothing on stdout, as any statement that fails does, and a volume with no database is named", async () => {
   const data = volume(numbered(3))
   // What the read-only open does not cover: a file beside the database, a temporary table, an attached database and
   // the header of the temporary database.
@@ -127,7 +127,7 @@ it("STO-79 STO-175 STO-202 chad db query refuses a statement that writes, in the
   expect(existsSync(join(empty, "db"))).toBe(false)
 }, 20_000)
 
-it("STO-81 STO-201 CLI-130 chad db query prints at most 200 rows, or as many as --limit gives, says on stderr when the statement had more, and takes no --limit below 1", async () => {
+it("chad db query prints at most 200 rows, or as many as --limit gives, says on stderr when the statement had more, and takes no --limit below 1", async () => {
   const data = volume(numbered(250))
   const lines = (stdout: string) => stdout.split("\n").slice(1, -1)
   const all = "SELECT n FROM numbers ORDER BY n"
@@ -173,7 +173,7 @@ const mixed = `
     ('', 7, NULL)
 `
 
-it("STO-172 STO-173 STO-200 without --json chad db query prints a header line and one line for each row, with tabs between the values, and a tab, a newline and a backslash escaped so that a row is one line", async () => {
+it("without --json chad db query prints a header line and one line for each row, with tabs between the values, and a tab, a newline and a backslash escaped so that a row is one line", async () => {
   const data = volume(mixed)
   expect(await db(data, "query", "SELECT * FROM mixed ORDER BY rowid")).toEqual(
     {
@@ -195,7 +195,7 @@ it("STO-172 STO-173 STO-200 without --json chad db query prints a header line an
   ).toBe("number\n")
 })
 
-it("STO-81 CLI-46e STO-199 with --json chad db query prints one line that holds an array with an object for each row, keyed by column name", async () => {
+it("with --json chad db query prints one line that holds an array with an object for each row, keyed by column name", async () => {
   const data = volume(mixed)
   const ran = await db(
     data,
@@ -217,7 +217,7 @@ it("STO-81 CLI-46e STO-199 with --json chad db query prints one line that holds 
   )
 })
 
-it("STO-203 chad db query runs the first statement of its argument and ignores what follows it", async () => {
+it("chad db query runs the first statement of its argument and ignores what follows it", async () => {
   const data = volume(numbered(2))
   expect(
     await db(data, "query", "SELECT 1 AS first; DELETE FROM numbers; SELECT 2"),

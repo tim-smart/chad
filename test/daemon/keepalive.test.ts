@@ -11,7 +11,7 @@ const background = (seconds: number) =>
   )
 
 test(
-  "SES-93 SES-94 SES-169 SES-193 TST-212 when cluster takes the idle sessions out of memory it leaves a session whose background task still runs and one whose turn is in flight, the row lists a task while it runs, and a session whose task has ended goes",
+  "when cluster takes the idle sessions out of memory it leaves a session whose background task still runs and one whose turn is in flight, the row lists a task while it runs, and a session whose task has ended goes",
   { timeout: 20_000 },
   async () => {
     const running = await scenario({

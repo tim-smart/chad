@@ -51,7 +51,7 @@ const polled = (tables: Array<ReadonlyArray<Row>>) => {
 }
 
 describe("the driver's process records", () => {
-  it("TST-87 a process that joined the group of a recorded one is killed after its parent has gone", async () => {
+  it("a process that joined the group of a recorded one is killed after its parent has gone", async () => {
     const { tracked, killed } = watch([
       [daemon, row(200, 100, 200, 1_001)],
       [row(200, 1, 200, 1_001), row(201, 1, 200, 1_002)],
@@ -64,7 +64,7 @@ describe("the driver's process records", () => {
     expect(killed).toEqual([200, 201])
   })
 
-  it("TST-87 a later process with a recorded pid, or in a group whose id a recorded process once had, is never killed", async () => {
+  it("a later process with a recorded pid, or in a group whose id a recorded process once had, is never killed", async () => {
     const { tracked, killed } = watch([
       [daemon, row(200, 100, 200, 1_001)],
       // 200 ended, and the pid and the group id came back to processes that are not the scenario's.
@@ -76,7 +76,7 @@ describe("the driver's process records", () => {
     expect(killed).toEqual([])
   })
 
-  it("TST-87 a root whose handle has ended is not taken for a later process with its pid", async () => {
+  it("a root whose handle has ended is not taken for a later process with its pid", async () => {
     const { tracked, killed } = watch([
       [row(100, 1, 100, 9_000), row(400, 100, 400, 9_001)],
     ])
@@ -86,7 +86,7 @@ describe("the driver's process records", () => {
     expect(killed).toEqual([])
   })
 
-  it("TST-87 a look waits for the poll's read in flight, so a table sampled before it never retires a process the look recorded", async () => {
+  it("a look waits for the poll's read in flight, so a table sampled before it never retires a process the look recorded", async () => {
     const { tracked, pending, killed } = polled([
       // The look sees the child, after the poll's table that does not.
       [daemon, row(200, 100, 200, 1_001)],
@@ -104,7 +104,7 @@ describe("the driver's process records", () => {
     expect(killed).toEqual([200])
   })
 
-  it("TST-87 a child that only the poll's read in flight saw under its daemon is recorded before the look reads the table", async () => {
+  it("a child that only the poll's read in flight saw under its daemon is recorded before the look reads the table", async () => {
     const { tracked, pending, killed } = polled([
       // By the look the child has left the daemon's group and is init's.
       [daemon, row(300, 1, 300, 1_002)],
@@ -121,7 +121,7 @@ describe("the driver's process records", () => {
     expect(killed).toEqual([300])
   })
 
-  it("TST-87 a recorded child that a newer look saw end is not brought back by an older table, so a later process with its pid in the same second is never killed", async () => {
+  it("a recorded child that a newer look saw end is not brought back by an older table, so a later process with its pid in the same second is never killed", async () => {
     const { tracked, pending, killed } = polled([
       [daemon, row(200, 100, 200, 1_001)],
       // The child ended.
@@ -140,7 +140,7 @@ describe("the driver's process records", () => {
     expect(killed).toEqual([])
   })
 
-  it("TST-87 the reap takes the poll's read in flight before it reads the table, so a child that read saw under its daemon is killed after the daemon has gone", async () => {
+  it("the reap takes the poll's read in flight before it reads the table, so a child that read saw under its daemon is killed after the daemon has gone", async () => {
     let up = true
     const { tracked, pending, killed } = polled([
       [daemon],
@@ -162,7 +162,7 @@ describe("the driver's process records", () => {
     expect(killed).toEqual([300])
   })
 
-  it("TST-87 a poll's read that fails while the reap waits for it is reported, and the reap still kills what was recorded", async () => {
+  it("a poll's read that fails while the reap waits for it is reported, and the reap still kills what was recorded", async () => {
     const { tracked, pending, killed } = polled([
       [daemon, row(200, 100, 200, 1_001)],
       [row(200, 1, 200, 1_001)],
@@ -178,7 +178,7 @@ describe("the driver's process records", () => {
     expect(killed).toEqual([200])
   })
 
-  it("TST-87 a look that fails is not thrown at the caller, and the reap reports it", async () => {
+  it("a look that fails is not thrown at the caller, and the reap reports it", async () => {
     const { tracked } = watch([new Error("ps exited with 2")])
     tracked.root(100, () => true)
     expect(() => tracked.look()).not.toThrow()

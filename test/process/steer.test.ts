@@ -1,5 +1,5 @@
-// A kill on each side of the steer commit (docs/spec/03-sessions-and-turns.md, SES-157 and SES-160): the transaction
-// that stores the batch of steering messages in the history together with their steers rows.
+// A kill on each side of the steer commit: the transaction that stores the batch of steering messages in the history
+// together with their steers rows.
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
 import { runs } from "../support/model.ts"
@@ -27,7 +27,7 @@ const users = (call: { readonly body: unknown } | undefined) =>
 const steered = (running: Process) =>
   running.log().filter((line) => line.annotations["event"] === "turn.steered")
 
-test("SES-160 TST-183 SES-47 SES-200 a kill before the steer commit leaves the message unrecorded, and after the restart the redelivered message steers the resumed turn and is in the history once", async () => {
+test("a kill before the steer commit leaves the message unrecorded, and after the restart the redelivered message steers the resumed turn and is in the history once", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([
@@ -62,7 +62,7 @@ test("SES-160 TST-183 SES-47 SES-200 a kill before the steer commit leaves the m
   ])
 }, 20_000)
 
-test("SES-160 TST-183 SES-158 SES-47 a kill after the steer commit leaves the message recorded, and after the restart the message does not steer again and is in the history once", async () => {
+test("a kill after the steer commit leaves the message recorded, and after the restart the message does not steer again and is in the history once", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([

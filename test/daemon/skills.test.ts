@@ -1,7 +1,7 @@
 // Skills as the owner and the agent reach them: `skills/<name>/SKILL.md` reaches a session's prompt and `readSkill` once
 // it is applied, a repo skill hides a bundled one of the same name, safe mode lists the bundled ones alone, a boot
-// skips a malformed skill, and a bundled skill that changed under a repo skill is announced once
-// (docs/spec/12-skills-and-mcp.md, 14-self-edit-skill.md). The last test holds clanka's own walk.
+// skips a malformed skill, and a bundled skill that changed under a repo skill is announced once.
+// The last test covers clanka's own walk.
 import {
   mkdirSync,
   readFileSync,
@@ -106,7 +106,7 @@ const skillNotices = (running: Scenario) =>
     "SELECT key, text FROM notices WHERE key LIKE 'skill-%' ORDER BY key",
   )
 
-test("REC-11 MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-13 MCP-14 MCP-16 MCP-17 MCP-18 MCP-102 MCP-103 MCP-104 MCP-105 MCP-106 MCP-107 MCP-145 MCP-146 MCP-147 SELF-55 SELF-56 SELF-57 SELF-59 SELF-60 SELF-61 SELF-117 SELF-119 SELF-120 SELF-121 SELF-139 REC-47 REC-51 SWAP-9 LOAD-87 CLI-67 CLI-68 CLI-70 CLI-75 CLI-84 CLI-85 CLI-156 FAIL-166 FAIL-234 FAIL-167 TST-217 an applied skill reaches the next turn's prompt and readSkill, hides a bundled one, leaves safe mode, and a boot skips a malformed one and announces a changed bundled skill once", async () => {
+test("an applied skill reaches the next turn's prompt and readSkill, hides a bundled one, leaves safe mode, and a boot skips a malformed one and announces a changed bundled skill once", async () => {
   const bundled = join(fresh(), "bundled")
   write(bundled, {
     "alpha/SKILL.md": skill("alpha", "Bundled alpha.", "alpha body"),
@@ -170,7 +170,7 @@ test("REC-11 MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-
     "skills/raw/SKILL.md": "no front matter\n",
   })
   // A SKILL.md that resolves outside the applied tree, by its own link or a linked directory, is refused, so editing
-  // its target without an apply never reaches a session (MCP-1, MCP-2, REC-11).
+  // its target without an apply never reaches a session.
   const outside = join(first.directory, "outside")
   mkdirSync(outside, { recursive: true })
   writeFileSync(
@@ -181,7 +181,7 @@ test("REC-11 MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-
   symlinkSync(join(outside, "SKILL.md"), join(work, "skills/linked/SKILL.md"))
   symlinkSync(outside, join(work, "skills/linkdir"))
   // The model reads a skill's other files through repo/live, so a link among them is held to the same tree. One that
-  // stays inside the skill is kept (MCP-149).
+  // stays inside the skill is kept.
   writeFileSync(join(outside, "extra.md"), "unapplied extra")
   write(work, { "skills/aux/SKILL.md": skill("aux", "Aux.", "aux body") })
   mkdirSync(join(work, "skills/aux/refs"), { recursive: true })
@@ -323,7 +323,7 @@ test("REC-11 MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-
   expect(await third.stop()).toBe(0)
 })
 
-test("MCP-132 MCP-133 OV-36 SWAP-149 with a list of skills passed, clanka's walk from a directory outside the session's shows the AGENTS.md files and skills up to the git root, the outermost first, and nothing above it", async () => {
+test("with a list of skills passed, clanka's walk from a directory outside the session's shows the AGENTS.md files and skills up to the git root, the outermost first, and nothing above it", async () => {
   const bundled = join(fresh(), "bundled")
   write(bundled, {
     "alpha/SKILL.md": skill("alpha", "Bundled alpha.", "alpha body"),

@@ -1,5 +1,5 @@
-// The one file of the repository that the image layer's second container is given (docs/spec/17-testing.md, TST-58):
-// its entry in test support with everything the entry imports, the built package and effect included.
+// The one file of the repository that the image layer's second container is given: its entry in test support with
+// everything the entry imports, the built package and effect included.
 import { build } from "esbuild"
 import { path } from "./repo.ts"
 

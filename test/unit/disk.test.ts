@@ -3,7 +3,7 @@ import { expect, test } from "vitest"
 import * as Disk from "../../dist/daemon/Disk.js"
 import * as Notices from "../../dist/daemon/Notices.js"
 
-test("STO-115 FAIL-134 the free space check raises disk-low below 1 GB, clears it at 1 GB or more, and changes nothing when it cannot read", async () => {
+test("the free space check raises disk-low below 1 GB, clears it at 1 GB or more, and changes nothing when it cannot read", async () => {
   const seen: Array<string> = []
   const condition: Disk.Condition = {
     raise: (notice) =>

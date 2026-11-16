@@ -1,4 +1,4 @@
-// The Discord wire slice: the daemon with the product's Discord adapter, dfx's own shard and effect's dispatch hook,
+// The Discord wire: the daemon with the product's Discord adapter, dfx's own shard and effect's dispatch hook,
 // over a gateway socket the scenario scripts and a fake Discord REST server.
 import { Effect, Layer } from "effect"
 import { Chat } from "effect/chat"
@@ -62,7 +62,7 @@ const shards = (chad: Scenario) =>
     "SELECT id, CAST(value AS TEXT) AS value FROM core_discord_shards ORDER BY id",
   ).map((row) => [row["id"], JSON.parse(String(row["value"]))])
 
-test("TST-60a OV-45 DIS-1 DIS-8 DIS-15 DIS-86 a DM over the scripted gateway runs a turn, and the answer goes out through Discord's REST", async () => {
+test("a DM over the scripted gateway runs a turn, and the answer goes out through Discord's REST", async () => {
   const chad = await scenario({ connections: [home] })
   await chad.fakes.model.script([{ text: "scripted answer" }])
   const { socket, identified } = await identify(chad)
@@ -98,7 +98,7 @@ test("TST-60a OV-45 DIS-1 DIS-8 DIS-15 DIS-86 a DM over the scripted gateway run
   ).toEqual([])
 })
 
-test("DIS-55 DIS-52 DIS-100 in a server thread the answer replies to the owner's message with the reply ping on, pings nobody else, and lets Discord post it plain if that message is gone", async () => {
+test("in a server thread the answer replies to the owner's message with the reply ping on, pings nobody else, and lets Discord post it plain if that message is gone", async () => {
   const thread = "810000000000000002"
   const chad = await scenario({ connections: [home] })
   chad.discord.rest.channel(thread, 11)
@@ -125,7 +125,7 @@ test("DIS-55 DIS-52 DIS-100 in a server thread the answer replies to the owner's
   ])
 })
 
-test("STO-35 STO-147 STO-148 SES-30a SES-185 TST-61b each connection answers with its own token and keeps its shard state in a row of core_discord_shards under its name, and a restart on the volume resumes with it", async () => {
+test("each connection answers with its own token and keeps its shard state in a row of core_discord_shards under its name, and a restart on the volume resumes with it", async () => {
   const work: Connection = { ...home, name: "work", token: "work-token" }
   const first = await scenario({ connections: [home, work] })
   await first.fakes.model.script([{ text: "one" }, { text: "two" }])
@@ -190,7 +190,7 @@ test("STO-35 STO-147 STO-148 SES-30a SES-185 TST-61b each connection answers wit
   }
 })
 
-test("OV-39 SES-30a SES-32 SES-128 TST-61d a save that fails refuses the event, and dfx resumes in the same process and replays it", async () => {
+test("a save that fails refuses the event, and dfx resumes in the same process and replays it", async () => {
   const chad = await scenario({ connections: [home] })
   await chad.fakes.model.script([{ text: "after the replay" }])
   const { socket } = await identify(chad)
@@ -224,7 +224,7 @@ test("OV-39 SES-30a SES-32 SES-128 TST-61d a save that fails refuses the event, 
   expect(await chad.fakes.model.calls()).toHaveLength(1)
 })
 
-test("OV-39 TST-61d an event that Discord sends a second time starts no second turn", async () => {
+test("an event that Discord sends a second time starts no second turn", async () => {
   const chad = await scenario({ connections: [home] })
   await chad.fakes.model.script([{ text: "first" }, { text: "second" }])
   const { socket } = await identify(chad)
@@ -244,7 +244,7 @@ test("OV-39 TST-61d an event that Discord sends a second time starts no second t
   ).toHaveLength(2)
 })
 
-test("TST-61a Discord's side marks chad's own message, a bot, a webhook and a mention, and the request carries the marks", async () => {
+test("Discord's side marks chad's own message, a bot, a webhook and a mention, and the request carries the marks", async () => {
   const webhook = "700000000000000009"
   const thread = "810000000000000001"
   // The drop of chad's own message is a debug line.
@@ -291,7 +291,7 @@ test("TST-61a Discord's side marks chad's own message, a bot, a webhook and a me
   ])
 })
 
-test("TST-66 DIS-10 a DM from someone who is not an owner starts no turn over the gateway, and neither does an edit or a deletion", async () => {
+test("a DM from someone who is not an owner starts no turn over the gateway, and neither does an edit or a deletion", async () => {
   const chad = await scenario({ connections: [home] })
   await chad.fakes.model.script([{ text: "to the owner" }, { text: "again" }])
   const { socket } = await identify(chad)
@@ -333,7 +333,7 @@ test("TST-66 DIS-10 a DM from someone who is not an owner starts no turn over th
   ).toHaveLength(2)
 })
 
-test("SES-38 a resume that Discord turns down ends in a fresh identify, and chat.connected tells the two apart", async () => {
+test("a resume that Discord turns down ends in a fresh identify, and chat.connected tells the two apart", async () => {
   const first = await scenario({ connections: [home] })
   await first.fakes.model.script([{ text: "one" }])
   const { socket } = await identify(first)
@@ -369,7 +369,7 @@ test("SES-38 a resume that Discord turns down ends in a fresh identify, and chat
   ])
 })
 
-test("TST-198 CLI-206 a bot that is removed and another that is added under the same name while no daemon runs starts with the old bot's stored resume state, Discord turns the resume down, and dfx identifies again", async () => {
+test("a bot that is removed and another that is added under the same name while no daemon runs starts with the old bot's stored resume state, Discord turns the resume down, and dfx identifies again", async () => {
   const first = await scenario({ connections: [home] })
   await first.fakes.model.script([{ text: "one" }])
   const { socket } = await identify(first)
@@ -416,7 +416,7 @@ test("TST-198 CLI-206 a bot that is removed and another that is added under the 
   expect(identified).toMatchObject({ token: "other-token" })
 })
 
-test("CLI-190 CLI-207 STO-149 STO-198 the running daemon deletes a removed connection's shard state at once and leaves the rows of a connection whose name only begins with the same letters, a removal made with no daemon leaves the rows, and the next boot deletes those of every connection that is no longer stored", async () => {
+test("the running daemon deletes a removed connection's shard state at once and leaves the rows of a connection whose name only begins with the same letters, a removal made with no daemon leaves the rows, and the next boot deletes those of every connection that is no longer stored", async () => {
   // The second name begins with the first, so only the separator tells their rows apart.
   const home2: Connection = { ...home, name: "home2", token: "home2-token" }
   const first = await scenario({ connections: [home, home2] })
@@ -476,7 +476,7 @@ test("CLI-190 CLI-207 STO-149 STO-198 the running daemon deletes a removed conne
   expect(keys(third)).toEqual([])
 })
 
-test("DIS-110 DIS-115 FAIL-298 FAIL-299 FAIL-300 FAIL-323 TST-196 chad logs the gateway session coming up, each close with its code, and the close that is for good, after which that connection dials no more and the daemon carries on", async () => {
+test("chad logs the gateway session coming up, each close with its code, and the close that is for good, after which that connection dials no more and the daemon carries on", async () => {
   const work: Connection = { ...home, name: "work", token: "work-token" }
   const chad = await scenario({
     connections: [
@@ -547,7 +547,7 @@ test("DIS-110 DIS-115 FAIL-298 FAIL-299 FAIL-300 FAIL-323 TST-196 chad logs the 
   expect(stopped).toEqual(["work"])
 })
 
-test("SES-4a TST-61e startThread is get-or-create on Discord's REST: the second call for one message gives the thread of the first", async () => {
+test("startThread is get-or-create on Discord's REST: the second call for one message gives the thread of the first", async () => {
   const rest = await Discord.rest()
   try {
     const channel = "820000000000000001"

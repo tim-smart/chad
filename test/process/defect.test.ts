@@ -1,12 +1,12 @@
-// A defect that escapes a request's handler, in layer 4 (docs/spec/03-sessions-and-turns.md, SES-20). A regular file
-// where the session's inbox goes makes the save of a steering message's attachment die, outside the turn.
+// A defect that escapes a request's handler, in layer 4. A regular file where the session's inbox goes makes the save
+// of a steering message's attachment die, outside the turn.
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, test } from "vitest"
 import { eventually, posted, rows, says } from "../support/owner.ts"
 import { alive, daemon } from "../support/process.ts"
 
-test("SES-20 a defect in the handler of a steering message fails that request alone: the activation and its background process stay, the next message is answered by it, and the request is not delivered again after a restart", async () => {
+test("a defect in the handler of a steering message fails that request alone: the activation and its background process stay, the next message is answered by it, and the request is not delivered again after a restart", async () => {
   const running = await daemon()
   const { fakes } = running
   const pidFile = join(running.directory, "background.pid")

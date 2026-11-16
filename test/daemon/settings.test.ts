@@ -78,7 +78,7 @@ const call = async (
 const chadJson = (plugins: object) =>
   JSON.stringify({ plugins }, null, 2) + "\n"
 
-test("SET-11 SET-12 SET-14 SET-19 SET-20 SET-21 SET-22 SET-23 SET-35 SET-62 SET-63 SET-66 SET-70 SET-72 SET-83 SET-94 SET-100 API-25 API-26 API-27 LOAD-50 LOAD-52 LOAD-88 SWAP-41 CLI-67 CLI-88 CLI-172 CLI-84 CLI-85 CLI-86 CLI-87 CLI-156 CLI-163 CLI-164 SELF-47 SELF-48 SELF-49 SELF-51 SELF-52 SELF-54 SELF-110 SET-54 a bundled plugin's settings expand from the secret store and process env, are listed with no value, rebuild it only when they change, and turn it off, and chad plugin new writes a starter that a check passes, an apply refuses until its tool is described, and then loads with its setting", async () => {
+test("a bundled plugin's settings expand from the secret store and process env, are listed with no value, rebuild it only when they change, and turn it off, and chad plugin new writes a starter that a check passes, an apply refuses until its tool is described, and then loads with its setting", async () => {
   const { state, plugin } = probe()
   process.env["PROBE_HOST"] = "envhost"
   onTestFinished(() => {
@@ -262,7 +262,7 @@ test("SET-11 SET-12 SET-14 SET-19 SET-20 SET-21 SET-22 SET-23 SET-35 SET-62 SET-
   ).toBe("Hi, Ada")
 }, 30_000)
 
-test("SET-44 SET-46 SET-47 SET-48 SET-86 REC-52 REC-53 REC-63 SWAP-58 CLI-72 LOAD-63 in safe mode the bundled plugins build on their defaults, one the applied chad.json turns off stays off, and an apply that flips it takes effect at once", async () => {
+test("in safe mode the bundled plugins build on their defaults, one the applied chad.json turns off stays off, and an apply that flips it takes effect at once", async () => {
   // A previous boot's repo must work without a developer's global Git identity, as on the gate.
   vi.stubEnv("GIT_CONFIG_GLOBAL", "/dev/null")
   vi.stubEnv("GIT_CONFIG_NOSYSTEM", "1")
@@ -317,7 +317,7 @@ test("SET-44 SET-46 SET-47 SET-48 SET-86 REC-52 REC-53 REC-63 SWAP-58 CLI-72 LOA
   expect((await status()).plugins.map(({ name }) => name)).toEqual(names.sort())
 })
 
-test("SET-57 SET-58 SET-59 SET-60 SET-90 SET-97 REC-43 REC-46 FAIL-164 FAIL-236 FAIL-270 FAIL-271 a boot uses what fits in the applied chad.json, skips the plugin whose name resolves nowhere, and lists what it ignored under Problems", async () => {
+test("a boot uses what fits in the applied chad.json, skips the plugin whose name resolves nowhere, and lists what it ignored under Problems", async () => {
   const one = probe()
   const two = probe()
   const directory = fresh()

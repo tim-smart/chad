@@ -119,7 +119,7 @@ const ran = (chad: Scenario) =>
         : { reason: annotations["reason"] }),
     }))
 
-test("STO-9 STO-10 STO-137 STO-138 STO-139 IMG-34 IMG-122 REC-92 CLI-30a CLI-31a CLI-35a CLI-116 CLI-188 CLI-225 CLI-226 CLI-231 CLI-232 with no daemon the connection and owner commands write secrets/connections.json themselves, before any daemon or database exists: a format number and a list that holds two bots of one platform and a local connection with no token", async () => {
+test("with no daemon the connection and owner commands write secrets/connections.json themselves, before any daemon or database exists: a format number and a list that holds two bots of one platform and a local connection with no token", async () => {
   const { directory, data, rest, chad, cli } = await volume()
   const umask = process.umask()
 
@@ -212,7 +212,7 @@ test("STO-9 STO-10 STO-137 STO-138 STO-139 IMG-34 IMG-122 REC-92 CLI-30a CLI-31a
   expect(existsSync(join(data, "run"))).toBe(false)
 })
 
-test("STO-28a CLI-33 CLI-221 the CLI holds no lock while it waits, takes it for the write, and writes nothing when a daemon took the lock first", async () => {
+test("the CLI holds no lock while it waits, takes it for the write, and writes nothing when a daemon took the lock first", async () => {
   const { directory, data, rest, lock, chad, cli } = await volume()
   expect((await chad(["connection", "add", "local"])).code).toBe(0)
   const before = stored(data)
@@ -242,7 +242,7 @@ test("STO-28a CLI-33 CLI-221 the CLI holds no lock while it waits, takes it for 
   expect(stored(data).connections).toHaveLength(2)
 })
 
-test("STO-49 CLI-23b CLI-220 with no daemon, a CLI that is older than the version in state/version refuses to write with exit 1 and still reads, and it looks again once it holds the lock", async () => {
+test("with no daemon, a CLI that is older than the version in state/version refuses to write with exit 1 and still reads, and it looks again once it holds the lock", async () => {
   const { directory, data, rest, chad, cli } = await volume()
   expect((await chad(["connection", "add", "local"])).code).toBe(0)
   mkdirSync(join(data, "state"), { recursive: true })
@@ -290,7 +290,7 @@ test("STO-49 CLI-23b CLI-220 with no daemon, a CLI that is older than the versio
   expect(stored(data)).toEqual(waiting)
 })
 
-test("STO-197 a connections file with a higher format number is refused with exit 1 by every command that reads or writes it, chad status says so and keeps its own exit code, and chad serve refuses the boot", async () => {
+test("a connections file with a higher format number is refused with exit 1 by every command that reads or writes it, chad status says so and keeps its own exit code, and chad serve refuses the boot", async () => {
   const directory = fresh()
   const data = join(directory, "data")
   mkdirSync(join(data, "secrets"), { recursive: true })
@@ -319,7 +319,7 @@ test("STO-197 a connections file with a higher format number is refused with exi
   expect(readFileSync(file, "utf8")).toBe(newer)
 })
 
-test("REC-96a CLI-48 CLI-56 CLI-57a CLI-58a CLI-61 CLI-217 with CHAD_SESSION set, whatever its value, the CLI refuses every connection and owner command with exit 3 and a line that names the command and the owner, the other commands stay open, and the same command with the variable unset is accepted", async () => {
+test("with CHAD_SESSION set, whatever its value, the CLI refuses every connection and owner command with exit 3 and a line that names the command and the owner, the other commands stay open, and the same command with the variable unset is accepted", async () => {
   const { data, chad } = await volume()
   const commands = [
     ["connection add", "connection", "add", "local"],
@@ -358,7 +358,7 @@ test("REC-96a CLI-48 CLI-56 CLI-57a CLI-58a CLI-61 CLI-217 with CHAD_SESSION set
   ).toEqual(done([Messages.connectionAdded("local", "local")]))
 })
 
-test("CLI-117 REC-93 IMG-26 a token is never a command argument, and no environment variable supplies one, to the CLI or to the daemon", async () => {
+test("a token is never a command argument, and no environment variable supplies one, to the CLI or to the daemon", async () => {
   const names = ["DISCORD_TOKEN", "DISCORD_BOT_TOKEN", "CHAD_DISCORD_TOKEN"]
   const env = Object.fromEntries(names.map((name) => [name, "env-token"]))
   const running = await scenario({ env })
@@ -384,7 +384,7 @@ test("CLI-117 REC-93 IMG-26 a token is never a command argument, and no environm
   expect(running.discord.rest.calls()).toEqual([])
 })
 
-test("CLI-36 CLI-118 CLI-120a CLI-186 CLI-187 CLI-208 CLI-209 CLI-234 CLI-236 DIS-88 REC-98 TST-186 with the daemon running the daemon checks a token against Discord and swaps that connection's gateway with no restart: a new bot dials in with the intents of the one constant the invite URL is built from, a token Discord refuses leaves the old one in place, and a new token closes the old gateway and opens another", async () => {
+test("with the daemon running the daemon checks a token against Discord and swaps that connection's gateway with no restart: a new bot dials in with the intents of the one constant the invite URL is built from, a token Discord refuses leaves the old one in place, and a new token closes the old gateway and opens another", async () => {
   const chad = await scenario({ connections: [home] })
   const first = await identify(chad, 0, "session-home")
   const checks = () =>
@@ -484,7 +484,7 @@ test("CLI-36 CLI-118 CLI-120a CLI-186 CLI-187 CLI-208 CLI-209 CLI-234 CLI-236 DI
   })
 })
 
-test("CLI-119 CLI-120a CLI-154 CLI-189 CLI-233 REC-99 TST-201 an owner added to a local connection with chad owner add is answered at once, one that is removed is ignored at once, the list is by id with no flag for bots, and the last owner and the last connection go only with --force", async () => {
+test("an owner added to a local connection with chad owner add is answered at once, one that is removed is ignored at once, the list is by id with no flag for bots, and the last owner and the last connection go only with --force", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([{ text: "Hello Grace." }])
@@ -587,7 +587,7 @@ const call = <A>(
     Effect.runPromise,
   )
 
-test("OV-23 CLI-37a CLI-59 CLI-205a CLI-235 FAIL-302a changes that arrive at once go through the daemon's one queue, so none is lost, each leaves a command.ran line with its command, its caller and its outcome, and a call that carries a session id is made and names the session", async () => {
+test("changes that arrive at once go through the daemon's one queue, so none is lost, each leaves a command.ran line with its command, its caller and its outcome, and a call that carries a session id is made and names the session", async () => {
   const running = await scenario()
   await running.logged("boot.ready")
   const ids = Array.from({ length: 8 }, (_, index) => `friend-${index}`)
@@ -642,7 +642,7 @@ test("OV-23 CLI-37a CLI-59 CLI-205a CLI-235 FAIL-302a changes that arrive at onc
   expect(ran(running)).toHaveLength(ids.length + 3)
 })
 
-test("CLI-118 CLI-37a CLI-20b the daemon asks Discord about a token before the change takes its place in the queue, so another change is made while Discord is slow, and neither the command.ran line nor any answer of the daemon holds a token", async () => {
+test("the daemon asks Discord about a token before the change takes its place in the queue, so another change is made while Discord is slow, and neither the command.ran line nor any answer of the daemon holds a token", async () => {
   const chad = await scenario({ connections: [home] })
   await identify(chad, 0, "session-home")
   const release = chad.discord.rest.hold("slow-token")
@@ -665,7 +665,7 @@ test("CLI-118 CLI-37a CLI-20b the daemon asks Discord about a token before the c
     "connection add",
   ])
 
-  // What the daemon wrote on its socket for every call this part adds, as the bytes a client reads.
+  // What the daemon wrote on its socket for the status and connection calls, as the bytes a client reads.
   const bytes = await new Promise<string>((resolve, reject) => {
     const socket = createConnection(join(chad.data, "run/chad.sock"))
     let read = ""
@@ -709,7 +709,7 @@ test("CLI-118 CLI-37a CLI-20b the daemon asks Discord about a token before the c
   }
 })
 
-test("CLI-227 CLI-228 OV-5 TST-48 CLI-151 chad connection check asks Discord about each stored token and tries run/local.sock for the local connection, which is what chad connection add local makes and where the daemon's adapter dials: one line for each connection, no token, and exit 1 when one fails", async () => {
+test("chad connection check asks Discord about each stored token and tries run/local.sock for the local connection, which is what chad connection add local makes and where the daemon's adapter dials: one line for each connection, no token, and exit 1 when one fails", async () => {
   const { directory, rest, data, chad, cli } = await volume()
   expect(await chad(["connection", "check"])).toEqual(
     done([Messages.noConnections()]),
@@ -778,7 +778,7 @@ test("CLI-227 CLI-228 OV-5 TST-48 CLI-151 chad connection check asks Discord abo
   )
 })
 
-test("CLI-229 a connection command that reaches the daemon while it still boots waits for the boot, and is made when the connections have loaded", async () => {
+test("a connection command that reaches the daemon while it still boots waits for the boot, and is made when the connections have loaded", async () => {
   let loaded = () => {}
   const running = await scenario({
     loading: new Promise<void>((resolve) => (loaded = resolve)),

@@ -69,7 +69,7 @@ const stored = (running: Scenario, session: unknown) =>
         : message.content.map((part: { text?: string }) => part.text).join(""),
     )
 
-test("SES-18 SES-19 SES-45 SES-47 SES-156 SES-157 SES-176 SES-177 SES-178 SES-179 STO-166 STO-167 STO-189 FAIL-252 two messages sent during a turn join it as one batch, each gets a steers row and a turn.steered line before it is answered Steered, and the session never has a second send", async () => {
+test("two messages sent during a turn join it as one batch, each gets a steers row and a turn.steered line before it is answered Steered, and the session never has a second send", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -135,7 +135,7 @@ test("SES-18 SES-19 SES-45 SES-47 SES-156 SES-157 SES-176 SES-177 SES-178 SES-17
   expect(await posted(running, thread)).toEqual(["done"])
 })
 
-test("SES-46 SES-155 a message that arrives when the turn's model part is over starts the next turn by the same request, and its image goes to the model as on a first message", async () => {
+test("a message that arrives when the turn's model part is over starts the next turn by the same request, and its image goes to the model as on a first message", async () => {
   const running = await scenario()
   const { fakes, chat } = running
   await fakes.model.script([{ text: "one", hold: true }, { text: "two" }])
@@ -186,7 +186,7 @@ test("SES-46 SES-155 a message that arrives when the turn's model part is over s
   ).toBe(false)
 })
 
-test("SES-64 SES-69a SES-70 SES-73 SES-76 DIS-59 FAIL-69 /stop interrupts the turn, which ends as Stopped with its notice and no failure, the message that waited to steer it is Dropped, and the session takes the next turn with its history", async () => {
+test("/stop interrupts the turn, which ends as Stopped with its notice and no failure, the message that waited to steer it is Dropped, and the session takes the next turn with its history", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -236,7 +236,7 @@ test("SES-64 SES-69a SES-70 SES-73 SES-76 DIS-59 FAIL-69 /stop interrupts the tu
   expect(sessions(running)).toHaveLength(1)
 })
 
-test("SES-9 SES-10 SES-77 SES-138 SES-139 STO-63 STO-64 SES-171 SES-172 CLI-205b FAIL-302b CLI-238 /new ends the session's row and starts a new session in the thread with its own id and directory, the next message runs in it, and the command leaves a command.ran line", async () => {
+test("/new ends the session's row and starts a new session in the thread with its own id and directory, the next message runs in it, and the command leaves a command.ran line", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([{ text: "one" }, { text: "two" }])
@@ -309,7 +309,7 @@ test("SES-9 SES-10 SES-77 SES-138 SES-139 STO-63 STO-64 SES-171 SES-172 CLI-205b
   ).toHaveLength(1)
 })
 
-test("SES-78 SES-140 DIS-103 /new during a turn stops it first, posts the stopped notice and then its own, drops the message that waited to steer, and stops the old session's background processes", async () => {
+test("/new during a turn stops it first, posts the stopped notice and then its own, drops the message that waited to steer, and stops the old session's background processes", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -359,7 +359,7 @@ test("SES-78 SES-140 DIS-103 /new during a turn stops it first, posts the stoppe
   expect(sessions(running)).toHaveLength(2)
 })
 
-test("SES-51 SWAP-110 a turn stays open while a background sub-agent runs after the model has answered, and a message sent meanwhile steers that turn", async () => {
+test("a turn stays open while a background sub-agent runs after the model has answered, and a message sent meanwhile steers that turn", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -405,7 +405,7 @@ test("SES-51 SWAP-110 a turn stays open while a background sub-agent runs after 
   expect(rows(running, "SELECT 1 FROM turns")).toHaveLength(1)
 })
 
-test("SES-134 SES-195 SES-197 a stop whose reconcile writes a lost row of an earlier turn again does not take that row for a steer the Agent never read, though their text is the same", async () => {
+test("a stop whose reconcile writes a lost row of an earlier turn again does not take that row for a steer the Agent never read, though their text is the same", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -447,7 +447,7 @@ test("SES-134 SES-195 SES-197 a stop whose reconcile writes a lost row of an ear
   expect(stored(running, session?.["id"])).toEqual(["same text", "more"])
 })
 
-test("SES-171 SES-172 SES-196 a message handled while /new is finishing, with the same time as the command, is the new session's mark, because two messages of one time are ordered by their ids", async () => {
+test("a message handled while /new is finishing, with the same time as the command, is the new session's mark, because two messages of one time are ordered by their ids", async () => {
   const running = await scenario()
   const { fakes, chat } = running
   await fakes.model.script([{ text: "one", hold: true }, { text: "two" }])

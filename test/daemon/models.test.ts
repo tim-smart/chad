@@ -21,7 +21,7 @@ const ask = async (
 /** The mode bits of a file. */
 const mode = (path: string) => statSync(path).mode & 0o777
 
-test("SES-56 SES-96b MOD-2 MOD-27 MOD-29 MOD-31 MOD-32 MOD-66 MOD-67 MOD-68 MOD-111 TST-37 TST-38 a Codex turn refreshes the stored token first, the token file and its directory are private after it, the session's id is its prompt_cache_key and its session-id header, and no token reaches the log or status", async () => {
+test("a Codex turn refreshes the stored token first, the token file and its directory are private after it, the session's id is its prompt_cache_key and its session-id header, and no token reaches the log or status", async () => {
   const running = await scenario({
     codex: "expired",
     env: {
@@ -76,7 +76,7 @@ test("SES-56 SES-96b MOD-2 MOD-27 MOD-29 MOD-31 MOD-32 MOD-66 MOD-67 MOD-68 MOD-
   }
 })
 
-test("MOD-11 MOD-11b STO-142 a restart runs the model stored in state/model over CHAD_MODEL", async () => {
+test("a restart runs the model stored in state/model over CHAD_MODEL", async () => {
   const first = await scenario()
   await first.stop()
   const state = join(first.data, "state")
@@ -96,7 +96,7 @@ test("MOD-11 MOD-11b STO-142 a restart runs the model stored in state/model over
   expect(turn?.["model"]).toBe("openai-compat/stored")
 })
 
-test("MOD-95 MOD-127 on Discord the check at start waits for the gateway session, and sends its request once READY has come", async () => {
+test("on Discord the check at start waits for the gateway session, and sends its request once READY has come", async () => {
   const running = await scenario({
     connections: [
       {

@@ -64,7 +64,7 @@ const ask = async (running: Scenario, thread: Parameters<typeof says>[1]) => {
   return results((await running.fakes.model.calls())[1]).at(-1) ?? ""
 }
 
-test("IMG-27 IMG-28 CLI-54 CLI-113 CLI-114 CLI-182 CLI-183 CLI-184 API-17 LOAD-15 LOAD-51 SWAP-39 SWAP-96 SWAP-97 FAIL-176 FAIL-238 CLI-150 REC-108 a timezone the agent sets is stored, reaches the plugins and the session's processes, and posts a line in the session; a plugin that cannot rebuild keeps its old version, the command exits 1 and status marks it; a zone that is no named zone exits 2 and changes nothing", async () => {
+test("a timezone the agent sets is stored, reaches the plugins and the session's processes, and posts a line in the session; a plugin that cannot rebuild keeps its old version, the command exits 1 and status marks it; a zone that is no named zone exits 2 and changes nothing", async () => {
   const running = await scenario({
     plugins: [
       { name: "clock", plugin: clock },
@@ -126,7 +126,7 @@ test("IMG-27 IMG-28 CLI-54 CLI-113 CLI-114 CLI-182 CLI-183 CLI-184 API-17 LOAD-1
   expect(await ask(running, thread)).toContain("Asia/Tokyo Asia/Tokyo")
 }, 30_000)
 
-test("IMG-27 IMG-138 STO-16 STO-144 CLI-35b CLI-113 CLI-185 with no daemon chad timezone writes state/timezone itself, and a TZ that names no zone falls through to UTC and is named", async () => {
+test("with no daemon chad timezone writes state/timezone itself, and a TZ that names no zone falls through to UTC and is named", async () => {
   const data = join(fresh(), "data")
   mkdirSync(data, { recursive: true })
   const chad = (args: ReadonlyArray<string>, TZ: string) =>

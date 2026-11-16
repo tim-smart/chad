@@ -24,7 +24,7 @@ const mentioned = (text: string) => ({
   ],
 })
 
-it("SES-34 SES-145 SES-146 a chat command is the first word of the trimmed message once the mention of chad is taken out, in any case and with any text after it, and nothing else is one", () => {
+it("a chat command is the first word of the trimmed message once the mention of chad is taken out, in any case and with any text after it, and nothing else is one", () => {
   const plain = (text: string) => Handler.command({ text, mentions: [] })
   expect(plain("/new")).toBe("new")
   expect(plain("  /STOP please, now")).toBe("stop")
@@ -53,7 +53,7 @@ it("SES-34 SES-145 SES-146 a chat command is the first word of the trimmed messa
   ).toBeUndefined()
 })
 
-it("STO-204 an inbox file is named by the message's id and the file's own name, with every character that is not a letter, a digit, a dot, an underscore or a hyphen as an underscore, no leading dots, and file for a name with nothing left", () => {
+it("an inbox file is named by the message's id and the file's own name, with every character that is not a letter, a digit, a dot, an underscore or a hyphen as an underscore, no leading dots, and file for a name with nothing left", () => {
   expect(Attachments.inboxName("m1", "notes.txt")).toBe("m1-notes.txt")
   expect(Attachments.inboxName("m1", "my notes (1)?.txt")).toBe(
     "m1-my_notes__1__.txt",
@@ -68,18 +68,18 @@ it("STO-204 an inbox file is named by the message's id and the file's own name, 
   expect(Attachments.inboxName("a/b", "x")).toBe("a_b-x")
 })
 
-it("STO-206 a turn id is t_ and twelve lowercase hexadecimal digits, and no two are the same", () => {
+it("a turn id is t_ and twelve lowercase hexadecimal digits, and no two are the same", () => {
   const ids = Array.from({ length: 200 }, Sessions.turnId)
   for (const id of ids) expect(id).toMatch(/^t_[0-9a-f]{12}$/)
   expect(new Set(ids).size).toBe(200)
 })
 
-it("SES-191 the image limit is 10 MiB and the file limit 25 MiB", () => {
+it("the image limit is 10 MiB and the file limit 25 MiB", () => {
   expect(Attachments.imageLimit).toBe(10 * 1024 * 1024)
   expect(Attachments.fileLimit).toBe(25 * 1024 * 1024)
 })
 
-it("SES-195 the reconcile gives each outstanding steer, oldest first, the first message it wrote with that text after the message the steer before it took, and a steer with no such message none", () => {
+it("the reconcile gives each outstanding steer, oldest first, the first message it wrote with that text after the message the steer before it took, and a steer with no such message none", () => {
   // Every steer is among what was written, in order.
   expect(Sessions.matched(["a", "b"], ["a", "b"])).toEqual([0, 1])
   // Other messages lie between them, and a message with other content has no text.
@@ -97,7 +97,7 @@ it("SES-195 the reconcile gives each outstanding steer, oldest first, the first 
   expect(Sessions.matched([], ["a"])).toEqual([])
 })
 
-it("DIS-59 DIS-64 DIS-75 DIS-76 DIS-77 SES-186 SES-190 the notices of a session are templates of the Messages module in the spec's wording, as subtext, and the one about a thread is a normal message", () => {
+it("the notices of a session are templates of the Messages module with their fixed wording, as subtext, and the one about a thread is a normal message", () => {
   expect(Messages.stopped(Format.discord, 48_000)).toBe("-# Stopped after 48s.")
   expect(Messages.stopped(Format.discord, 125_400)).toBe(
     "-# Stopped after 2m 5s.",
@@ -121,7 +121,7 @@ it("DIS-59 DIS-64 DIS-75 DIS-76 DIS-77 SES-186 SES-190 the notices of a session 
   )
 })
 
-it("SES-196 a mark is later than another by its time, and at one time by its id: a longer id is later, and ids of one length compare as text", () => {
+it("a mark is later than another by its time, and at one time by its id: a longer id is later, and ids of one length compare as text", () => {
   const at = 1_700_000_000_000
   expect(Sessions.later({ id: "m1", at: at + 1 }, { id: "m9", at })).toBe(true)
   expect(Sessions.later({ id: "m9", at }, { id: "m1", at: at + 1 })).toBe(false)
@@ -138,7 +138,7 @@ it("SES-196 a mark is later than another by its time, and at one time by its id:
   expect(Sessions.later({ id: "m3", at }, { id: "m3", at })).toBe(false)
 })
 
-it("SES-176 the pinned clanka takes the two steers that wait while a model call runs in one step: one HistoryAppended batch of their user messages, in the order of the calls", async () => {
+it("the pinned clanka takes the two steers that wait while a model call runs in one step: one HistoryAppended batch of their user messages, in the order of the calls", async () => {
   const model = await FakeModel.start()
   onTestFinished(() => model.close())
   const directory = mkdtempSync(join(tmpdir(), "steer-"))

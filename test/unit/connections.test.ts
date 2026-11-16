@@ -14,8 +14,7 @@ import * as Token from "../../src/cli/Token.ts"
 import * as Messages from "../../src/Messages.ts"
 import { read } from "../support/repo.ts"
 
-it("CLI-217 CLI-218 CLI-219 CLI-220 CLI-221 CLI-222 CLI-223 CLI-224 CLI-225 CLI-226 CLI-227 CLI-233 STO-197 the lines of the connection and owner commands are templates of the Messages module, in the spec's wording", () => {
-  const spec = read("docs/spec/10-cli.md") + read("docs/spec/02-storage.md")
+it("the lines of the connection and owner commands are templates of the Messages module, with their fixed wording", () => {
   const rejected = (
     reason: Parameters<typeof Messages.connectionRejected>[1]["reason"],
     detail = "",
@@ -70,7 +69,42 @@ it("CLI-217 CLI-218 CLI-219 CLI-220 CLI-221 CLI-222 CLI-223 CLI-224 CLI-225 CLI-
       "<socket>: <error code>",
     ),
   ]
-  for (const template of templates) expect(spec).toContain(template)
+  expect(templates).toEqual([
+    "chad <command>: refused: '<command>' is an owner command and this shell belongs to agent session <session>. Ask the owner to run it.",
+    "chad <command>: the daemon went away during the call",
+    "chad <command>: <data> does not exist. Mount the data volume there or set CHAD_DATA.",
+    "chad <command>: refused: this CLI is chad <cli> and the volume was written by chad <volume>. Use a chad of that version or a newer one.",
+    "chad <command>: a daemon started during the command, run chad <command> again",
+    "chad <command>: cannot read <path> (<error code>)",
+    "chad <command>: <path> is not a connections file",
+    "chad <command>: <path> has format <found> and this chad reads format <known>. Use the chad that wrote it.",
+    "chad <command>: no token was given",
+    "Discord bot token",
+    "chad <command>: '<name>' is not a connection name. A name is made of lower-case letters, digits and hyphens.",
+    "chad <command>: there is already a connection named <name>",
+    "chad <command>: there is already a local connection, <name>, and run/local.sock serves one",
+    "chad <command>: there is no connection named <name>",
+    "chad <command>: <name> is a local connection and has no token",
+    "chad <command>: <name> is the last connection. Pass --force to remove it.",
+    "chad <command>: <id> is the last owner of <name>. Pass --force to remove it.",
+    "chad <command>: Discord refused the token (<status>). Nothing was changed.",
+    "chad <command>: the token could not be checked (<detail>). Nothing was changed.",
+    "connection <name> added (<kind>)",
+    "invite: <url>",
+    "intents: turn on <names> for the bot in the Discord developer portal, because an invite URL cannot grant a privileged intent",
+    "connection <name> has a new token",
+    "connection <name> removed",
+    "owner <id> added to <connection>",
+    "owner <id> removed from <connection>",
+    "owner <id> is already an owner of <connection>",
+    "owner <id> is not an owner of <connection>",
+    "<name> (<kind>) owners: <ids>",
+    "no connections",
+    "<name> (<kind>): ok",
+    "<name> (<kind>): failed: Discord refused the token (<status>)",
+    "<name> (<kind>): failed: the token could not be checked (<detail>)",
+    "<name> (<kind>): failed: nothing accepts a connection on <socket>: <error code>",
+  ])
   // The reasons about the file render as the file's own lines, and the daemon's refusal is the same line.
   expect(
     Messages.connectionRejected("<command>", {
@@ -137,7 +171,7 @@ const typed = (text: string, enter: boolean) => {
   )
 }
 
-it("CLI-186 at a terminal the token is typed at a hidden prompt, which shows the prompt and never what is typed", async () => {
+it("at a terminal the token is typed at a hidden prompt, which shows the prompt and never what is typed", async () => {
   const { token, screen } = await Effect.runPromise(typed("typed-token", true))
   expect(token).toBe("typed-token")
   expect(screen).toContain(Messages.tokenPrompt())
@@ -146,14 +180,14 @@ it("CLI-186 at a terminal the token is typed at a hidden prompt, which shows the
   }
 })
 
-it("CLI-223 a hidden prompt that is ended with Ctrl-C ends the command with exit 130", async () => {
+it("a hidden prompt that is ended with Ctrl-C ends the command with exit 130", async () => {
   const failure = await Effect.runPromise(
     Effect.flip(typed("half-a-tok", false)),
   )
   expect(failure).toMatchObject({ code: 130 })
 })
 
-it("TST-84 a scenario names a message through the Messages module: no scenario file quotes the fixed words of a template", () => {
+it("a scenario names a message through the Messages module: no scenario file quotes the fixed words of a template", () => {
   // The fixed words of every template, which are what stands between its placeholders.
   const code = read("src/Messages.ts")
     .replace(/\/\*[\s\S]*?\*\//g, "")

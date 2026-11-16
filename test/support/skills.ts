@@ -1,8 +1,8 @@
-// The bundled skills under `skills/` as the CI checks read them (14-self-edit-skill.md, SELF-109 to SELF-115). How a
-// check finds what a skill names is the builder's (SELF-G8): a command is a code span or a line of a fenced block that
-// starts with `chad `, a path is an absolute path in a code span or a fenced block, an exit code is a list item that
-// starts with one or a number after "exit" or "exits" in the prose, and a quoted message is any double-quoted text in
-// the prose, with `<name>` for each part that varies. A recipe is a line of a `sh` block.
+// The bundled skills under `skills/` as the CI checks read them. How a check finds what a skill names: a command is a
+// code span or a line of a fenced block that starts with `chad `, a path is an absolute path in a code span or a fenced
+// block, an exit code is a list item that starts with one or a number after "exit" or "exits" in the prose, and a
+// quoted message is any double-quoted text in the prose, with `<name>` for each part that varies. A recipe is a line of
+// a `sh` block.
 import { spawn } from "node:child_process"
 import {
   chmodSync,
@@ -78,7 +78,7 @@ const chatCommands = new Set(["/new", "/safe"])
 
 /**
  * Every absolute path, whatever its root, cut before its first placeholder. A chat command is not a path. A path the
- * image lacks fails the check, so a path with a mistyped root is not dropped (SELF-112).
+ * image lacks fails the check, so a path with a mistyped root is not dropped.
  */
 export const paths = (text: string): ReadonlyArray<string> =>
   code(text)
@@ -188,9 +188,8 @@ export const problems = (
 }
 
 /**
- * The messages a skill may quote, as `Messages` renders them with a `<name>` for each part that varies (SELF-113,
- * TST-91). A quote has to be part of one of them, letter for letter, so a skill that quotes a new message adds its
- * render here.
+ * The messages a skill may quote, as `Messages` renders them with a `<name>` for each part that varies. A quote has to
+ * be part of one of them, letter for letter, so a skill that quotes a new message adds its render here.
  */
 export const quotable: ReadonlyArray<string> = [
   Messages.toolChanged("<tool>"),

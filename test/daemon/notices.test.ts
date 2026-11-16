@@ -18,7 +18,7 @@ const at = (thread: ChatThread.ChatThread) => ({
   thread: ChatThread.toString(thread),
 })
 
-test("FAIL-158 FAIL-159 FAIL-231 REC-109 REC-145 a notice outside a turn goes where the owner's latest message arrived, a direct message before any other thread, in state/notice-thread", async () => {
+test("a notice outside a turn goes where the owner's latest message arrived, a direct message before any other thread, in state/notice-thread", async () => {
   const first = await scenario()
   await first.fakes.model.script([
     { text: "one" },
@@ -41,7 +41,7 @@ test("FAIL-158 FAIL-159 FAIL-231 REC-109 REC-145 a notice outside a turn goes wh
   await first.fakes.chat.answers(later, 1)
 })
 
-test("FAIL-231 REC-101 a direct message that only a command reached stays the destination after a restart while the owner writes in a server thread", async () => {
+test("a direct message that only a command reached stays the destination after a restart while the owner writes in a server thread", async () => {
   const first = await scenario()
   const direct = await first.fakes.chat.makeThread("direct")
   await says(first, direct, "/status")
@@ -61,7 +61,7 @@ test("FAIL-231 REC-101 a direct message that only a command reached stays the de
   expect(await second.stop()).toBe(0)
 })
 
-test("FAIL-231 REC-101 FAIL-341 a direct message that only a command reached stays the destination after a restart while the platform is slow to say what it is and the owner writes in a server thread", async () => {
+test("a direct message that only a command reached stays the destination after a restart while the platform is slow to say what it is and the owner writes in a server thread", async () => {
   const first = await scenario()
   const direct = await first.fakes.chat.makeThread("direct")
   await says(first, direct, "/status")

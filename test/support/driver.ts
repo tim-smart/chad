@@ -70,7 +70,7 @@ export interface Options {
   readonly directory?: string
   /** A chat platform that is slow to come up: no connection loads before this resolves, so the boot stays loading. */
   readonly loading?: Promise<void>
-  /** The session idle time or the message retention of this daemon, in place of the scaled length (TST-212). */
+  /** The session idle time or the message retention of this daemon, in place of the scaled length. */
   readonly timings?: Own
   /**
    * A Codex token the fake model server issued, stored on the volume before the daemon starts as a login with the CLI
@@ -78,9 +78,9 @@ export interface Options {
    * token has expired and whose refresh is good. No real login is used.
    */
   readonly codex?: "token" | "expired"
-  /** The plugins handed to `runDaemon` (TST-202), none by default. */
+  /** The plugins handed to `runDaemon`, none by default. */
   readonly plugins?: DaemonInputs["plugins"]
-  /** The bundled skills directory handed to `runDaemon` (TST-217), none by default. */
+  /** The bundled skills directory handed to `runDaemon`, none by default. */
   readonly skills?: string
   /** A finalizer for the chat layer of a connection, by its name, which runs when the daemon tears the connection down. */
   readonly closing?: Readonly<Record<string, Effect.Effect<void>>>

@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { expect, it, onTestFinished } from "vitest"
 import { chad } from "../support/cli.ts"
 
-it("CLI-137a STO-133a FAIL-108a v1 has no plugin list, enable, disable or remove, no mcp add, no config, no chad turns, and no command for sessions, a reload, a turn, scheduled jobs or a skill merge or diff: each is a usage error", async () => {
+it("v1 has no plugin list, enable, disable or remove, no mcp add, no config, no chad turns, and no command for sessions, a reload, a turn, scheduled jobs or a skill merge or diff: each is a usage error", async () => {
   const data = mkdtempSync(join(tmpdir(), "chad-absent-"))
   onTestFinished(() => rmSync(data, { recursive: true, force: true }))
   const absent = [

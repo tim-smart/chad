@@ -1,17 +1,20 @@
 import { expect, it } from "vitest"
 import * as Messages from "../../src/Messages.ts"
 import * as Status from "../../src/Status.ts"
-import { read } from "../support/repo.ts"
 
-it("STO-201 STO-202 what chad db prints beside its rows are templates of the Messages module, in the spec's wording", () => {
-  const spec = read("docs/spec/02-storage.md")
+it("what chad db prints beside its rows are templates of the Messages module, with their fixed wording", () => {
   const templates = [
     Messages.dbMore(200),
     Messages.dbLimit(),
     Messages.dbFailed("query", "<SQLite's message>"),
     Messages.dbMissing("query", "<path>"),
   ]
-  for (const template of templates) expect(spec).toContain(template)
+  expect(templates).toEqual([
+    "chad db query: stopped at 200 rows and the statement has more. Pass --limit <n> for more rows.",
+    "a whole number from 1 up",
+    "chad db query: <SQLite's message>",
+    "chad db query: no database at <path>",
+  ])
   expect(Messages.dbMissing("check", "/data/db/chad.db")).toBe(
     "chad db check: no database at /data/db/chad.db",
   )
@@ -20,7 +23,7 @@ it("STO-201 STO-202 what chad db prints beside its rows are templates of the Mes
   )
 })
 
-it("CLI-237 chad status --json gives one object whose daemon is up, none or silent, with the daemon's report, or with what the files say and null for a volume that is not written yet", () => {
+it("chad status --json gives one object whose daemon is up, none or silent, with the daemon's report, or with what the files say and null for a volume that is not written yet", () => {
   const report = {
     version: "1.2.3",
     effect: "4.1.4",

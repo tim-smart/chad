@@ -96,7 +96,7 @@ const boot = async (
 
 const low = Notices.diskLow(500 * 1024 * 1024)
 
-it("FAIL-150 FAIL-151 FAIL-152 STO-129 STO-130 a condition's notice is sent once while it holds, a restart and a day included, and a condition that begins again is announced only 24 hours after its last notice", async () => {
+it("a condition's notice is sent once while it holds, a restart and a day included, and a condition that begins again is announced only 24 hours after its last notice", async () => {
   const data = volume()
   const posted: Array<string> = []
   const first = await boot(data, posted)
@@ -143,7 +143,7 @@ it("FAIL-150 FAIL-151 FAIL-152 STO-129 STO-130 a condition's notice is sent once
   expect(second.attempts).toEqual([low.text])
 })
 
-it("FAIL-160 REC-110 a notice with no session to go to is posted once when the first session exists, and one whose post fails twice is recorded as not delivered", async () => {
+it("a notice with no session to go to is posted once when the first session exists, and one whose post fails twice is recorded as not delivered", async () => {
   const data = volume()
   const posted: Array<string> = []
   const first = await boot(data, posted)
@@ -177,7 +177,7 @@ it("FAIL-160 REC-110 a notice with no session to go to is posted once when the f
   expect(posted).toEqual([low.text])
 })
 
-it("FAIL-230 a notice row that cannot be written is held in memory and written by the next write that succeeds", async () => {
+it("a notice row that cannot be written is held in memory and written by the next write that succeeds", async () => {
   const data = volume()
   const posted: Array<string> = []
   const running = await boot(data, posted)
@@ -202,7 +202,7 @@ it("FAIL-230 a notice row that cannot be written is held in memory and written b
   expect(posted).toEqual([low.text])
 })
 
-it("FAIL-159 FAIL-232 REC-101 a restarted daemon posts where state/notice-thread says, and keeps a direct message as the destination while the owner writes in a server thread", async () => {
+it("a restarted daemon posts where state/notice-thread says, and keeps a direct message as the destination while the owner writes in a server thread", async () => {
   const data = volume()
   const posted: Array<string> = []
   const first = await boot(data, posted)
@@ -222,7 +222,7 @@ it("FAIL-159 FAIL-232 REC-101 a restarted daemon posts where state/notice-thread
   ).toEqual({ connection: "local", thread: "local:dm" })
   await Effect.runPromise(second.notices.raise(low))
   await until(() => posted.length === 1)
-  // The model of the session in that thread is told at its next turn (FAIL-131).
+  // The model of the session in that thread is told at its next turn.
   await until(() =>
     database(
       data,
@@ -234,7 +234,7 @@ it("FAIL-159 FAIL-232 REC-101 a restarted daemon posts where state/notice-thread
   )
 })
 
-it("FAIL-231 REC-101 FAIL-341 a restored destination whose kind the platform cannot say stays while the owner writes in a server thread, and its notice is posted as a server's, until the platform says it is a server thread", async () => {
+it("a restored destination whose kind the platform cannot say stays while the owner writes in a server thread, and its notice is posted as a server's, until the platform says it is a server thread", async () => {
   const data = volume()
   const posted: Array<string> = []
   const first = await boot(data, posted)
@@ -258,7 +258,7 @@ it("FAIL-231 REC-101 FAIL-341 a restored destination whose kind the platform can
   expect(file()).toEqual({ connection: "local", thread: "local:server" })
 })
 
-it("FAIL-231 REC-101 FAIL-341 a restored command-only DM whose lookup fails with Unauthenticated or Unsupported stays the destination when the owner writes in another connection's server thread", async () => {
+it("a restored command-only DM whose lookup fails with Unauthenticated or Unsupported stays the destination when the owner writes in another connection's server thread", async () => {
   for (const reason of [
     new ChatError.Unauthenticated({}),
     new ChatError.Unsupported({ capability: "getThread" }),

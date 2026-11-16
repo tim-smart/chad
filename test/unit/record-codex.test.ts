@@ -40,7 +40,7 @@ const recordOn = (fake: FakeModel, out: string, key: string) =>
     out,
   })
 
-it("TST-43 TST-41 the recorder records one answer on each transport and writes it stripped, with no trace of the key", async () => {
+it("the recorder records one answer on each transport and writes it stripped, with no trace of the key", async () => {
   const { fake, out } = await setUp()
   const key = fake.token().access
   fake.script([{ text: "Hello" }, { text: "Hello" }])
@@ -65,7 +65,7 @@ it("TST-43 TST-41 the recorder records one answer on each transport and writes i
   expect(shapes(recording.answer.socket)).toEqual(answer)
 })
 
-it("TST-43 TST-41 the recorder writes nothing when the key is left after stripping", async () => {
+it("the recorder writes nothing when the key is left after stripping", async () => {
   const { fake, out } = await setUp()
   const key = fake.token().access
   // The model answers with the key, which no field name marks as secret once it is in an answer's text.
@@ -76,7 +76,7 @@ it("TST-43 TST-41 the recorder writes nothing when the key is left after strippi
   expect(existsSync(out)).toBe(false)
 })
 
-/** The recorder as the builder runs it: a child process, here with a synthetic endpoint and key only. */
+/** The recorder as a developer runs it: a child process, here with a synthetic endpoint and key only. */
 const recorder = (url: string, key: string, raw: string) =>
   spawnSync(
     process.execPath,
@@ -92,7 +92,7 @@ const recorder = (url: string, key: string, raw: string) =>
     },
   )
 
-it("TST-41 TST-43 a recorder whose endpoint cannot be parsed or reached prints neither the endpoint, its host nor the key, exits non-zero and writes nothing", () => {
+it("a recorder whose endpoint cannot be parsed or reached prints neither the endpoint, its host nor the key, exits non-zero and writes nothing", () => {
   const dir = mkdtempSync(join(tmpdir(), "chad-record-"))
   cleanups.push(() => rmSync(dir, { recursive: true, force: true }))
   const raw = join(dir, "raw.json")

@@ -1,5 +1,5 @@
-// The resumed turn and the give-up in layer 4: the daemon as a child process that a scenario kills and starts again
-// on the same volume (docs/spec/17-testing.md, TST-27). A kill point is a model response the fake holds (TST-45).
+// The resumed turn and the give-up in layer 4: the daemon as a child process that a scenario kills and starts again on
+// the same volume. A kill point is a model response the fake holds.
 import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, test } from "vitest"
@@ -19,7 +19,7 @@ import {
 } from "../support/owner.ts"
 import { daemon } from "../support/process.ts"
 
-test("SES-99 SES-101 SES-102 SES-103 SES-98 STO-71 STO-72 FAIL-253 FAIL-104 FAIL-103b TST-45 TST-27 TST-28 a turn that a kill cut is delivered again at the next start with no word from the owner, counts a second start before the model runs, resumes with the restart note over the restored history and the first attempt's turn id, and adds its usage to what the killed attempt used", async () => {
+test("a turn that a kill cut is delivered again at the next start with no word from the owner, counts a second start before the model runs, resumes with the restart note over the restored history and the first attempt's turn id, and adds its usage to what the killed attempt used", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([
@@ -67,7 +67,7 @@ test("SES-99 SES-101 SES-102 SES-103 SES-98 STO-71 STO-72 FAIL-253 FAIL-104 FAIL
   ])
 }, 15_000)
 
-test("SES-106 SES-99 SES-202 FAIL-326 FAIL-63a FAIL-63b DIS-62 FAIL-65 after two starts that a kill ended, a SIGTERM followed by a kill before the cut counting as one, the next delivery counts a third start, runs no model, posts the give-up message and records the turn as failed with GaveUp, with only turn.failed for that delivery, and removes the status message the turn left behind", async () => {
+test("after two starts that a kill ended, a SIGTERM followed by a kill before the cut counting as one, the next delivery counts a third start, runs no model, posts the give-up message and records the turn as failed with GaveUp, with only turn.failed for that delivery, and removes the status message the turn left behind", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([
@@ -106,7 +106,7 @@ test("SES-106 SES-99 SES-202 FAIL-326 FAIL-63a FAIL-63b DIS-62 FAIL-65 after two
   ])
 }, 20_000)
 
-test("SES-104 DIS-32 STO-75 a turn that a kill cut edits the status message its first start posted, adding the restart line, posts no second one, and removes it before the answer", async () => {
+test("a turn that a kill cut edits the status message its first start posted, adding the restart line, posts no second one, and removes it before the answer", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([
@@ -142,7 +142,7 @@ test("SES-104 DIS-32 STO-75 a turn that a kill cut edits the status message its 
   expect(await fakes.chat.statuses()).toHaveLength(1)
 }, 15_000)
 
-test("SES-161 SES-101 a kill after the start is counted and before the prompt is stored resumes with the owner's message and its files, and the restart note after them in the same send", async () => {
+test("a kill after the start is counted and before the prompt is stored resumes with the owner's message and its files, and the restart note after them in the same send", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([{ text: "finished" }])
@@ -183,7 +183,7 @@ test("SES-161 SES-101 a kill after the start is counted and before the prompt is
   expect(resumed!.annotations["starts"]).toBe(2)
 }, 15_000)
 
-test("SES-161 SES-101 STO-207 a kill after a compaction took the turn's prompt out of the stored history resumes with the restart note alone, because the record that the prompt was stored outlives the compaction", async () => {
+test("a kill after a compaction took the turn's prompt out of the stored history resumes with the restart note alone, because the record that the prompt was stored outlives the compaction", async () => {
   const running = await daemon()
   const { fakes } = running
   const summary = { text: "the summary" }
@@ -238,7 +238,7 @@ test("SES-161 SES-101 STO-207 a kill after a compaction took the turn's prompt o
   expect(await posted(running, thread)).toEqual(["finished"])
 }, 20_000)
 
-test("SES-152 SES-153 SES-205 TST-182 a stored request that the next start cannot decode ends failed with Internal and the failed-turn message at once, counts no start, runs no model and is answered, so it is not tried again", async () => {
+test("a stored request that the next start cannot decode ends failed with Internal and the failed-turn message at once, counts no start, runs no model and is answered, so it is not tried again", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([{ text: "never sent", hold: true }])
@@ -279,7 +279,7 @@ test("SES-152 SES-153 SES-205 TST-182 a stored request that the next start canno
   await lines(running, "boot.ready", 2)
 }, 20_000)
 
-test("FAIL-135 FAIL-140 SES-99 SES-101 SES-103 SES-200 a turn whose end the full volume cannot write gets the ordinary failed-turn message and no reply, the thread's later messages still answer, and a restart resumes it as a turn a crash cut", async () => {
+test("a turn whose end the full volume cannot write gets the ordinary failed-turn message and no reply, the thread's later messages still answer, and a restart resumes it as a turn a crash cut", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([
@@ -337,7 +337,7 @@ test("FAIL-135 FAIL-140 SES-99 SES-101 SES-103 SES-200 a turn whose end the full
   ])
 }, 20_000)
 
-test("FAIL-135 FAIL-281 SES-99 a turn whose row the full volume cannot insert gets the ordinary failed-turn message and no reply and leaves no update, the thread's later messages still answer, and a restart delivers it again as a fresh turn", async () => {
+test("a turn whose row the full volume cannot insert gets the ordinary failed-turn message and no reply and leaves no update, the thread's later messages still answer, and a restart delivers it again as a fresh turn", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([
@@ -384,7 +384,7 @@ test("FAIL-135 FAIL-281 SES-99 a turn whose row the full volume cannot insert ge
   ])
 }, 20_000)
 
-test("FAIL-135 SES-99 FAIL-12 FAIL-326 a turn whose session directory cannot be made has its start counted and logged before anything else, so it ends failed with Internal and the ordinary failed-turn message, its status message is removed, and the thread's later messages still answer", async () => {
+test("a turn whose session directory cannot be made has its start counted and logged before anything else, so it ends failed with Internal and the ordinary failed-turn message, its status message is removed, and the thread's later messages still answer", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([{ text: "second answer" }])

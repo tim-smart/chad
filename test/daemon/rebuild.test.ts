@@ -4,7 +4,7 @@ import { scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
 import { eventually, prompted, says, sessions } from "../support/owner.ts"
 
-test("SWAP-4 SWAP-8 SWAP-12 SWAP-14 SWAP-15 SWAP-17 SWAP-134 MOD-18 a model change rebuilds the Agent at the next turn, which keeps the history, lists the task the old Agent started and is told that it ended", async () => {
+test("a model change rebuilds the Agent at the next turn, which keeps the history, lists the task the old Agent started and is told that it ended", async () => {
   const running = await scenario()
   const { fakes, model } = running
   await fakes.model.script([

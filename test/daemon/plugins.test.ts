@@ -1,4 +1,5 @@
-// Plugins handed to `runDaemon` (TST-202): what a plugin reaches, the turns it starts, and its hooks' budgets.
+// Plugins handed to `runDaemon`, which the daemon builds as it builds a bundled plugin: what a plugin reaches, the
+// turns it starts, and its hooks' budgets.
 import { mkdtempSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -41,7 +42,7 @@ const tool = <const Name extends string>(name: Name) =>
     }),
   )
 
-test("STO-56 STO-57 STO-58 API-30 API-31 API-32 API-49 SES-60 SWAP-36 a plugin has its own store and no SqlClient, its tool sees the session and the turn, and its chunk and context reach the model", async () => {
+test("a plugin has its own store and no SqlClient, its tool sees the session and the turn, and its chunk and context reach the model", async () => {
   let sql: boolean | undefined
   const recall = tool("recall")
   const alpha = Plugin.make(
@@ -110,7 +111,7 @@ test("STO-56 STO-57 STO-58 API-30 API-31 API-32 API-49 SES-60 SWAP-36 a plugin h
   ).not.toContain("alpha")
 })
 
-test("API-72 API-73 API-77 API-79 CRON-99 a plugin's turn runs in another thread with the plugin as its origin, a [SILENT] answer is not posted, and a start in the tool's own thread fails at once", async () => {
+test("a plugin's turn runs in another thread with the plugin as its origin, a [SILENT] answer is not posted, and a start in the tool's own thread fails at once", async () => {
   let other: ChatThread.ChatThread | undefined
   const kick = tool("kick")
   const kicker = Plugin.make(
@@ -184,7 +185,7 @@ test("API-72 API-73 API-77 API-79 CRON-99 a plugin's turn runs in another thread
   }
 })
 
-test("API-38 API-40 API-54 SES-69b a beforeTurn hook past its budget is dropped and logged and the turn runs, and afterTurn runs for a turn the owner stopped", async () => {
+test("a beforeTurn hook past its budget is dropped and logged and the turn runs, and afterTurn runs for a turn the owner stopped", async () => {
   const ended = Deferred.makeUnsafe<string>()
   const slow = Plugin.make(
     Plugin.beforeTurn(() => Effect.as(Effect.never, "never"), {
@@ -206,7 +207,7 @@ test("API-38 API-40 API-54 SES-69b a beforeTurn hook past its budget is dropped 
   expect(await Effect.runPromise(Deferred.await(ended))).toBe("Stopped")
 })
 
-test("API-33 a plugin whose tool name another plugin holds is skipped with the holder's name, and the rest load", async () => {
+test("a plugin whose tool name another plugin holds is skipped with the holder's name, and the rest load", async () => {
   const same = tool("same")
   const make = () =>
     Plugin.make(
@@ -239,7 +240,7 @@ test("API-33 a plugin whose tool name another plugin holds is skipped with the h
   expect(results((await fakes.model.calls())[1]).join("\n")).toContain("ok")
 })
 
-test("DIS-65 DIS-66 DIS-68 DIS-69 DIS-105 the bundled sendFile posts a file the agent wrote, named by a relative path, with its caption in the session's thread before the answer", async () => {
+test("the bundled sendFile posts a file the agent wrote, named by a relative path, with its caption in the session's thread before the answer", async () => {
   const running = await scenario({
     plugins: [{ name: "send-file", plugin: sendFile }],
   })
@@ -271,7 +272,7 @@ test("DIS-65 DIS-66 DIS-68 DIS-69 DIS-105 the bundled sendFile posts a file the 
   )
 })
 
-test("API-43 a hook past its budget that cannot be interrupted holds up nothing, and the turn carries on without it", async () => {
+test("a hook past its budget that cannot be interrupted holds up nothing, and the turn carries on without it", async () => {
   const release = Deferred.makeUnsafe<void>()
   const stuck = Plugin.make(
     Plugin.beforeTurn(
@@ -293,7 +294,7 @@ test("API-43 a hook past its budget that cannot be interrupted holds up nothing,
   await Effect.runPromise(Deferred.succeed(release, undefined))
 })
 
-test("API-67 a graceful stop lets a running afterTurn hook finish before it closes the plugin's resources", async () => {
+test("a graceful stop lets a running afterTurn hook finish before it closes the plugin's resources", async () => {
   const started = Deferred.makeUnsafe<void>()
   const release = Deferred.makeUnsafe<void>()
   const events: Array<string> = []
@@ -327,7 +328,7 @@ test("API-67 a graceful stop lets a running afterTurn hook finish before it clos
   expect(events).toEqual(["hook-started", "hook-finished", "plugin-closed"])
 })
 
-test("API-67 IMG-83 the hooks a stop drains have until stopHooksUntil after the stop began, and not that long again from when the drain begins", async () => {
+test("the hooks a stop drains have until stopHooksUntil after the stop began, and not that long again from when the drain begins", async () => {
   const hung = Plugin.make(Plugin.afterTurn(() => Effect.never))
   const services = Layer.mergeAll(
     NodeServices.layer,
@@ -354,7 +355,7 @@ test("API-67 IMG-83 the hooks a stop drains have until stopHooksUntil after the 
   }).pipe(Effect.provide(services), Effect.runPromise)
 })
 
-test("SES-125 API-100 Turns.start returns the turn's outcome when cluster cannot save the reply, a missing thread's ThreadGone included", async () => {
+test("Turns.start returns the turn's outcome when cluster cannot save the reply, a missing thread's ThreadGone included", async () => {
   let turns: Turns["Service"] | undefined
   const plugin = Plugin.make(
     Layer.effectDiscard(
@@ -388,7 +389,7 @@ test("SES-125 API-100 Turns.start returns the turn's outcome when cluster cannot
   execute(running.data, "DROP TRIGGER full")
 })
 
-test("API-76 an owner removed while a plugin's turn runs is not mentioned in its answer", async () => {
+test("an owner removed while a plugin's turn runs is not mentioned in its answer", async () => {
   let turns: Turns["Service"] | undefined
   const owner = "700000000000000001"
   const channel = "810000000000000002"

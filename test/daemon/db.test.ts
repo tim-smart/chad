@@ -8,7 +8,7 @@ import { fresh, owner, scenario } from "../support/driver.ts"
 import { printed, runs } from "../support/model.ts"
 import { json, path } from "../support/repo.ts"
 
-test("STO-80 STO-83a CLI-130 with a daemon running, the agent runs chad db query and chad db check in its turn and reads what the owner's shell reads", async () => {
+test("with a daemon running, the agent runs chad db query and chad db check in its turn and reads what the owner's shell reads", async () => {
   const running = await scenario()
   const { fakes, data } = running
   const chad = `CHAD_DATA=${data} ${process.execPath} ${path("bin/chad.js")}`
@@ -47,7 +47,7 @@ test("STO-80 STO-83a CLI-130 with a daemon running, the agent runs chad db query
   expect(printed(next)).toEqual([`${read.stdout}\nok\n\n`])
 })
 
-test("STO-82 STO-174 STO-175 CLI-131 nothing checks integrity at boot: the daemon boots on a database whose index has lost a row, and chad db check then prints SQLite's own lines and exits 1", async () => {
+test("nothing checks integrity at boot: the daemon boots on a database whose index has lost a row, and chad db check then prints SQLite's own lines and exits 1", async () => {
   const directory = fresh()
   const data = join(directory, "data")
   mkdirSync(join(data, "db"), { recursive: true })
@@ -83,7 +83,7 @@ test("STO-82 STO-174 STO-175 CLI-131 nothing checks integrity at boot: the daemo
   })
 })
 
-test("CLI-46a CLI-237 chad status --json prints the facts as one JSON object on one line, with the daemon up and with none, and exits as chad status does", async () => {
+test("chad status --json prints the facts as one JSON object on one line, with the daemon up and with none, and exits as chad status does", async () => {
   const running = await scenario()
   const { data } = running
   await running.logged("boot.ready")

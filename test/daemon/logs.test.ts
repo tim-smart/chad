@@ -8,7 +8,7 @@ import { lines, says } from "../support/owner.ts"
 const message = (log: ReadonlyArray<LogLine>, text: string) =>
   log.find((line) => line.message === text)
 
-test("FAIL-23 FAIL-25 FAIL-26 FAIL-29 FAIL-241 FAIL-245 FAIL-246 FAIL-247 FAIL-248 a turn's scripts and its sub-agent get their lines with the session and the turn, the model reads clanka's own lines as plain clanka prints them, and their copies are capped at Info", async () => {
+test("a turn's scripts and its sub-agent get their lines with the session and the turn, the model reads clanka's own lines as plain clanka prints them, and their copies are capped at Info", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -82,7 +82,7 @@ test("FAIL-23 FAIL-25 FAIL-26 FAIL-29 FAIL-241 FAIL-245 FAIL-246 FAIL-247 FAIL-2
   expect(typeof scripts[0]?.annotations["duration_ms"]).toBe("number")
 })
 
-test("FAIL-13 FAIL-14 FAIL-192 FAIL-241 FAIL-328 the scripts of a foreground and of a background sub-agent get their source, output, start and end lines, and every line of those scripts carries the sub-agent's id, the copied tool lines included", async () => {
+test("the scripts of a foreground and of a background sub-agent get their source, output, start and end lines, and every line of those scripts carries the sub-agent's id, the copied tool lines included", async () => {
   const running = await scenario()
   const { fakes } = running
   const child = 'console.log("SUB-OUTPUT"); await ls(".")'
@@ -151,7 +151,7 @@ await waitTasks({ ids: [behind.id] })`),
     expect(line.annotations).not.toHaveProperty("subagent")
 })
 
-test("FAIL-15 FAIL-250 the root's and a foreground sub-agent's retried model calls get one turn.retry line each, which names no agent and counts the turn's retries", async () => {
+test("the root's and a foreground sub-agent's retried model calls get one turn.retry line each, which names no agent and counts the turn's retries", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -182,7 +182,7 @@ test("FAIL-15 FAIL-250 the root's and a foreground sub-agent's retried model cal
   expect(events("turn.subagent-ended")).toHaveLength(1)
 })
 
-test("FAIL-15 FAIL-250 a background sub-agent's empty response that clanka takes, followed by its taskComplete, logs no turn.retry", async () => {
+test("a background sub-agent's empty response that clanka takes, followed by its taskComplete, logs no turn.retry", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -204,7 +204,7 @@ await waitTasks({ ids: [behind.id] })`),
   expect(events("turn.retry")).toEqual([])
 })
 
-test("FAIL-249 FAIL-241 a background sub-agent that compacts its history gets its turn.compaction line with the sub-agent's id", async () => {
+test("a background sub-agent that compacts its history gets its turn.compaction line with the sub-agent's id", async () => {
   const running = await scenario()
   const { fakes } = running
   // The sub-agent's calls after its first carry a tool result, and its summarizer's do not, so either can take them.
@@ -246,7 +246,7 @@ await waitTasks({ ids: [behind.id] })`),
   expect(events("turn.retry")).toHaveLength(0)
 })
 
-test("FAIL-192 FAIL-193 FAIL-246 FAIL-248 a /stop while a script waits on its sub-agent logs one script end with the output so far and one sub-agent end, each with its duration", async () => {
+test("a /stop while a script waits on its sub-agent logs one script end with the output so far and one sub-agent end, each with its duration", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -290,7 +290,7 @@ const settled = (text: string) =>
     .replaceAll(/\[\d{2}:\d{2}:\d{2}\.\d{3}\]/g, "[time]")
     .replaceAll(/#\d+/g, "#fiber")
 
-test("TST-166 FAIL-19 FAIL-21 FAIL-22 the text the model reads from a script's output is byte-identical at every value of CHAD_LOG_LEVEL", async () => {
+test("the text the model reads from a script's output is byte-identical at every value of CHAD_LOG_LEVEL", async () => {
   const levels = [
     "all",
     "trace",
@@ -321,7 +321,7 @@ test("TST-166 FAIL-19 FAIL-21 FAIL-22 the text the model reads from a script's o
   for (const level of levels) expect(read[level]).toBe(read["info"])
 })
 
-test("CLI-146 CLI-147 CLI-196 CLI-199 FAIL-38 FAIL-39 FAIL-40 FAIL-194 FAIL-200 FAIL-201 FAIL-202 chad logs filters the daemon's log by turn and event prefix, prints the stored lines with --json, exits 0 when nothing matches and 2 for a level or time it cannot read, and reads the log with no daemon", async () => {
+test("chad logs filters the daemon's log by turn and event prefix, prints the stored lines with --json, exits 0 when nothing matches and 2 for a level or time it cannot read, and reads the log with no daemon", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([{ text: "one" }, { text: "two" }])

@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 /**
- * The recording of the Codex side, which the fake's frames are shaped on (TST-41). `answer` holds the frames of one call
- * that answered with text on each transport, as `scripts/record-codex.ts` recorded them (TST-43). `refusal` is the
- * frame of a usage limit, which nobody has recorded and which is hand-made.
+ * The recording of the Codex side, which the fake's frames are shaped on. `answer` holds the frames of one call that
+ * answered with text on each transport, as `scripts/record-codex.ts` recorded them. `refusal` is the frame of a usage
+ * limit, which nobody has recorded and which is hand-made.
  */
 export interface Recording {
   readonly source: string
@@ -116,7 +116,7 @@ export const renumber = (value: unknown): unknown => {
   return walk(value)
 }
 
-/** The frames of one recorded call as they may be kept: stripped (TST-41) and renumbered. */
+/** The frames of one recorded call as they may be kept: stripped and renumbered. */
 export const keep = (frames: ReadonlyArray<object>): ReadonlyArray<object> =>
   renumber(strip(frames)) as ReadonlyArray<object>
 
@@ -141,7 +141,7 @@ const blank = (field: unknown): unknown =>
 const isBlank = (field: unknown) =>
   JSON.stringify(blank(field)) === JSON.stringify(field)
 
-/** A recording with every token and the account id stripped, which is what may be kept in the repository (TST-41). */
+/** A recording with every token and the account id stripped, which is what may be kept in the repository. */
 export const strip = (value: unknown): unknown => {
   if (typeof value === "string") return value.replace(jwt, stripped)
   if (Array.isArray(value)) return value.map(strip)
@@ -168,7 +168,7 @@ export const strip = (value: unknown): unknown => {
 /**
  * Where a stripped recording still holds a secret: a JWT, a secret field that was not stripped, or one of the values
  * the recorder saw as a token, an id or a code of the login. It gives each place as a path, never the value, so that
- * the recorder can refuse to write and say where (TST-41).
+ * the recorder can refuse to write and say where.
  */
 export const leftover = (
   value: unknown,

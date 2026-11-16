@@ -8,11 +8,11 @@ import { ClusterSchema, Entity, SingleRunner } from "effect/cluster"
 import { Rpc } from "effect/rpc"
 import { expect, it, vi } from "vitest"
 
-// Each test starts a cluster on SQLite and waits on what it does, never on a clock (TST-76), so its time limit only bounds a
+// Each test starts a cluster on SQLite and waits on what it does, never on a clock, so its time limit only bounds a
 // hang, as in the daemon and process layers. Alone one takes about 2 seconds, and a loaded runner has taken over 8.
 vi.setConfig({ testTimeout: 20_000 })
 
-it("SES-23 a persisted request reaches the local entity straight after it is saved, with cluster's storage poll an hour away", async () => {
+it("a persisted request reaches the local entity straight after it is saved, with cluster's storage poll an hour away", async () => {
   const directory = mkdtempSync(join(tmpdir(), "chad-cluster-"))
   const Echo = Entity.make("Echo", [
     Rpc.make("say", {
@@ -52,7 +52,7 @@ it("SES-23 a persisted request reaches the local entity straight after it is sav
   }
 })
 
-it("SES-28 a second runner on the same database file starts beside the first and handles its own requests, so cluster's shard lock stops no second daemon", async () => {
+it("a second runner on the same database file starts beside the first and handles its own requests, so cluster's shard lock stops no second daemon", async () => {
   const directory = mkdtempSync(join(tmpdir(), "chad-cluster-"))
   const Echo = Entity.make("Echo", [
     Rpc.make("say", {

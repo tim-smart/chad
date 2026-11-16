@@ -14,7 +14,7 @@ import { expect, onTestFinished, test } from "vitest"
 import { followed } from "../../src/cli/commands/logs.ts"
 import * as Logger from "../../src/daemon/Logger.ts"
 
-test("FAIL-32 FAIL-33 the log is rotated between two lines once it passes its cap, chad.log.1 to chad.log.3 are kept, and the files joined oldest first end with every line written last, whole", () => {
+test("the log is rotated between two lines once it passes its cap, chad.log.1 to chad.log.3 are kept, and the files joined oldest first end with every line written last, whole", () => {
   const directory = mkdtempSync(join(tmpdir(), "chad-log-"))
   onTestFinished(() => rmSync(directory, { recursive: true }))
   const path = join(directory, "chad.log")
@@ -49,7 +49,7 @@ const until = async (done: () => boolean) => {
   }
 }
 
-test("FAIL-199 chad logs -f reads the files that rotations between two of its polls left, oldest first, before the newest, also when the file it read is no longer kept", async () => {
+test("chad logs -f reads the files that rotations between two of its polls left, oldest first, before the newest, also when the file it read is no longer kept", async () => {
   const directory = mkdtempSync(join(tmpdir(), "chad-follow-"))
   onTestFinished(() => rmSync(directory, { recursive: true }))
   const path = join(directory, "chad.log")

@@ -26,7 +26,7 @@ const tokenFile = (directory: string, token: string) => {
 const lines = (...printed: ReadonlyArray<string>) =>
   printed.map((line) => line + "\n").join("")
 
-test("CLI-121 CLI-122 CLI-123 CLI-242 CLI-124 CLI-191 CLI-192 CLI-193 CLI-194 CLI-195 CLI-210 CLI-118 MOD-65 IMG-94 with no terminal and no daemon, setup names every missing flag and changes nothing, then takes every answer as a flag on an empty volume and turns the message content intent on; a run after the first keeps what is stored and exits 0, a refused token keeps the old one, and the token is never printed", async () => {
+test("with no terminal and no daemon, setup names every missing flag and changes nothing, then takes every answer as a flag on an empty volume and turns the message content intent on; a run after the first keeps what is stored and exits 0, a refused token keeps the old one, and the token is never printed", async () => {
   const directory = fresh()
   const data = join(directory, "data")
   mkdirSync(data, { recursive: true })
@@ -160,7 +160,7 @@ test("CLI-121 CLI-122 CLI-123 CLI-242 CLI-124 CLI-191 CLI-192 CLI-193 CLI-194 CL
   }
 })
 
-test("CLI-124 CLI-191 CLI-192 CLI-195 setup with the daemon running asks the daemon, which names the stored bot, keeps the owners and reloads for the new zone", async () => {
+test("setup with the daemon running asks the daemon, which names the stored bot, keeps the owners and reloads for the new zone", async () => {
   const running = await scenario({
     connections: [
       { name: "home", kind: "discord", token: "home-token", owners: [owner] },

@@ -58,7 +58,7 @@ console.log(JSON.stringify({
 }))
 `
 
-test("CLI-52 CLI-53 REC-95 every process a session starts carries CHAD_SESSION with the session's id and keeps the rest of its environment: bash, background bash, run, rg, gh, a sub-agent's command and a background sub-agent's, and a second session's processes carry its own id", async () => {
+test("every process a session starts carries CHAD_SESSION with the session's id and keeps the rest of its environment: bash, background bash, run, rg, gh, a sub-agent's command and a background sub-agent's, and a second session's processes carry its own id", async () => {
   const running = await scenario()
   const { fakes } = running
   commands(running.directory)

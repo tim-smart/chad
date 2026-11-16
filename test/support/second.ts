@@ -1,6 +1,6 @@
-// The entry of the image layer's second container (docs/spec/17-testing.md). It holds the local platform and the
-// fake model server, and serves the test-only requests beside the adapter's at `run/local.sock`. The image tests
-// bundle it into one file, which is all of the repository that container is given.
+// The entry of the image layer's second container. It holds the local platform and the fake model server, and serves
+// the test-only requests beside the adapter's at `run/local.sock`. The image tests bundle it into one file, which is
+// all of the repository that container is given.
 import { join } from "node:path"
 import { Effect, Layer } from "effect"
 import * as LocalChat from "../../dist/daemon/LocalChat.js"

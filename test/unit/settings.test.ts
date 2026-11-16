@@ -1,5 +1,5 @@
 // chad.json as pure code: the expander against clanka's, the apply's checks and the boot's lenient read, and the
-// provider that records what a plugin reads (docs/spec/11-settings.md).
+// provider that records what a plugin reads.
 import { mkdtempSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -17,7 +17,7 @@ const variables: Record<string, string> = {
   lower_case: "low",
 }
 
-/** The strings both expanders read, each a case of SET-28 to SET-30 and SET-32. */
+/** The strings both expanders read: names, defaults, one pass with no recursion, empty values, and CHAD_DOLLAR. */
 const strings = [
   "plain",
   "${A}",
@@ -79,7 +79,7 @@ const chad = async (text: string) => {
     : { missing: result.failure.variable }
 }
 
-it("SET-31 SET-27 SET-28 SET-29 SET-30 SET-32 chad's expander gives what clanka's McpConfig.load gives for the same strings", async () => {
+it("chad's expander gives what clanka's McpConfig.load gives for the same strings", async () => {
   for (const text of strings) {
     expect({ text, ...(await chad(text)) }).toEqual({
       text,
@@ -89,7 +89,7 @@ it("SET-31 SET-27 SET-28 SET-29 SET-30 SET-32 chad's expander gives what clanka'
   expect(await chad("${CHAD_DOLLAR:-$}{X}")).toEqual({ text: "${X}" })
 })
 
-it("SET-76 SET-49 SET-50 SET-51 SET-52 SET-53 SET-87 SET-88 SET-89 the apply's checks of chad.json refuse each broken rule and pass a good file", () => {
+it("the apply's checks of chad.json refuse each broken rule and pass a good file", () => {
   const known = new Set(["asphodel", "cron"])
   const good = JSON.stringify({
     plugins: {
@@ -135,7 +135,7 @@ it("SET-76 SET-49 SET-50 SET-51 SET-52 SET-53 SET-87 SET-88 SET-89 the apply's c
   ])
 })
 
-it("SET-57 SET-58 SET-59 SET-90 SET-91 SET-92 SET-97 REC-151 a boot ignores what does not fit and uses the rest of the file", () => {
+it("a boot ignores what does not fit and uses the rest of the file", () => {
   const known = new Set(["asphodel", "cron", "notes"])
   expect(Settings.lenient("{ nope", known)).toMatchObject({
     file: Settings.empty,
@@ -180,7 +180,7 @@ it("SET-57 SET-58 SET-59 SET-90 SET-91 SET-92 SET-97 REC-151 a boot ignores what
   })
 })
 
-it("SET-65 SET-67 SET-68 SET-70 SET-71 SET-72 SET-93 SET-13 the provider records each key, where its value came from and when it was read, and never a value", async () => {
+it("the provider records each key, where its value came from and when it was read, and never a value", async () => {
   const expanded = await Effect.runPromise(
     Settings.expand(
       {
@@ -222,7 +222,7 @@ it("SET-65 SET-67 SET-68 SET-70 SET-71 SET-72 SET-93 SET-13 the provider records
   ).toBe("chad")
   recorder.loaded()
   expect(await read(Config.String("tokn"))).toBe("typo")
-  // There is no fallback to process env (SET-12).
+  // There is no fallback to process env.
   process.env["CHAD_SETTINGS_PROBE"] = "from-env"
   expect(
     await read(Config.option(Config.String("CHAD_SETTINGS_PROBE"))),
@@ -255,7 +255,7 @@ it("SET-65 SET-67 SET-68 SET-70 SET-71 SET-72 SET-93 SET-13 the provider records
   expect(printed).not.toContain("7720")
 })
 
-it("CRED-109 CRED-23 CRED-31 the lines chad secret prints are templates of the Messages module, in the spec's wording", () => {
+it("the lines chad secret prints are templates of the Messages module, with their fixed wording", () => {
   expect([
     Messages.secretSaved("NAME", false, []),
     Messages.secretSaved("NAME", true, []),

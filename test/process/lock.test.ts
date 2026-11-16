@@ -6,7 +6,7 @@ import { expect, test } from "vitest"
 import { eventually, posted, says } from "../support/owner.ts"
 import { daemon } from "../support/process.ts"
 
-test("IMG-61 CLI-27 TST-105 IMG-59 a daemon started with --expose-gc that forces a collection every 200 milliseconds keeps its lock, and a second daemon on the same volume is refused and exits 1", async () => {
+test("a daemon started with --expose-gc that forces a collection every 200 milliseconds keeps its lock, and a second daemon on the same volume is refused and exits 1", async () => {
   const running = await daemon({ gc: true })
   await running.start()
   await eventually(running.collections, (count) => count >= 3)
@@ -15,7 +15,7 @@ test("IMG-61 CLI-27 TST-105 IMG-59 a daemon started with --expose-gc that forces
   expect(running.output()).toContain("event=boot.refused reason=lock")
 }, 15_000)
 
-test("TST-108 CLI-127 a daemon whose state/daemon.lock is replaced under it fails chad health, and goes on answering, because it keeps the lock's handle", async () => {
+test("a daemon whose state/daemon.lock is replaced under it fails chad health, and goes on answering, because it keeps the lock's handle", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([{ text: "still here" }])
@@ -31,7 +31,7 @@ test("TST-108 CLI-127 a daemon whose state/daemon.lock is replaced under it fail
   expect(await posted(running, thread)).toEqual(["still here"])
 }, 15_000)
 
-test("TST-54 an event the killed daemon never acknowledged is delivered again to the next daemon, and answered once", async () => {
+test("an event the killed daemon never acknowledged is delivered again to the next daemon, and answered once", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([{ text: "answered once" }])

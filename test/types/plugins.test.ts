@@ -1,5 +1,5 @@
 // The type layer of a plugin: the compiler options `chad check` uses, run over the asphodel fixture and over the six
-// deliberate mistakes, each of which must fail with its own error (TST-22, TST-160, TST-188).
+// deliberate mistakes, each of which must fail with its own error and name the service or type it lacks.
 import { spawnSync } from "node:child_process"
 import { rmSync, writeFileSync } from "node:fs"
 import { expect, it } from "vitest"
@@ -16,7 +16,7 @@ const mistakes = {
   "hook-wrong-type": ["TS2322", "Effect<string"],
 } as const
 
-it("TST-22 TST-160 TST-188 LOAD-80 the fixture plugin passes the check's options, and each of the six mistakes fails with its code and names what is missing", () => {
+it("the fixture plugin passes the check's options, and each of the six mistakes fails with its code and names what is missing", () => {
   // The config sits in the package, so the Node types resolve from its node_modules as they do from repo/.
   const config = path(
     `test/types/fixtures/plugins-${process.pid}.tsconfig.json`,

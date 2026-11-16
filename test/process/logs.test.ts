@@ -14,7 +14,7 @@ const entry = (event: string) =>
     fiberId: "#1",
   }) + "\n"
 
-test("FAIL-198 FAIL-199 chad logs -f prints what the log holds and then each new entry, and keeps following when the file is rotated", async () => {
+test("chad logs -f prints what the log holds and then each new entry, and keeps following when the file is rotated", async () => {
   const data = join(fresh(), "data")
   const logs = join(data, "logs")
   mkdirSync(logs, { recursive: true })

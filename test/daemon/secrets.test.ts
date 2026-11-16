@@ -110,7 +110,7 @@ const set = (
   env: Record<string, string> = {},
 ) => running.chad(["secret", "set", name], env, value + "\n")
 
-test("CRED-16 CRED-17 CRED-23 CRED-24 CRED-25 CRED-26 CRED-81 CRED-106 CRED-111 CRED-112 CRED-130 CLI-35b CLI-37 CLI-46d CLI-95 CLI-100 CLI-101 CLI-102 CLI-150 SET-26 SET-79 SET-80 SWAP-39 SWAP-94 SWAP-96 SWAP-97 SWAP-98 SWAP-121 SWAP-138 SWAP-139 SWAP-143 SWAP-148 REC-108 REC-124 LOAD-51 FAIL-238 FAIL-346 a saved or removed secret reloads the plugins whose settings name it and no other; one that fails keeps its old version, exits 1 and is marked; rm from a session posts its line; the next boot skips it and the next save loads it; saves at once are all kept", async () => {
+test("a saved or removed secret reloads the plugins whose settings name it and no other; one that fails keeps its old version, exits 1 and is marked; rm from a session posts its line; the next boot skips it and the next save loads it; saves at once are all kept", async () => {
   const directory = await volume()
   const { running, keyed, plain, quiet } = await boot(directory)
   await eventually(
@@ -256,7 +256,7 @@ test("CRED-16 CRED-17 CRED-23 CRED-24 CRED-25 CRED-26 CRED-81 CRED-106 CRED-111 
   )
 }, 60_000)
 
-test("CRED-18 CRED-19 CRED-22 CRED-24 CRED-28 CRED-29 CRED-30 CRED-31 CRED-32 CRED-113 CRED-114 CRED-115 CRED-137 CLI-31b CLI-49b CLI-51b CLI-95 CLI-98 CLI-99 CLI-103 SET-33 with no daemon the CLI keeps the store itself in a 0600 file, refuses a name it cannot hold, and secret run hands a value to its child by environment or stdin with the exit codes of a shell", async () => {
+test("with no daemon the CLI keeps the store itself in a 0600 file, refuses a name it cannot hold, and secret run hands a value to its child by environment or stdin with the exit codes of a shell", async () => {
   const directory = fresh()
   const data = join(directory, "data")
   mkdirSync(data, { recursive: true })
@@ -339,8 +339,8 @@ test("CRED-18 CRED-19 CRED-22 CRED-24 CRED-28 CRED-29 CRED-30 CRED-31 CRED-32 CR
 }, 30_000)
 
 /**
- * Every command that exists, as the canary check runs it against a daemon. A later slice adds its commands here
- * (TST-97). The ones that change something run in order after these.
+ * Every command that exists, as the canary check runs it against a daemon. A new command belongs here too.
+ * The ones that change something run in order after these.
  */
 const everyCommand: ReadonlyArray<ReadonlyArray<string>> = [
   ["--help"],
@@ -380,7 +380,7 @@ const recipeSecrets = [
   ),
 ]
 
-test("TST-97 CLI-97 CRED-8 CRED-9 CRED-10 CRED-11 CRED-80 CRED-81 CRED-82 CRED-108 CRED-130 CRED-140 SET-21 a stored canary is in no output of any command or of any credentials recipe, and nowhere in the log, a damaged store included", async () => {
+test("a stored canary is in no output of any command or of any credentials recipe, and nowhere in the log, a damaged store included", async () => {
   const canary = "canary-7e3b9d41c5"
   const directory = fresh()
   const data = join(directory, "data")
@@ -482,7 +482,7 @@ test("TST-97 CLI-97 CRED-8 CRED-9 CRED-10 CRED-11 CRED-80 CRED-81 CRED-82 CRED-1
   ).toBe(true)
 }, 60_000)
 
-test("CRED-16 CLI-35 CLI-95 saves with no daemon, run at once and some killed partway, leave a store that reads, holds every save that exited 0, and no file another user can read", async () => {
+test("saves with no daemon, run at once and some killed partway, leave a store that reads, holds every save that exited 0, and no file another user can read", async () => {
   const directory = fresh()
   const data = join(directory, "data")
   mkdirSync(data, { recursive: true })

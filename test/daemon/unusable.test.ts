@@ -25,7 +25,7 @@ const tries = (chad: Scenario) =>
         ) && line.annotations["key"] === "database-unusable",
     )
 
-test("STO-117 STO-118 STO-119 STO-136 STO-186 FAIL-147 FAIL-148 FAIL-149 FAIL-225 FAIL-226 SES-29 a corrupt database keeps chad up without sessions, answers the owner with the error, and sends its notice once across restarts", async () => {
+test("a corrupt database keeps chad up without sessions, answers the owner with the error, and sends its notice once across restarts", async () => {
   const directory = fresh()
   const data = join(directory, "data")
   mkdirSync(join(data, "db"), { recursive: true })
@@ -86,7 +86,7 @@ test("STO-117 STO-118 STO-119 STO-136 STO-186 FAIL-147 FAIL-148 FAIL-149 FAIL-22
   expect(existsSync(join(data, "state/db-unusable"))).toBe(false)
 })
 
-test("FAIL-148 FAIL-339 SES-29 STO-118 on an unusable database an owner message without a mention gets no answer in a server thread or a plain channel, one with a mention gets the error where it was posted, and the channel opens no thread", async () => {
+test("on an unusable database an owner message without a mention gets no answer in a server thread or a plain channel, one with a mention gets the error where it was posted, and the channel opens no thread", async () => {
   const directory = fresh()
   mkdirSync(join(directory, "data/db"), { recursive: true })
   writeFileSync(
@@ -127,7 +127,7 @@ test("FAIL-148 FAIL-339 SES-29 STO-118 on an unusable database an owner message 
   expect(await running.stop()).toBe(0)
 })
 
-test("STO-41 STO-117 a database that holds a migration this chad does not know starts no session and is left as it is", async () => {
+test("a database that holds a migration this chad does not know starts no session and is left as it is", async () => {
   const first = await scenario()
   await first.logged("boot.ready")
   expect(await first.stop()).toBe(0)

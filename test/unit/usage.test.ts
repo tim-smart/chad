@@ -4,7 +4,7 @@ import * as Failed from "../../src/daemon/Failed.ts"
 import * as Format from "../../src/daemon/Format.ts"
 import * as Messages from "../../src/Messages.ts"
 
-it("TST-180 FAIL-209 FAIL-206 FAIL-90 a usage limit's reset time, which the HTTP body gives in epoch seconds and chad holds in milliseconds, is divided down to seconds in the Discord timestamp chad posts", () => {
+it("a usage limit's reset time, which the HTTP body gives in epoch seconds and chad holds in milliseconds, is divided down to seconds in the Discord timestamp chad posts", () => {
   const seconds = 1_900_000_000
   // The error as effect's OpenAI client makes it from a 429 whose body names the usage limit.
   const error = AiError.make({

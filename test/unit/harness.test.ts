@@ -44,7 +44,7 @@ describe("the durations", () => {
   const seconds = (length: Duration.Duration) =>
     Duration.toMillis(length) / 1000
 
-  it("TST-70 TST-71 STO-36 SES-126 CLI-152 IMG-116 each default of Timings is the value of the durations table", () => {
+  it("each default of Timings has its fixed value", () => {
     const { pruneAt, turnTimeout, ...lengths } = defaults
     expect(
       Object.fromEntries(
@@ -82,13 +82,13 @@ describe("the durations", () => {
       statusTokenWindow: 7 * 24 * 3600,
     })
     expect(pruneAt).toBe("0 4 * * *")
-    // clanka's turn timeout is not chad's to set, and clanka keeps its default (FAIL-79, TST-215).
+    // clanka's turn timeout is not chad's to set, and clanka keeps its default of 5 minutes.
     expect(turnTimeout).toBeUndefined()
     // The longest wait of a turn that starts during a swap has no value of its own.
     expect(seconds(defaults.swapDrain) + seconds(defaults.swapClose)).toBe(40)
   })
 
-  it("TST-73 TST-75 the test entry shortens every length by one factor, which keeps the orderings and leaves the prune's time of day alone", () => {
+  it("the test entry shortens every length by one factor, which keeps the orderings and leaves the prune's time of day alone", () => {
     expect(factor).toBeLessThan(1)
     const scaled = scale(defaults, factor)
     const names = Object.keys(defaults).filter(
@@ -109,7 +109,7 @@ describe("the durations", () => {
     )
   })
 
-  it("TST-33 TST-201 TST-202 TST-217 runDaemon takes the four inputs of the table, the plugins and the bundled skills, and no other", () => {
+  it("runDaemon takes the chat, an HttpClient, a WebSocket constructor, the timings, the plugins and the bundled skills, and no other", () => {
     // The type-check fails on a key that is missing here or that DaemonInputs does not have.
     const inputs: Record<keyof DaemonInputs, true> = {
       chat: true,
@@ -126,7 +126,7 @@ describe("the durations", () => {
     }
   })
 
-  it("TST-72 OV-42 chad serve passes the defaults, and nothing the daemon reads from the environment is a duration", () => {
+  it("chad serve passes the defaults, and nothing the daemon reads from the environment is a duration", () => {
     const serve = read("src/daemon.ts")
     expect(serve).toContain("timings: defaults")
     expect(serve).toContain("runDaemon(")
@@ -155,22 +155,79 @@ describe("the durations", () => {
 })
 
 describe("the logger", () => {
-  it("FAIL-8 FAIL-189 FAIL-240 the event names are the closed list of the spec's table, each area.name with one dot", () => {
-    const table = [
-      ...read("docs/spec/16-failures-logs-status.md").matchAll(
-        /^\| \*\*FAIL-\d+\*\* \| `([^`]+)` \|/gm,
-      ),
-    ].map((row) => row[1])
-    expect(Object.keys(events).sort()).toEqual([...table].sort())
+  it("the event names are a closed list, each area.name with one dot", () => {
+    expect(Object.keys(events).sort()).toEqual([
+      "apply.done",
+      "apply.failed",
+      "backup.failed",
+      "boot.filesystem",
+      "boot.log-level-unknown",
+      "boot.moved-aside",
+      "boot.ready",
+      "boot.refused",
+      "boot.setup-needed",
+      "boot.started",
+      "chat.connected",
+      "chat.disconnected",
+      "chat.refused",
+      "command.ran",
+      "database.migrated",
+      "database.unusable",
+      "disk.full",
+      "disk.low",
+      "history.reconciled",
+      "hook.dropped",
+      "hook.failed",
+      "hook.failing",
+      "mcp.config-unreadable",
+      "mcp.rebuilt",
+      "mcp.server-failed",
+      "message.ignored",
+      "model.check-failed",
+      "model.logged-in",
+      "notice.sent",
+      "notice.undelivered",
+      "plugin.log",
+      "plugin.skipped",
+      "prune.failed",
+      "rpc.cancelled",
+      "session.passivated",
+      "session.restored",
+      "settings.ignored",
+      "settings.unparsable",
+      "skill.bundled-changed",
+      "skill.skipped",
+      "stop.cut",
+      "stop.dropped",
+      "stop.ended",
+      "stop.started",
+      "swap.close-abandoned",
+      "swap.overrun",
+      "swap.overrun-ended",
+      "timer.held",
+      "turn.answer-unposted",
+      "turn.compaction",
+      "turn.ended",
+      "turn.failed",
+      "turn.login-wait",
+      "turn.resumed",
+      "turn.retry",
+      "turn.script-ended",
+      "turn.script-started",
+      "turn.started",
+      "turn.steered",
+      "turn.subagent-ended",
+      "turn.subagent-started",
+    ])
     for (const name of Object.keys(events)) {
       expect(name).toMatch(/^[a-z]+(-[a-z]+)*\.[a-z]+(-[a-z]+)*$/)
     }
-    // The one level of this slice that depends on the reason.
+    // message.ignored is the one event whose level depends on the reason.
     expect(levelOf("message.ignored", "not-owner")).toBe("Info")
     expect(levelOf("message.ignored", "own")).toBe("Debug")
   })
 
-  it("FAIL-17 FAIL-18 CHAD_LOG_LEVEL takes its eight values in any letter case, info is the default, and any other value is unknown", () => {
+  it("CHAD_LOG_LEVEL takes its eight values in any letter case, info is the default, and any other value is unknown", () => {
     const level = (value?: string) =>
       Environment.read(value === undefined ? {} : { CHAD_LOG_LEVEL: value })
     expect(level().logLevel).toBe("Info")
@@ -199,7 +256,7 @@ describe("the logger", () => {
     }
   })
 
-  it("FAIL-20 effect's minimum is the more verbose of Info and the level, and the sinks drop what a quieter level leaves out", async () => {
+  it("effect's minimum is the more verbose of Info and the level, and the sinks drop what a quieter level leaves out", async () => {
     const run = (level: Environment.Environment["logLevel"]) => {
       const printed: Array<string> = []
       return Effect.gen(function* () {
@@ -235,7 +292,7 @@ describe("the logger", () => {
 })
 
 describe("storage", () => {
-  it("STO-33 the one connection has the driver's 5 second busy timeout", async () => {
+  it("the one connection has the driver's 5 second busy timeout", async () => {
     const data = mkdtempSync(join(tmpdir(), "chad-unit-"))
     try {
       mkdirSync(join(data, "db"))
@@ -252,7 +309,7 @@ describe("storage", () => {
     }
   })
 
-  it("STO-39 STO-187 the migrations only go forward, one file for each, and a delivered one is as it was delivered", () => {
+  it("the migrations only go forward, one file for each, and one that has shipped is never edited", () => {
     const delivered: Record<string, string> = json(
       "test/unit/fixtures/migrations.json",
     )
@@ -264,7 +321,7 @@ describe("storage", () => {
     for (const name of names) {
       expect(read(join(directory, name))).not.toMatch(/\bdown\b|DROP TABLE/i)
     }
-    // A delivered migration keeps the hash it was delivered with. A new one is added to the fixture by its slice.
+    // A shipped migration keeps the hash it shipped with. A new migration adds its hash to the fixture.
     const hashes = Object.fromEntries(
       names.map((name) => [
         name,
@@ -278,7 +335,7 @@ describe("storage", () => {
 })
 
 describe("the suite", () => {
-  it("TST-3 TST-77 TST-79 each layer is a project on forks, the files run at once are the core count, and the timezone is Pacific/Auckland", () => {
+  it("each layer is a project on forks, the files run at once are the core count, and the timezone is Pacific/Auckland", () => {
     for (const project of config.test?.projects ?? []) {
       expect(project).toMatchObject({
         test: { pool: "forks", env: { TZ: "Pacific/Auckland" } },
@@ -290,7 +347,7 @@ describe("the suite", () => {
     expect(process.env["TZ"]).toBe(timezone)
   })
 
-  it("TST-4 the repository holds no shell check script", () => {
+  it("the repository holds no shell check script", () => {
     const tracked = spawnSync(
       "git",
       ["ls-files", "-co", "--exclude-standard"],
@@ -303,7 +360,7 @@ describe("the suite", () => {
     expect(tracked.filter((file) => /\.(sh|bash)$/.test(file))).toEqual([])
   })
 
-  it("TST-76 no scenario waits a fixed time", () => {
+  it("no scenario waits a fixed time", () => {
     for (const file of [
       ...sources("test/daemon"),
       ...sources("test/process"),
@@ -312,7 +369,7 @@ describe("the suite", () => {
     }
   })
 
-  it("TST-5a TST-135 CI runs the Node major the Dockerfile names, and the local command fails at once on another", () => {
+  it("CI runs the Node major the Dockerfile names, and the local command fails at once on another", () => {
     const dockerfile = read("Dockerfile")
     const major = dockerfileNode(dockerfile)
     const jobs: Record<string, { steps: ReadonlyArray<Step> }> = yaml(
@@ -335,7 +392,7 @@ describe("the suite", () => {
     )
   })
 
-  it("TST-136 a second command runs the image layer, on Docker or on podman", () => {
+  it("a second command runs the image layer, on Docker or on podman", () => {
     expect(json("package.json").scripts["test:image"]).toBe(
       "node scripts/image.ts",
     )
@@ -383,7 +440,7 @@ describe("the dependencies", () => {
     scenario: () => scenario,
   })
 
-  it("IMG-119 one script replaces the vendored tarballs as a set, from pkg.pr.new, and a failed download leaves the old set", async () => {
+  it("one script replaces the vendored tarballs as a set, from pkg.pr.new, and a failed download leaves the old set", async () => {
     const { root, state } = fixture()
     try {
       const failing: Vendor.Steps = {
@@ -426,7 +483,7 @@ describe("the dependencies", () => {
     expect(json("package.json").scripts.vendor).toBe("node scripts/vendor.ts")
   })
 
-  it("TST-185 a newer snapshot that fails the scenario of a message in and a scripted answer out is taken back out", async () => {
+  it("a newer snapshot that fails the scenario of a message in and a scripted answer out is taken back out", async () => {
     const { root, state } = fixture()
     try {
       expect(await Vendor.replace(root, target, steps(false, root))).toBe(false)
@@ -439,11 +496,11 @@ describe("the dependencies", () => {
       rmSync(root, { recursive: true, force: true })
     }
     expect(read("scripts/vendor.ts")).toMatch(
-      /"test\/daemon\/turn\.test\.ts",\s*"-t",\s*"TST-164"/,
+      /"test\/daemon\/turn\.test\.ts",\s*"-t",\s*"a message in and a scripted answer out"/,
     )
   })
 
-  it("IMG-2 Renovate bumps the digest that the Dockerfile pins", () => {
+  it("Renovate bumps the digest that the Dockerfile pins", () => {
     const renovate = json("renovate.json")
     expect(renovate.enabledManagers).toEqual(["dockerfile"])
     expect(renovate.packageRules).toContainEqual({
@@ -457,7 +514,7 @@ describe("the dependencies", () => {
 })
 
 describe("what chad ships", () => {
-  it("TST-53 chad ships no interactive chat client, and the script that types into the local platform is outside the package", () => {
+  it("chad ships no interactive chat client, and the script that types into the local platform is outside the package", () => {
     const pkg = json("package.json")
     expect(pkg.bin).toEqual({ chad: "./bin/chad.js" })
     expect(
@@ -466,13 +523,13 @@ describe("what chad ships", () => {
     expect(read("scripts/local-chat.ts")).toContain("readline")
   })
 
-  it("CRED-62 nothing sets clanka's scriptTimeout", () => {
+  it("nothing sets clanka's scriptTimeout", () => {
     expect(
       sources("src").filter((file) => read(file).includes("scriptTimeout")),
     ).toEqual([])
   })
 
-  it("SES-124 TST-69 the docs say, where they describe owners, that a webhook id on the list makes everyone who holds the webhook URL an owner", () => {
+  it("the docs say, where they describe owners, that a webhook id on the list makes everyone who holds the webhook URL an owner", () => {
     expect(read("docs/owners.md").replace(/\s+/g, " ")).toContain(
       "A webhook id on the list makes everyone who holds the webhook URL an owner.",
     )

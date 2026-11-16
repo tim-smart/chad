@@ -13,7 +13,7 @@ import {
   threadOf,
 } from "../support/owner.ts"
 
-test("OV-24 SES-3 SES-4b SES-7 SES-31 SES-165 SES-166 STO-153 STO-163 a mention in a plain channel opens a thread that is the session, a message without one is ignored there, and the thread and a DM then need none", async () => {
+test("a mention in a plain channel opens a thread that is the session, a message without one is ignored there, and the thread and a DM then need none", async () => {
   const running = await scenario({ env: { CHAD_LOG_LEVEL: "debug" } })
   const { fakes, chat } = running
   await fakes.model.script(["one", "two", "three"].map((text) => ({ text })))
@@ -69,7 +69,7 @@ test("OV-24 SES-3 SES-4b SES-7 SES-31 SES-165 SES-166 STO-153 STO-163 a mention 
   })
 })
 
-test("SES-187 the first message in an existing thread that has no session needs a mention, and with one the session is that thread itself", async () => {
+test("the first message in an existing thread that has no session needs a mention, and with one the session is that thread itself", async () => {
   const running = await scenario({ env: { CHAD_LOG_LEVEL: "debug" } })
   const { fakes, chat } = running
   await fakes.model.script([{ text: "one" }])
@@ -89,7 +89,7 @@ test("SES-187 the first message in an existing thread that has no session needs 
   expect(calls.filter((call) => call.op === "startThread")).toEqual([])
 })
 
-test("SES-5 DIS-77 when the thread cannot be opened chad says so in the channel as a normal message with the platform's reason, and drops the event", async () => {
+test("when the thread cannot be opened chad says so in the channel as a normal message with the platform's reason, and drops the event", async () => {
   const running = await scenario()
   const { fakes, chat } = running
   await fakes.model.script([])
@@ -109,7 +109,7 @@ test("SES-5 DIS-77 when the thread cannot be opened chad says so in the channel 
   expect(await fakes.model.calls()).toEqual([])
 })
 
-test("SES-34 SES-145 SES-146 DIS-5 CLI-138a CLI-141a a chat command is the first word after the mention, in any case and with any text after it, it never reaches the model, and every other text does", async () => {
+test("a chat command is the first word after the mention, in any case and with any text after it, it never reaches the model, and every other text does", async () => {
   const running = await scenario()
   const { fakes } = running
   const others = ["/revert", "/login", "/logout", "/logs", "please /stop"]
@@ -138,7 +138,7 @@ test("SES-34 SES-145 SES-146 DIS-5 CLI-138a CLI-141a a chat command is the first
   expect(said).toContain(Messages.newSession(Format.local))
 })
 
-test("SES-72 DIS-76 SES-83 DIS-75 DIS-84 SES-188 with nothing running /stop posts its notice and creates no session, and /new creates the thread's first session and posts its notice", async () => {
+test("with nothing running /stop posts its notice and creates no session, and /new creates the thread's first session and posts its notice", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([])
@@ -167,7 +167,7 @@ test("SES-72 DIS-76 SES-83 DIS-75 DIS-84 SES-188 with nothing running /stop post
   expect(await fakes.model.calls()).toEqual([])
 })
 
-test("SES-147 SES-148 SES-186 a mentioned command in a plain channel with no session is answered in the channel, opens no thread and creates nothing", async () => {
+test("a mentioned command in a plain channel with no session is answered in the channel, opens no thread and creates nothing", async () => {
   const running = await scenario()
   const { fakes, chat } = running
   await fakes.model.script([])
@@ -188,7 +188,7 @@ test("SES-147 SES-148 SES-186 a mentioned command in a plain channel with no ses
   expect(await fakes.model.calls()).toEqual([])
 })
 
-test("SES-180 SES-194 every message chad drops writes message.ignored with its reason and the author's id, and never the content: a stranger's, chad's own, one with no mention and a second delivery", async () => {
+test("every message chad drops writes message.ignored with its reason and the author's id, and never the content: a stranger's, chad's own, one with no mention and a second delivery", async () => {
   const running = await scenario({ env: { CHAD_LOG_LEVEL: "debug" } })
   const { fakes } = running
   await fakes.model.script([{ text: "one" }])
@@ -246,7 +246,7 @@ test("SES-180 SES-194 every message chad drops writes message.ignored with its r
   expect(await fakes.model.calls()).toHaveLength(1)
 })
 
-test("FAIL-109 /status posts the text of chad status, from the same daemon call, and the model is never asked", async () => {
+test("/status posts the text of chad status, from the same daemon call, and the model is never asked", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([])

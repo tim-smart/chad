@@ -1,4 +1,4 @@
-// The nightly prune as the daemon runs it, in layer 3: on its ClusterCron schedule, given one of every second.
+// The nightly prune as the daemon runs it: on its ClusterCron schedule, given one of every second.
 import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, test } from "vitest"
@@ -8,7 +8,7 @@ import { eventually } from "../support/owner.ts"
 
 const day = 24 * 3600 * 1000
 
-test("STO-104 STO-106 STO-107 STO-183 FAIL-284 FAIL-312 the daemon's scheduled prune deletes a reset session's history in one transaction, so a run that fails part way deletes none of it, raises prune-failed, and the next run finishes it and clears the notice", async () => {
+test("the daemon's scheduled prune deletes a reset session's history in one transaction, so a run that fails part way deletes none of it, raises prune-failed, and the next run finishes it and clears the notice", async () => {
   const running = await scenario({ timings: { pruneAt: "* * * * * *" } })
   const { data } = running
   await running.logged("boot.ready")

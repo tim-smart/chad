@@ -49,7 +49,7 @@ const facts = (stdout: string) =>
 const events = (lines: ReadonlyArray<string>) =>
   lines.map((line) => / event=(\S+)/.exec(line)?.[1])
 
-test("OV-19 CLI-8 IMG-74 CLI-125a CLI-125g CLI-125h CLI-125i SELF-8 IMG-17 CLI-55 FAIL-286a FAIL-287 chad health and chad status reach the running daemon over the socket at run/chad.sock, as the owner's shell does", async () => {
+test("chad health and chad status reach the running daemon over the socket at run/chad.sock, as the owner's shell does", async () => {
   const running = await scenario()
   const { data } = running
   const ready = await running.logged("boot.ready")
@@ -90,7 +90,7 @@ test("OV-19 CLI-8 IMG-74 CLI-125a CLI-125g CLI-125h CLI-125i SELF-8 IMG-17 CLI-5
   expect(ready.annotations["connections"]).toBe(1)
 })
 
-test("STO-4 IMG-35 CLI-10 run/ gets mode 0700 on a start that finds it wider, the socket gets 0600 after the listen, and the umask is left alone", async () => {
+test("run/ gets mode 0700 on a start that finds it wider, the socket gets 0600 after the listen, and the umask is left alone", async () => {
   const directory = fresh()
   mkdirSync(join(directory, "data/run"), { recursive: true, mode: 0o755 })
   expect(mode(join(directory, "data/run"))).toBe("755")
@@ -103,7 +103,7 @@ test("STO-4 IMG-35 CLI-10 run/ gets mode 0700 on a start that finds it wider, th
   expect(process.umask()).toBe(umask)
 })
 
-test("IMG-62 IMG-128 IMG-141 CLI-14a STO-43 chad status answers while the boot is still loading and names the phase, and chad health passes", async () => {
+test("chad status answers while the boot is still loading and names the phase, and chad health passes", async () => {
   let loaded = () => {}
   const running = await scenario({
     loading: new Promise((resolve) => (loaded = resolve)),
@@ -125,7 +125,7 @@ test("IMG-62 IMG-128 IMG-141 CLI-14a STO-43 chad status answers while the boot i
   )
 })
 
-test("OV-20 IMG-59 IMG-60 IMG-126 CLI-13 CLI-25 STO-26 STO-196 FAIL-286a FAIL-322 a second daemon on the volume is refused the lock: it exits 1, says so on stdout only, and touches no socket, log file or directory", async () => {
+test("a second daemon on the volume is refused the lock: it exits 1, says so on stdout only, and touches no socket, log file or directory", async () => {
   const printed = stdout()
   const first = await scenario()
   const { data } = first
@@ -155,7 +155,7 @@ test("OV-20 IMG-59 IMG-60 IMG-126 CLI-13 CLI-25 STO-26 STO-196 FAIL-286a FAIL-32
   expect((await first.chad(["health"])).code).toBe(0)
 })
 
-test("CLI-13 CLI-14a IMG-62 IMG-142 a boot that the shard count guard refuses had already removed the socket file a killed daemon left and listened, and its boot.refused line is in the log file", async () => {
+test("a boot that the shard count guard refuses had already removed the socket file a killed daemon left and listened, and its boot.refused line is in the log file", async () => {
   const directory = fresh()
   const data = join(directory, "data")
   mkdirSync(join(data, "db"), { recursive: true })
@@ -175,7 +175,7 @@ test("CLI-13 CLI-14a IMG-62 IMG-142 a boot that the shard count guard refuses ha
   expect(existsSync(join(data, "run/chad.sock"))).toBe(false)
 })
 
-test("IMG-70 IMG-71 IMG-72 IMG-126 FAIL-290 FAIL-322 a volume that is really on tmpfs is warned about on stdout before the lock, in the log file once the lock is held and in chad status, and the boot goes on", async () => {
+test("a volume that is really on tmpfs is warned about on stdout before the lock, in the log file once the lock is held and in chad status, and the boot goes on", async () => {
   // The data path is a link from the scenario's directory to a directory on tmpfs, so the check has to follow it.
   const memory = mkdtempSync("/dev/shm/chad-")
   onTestFinished(() => rmSync(memory, { recursive: true, force: true }))
@@ -226,7 +226,7 @@ test("IMG-70 IMG-71 IMG-72 IMG-126 FAIL-290 FAIL-322 a volume that is really on 
   }
 })
 
-test("CLI-9 CLI-12 IMG-30 CHAD_SOCKET moves the socket for the daemon and for the CLI, and a CLI whose connect fails with EINVAL prints the daemon's path-length message", async () => {
+test("CHAD_SOCKET moves the socket for the daemon and for the CLI, and a CLI whose connect fails with EINVAL prints the daemon's path-length message", async () => {
   const directory = fresh()
   mkdirSync(directory, { recursive: true })
   const socket = join(directory, "moved.sock")
@@ -258,7 +258,7 @@ test("CLI-9 CLI-12 IMG-30 CHAD_SOCKET moves the socket for the daemon and for th
   })
 })
 
-test("IMG-63 CLI-11 a socket path over the platform's limit ends the start with exit 1 and a line that gives the length, the limit and CHAD_SOCKET as the fix, and nothing is created at the path", async () => {
+test("a socket path over the platform's limit ends the start with exit 1 and a line that gives the length, the limit and CHAD_SOCKET as the fix, and nothing is created at the path", async () => {
   const directory = fresh()
   mkdirSync(directory, { recursive: true })
   const socket = join(directory, "s".repeat(120))
@@ -273,7 +273,7 @@ test("IMG-63 CLI-11 a socket path over the platform's limit ends the start with 
   expect(existsSync(socket)).toBe(false)
 })
 
-test("CLI-22 IMG-97 the calls behind chad health and chad status are answered for a CLI of another chad version", async () => {
+test("the calls behind chad health and chad status are answered for a CLI of another chad version", async () => {
   const running = await scenario()
   await running.logged("boot.ready")
   const answers = await Effect.gen(function* () {
@@ -300,7 +300,7 @@ test("CLI-22 IMG-97 the calls behind chad health and chad status are answered fo
   expect(answers).toEqual({ ping: "pong", daemon: version })
 })
 
-test("CLI-23a CLI-125g CLI-125i CLI-125j CLI-128 CLI-230 IMG-75 with the daemon stopped the lock is free: chad health exits 4, and chad status exits 4 and prints what the files say, state/version and the stored connections included", async () => {
+test("with the daemon stopped the lock is free: chad health exits 4, and chad status exits 4 and prints what the files say, state/version and the stored connections included", async () => {
   const running = await scenario()
   const { data } = running
   await running.logged("boot.ready")

@@ -11,7 +11,7 @@ import * as Connections from "../../src/Connections.ts"
 import * as Lock from "../../src/Lock.ts"
 import * as Paths from "../../src/Paths.ts"
 
-it("CLI-33 an interrupted offline write keeps the daemon lock until its pending rename finishes", async () => {
+it("an interrupted offline write keeps the daemon lock until its pending rename finishes", async () => {
   const data = mkdtempSync(join(tmpdir(), "chad-files-"))
   const lock = Paths.lock(data)
   const started = Promise.withResolvers<void>()
@@ -75,7 +75,7 @@ it("CLI-33 an interrupted offline write keeps the daemon lock until its pending 
   }
 })
 
-it("CLI-33 cancellation before lock ownership does not wait for setup or write connections", async () => {
+it("cancellation before lock ownership does not wait for setup or write connections", async () => {
   const data = mkdtempSync(join(tmpdir(), "chad-files-"))
   const lock = Paths.lock(data)
   const started = Promise.withResolvers<void>()

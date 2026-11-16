@@ -24,7 +24,7 @@ const recorded = (running: Scenario) => {
   )
 }
 
-test("SES-133 DIS-61 FAIL-84 FAIL-203 FAIL-204 FAIL-205 FAIL-57 API-113 TST-181 TST-215 a model call that says nothing for three of real clanka's turn timeouts in a row ends the turn as ModelError with chad's reason TurnTimeout and the silence message", async () => {
+test("a model call that says nothing for three of real clanka's turn timeouts in a row ends the turn as ModelError with chad's reason TurnTimeout and the silence message", async () => {
   const running = await scenario({
     timings: { turnTimeout: Duration.millis(400) },
   })
@@ -62,7 +62,7 @@ test("SES-133 DIS-61 FAIL-84 FAIL-203 FAIL-204 FAIL-205 FAIL-57 API-113 TST-181 
   expect(message).toContain(Messages.silenceReason)
 })
 
-test("MOD-102 MOD-103 FAIL-212 turn timeouts while a login is pending for the session do not count toward the silence bound, and the count starts again from zero once the login completes", async () => {
+test("turn timeouts while a login is pending for the session do not count toward the silence bound, and the count starts again from zero once the login completes", async () => {
   const running = await scenario({
     ...codex,
     codex: "token",
@@ -121,7 +121,7 @@ test("MOD-102 MOD-103 FAIL-212 turn timeouts while a login is pending for the se
   ).toBeGreaterThanOrEqual(2)
 })
 
-test("FAIL-46 FAIL-87 FAIL-88 FAIL-97 FAIL-60 DIS-104 FAIL-242 MOD-114 FAIL-94 FAIL-319 FAIL-308 a usage limit on the Codex socket ends the turn at its first retry as UsageLimit, replies with the usage-limit message and no reset time, logs one turn.failed and no retry, records the usage-limit row that chad status lists and sends no notice, and the next model call that succeeds clears it", async () => {
+test("a usage limit on the Codex socket ends the turn at its first retry as UsageLimit, replies with the usage-limit message and no reset time, logs one turn.failed and no retry, records the usage-limit row that chad status lists and sends no notice, and the next model call that succeeds clears it", async () => {
   const running = await scenario({ ...codex, codex: "token" })
   const { fakes } = running
   await fakes.model.script([
@@ -183,7 +183,7 @@ test("FAIL-46 FAIL-87 FAIL-88 FAIL-97 FAIL-60 DIS-104 FAIL-242 MOD-114 FAIL-94 F
   expect(cleared).toEqual({ holds: 0 })
 })
 
-test("FAIL-90 FAIL-206 FAIL-209 FAIL-321 FAIL-342 FAIL-G38 a usage limit over HTTP, on openai with an API key, carries its reset time to the turn.failed line, the row, the message and the line under Problems", async () => {
+test("a usage limit over HTTP, on openai with an API key, carries its reset time to the turn.failed line, the row, the message and the line under Problems", async () => {
   const running = await scenario({
     env: {
       CHAD_MODEL: "openai/gpt-6-astra/medium",
@@ -244,7 +244,7 @@ const outcome = async (running: Scenario) => {
 const retried = (running: Scenario) =>
   running.log().filter((line) => line.annotations["event"] === "turn.retry")
 
-test("FAIL-84 FAIL-57 a background sub-agent's model call that says nothing for three turn timeouts in a row ends the owner's turn as TurnTimeout before a fourth attempt, with no retry line", async () => {
+test("a background sub-agent's model call that says nothing for three turn timeouts in a row ends the owner's turn as TurnTimeout before a fourth attempt, with no retry line", async () => {
   const running = await scenario({
     timings: { turnTimeout: Duration.millis(400) },
   })
@@ -277,7 +277,7 @@ test("FAIL-84 FAIL-57 a background sub-agent's model call that says nothing for 
   expect(message).toContain(Messages.silenceReason)
 })
 
-test("FAIL-84 FAIL-212 MOD-102 MOD-103 FAIL-57 FAIL-250 FAIL-328 a foreground sub-agent's turn timeouts count where its own call is cut, also when clanka holds its retries back behind another foreground sub-agent's answer and gives them as that agent's after the login completed: one silent call after the login does not end the turn, and the third does, and the retry lines name no agent and count the turn's retries", async () => {
+test("a foreground sub-agent's turn timeouts count where its own call is cut, also when clanka holds its retries back behind another foreground sub-agent's answer and gives them as that agent's after the login completed: one silent call after the login does not end the turn, and the third does, and the retry lines name no agent and count the turn's retries", async () => {
   const running = await scenario({
     ...codex,
     codex: "token",
@@ -359,7 +359,7 @@ test("FAIL-84 FAIL-212 MOD-102 MOD-103 FAIL-57 FAIL-250 FAIL-328 a foreground su
   )
 })
 
-test("FAIL-87 FAIL-88 a background sub-agent's usage limit on the Codex socket ends the owner's turn as UsageLimit at once, with no retry", async () => {
+test("a background sub-agent's usage limit on the Codex socket ends the owner's turn as UsageLimit at once, with no retry", async () => {
   const running = await scenario({ ...codex, codex: "token" })
   const { fakes } = running
   await fakes.model.script([
@@ -390,7 +390,7 @@ test("FAIL-87 FAIL-88 a background sub-agent's usage limit on the Codex socket e
   ).toEqual([Messages.usageLimitReached(Format.local)])
 })
 
-test("FAIL-89 a background sub-agent's usage_not_included error ends the owner's turn at once as ModelError with its message", async () => {
+test("a background sub-agent's usage_not_included error ends the owner's turn at once as ModelError with its message", async () => {
   const running = await scenario({ ...codex, codex: "token" })
   const { fakes } = running
   await fakes.model.script([
@@ -436,7 +436,7 @@ const holding = (running: Scenario) =>
     ]),
   )
 
-test("FAIL-94 FAIL-235 the next model call that succeeds clears the usage limit and a failed check at start, also when it is a later call of a turn whose first call succeeded before the condition began", async () => {
+test("the next model call that succeeds clears the usage limit and a failed check at start, also when it is a later call of a turn whose first call succeeded before the condition began", async () => {
   let loaded!: () => void
   const running = await scenario({
     ...codex,
@@ -484,7 +484,7 @@ test("FAIL-94 FAIL-235 the next model call that succeeds clears the usage limit 
   })
 })
 
-test("FAIL-94 FAIL-87 a background sub-agent's model call that succeeds clears the usage limit, although its parts are not in the turn's output", async () => {
+test("a background sub-agent's model call that succeeds clears the usage limit, although its parts are not in the turn's output", async () => {
   const running = await scenario({ ...codex, codex: "token" })
   const { fakes, model } = running
   await fakes.model.script([
@@ -516,7 +516,7 @@ test("FAIL-94 FAIL-87 a background sub-agent's model call that succeeds clears t
   await fakes.chat.answers(first, 1)
 })
 
-test("FAIL-235 FAIL-94 a model call that succeeds clears a failed check at start on a provider that reports no usage", async () => {
+test("a model call that succeeds clears a failed check at start on a provider that reports no usage", async () => {
   let loaded!: () => void
   const running = await scenario({
     loading: new Promise<void>((resolve) => (loaded = resolve)),
@@ -540,7 +540,7 @@ test("FAIL-235 FAIL-94 a model call that succeeds clears a failed check at start
   expect(holding(running)).toEqual({ "model-check-failed": 0 })
 })
 
-test("FAIL-94 FAIL-235 a response that fails is no model call that succeeds: a failed check at start still holds while clanka retries the call, and the retry that answers clears it", async () => {
+test("a response that fails is no model call that succeeds: a failed check at start still holds while clanka retries the call, and the retry that answers clears it", async () => {
   let loaded!: () => void
   const running = await scenario({
     ...codex,

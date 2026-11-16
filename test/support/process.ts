@@ -1,7 +1,7 @@
-// The process driver of layer 4 (docs/spec/17-testing.md, TST-27 and TST-28). The daemon runs as a child process
-// that a scenario kills with SIGKILL, stops with SIGTERM and starts again on the same volume. The chat state and the
-// model script stay here, in the test's process: the local platform listens at `run/local.sock`, the scripted
-// gateway at a WebSocket server, and the fake model and the fake Discord REST server over HTTP.
+// The process driver of layer 4. The daemon runs as a child process that a scenario kills with SIGKILL, stops with
+// SIGTERM and starts again on the same volume. The chat state and the model script stay here, in the test's process:
+// the local platform listens at `run/local.sock`, the scripted gateway at a WebSocket server, and the fake model and
+// the fake Discord REST server over HTTP.
 import { spawn } from "node:child_process"
 import {
   appendFileSync,
@@ -37,9 +37,9 @@ export interface Options {
   readonly connections?: ReadonlyArray<Connection>
   /** Environment variables for every start, over the driver's own. `undefined` unsets one. */
   readonly env?: Readonly<Record<string, string | undefined>>
-  /** The session idle time or the message retention, in place of the scaled length (TST-212). */
+  /** The session idle time or the message retention, in place of the scaled length. */
   readonly timings?: Own
-  /** Starts the daemon with `--expose-gc` and a collection every 200 milliseconds (TST-105). */
+  /** Starts the daemon with `--expose-gc` and a collection every 200 milliseconds. */
   readonly gc?: boolean
   /** Stands in for the process table the driver reads, for a scenario that makes the read fail. */
   readonly processTable?: () => ReadonlyArray<Reap.Row>
@@ -114,7 +114,7 @@ export { alive } from "./reap.ts"
 export const daemon = async (options: Options = {}): Promise<Process> => {
   const directory = fresh()
   const data = join(directory, "data")
-  // The child's home, npm prefix and caches are inside the scenario's directory, next to `CHAD_DATA` (IMG-140).
+  // The child's home, npm prefix and caches are inside the scenario's directory, next to `CHAD_DATA`.
   const home = join(directory, "home")
   const cache = join(directory, "cache")
   for (const path of [data, home, cache]) mkdirSync(path, { recursive: true })
@@ -163,8 +163,8 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
     NPM_CONFIG_PREFIX: join(home, ".npm-global"),
     XDG_CACHE_HOME: cache,
     NPM_CONFIG_CACHE: join(cache, "npm"),
-    // Every process a start leads to inherits this, a detached background process included, which is how the end of
-    // the scenario finds them (TST-87).
+    // Every process a start leads to inherits this, a detached background process included, which is how the end of the
+    // scenario finds them.
     [Reap.scenarioVariable]: directory,
     ...options.env,
   }

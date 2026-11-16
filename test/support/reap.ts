@@ -5,11 +5,11 @@
 // macOS both have.
 //
 // A process counts as the scenario's only while the table shows it with the pid and the start time it was recorded
-// with. A process group counts only while one of those processes is in it, because a group's id is not given to
-// another group while a process is left in it, and a process that joined such a group is recorded too. A number alone
-// is never taken as ownership. This is best effort: a background process whose parent ends between two looks, and
-// which drops the mark or runs where `/proc` does not exist, is never seen (TST-87 is on the stopped list for it).
-// A look that fails is kept and fails the scenario, and never stops a daemon's own handle from being signalled.
+// with. A process group counts only while one of those processes is in it, because a group's id is not given to another
+// group while a process is left in it, and a process that joined such a group is recorded too. A number alone is never
+// taken as ownership. This is best effort: a background process whose parent ends between two looks, and which drops
+// the mark or runs where `/proc` does not exist, is never seen. A look that fails is kept and fails the scenario, and
+// never stops a daemon's own handle from being signalled.
 //
 // One read of the table is in flight at a time, and each is taken in full before the next one starts, so the records
 // follow the table in the order it was sampled. A start time is to the second, so a table sampled before a newer one

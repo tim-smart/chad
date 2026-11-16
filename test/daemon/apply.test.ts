@@ -176,7 +176,7 @@ const roll = async (
   }
 }
 
-test("SWAP-1 SWAP-2 SWAP-4 LOAD-14 LOAD-23 LOAD-53 LOAD-70 REC-82 REC-86 REC-116 REC-129 CLI-45 CLI-125b CLI-125c CLI-125d CLI-138b SELF-38 REC-137 REC-139 REC-154 an apply commits work/ and loads it at the session's next turn, a failed apply exits 1 and keeps the last good version, a revert saves work/ first, and safe mode unloads the repo's plugins until it goes off", async () => {
+test("an apply commits work/ and loads it at the session's next turn, a failed apply exits 1 and keeps the last good version, a revert saves work/ first, and safe mode unloads the repo's plugins until it goes off", async () => {
   const running = await scenario()
   // scenario starts the daemon but does not wait for boot. log reads Git directly, so unlike an RPC it cannot
   // wait for the initial repo to be created on our behalf.
@@ -427,7 +427,7 @@ const slowTools = Toolkit.make(
   }),
 )
 
-test("SWAP-6 SWAP-44 SWAP-46 SWAP-69 SWAP-113 SWAP-153 CLI-40 LOAD-75 TST-202 a swap interrupts a call that outlives the drain, the running turn keeps its tools and gets the refusal, a command behind it waits in the queue, and the next turn has the new version", async () => {
+test("a swap interrupts a call that outlives the drain, the running turn keeps its tools and gets the refusal, a command behind it waits in the queue, and the next turn has the new version", async () => {
   const started = Deferred.makeUnsafe<void>()
   const building = Deferred.makeUnsafe<void>()
   const release = Deferred.makeUnsafe<void>()
@@ -498,7 +498,7 @@ test("SWAP-6 SWAP-44 SWAP-46 SWAP-69 SWAP-113 SWAP-153 CLI-40 LOAD-75 TST-202 a 
   expect(results((await fakes.model.calls())[1]).join("\n")).toContain("pong")
 }, 30_000)
 
-test("REC-48 LOAD-55 LOAD-89 a boot after a crash between an apply's commit and its link loads the head of applied, points live at it and drops the version live named", async () => {
+test("a boot after a crash between an apply's commit and its link loads the head of applied, points live at it and drops the version live named", async () => {
   const directory = fresh()
   const repo = join(directory, "data", "repo")
   applied(repo, { "plugins/dice.ts": dice("committed") })
@@ -514,7 +514,7 @@ test("REC-48 LOAD-55 LOAD-89 a boot after a crash between an apply's commit and 
   expect(readdirSync(join(repo, "versions"))).toEqual([tree])
 }, 30_000)
 
-test("CLI-43 CLI-44 REC-34 REC-56 a killed CLI cuts neither an apply once its commit moved applied, which finishes in the daemon and loads the change, nor safe on once the toggle is stored", async () => {
+test("a killed CLI cuts neither an apply once its commit moved applied, which finishes in the daemon and loads the change, nor safe on once the toggle is stored", async () => {
   const running = await scenario({ env: { CHAD_LOG_LEVEL: "debug" } })
   const work = join(running.data, "repo", "work")
   write(work, { "plugins/hold.ts": hanging("one") })
@@ -576,7 +576,7 @@ test("CLI-43 CLI-44 REC-34 REC-56 a killed CLI cuts neither an apply once its co
   expect((await status()).plugins.map(({ name }) => name)).not.toContain("hold")
 }, 30_000)
 
-test("TST-39 SWAP-4 on the Codex side a swap rebuilds the session's Agent at its next turn and keeps its model layer, so the socket the first turn opened carries the second", async () => {
+test("on the Codex side a swap rebuilds the session's Agent at its next turn and keeps its model layer, so the socket the first turn opened carries the second", async () => {
   const running = await scenario({
     codex: "token",
     env: {
@@ -615,7 +615,7 @@ const spareTools = Toolkit.make(
   }),
 )
 
-test("CLI-120b SWAP-99 SWAP-141 API-33 an owner change rebuilds the plugins with the new owners, a removed connection's owners go even when its CLI is killed before the rebuild begins, a rebuilt plugin cannot take a tool name from a version that stays, and when an owner was removed a plugin that fails to rebuild is unloaded, even when the CLI is killed during the rebuild", async () => {
+test("an owner change rebuilds the plugins with the new owners, a removed connection's owners go even when its CLI is killed before the rebuild begins, a rebuilt plugin cannot take a tool name from a version that stays, and when an owner was removed a plugin that fails to rebuild is unloaded, even when the CLI is killed during the rebuild", async () => {
   let build: "builds" | "fails" | "holds" = "builds"
   const entered = Deferred.makeUnsafe<void>()
   const release = Deferred.makeUnsafe<void>()
@@ -772,7 +772,7 @@ test("CLI-120b SWAP-99 SWAP-141 API-33 an owner change rebuilds the plugins with
   )
 }, 30_000)
 
-test("REC-152 LOAD-94 REC-129 REC-153 a check refuses AGENTS.md in work/ and a plugin with a bundled plugin's name, and CHAD_SAFE_MODE=1 holds safe mode on against chad safe off", async () => {
+test("a check refuses AGENTS.md in work/ and a plugin with a bundled plugin's name, and CHAD_SAFE_MODE=1 holds safe mode on against chad safe off", async () => {
   const directory = fresh()
   applied(join(directory, "data", "repo"), { "plugins/dice.ts": dice("one") })
   const running = await scenario({
@@ -824,7 +824,7 @@ const answer = async (
   )
 }
 
-test("SWAP-47 SWAP-154 SWAP-79 SWAP-81 SWAP-82 SWAP-83 SWAP-87 SWAP-88 SWAP-115 API-64 API-65 SES-54 a hook running at a swap is cut at the drain deadline, the hook queued behind it runs on the new version, a turn that starts during the swap waits for it, and a hook the new version no longer registers is dropped", async () => {
+test("a hook running at a swap is cut at the drain deadline, the hook queued behind it runs on the new version, a turn that starts during the swap waits for it, and a hook the new version no longer registers is dropped", async () => {
   let builds = 0
   let calls = 0
   const after: Array<number> = []
@@ -879,7 +879,7 @@ test("SWAP-47 SWAP-154 SWAP-79 SWAP-81 SWAP-82 SWAP-83 SWAP-87 SWAP-88 SWAP-115 
   const running = await scenario({
     plugins: [{ name: "notes", plugin: notes }],
   })
-  // The stop at the end waits for the abandoned close, so the close ends first (SWAP-154).
+  // The stop at the end waits for the abandoned close, so the close ends first.
   onTestFinished(() => {
     Deferred.doneUnsafe(closed, Exit.void)
   })
@@ -931,7 +931,7 @@ test("SWAP-47 SWAP-154 SWAP-79 SWAP-81 SWAP-82 SWAP-83 SWAP-87 SWAP-88 SWAP-115 
   expect(tails).toEqual([2])
 }, 30_000)
 
-test("SWAP-101 SWAP-103 CLI-43 REC-121 a graceful stop while an apply's swap waits on a call in flight abandons the swap and exits 0, and the next boot loads what the apply committed", async () => {
+test("a graceful stop while an apply's swap waits on a call in flight abandons the swap and exits 0, and the next boot loads what the apply committed", async () => {
   const directory = fresh()
   const first = await scenario({ directory })
   const work = join(first.data, "repo", "work")

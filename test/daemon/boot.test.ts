@@ -25,7 +25,7 @@ const stdout = () => {
       .filter((line) => line.startsWith("timestamp="))
 }
 
-test("STO-2 STO-3 STO-17 STO-145 STO-188 IMG-29 IMG-123 a boot on an empty directory creates what is missing under CHAD_DATA, and leaves the umask and HOME alone", async () => {
+test("a boot on an empty directory creates what is missing under CHAD_DATA, and leaves the umask and HOME alone", async () => {
   const umask = process.umask()
   const home = process.env["HOME"]
   const running = await scenario()
@@ -43,7 +43,7 @@ test("STO-2 STO-3 STO-17 STO-145 STO-188 IMG-29 IMG-123 a boot on an empty direc
   expect(process.env["HOME"]).toBe(home)
 })
 
-test("STO-30 STO-31 STO-37 STO-38 STO-40 STO-150 STO-151 STO-154 STO-195 the database is one WAL file, and chad's tables come from Migrator before the boot is ready, strict and in the column conventions", async () => {
+test("the database is one WAL file, and chad's tables come from Migrator before the boot is ready, strict and in the column conventions", async () => {
   const running = await scenario()
   const { data } = running
   const ready = await running.logged("boot.ready")
@@ -100,7 +100,7 @@ test("STO-30 STO-31 STO-37 STO-38 STO-40 STO-150 STO-151 STO-154 STO-195 the dat
   expect(cluster).toHaveLength(1)
 })
 
-test("STO-50 STO-51 STO-160 STO-161 SES-25 IMG-64 TST-78 the first open writes the shard count 1 in a chad_meta row that no migration creates", async () => {
+test("the first open writes the shard count 1 in a chad_meta row that no migration creates", async () => {
   const running = await scenario()
   const { data } = running
   await running.logged("boot.ready")
@@ -115,7 +115,7 @@ test("STO-50 STO-51 STO-160 STO-161 SES-25 IMG-64 TST-78 the first open writes t
   ).toEqual(["key", "value"])
 })
 
-test("STO-53 STO-54 SES-26 IMG-65 IMG-129 FAIL-293 a database made with another shard count refuses the boot with exit 1, names both numbers in both sinks and changes nothing", async () => {
+test("a database made with another shard count refuses the boot with exit 1, names both numbers in both sinks and changes nothing", async () => {
   const directory = fresh()
   const data = join(directory, "data")
   mkdirSync(join(data, "db"), { recursive: true })
@@ -146,7 +146,7 @@ test("STO-53 STO-54 SES-26 IMG-65 IMG-129 FAIL-293 a database made with another 
   expect(existsSync(join(data, "state/version"))).toBe(false)
 })
 
-test("FAIL-1 FAIL-2 FAIL-3 every entry goes to both sinks, as effect's JSON line in the file and its logfmt line on stdout", async () => {
+test("every entry goes to both sinks, as effect's JSON line in the file and its logfmt line on stdout", async () => {
   const lines = stdout()
   const running = await scenario()
   const { data } = running
@@ -183,7 +183,7 @@ test("FAIL-1 FAIL-2 FAIL-3 every entry goes to both sinks, as effect's JSON line
   })
 })
 
-test("IMG-115 FAIL-18 FAIL-291 a CHAD_LOG_LEVEL that names no level writes a warning, and the boot goes on at info", async () => {
+test("a CHAD_LOG_LEVEL that names no level writes a warning, and the boot goes on at info", async () => {
   const running = await scenario({ env: { CHAD_LOG_LEVEL: "loud" } })
   const unknown = await running.logged("boot.log-level-unknown")
   expect(unknown.level).toBe("WARN")
@@ -192,7 +192,7 @@ test("IMG-115 FAIL-18 FAIL-291 a CHAD_LOG_LEVEL that names no level writes a war
   expect(ready.level).toBe("INFO")
 })
 
-test("IMG-58 a volume the daemon cannot write refuses the boot with exit 1 and a message that names its uid and the owner, and nothing is written", async () => {
+test("a volume the daemon cannot write refuses the boot with exit 1 and a message that names its uid and the owner, and nothing is written", async () => {
   const directory = fresh()
   const data = join(directory, "data")
   mkdirSync(data, { recursive: true })
@@ -212,7 +212,7 @@ test("IMG-58 a volume the daemon cannot write refuses the boot with exit 1 and a
   chmodSync(data, 0o755)
 })
 
-test("TST-79 the suites run in Pacific/Auckland, and the daemon sets no timezone of its own", async () => {
+test("the suites run in Pacific/Auckland, and the daemon sets no timezone of its own", async () => {
   expect(process.env["TZ"]).toBe("Pacific/Auckland")
   const running = await scenario()
   await running.logged("boot.ready")
@@ -220,7 +220,7 @@ test("TST-79 the suites run in Pacific/Auckland, and the daemon sets no timezone
   expect([-720, -780]).toContain(new Date().getTimezoneOffset())
 })
 
-test("TST-80 TST-86 each scenario keeps its event log, the daemon's log and the database in a directory of its own, under the run id and a short path", async () => {
+test("each scenario keeps its event log, the daemon's log and the database in a directory of its own, under the run id and a short path", async () => {
   const first = await scenario()
   await first.logged("boot.ready")
   await first.stop()

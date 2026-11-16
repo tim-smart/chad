@@ -1,5 +1,5 @@
 // The graceful stop in layer 4: SIGTERM to the daemon as a child process, its 15 second wait for the turns in flight,
-// the cut at the end of it, and the next start on the same volume (docs/spec/03-sessions-and-turns.md).
+// the cut at the end of it, and the next start on the same volume.
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { expect, test } from "vitest"
@@ -7,7 +7,7 @@ import { lines, posted, rows, says } from "../support/owner.ts"
 import { applied } from "../support/applied.ts"
 import { daemon } from "../support/process.ts"
 
-test("SES-110 SES-112 SES-105 FAIL-122 FAIL-327 FAIL-294 FAIL-295 IMG-85a a graceful stop waits for the turn in flight, cuts it at the end of the wait with its finished steps stored, records the cut before it exits 0, and the cuts never count toward the give-up", async () => {
+test("a graceful stop waits for the turn in flight, cuts it at the end of the wait with its finished steps stored, records the cut before it exits 0, and the cuts never count toward the give-up", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([
@@ -57,7 +57,7 @@ test("SES-110 SES-112 SES-105 FAIL-122 FAIL-327 FAIL-294 FAIL-295 IMG-85a a grac
   ).toEqual([{ starts: 4, graceful_cuts: 2, outcome: "answered" }])
 }, 30_000)
 
-test("SES-111 SES-201 FAIL-295 IMG-85a a turn that ends inside the wait of a graceful stop finishes and is not delivered again, and a message that arrives in the wait starts no turn and is answered at the next start", async () => {
+test("a turn that ends inside the wait of a graceful stop finishes and is not delivered again, and a message that arrives in the wait starts no turn and is answered at the next start", async () => {
   const running = await daemon()
   const { fakes } = running
   await fakes.model.script([
@@ -102,7 +102,7 @@ test("SES-111 SES-201 FAIL-295 IMG-85a a turn that ends inside the wait of a gra
   ])
 }, 20_000)
 
-test("IMG-82 LOAD-14 a failed plugin build whose finalizer never ends and holds the event loop is still owned at the stop, and the deadline exits 1", async () => {
+test("a failed plugin build whose finalizer never ends and holds the event loop is still owned at the stop, and the deadline exits 1", async () => {
   const running = await daemon()
   const repo = join(running.data, "repo")
   applied(repo, {
@@ -128,7 +128,7 @@ export default Plugin.make(
   expect(await current.stop()).toEqual({ code: 1, signal: null })
 })
 
-test("SWAP-154 IMG-82 a close that a swap abandoned, which never ends and holds the event loop, is still owned at the stop, and the deadline exits 1", async () => {
+test("a close that a swap abandoned, which never ends and holds the event loop, is still owned at the stop, and the deadline exits 1", async () => {
   const running = await daemon()
   applied(join(running.data, "repo"), {
     "plugins/stuck.ts": `import { Effect, Layer } from "effect"
@@ -160,7 +160,7 @@ export default Plugin.make(
   expect(await current.stop()).toEqual({ code: 1, signal: null })
 })
 
-test("IMG-82 IMG-84 IMG-85b IMG-139 MCP-97 LOAD-64 REC-148 FAIL-243 FAIL-297 SWAP-109 a stdio MCP server that ignores its input closing and SIGTERM outlasts the plugins' close, and the deadline cuts the stop with a stop.cut line that names it and exit 1", async () => {
+test("a stdio MCP server that ignores its input closing and SIGTERM outlasts the plugins' close, and the deadline cuts the stop with a stop.cut line that names it and exit 1", async () => {
   const running = await daemon()
   const server = fileURLToPath(
     new URL("../fixtures/mcp/server.mjs", import.meta.url),

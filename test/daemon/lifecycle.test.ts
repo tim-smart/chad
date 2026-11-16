@@ -24,7 +24,7 @@ const where =
   'console.log(JSON.stringify({ cwd: (await run("pwd")).trim(), home: (await run("printenv HOME")).trim() }))'
 
 test(
-  "IMG-36 STO-20 STO-22 a session's Agent starts in sessions/<session id>/ on the volume, and HOME is the volume's home/ for every session",
+  "a session's Agent starts in sessions/<session id>/ on the volume, and HOME is the volume's home/ for every session",
   { timeout: 15_000 },
   async () => {
     const running = await scenario()
@@ -56,7 +56,7 @@ test(
   },
 )
 
-test("STO-62 STO-205 a session has one row with its id, thread, kind and times, clanka's environment, the system prompt last sent with its fingerprint, and the mark of the last message, and its history is one row a message in order", async () => {
+test("a session has one row with its id, thread, kind and times, clanka's environment, the system prompt last sent with its fingerprint, and the mark of the last message, and its history is one row a message in order", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([{ text: "one" }])
@@ -124,7 +124,7 @@ test("STO-62 STO-205 a session has one row with its id, thread, kind and times, 
 })
 
 test(
-  "SES-87 SES-92 SES-95 SES-96a SES-192 SWAP-22 FAIL-324 FAIL-325 TST-212 an idle session leaves memory after the idle time, and the next message restores it from SQLite: the same history, the same environment and the same system prompt, byte for byte",
+  "an idle session leaves memory after the idle time, and the next message restores it from SQLite: the same history, the same environment and the same system prompt, byte for byte",
   { timeout: 20_000 },
   async () => {
     expect(Duration.toMinutes(defaults.sessionIdle)).toBe(30)

@@ -1,7 +1,7 @@
-// The entry of a layer 4 daemon (docs/spec/17-testing.md, TST-27). The driver starts it as a child process, which it
-// kills or stops and starts again on the same volume. Like the test entry it calls `runDaemon` from the built package,
-// with the product's chat layer: the local platform and the scripted gateway live in the driver, behind sockets,
-// because a process that is killed cannot hold them (TST-28).
+// The entry of a layer 4 daemon. The driver starts it as a child process, which it kills or stops and starts again on
+// the same volume. Like the test entry it calls `runDaemon` from the built package, with the product's chat layer: the
+// local platform and the scripted gateway live in the driver, behind sockets, because a process that is killed cannot
+// hold them.
 import { writeFileSync } from "node:fs"
 import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient"
 import { Duration, Layer } from "effect"
@@ -18,19 +18,19 @@ export interface Config {
   readonly discord: string
   /** The WebSocket server of the scripted gateway. */
   readonly gateway: string
-  /** The session idle time and the message retention in milliseconds, when the scenario sets them (TST-212). */
+  /** The session idle time and the message retention in milliseconds, when the scenario sets them. */
   readonly timings: {
     readonly sessionIdle?: number | undefined
     readonly messageRetention?: number | undefined
   }
   /**
-   * Where the child counts the garbage collections it forces every 200 milliseconds, for the lock check (TST-105),
-   * or nothing when it forces none.
+   * Where the child counts the garbage collections it forces every 200 milliseconds, for the lock check, or nothing
+   * when it forces none.
    */
   readonly gc: string | undefined
   /**
    * The asphodel fixture's settings when the scenario loads it, its `url` at the fake the driver serves. The fixture
-   * gets its own HttpClient, as in layer 3, so its requests never reach the world's (TST-161).
+   * gets its own HttpClient, as in layer 3, so its requests never reach the world's.
    */
   readonly asphodel?: { readonly settings: unknown } | undefined
   /** Loads the bundled plugins, as `chad serve` does. */
@@ -92,5 +92,5 @@ const code = await start(
   },
 )
 // The exit code is set as `chad serve` sets it, and the process ends when nothing holds it, so work the daemon lost
-// hold of keeps a test's child alive too (IMG-82).
+// hold of keeps a test's child alive too.
 process.exitCode = code

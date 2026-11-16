@@ -1,8 +1,7 @@
-// Test support for the asphodel fixture. An HttpClient that plays the asphodel // adjusted: TIM-558
-// daemon in memory and records every request. The response shapes follow
-// crates/asphodel/src/serve/api.rs at f8ccdea. Nothing here is the daemon.
-// The request bodies are typed `any`, which the repo's lint refuses. // adjusted: ASP-G8
-/* oxlint-disable typescript/no-explicit-any */ // adjusted: ASP-G8
+// Test support for the asphodel fixture. An HttpClient that plays the asphodel daemon in memory and records every
+// request. The response shapes follow crates/asphodel/src/serve/api.rs at f8ccdea. Nothing here is the daemon. The
+// request bodies are typed `any`, which the repo's lint refuses.
+/* oxlint-disable typescript/no-explicit-any */
 import * as Effect from "effect/Effect"
 import * as HttpClient from "effect/http/HttpClient"
 import * as HttpClientError from "effect/http/HttpClientError"
@@ -13,7 +12,7 @@ export interface Request {
   readonly path: string
   readonly query: Record<string, string>
   readonly body: any
-  /** The request's Authorization header, when it has one. */ // adjusted: ASP-9
+  /** The request's Authorization header, when it has one. */
   readonly authorization?: string | undefined
 }
 
@@ -75,7 +74,7 @@ export const make = () => {
       path: url.pathname,
       query: Object.fromEntries(url.searchParams),
       body,
-      authorization: request.headers["authorization"], // adjusted: ASP-9
+      authorization: request.headers["authorization"],
     }
     if (!state.up) {
       state.refused++

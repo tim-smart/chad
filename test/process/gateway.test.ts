@@ -1,5 +1,5 @@
-// The Discord wire slice in layer 4 (docs/spec/17-testing.md, TST-60b): the daemon in a child process, dfx's real
-// shard over a WebSocket to the scripted gateway, and kills between its starts.
+// The Discord gateway in layer 4: the daemon in a child process, dfx's real shard over a WebSocket to the scripted
+// gateway, and kills between its starts.
 import { expect, test } from "vitest"
 import * as Format from "../../dist/daemon/Format.js"
 import * as Messages from "../../dist/Messages.js"
@@ -44,7 +44,7 @@ const answers = async (running: Process, count: number, channel = dm) =>
     (call) => call.body?.["content"],
   )
 
-test("SES-30b TST-60b TST-61d a dispatch that was in flight when the daemon was killed is not stored as seen, the next start resumes from the sequence before it, and Discord's replay is answered once", async () => {
+test("a dispatch that was in flight when the daemon was killed is not stored as seen, the next start resumes from the sequence before it, and Discord's replay is answered once", async () => {
   const running = await daemon({ connections: [home] })
   const { fakes } = running
   await fakes.model.script([{ text: "answered once" }])
@@ -67,7 +67,7 @@ test("SES-30b TST-60b TST-61d a dispatch that was in flight when the daemon was 
   expect(await fakes.model.calls()).toHaveLength(1)
 }, 20_000)
 
-test("SES-37 SES-170 SES-199 TST-61c TST-60b after a kill, a resume that Discord turns down ends in a fresh identify, and the catch-up reads forward from the last message chad saw in each active session and answers what the gateway never carried, once", async () => {
+test("after a kill, a resume that Discord turns down ends in a fresh identify, and the catch-up reads forward from the last message chad saw in each active session and answers what the gateway never carried, once", async () => {
   const running = await daemon({ connections: [home] })
   const { fakes } = running
   await fakes.model.script([
@@ -137,7 +137,7 @@ test("SES-37 SES-170 SES-199 TST-61c TST-60b after a kill, a resume that Discord
   ).toBe(false)
 }, 20_000)
 
-test("SES-172 SES-203 SES-204 SES-37 in a thread two bots share, a /new the gateway never carried is caught up by both connections and runs once, and a replay to both bots after a kill runs it no more", async () => {
+test("in a thread two bots share, a /new the gateway never carried is caught up by both connections and runs once, and a replay to both bots after a kill runs it no more", async () => {
   const away: Connection = { ...home, name: "away", token: "away-token" }
   // The drop of a duplicate is a debug line.
   const running = await daemon({

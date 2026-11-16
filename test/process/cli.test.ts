@@ -70,7 +70,7 @@ const silent = async (path: string) => {
 const frozen = (data: string) =>
   `chad health: daemon is starting or frozen (lock held, no answer on ${join(data, "run/chad.sock")} in 2s)\n`
 
-it("CLI-24 CLI-13 STO-26 a daemon killed with kill -9 frees the lock at once, and the next chad serve removes the socket file it left and boots", async () => {
+it("a daemon killed with kill -9 frees the lock at once, and the next chad serve removes the socket file it left and boots", async () => {
   const data = volume()
   const first = await serve(data)
   expect((await chad(["health"], { CHAD_DATA: data })).code).toBe(0)
@@ -91,7 +91,7 @@ it("CLI-24 CLI-13 STO-26 a daemon killed with kill -9 frees the lock at once, an
   expect((await second.done).code).toBe(0)
 }, 60_000)
 
-it("OV-20 IMG-59 CLI-25 CLI-28 CLI-15 IMG-75 a second chad serve on the volume exits 1, and a daemon stopped with SIGSTOP still holds the lock while chad health calls it starting or frozen and exits 4", async () => {
+it("a second chad serve on the volume exits 1, and a daemon stopped with SIGSTOP still holds the lock while chad health calls it starting or frozen and exits 4", async () => {
   const data = volume()
   const daemon = await serve(data)
 
@@ -115,7 +115,7 @@ it("OV-20 IMG-59 CLI-25 CLI-28 CLI-15 IMG-75 a second chad serve on the volume e
   expect((await daemon.done).code).toBe(0)
 }, 60_000)
 
-it("CLI-15 with the lock held, a socket that is missing, one that refuses the connection and one that accepts it and never answers all read as starting or frozen: exit 4, one connection, no file touched", async () => {
+it("with the lock held, a socket that is missing, one that refuses the connection and one that accepts it and never answers all read as starting or frozen: exit 4, one connection, no file touched", async () => {
   const data = volume()
   hold(data)
   const socket = join(data, "run/chad.sock")
@@ -141,7 +141,7 @@ it("CLI-15 with the lock held, a socket that is missing, one that refuses the co
   expect(listing()).toEqual(before)
 }, 30_000)
 
-it("TST-209 CLI-51a runCli owns the signals of a client command: one that SIGTERM or SIGINT ends while it waits for the daemon exits 130", async () => {
+it("runCli owns the signals of a client command: one that SIGTERM or SIGINT ends while it waits for the daemon exits 130", async () => {
   const data = volume()
   hold(data)
   const server = await silent(join(data, "run/chad.sock"))
@@ -155,7 +155,7 @@ it("TST-209 CLI-51a runCli owns the signals of a client command: one that SIGTER
   }
 }, 30_000)
 
-it("CLI-21 CLI-22 CLI-127 CLI-128 IMG-74 IMG-75 chad health tests the lock before it pings, so it exits 4 with the lock free even when a daemon answers, and every request carries the CLI's chad version, which a daemon of another version still answers for health and status", async () => {
+it("chad health tests the lock before it pings, so it exits 4 with the lock free even when a daemon answers, and every request carries the CLI's chad version, which a daemon of another version still answers for health and status", async () => {
   const data = volume()
   mkdirSync(join(data, "run"))
   const versions: Array<string | undefined> = []
@@ -214,7 +214,7 @@ it("CLI-21 CLI-22 CLI-127 CLI-128 IMG-74 IMG-75 chad health tests the lock befor
   expect(versions).toEqual([version, version])
 }, 30_000)
 
-it("CLI-45 CLI-49a CLI-162 CLI-204 CLI-216 a usage error prints the usage and exits 2, chad keeps --help and --version of effect's own flags, and nothing is coloured when the output is not a terminal", async () => {
+it("a usage error prints the usage and exits 2, chad keeps --help and --version of effect's own flags, and nothing is coloured when the output is not a terminal", async () => {
   const data = volume()
   // Colour is asked for, and the output is a pipe.
   const env = { CHAD_DATA: data, FORCE_COLOR: "1", TERM: "xterm-256color" }
@@ -262,17 +262,17 @@ it("CLI-45 CLI-49a CLI-162 CLI-204 CLI-216 a usage error prints the usage and ex
   expect(readdirSync(data)).toEqual([])
 }, 60_000)
 
-it("IMG-16b CLI-142 CLI-143 CLI-144 the client is one esbuild file with effect inside it, which the few lines of bin/chad.js load for every command but serve, and no compile cache is used", async () => {
+it("the client is one esbuild file with effect inside it, which the few lines of bin/chad.js load for every command but serve, and no compile cache is used", async () => {
   const bundle = read("dist/cli.bundle.js")
   // Every module the file imports is one of Node's own, so effect is in the file and not beside it.
   const imported = [
     ...bundle.matchAll(/^import [^;]*? from "([^"]+)";$/gm),
   ].map((match) => match[1] ?? "")
   expect(imported.length).toBeGreaterThan(5)
-  // The model layer that `chad model` with no daemon tries (MOD-90) brings modules that import Node's own by their
-  // bare names, and CommonJS ones that require them through the banner's `require`. ajv's code generator holds
-  // `require` calls of its own runtime as text, which never run in chad. clanka's `claude` provider imports its SDK
-  // when a turn runs on it, which chad refuses (MOD-5), so the build leaves the SDK out.
+  // The model layer that `chad model` with no daemon tries brings modules that import Node's own by their bare names,
+  // and CommonJS ones that require them through the banner's `require`. ajv's code generator holds `require` calls of
+  // its own runtime as text, which never run in chad. clanka's `claude` provider imports its SDK when a turn runs on
+  // it, which chad refuses, so the build leaves the SDK out.
   const node = (name: string) =>
     name.startsWith("node:") || builtinModules.includes(name)
   expect(imported.filter((name) => !node(name))).toEqual([])
@@ -325,7 +325,7 @@ it("IMG-16b CLI-142 CLI-143 CLI-144 the client is one esbuild file with effect i
   )
 }, 30_000)
 
-it("CLI-59 CLI-218 the CLI sends its CHAD_SESSION with every request, and a daemon that goes away during a call ends the command with exit 4", async () => {
+it("the CLI sends its CHAD_SESSION with every request, and a daemon that goes away during a call ends the command with exit 4", async () => {
   const data = volume()
   mkdirSync(join(data, "run"))
   hold(data)
@@ -400,7 +400,7 @@ it("CLI-59 CLI-218 the CLI sends its CHAD_SESSION with every request, and a daem
   })
 })
 
-it("CLI-219 CLI-222 CLI-223 CLI-157 with no daemon a connection command creates no data directory, ends with exit 1 on a file it cannot read or that holds no connections, and with exit 2 when the token it is given is empty, and chad plugin new exits 4 before chad serve made the repo", async () => {
+it("with no daemon a connection command creates no data directory, ends with exit 1 on a file it cannot read or that holds no connections, and with exit 2 when the token it is given is empty, and chad plugin new exits 4 before chad serve made the repo", async () => {
   const data = volume()
   const absent = join(data, "absent")
   const failed = (code: number, message: string) => ({

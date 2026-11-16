@@ -1,6 +1,6 @@
 // The persona as the owner and the agent reach it: `persona.md` goes into each session's system prompt once it is
 // applied, at the session's next turn, after chad's core block and before the plugins' chunks, and safe mode leaves it
-// out (docs/spec/14-self-edit-skill.md, "The persona", and 08-apply-and-swap.md).
+// out.
 import { join } from "node:path"
 import { Effect } from "effect"
 import { expect, test } from "vitest"
@@ -44,7 +44,7 @@ const turn = async (
   return systemText((await running.fakes.model.calls())[0])
 }
 
-test("SELF-41 SELF-42 SELF-43 SELF-45 SELF-136 SWAP-26 SWAP-28 SWAP-128 REC-11 the applied persona.md reaches an open session's prompt at its next turn, after the core block and before the chunks, a draft in work/ does not, and safe mode leaves it out", async () => {
+test("the applied persona.md reaches an open session's prompt at its next turn, after the core block and before the chunks, a draft in work/ does not, and safe mode leaves it out", async () => {
   const notes = Plugin.make(Plugin.prompt(() => Effect.succeed(chunk)))
   const running = await scenario({
     plugins: [{ name: "notes", plugin: notes }],

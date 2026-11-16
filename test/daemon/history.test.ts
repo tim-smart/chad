@@ -21,7 +21,7 @@ const sent = (call: { readonly body: unknown } | undefined) => {
   return (body?.messages ?? []).filter((message) => message.role !== "system")
 }
 
-test("SES-85 SES-86 SES-163 STO-65 STO-68 the history is stored batch by batch while the turn runs, as clanka produced it and with nothing masked, and each batch carries the environment of that moment", async () => {
+test("the history is stored batch by batch while the turn runs, as clanka produced it and with nothing masked, and each batch carries the environment of that moment", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -63,7 +63,7 @@ test("SES-85 SES-86 SES-163 STO-65 STO-68 the history is stored batch by batch w
   expect(JSON.stringify(sent(calls[2]))).toContain(secret)
 })
 
-test("SES-85 SES-116a STO-65 MOD-14a FAIL-106 a compaction swaps the session's rows for the compacted history, its summarizer outlives the turn that started it, and the summarizer's tokens are not in the turn's usage", async () => {
+test("a compaction swaps the session's rows for the compacted history, its summarizer outlives the turn that started it, and the summarizer's tokens are not in the turn's usage", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -125,7 +125,7 @@ test("SES-85 SES-116a STO-65 MOD-14a FAIL-106 a compaction swaps the session's r
   ).toEqual({ input_tokens: 250_007 })
 })
 
-test("SES-134 STO-123 FAIL-119 FAIL-120 at the end of a turn, however it ends, the stored history is made equal to the Agent's over the whole session before the end is recorded: a missing last row is written, a missing row of an earlier turn swaps them all, and the line of the turn's end carries the count", async () => {
+test("at the end of a turn, however it ends, the stored history is made equal to the Agent's over the whole session before the end is recorded: a missing last row is written, a missing row of an earlier turn swaps them all, and the line of the turn's end carries the count", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -183,7 +183,7 @@ test("SES-134 STO-123 FAIL-119 FAIL-120 at the end of a turn, however it ends, t
   })
   const third = stored(running)
   expect(third.slice(0, 3)).toEqual(second)
-  // The stop is told to the model in an update message ahead of the owner's (FAIL-125).
+  // The stop is told to the model in an update message ahead of the owner's.
   expect(roles(third)).toEqual([
     "user",
     "assistant",

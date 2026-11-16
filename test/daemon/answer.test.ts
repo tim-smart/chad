@@ -7,7 +7,7 @@ import * as Failed from "../../dist/daemon/Failed.js"
 import { scenario } from "../support/driver.ts"
 import { lines, rows, says } from "../support/owner.ts"
 
-test("DIS-55 FAIL-66 DIS-100 in a server thread the answer replies to the owner's message, and a failed-turn message whose owner's message is gone goes out as a plain post", async () => {
+test("in a server thread the answer replies to the owner's message, and a failed-turn message whose owner's message is gone goes out as a plain post", async () => {
   const running = await scenario()
   const { fakes, chat } = running
   await fakes.model.script([{ status: 400, hold: true }, { text: "answered" }])

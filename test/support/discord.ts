@@ -1,4 +1,4 @@
-// Discord without Discord, for the wire slice: a gateway socket the scenario scripts, and a REST server that answers
+// Discord without Discord, for the wire tests: a gateway socket the scenario scripts, and a REST server that answers
 // what the adapter and dfx ask. dfx's own shard, its socket handling and its REST client all run for real on top.
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
@@ -363,7 +363,7 @@ export const rest = async (): Promise<Rest> => {
     String(call.headers["authorization"]).replace("Bot ", "")
   let next = BigInt("1000000000000000000")
   const user = { id: bot, username: "chad", discriminator: "0", bot: true }
-  // The application's flags, which `chad setup` reads and sets to turn the message content intent on (CLI-122).
+  // The application's flags, which `chad setup` reads and sets to turn the message content intent on.
   let flags = 0
 
   const answer = (call: RestCall): readonly [number, unknown] => {

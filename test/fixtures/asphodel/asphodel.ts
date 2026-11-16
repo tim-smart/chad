@@ -1,11 +1,8 @@
-// A test fixture for chad's plugin API. asphodel's Hermes plugin (`plugin/` in // adjusted: TIM-558
-// tim-smart/asphodel at f8ccdea) written against chad's plugin API. It is not
-// the port, which belongs to asphodel's repo, and it is not in the image. It // adjusted: TIM-558
-// shows where each Hermes extension point lands and what the API has to // adjusted: TIM-558
-// supply. Comments that start "Hermes:" name the part of the Python plugin a // adjusted: TIM-558
-// block replaces. // adjusted: TIM-558
-// The prototype's JSON reads are typed `any`, which the repo's lint refuses. // adjusted: ASP-G8
-/* oxlint-disable typescript/no-explicit-any */ // adjusted: ASP-G8
+// A test fixture for chad's plugin API. asphodel's Hermes plugin (`plugin/` in tim-smart/asphodel at f8ccdea) written
+// against chad's plugin API. It is not the port, which belongs to asphodel's repo, and it is not in the image. It shows
+// where each Hermes extension point lands and what the API has to supply. Comments that start "Hermes:" name the part
+// of the Python plugin a block replaces. The JSON reads are typed `any`, which the repo's lint refuses.
+/* oxlint-disable typescript/no-explicit-any */
 import { Plugin, Session } from "chad"
 import { Tool, Toolkit } from "effect/ai"
 import * as Clock from "effect/Clock"
@@ -52,9 +49,8 @@ class Asphodel extends Context.Service<Asphodel>()("asphodel/Asphodel", {
   make: Effect.gen(function* () {
     const { name, store, owners } = yield* Plugin.PluginContext
 
-    // Hermes: get_config_schema, save_config and config.json. The values are // adjusted: TIM-548
-    // this plugin's `settings` object in chad.json. The token is written // adjusted: TIM-548
-    // `${ASPHODEL_TOKEN}` there and chad expands it before this read. // adjusted: TIM-548
+    // Hermes: get_config_schema, save_config and config.json. The values are this plugin's `settings` object in
+    // chad.json. The token is written `${ASPHODEL_TOKEN}` there and chad expands it before this read.
     const config = yield* Config.all({
       url: Config.String("url").pipe(
         Config.withDefault("http://127.0.0.1:7720"),
@@ -271,17 +267,16 @@ class Asphodel extends Context.Service<Asphodel>()("asphodel/Asphodel", {
     // Hermes: shutdown. Nothing to drain. The scope closes the fiber.
     yield* Effect.addFinalizer(() => Effect.logInfo(`${name}: unloaded`))
 
-    // Hermes: is_owner. With a turn id to hand, "a cron run is never the
-    // owner" is "the turn did not start from a message". A sub-agent cannot
-    // be told apart from the main agent, which is accepted. // adjusted: TIM-539
-    // An id on the owner list is an owner whether or not it is a bot. // adjusted: TIM-559
+    // Hermes: is_owner. With a turn id to hand, "a cron run is never the owner" is "the turn did not start from a
+    // message". A sub-agent cannot be told apart from the main agent, which is accepted. An id on the owner list is an
+    // owner whether or not it is a bot.
     const isOwnerTurn = (turn: Option.Option<Session.Turn>): boolean => {
       if (Option.isNone(turn) || turn.value.origin._tag !== "Message")
         return false
       const { author } = turn.value.origin.message
       return owners.includes(
         `${turn.value.session.thread.platform}:${author.id}`,
-      ) // adjusted: TIM-559
+      )
     }
 
     return {
@@ -307,8 +302,8 @@ class Asphodel extends Context.Service<Asphodel>()("asphodel/Asphodel", {
        * Turns in which memory_forget succeeded, by turn id. Hermes: the tool-call
        * scan in turns.py. Kept in the store so a reload of the plugin between
        * the tool call and afterTurn does not lose the mark.
-       */ // adjusted: TIM-559
-      forgets: KeyValueStore.prefix(store, "forget/"), // adjusted: TIM-559
+       */
+      forgets: KeyValueStore.prefix(store, "forget/"),
       /** recall ids waiting for their turn to end, by turn id. Kept in the store so a resumed turn finds its own. */
       recalls: KeyValueStore.prefix(store, "recall/"),
     }
@@ -401,7 +396,7 @@ const MemoryHandlers = Memory.toLayer(
           if (tool === "memory_forget" && Option.isSome(turn)) {
             // Hermes finds this by scanning the transcript for the tool call.
             // clanka has no tool-call rows, so the handler records it.
-            yield* Effect.orDie(asphodel.forgets.set(turn.value.id, "1")) // adjusted: TIM-559
+            yield* Effect.orDie(asphodel.forgets.set(turn.value.id, "1"))
             // The forget request isn't sent again as the next previous_query.
             asphodel.last.delete(current.session.id)
           }
@@ -524,8 +519,8 @@ const SyncTurn = Plugin.afterTurn(({ turn, steers, outcome }) =>
     // The recall id is echoed once, whatever happens to the turn.
     const recallId = yield* asphodel.recalls.get(turn.id)
     yield* asphodel.recalls.remove(turn.id)
-    const forgetRequested = (yield* asphodel.forgets.get(turn.id)) !== undefined // adjusted: TIM-559
-    yield* asphodel.forgets.remove(turn.id) // adjusted: TIM-559
+    const forgetRequested = (yield* asphodel.forgets.get(turn.id)) !== undefined
+    yield* asphodel.forgets.remove(turn.id)
 
     // Parity with Hermes: a turn that was stopped or failed is not ingested.
     if (outcome._tag !== "Answered") return
@@ -596,18 +591,15 @@ const SessionSwitch = Plugin.onSession((event) =>
   }),
 )
 
-// Hermes replays the spool only after an ingest succeeds. This fiber also // adjusted: TIM-559
-// does it on a timer. chad forks it when it activates this version, so it // adjusted: TIM-559
-// never runs next to the previous version's fiber, and unloading the plugin // adjusted: TIM-559
-// interrupts it. // adjusted: TIM-559
+// Hermes replays the spool only after an ingest succeeds. This fiber also does it on a timer. chad forks it when it
+// activates this version, so it never runs next to the previous version's fiber, and unloading the plugin interrupts
+// it.
 const SpoolReplay = Plugin.background(
-  // adjusted: TIM-559
   Effect.gen(function* () {
-    // adjusted: TIM-559
-    const asphodel = yield* Asphodel // adjusted: TIM-559
-    yield* asphodel.replaySpool.pipe(Effect.repeat(Schedule.spaced("1 minute"))) // adjusted: TIM-559
-  }), // adjusted: TIM-559
-) // adjusted: TIM-559
+    const asphodel = yield* Asphodel
+    yield* asphodel.replaySpool.pipe(Effect.repeat(Schedule.spaced("1 minute")))
+  }),
+)
 
 const plugin = Layer.mergeAll(
   MemoryTools,
@@ -616,6 +608,6 @@ const plugin = Layer.mergeAll(
   SyncTurn,
   SessionSwitch,
   SpoolReplay,
-) // adjusted: TIM-559
+)
 
-export default plugin.pipe(Layer.provide(Asphodel.layer), Plugin.make) // adjusted: TIM-559
+export default plugin.pipe(Layer.provide(Asphodel.layer), Plugin.make)

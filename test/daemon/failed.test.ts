@@ -26,7 +26,7 @@ const userTexts = (call: Call | undefined): ReadonlyArray<string> => {
     )
 }
 
-test("FAIL-43 FAIL-54 FAIL-55 FAIL-65 FAIL-16 STO-76 API-112 FAIL-125 FAIL-127 FAIL-131 FAIL-215 a turn whose model request fails posts the failed-turn message with its turn id, logs turn.failed with ModelError and records the whole reason, and the next turn tells the model in one update message ahead of the owner's, whose line is cleared with the history that holds it", async () => {
+test("a turn whose model request fails posts the failed-turn message with its turn id, logs turn.failed with ModelError and records the whole reason, and the next turn tells the model in one update message ahead of the owner's, whose line is cleared with the history that holds it", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([{ status: 400 }, { text: "back" }])
@@ -77,7 +77,7 @@ test("FAIL-43 FAIL-54 FAIL-55 FAIL-65 FAIL-16 STO-76 API-112 FAIL-125 FAIL-127 F
   expect(rows(running, "SELECT * FROM session_updates")).toEqual([])
 })
 
-test("FAIL-132 FAIL-51 API-99 DIS-54 FAIL-256 a turn that answered adds nothing for the next turn, and an answer whose post failed twice is logged as turn.answer-unposted, stays answered and is told to the model at the next turn", async () => {
+test("a turn that answered adds nothing for the next turn, and an answer whose post failed twice is logged as turn.answer-unposted, stays answered and is told to the model at the next turn", async () => {
   const running = await scenario()
   const { fakes, chat } = running
   await fakes.model.script([
@@ -126,7 +126,7 @@ test("FAIL-132 FAIL-51 API-99 DIS-54 FAIL-256 a turn that answered adds nothing 
   ])
 })
 
-test("FAIL-44 a turn whose thread is gone when its answer is posted ends failed with ThreadGone, posts nothing, and logs turn.failed in place of turn.ended", async () => {
+test("a turn whose thread is gone when its answer is posted ends failed with ThreadGone, posts nothing, and logs turn.failed in place of turn.ended", async () => {
   const running = await scenario()
   const { fakes, chat } = running
   await fakes.model.script([{ text: "one", hold: true }])
@@ -137,7 +137,7 @@ test("FAIL-44 a turn whose thread is gone when its answer is posted ends failed 
     chat.failNext(
       "post",
       new ChatError.NotFound({ detail: "thread_not_found" }),
-      // A thread that is gone refuses the answer's second try too (DIS-54).
+      // A thread that is gone refuses the answer's second try too.
       { times: 2 },
     ),
   )
@@ -153,7 +153,7 @@ test("FAIL-44 a turn whose thread is gone when its answer is posted ends failed 
   expect(rows(running, "SELECT * FROM session_updates")).toEqual([])
 })
 
-test("FAIL-110 FAIL-111 FAIL-114a CLI-149 chad status gives Problems and Recent, with the failed turns grouped by reason and the last of them by id, and still answers when the turns table cannot be read", async () => {
+test("chad status gives Problems and Recent, with the failed turns grouped by reason and the last of them by id, and still answers when the turns table cannot be read", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([{ status: 400 }])
@@ -179,7 +179,7 @@ test("FAIL-110 FAIL-111 FAIL-114a CLI-149 chad status gives Problems and Recent,
   expect(broken.recent.unavailable).toBeTypeOf("string")
 })
 
-test("FAIL-127 FAIL-215 FAIL-332 after two failed turns in a row the third turn's update message gives the latest in full and counts the older one by its reason, though the second turn's history cleared its line", async () => {
+test("after two failed turns in a row the third turn's update message gives the latest in full and counts the older one by its reason, though the second turn's history cleared its line", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([{ status: 400 }, { status: 400 }, { text: "back" }])

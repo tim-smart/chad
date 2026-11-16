@@ -1,6 +1,5 @@
 // A cron job across a kill, in layer 4: the daemon as a child process with every bundled plugin, killed and started
-// again on the same volume after the job's time has passed (docs/spec/13-timers-and-cron.md, "Overdue runs, kills and
-// restarts").
+// again on the same volume after the job's time has passed.
 import { join } from "node:path"
 import { ChatThread } from "effect/chat"
 import { expect, test } from "vitest"
@@ -11,7 +10,7 @@ import { runs } from "../support/model.ts"
 import { eventually, posted, prompted, rows, says } from "../support/owner.ts"
 import { daemon } from "../support/process.ts"
 
-test("CRON-26 CRON-31 CRON-52 CRON-57 a one-shot job survives a kill and fires once when chad starts again after its time, and is deleted after that run", async () => {
+test("a one-shot job survives a kill and fires once when chad starts again after its time, and is deleted after that run", async () => {
   const running = await daemon({ bundled: true })
   const { fakes } = running
   await fakes.model.script([
@@ -74,7 +73,7 @@ export default Plugin.make(
 )
 `
 
-test("CRON-27 CRON-28 CRON-29 CRON-30 CRON-84 a recurring timer killed in the middle of its turn while its plugin goes off resumes that scheduled run as the same turn after the restart, holds the next run until the plugin is on, and the chain then goes on with one turn per later time when none of its runs' replies can be saved", async () => {
+test("a recurring timer killed in the middle of its turn while its plugin goes off resumes that scheduled run as the same turn after the restart, holds the next run until the plugin is on, and the chain then goes on with one turn per later time when none of its runs' replies can be saved", async () => {
   const running = await daemon()
   const { fakes } = running
   const thread = await fakes.chat.makeThread("direct")
@@ -129,11 +128,11 @@ test("CRON-27 CRON-28 CRON-29 CRON-30 CRON-84 a recurring timer killed in the mi
     ),
   ).toEqual([])
   const calls = await fakes.model.calls()
-  // The first call after the restart resumes the cut turn (CRON-28).
+  // The first call after the restart resumes the cut turn.
   expect(prompted(calls[1])).toBe(Messages.restartNote())
   const all = ticks()
   expect(all[0]).toEqual({ ...cut, starts: 2, outcome: "answered" })
-  // Each later scheduled time is one turn, after the resumed one (CRON-27, CRON-29).
+  // Each later scheduled time is one turn, after the resumed one.
   const times = all.map((row) =>
     Number(String(row["request_key"]).split("/").pop()),
   )

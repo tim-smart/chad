@@ -1,4 +1,4 @@
-// The check of an exported tree that an apply and `chad check` run before any Layer is built (LOAD-53).
+// The check of an exported tree that an apply and `chad check` run before any Layer is built.
 import {
   existsSync,
   mkdirSync,
@@ -56,11 +56,11 @@ export default Plugin.make(
 )
 `
 
-it("LOAD-22 LOAD-25 LOAD-27 LOAD-29 LOAD-30 LOAD-31 LOAD-53 LOAD-76 a tree that type-checks passes, and a type error and a missing package fail the check with work/ paths and what to do", async () => {
+it("a tree that type-checks passes, and a type error and a missing package fail the check with work/ paths and what to do", async () => {
   const passed = await check({
     "plugins/clock.ts": plugin,
     "plugins/ticker/label.ts": 'export const label = "tick"\n',
-    // A TypeScript file outside plugins/ is not checked (LOAD-81).
+    // A TypeScript file outside plugins/ is not checked, since chad never runs it.
     "skills/tool/run.ts": "const n: number = 'x'\n",
   })
   expect(passed.errors).toEqual([])
@@ -80,7 +80,7 @@ it("LOAD-22 LOAD-25 LOAD-27 LOAD-29 LOAD-30 LOAD-31 LOAD-53 LOAD-76 a tree that 
   ])
 })
 
-it("LOAD-5 LOAD-17 LOAD-25 LOAD-9 LOAD-29 REC-42 a dangling link skips only its plugin, a bundled name never runs, a tree with no plugin passes, an import() of a package runs, and the tree's tsconfig moves no package", async () => {
+it("a dangling link skips only its plugin, a bundled name never runs, a tree with no plugin passes, an import() of a package runs, and the tree's tsconfig moves no package", async () => {
   const marker = join(tmpdir(), `chad-loader-ran-${process.pid}`)
   rmSync(marker, { force: true })
   const { repo, tree } = await repoWith({
@@ -126,7 +126,7 @@ export default Plugin.make(
   expect(repo).not.toBe(none.repo)
 })
 
-it("IMG-46 IMG-143 a move aside never replaces what an earlier one kept, in the same millisecond", async () => {
+it("a move aside never replaces what an earlier one kept, in the same millisecond", async () => {
   const repo = mkdtempSync(join(tmpdir(), "chad-repolinks-"))
   const path = join(repo, "node_modules")
   const saved = `${path}.replaced-2026-11-16T06-28-57-056Z`
@@ -148,7 +148,7 @@ it("IMG-46 IMG-143 a move aside never replaces what an earlier one kept, in the 
   ).toEqual(["first", "second", "third"])
 })
 
-it("IMG-143 a move aside never replaces a link to nothing at its name", async () => {
+it("a move aside never replaces a link to nothing at its name", async () => {
   const repo = mkdtempSync(join(tmpdir(), "chad-repolinks-"))
   const path = join(repo, "node_modules")
   const saved = `${path}.replaced-2026-11-16T06-28-57-056Z`
@@ -165,7 +165,7 @@ it("IMG-143 a move aside never replaces a link to nothing at its name", async ()
   expect(readFileSync(`${saved}-1`, "utf8")).toBe("owner")
 })
 
-it("REC-48 LOAD-99 LOAD-16 LOAD-17 a plugins that is a file loads nothing and fails nothing, and an import() of a package gets the host's instance where the tree has its own", async () => {
+it("a plugins that is a file loads nothing and fails nothing, and an import() of a package gets the host's instance where the tree has its own", async () => {
   const file = await repoWith({ plugins: "not a directory" })
   expect(await provided(Loader.load(file.tree))).toEqual({
     loaded: [],

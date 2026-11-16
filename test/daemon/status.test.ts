@@ -1,4 +1,4 @@
-// The status message of a running turn and its Stop button (docs/spec/04-discord.md), in layer 3.
+// The status message of a running turn and its Stop button.
 import { Effect } from "effect"
 import { ChatError } from "effect/chat"
 import { expect, test } from "vitest"
@@ -20,7 +20,7 @@ import {
 const stranger = "someone-else"
 const script = 'console.log("one")'
 
-test("DIS-19 DIS-20 DIS-21 DIS-24 DIS-33 DIS-35 DIS-81 DIS-90 FAIL-11 STO-75 OV-28 SES-75 DIS-40 the status message is posted before the model runs with its id in the turn's row, gets a line for the script, keeps the Stop button through the edit, ignores a click from someone who is not an owner, and is removed before the answer", async () => {
+test("the status message is posted before the model runs with its id in the turn's row, gets a line for the script, keeps the Stop button through the edit, ignores a click from someone who is not an owner, and is removed before the answer", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -61,7 +61,7 @@ test("DIS-19 DIS-20 DIS-21 DIS-24 DIS-33 DIS-35 DIS-81 DIS-90 FAIL-11 STO-75 OV-
   ])
 })
 
-test("SES-74 DIS-39 a click on Stop from an owner is answered inside the interaction deadline and stops the turn as /stop does, and the status message is removed", async () => {
+test("a click on Stop from an owner is answered inside the interaction deadline and stops the turn as /stop does, and the status message is removed", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([{ text: "never sent", hold: true }])
@@ -85,7 +85,7 @@ test("SES-74 DIS-39 a click on Stop from an owner is answered inside the interac
   ])
 })
 
-test("FAIL-207 DIS-94 FAIL-12 FAIL-326 a status message post that finds the thread gone ends the turn as ThreadGone before the model runs, posts nothing, and still logs the turn's start once", async () => {
+test("a status message post that finds the thread gone ends the turn as ThreadGone before the model runs, posts nothing, and still logs the turn's start once", async () => {
   const running = await scenario()
   const { fakes, chat } = running
   await fakes.model.script([{ text: "never sent" }])
@@ -112,7 +112,7 @@ test("FAIL-207 DIS-94 FAIL-12 FAIL-326 a status message post that finds the thre
   ).toEqual([failed!.annotations["turn"]])
 })
 
-test("DIS-27 DIS-81 FAIL-11 FAIL-249 a background sub-agent's compaction gets its status line from the call that logs it, and the root's later script shows beside it", async () => {
+test("a background sub-agent's compaction gets its status line from the call that logs it, and the root's later script shows beside it", async () => {
   const running = await scenario()
   const { fakes } = running
   // The sub-agent's calls after its first carry a tool result, and its summarizer's do not, so either can take them.

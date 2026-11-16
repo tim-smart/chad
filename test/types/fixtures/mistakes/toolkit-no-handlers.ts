@@ -1,4 +1,4 @@
-// One of the six deliberate mistakes of TST-22. It must fail to compile.
+// One of the six deliberate mistakes a plugin can make. It must fail to compile.
 import { Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
 import { Plugin } from "chad"

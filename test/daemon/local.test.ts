@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { expect, test } from "vitest"
 import { owner, scenario } from "../support/driver.ts"
 
-test("TST-49 TST-50 TST-57 STO-122 DIS-79 the adapter client reaches a platform that starts listening at run/local.sock after the daemon, and the scenario runs over the test-only requests", async () => {
+test("the adapter client reaches a platform that starts listening at run/local.sock after the daemon, and the scenario runs over the test-only requests", async () => {
   // With this transport the driver starts the platform only after the boot, so the client has had to try again.
   const running = await scenario({ transport: "socket" })
   const { fakes, data } = running
@@ -22,7 +22,7 @@ test("TST-49 TST-50 TST-57 STO-122 DIS-79 the adapter client reaches a platform 
   expect(await fakes.model.received(1)).toHaveLength(1)
 })
 
-test("TST-55 the local platform splits an answer at the Discord adapter's limit of 2000 and not at ChatTest's 4000", async () => {
+test("the local platform splits an answer at the Discord adapter's limit of 2000 and not at ChatTest's 4000", async () => {
   const running = await scenario()
   const { fakes } = running
   const long = Array.from({ length: 50 }, (_, index) =>
@@ -45,7 +45,7 @@ test("TST-55 the local platform splits an answer at the Discord adapter's limit 
   }
 })
 
-test("TST-51 a developer types into the local platform through the short script, and reads chad's answer", async () => {
+test("a developer types into the local platform through the short script, and reads chad's answer", async () => {
   const running = await scenario({ transport: "client" })
   const { fakes, data } = running
   await running.logged("boot.ready")

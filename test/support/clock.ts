@@ -1,5 +1,5 @@
-// A clock a scenario moves forward, for a plugin's Layer (TST-76). Its time is the real time plus what the scenario
-// has advanced, and a sleep on it ends when either reaches its deadline.
+// A clock a scenario moves forward, for a plugin's Layer. Its time is the real time plus what the scenario has
+// advanced, and a sleep on it ends when either reaches its deadline.
 import { Clock, Duration, Effect } from "effect"
 
 export interface Adjustable extends Clock.Clock {

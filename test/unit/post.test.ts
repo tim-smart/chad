@@ -34,7 +34,7 @@ const numbered = (prefix: string, count: number) =>
 
 const counted = /^(?:text|code) \d{4} x+$/
 
-test("DIS-51 DIS-54 an answer longer than five messages goes out in five and answer.md, with nothing lost or reordered and a cut code fence reopened, and a post that fails in the middle sends only the unsent remainder again", async () => {
+test("an answer longer than five messages goes out in five and answer.md, with nothing lost or reordered and a cut code fence reopened, and a post that fails in the middle sends only the unsent remainder again", async () => {
   const blocks = [
     numbered("text", 20).join("\n"),
     ["```ts", ...numbered("code", 60), "```"].join("\n"),
@@ -96,7 +96,7 @@ test("DIS-51 DIS-54 an answer longer than five messages goes out in five and ans
   )
 })
 
-test("DIS-100 FAIL-66 a post that replies to a message that is gone goes out as a plain post", async () => {
+test("a post that replies to a message that is gone goes out as a plain post", async () => {
   const { posting, messages } = await Effect.runPromise(
     Effect.gen(function* () {
       const { test, chat } = yield* platform
@@ -122,7 +122,7 @@ test("DIS-100 FAIL-66 a post that replies to a message that is gone goes out as 
 
 const blocked = /^text \d{4} x+ \d+$/
 
-test("DIS-51 DIS-54 a part that may have landed is not sent again and still uses one of the five messages, down to none left for text", async () => {
+test("a part that may have landed is not sent again and still uses one of the five messages, down to none left for text", async () => {
   const answer = Array.from({ length: 10 }, (_, block) =>
     numbered(`text`, 30)
       .map((line) => `${line} ${block}`)

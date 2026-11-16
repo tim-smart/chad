@@ -19,7 +19,7 @@ const row = async (running: Scenario, sql: string) => {
   return first!
 }
 
-test("SES-88 STO-69 STO-70 STO-124 STO-164 STO-165 STO-206 FAIL-99 FAIL-100 FAIL-102 MOD-117 a turn has one row from its start, with its request, its session, the owner's message as origin and the whole model setting, and its end and outcome are null until it ends", async () => {
+test("a turn has one row from its start, with its request, its session, the owner's message as origin and the whole model setting, and its end and outcome are null until it ends", async () => {
   const running = await scenario({
     env: { CHAD_MODEL: "openai-compat/fake/high" },
   })
@@ -83,7 +83,7 @@ test("SES-88 STO-69 STO-70 STO-124 STO-164 STO-165 STO-206 FAIL-99 FAIL-100 FAIL
   })
 })
 
-test("STO-125 STO-126 FAIL-101 FAIL-107 the turns table has an index on started_at and one on the session with started_at, counters that are never null, and no column for a cost", async () => {
+test("the turns table has an index on started_at and one on the session with started_at, counters that are never null, and no column for a cost", async () => {
   const running = await scenario()
   await running.logged("boot.ready")
   const indexes = rows(
@@ -130,7 +130,7 @@ test("STO-125 STO-126 FAIL-101 FAIL-107 the turns table has an index on started_
   }
 })
 
-test("FAIL-53 FAIL-103a FAIL-105 a turn's usage is the total of its model calls, a sub-agent's included, the output tokens include the reasoning tokens, and a script that fails goes back to the model as its output and does not fail the turn", async () => {
+test("a turn's usage is the total of its model calls, a sub-agent's included, the output tokens include the reasoning tokens, and a script that fails goes back to the model as its output and does not fail the turn", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([
@@ -181,7 +181,7 @@ test("FAIL-53 FAIL-103a FAIL-105 a turn's usage is the total of its model calls,
   })
 })
 
-test("STO-133b CLI-137d FAIL-108b chad db query reads the turns table with the daemon running and with none", async () => {
+test("chad db query reads the turns table with the daemon running and with none", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([{ text: "done" }])
@@ -201,7 +201,7 @@ test("STO-133b CLI-137d FAIL-108b chad db query reads the turns table with the d
   expect(JSON.parse(down.stdout)).toEqual(expected)
 })
 
-test("SES-21 SES-89 SES-90 SES-159 SES-194 STO-74 STO-112 STO-168 TST-212 cluster deletes a completed request after the retention, the rows of the turn and of its steer stay, and the same event again is answered from the turn's row: no turn, no post, and a duplicate line", async () => {
+test("cluster deletes a completed request after the retention, the rows of the turn and of its steer stay, and the same event again is answered from the turn's row: no turn, no post, and a duplicate line", async () => {
   expect(Duration.toHours(defaults.messageRetention)).toBe(24)
   const running = await scenario({
     env: { CHAD_LOG_LEVEL: "debug" },

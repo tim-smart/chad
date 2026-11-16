@@ -42,7 +42,7 @@ const turnModels = (running: Scenario) =>
 
 // Each `chad` here is the real bin in its own process, which finds the daemon by its lock as an owner's shell does.
 
-test("MOD-15 MOD-16 MOD-19 MOD-20 MOD-21 MOD-91 MOD-125 CLI-57 CLI-138 CLI-179 only an owner changes the model: a stranger's /model and an agent's chad model store nothing, and an owner's /model tries the model without a turn, posts where it was typed and is what the next session runs on", async () => {
+test("only an owner changes the model: a stranger's /model and an agent's chad model store nothing, and an owner's /model tries the model without a turn, posts where it was typed and is what the next session runs on", async () => {
   const running = await scenario()
   const { fakes, model } = running
   const thread = await fakes.chat.makeThread("direct")
@@ -83,7 +83,7 @@ test("MOD-15 MOD-16 MOD-19 MOD-20 MOD-21 MOD-91 MOD-125 CLI-57 CLI-138 CLI-179 o
   expect(turnModels(running)).toEqual(["openai-compat/next"])
 })
 
-test("MOD-16 MOD-82 MOD-83 MOD-84 MOD-85 MOD-87 MOD-123 MOD-124 a failed trial stores nothing, an override is tried and stored, none clears it, and a main model on another provider clears the overrides and says so", async () => {
+test("a failed trial stores nothing, an override is tried and stored, none clears it, and a main model on another provider clears the overrides and says so", async () => {
   const running = await scenario()
   const { model } = running
 
@@ -108,7 +108,7 @@ test("MOD-16 MOD-82 MOD-83 MOD-84 MOD-85 MOD-87 MOD-123 MOD-124 a failed trial s
     "openai-compat/brief",
   ])
   expect(set.code).toBe(0)
-  // Each override was tried, and the main model, which did not change, was not (MOD-87).
+  // Each override was tried, and the main model, which did not change, was not.
   expect(
     model
       .checks()
@@ -133,7 +133,7 @@ test("MOD-16 MOD-82 MOD-83 MOD-84 MOD-85 MOD-87 MOD-123 MOD-124 a failed trial s
   expect(stored(running, "subagent-model")).toBeUndefined()
 })
 
-test("MOD-117 MOD-126 CLI-159 a change while a turn runs takes no place in the queue, leaves that turn on its model and reaches the next turn, and two changes at once both hold", async () => {
+test("a change while a turn runs takes no place in the queue, leaves that turn on its model and reaches the next turn, and two changes at once both hold", async () => {
   const running = await scenario()
   const { fakes, model } = running
   await fakes.model.script([{ text: "first", hold: true }, { text: "second" }])
@@ -170,7 +170,7 @@ test("MOD-117 MOD-126 CLI-159 a change while a turn runs takes no place in the q
   ])
 })
 
-test("MOD-12 MOD-22 MOD-90 CLI-31 CLI-178 with no daemon chad model tries the model itself, stores nothing when the trial fails, replaces state/model by rename so a write cut short leaves the old value, and a restart runs what it stored", async () => {
+test("with no daemon chad model tries the model itself, stores nothing when the trial fails, replaces state/model by rename so a write cut short leaves the old value, and a restart runs what it stored", async () => {
   const first = await scenario()
   await first.stop()
   const env = alone(first)
@@ -214,7 +214,7 @@ test("MOD-12 MOD-22 MOD-90 CLI-31 CLI-178 with no daemon chad model tries the mo
   )
 })
 
-test("MOD-81 MOD-126 MOD-90 with no daemon, a chad model whose trial outlasts another change is planned again on what that change stored, so no override of another provider is stored", async () => {
+test("with no daemon, a chad model whose trial outlasts another change is planned again on what that change stored, so no override of another provider is stored", async () => {
   const first = await scenario()
   await first.stop()
   const env = { ...alone(first), CHAD_DATA: first.data }

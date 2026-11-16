@@ -178,7 +178,7 @@ const main = async (argv: ReadonlyArray<string>) => {
         "daemon",
         "test/daemon/turn.test.ts",
         "-t",
-        "TST-164",
+        "a message in and a scripted answer out",
       ),
   }
   if (commit === manifest.commit) {

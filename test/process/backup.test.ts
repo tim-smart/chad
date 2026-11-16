@@ -1,5 +1,5 @@
 // Backup, restore and the version of the volume, in layer 4: the built CLI and `chad serve` as child processes on a
-// volume of the test's own (docs/spec/02-storage.md, "Backup and restore" and "Migrations and the order of a boot").
+// volume of the test's own.
 import { execFileSync, spawn, spawnSync } from "node:child_process"
 import { randomBytes } from "node:crypto"
 import {
@@ -136,7 +136,7 @@ const entries = (tar: string) =>
     .split("\n")
     .filter((line) => line !== "")
 
-it("STO-85 STO-86 STO-88 STO-89 STO-90 STO-178 STO-94 STO-99 STO-179 STO-181 STO-182 STO-101 CLI-134 CLI-135 IMG-41 a backup of a running daemon's volume restores onto an empty volume that boots with its secrets, its drafts and its applied repo, and restore refuses a used volume, a running daemon and a newer tar without writing", async () => {
+it("a backup of a running daemon's volume restores onto an empty volume that boots with its secrets, its drafts and its applied repo, and restore refuses a used volume, a running daemon and a newer tar without writing", async () => {
   const data = directory("chad-backup-")
   mkdirSync(join(data, "secrets"))
   writeFileSync(join(data, "secrets/token"), "secret")
@@ -247,7 +247,7 @@ it("STO-85 STO-86 STO-88 STO-89 STO-90 STO-178 STO-94 STO-99 STO-179 STO-181 STO
   await booted.done
 }, 60_000)
 
-it("STO-93 CLI-133 a backup with a daemon running holds its place in the queue until the tar is written, so a change that comes meanwhile waits for it and runs after it", async () => {
+it("a backup with a daemon running holds its place in the queue until the tar is written, so a change that comes meanwhile waits for it and runs after it", async () => {
   const data = directory("chad-queue-")
   const daemon = await serve(data)
   // More than a pipe holds, so a reader that does not read stops the tar part way.
@@ -281,7 +281,7 @@ it("STO-93 CLI-133 a backup with a daemon running holds its place in the queue u
   await daemon.done
 }, 60_000)
 
-it("STO-48 IMG-127 FAIL-146 STO-193 an older chad serve on a volume a newer chad wrote exits 1 and writes nothing on it but its log, and gives the steps back only when the copy taken before the migration is its own", async () => {
+it("an older chad serve on a volume a newer chad wrote exits 1 and writes nothing on it but its log, and gives the steps back only when the copy taken before the migration is its own", async () => {
   const data = directory("chad-newer-")
   const first = await serve(data)
   first.child.kill("SIGKILL")
@@ -312,7 +312,7 @@ it("STO-48 IMG-127 FAIL-146 STO-193 an older chad serve on a volume a newer chad
   }
 }, 60_000)
 
-it("STO-44 STO-45 STO-156 STO-157 STO-158 STO-192 STO-190 the first boot of a new image copies the database before it migrates: a kill during the copy leaves no copy and the next boot takes it again, and a kill during the migration keeps the copy and its version, which the boot that retries takes no second copy over", async () => {
+it("the first boot of a new image copies the database before it migrates: a kill during the copy leaves no copy and the next boot takes it again, and a kill during the migration keeps the copy and its version, which the boot that retries takes no second copy over", async () => {
   const data = directory("chad-migrate-")
   const first = await serve(data)
   first.child.kill("SIGKILL")
@@ -400,7 +400,7 @@ const backedUp = async () => {
   return tar
 }
 
-it("STO-216 CLI-161 a restore - whose producer keeps standard input open ends with the restore, exit 0, and a SIGINT part way ends it with exit 130 without waiting for the input to close", async () => {
+it("a restore - whose producer keeps standard input open ends with the restore, exit 0, and a SIGINT part way ends it with exit 130 without waiting for the input to close", async () => {
   const whole = readFileSync(await backedUp())
   /** `chad restore -` with standard input left open after `input`, and its exit code when it ends. */
   const restore = (data: string, input: Buffer) => {
@@ -437,7 +437,7 @@ it("STO-216 CLI-161 a restore - whose producer keeps standard input open ends wi
   expect(await interrupted.code).toBe(130)
 })
 
-it("STO-99 STO-179 STO-216 STO-217 CLI-135 a restore holds the lock against chad serve, and one that a kill or a damaged tar cut while unpacking leaves the volume to the next restore's check, so a secret written since is never replaced", async () => {
+it("a restore holds the lock against chad serve, and one that a kill or a damaged tar cut while unpacking leaves the volume to the next restore's check, so a secret written since is never replaced", async () => {
   const tar = await backedUp()
   const whole = readFileSync(tar)
   const data = directory("chad-target-")
@@ -487,7 +487,7 @@ it("STO-99 STO-179 STO-216 STO-217 CLI-135 a restore holds the lock against chad
   expect(readFileSync(join(data, "secrets/later"), "utf8")).toBe("since")
 }, 60_000)
 
-it("STO-216 STO-217 STO-219 CLI-133 MOD-90 a restore cut while it replaces the volume leaves it to the restore alone: chad serve, a command that writes, one that was already waiting on its model's trial and the starter files of chad plugin new and chad skill new are refused, and the restore run again finishes it into a volume that boots", async () => {
+it("a restore cut while it replaces the volume leaves it to the restore alone: chad serve, a command that writes, one that was already waiting on its model's trial and the starter files of chad plugin new and chad skill new are refused, and the restore run again finishes it into a volume that boots", async () => {
   const tar = await backedUp()
   const data = directory("chad-target-")
   // A chad model with no daemon that passed its check of the volume before the restore, and waits on its trial.
@@ -576,7 +576,7 @@ it("STO-216 STO-217 STO-219 CLI-133 MOD-90 a restore cut while it replaces the v
   await booted.done
 }, 60_000)
 
-it("STO-98 STO-215 CLI-135 CLI-132 a restore refuses a tar whose state is a link off the volume or that brings its own daemon lock, without touching what is outside or the lock it holds, and backup to standard output and restore are refused to a session and to a terminal", async () => {
+it("a restore refuses a tar whose state is a link off the volume or that brings its own daemon lock, without touching what is outside or the lock it holds, and backup to standard output and restore are refused to a session and to a terminal", async () => {
   const data = directory("chad-target-")
   const outside = directory("chad-outside-")
   writeFileSync(join(outside, "sentinel"), "outside")
@@ -631,7 +631,7 @@ it("STO-98 STO-215 CLI-135 CLI-132 a restore refuses a tar whose state is a link
   expect(terminal.stdout).toContain(Messages.backupTerminal())
 }, 60_000)
 
-it("STO-93 CLI-218 CLI-133 STO-218 a backup whose daemon goes away while it holds the queue ends with exit 4 and never finishes the tar, and one to a file that SIGINT ends removes its partial file, leaves the backup already at that path as it was and frees the queue at once", async () => {
+it("a backup whose daemon goes away while it holds the queue ends with exit 4 and never finishes the tar, and one to a file that SIGINT ends removes its partial file, leaves the backup already at that path as it was and frees the queue at once", async () => {
   const data = directory("chad-lost-")
   const daemon = await serve(data)
   mkdirSync(join(data, "home"), { recursive: true })
@@ -712,7 +712,7 @@ it("STO-93 CLI-218 CLI-133 STO-218 a backup whose daemon goes away while it hold
   await again.done
 }, 60_000)
 
-it("STO-85 STO-99 STO-101 STO-44 STO-45 TST-107 a seeded volume backed up, restored onto an emptied volume and booted by a newer chad goes on as it was: the conversation resumes with its history and the cron job its plugin stored fires", async () => {
+it("a seeded volume backed up, restored onto an emptied volume and booted by a newer chad goes on as it was: the conversation resumes with its history and the cron job its plugin stored fires", async () => {
   const running = await daemon({ bundled: true })
   const { fakes, data } = running
   await fakes.model.script([

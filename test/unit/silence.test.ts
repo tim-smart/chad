@@ -6,8 +6,8 @@ import * as Failed from "../../src/daemon/Failed.ts"
 import * as TurnLog from "../../src/daemon/TurnLog.ts"
 
 // chad counts a turn timeout at clanka's retry of the cut call, with the login as it stood at the cut. A daemon scenario
-// has nothing to wait on between the cut and the retry: a hidden agent logs nothing (ruling 98c53ea), and a shown agent's
-// retry part can be held back by clanka. These run the model chad wraps directly, with clanka's race against the turn
+// has nothing to wait on between the cut and the retry: a hidden agent logs nothing, and a shown agent's retry part
+// can be held back by clanka. These run the model chad wraps directly, with clanka's race against the turn
 // timeout.
 
 const timeout = Duration.millis(40)
@@ -59,7 +59,7 @@ const run = <A, E>(
     ),
   )
 
-it("FAIL-212 MOD-102 MOD-103 a background sub-agent's call that the turn timeout cuts while a login is pending does not count toward the silence bound, also when the login completes before clanka's retry", async () => {
+it("a background sub-agent's call that the turn timeout cuts while a login is pending does not count toward the silence bound, also when the login completes before clanka's retry", async () => {
   const { login, ended, owner } = turn()
   await run(
     owner,
@@ -79,7 +79,7 @@ it("FAIL-212 MOD-102 MOD-103 a background sub-agent's call that the turn timeout
   expect(ended).toMatchObject([{ _tag: "ModelError", reason: "TurnTimeout" }])
 })
 
-it("FAIL-212 MOD-102 MOD-103 the root agent's call that the turn timeout cuts while a login is pending does not count toward the silence bound, also when the login completes before clanka's retry", async () => {
+it("the root agent's call that the turn timeout cuts while a login is pending does not count toward the silence bound, also when the login completes before clanka's retry", async () => {
   const { login, ended, owner } = turn()
   await run(
     owner,

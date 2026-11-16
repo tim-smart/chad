@@ -5,7 +5,7 @@ import { join } from "node:path"
 import { expect, it } from "vitest"
 import { path } from "../support/repo.ts"
 
-it("TST-134 the local command names the tools that are missing before it runs a layer", () => {
+it("the local command names the tools that are missing before it runs a layer", () => {
   const empty = mkdtempSync(join(tmpdir(), "chad-path-"))
   try {
     const local = spawnSync(process.execPath, [path("scripts/local.ts")], {

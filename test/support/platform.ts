@@ -1,5 +1,5 @@
-// The local platform of docs/spec/17-testing.md: effect/chat's ChatTest and the RPC server the adapter client talks
-// to. It runs outside the daemon and is never in the image.
+// The local platform of the tests: effect/chat's ChatTest and the RPC server the adapter client talks to. It runs
+// outside the daemon and is never in the image.
 import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient"
 import * as NodeSocketServer from "@effect/platform-node/NodeSocketServer"
 import { DiscordChat } from "@effect/chat-discord"
@@ -316,7 +316,7 @@ export const make = (
                 readonly event: ChatEvent.ChatEvent
               }>()
               // An event this daemon never acknowledged goes to the next daemon that attaches, as Discord replays an
-              // event whose sequence was not stored (TST-54). The finalizer runs after the handler is detached.
+              // event whose sequence was not stored. The finalizer runs after the handler is detached.
               const gone = yield* Deferred.make<void>()
               yield* Effect.addFinalizer(() =>
                 Deferred.succeed(gone, undefined),

@@ -5,7 +5,7 @@ import { join } from "node:path"
 import { expect, it } from "vitest"
 import { path } from "../support/repo.ts"
 
-it("CLI-1 TST-201 chad serve is the daemon: it boots on an empty directory with no connection, and a SIGTERM ends it with code 0", async () => {
+it("chad serve is the daemon: it boots on an empty directory with no connection, and a SIGTERM ends it with code 0", async () => {
   const data = mkdtempSync(join(tmpdir(), "chad-serve-"))
   const { CHAD_SESSION: _, ...environment } = process.env
   const serve = spawn(process.execPath, [path("bin/chad.js"), "serve"], {

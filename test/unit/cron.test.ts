@@ -1,5 +1,5 @@
-// Cron next-run times in Pacific/Auckland across both daylight saving changes of 2026 (TST-179). The dates are real
-// ones, because the source of effect's `Cron` warns that `next` near a gap is not guaranteed to be the nearest match.
+// Cron next-run times in Pacific/Auckland across both daylight saving changes of 2026. The dates are real ones,
+// because the source of effect's `Cron` warns that `next` near a gap is not guaranteed to be the nearest match.
 import { expect, test } from "vitest"
 import { next } from "../../src/daemon/Timers.ts"
 
@@ -9,7 +9,7 @@ const after = (cron: string, from: string) => {
   return new Date(result.success).toISOString()
 }
 
-test("TST-179 CRON-101 CRON-102 CRON-103 CRON-104 a time in the hour that spring skips runs once, moved on by the gap, and a time in the hour that autumn repeats runs once, on its first occurrence", () => {
+test("a time in the hour that spring skips runs once, moved on by the gap, and a time in the hour that autumn repeats runs once, on its first occurrence", () => {
   // 27 September 2026: 02:00 NZST jumps to 03:00 NZDT, so 02:30 runs at 03:30 NZDT.
   expect(after("30 2 * * *", "2026-09-26T12:00:00Z")).toBe(
     "2026-09-26T14:30:00.000Z",

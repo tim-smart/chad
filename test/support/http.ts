@@ -6,7 +6,7 @@ import { HttpClient, HttpClientRequest } from "effect/http"
 import { Socket } from "effect/socket"
 import * as Discord from "./discord.ts"
 
-/** The two Codex hosts that clanka hardcodes, and where on the fake model server each goes (TST-38). */
+/** The two Codex hosts that clanka hardcodes, and where on the fake model server each goes. */
 export const codexHosts = (model: string) => {
   const origin = new URL(model).origin
   return [
@@ -65,7 +65,7 @@ const codexSocket = "wss://chatgpt.com/backend-api/codex"
 
 /**
  * The WebSocket constructor a daemon of a scenario gets: a socket to Codex goes to the fake model server's socket, with
- * the headers of its opening request, as the product's constructor sends them (TST-38). Any other goes to `other`.
+ * the headers of its opening request, as the product's constructor sends them. Any other goes to `other`.
  */
 export const webSocketConstructor = (
   socket: string,

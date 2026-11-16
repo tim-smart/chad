@@ -1,6 +1,6 @@
-// The end of a process scenario (docs/spec/17-testing.md, TST-87): a process that a session started in the background
-// leaves its daemon's process group, so a kill of the daemon does not end it, and it may drop the mark every start's
-// environment carries. The driver finds it by the process tree and the groups it recorded (`test/support/reap.ts`).
+// The end of a process scenario: a process that a session started in the background leaves its daemon's process group,
+// so a kill of the daemon does not end it, and it may drop the mark every start's environment carries. The driver finds
+// it by the process tree and the groups it recorded (`test/support/reap.ts`).
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, test } from "vitest"
@@ -8,7 +8,7 @@ import { eventually, says } from "../support/owner.ts"
 import { alive, daemon } from "../support/process.ts"
 import { table } from "../support/reap.ts"
 
-test("TST-87 a background process of a session outlives a kill of its daemon, whatever its environment holds, and the end of the scenario ends it", async () => {
+test("a background process of a session outlives a kill of its daemon, whatever its environment holds, and the end of the scenario ends it", async () => {
   const running = await daemon()
   const { fakes } = running
   const pidFile = join(running.directory, "background.pid")
@@ -49,7 +49,7 @@ console.log(one.id, two.id)`,
   expect(pids.map(alive)).toEqual([false, false])
 }, 15_000)
 
-test("TST-87 a process table that cannot be read does not keep a kill or the end of the scenario from signalling the daemon, and fails the end", async () => {
+test("a process table that cannot be read does not keep a kill or the end of the scenario from signalling the daemon, and fails the end", async () => {
   let broken = false
   const running = await daemon({
     processTable: () => {

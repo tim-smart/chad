@@ -63,7 +63,7 @@ describe("a clean install of the checkout, with a proxy that cannot reach pkg.pr
 
   afterAll(() => rmSync(directory, { recursive: true, force: true }))
 
-  it("IMG-53 passes from the lockfile, which names no pkg.pr.new URL, with each such edge redirected to its tarball", () => {
+  it("passes from the lockfile, which names no pkg.pr.new URL, with each such edge redirected to its tarball", () => {
     expect({ status, output }).toMatchObject({ status: 0 })
     // The packages came through the proxy, so the install had no other way to pkg.pr.new.
     expect([...hosts]).toEqual(["registry.npmjs.org"])
@@ -74,7 +74,7 @@ describe("a clean install of the checkout, with a proxy that cannot reach pkg.pr
     })
   })
 
-  it("IMG-56a node_modules holds one copy of effect", () => {
+  it("node_modules holds one copy of effect", () => {
     const copies = readdirSync(join(directory, "node_modules/.pnpm")).filter(
       (name) => name.startsWith("effect@"),
     )

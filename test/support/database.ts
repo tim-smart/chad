@@ -1,4 +1,4 @@
-// Reads a scenario's database from outside the daemon, as `chad db query` will once the `cli` slice delivers it.
+// Reads a scenario's database from outside the daemon, as `chad db query` does.
 import { join } from "node:path"
 import { DatabaseSync } from "node:sqlite"
 

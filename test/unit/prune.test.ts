@@ -11,7 +11,7 @@ import * as Volume from "../../src/daemon/Volume.ts"
 
 const day = 24 * 3600 * 1000
 
-it("STO-105 STO-106 STO-107 STO-171 STO-183 STO-185 SES-79 STO-66 the prune takes only sessions reset more than 30 days ago: their directories and their history and updates go, their rows stay with the prompt cleared and no turns row is touched, and a session whose prune a kill cut after its directory went is finished by the next run", async () => {
+it("the prune takes only sessions reset more than 30 days ago: their directories and their history and updates go, their rows stay with the prompt cleared and no turns row is touched, and a session whose prune a kill cut after its directory went is finished by the next run", async () => {
   const data = mkdtempSync(join(tmpdir(), "chad-prune-"))
   onTestFinished(() => rmSync(data, { recursive: true, force: true }))
   mkdirSync(join(data, "db"))

@@ -6,7 +6,7 @@ const text = (name: string) =>
 
 // Regressions for two checks that passed a broken skill: a quote whose fixed text a template's variable part absorbed,
 // and a path whose mistyped root dropped it from the check.
-test("SELF-112 SELF-113 TST-91 a quote that differs from chad's message by one word is refused, and a path under an unknown root is still checked", () => {
+test("a quote that differs from chad's message by one word is refused, and a path under an unknown root is still checked", () => {
   const skill = text("self-edit/SKILL.md")
   expect(Skills.unquotable(skill)).toEqual([])
   expect(

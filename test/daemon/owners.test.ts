@@ -9,7 +9,7 @@ const connection = (owners: ReadonlyArray<string>) => ({
   connections: [{ name: "local", kind: "local" as const, owners }],
 })
 
-test("TST-164 TST-201 OV-2 SES-6 DIS-6 DIS-111 FAIL-301 a message from an id that is not on the connection's list starts nothing, and its log line has the author and not the content", async () => {
+test("a message from an id that is not on the connection's list starts nothing, and its log line has the author and not the content", async () => {
   const running = await scenario(connection(["ada", "grace"]))
   const { fakes, data } = running
   await fakes.model.script([{ text: "Hello Grace." }])
@@ -41,7 +41,7 @@ test("TST-164 TST-201 OV-2 SES-6 DIS-6 DIS-111 FAIL-301 a message from an id tha
   )
 })
 
-test("SES-122 DIS-80 TST-67 a message marked isSelf is dropped before the owner check, though its id is on the list", async () => {
+test("a message marked isSelf is dropped before the owner check, though its id is on the list", async () => {
   const running = await scenario({
     ...connection(["chad-bot"]),
     env: { CHAD_LOG_LEVEL: "debug" },
@@ -76,7 +76,7 @@ test("SES-122 DIS-80 TST-67 a message marked isSelf is dropped before the owner 
   expect(calls).toHaveLength(1)
 })
 
-test("SES-123 TST-68 the list is by id alone, so a bot whose id is on it is an owner and a bot whose id is not is ignored", async () => {
+test("the list is by id alone, so a bot whose id is on it is an owner and a bot whose id is not is ignored", async () => {
   const running = await scenario(connection(["helper-bot"]))
   const { fakes } = running
   await fakes.model.script([{ text: "Hello bot." }])
@@ -103,7 +103,7 @@ test("SES-123 TST-68 the list is by id alone, so a bot whose id is on it is an o
   expect(await fakes.model.calls()).toHaveLength(1)
 })
 
-test("TST-65 DIS-96 DIS-38 CRED-46 SES-6 a stranger's direct message, mention, Stop click and each chat command start, stop, change and post nothing while an owner's turn runs", async () => {
+test("a stranger's direct message, mention, Stop click and each chat command start, stop, change and post nothing while an owner's turn runs", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([{ text: "done", hold: true }])
