@@ -70,7 +70,7 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 
 ## Stopped rules
 
-A rule that a builder reported as wrong or impossible to build, with one sentence on what is wrong. Tim rules on each one.
+A binding rule (ORD-47) that a builder reported as wrong or impossible to build, with one sentence on what is wrong. Tim rules on each one. An entry on a rule that is a default does not wait for Tim: the open stage settles it and moves it to the simplified rules (ORD-51).
 
 | Rule     | What is wrong                                                                                                                                                                                                                                                                                                                               |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -82,3 +82,10 @@ A rule that a builder reported as wrong or impossible to build, with one sentenc
 | STO-209  | Its second half takes an unfinished turn's prompt as stored when the session's history carries no request key, but a compaction or an earlier turn leaves such a history too, so it can mark a prompt that was never stored and the resume then loses the owner's message.                                                                  |
 | STO-210  | Its removal takes the `prompts` row that STO-207 wrote with the prompt of a turn that started before STO-209's migration ran or in the same second, which the volume cannot tell from STO-209's inference, and its last sentence resends such a turn's prompt by a policy Tim has not ruled on.                                             |
 | FAIL-339 | It is a builder rule that narrows FAIL-148, SES-29 and STO-118, which say chad answers every owner message with the error while the database is unusable, to a direct message or a mention, and Tim has not ruled on that narrowing.                                                                                                        |
+
+## Simplified rules
+
+A default (ORD-48) that was not built as written, with one sentence on what chad does instead. The rule-id script does not read this list. Tim reads it when he reviews the pull request.
+
+| Rule | What chad does instead |
+| ---- | ---------------------- |

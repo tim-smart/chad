@@ -4,14 +4,24 @@ chad is built from the spec in `docs/spec/`. This file is the builder's contract
 
 ## The spec is the source of truth
 
-- Every behaviour of chad is a rule with a stable id, such as `SES-12`. Build what the rules say.
+- Every behaviour of chad is a rule with a stable id, such as `SES-12`. The rules are where you look up what chad does. Some of them bind and most are defaults, as the next section says.
 - Read `docs/spec/00-overview.md`, `docs/spec/17-testing.md` and `docs/spec/19-build-order.md` in full. Read the other parts by rule. Never try to read the whole spec in one run, it does not fit.
 - `docs/spec/20-for-tim.md` is for Tim. A builder does not need it.
 
-## The stop rule
+## Binding rules and defaults
 
-- If a rule is wrong or cannot be built, stop work on that rule. Say so on the parent build issue, add it to the delivered file's list of stopped rules with one sentence on what is wrong, build nothing else in its place, and carry on with the rest of the stage.
-- A change to an existing rule waits for Tim. Do not reword a rule to match what you built.
+chad is one owner's assistant on one server. Build the simplest thing that keeps what the spec promises the owner, a plugin, the model and the CLI. The spec holds about 3,000 rules. Most of them are one reviewer's answer to an edge case, and Tim has not read them.
+
+- A rule binds when it is one of these:
+  - Tim agreed it. The Agreed by cell of its Provenance row names Tim without "Tim has not read". Where the cell gives Tim one clause and somebody else another, only Tim's clause binds.
+  - It decides who chad obeys or what chad keeps secret.
+  - Breaking it loses or damages what is on the volume.
+  - It says what a kill, a crash, a restart or two things happening at once must not lose or do twice.
+- In a rule that binds for one of the last three reasons, the outcome binds. A number, a deadline, a wording, an order of steps or a mechanism in it is a default unless the outcome depends on it.
+- Every other rule is a default. It describes one way that works. Build it as written when that is also the simplest way. When something simpler gives the same outcome, or the rule covers a case that one owner on one server will not meet, build the simpler thing or leave the case out. Do not stop and do not ask.
+- Add each default you did not build as written to the delivered file's list of simplified rules, with one sentence on what chad does instead. Do not reword the rule. Tim reads the list when he reviews the pull request.
+- If a binding rule is wrong or cannot be built, stop work on that rule. Say so on the parent build issue, add it to the delivered file's list of stopped rules with one sentence on what is wrong, build nothing else in its place, and carry on with the rest of the stage. A change to a binding rule waits for Tim.
+- A rule that reads `Withdrawn.` is not built. `docs/spec/00-overview.md` lists what Tim cut from v1 (OV-57). A rule that still names a withdrawn rule or one of those features holds as far as it makes sense without it. Do not stop over such a reference.
 - Where the spec is silent, pick the reading that fits the rest of it. If the choice is visible to the owner, a plugin, the model or the CLI, add it to the spec as a new rule in the same change, with the next number of its part's prefix and a Provenance row as `docs/spec/19-build-order.md` describes, and name it in your hand-off comment. A gap tagged `[builder]` is yours to settle the same way.
 
 ## Stages, slices and the one branch
