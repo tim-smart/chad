@@ -138,6 +138,7 @@ describe("the durations", () => {
       "openaiApiUrl",
       "safeMode",
       "socket",
+      "tz",
       "unknownLogLevel",
     ])
     // Each side reads the environment in one place, and one module each holds the durations and the messages.

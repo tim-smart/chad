@@ -21,11 +21,11 @@ import { timezone } from "./commands/timezone.ts"
  * `commands/` and listed here, and a command that is not listed is an unknown command.
  */
 export const commands = [
-  setup,
   health,
   status,
   connection,
   owner,
+  setup,
   login,
   logout,
   model,
