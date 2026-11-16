@@ -1,6 +1,6 @@
 import { DiscordChat } from "@effect/chat-discord"
 import * as DiscordConfig from "dfx/DiscordConfig"
-import { DiscordGatewayLive } from "dfx/DiscordGateway"
+import { DiscordGateway, DiscordGatewayLive } from "dfx/DiscordGateway"
 import { JsonDiscordWSCodecLive } from "dfx/DiscordGateway/DiscordWS"
 import { DispatchHook } from "dfx/DiscordGateway/Shard/DispatchHook"
 import { ShardStateStore } from "dfx/DiscordGateway/Shard/StateStore"
@@ -84,43 +84,58 @@ const watched = (connection: Connection, refused: Deferred.Deferred<number>) =>
   )
 
 /**
- * dfx's dispatch hook with chad's own line in front of it. The shard hands the hook every dispatch, `READY` and
- * `RESUMED` among them, which is the one place that tells a fresh identify from a resume. After a fresh identify
- * the catch-up reads what the gateway did not replay (SES-37), off the dispatch path.
+ * dfx's dispatch hook. The shard hands the hook every dispatch, `READY` among them, which is the one that follows a
+ * fresh identify. After one the catch-up reads what the gateway did not replay (SES-37), off the dispatch path.
+ */
+const caughtUp = Layer.effect(
+  DispatchHook,
+  Effect.gen(function* () {
+    const hook = yield* DispatchHook
+    const identified = yield* Queue.unbounded<void>()
+    yield* Queue.take(identified).pipe(
+      Effect.andThen(CatchUp.run("discord")),
+      Effect.catchCause((cause) =>
+        Effect.logWarning("The catch-up failed", cause),
+      ),
+      Effect.forever,
+      Effect.forkScoped,
+    )
+    return (payload, context) =>
+      payload.t === "READY"
+        ? hook(payload, context).pipe(
+            Effect.andThen(Queue.offer(identified, undefined)),
+          )
+        : hook(payload, context)
+  }),
+).pipe(Layer.provide(DiscordChat.layerDispatchHook))
+
+/**
+ * chad's line `chat.connected`, and the daemon's word that the connection is connected (MOD-95, MOD-127), at `READY`
+ * for a fresh identify and `RESUMED` for a resume. The shard stores the session and its sequence once the hook has
+ * returned, and only then hands the dispatch to the gateway's subscribers. So the line, and the startup check that
+ * `Chats.Connected` lets run, come after the session is stored, and a daemon killed after the line resumes it at the
+ * next start (SES-30b). The subscriptions are in place before the shard can have a session.
  */
 const connected = (connection: Connection) =>
-  Layer.effect(
-    DispatchHook,
+  Layer.effectDiscard(
     Effect.gen(function* () {
-      const hook = yield* DispatchHook
+      const gateway = yield* DiscordGateway
       const up = yield* Chats.Connected
-      const identified = yield* Queue.unbounded<void>()
-      yield* Queue.take(identified).pipe(
-        Effect.andThen(CatchUp.run("discord")),
-        Effect.catchCause((cause) =>
-          Effect.logWarning("The catch-up failed", cause),
-        ),
-        Effect.forever,
-        Effect.forkScoped,
+      const announce = (resumed: boolean) => () =>
+        Logger.event("chat.connected", "The gateway session is up", {
+          connection: connection.name,
+          resumed,
+        }).pipe(Effect.andThen(up))
+      yield* Effect.forkScoped(
+        gateway.handleDispatch("READY", announce(false)),
+        { startImmediately: true },
       )
-      return (payload, context) =>
-        payload.t === "READY" || payload.t === "RESUMED"
-          ? Logger.event("chat.connected", "The gateway session is up", {
-              connection: connection.name,
-              resumed: payload.t === "RESUMED",
-            }).pipe(
-              // The session is up, which is when the daemon has connected to Discord (MOD-95, MOD-127).
-              Effect.andThen(up),
-              Effect.andThen(hook(payload, context)),
-              Effect.andThen(
-                payload.t === "READY"
-                  ? Queue.offer(identified, undefined)
-                  : Effect.void,
-              ),
-            )
-          : hook(payload, context)
+      yield* Effect.forkScoped(
+        gateway.handleDispatch("RESUMED", announce(true)),
+        { startImmediately: true },
+      )
     }),
-  ).pipe(Layer.provide(DiscordChat.layerDispatchHook))
+  )
 
 const config = (connection: Connection) =>
   DiscordConfig.layer({
@@ -169,9 +184,10 @@ export const layer = (connection: Connection) => {
       Layer.provideMerge(gatewayOnly(refused)),
     )
   const gatewayOnly = (refused: Deferred.Deferred<number>) =>
-    DiscordGatewayLive.pipe(
+    connected(connection).pipe(
+      Layer.provideMerge(DiscordGatewayLive),
       Layer.provide([
-        connected(connection),
+        caughtUp,
         shardState,
         MemoryShardStoreLive,
         MemoryRateLimitStoreLive,
