@@ -45,6 +45,8 @@ export interface Options {
   readonly processTable?: () => ReadonlyArray<Reap.Row>
   /** Loads the asphodel fixture on every start, see `Config`. */
   readonly asphodel?: Config["asphodel"]
+  /** Loads the bundled plugins on every start, see `Config`. */
+  readonly bundled?: boolean
 }
 
 /** How a child ended: its exit code, or the signal that killed it. */
@@ -150,6 +152,7 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
     },
     gc: undefined,
     asphodel: options.asphodel,
+    bundled: options.bundled,
   }
   const environment = {
     CHAD_DATA: data,

@@ -33,6 +33,8 @@ export interface Config {
    * gets its own HttpClient, as in layer 3, so its requests never reach the world's (TST-161).
    */
   readonly asphodel?: { readonly settings: unknown } | undefined
+  /** Loads the bundled plugins, as `chad serve` does. */
+  readonly bundled?: boolean | undefined
 }
 
 const config: Config = JSON.parse(process.env["CHAD_TEST_CHILD"] ?? "{}")
@@ -53,8 +55,11 @@ const millis = (value: number | undefined) =>
 const idle = millis(config.timings.sessionIdle)
 const retention = millis(config.timings.messageRetention)
 
-const plugins =
-  config.asphodel === undefined
+const plugins = [
+  ...(config.bundled === true
+    ? (await import("../../dist/Bundled.js")).bundled
+    : []),
+  ...(config.asphodel === undefined
     ? []
     : [
         {
@@ -66,7 +71,8 @@ const plugins =
           ),
           settings: config.asphodel.settings,
         },
-      ]
+      ]),
+]
 
 const code = await start(
   {
