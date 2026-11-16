@@ -220,7 +220,7 @@ test("SES-64 SES-69a SES-70 SES-73 SES-76 DIS-59 FAIL-69 /stop interrupts the tu
   expect(
     rows(
       running,
-      "SELECT tag FROM cluster_messages WHERE tag NOT LIKE 'Cluster/%'",
+      "SELECT tag FROM cluster_messages WHERE tag NOT LIKE 'Cluster/%' AND entity_type NOT LIKE 'ClusterCron/%'",
     ).map((row) => row["tag"]),
   ).toEqual(["message", "message"])
 
@@ -288,7 +288,7 @@ test("SES-9 SES-10 SES-77 SES-138 SES-139 STO-63 STO-64 SES-171 SES-172 CLI-205b
   expect(
     rows(
       running,
-      "SELECT tag FROM cluster_messages WHERE tag NOT LIKE 'Cluster/%'",
+      "SELECT tag FROM cluster_messages WHERE tag NOT LIKE 'Cluster/%' AND entity_type NOT LIKE 'ClusterCron/%'",
     ).map((row) => row["tag"]),
   ).toEqual(["message", "message"])
 

@@ -91,9 +91,11 @@ export const run = Effect.fnUntraced(function* (options: {
     ),
   )
   yield* running.set(stored).pipe(Effect.provideContext(context))
+  const queue = Queue.make()
+  yield* Deferred.succeed(state.queue, queue)
   yield* Deferred.succeed(
     state.commands,
-    yield* Connections.make(volume, state, running, Queue.make()).pipe(
+    yield* Connections.make(volume, state, running, queue).pipe(
       Effect.provideContext(context),
     ),
   )

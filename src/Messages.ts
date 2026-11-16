@@ -1660,3 +1660,74 @@ export const mcpRebuilt = (servers: ReadonlyArray<McpServerState>) =>
   servers.length === 0
     ? ["No MCP servers are configured."]
     : servers.map(mcpServerLine)
+
+/**
+ * What an older `chad serve` says when `state/version` names a newer chad (STO-48, STO-193, STO-213). `copy` is the copy
+ * of the database taken before the last migration and the version written beside it, when the volume holds them. The
+ * steps are given only when that version is this chad's own.
+ */
+export const volumeNewer = (options: {
+  readonly data: string
+  readonly volume: string
+  readonly own: string
+  readonly copy:
+    { readonly path: string; readonly version: string | undefined } | undefined
+}) => {
+  const head = `chad serve: this volume was last written by chad ${options.volume}, which is newer than this chad ${options.own}, so chad will not start.`
+  const { copy } = options
+  if (copy === undefined) {
+    return `${head} The volume holds no copy of the database taken before a migration (${options.data}/db/chad.db.before-migration). Run chad ${options.volume} or a newer one.`
+  }
+  if (copy.version === undefined || copy.version === "") {
+    return `${head} ${copy.path} is the copy of the database taken before the last migration, and no version was recorded beside it, so it is not known to be this chad's. Run chad ${options.volume} or a newer one.`
+  }
+  if (copy.version !== options.own) {
+    return `${head} ${copy.path} is the copy of the database taken before the last migration, and it belongs to chad ${copy.version}. Run chad ${options.volume} or a newer one, or chad ${copy.version} to use the copy.`
+  }
+  return [
+    `${head} ${copy.path} is the copy of the database taken before the last migration, and it is this chad's. To go back to it, with chad stopped:`,
+    `  1. Delete ${options.data}/db/chad.db-wal and ${options.data}/db/chad.db-shm.`,
+    `  2. Put ${copy.path} back as ${options.data}/db/chad.db.`,
+    `  3. Write ${options.own} into ${options.data}/state/version.`,
+    "Everything chad stored since that migration is lost.",
+  ].join("\n")
+}
+
+/** The notice of `prune-failed`, a table key, which the next prune that succeeds clears (FAIL-312, FAIL-348). */
+export const pruneFailed = (error: string) =>
+  `The nightly prune of old sessions failed: ${firstLine(error)}. chad tries again at the next run.`
+
+/** `chad backup -` with a terminal on standard output (STO-177, CLI-202). */
+export const backupTerminal = () =>
+  "chad backup: refused: standard output is a terminal, and the tar holds tokens. Redirect it to a file or a pipe, or give a path."
+
+/** `chad backup` wrote its tar to a path. */
+export const backupWritten = (path: string) => `Backup written to ${path}.`
+
+/** `chad backup` failed. */
+export const backupFailed = (error: string) =>
+  `chad backup: failed: ${firstLine(error)}`
+
+/** `chad restore` with a daemon holding the lock (STO-99, CLI-135). */
+export const restoreDaemon = (data: string) =>
+  `chad restore: refused: a chad serve holds the lock on ${data}. Stop it and restore from a one-off container.`
+
+/** `chad restore` onto a volume that holds what an owner made (STO-179, STO-180). */
+export const restoreNotEmpty = (data: string, what: string) =>
+  `chad restore: refused: ${data} is not empty: ${what}. chad restores only onto an empty volume.`
+
+/** The tar given to `chad restore` is not a backup of chad's. */
+export const restoreNotBackup = (tar: string, why: string) =>
+  `chad restore: ${tar} is not a chad backup: ${why}`
+
+/** The tar given to `chad restore` was made by a newer chad, or in a newer format (STO-182, STO-103). */
+export const restoreNewer = (made: string, own: string) =>
+  `chad restore: refused: the backup was made by chad ${made}, which is newer than this chad ${own}. Restore it with chad ${made} or a newer one.`
+
+/** `chad restore` failed part way. */
+export const restoreFailed = (error: string) =>
+  `chad restore: failed: ${firstLine(error)}`
+
+/** `chad restore` finished (STO-101, STO-102). */
+export const restored = (data: string, made: string) =>
+  `Restored a backup of chad ${made} into ${data}. Start chad serve: its first start rebuilds repo/versions, repo/live and repo/node_modules from the applied branch, and migrates the database when this chad is newer.`

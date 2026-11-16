@@ -366,6 +366,8 @@ it("CLI-59 CLI-218 the CLI sends its CHAD_SESSION with every request, and a daem
             Logout: () => Effect.succeed({ spec: "openai-compat/fake" }),
             Model: () => Stream.empty,
             Repository: () => Stream.empty,
+            Backup: () => Stream.empty,
+            BackupFailed: () => Effect.void,
           }),
           layerVersionCheck(version),
         ),

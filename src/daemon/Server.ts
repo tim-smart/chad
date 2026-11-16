@@ -22,6 +22,7 @@ import * as Messages from "../Messages.ts"
 import * as ModelSpec from "../ModelSpec.ts"
 import * as Paths from "../Paths.ts"
 import {
+  type HoldEvent,
   type LoginEvent,
   type RepoEvent,
   LoginFailed,
@@ -93,6 +94,8 @@ export interface State {
   repositoryState: Effect.Effect<Status.Repository | undefined>
   /** The commands that change what is loaded from the repo, which the boot hands over once the plugins load. */
   readonly repository: Deferred.Deferred<Apply.Commands>
+  /** The one queue for everything that changes what is loaded, which the boot hands over with the commands (CLI-37). */
+  readonly queue: Deferred.Deferred<Queue.Queue>
   /** Abandons a swap that runs, which a stop does before anything else (SWAP-101). */
   abandon: Effect.Effect<void>
   /** The plugins skipped at boot and why, which the boot hands over with the counts (CLI-125). */
@@ -181,6 +184,7 @@ export const makeState = (): State => ({
   connections: [],
   commands: Deferred.makeUnsafe(),
   repository: Deferred.makeUnsafe(),
+  queue: Deferred.makeUnsafe(),
   abandon: Effect.void,
   account: Deferred.makeUnsafe(),
   calls: new Set(),
@@ -475,6 +479,34 @@ const handlers = (state: State) => {
           }),
         ),
       ),
+    // The place in the queue is held until the CLI ends the call, or goes away, which interrupts it (STO-93).
+    Backup: () =>
+      Stream.callback<HoldEvent>((events) =>
+        tracked(
+          Effect.gen(function* () {
+            const queue = yield* Deferred.await(state.queue)
+            const busy = queue.busy()
+            if (busy !== undefined) {
+              yield* Mailbox.offer(events, {
+                _tag: "Waiting",
+                text: Messages.queueWaiting(busy),
+              })
+            }
+            yield* queue.run(
+              Effect.andThen(
+                Mailbox.offer(events, { _tag: "Held" }),
+                Effect.never,
+              ),
+              "chad backup",
+            )
+          }),
+        ),
+      ),
+    BackupFailed: ({ error }, { headers }) =>
+      Logger.event("backup.failed", "chad backup failed", {
+        error,
+        caller: Queue.caller(headers[sessionHeader]),
+      }),
     Logout: (_, { headers }) =>
       tracked(
         Effect.gen(function* () {

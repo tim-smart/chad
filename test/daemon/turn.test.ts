@@ -124,7 +124,7 @@ test("SES-1 SES-2 SES-13 SES-149 STO-194 each DM and each thread is one Session 
   expect(new Set(sessions.map((session) => session["id"])).size).toBe(3)
   const requests = query(
     data,
-    "SELECT entity_type, entity_id FROM cluster_messages ORDER BY id",
+    "SELECT entity_type, entity_id FROM cluster_messages WHERE entity_type NOT LIKE 'ClusterCron/%' ORDER BY id",
   )
   expect(requests.map((request) => request["entity_type"])).toEqual(
     Array(4).fill("Session"),
@@ -151,7 +151,7 @@ test("SES-14 SES-33 SES-151 an owner message is a persisted request keyed by the
   await running.stop()
   const requests = query(
     data,
-    "SELECT message_id, payload FROM cluster_messages ORDER BY id",
+    "SELECT message_id, payload FROM cluster_messages WHERE entity_type NOT LIKE 'ClusterCron/%' ORDER BY id",
   )
   expect(requests).toHaveLength(2)
   if (event._tag !== "MessageCreated") throw new Error("not a message")

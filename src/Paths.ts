@@ -59,6 +59,20 @@ export const auth = (data: string): string => join(data, "secrets/auth")
 /** The file that holds the chad version that last wrote the volume. */
 export const version = (data: string): string => join(data, "state/version")
 
+/** The copy of the database a boot takes before it migrates, which is only ever used on this volume (IMG-40, STO-44). */
+export const beforeMigration = (data: string): string =>
+  join(data, "db/chad.db.before-migration")
+
+/** The version the copy was taken from, one line beside the copy (STO-192, STO-212). */
+export const beforeMigrationVersion = (data: string): string =>
+  join(data, "db/chad.db.before-migration.version")
+
+/** Where `chad restore` unpacks a tar before it moves it into place. Its presence marks a restore a kill cut (STO-216). */
+export const restoring = (data: string): string => join(data, "restore.partial")
+
+/** The mark that a boot copied the database and has not written `state/version` yet (STO-157, STO-158). */
+export const migrating = (data: string): string => join(data, "state/migrating")
+
 /**
  * The most bytes a unix socket path holds on the platform chad runs on. It is 103 on macOS and 107 on Linux, and never
  * a fixed 107.

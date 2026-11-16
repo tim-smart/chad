@@ -237,7 +237,10 @@ test("OV-39 TST-61d an event that Discord sends a second time starts no second t
   expect(await chad.fakes.model.calls()).toHaveLength(2)
   await chad.stop()
   expect(
-    query(chad.data, "SELECT message_id FROM cluster_messages"),
+    query(
+      chad.data,
+      "SELECT message_id FROM cluster_messages WHERE entity_type NOT LIKE 'ClusterCron/%'",
+    ),
   ).toHaveLength(2)
 })
 
@@ -273,7 +276,10 @@ test("TST-61a Discord's side marks chad's own message, a bot, a webhook and a me
     { content: "to the webhook" },
   ])
   await chad.stop()
-  const [request] = query(chad.data, "SELECT payload FROM cluster_messages")
+  const [request] = query(
+    chad.data,
+    "SELECT payload FROM cluster_messages WHERE entity_type NOT LIKE 'ClusterCron/%'",
+  )
   const { message } = JSON.parse(String(request?.["payload"]))
   expect(message.author).toMatchObject({
     id: webhook,
@@ -320,7 +326,10 @@ test("TST-66 DIS-10 a DM from someone who is not an owner starts no turn over th
   expect(JSON.stringify(calls)).not.toContain("something else")
   await chad.stop()
   expect(
-    query(chad.data, "SELECT message_id FROM cluster_messages"),
+    query(
+      chad.data,
+      "SELECT message_id FROM cluster_messages WHERE entity_type NOT LIKE 'ClusterCron/%'",
+    ),
   ).toHaveLength(2)
 })
 

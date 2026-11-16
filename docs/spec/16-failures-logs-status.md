@@ -711,6 +711,7 @@ The keys, with the class of each, what begins each condition and the check that 
 - **FAIL-310** One renderer per key produces the text, and both the notice and the line under "Problems" print it.
 - **FAIL-311** An unusable database is the condition of the live key `database-unusable`. Its notice is the message of FAIL-149, and the file `state/db-unusable` takes the place of its row, because the `notices` table is in that database (FAIL-225 to FAIL-227).
 - **FAIL-312** A nightly prune that fails begins the condition `prune-failed`, which is a table key, and the next prune that succeeds clears it (see 02-storage.md for the prune).
+- **FAIL-348** The notice of `prune-failed` reads `The nightly prune of old sessions failed: <first line of the error>. chad tries again at the next run.`
 - **FAIL-313** A one-off notice that could not be delivered is kept as a held row of the `notices` table under a table key, and "Problems" lists it from that row. A keyed notice that could not be delivered gets no line of its own, because "Problems" already shows its condition.
 - **FAIL-319** `usage-limit` is a table key. A restarted daemon cannot tell from memory or from files that the last model call hit the usage limit, so only the row remembers it.
 - **FAIL-320** The line "Problems" prints for a table key says when the row was recorded, which is the time chad wrote the row as holding. The held row may describe something that has already passed, as on an idle chad whose usage limit has lifted with no model call made since, and the time lets the owner judge that. The row keeps this time apart from the time its notice was last sent, because a condition can begin with no notice sent, as `usage-limit` does when an owner was present (FAIL-94) and as any condition does within 24 hours of its last notice (FAIL-152).
@@ -800,7 +801,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 - **FAIL-G21** [builder] The text of the `diagnose` skill and its `chad db query` recipes. TIM-557 item 43 names what it teaches and nothing more.
 - **FAIL-G22** [builder] Whether the real Codex service sends an `error.message` with a usage limit, and what a new connection gets while the limit is in force. Only the two live captures in FAIL-98 can answer it. TIM-557 "Not settled here".
 - **FAIL-G26** [builder] The contents of `state/db-unusable`. FAIL-225 to FAIL-227 read only whether the file exists.
-- **FAIL-G27** [builder] The text of the `prune-failed` condition, and the key under which a one-off notice that could not be delivered is kept (FAIL-313), with the check that clears its row. TIM-559 round 3 C5 names both as things only a row remembers and gives no more.
+- **FAIL-G27** [builder] The text of the `prune-failed` condition, and the key under which a one-off notice that could not be delivered is kept (FAIL-313), with the check that clears its row. TIM-559 round 3 C5 names both as things only a row remembers and gives no more. FAIL-348 settles the text of the condition.
 - **FAIL-G28** [builder] The length at which the plugin's name is cut in the notice of FAIL-318. TIM-559 round 3 A2.
 - **FAIL-G29** [builder] Whether the `usage-limit` row keeps a reset time when the error carried one, and whether a model call that hits the limit while the condition already holds moves the recorded time (FAIL-320, FAIL-321). TIM-559 round 4 item 9 prints the reset time "if the row holds one", and the `notices` row in 02-storage.md has no place for one.
 - **FAIL-G30** [builder] Whether a resumed start writes `turn.started` as well as `turn.resumed`, and what the delivery that gives up writes before `turn.failed` (FAIL-12, FAIL-244, FAIL-253). `chad logs --event` and the `diagnose` recipes read these names. Recommended: `turn.started` on the first start only, `turn.resumed` on each later start, and only `turn.failed` on the delivery that gives up.
@@ -1139,6 +1140,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-345 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 | FAIL-346 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 | FAIL-347 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| FAIL-348 | Build, stage 5 | Builder (Tim has not read) | run |  | `rule` | `backup` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

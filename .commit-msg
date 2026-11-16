@@ -1,0 +1,33 @@
+Deliver the backup slice: backup, restore, the prune and the copy before a migration
+
+chad backup <path>|- writes one tar: manifest.json first, an online copy of
+the database made in the CLI's own process, repo/work with its .git,
+secrets/, state/ and home/ less home/.cache, and sessions/ with --sessions.
+With a daemon running it holds a place in the daemon's queue through a new
+Backup call until the tar is written; with none it holds the lock. The stdout
+form is an owner command and exits 2 on a terminal.
+
+chad restore <tar>|- refuses a held lock, a volume with a secret file or a
+session row or an unreadable database, and a tar from a newer chad, before it
+writes. It unpacks under restore.partial and then replaces db/, repo/ and
+state/ (keeping the lock file); a cut restore is finished by the next one.
+
+A boot now refuses a newer state/version straight after the lock, before
+anything else is touched, and names the copy and, when it is its own, the
+steps back. The first boot of a new image copies the database to
+db/chad.db.before-migration under a temporary name, with its version beside
+it, and writes state/migrating around the migrations; a boot that finds
+state/migrating takes no second copy.
+
+The nightly prune is a ClusterCron at Timings.pruneAt in the owner's timezone.
+It clears each session reset more than pruneAge ago: its directory first, then
+its history and updates in one small transaction that also clears the row's
+prompt and environment. A failed run logs prune.failed and raises
+prune-failed, and the next good run clears it.
+
+Tests that read every cluster_messages row now leave out the prune's
+ClusterCron row, which every boot now writes.
+
+New rules STO-212 to STO-216 and FAIL-348 settle STO-G29, STO-G30, STO-G31
+and the text half of FAIL-G27. The backup holds in delivered.md are cleared;
+TST-94, TST-106 and TST-107 are listed as simplified.

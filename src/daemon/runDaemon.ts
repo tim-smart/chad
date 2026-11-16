@@ -60,9 +60,11 @@ import * as Persona from "./Persona.ts"
 import * as Skills from "../Skills.ts"
 import * as PluginTurns from "./PluginTurns.ts"
 import * as Plugins from "./Plugins.ts"
+import * as Prune from "./Prune.ts"
 import * as PluginSettings from "./PluginSettings.ts"
 import * as Disk from "./Disk.ts"
 import * as Unusable from "./Unusable.ts"
+import * as Upgrade from "./Upgrade.ts"
 import * as Queue from "./Queue.ts"
 import * as RepoLinks from "./RepoLinks.ts"
 import * as Server from "./Server.ts"
@@ -176,7 +178,13 @@ const boot = Effect.fnUntraced(function* (
     safe: yield* SafeMode.read(volume.data, environment.safeMode),
   })
 
-  // Step 3, the check for a newer state/version, belongs here.
+  // Step 3. A volume a newer chad wrote is refused under the lock and before the socket or the database is touched, so
+  // the refused boot has written nothing but its log lines (STO-48, IMG-127, FAIL-146).
+  const newer = yield* Upgrade.newer(volume.data)
+  if (newer !== undefined) {
+    yield* Logger.event("boot.refused", newer, { reason: "version" })
+    return 1
+  }
   yield* Volume.prepare(volume)
 
   // The stored connections are read before the socket listens, so that status names them from its first answer.
@@ -227,6 +235,8 @@ const boot = Effect.fnUntraced(function* (
 
   // Steps 6 to 8. The guard runs before the migrations, so a boot it refuses changes nothing in the database. A
   // database that cannot be opened or migrated for any other reason keeps chad up without sessions (STO-117).
+  // Opening the database makes the file, so whether this boot found one is read first (STO-44).
+  const existed = yield* fs.exists(volume.database)
   const opened = yield* Effect.gen(function* () {
     const base = Context.merge(
       world,
@@ -235,8 +245,11 @@ const boot = Effect.fnUntraced(function* (
     yield* Storage.guard.pipe(Effect.provide(base))
     state.phase = "database"
     yield* Storage.known.pipe(Effect.provide(base))
+    // The copy comes after the shard count check and before the migrations, and a database that cannot be opened
+    // never reaches it, so the previous copy stays (STO-42, STO-159).
+    const copied = yield* Upgrade.copy(volume, existed)
     const migrated = yield* Storage.migrate.pipe(Effect.provide(base))
-    return { base, migrated }
+    return { base, migrated, copied }
   }).pipe(
     Effect.map((value) => ({ _tag: "Opened" as const, ...value })),
     Effect.catchTag("ShardCountChanged", (error) =>
@@ -274,10 +287,14 @@ const boot = Effect.fnUntraced(function* (
     })
     return yield* Effect.never
   }
-  const { base, migrated } = opened
+  const { base, migrated, copied } = opened
   if (migrated.length > 0) {
+    const copy = Paths.beforeMigration(volume.data)
     yield* Logger.event("database.migrated", "The database was migrated", {
       migrations: migrated.map(([id, name]) => `${id}_${name}`).join(","),
+      from: copied.previous ?? "none",
+      to: version,
+      copy: (yield* fs.exists(copy)) ? copy : "none",
     })
   }
   // The database is usable again, so a later time it is not sends its notice again (FAIL-226, STO-186).
@@ -288,7 +305,7 @@ const boot = Effect.fnUntraced(function* (
         Effect.logWarning("state/db-unusable could not be removed", cause),
       ),
     )
-  yield* fs.writeFileString(volume.version, version + "\n")
+  yield* Upgrade.written(volume)
   // The owner's timezone: `state/timezone`, else a valid `TZ`, else UTC. `chad timezone` changes it in the daemon's
   // queue, and plugins, session processes and "today" read it from here (IMG-27, IMG-28, API-17).
   let zone = (yield* Timezone.read(volume.data, environment.tz)).zone
@@ -567,6 +584,14 @@ const boot = Effect.fnUntraced(function* (
       Timers.layer,
       timerRetention,
       runsRetention,
+      // The nightly prune, whose runs are kept for good because no `MessageRetention` covers them (STO-110).
+      Prune.layer({
+        sessions: volume.sessions,
+        zone,
+        at: inputs.timings.pruneAt,
+        age: inputs.timings.pruneAge,
+        notices,
+      }),
     ).pipe(
       Layer.provideMerge(cluster),
       Layer.provideMerge(
@@ -725,6 +750,7 @@ const boot = Effect.fnUntraced(function* (
   )
   yield* Deferred.succeed(loaded, host)
   const queue = Queue.make()
+  yield* Deferred.succeed(state.queue, queue)
   const announce = PluginTurns.chat(running.chats, running.list)
   repository = yield* Apply.make({
     repo: volume.repo,

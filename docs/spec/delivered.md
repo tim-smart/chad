@@ -21,6 +21,7 @@ The slices that are delivered, in build order. The builder who finishes a slice 
 - `settings`
 - `skills-mcp`
 - `timers-cron`
+- `backup`
 
 ## Held rules
 
@@ -28,20 +29,12 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 
 | Rule      | Slice            | Reason                                                                                                                                                 |
 | --------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| IMG-88    | `backup`         | The `state/version` row (IMG-39) arrives with the `backup` slice.                                                                                      |
-| STO-28b   | `backup`         | `chad backup` and `chad restore`, which hold the lock for the whole copy, arrive with the `backup` slice.                                              |
-| REC-96b   | `backup`         | The other owner commands arrive with later slices, and the last of them, `restore` and `backup` to stdout, with the `backup` slice.                    |
-| CLI-31e   | `backup`         | `chad backup` and `chad restore` arrive with the `backup` slice.                                                                                       |
-| CLI-37b   | `backup`         | The other changes that go through the queue arrive with later slices, and the last of them, a backup while it copies, with the `backup` slice.         |
-| CLI-57d   | `backup`         | `chad restore` and `chad backup` to stdout arrive with the `backup` slice.                                                                             |
-| CLI-58b   | `backup`         | The commands the list names arrive with later slices, and the last of them, `chad backup <path>`, with the `backup` slice.                             |
 | CLI-97b   | `bundled-skills` | The `credentials` skill arrives with the `bundled-skills` slice.                                                                                       |
 | CRED-136b | `bundled-skills` | What the agent asks the owner is taught by the `credentials` skill, which arrives with the `bundled-skills` slice (CRED-96).                           |
 | CLI-137e  | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                          |
 | STO-83b   | `bundled-skills` | The `self-edit` skill arrives with the `bundled-skills` slice.                                                                                         |
 | STO-133c  | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                          |
 | FAIL-108c | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                          |
-| STO-110   | `backup`         | The prune job whose runs leave the request and reply arrives with the `backup` slice.                                                                  |
 | LOAD-20   | `bundled-skills` | Every package of the image resolves for a plugin, and the `self-edit` skill that says which ones are promised arrives with the `bundled-skills` slice. |
 | MCP-145   | `bundled-skills` | The image copies `skills/` to `/opt/chad/skills` once the `bundled-skills` slice adds the first bundled skill, and until then no bundled skill exists. |
 | ASP-7     | `asphodel`       | The asphodel plugin arrives with the `asphodel` slice. A plugin's settings under `plugins.<name>.settings` in `chad.json` are built.                   |
@@ -94,3 +87,6 @@ A default (ORD-48) that was not built as written, with one sentence on what chad
 | CLI-74   | As MCP-36.                                                                                                                                                                                                                                                                      |
 | REC-45   | chad catches the error of its own decoder of `mcp.json` (MCP-141), in place of `McpConfig.load`'s.                                                                                                                                                                              |
 | CRON-111 | Cron names a job's timer `<name>#<id>`, with the job id of CRON-149, so that a run's outcome reaches only the job that asked for it. The label of the job's turns is still its name.                                                                                            |
+| TST-94   | No check records which `Messages` names the scenarios expect; a scenario refers by name to the messages it reaches, and the rest have no test, since a message's wording gets none.                                                                                             |
+| TST-106  | No migration fixture is saved yet, because no release has shipped. The copy scenario rolls the newest migration back on a booted volume and boots across it.                                                                                                                    |
+| TST-107  | As TST-106: with no released fixture, the migration scenario boots a volume rolled back by one migration and checks the copy, the version and the migrated schema, with no turn or timer.                                                                                       |

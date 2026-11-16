@@ -277,6 +277,13 @@ export const RepoEvent = Schema.Union([
 ])
 export type RepoEvent = typeof RepoEvent.Type
 
+/** What `chad backup` hears while it takes its place in the queue: that it waits, then that it holds the place (STO-93). */
+export const HoldEvent = Schema.Union([
+  Schema.TaggedStruct("Waiting", { text: Schema.String }),
+  Schema.TaggedStruct("Held", {}),
+])
+export type HoldEvent = typeof HoldEvent.Type
+
 /**
  * Every other call. A call is declared here, and is then refused to a CLI of another version. No call returns a
  * stored secret: a connection comes back without its token.
@@ -316,6 +323,13 @@ const checked = RpcGroup.make(
     success: RepoEvent,
     stream: true,
   }),
+  /**
+   * `chad backup` with a daemon running. The call takes a place in the queue and holds it until the CLI ends the call,
+   * or goes away (STO-93, CLI-37).
+   */
+  Rpc.make("Backup", { success: HoldEvent, stream: true }),
+  /** A `chad backup` that failed while it held its place, which the daemon logs as `backup.failed` (STO-191, STO-214). */
+  Rpc.make("BackupFailed", { payload: { error: Schema.String } }),
 ).middleware(VersionCheck)
 
 export const Rpcs = OpenRpcs.merge(checked)
