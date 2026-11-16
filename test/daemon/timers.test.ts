@@ -9,6 +9,7 @@ import * as Plugin from "../../dist/Plugin.js"
 import type * as Session from "../../dist/Session.js"
 import { Turns } from "../../dist/Turns.js"
 import { write } from "../support/applied.ts"
+import { execute } from "../support/database.ts"
 import { scenario, type Scenario } from "../support/driver.ts"
 import { eventually, rows } from "../support/owner.ts"
 
@@ -93,7 +94,7 @@ const everySecond = (thread: ChatThread.ChatThread) => ({
   label: "tick",
 })
 
-test("CRON-6 CRON-7 CRON-9 CRON-15 CRON-16 CRON-19 CRON-20 CRON-23 CRON-25 API-87 API-90 API-121 API-122 a one-shot fires once in its thread with the timer on the turn's origin and is gone after its turn, a replace fires only the new time, a recurring chain runs one turn per scheduled time, and a cancel stops it", async () => {
+test("CRON-6 CRON-7 CRON-9 API-133 CRON-15 CRON-16 CRON-19 CRON-20 CRON-23 CRON-25 API-87 API-90 API-121 API-122 a one-shot fires once in its thread with the timer on the turn's origin and is gone after its turn, a replace fires only the new time, a recurring chain runs one turn per scheduled time, a cancel stops it, and a replace that cannot be saved keeps the earlier timer", async () => {
   const probed = probe()
   const clock = probe("clock")
   const running = await scenario({ plugins: [probed.entry, clock.entry] })
@@ -163,6 +164,34 @@ test("CRON-6 CRON-7 CRON-9 CRON-15 CRON-16 CRON-19 CRON-20 CRON-23 CRON-25 API-8
   expect(rows(running, "SELECT * FROM timers")).toEqual([])
   expect(pending(running, "tick")).toBe(0)
   expect(await call(turns.scheduled())).toEqual([])
+
+  // A full disk while a replace is saved: the call fails and the earlier timer, row and wake-up, is as it was.
+  const later = {
+    name: "later",
+    at: DateTime.makeUnsafe(Date.now() + 60_000),
+    thread,
+    prompt: "kept",
+    label: "later",
+  }
+  await call(turns.schedule(later))
+  execute(
+    running.data,
+    "CREATE TRIGGER full BEFORE INSERT ON cluster_messages WHEN NEW.entity_type = 'Timer' BEGIN SELECT RAISE(ABORT, 'database or disk is full'); END",
+  )
+  await expect(
+    call(
+      turns.schedule({
+        ...later,
+        at: DateTime.makeUnsafe(Date.now() + 120_000),
+        prompt: "replaced",
+      }),
+    ),
+  ).rejects.toThrow("Nothing was changed")
+  execute(running.data, "DROP TRIGGER full")
+  expect(await call(turns.scheduled())).toMatchObject([
+    { name: "later", prompt: "kept", nextRun: later.at },
+  ])
+  expect(pending(running, "later")).toBe(1)
 }, 30_000)
 
 test("CRON-26 CRON-27 CRON-30 CRON-31 CRON-32 CRON-35 CRON-36 CRON-37 SES-16 SES-113 SET-41 SET-42 SET-43 SET-84 FAIL-113 CLI-71 CLI-126 a timer of a plugin that is off is held across a restart, shows on the plugin's off line and not under Problems, fires once for all its missed runs when the plugin is back on, as the apply says, and goes with chad plugin purge", async () => {

@@ -170,29 +170,36 @@ export const make = Effect.gen(function* () {
     arm,
     clear,
     /**
-     * Stores a timer and its one wake-up. The row is written first, the earlier wake-up cleared and the new one saved,
-     * so only the new time fires (CRON-6). A kill between the steps leaves a row whose wake-up `rearm` saves again.
+     * Stores a timer and its one wake-up: the row is overwritten, the earlier wake-up cleared and the new one saved, so
+     * only the new time fires (CRON-6). The three are one transaction, so a change that cannot be saved leaves the
+     * earlier timer as it was (API-133).
      */
     save: (row: Row) =>
-      Effect.gen(function* () {
-        yield* sql`INSERT INTO timers ${sql.insert({ ...row })} ON CONFLICT (plugin, name) DO UPDATE SET cron = excluded.cron, timezone = excluded.timezone, thread = excluded.thread, prompt = excluded.prompt, label = excluded.label, mention = excluded.mention, next_run = excluded.next_run`
-        yield* clear(row.plugin, row.name)
-        yield* arm(row)
-      }),
+      storage.withTransaction(
+        Effect.gen(function* () {
+          yield* sql`INSERT INTO timers ${sql.insert({ ...row })} ON CONFLICT (plugin, name) DO UPDATE SET cron = excluded.cron, timezone = excluded.timezone, thread = excluded.thread, prompt = excluded.prompt, label = excluded.label, mention = excluded.mention, next_run = excluded.next_run`
+          yield* clear(row.plugin, row.name)
+          yield* arm(row)
+        }),
+      ),
     /** Removes a timer's row and its wake-ups. A run that has started finishes and saves nothing (CRON-7, CRON-16). */
     remove: (plugin: string, name: string) =>
-      Effect.gen(function* () {
-        yield* sql`DELETE FROM timers WHERE plugin = ${plugin} AND name = ${name}`
-        yield* clear(plugin, name)
-      }),
+      storage.withTransaction(
+        Effect.gen(function* () {
+          yield* sql`DELETE FROM timers WHERE plugin = ${plugin} AND name = ${name}`
+          yield* clear(plugin, name)
+        }),
+      ),
     /** Removes every timer of a plugin, for `chad plugin purge`, and gives how many there were (CRON-35). */
     purge: (plugin: string) =>
-      Effect.gen(function* () {
-        const rows = yield* list(plugin)
-        yield* sql`DELETE FROM timers WHERE plugin = ${plugin}`
-        for (const row of rows) yield* clear(plugin, row.name)
-        return rows.length
-      }),
+      storage.withTransaction(
+        Effect.gen(function* () {
+          const rows = yield* list(plugin)
+          yield* sql`DELETE FROM timers WHERE plugin = ${plugin}`
+          for (const row of rows) yield* clear(plugin, row.name)
+          return rows.length
+        }),
+      ),
     /**
      * Saves the wake-up of every row again, at boot. A wake-up already stored is the same request and changes nothing,
      * so a kill between writing a row and saving its wake-up loses no run.
@@ -214,6 +221,7 @@ export const layer = Timer.toLayer(
   Effect.gen(function* () {
     const support = yield* Support
     const sql = yield* SqlClient.SqlClient
+    const storage = yield* MessageStorage.MessageStorage
     const client = yield* Timer.client
     return Timer.of({
       fire: ({ payload }) =>
@@ -265,10 +273,15 @@ export const layer = Timer.toLayer(
           if (Result.isFailure(following)) {
             return yield* Effect.die(new Error(following.failure))
           }
-          yield* sql`UPDATE timers SET next_run = ${following.success} WHERE plugin = ${plugin} AND name = ${name} AND next_run = ${at}`
-          yield* client(entityId(plugin, name)).fire(
-            new Fire({ plugin, name, at: following.success }),
-            { discard: true },
+          // The row and the next wake-up are saved together, so the row never names a run nothing will wake.
+          yield* storage.withTransaction(
+            Effect.gen(function* () {
+              yield* sql`UPDATE timers SET next_run = ${following.success} WHERE plugin = ${plugin} AND name = ${name} AND next_run = ${at}`
+              yield* client(entityId(plugin, name)).fire(
+                new Fire({ plugin, name, at: following.success }),
+                { discard: true },
+              )
+            }),
           )
         }).pipe(Effect.orDie),
     })
