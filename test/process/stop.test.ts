@@ -1,6 +1,7 @@
 // The graceful stop in layer 4: SIGTERM to the daemon as a child process, its 15 second wait for the turns in flight,
 // the cut at the end of it, and the next start on the same volume (docs/spec/03-sessions-and-turns.md).
 import { join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { expect, test } from "vitest"
 import { lines, posted, rows, says } from "../support/owner.ts"
 import { applied } from "../support/applied.ts"
@@ -157,4 +158,23 @@ export default Plugin.make(
   expect((await running.chad(["plugin", "reload", "stuck"])).code).toBe(0)
   await running.logged("swap.close-abandoned")
   expect(await current.stop()).toEqual({ code: 1, signal: null })
+})
+
+test("IMG-82 IMG-84 IMG-85b IMG-139 MCP-97 LOAD-64 REC-148 FAIL-243 FAIL-297 SWAP-109 a stdio MCP server that ignores its input closing and SIGTERM outlasts the plugins' close, and the deadline cuts the stop with a stop.cut line that names it and exit 1", async () => {
+  const running = await daemon()
+  const server = fileURLToPath(
+    new URL("../fixtures/mcp/server.mjs", import.meta.url),
+  )
+  applied(join(running.data, "repo"), {
+    "mcp.json": JSON.stringify({
+      mcpServers: {
+        stubborn: { command: process.execPath, args: [server, "--stubborn"] },
+      },
+    }),
+  })
+  const current = await running.start()
+  await running.logged("mcp.rebuilt")
+  expect(await current.stop()).toEqual({ code: 1, signal: null })
+  const cut = await running.logged("stop.cut")
+  expect(cut.annotations["open"]).toBe("stubborn")
 })

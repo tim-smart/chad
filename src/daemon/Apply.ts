@@ -1082,15 +1082,22 @@ export const make = Effect.fnUntraced(function* (options: {
         )
         if (mcp !== true) return output
         // What the command printed comes first, the commit line of an apply included, and the rebuild runs once the
-        // queue is released, in a fiber a CLI that goes away does not stop (MCP-111, MCP-112, CLI-160).
+        // queue is released, in a fiber a CLI that goes away does not stop. An apply's closing line stays last
+        // (MCP-111, MCP-112, CLI-70, CLI-160).
+        const closing = output.stdout.at(-1) === Messages.appliedClosing
+        const head = closing ? output.stdout.slice(0, -1) : output.stdout
         const before =
-          print === undefined || output.stdout.length === 0
-            ? output.stdout
-            : yield* Effect.as(print(output.stdout), [])
+          print === undefined || head.length === 0
+            ? head
+            : yield* Effect.as(print(head), [])
         const servers = yield* options.mcp.rebuild
         return {
           ...output,
-          stdout: [...before, ...Messages.mcpRebuilt(servers)],
+          stdout: [
+            ...before,
+            ...Messages.mcpRebuilt(servers),
+            ...(closing ? [Messages.appliedClosing] : []),
+          ],
         }
       }),
     safe: () => safe,

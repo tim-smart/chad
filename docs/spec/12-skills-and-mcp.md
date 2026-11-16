@@ -100,6 +100,7 @@ The walk was read in clanka 0.28.0, at `src/AgentEnvironment.ts:62-117`, and not
 - **MCP-21** A server is added, changed or removed by editing `work/mcp.json` and running `chad apply`. There is no `chad mcp add`.
 - **MCP-22** v1 has no SSE transport. An entry with `"type": "sse"` is listed as unavailable with the error "SSE transport is not supported", and the other servers carry on.
 - **MCP-23** A secret is never written in `mcp.json`. The file refers to it by name as `${NAME}`, and the value is stored outside the repo.
+- **MCP-141** chad reads `mcp.json` at the root of the exported tree and no other MCP config. It decodes the file itself, with the keys of the table below, and does not call clanka's `McpConfig.load`, which would also read clanka's own config under `$XDG_CONFIG_HOME` or `$HOME/.config` and a `.mcp.json` beside the file. An entry that `McpConfig.load` would refuse fails the file in the same way.
 
 An entry is a stdio server when it has a `command` and an HTTP server when it has a `url`, unless `type` says otherwise. clanka's loader accepts these keys and drops any other:
 
@@ -160,6 +161,7 @@ clanka builds the MCP layer without ever failing. A server that cannot start or 
 - **MCP-41** Every rebuild restarts every server, whatever caused it, and a stdio server loses whatever it held in memory. This is accepted.
 - **MCP-42** `chad mcp restart` needs the daemon and exits 4 without it. It goes through the daemon's one queue with applies, and the agent may run it (see 10-cli.md).
 - **MCP-43** The system prompt lists the MCP servers by name with each one's tool count, and for a failed server the first line of its error. A change to the MCP servers renders a session's system prompt again on its next turn (see 08-apply-and-swap.md).
+- **MCP-144** Each server's line, as `chad apply`, `chad secret set` and `rm`, `chad mcp restart` and `chad safe` print it once a rebuild ends, is "MCP server <name>: connected, <n> tools." or "MCP server <name>: unavailable: <first line of its error>". A rebuild with no server prints "No MCP servers are configured.". An apply prints these lines before its closing line. `chad safe` prints them only when there were servers before it or are after it. `chad status` has one line per server: "mcp: <name>, connected, <n> tools", "mcp: <name>, failed (<first line of its error>)" or, during a rebuild, "mcp: <name>, starting". `chad check` prints "MCP server <name>: an apply adds it.", "removes it" or "changes it" for each server that differs from the applied file, and then "The check connected no MCP server.".
 
 ## Runtimes for stdio servers
 
@@ -251,6 +253,9 @@ The texts are exact. `<server>.<tool>` is the key, and `<name>` is the server's 
 | 7 | `MCP servers were still starting when this turn began. They are available from your next turn.` | In the prompt of a turn that started at boot without MCP (MCP-92). |
 | 8 | `mcp.<server>.<tool>, … are callable from your next turn.` | Added to a `searchTools` result (MCP-87). |
 
+- **MCP-142** Message 8 names at most 10 tools, in the order the current layer lists them, and counts the rest as ", and <n> more". A single tool takes "is" in place of "are".
+- **MCP-143** A `searchTools` call when the current layer has no connected server fails with "searchTools: no MCP server is connected.", and a call made when no layer exists and none is being built fails with "MCP servers are not running.".
+
 Message 5 has the shape clanka uses for a server that drops. An example from the run is `mcp.slowpoke.echo: MCP server "slowpoke" is not connected: connection timed out after 30000ms`. An example of MCP-85 from the run is `mcp.fs.store: Expected number`. Message 8 is appended to the result after a blank line, and for a single tool the prototype wrote "is" in place of "are".
 
 ### The wrapper and the rebuild in code
@@ -269,12 +274,9 @@ The log events that this part's behaviour writes are `skill.skipped`, `skill.bun
 
 ## Gaps
 
-- **MCP-G10** [builder] The wording of the apply's line for a repo skill that hides a bundled one, and of the per-server status lines. TIM-537 items 3 and 6.
-- **MCP-G13** [builder] How chad keeps clanka's `McpConfig.load` to the one file. As read, `load` also reads `$XDG_CONFIG_HOME/clanka/mcp.json` or `$HOME/.config/clanka/mcp.json`, and `.mcp.json` in the directory it is given, before the files it is passed. TIM-537 item 5 says "one `mcp.json`".
+- **MCP-G10** [builder] The wording of the apply's line for a repo skill that hides a bundled one. MCP-144 settles the per-server status lines. TIM-537 items 3 and 6.
 - **MCP-G15** [builder] Where in the image the bundled skills directory is. TIM-537 item 3.
 - **MCP-G17** [builder] The sentence chad appends to a skill's content around the path of MCP-102 or MCP-103, which has to say what MCP-104 requires. TIM-537 item 1 and TIM-538.
-- **MCP-G21** [builder] Two texts the prototype used and no ticket decides. They are "searchTools: no MCP server is connected.", for a `searchTools` call the current layer cannot answer, and "MCP servers are not running.", for a call made when no layer exists and none is being built. TIM-555 prototype.
-- **MCP-G22** [builder] How message 8 is shortened or grouped when many tools are new. TIM-555 lists the long list as not run.
 
 ## Provenance
 
@@ -370,6 +372,10 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-135 | TIM-559 round 3 A1, TIM-559 round 4 items 7 and 8 | Architect (Tim has not read) | not run |  | `definition` | - |
 | MCP-139 | Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-140 | Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| MCP-141 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-142 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-143 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-144 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `skills-mcp` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

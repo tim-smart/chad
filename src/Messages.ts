@@ -1087,6 +1087,10 @@ export const failedAfterCommit = (commit: string, error: string) =>
   `The commit ${commit} was made, but the apply failed after it: ${error}. It loads at the next start.`
 
 /** What a successful apply or revert prints (CLI-70, CLI-71, REC-62, REC-82, SWAP-78, SWAP-112). */
+/** The line an apply ends with, after the MCP servers' lines when `mcp.json` changed (CLI-70). */
+export const appliedClosing =
+  "Sessions pick the change up on their next message. This turn keeps the tools it has."
+
 export const appliedOutput = (options: {
   readonly kind: "apply" | "revert" | "check"
   readonly commit: string
@@ -1176,7 +1180,7 @@ export const appliedOutput = (options: {
             ({ session, subagents, tasks }) =>
               `${session} loses the changed tools until its turn ends (${subagents} sub-agents and ${tasks} background tasks running).`,
           ),
-          "Sessions pick the change up on their next message. This turn keeps the tools it has.",
+          appliedClosing,
         ]),
 ]
 
@@ -1410,10 +1414,10 @@ export const mcpNextTurn = (keys: ReadonlyArray<string>) => {
   return `${shown.join(", ")}${rest > 0 ? `, and ${rest} more` : ""} ${keys.length === 1 ? "is" : "are"} callable from your next turn.`
 }
 
-/** A `searchTools` call when no server of the current layer is connected (MCP-G21, MCP-143). */
+/** A `searchTools` call when no server of the current layer is connected (MCP-143). */
 export const mcpNoServerConnected = "searchTools: no MCP server is connected."
 
-/** A call made when no layer exists and none is being built (MCP-G21, MCP-143). */
+/** A call made when no layer exists and none is being built (MCP-143). */
 export const mcpNotRunning = "MCP servers are not running."
 
 /** `mcp.json` that is not JSON (MCP-33). */

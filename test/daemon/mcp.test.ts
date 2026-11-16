@@ -13,9 +13,9 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
-import { write } from "../support/applied.ts"
+import { applied as committed, write } from "../support/applied.ts"
 import * as Cli from "../support/cli.ts"
-import { scenario, type Scenario } from "../support/driver.ts"
+import { fresh, scenario, type Scenario } from "../support/driver.ts"
 import { results, runs, type Call } from "../support/model.ts"
 import { eventually, lines, says } from "../support/owner.ts"
 
@@ -98,6 +98,9 @@ test("MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-
   const out = applied.stdout.split("\n")
   const at = (text: string) => out.findIndex((line) => line.startsWith(text))
   expect(at("MCP server tools: connected, 3 tools.")).toBeGreaterThan(0)
+  expect(out.at(-1) === "" ? out.at(-2) : out.at(-1)).toBe(
+    Messages.appliedClosing,
+  )
   expect(at("MCP server broken: unavailable:")).toBeGreaterThan(0)
   expect(applied.stdout).toContain(
     `MCP server missing: unavailable: ${Messages.mcpUnresolved("NOPE_NOT_SET")}`,
@@ -163,5 +166,132 @@ test("MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-
   expect(malformed.stderr).toContain("work/mcp.json: it is not JSON")
   expect((await running.chad(["status"])).stdout).toContain(
     "mcp: tools, connected, 3 tools",
+  )
+}, 60_000)
+
+/** A script that prints what each call gave, or what it failed with. */
+const tries = (...calls: ReadonlyArray<string>) =>
+  calls
+    .map(
+      (call) =>
+        `try { console.log(String(await ${call})) } catch (error) { console.log(String(error?.message ?? error)) }`,
+    )
+    .join("\n")
+
+test("MCP-38 MCP-39 MCP-41 MCP-42 MCP-66 MCP-67 MCP-68 MCP-71 MCP-73 MCP-81 MCP-82 MCP-86 MCP-87 MCP-89 MCP-140 OV-35 SWAP-10 SWAP-19 SWAP-93 SWAP-127 CLI-91 CLI-92 CLI-160 a running turn's call in flight is cut by a restart, a call during the rebuild is not sent, and once a new layer is current the turn's old keys are routed to it and words what is gone", async () => {
+  const running = await scenario()
+  const { fakes } = running
+  const work = join(running.data, "repo/work")
+  const mark = join(running.directory, "mark")
+  const gate = join(running.directory, "gate")
+  mkdirSync(mark, { recursive: true })
+  const slow = (tools: string) =>
+    fixture("--tools", tools, "--mark", mark, "--gate", gate)
+  write(work, {
+    "mcp.json": mcpJson({
+      slow: slow("hang,echo"),
+      other: fixture("--tools", "ping"),
+    }),
+  })
+  expect((await apply(running, "Add MCP servers")).code).toBe(0)
+
+  await fakes.model.script([
+    runs(tries("mcp.slow.hang({})")),
+    runs(tries("mcp.slow.echo({ x: 2 })")),
+    {
+      ...runs(
+        tries(
+          "mcp.slow.echo({ x: 3 })",
+          "mcp.slow.hang({})",
+          "mcp.other.ping({})",
+          'searchTools({ server: "slow" })',
+        ),
+      ),
+      hold: true,
+    },
+    { text: "ok" },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "go")
+  await eventually(() => existsSync(join(mark, "hang")), Boolean)
+
+  // The restart cuts the call in flight at once, and a call while the new layer connects is not sent (MCP-71, MCP-140).
+  writeFileSync(gate, "")
+  const restart = Cli.start(["mcp", "restart"], { CHAD_DATA: running.data })
+  const calls = await fakes.model.received(3)
+  expect(results(calls[1]).join("\n")).toContain(
+    Messages.mcpInterrupted("slow.hang"),
+  )
+  expect(results(calls[2]).at(-1)).toContain(Messages.mcpRestarting)
+  rmSync(gate)
+  const restarted = await restart.done
+  expect(restarted).toMatchObject({ code: 0 })
+  expect(restarted.stdout).toContain("MCP server slow: connected, 2 tools.")
+
+  // An apply drops a server and a tool and adds a tool while the turn runs. Its old keys reach the new layer
+  // (MCP-66, MCP-81, MCP-82, MCP-87).
+  write(work, { "mcp.json": mcpJson({ slow: slow("echo,fresh") }) })
+  expect((await apply(running, "Drop other")).code).toBe(0)
+  await fakes.model.release(2)
+  await running.logged("turn.ended")
+  const last = results((await fakes.model.calls())[3]).at(-1) ?? ""
+  expect(last).toContain('{"x":3}')
+  expect(last).toContain(Messages.mcpToolGone("slow.hang", "slow"))
+  expect(last).toContain(Messages.mcpRemoved("other.ping", "other"))
+  expect(last).toContain(`\n\n${Messages.mcpNextTurn(["slow.fresh"])}`)
+
+  // The next turn takes the new layer (MCP-68, MCP-86).
+  const next = await turn(running, tries("mcp.slow.fresh({})"))
+  expect(systemText(next[0])).toContain("- slow (2 tools)")
+  expect(systemText(next[0])).not.toContain("- other")
+  expect(results(next[1]).join("\n")).toContain("fresh")
+}, 60_000)
+
+test("MCP-7 MCP-37 MCP-90 MCP-91 MCP-92 REC-11 REC-45 LOAD-46 FAIL-165 FAIL-272 a malformed applied mcp.json boots with no servers and a notice that an apply clears, a turn before the first connect has message 7 and no MCP, and safe mode loads no server", async () => {
+  const directory = fresh()
+  const gate = join(directory, "gate")
+  committed(join(directory, "data/repo"), {
+    "mcp.json": "{ nope",
+    "persona.md": "",
+  })
+  const first = await scenario({ directory })
+  await first.logged("mcp.config-unreadable")
+  // The second boot's chat fake numbers its messages from the start again, so this boot takes no message.
+  const broken = (await first.chad(["status"])).stdout
+  expect(broken).toContain("`mcp.json` can't be read (it is not JSON")
+  expect(broken).not.toContain("mcp: ")
+
+  write(join(first.data, "repo/work"), {
+    "mcp.json": mcpJson({ slow: fixture("--tools", "echo", "--gate", gate) }),
+  })
+  expect((await apply(first, "Fix mcp.json")).code).toBe(0)
+  expect((await first.chad(["status"])).stdout).not.toContain("can't be read")
+  expect(await first.stop()).toBe(0)
+
+  // A boot is a rebuild in the background: a turn before the first layer connects starts without MCP (MCP-90, MCP-92).
+  writeFileSync(gate, "")
+  const second = await scenario({ directory })
+  // The log goes on from the first daemon's, so this boot is the second boot.ready in it.
+  await lines(second, "boot.ready", 2)
+  const rebuilt = second
+    .log()
+    .filter((line) => line.annotations["event"] === "mcp.rebuilt").length
+  const early = systemText((await turn(second, undefined))[0])
+  expect(early).toContain(Messages.mcpStarting)
+  expect(early).not.toContain("# MCP servers")
+  rmSync(gate)
+  await lines(second, "mcp.rebuilt", rebuilt + 1)
+  expect(systemText((await turn(second, undefined))[0])).toContain(
+    "- slow (1 tools)",
+  )
+
+  // Safe mode stops every server, and safe off brings them back (MCP-7).
+  expect((await second.chad(["safe", "on"])).stdout).not.toContain(
+    "MCP server slow",
+  )
+  expect((await second.chad(["status"])).stdout).not.toContain("mcp: slow")
+  expect(systemText((await turn(second, undefined))[0])).not.toContain("- slow")
+  expect((await second.chad(["safe", "off"])).stdout).toContain(
+    "MCP server slow: connected, 1 tools.",
   )
 }, 60_000)

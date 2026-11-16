@@ -5,7 +5,7 @@
  */
 import { join, isAbsolute } from "node:path"
 import type * as McpServers from "clanka/McpServers"
-import { Duration, Effect, FileSystem, Option, Redacted, Schema } from "effect"
+import { Duration, Effect, FileSystem, Redacted, Schema } from "effect"
 import * as Errno from "./Errno.ts"
 import * as Messages from "./Messages.ts"
 import * as Settings from "./Settings.ts"
