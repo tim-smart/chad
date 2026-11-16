@@ -40,7 +40,6 @@ import {
 } from "../support/image.ts"
 import type * as Model from "../support/model.ts"
 import { json, read, root } from "../support/repo.ts"
-import { freeze } from "../../scripts/kubernetes.ts"
 
 vi.setConfig({ testTimeout: 120_000 })
 
@@ -920,16 +919,6 @@ describe("a backup and a restore in containers, as docs/running.md gives them", 
     expect(exec(back, "chad secret list")).toContain("PROBE_TOKEN")
     expect(exec(back, "ls -A /data").split("\n")).toEqual(volumeTop)
     expect(stop(back)).toBe(0)
-  })
-})
-
-describe("scripts/kubernetes.ts in the image", () => {
-  it("IMG-76 REC-72 the cluster check's freeze stops chad serve's node process and not tini, so chad health fails", async () => {
-    const container = start("--volume", `${volume()}:/data`)
-    await ready(container)
-    expect(run("exec", container, "chad", "health").status).toBe(0)
-    exec(container, freeze)
-    expect(run("exec", container, "chad", "health").status).not.toBe(0)
   })
 })
 

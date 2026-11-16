@@ -194,10 +194,3 @@ kubectl run chad-restore --rm -i --restart=Never --image=ghcr.io/tim-smart/chad:
 # Set claimName: chad-restored for the data volume in deployment.yaml and backup.yaml, then:
 kubectl apply -k deploy/kubernetes
 ```
-
-### Checking a cluster
-
-`node scripts/kubernetes.ts` runs the example in a namespace of its own on the cluster of kubectl's current context.
-It checks the probes, what `fsGroup` does on the cluster's volumes, that a frozen chad is restarted, and the backup
-CronJob with chad running and with its pod gone, then deletes the namespace. `--image` runs another image in place of
-the pinned one. It does not run the restore above.

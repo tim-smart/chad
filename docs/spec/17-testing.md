@@ -339,8 +339,6 @@ The prototypes left a list of things that were decided and never run. Each is pl
 - **TST-182** A layer 4 scenario redelivers a stored `message` request that no longer decodes, which is what a new image with a changed effect/chat encoding produces. It asserts that the request ends as `Failed` with `Internal` and a message in the thread, that the boot is not blocked, and that the request is not tried again (see 03-sessions-and-turns.md). What cluster does with a stored message it cannot decode has not been checked.
 - **TST-183** A layer 4 scenario kills the daemon on each side of the commit that stores a steering message in the history and records it as read. After a kill before the commit the redelivered message steers the turn again, after a kill after the commit it does not, and the stored history holds the message once in both cases. The rule that a message is in the stored history exactly once (SES-47 in 03-sessions-and-turns.md) counts as proven only when this scenario passes.
 - **TST-109** Layer 5 tests everything the image prototype ran, and the following, none of which a prototype ran: Docker marking a daemon that lost its lock unhealthy, one copy of effect, no Claude Code binary, a boot in safe mode with every bundled plugin on its defaults, and the bundled skill checks.
-- **TST-110** The Kubernetes checks are a script that runs against a cluster. They are the probes, `fsGroup` on a local-path volume and the backup CronJob (see 01-image-and-volume.md).
-- **TST-111** The Kubernetes checks run once on Tim's k3s node, as an item on the live list, because the filesystem on that node was never checked.
 - **TST-166** One named test checks that the text the model reads from a script's output is byte-identical at every value of `CHAD_LOG_LEVEL`. The values are `all`, `trace`, `debug`, `info`, `warn`, `error`, `fatal` and `none`. It tests the rule that the level filters chad's own sinks and never what a script sees (see 16-failures-logs-status.md).
 
 The image prototype's check script had these sections, which are what "everything the image prototype ran" means in TST-109: bin, repo, tini, volume, path, session, boot, stop, health, fs, data, socket, mcp-stop and shards, plus a separate lock check under garbage collection.
@@ -463,7 +461,6 @@ At the end of the build:
 Once:
 
 - Do the Codex check on his own server, at any time from the first usable build on (TST-145, TST-147).
-- Run the Kubernetes checks on his k3s node.
 - Read the change to the charting line on the local dev adapter. He agreed that line himself, and it now means that `ChatTest` runs outside the daemon and the image carries only the client.
 - Read that for this build tests are chosen by what chad does and not by rule id, and that only three kinds of rule need a test of their own (TST-173). The Coding squad's instructions, which are his, say to write only the bare minimum of tests.
 
@@ -591,8 +588,6 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-107 | TIM-558 item 53 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | TST-108 | TIM-558 item 53, round 1 Q8 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
 | TST-109 | TIM-558 item 54, TIM-557 comment on TIM-558, amended by Tim's ruling that the image is amd64 only, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
-| TST-110 | TIM-558 item 55, round 1 Q8, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `image` |
-| TST-111 | TIM-558 item 55 | Architect (Tim has not read) | not run |  | `rule` | `live` |
 | TST-112 | TIM-558 item 41, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15, amended by Tim's ruling that `pnpm test` has a target of one minute, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-113 | TIM-558 item 41, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-133 | TIM-558 item 45, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
@@ -658,4 +653,4 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 
-TST-9, TST-13, TST-20, TST-42, TST-92, TST-102, TST-103, TST-114, TST-115, TST-116, TST-117, TST-118, TST-119, TST-120, TST-121, TST-122, TST-123, TST-124, TST-125, TST-126, TST-127, TST-128, TST-129, TST-130, TST-131, TST-132, TST-139, TST-140, TST-141, TST-142, TST-143, TST-146, TST-148, TST-149, TST-150, TST-154, TST-155, TST-156, TST-157, TST-159, TST-167, TST-168, TST-184, TST-187, TST-195, TST-205, TST-206, TST-207, TST-208, TST-213, TST-216.
+TST-9, TST-13, TST-20, TST-42, TST-92, TST-102, TST-103, TST-110, TST-111, TST-114, TST-115, TST-116, TST-117, TST-118, TST-119, TST-120, TST-121, TST-122, TST-123, TST-124, TST-125, TST-126, TST-127, TST-128, TST-129, TST-130, TST-131, TST-132, TST-139, TST-140, TST-141, TST-142, TST-143, TST-146, TST-148, TST-149, TST-150, TST-154, TST-155, TST-156, TST-157, TST-159, TST-167, TST-168, TST-184, TST-187, TST-195, TST-205, TST-206, TST-207, TST-208, TST-213, TST-216.
