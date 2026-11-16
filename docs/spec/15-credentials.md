@@ -337,7 +337,7 @@ The rules an agent has to follow cannot be enforced by a command, so they live i
 - **CRED-88** The skill says to call `chad secret request` with clanka's `bash` and `timeoutMs: 330000`, and never with `run`, which moves the command to the background after 2 minutes.
 - **CRED-89** The skill says to wait for the next TOTP window before a retry, since many sites reject a code already used. chad has no flag for this. The agent reads the seconds left from `chad secret code`, sleeps past the window and asks again.
 - **CRED-90** The skill says to run `agent-browser auth save` again after a secret changes, because the vault and a browser profile keep their own copy and `auth login` sends the old password until then.
-- **CRED-91** The skill says to ask for a secret before starting a login, since saving one restarts every MCP server that names it. A call in flight when the secret is saved gets the 30 second drain of an MCP rebuild, and one still running at the end of the drain is interrupted with `mcp.<server>.<tool> was interrupted by an MCP restart. It may have run in part or in full.` (see 12-skills-and-mcp.md).
+- **CRED-91** The skill says to ask for a secret before starting a login, since saving one restarts every MCP server that names it. A call in flight when the secret is saved is interrupted with `mcp.<server>.<tool> was interrupted by an MCP restart. It may have run in part or in full.` (see 12-skills-and-mcp.md).
 - **CRED-92** The skill treats browser state as a secret. Cookies, saved state files and agent-browser's vault are never printed, never sent with `sendFile` and never put in the repo. chad itself does nothing with browser state.
 - **CRED-93** The skill says where browser state lives. When Playwright MCP launches its own browser, its default profile is under the cache directory, which backups skip, so `--user-data-dir` has to point under `home/`. With a sidecar the profile lives in the sidecar, outside `chad backup`.
 - **CRED-94** The skill says that after `agent-browser auth login` prints "Logged in" the agent checks the page's URL or title, and never a field's value. agent-browser prints that line for a login the site refused, because it reports the submit and not the result.
@@ -516,7 +516,7 @@ These were also never run. A real Discord modal, a real model following the skil
 | CRED-88 | TIM-546 item 23 | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |
 | CRED-89 | TIM-546 item 23, TIM-554 prototype | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |
 | CRED-90 | TIM-546 item 23 | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |
-| CRED-91 | TIM-546 item 23, amended by TIM-555 decision 5 and the TIM-537 follow-up rules 1 and 2 | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |
+| CRED-91 | TIM-546 item 23, amended by TIM-555 decision 5 and the TIM-537 follow-up rules 1 and 2, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |
 | CRED-92 | TIM-546 item 23 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | CRED-93 | TIM-546 item 23 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | CRED-94 | TIM-554 decision 11 | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |

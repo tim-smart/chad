@@ -229,7 +229,7 @@ Every change to which plugin versions are running goes through one path with fiv
 - **SWAP-53** A handler or hook that did not stop when interrupted is logged when the swap moves on and again when it ends. For a tool the line says that two versions of the plugin now overlap. For a hook it says that the plugin's hook queue has moved on to the new version.
 - **SWAP-119** A handler or hook that did not stop, two versions of a plugin that overlap, and hooks dropped in a swap or in a stop are log lines only. chad sends the owner no notice for them (see 16-failures-logs-status.md).
 - **SWAP-120** The log lines of a swap, of the wrapper and of an abandoned swap follow the logging rules in 16-failures-logs-status.md and take their event names from its closed list, where every name is `area.name` with exactly one dot. A handler or hook that did not stop is `swap.overrun` when the swap moves on and `swap.overrun-ended` when it ends (SWAP-53). A close past its deadline is `swap.close-abandoned` (SWAP-47). A hook interrupted at the drain deadline is `hook.failed` (SWAP-82). A queued hook that is dropped is `hook.dropped` (SWAP-83, SWAP-84 and SWAP-105). An apply is `apply.done` or `apply.failed` (SWAP-56 and SWAP-147). The names in this part's code blocks are the prototype's and are not chad's.
-- **SWAP-54** When one apply changes plugins and `mcp.json`, the plugin gate and the MCP gate close together, and the plugins activate without waiting for the MCP layer to connect (see 12-skills-and-mcp.md).
+- **SWAP-54** When one apply changes plugins and `mcp.json`, the plugins activate without waiting for the MCP layer to connect (see 12-skills-and-mcp.md).
 - **SWAP-55** An apply cancelled before its commit changes nothing. From its commit on it finishes, even when the CLI that started it is killed (see 10-cli.md). Only a graceful stop ends it early (see SWAP-101 to SWAP-106).
 - **SWAP-56** From its commit on, an apply moves `live`, swaps and writes its `apply.done` log line inside a region the CLI client cannot interrupt. That region gives way to a graceful stop.
 - **SWAP-121** An apply, a `chad revert`, a `chad safe on|off`, a `chad secret rm` or a `chad timezone` that was run from a session and succeeded posts one subtext line in that session's thread. The same command from the owner's shell posts nothing, and a failed one that changed nothing posts nothing. The line's text and the full list of commands that post it are in 16-failures-logs-status.md.
@@ -642,7 +642,7 @@ Each message below is the failure text of a plugin tool call, and the table name
 | SWAP-51 | TIM-538 item 9 | Tim | run |  | `rule` | `apply` |
 | SWAP-52 | TIM-538 item 9, amended by TIM-552 question 2 | Tim | run |  | `rule` | `apply` |
 | SWAP-53 | TIM-552 decision 3 | Tim | run |  | `rule` | `apply` |
-| SWAP-54 | TIM-549 item 28, kept by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| SWAP-54 | TIM-549 item 28, kept by TIM-555, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | SWAP-55 | TIM-542 item 6, amended by TIM-547 item 15 and TIM-550 item 11 | Architect (Tim has not read) | run | TIM-547, TIM-550 | `rule` | `apply` |
 | SWAP-56 | TIM-550 item 11 | Architect (Tim has not read) | run | TIM-547, TIM-550 | `rule` | `apply` |
 | SWAP-57 | TIM-542 item 25 | Tim | not run |  | `rule` | `apply` |

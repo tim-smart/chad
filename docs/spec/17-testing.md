@@ -235,10 +235,6 @@ The first table holds the durations chad sets, which are the ones `Timings` hold
 | Stop, queued hooks | Until 50 seconds from SIGTERM, which is 35 seconds after the requests' 15 | 01-image-and-volume.md (IMG-83) |
 | Stop, close of plugin scopes and then the MCP layer | Until 60 seconds from SIGTERM, which is the last 10 seconds | 01-image-and-volume.md (IMG-83) |
 | Stop, forced exit with code 1 | 60 seconds from SIGTERM | 01-image-and-volume.md (IMG-82) |
-| MCP rebuild, drain of calls in flight | 30 seconds | 12-skills-and-mcp.md (MCP-70) |
-| MCP rebuild, wait for each interrupted call to stop | 1 second | 12-skills-and-mcp.md (MCP-130) |
-| MCP rebuild, pause between interrupting calls and closing the old layer | 250 milliseconds | 12-skills-and-mcp.md (MCP-72) |
-| MCP call held during a rebuild or before the first layer connects, backstop | 120 seconds | 12-skills-and-mcp.md (MCP-78, MCP-91) |
 | Model login timeout | 15 minutes | 05-model-and-login.md (MOD-44) |
 | Model trial request, deadline with no retry | 60 seconds | 05-model-and-login.md (MOD-88) |
 | `chad secret request` wait | 5 minutes | 15-credentials.md (CRED-56) |

@@ -295,7 +295,7 @@ A repo skill with a bundled skill's name hides the bundled one. After an image u
 
 ## MCP calls during a rebuild
 
-- **SELF-123** What a running turn's MCP call does while chad rebuilds the MCP servers is specified in 12-skills-and-mcp.md. The MCP section of the skill states those results for the agent and quotes that part's messages exactly, including the 120 second limit on a held call.
+- **SELF-123** What a running turn's MCP call does while chad rebuilds the MCP servers is specified in 12-skills-and-mcp.md. The MCP section of the skill states those results for the agent and quotes that part's messages exactly.
 
 ## Text of the skill
 
@@ -397,8 +397,8 @@ Edit `mcp.json` and apply. There is no command that adds one.
 - stdio servers run with `npx`, `uvx` or `node`. The image has no Python packages, no apt and no sudo. What you install with `npm install -g`, `uv tool install` or into `~/.local/bin` stays on the volume and sits last on PATH, so it cannot replace the image's own tools.
 - `chad check` reads `mcp.json`, checks that every `${NAME}` resolves and prints which servers an apply would add, remove or change. It connects nothing. A malformed `mcp.json` fails the apply.
 - A server that cannot connect does not fail the apply. The apply prints each server's status and tool count.
-- Any MCP restart pauses every session's MCP calls until the servers are back, and a stdio server loses what it held in memory. An apply that changes `mcp.json`, `chad mcp restart` and a change to a secret that `mcp.json` names all restart every server.
-- A call made during a restart is held until the servers are back. If that takes more than 120 seconds it fails with "MCP servers are restarting. This call was not sent." Nothing ran, so call again. <!-- adjusted: TIM-555 -->
+- Any MCP restart interrupts the MCP calls that are running, and a stdio server loses what it held in memory. An apply that changes `mcp.json`, `chad mcp restart` and a change to a secret that `mcp.json` names all restart every server.
+- A call made during a restart fails at once with "MCP servers are restarting. This call was not sent." Nothing ran, so call again when the servers are back. <!-- adjusted: chat 2026-11-16 -->
 - After a restart a tool's parameters may have changed. When a call fails validation, check it against the tool's current declaration.
 - An HTTP server signs in with a header. Write the token in `headers` as `${NAME}` and save it with `chad secret set`. chad has no OAuth login. A server that answers 401 is listed as unavailable with its error.
 - `chad mcp restart` restarts every MCP server. Run it when a server dropped. Nothing restarts one by itself.
@@ -732,7 +732,7 @@ export default Plugin.make(NotesTools, Chunk)
 | SELF-120 | TIM-549 item 23, TIM-537 follow-up, TIM-557 items 36, 37, 38 and 40 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | SELF-121 | TIM-549 item 23, TIM-542 as changed by TIM-549 | Architect (Tim has not read) | not run | TIM-549 | `rule` | `skills-mcp` |
 | SELF-122 | TIM-549 item 23 | Architect (Tim has not read) | not run |  | `definition` | - |
-| SELF-123 | TIM-549 items 24 to 30, TIM-537 follow-up as changed by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |
+| SELF-123 | TIM-549 items 24 to 30, TIM-537 follow-up as changed by TIM-555, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |
 | SELF-124 | TIM-557 item 43, TIM-549 and TIM-541 as changed by TIM-557 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SELF-125 | TIM-558 item 39, withdrawn by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | SELF-126 | TIM-557 item 39, TIM-534 and TIM-550 as changed by TIM-557 | Architect (Tim has not read) | not run |  | `rule` | `apply` |

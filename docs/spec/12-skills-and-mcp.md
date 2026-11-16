@@ -1,6 +1,6 @@
 # Skills and MCP servers
 
-This part covers the two kinds of extension that are plain files in the repo and are not plugins. A skill is a set of instructions the model reads on demand, and an MCP server is an external tool server. The part says where both live, how chad hands them to clanka, how a change reaches open sessions, what clanka's own walk of a session's working directory shows a session without an apply, how an HTTP MCP server signs in, and what a tool call does while the MCP servers are being restarted. It leans on 09-repo-and-recovery.md for the repo, the apply and safe mode, on 07-plugin-loading.md for the exported tree and the `live` link, on 08-apply-and-swap.md for how a session rebuilds its Agent and for the plugin swap that the MCP restart is modelled on, on 10-cli.md for the commands, on 14-self-edit-skill.md for what the bundled skill tells the agent, on 15-credentials.md for the secret store, on 01-image-and-volume.md for the image's runtimes and the stop budget, on 16-failures-logs-status.md for the notices to the owner, and on 17-testing.md for the tests.
+This part covers the two kinds of extension that are plain files in the repo and are not plugins. A skill is a set of instructions the model reads on demand, and an MCP server is an external tool server. The part says where both live, how chad hands them to clanka, how a change reaches open sessions, what clanka's own walk of a session's working directory shows a session without an apply, how an HTTP MCP server signs in, and what a tool call does while the MCP servers are being restarted. It leans on 09-repo-and-recovery.md for the repo, the apply and safe mode, on 07-plugin-loading.md for the exported tree and the `live` link, on 08-apply-and-swap.md for how a session rebuilds its Agent, on 10-cli.md for the commands, on 14-self-edit-skill.md for what the bundled skill tells the agent, on 15-credentials.md for the secret store, on 01-image-and-volume.md for the image's runtimes and the stop budget, on 16-failures-logs-status.md for the notices to the owner, and on 17-testing.md for the tests.
 
 ## Terms used in this part
 
@@ -220,7 +220,7 @@ Many hosted MCP servers answer 401 until the client has signed in with OAuth. v1
 
 ## Tool calls while the MCP layer rebuilds
 
-A rebuild takes seconds and can take a minute, and sessions keep running through it. These rules say what each MCP call gets meanwhile. They follow the plugin swap in 08-apply-and-swap.md, with one wrapper, a gate, a drain and one path for every cause, and they differ where clanka's MCP layer differs from a plugin.
+A rebuild takes seconds and can take a minute, and sessions keep running through it. These rules say what each MCP call gets meanwhile. There is one wrapper and one path for every cause. Unlike the plugin swap in 08-apply-and-swap.md, a rebuild has no gate, no drain and no held calls.
 
 Five facts about clanka 0.27.0 shape the rules. All five were seen in the runs.
 
@@ -239,23 +239,24 @@ Five facts about clanka 0.27.0 shape the rules. All five were seen in the runs.
 
 ### The rebuild path
 
-- **MCP-69** A rebuild starts by closing a gate, in one synchronous step. From then on a call that arrives is held and not sent.
-- **MCP-70** Calls that were in flight when the gate closed get a 30 second drain. The old layer stays current during the drain, and a call that finishes within it finishes on the old layer.
-- **MCP-71** At 30 seconds chad interrupts every call still in flight, and each caller gets message 1 in the table below. The turn carries on, and its next call is held like any other.
-- **MCP-130** The rebuild waits at most 1 second for each interrupted call to stop, and then carries on. Without the bound one call whose fiber does not stop would hold the gate closed for every session.
-- **MCP-72** chad then waits 250 ms before it closes the old layer. The pause lets an HTTP server hear the cancellation, which the close would otherwise cut off before it is sent.
+- **MCP-69** Withdrawn.
+- **MCP-70** Withdrawn.
+- **MCP-71** A rebuild interrupts every call that is in flight when it starts, at once, and each caller gets message 1 in the table below. The turn carries on.
+- **MCP-130** Withdrawn.
+- **MCP-72** Withdrawn.
 - **MCP-73** chad closes the old layer and only then connects the new one. No server of the old layer is running when a server of the new layer starts.
 - **MCP-74** The close has no deadline in a rebuild. It takes 4 seconds for each stdio server that ignores both its standard input closing and SIGTERM, one after another.
-- **MCP-75** The new layer becomes current when clanka has finished connecting it, and the gate opens at that moment. clanka connects the servers in parallel, each under its `connectTimeout`, so one server that never answers holds the gate for that timeout.
-- **MCP-76** An interrupted MCP call is reported with message 1 only. The plugin swap's message for a call that "did not stop when an apply interrupted it and may still be running" has no MCP counterpart, because the interrupt drops the request on chad's side whatever the server does afterwards.
-- **MCP-100** The 30 second drain, the 1 second wait of MCP-130, the 250 ms pause and the 120 second backstop are defaults of chad's one `Timings` service, and the shipped binary has no setting that changes them (see 17-testing.md).
+- **MCP-75** The new layer becomes current when clanka has finished connecting it. clanka connects the servers in parallel, each under its `connectTimeout`, so one server that never answers keeps the new layer from becoming current for that timeout.
+- **MCP-76** Withdrawn.
+- **MCP-100** An MCP rebuild has no duration of chad's own, so chad's one `Timings` service holds none for it (see 17-testing.md).
 
 ### Calls held at the gate
 
-- **MCP-77** A call held at the gate waits until the rebuild ends. It is then routed against the new layer and answered by it.
-- **MCP-78** The wait has a backstop of 120 seconds. At the backstop the call fails with message 2, and the rebuild carries on. Nothing was sent, so the agent can call again.
-- **MCP-79** The same call made again while the gate is still closed is held again, with a new backstop.
-- **MCP-80** When the rebuild ends and the new layer cannot answer a held call, the call gets the message that MCP-81 to MCP-85 give for its case. A call whose server is configured and did not connect gets message 5.
+- **MCP-140** From the start of a rebuild until the new layer is current, a call fails at once with message 2. Nothing was sent, so the agent can call again. No call is held, and there is no backstop.
+- **MCP-77** Withdrawn.
+- **MCP-78** Withdrawn.
+- **MCP-79** Withdrawn.
+- **MCP-80** Withdrawn.
 
 ### What a running turn gets from the new layer
 
@@ -272,20 +273,20 @@ A running turn keeps the keys it took. After a rebuild some of those keys name t
 
 ### Turns that start during a rebuild
 
-- **MCP-89** A turn or sub-agent that starts during a rebuild does not wait. It takes the keys and the prompt section of the last layer that finished connecting and is a running turn from then on. Its MCP calls are held at the gate and answered by the new layer.
-- **MCP-90** A boot is a rebuild. The gate is closed from the start and the servers connect in the background, so the daemon takes turns before its MCP servers are connected.
-- **MCP-91** At boot there is no earlier layer to fall back on. A turn that starts before the first layer has connected waits for it, with the same 120 second backstop.
-- **MCP-92** When that backstop passes, the turn starts without MCP. Its prompt has no MCP section and carries message 7 instead, and it holds no keys, so its scripts have no `mcp` name at all. Its next turn has MCP.
+- **MCP-89** A turn or sub-agent that starts during a rebuild does not wait. It takes the keys and the prompt section of the last layer that finished connecting and is a running turn from then on. Its MCP calls fail with message 2 until the new layer is current.
+- **MCP-90** A boot is a rebuild. The servers connect in the background, so the daemon takes turns before its MCP servers are connected.
+- **MCP-91** At boot there is no earlier layer to fall back on. A turn that starts before the first layer has connected does not wait for it.
+- **MCP-92** That turn starts without MCP. Its prompt has no MCP section and carries message 7 instead, and it holds no keys, so its scripts have no `mcp` name at all. A turn that starts once the first layer has connected has MCP.
 
 ### An apply that changes plugins and the MCP config
 
-- **MCP-93** When one apply changes plugins and `mcp.json`, the plugin gate and the MCP gate close together, and the plugins activate without waiting for the MCP layer to connect. One slow `npx -y` download therefore does not hold every plugin tool in every session (see 08-apply-and-swap.md).
+- **MCP-93** When one apply changes plugins and `mcp.json`, the plugins activate without waiting for the MCP layer to connect. One slow `npx -y` download therefore does not hold every plugin tool in every session (see 08-apply-and-swap.md).
 
 ### Stops and restarts
 
-- **MCP-94** A graceful stop abandons a rebuild that is in progress (see 01-image-and-volume.md for the stop's budget).
-- **MCP-95** When the stop lands during the drain, the old layer is still current. A held call is routed again, to the old layer, and answered.
-- **MCP-96** When the stop lands after the old layer closed, no layer is current. A held call is neither answered nor failed. It waits for the stop to cut its turn, and the turn resumes on the next boot against the `mcp.json` that was applied.
+- **MCP-94** A graceful stop abandons a rebuild that is in progress (see 01-image-and-volume.md for the stop's budget). A call made after that fails with message 2 or is cut with its turn.
+- **MCP-95** Withdrawn.
+- **MCP-96** Withdrawn.
 - **MCP-97** In a stop the plugins' scopes close before the MCP layer, so the stop's 60 second deadline cuts only MCP servers. A stop cut by the deadline exits 1, and its `stop.cut` log line names the servers that were still open. The cut stays a log line, and the owner gets no notice for it (see 16-failures-logs-status.md). The rule for the 60 second deadline and its exit code, with how the `stop.cut` line is written before the exit, is in 01-image-and-volume.md.
 - **MCP-131** chad does nothing in v1 to keep a resumed turn from sending an MCP call a second time. The paragraph below states the limit.
 
@@ -295,12 +296,12 @@ The runs recorded three things that no rule changes. A turn that a graceful stop
 
 The texts are exact. `<server>.<tool>` is the key, and `<name>` is the server's name in `mcp.json`.
 
-- **MCP-99** The seven texts in the table below are templates in chad's one `Messages` module (see 17-testing.md). The constants in the code further down stand for those templates.
+- **MCP-99** The seven texts in the table below are templates in chad's one `Messages` module (see 17-testing.md).
 
 | # | Text | When |
 | --- | --- | --- |
-| 1 | `mcp.<server>.<tool> was interrupted by an MCP restart. It may have run in part or in full.` | The call was still in flight at the end of the drain (MCP-71). |
-| 2 | `MCP servers are restarting. This call was not sent.` | The call was held for 120 seconds (MCP-78). |
+| 1 | `mcp.<server>.<tool> was interrupted by an MCP restart. It may have run in part or in full.` | The call was in flight when a rebuild started (MCP-71). |
+| 2 | `MCP servers are restarting. This call was not sent.` | The call was made during a rebuild, before the new layer was current (MCP-140). |
 | 3 | `mcp.<server>.<tool>: MCP server "<name>" was removed from mcp.json.` | The server is gone from `mcp.json` (MCP-81). |
 | 4 | `mcp.<server>.<tool>: "<name>" no longer lists this tool.` | The server is connected and does not list the tool (MCP-82). |
 | 5 | `mcp.<server>.<tool>: MCP server "<name>" is not connected: <first line of the status error>` | The server is configured and not connected (MCP-83). |
@@ -312,356 +313,13 @@ Message 5 has the shape clanka uses for a server that drops. An example from the
 
 ### The wrapper and the rebuild in code
 
-This is `chad/mcp.ts` from the prototype that ran these rules on clanka 0.27.0. Its log calls, its stand-in for the secret store and the switch that ran the rules in their first wording are left out.
-
-State and messages:
-
-```ts
-import { McpServers } from "clanka"
-
-type Service = (typeof McpServers.McpServers)["Service"]
-type Handlers = Record<string, (params: unknown) => Effect.Effect<unknown, string>>
-
-/** Calls in flight into the old layer get this long. */
-export const DRAIN_MS = 30_000 // adjusted: TIM-555, the prototype's test override is removed
-/** The backstop for a call held at the gate, and for a turn at boot that waits for the first layer. */
-export const HELD_MS = 120_000 // adjusted: TIM-555 item 3
-/** The pause between interrupting calls and closing the old layer. */
-const PAUSE_MS = 250 // adjusted: TIM-555 item 5
-/** How long the rebuild waits for an interrupted call to stop (MCP-130). */
-const STOP_MS = 1_000 // adjusted: TIM-555, the prototype's test override is removed
-
-interface Flight {
-  readonly key: string
-  readonly session: string
-  readonly startedAt: number
-  readonly done: Deferred.Deferred<void>
-  fiber: Fiber.Fiber<any, any> | undefined
-  cut: boolean
-  readonly cutNow: Deferred.Deferred<void>
-}
-interface Built {
-  readonly n: number
-  readonly why: string
-  readonly service: Service
-  readonly scope: Scope.Closeable
-  /** mcp.json as written. */
-  readonly raw: string
-  /** identifier -> configured name, for every server in mcp.json whether or not it connected. */
-  readonly names: Map<string, string>
-  readonly keys: ReadonlyArray<string>
-  readonly inflight: Set<Flight>
-  readonly handlers: WeakMap<object, Handlers>
-  state: "open" | "closed"
-}
-
-let current: Built | undefined
-/** What the last layer that was current offered. A turn or sub-agent that spawns while nothing is current gets these. */
-let previous: { readonly keys: ReadonlyArray<string>; readonly prompt: string; readonly dts: string } = { keys: [], prompt: "", dts: "" }
-let rebuilding: { readonly gate: Deferred.Deferred<void>; readonly label: string; readonly startedAt: number } | undefined
-/** A graceful stop abandoned a rebuild after the old layer closed. */
-let between = false
-let builds = 0
-/** Bumped when a new layer becomes current. A session rebuilds its Agent at its next turn when it is behind. */
-export let generation = 0
-/** A layer has been current in this process. False from boot until the first one connects. */
-let hadLayer = false
-/** identifier -> configured name, for every server any layer has had. */
-const everNames = new Map<string, string>()
-/** Sessions whose running turn started at boot with no layer at all. Their prompt says so. */
-const withoutMcp = new Set<string>()
-export const startedWithout = (session: string) => withoutMcp.has(session) // adjusted: TIM-555 item 2
-
-const CUT = (key: string) => "mcp." + key + " was interrupted by an MCP restart. It may have run in part or in full." // adjusted: TIM-555 item 5
-export const NOT_SENT = "MCP servers are restarting. This call was not sent."
-export const STILL_STARTING = "MCP servers were still starting when this turn began. They are available from your next turn."
-const REMOVED = (key: string) =>
-  "mcp." + key + ": MCP server \"" + (everNames.get(key.slice(0, key.indexOf("."))) ?? key.slice(0, key.indexOf("."))) + "\" was removed from mcp.json." // adjusted: TIM-555 item 4
-const firstLine = (text: string) => text.split("\n")[0]
-
-/** Why the current layer has no handler for this key. */
-const missing = (layer: Built, key: string): Effect.Effect<never, string> =>
-  Effect.gen(function*() {
-    if (key === "searchTools") return yield* Effect.fail("searchTools: no MCP server is connected.")
-    const dot = key.indexOf(".")
-    const name = layer.names.get(key.slice(0, dot))
-    // Gone from mcp.json.
-    if (name === undefined) return yield* Effect.fail(REMOVED(key))
-    const status = (yield* layer.service.status)[name]
-    // Still in mcp.json. clanka makes no handler for a server that did not connect, so there is no
-    // error of clanka's to keep: chad words this one itself, from the status.
-    if (status !== undefined && status._tag === "Failed") {
-      return yield* Effect.fail("mcp." + key + ": MCP server \"" + name + "\" is not connected: " + firstLine(status.error))
-    }
-    // Connected, and it no longer lists the tool.
-    return yield* Effect.fail("mcp." + key + ": \"" + name + "\" no longer lists this tool.") // adjusted: TIM-555 item 4
-  })
-```
-
-The wrapper that every Agent is handed:
-
-```ts
-/** Runs one call in a fiber of its own and records it as in flight on its layer. */
-const fly = <A, E>(layer: Built, key: string, session: string, effect: Effect.Effect<A, E>) => {
-  const flight: Flight = { key, session, startedAt: Date.now(), done: Deferred.makeUnsafe<void>(), fiber: undefined, cut: false, cutNow: Deferred.makeUnsafe<void>() } // adjusted: TIM-555 item 8
-  layer.inflight.add(flight)
-  const fiber = Effect.runFork(effect)
-  flight.fiber = fiber
-  fiber.addObserver(() => {
-    layer.inflight.delete(flight)
-    Deferred.doneUnsafe(flight.done, Exit.void)
-  })
-  return Effect.raceFirst(
-    Fiber.await(fiber) as Effect.Effect<Exit.Exit<A, E>>,
-    Effect.as(Deferred.await(flight.cutNow), Exit.interrupt() as Exit.Exit<A, E>)
-  ).pipe(
-    Effect.onInterrupt(() => Fiber.interrupt(fiber)),
-    Effect.map((exit) => ({ exit, flight }))
-  )
-}
-
-const handlersOf = (layer: Built, onImage: object): Handlers => {
-  let h = layer.handlers.get(onImage)
-  if (h === undefined) layer.handlers.set(onImage, h = layer.service.handlers(onImage as any) as Handlers)
-  return h
-}
-
-/** What searchTools shows and this turn or sub-agent holds no key for. */
-const hint = (layer: Built, own: ReadonlySet<string>, value: unknown) => {
-  if (typeof value !== "string") return value // adjusted: TIM-555 item 6
-  const extra = layer.keys.filter((k) => k !== "searchTools" && !own.has(k)).map((k) => "mcp." + k)
-  if (extra.length === 0) return value
-  return value + "\n\n" + extra.join(", ") + (extra.length === 1 ? " is" : " are") + " callable from your next turn."
-}
-
-const handler = (session: string, key: string, onImage: object, own: ReadonlySet<string>) => (params: unknown): Effect.Effect<unknown, string> =>
-  Effect.suspend(() => {
-    const arrived = Date.now()
-    const attempt = (): Effect.Effect<unknown, string> => {
-      if (rebuilding !== undefined) {
-        // Held at the gate. The backstop counts from when the call arrived.
-        return Deferred.await(rebuilding.gate).pipe(
-          Effect.timeoutOption(Math.max(0, HELD_MS - (Date.now() - arrived))),
-          Effect.flatMap((opened) => Option.isNone(opened) ? Effect.fail(NOT_SENT) : Effect.suspend(attempt))
-        )
-      }
-      const layer = current
-      if (layer === undefined) {
-        // A graceful stop abandoned the rebuild after the old layer closed. As for plugins: the call
-        // is not answered, and the stop cuts its turn, which resumes after the restart.
-        if (between) return Effect.never
-        return Effect.fail("MCP servers are not running.")
-      }
-      const call = handlersOf(layer, onImage)[key]
-      if (call === undefined) return missing(layer, key)
-      return fly(layer, key, session, call(params)).pipe(
-        Effect.flatMap(({ exit, flight }): Effect.Effect<unknown, string> => {
-          if (Exit.isSuccess(exit)) return Effect.succeed(key === "searchTools" ? hint(layer, own, exit.value) : exit.value)
-          if (flight.cut) return Effect.fail(CUT(key))
-          const failure = Cause.squash(exit.cause)
-          return Effect.fail(typeof failure === "string" ? failure : failure instanceof Error ? failure.message : JSON.stringify(failure))
-        })
-      )
-    }
-    return attempt()
-  })
-
-/**
- * What chad provides as clanka's McpServers when it builds a session's Agent. clanka reads
- * `prompt` and `dts` once per build, and calls `handlers` once per spawn.
- */
-export const serviceFor = (session: string): Service =>
-  McpServers.McpServers.of({
-    status: Effect.suspend(() => current === undefined ? Effect.succeed({}) : current.service.status),
-    get prompt() {
-      return current !== undefined ? current.service.prompt : previous.prompt // adjusted: TIM-555 item 1
-    },
-    get dts() {
-      return current !== undefined ? current.service.dts : previous.dts // adjusted: TIM-555 item 1
-    },
-    handlers: (onImage) => {
-      // During the drain the old layer is still current. Between its close and the new layer there is none.
-      const keys = current !== undefined ? current.keys : previous.keys // adjusted: TIM-555 item 1
-      const own = new Set(keys)
-      return Object.fromEntries(keys.map((key) => [key, handler(session, key, onImage, own)]))
-    }
-  } as Service)
-
-/** A stamp of what an Agent was built against. It differs once a layer becomes current after the build. */
-export const builtToken = () => generation + (current === undefined ? "-none" : "")
-
-/** Called at the start of every turn, before the session builds its Agent and the turn takes its keys. */
-export const awaitTurnStart = (session: string) =>
-  Effect.suspend(() => {
-    withoutMcp.delete(session)
-    if (rebuilding === undefined) return Effect.void
-    // With a layer to fall back on the turn does not wait. It starts on that layer's keys
-    // and prompt and is a running turn from then on.
-    if (hadLayer) return Effect.void // adjusted: TIM-555 item 1
-    // At boot there is nothing to fall back on, so it waits like a held call.
-    return Deferred.await(rebuilding.gate).pipe(
-      Effect.timeoutOption(HELD_MS), // adjusted: TIM-555 item 2
-      Effect.map((opened) => {
-        if (Option.isNone(opened)) withoutMcp.add(session) // adjusted: TIM-555 item 2
-      })
-    )
-  })
-export const turnEnded = (session: string) => {
-  withoutMcp.delete(session)
-}
-```
-
-The one rebuild path and its callers. `resolve` turns the text of `mcp.json` into clanka's server entries, `Plugins.queued` is the daemon's one queue, and `Plugins.companion.atCommit` is the step of an apply that closes the plugin gates (see 08-apply-and-swap.md).
-
-```ts
-const connect = (why: string, raw: string) =>
-  Effect.gen(function*() {
-    const { entries } = resolve(raw)
-    const scope = yield* Scope.make()
-    const context = yield* Layer.buildWithScope(McpServers.layer(entries), scope).pipe(
-      Effect.onInterrupt(() => Scope.close(scope, Exit.void))
-    )
-    const service = Context.get(context, McpServers.McpServers)
-    const names = new Map<string, string>()
-    for (const name of Object.keys(entries)) {
-      const id = McpServers.identifier(name)
-      if (!names.has(id)) names.set(id, name)
-      everNames.set(id, name)
-    }
-    const layer: Built = {
-      n: ++builds, why, service, scope, raw, names, keys: Object.keys(service.handlers(() => Effect.void)), inflight: new Set(), handlers: new WeakMap(), state: "open"
-    }
-    return layer
-  })
-
-const install = (layer: Built) => {
-  current = layer
-  previous = { keys: layer.keys, prompt: layer.service.prompt, dts: layer.service.dts }
-  between = false
-  hadLayer = true
-  generation++
-}
-
-/** The gate closes here, in one synchronous step, so an apply can close it together with the plugin gates. */
-const closeGate = (label: string) => {
-  const gate = Deferred.makeUnsafe<void>()
-  rebuilding = { gate, label, startedAt: Date.now() }
-  return gate
-}
-
-const rebuild = (label: string, raw: string, gate: Deferred.Deferred<void>) =>
-  Effect.gen(function*() {
-    const old = current
-    if (old !== undefined) {
-      // 1. One drain, one deadline.
-      const flights = [...old.inflight]
-      yield* Effect.forEach(flights, (f) => Deferred.await(f.done), { concurrency: "unbounded", discard: true }).pipe(Effect.timeoutOption(DRAIN_MS))
-      const late = [...old.inflight]
-      for (const f of late) f.cut = true
-      yield* Effect.forEach(late, (f) =>
-        f.fiber === undefined ? Effect.void : Fiber.interrupt(f.fiber).pipe(
-          Effect.timeoutOption(STOP_MS),
-          Effect.map(() => Deferred.doneUnsafe(f.cutNow, Exit.void)) // adjusted: TIM-555 item 8
-        ), { concurrency: "unbounded", discard: true })
-      if (late.length > 0) yield* Effect.sleep(PAUSE_MS) // adjusted: TIM-555 item 5
-      // 2. The old layer closes. It has no deadline.
-      old.state = "closed"
-      yield* Scope.close(old.scope, Exit.void)
-      current = undefined
-    }
-    // 3. The new layer connects.
-    const next = yield* connect(label, raw)
-    install(next)
-    rebuilding = undefined
-    Deferred.doneUnsafe(gate, Exit.void)
-  }).pipe(
-    // A graceful stop abandons the rebuild wherever it is.
-    Effect.onInterrupt(() =>
-      Effect.sync(() => {
-        if (rebuilding === undefined) return
-        if (current !== undefined && current.state === "closed") current = undefined
-        if (current === undefined) between = true
-        rebuilding = undefined
-        Deferred.doneUnsafe(gate, Exit.void)
-      })
-    )
-  )
-
-/** chad mcp restart, a changed secret: the config is what live holds. */
-export const restart = (label: string) =>
-  Plugins.queued(Effect.suspend(() => {
-    const raw = readRaw(liveDir() ?? Plugins.WORK)
-    return rebuild(label, raw, closeGate(label))
-  }))
-
-/**
- * Called by an apply at its commit, before the plugin gates close. When mcp.json changed, the MCP
- * gate closes in the same synchronous step and the rebuild runs next to the plugin swap.
- */
-Plugins.companion.atCommit = (dir: string) =>
-  Effect.suspend(() => {
-    const raw = readRaw(dir)
-    if (current !== undefined && current.raw === raw) return Effect.succeed(undefined)
-    if (current === undefined && raw === "{}" && !between) return Effect.succeed(undefined)
-    const gate = closeGate("apply")
-    return Effect.sync(() => Effect.runFork(rebuild("apply", raw, gate)))
-  })
-
-/**
- * A boot closes the gate at once and connects in the background, so the daemon is up before its
- * MCP servers are. A turn that arrives meanwhile is a turn that starts during a rebuild.
- */
-export const boot = Effect.sync(() => {
-  const dir = liveDir()
-  if (dir === undefined) return
-  const raw = readRaw(dir)
-  if (raw === "{}") return
-  const gate = closeGate("boot")
-  Effect.runFork(Plugins.queued(rebuild("boot", raw, gate)))
-})
-
-/** The graceful stop closes the layer after the plugins' scopes. */
-export const closeAll = Effect.suspend(() => {
-  const layer = current
-  if (layer === undefined || layer.state === "closed") return Effect.void
-  layer.state = "closed"
-  return Scope.close(layer.scope, Exit.void)
-})
-```
-
-The session's side, added to the rebuild in 08-apply-and-swap.md:
-
-```ts
-// When the session builds its Agent:
-Effect.provideService(McpServers.McpServers, Mcp.serviceFor(row.id)),
-
-// At the start of a turn:
-yield* Mcp.awaitTurnStart(row.id)
-if (agent === undefined || generation !== Plugins.generation || mcpBuilt !== Mcp.builtToken()) yield* rebuild
-// A turn that started at boot without MCP carries message 7 in its prompt.
-const starting = Mcp.startedWithout(row.id)
-
-// When the turn ends:
-Mcp.turnEnded(row.id)
-```
+The prototype that ran these rules in their earlier wording, on clanka 0.27.0, had a gate, a drain and held calls, so its code is not shown here. What still holds from it is that chad provides the wrapper as clanka's `McpServers` service when a session builds its Agent, and that clanka reads `prompt` and `dts` from it once per build and calls `handlers` once per spawn. chad builds each layer with `McpServers.layer` in a scope of its own and closes that scope to stop the layer's servers.
 
 The prototype keeps a counter of its own for the MCP layer, beside the plugins' generation, and a session rebuilds its Agent when it is behind either one. 08-apply-and-swap.md words the same thing as one generation that an MCP rebuild bumps. What a builder has to hold is MCP-68, and whether that is one counter or two is the builder's choice.
 
 ### What was measured
 
-The rebuild rules ran on clanka 0.27.0 with its own MCP layer, MCP SDK client 1.32.2, a scripted model, stdio servers that exit when asked, stdio servers that ignore their input closing and SIGTERM, and one streamable HTTP server. 169 checks passed over 22 scenario runs.
-
-- One turn on one Agent made four calls and four server processes answered them, before and after `chad mcp restart`, a change to a named secret and an apply that added a server.
-- A drain ended at 30.0 seconds. The interrupted call returned in 1 ms, and all 8 interrupted calls across the runs returned within 5 ms. Three of four servers finished the work after the caller had been told.
-- With default timeouts and one server that never answers, a rebuild took 62.1 seconds, which is 30.0 for the drain, 0.07 for the close and 32.0 for the connect. The last 2 seconds are the SDK killing the server that timed out. That is why the backstop is 120 seconds.
-- The close took 11 ms for a server that exits when its input closes, 4.0 seconds for one stubborn stdio server, 8.0 for two and 12.0 for three.
-- Without the 250 ms pause the HTTP server never received the cancellation. With it the cancellation arrived.
-- The plugin gate and the MCP gate closed 1 ms apart. The plugin activated 2 ms after the gate and answered a running turn 5.3 seconds before the MCP server connected.
-- A turn that started during a 62 second rebuild started in 3 ms, and a turn that used only a plugin tool ended in 0.1 seconds.
-- Abandoning a rebuild during its connect took a graceful stop 2.0 seconds, the time to kill the half-started server.
-- In the image, a stop with a running turn and three stubborn servers exited 0 at 27.1 seconds. With twelve it was cut at 60.0 seconds with exit 1.
-
-These were not run: a real model, the 120 second backstop at its real length (it ran at 3 seconds, for a held call and at boot), a real `npx -y` server, a secret in an HTTP header, and the `searchTools` line for a long list of tools. The Provenance table marks the rules they touch as run, because the path they share ran.
+The earlier wording of these rules ran on clanka 0.27.0 with its own MCP layer and MCP SDK client 1.32.2. The rules as they stand, with no gate, no drain and no held calls, were not run, and the Provenance table still marks the edited rules as run for their earlier wording. Four measurements still hold. An interrupted call returned within 5 ms, and three of four servers finished the work after the caller had been told. A close straight after an interrupt cut off the cancellation before the HTTP server received it. The close took 4.0 seconds for each stdio server that ignores its input closing and SIGTERM, one after another. With default timeouts one server that never answers held the connect for 32.0 seconds.
 
 ## Log events
 
@@ -750,18 +408,18 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-66 | TIM-537 follow-up rule 1, kept by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-67 | TIM-537 follow-up rule 1, TIM-555 item 2, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-68 | TIM-537 follow-up rule 7, TIM-555 prototype | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-69 | TIM-537 follow-up rule 2, amended by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-70 | TIM-537 follow-up rule 2, amended by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-71 | TIM-537 follow-up rule 2, amended by TIM-555 item 5 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-72 | TIM-555 item 5 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-69 | TIM-537 follow-up rule 2, amended by TIM-555, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
+| MCP-70 | TIM-537 follow-up rule 2, amended by TIM-555, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
+| MCP-71 | TIM-537 follow-up rule 2, amended by TIM-555 item 5, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-72 | TIM-555 item 5, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | MCP-73 | TIM-537 follow-up rule 2, kept by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-74 | TIM-555 finding 4, TIM-553 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-75 | TIM-537 follow-up rules 2 and 3, TIM-555 finding 3 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-76 | TIM-555 item 8 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-77 | TIM-537 follow-up rule 3, amended by TIM-555 item 3 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-78 | TIM-537 follow-up rule 3, amended by TIM-555 item 3 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-79 | TIM-555 item 3 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-80 | TIM-555 items 3 and 4 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-75 | TIM-537 follow-up rules 2 and 3, TIM-555 finding 3, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-76 | TIM-555 item 8, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
+| MCP-77 | TIM-537 follow-up rule 3, amended by TIM-555 item 3, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
+| MCP-78 | TIM-537 follow-up rule 3, amended by TIM-555 item 3, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
+| MCP-79 | TIM-555 item 3, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
+| MCP-80 | TIM-555 items 3 and 4, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | MCP-81 | TIM-537 follow-up rule 4, amended by TIM-555 item 4 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-82 | TIM-537 follow-up rule 4, amended by TIM-555 item 4 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-83 | TIM-537 follow-up rule 4, amended by TIM-555 item 4 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
@@ -770,18 +428,18 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-86 | TIM-537 follow-up rule 7, kept by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-87 | TIM-555 item 6 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-88 | TIM-555 item 6 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-89 | TIM-537 follow-up rule 6, amended by TIM-555 item 1 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-90 | TIM-555 item 2 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-91 | TIM-555 item 2 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-92 | TIM-555 item 2 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-93 | TIM-549 item 28 (TIM-537 follow-up rule 5), kept by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-94 | TIM-555 item 7, TIM-553 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-95 | TIM-555 item 7 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-96 | TIM-555 item 7 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-89 | TIM-537 follow-up rule 6, amended by TIM-555 item 1, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-90 | TIM-555 item 2, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-91 | TIM-555 item 2, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-92 | TIM-555 item 2, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-93 | TIM-549 item 28 (TIM-537 follow-up rule 5), kept by TIM-555, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-94 | TIM-555 item 7, TIM-553, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-95 | TIM-555 item 7, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
+| MCP-96 | TIM-555 item 7, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | MCP-97 | TIM-553 item 8, as recorded on TIM-555, TIM-557 item 41, TIM-559 round 2 R4 and R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | run; no notice not run |  | `rule` | `skills-mcp` |
 | MCP-98 | TIM-557 items 36 and 40, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| MCP-99 | TIM-558 item 33, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| MCP-100 | TIM-558 item 17, amended by TIM-559 ruling on MCP-G20, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| MCP-99 | TIM-558 item 33, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| MCP-100 | TIM-558 item 17, amended by TIM-559 ruling on MCP-G20, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-101 | TIM-558 item 52, withdrawn by TIM-559 ruling on OV-G1 | Architect (Tim has not read) | not run |  | `rule` | - |
 | MCP-102 | TIM-559 ruling on MCP-G17 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-103 | TIM-559 ruling on MCP-G17 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
@@ -811,7 +469,7 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-127 | TIM-559 ruling on MCP-G7, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | MCP-128 | TIM-559 ruling on MCP-G8, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | MCP-129 | TIM-559 ruling on MCP-G7, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| MCP-130 | TIM-559 ruling on MCP-G20 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| MCP-130 | TIM-559 ruling on MCP-G20, withdrawn by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | MCP-131 | TIM-559 ruling on MCP-G23 | Architect (Tim has not read) | not run |  | `definition` | - |
 | MCP-132 | TIM-559 round 3 A1 | Architect (Tim has not read) | read |  | `fact` | `skills-mcp` |
 | MCP-133 | TIM-559 round 3 A1 | Architect (Tim has not read) | read |  | `fact` | `skills-mcp` |
@@ -821,3 +479,4 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-137 | TIM-559 round 4 item 10, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
 | MCP-138 | TIM-559 round 4 item 10, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | MCP-139 | Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| MCP-140 | Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `skills-mcp` |
