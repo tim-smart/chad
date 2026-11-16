@@ -92,8 +92,8 @@ A line chad itself writes carries an `event` annotation from this list. The copy
 | **FAIL-270** | `settings.unparsable` | Warn | `chad.json` could not be parsed at boot. |
 | **FAIL-271** | `settings.ignored` | Warn | Entries in `chad.json` were ignored at boot. |
 | **FAIL-272** | `mcp.config-unreadable` | Warn | `mcp.json` could not be read at boot. |
-| **FAIL-273** | `mcp.needs-login` | Warn | An MCP server's token refresh failed. |
-| **FAIL-274** | `mcp.login-expired` | Info | A pending MCP login expired. |
+| **FAIL-273** | Withdrawn. |  |  |
+| **FAIL-274** | Withdrawn. |  |  |
 | **FAIL-275** | `mcp.server-failed` | Builder's | An MCP server failed to connect. |
 | **FAIL-276** | `mcp.rebuilt` | Builder's | An MCP rebuild ended. Carries the duration and the counts. |
 | **FAIL-277** | `skill.skipped` | Warn | A skill was skipped at boot. |
@@ -111,7 +111,7 @@ A line chad itself writes carries an `event` annotation from this list. The copy
 | **FAIL-289** | `boot.moved-aside` | Warn | Something at `repo/examples` or `repo/node_modules` was moved aside. |
 | **FAIL-290** | `boot.filesystem` | Warn | The volume is on a filesystem chad warns about (see 01-image-and-volume.md). The read runs before the lock, so the line reaches the file once the lock is held (FAIL-322). |
 | **FAIL-291** | `boot.log-level-unknown` | Warn | `CHAD_LOG_LEVEL` held a value chad does not know. |
-| **FAIL-292** | `boot.safe-mode-auto` | Error | Three unclean boots in a row put chad in safe mode. |
+| **FAIL-292** | Withdrawn. |  |  |
 | **FAIL-293** | `boot.refused` | Fatal | A boot was refused. Carries the reason, such as the two shard counts. A boot that is refused before it holds the lock writes the line to stdout only (FAIL-322). |
 | **FAIL-294** | `stop.started` | Builder's | The SIGTERM handler ran. |
 | **FAIL-295** | `stop.ended` | Builder's | A stop finished inside the deadline. Carries the duration. |
@@ -121,7 +121,7 @@ A line chad itself writes carries an `event` annotation from this list. The copy
 | **FAIL-299** | `chat.disconnected` | Builder's | The gateway closed. Carries the close code. |
 | **FAIL-300** | `chat.refused` | Builder's | Discord closed the gateway for good, as for a bad token or missing intents. |
 | **FAIL-301** | `message.ignored` | Info for `not-owner` (decided) | A message was dropped. Carries the reason, which is `not-owner`, `own`, `duplicate` or `not-mentioned`, and the author's id, and never the content (see 03-sessions-and-turns.md and 04-discord.md). |
-| **FAIL-302** | `command.ran` | Builder's | (a) A CLI or (b) chat command (a) that changes something finished, (c) or a secret was saved through the Enter modal. (a) Carries the command, the caller, which is the owner, a session id or the daemon, and the outcome, and never a secret's value (see 10-cli.md). (c) A modal save writes its own line on every save, with the owner as the caller and the save of a secret as the command, whether or not a command is waiting for it. A save that a waiting `chad secret request` sees therefore leaves two lines, the owner's save and the agent's command (see 15-credentials.md). |
+| **FAIL-302** | `command.ran` | Builder's | (a) A CLI or (b) chat command (a) that changes something finished. (a) Carries the command, the caller, which is the owner, a session id or the daemon, and the outcome, and never a secret's value (see 10-cli.md). (c) Withdrawn. |
 | **FAIL-303** | `timer.held` | Builder's | A timer came due for a plugin that is not loaded (see 13-timers-and-cron.md). |
 | **FAIL-304** | `rpc.cancelled` | Debug (decided) | The RPC server interrupted a call because its client went away, as it does when the owner presses Ctrl-C (see 10-cli.md). The daemon cannot tell Ctrl-C from a killed client or a closed socket, so it writes one line for each call that is interrupted this way. |
 | **FAIL-305** | `notice.sent` | Info | A notice outside a turn was posted. Carries its key or its kind. |
@@ -450,7 +450,7 @@ export const Outcome = Schema.Union([
 - **FAIL-67** The failed-turn message of a plugin-started turn that carries a `mention` starts with that mention. The core drops a mention whose id is not on the allowlist (see 13-timers-and-cron.md).
 - **FAIL-68** A plugin-started turn that fails with `LoggedOut`, `LoginFailed` or `UsageLimit` posts nothing in its thread. The messages in FAIL-60 to FAIL-62 are for turns an owner started.
 - **FAIL-69** A stopped turn is not a failure. It posts "Stopped after 48s." (see 04-discord.md).
-- **FAIL-70** When chad itself crashes with no turn running, nothing is posted in chat. The crash is in stdout and in the flushed log, and `chad status` shows the unclean exit. Three unclean boots in a row produce the safe mode notice.
+- **FAIL-70** When chad itself crashes with no turn running, nothing is posted in chat. The crash is in stdout and in the flushed log.
 - **FAIL-208** The give-up message and the two login messages in FAIL-61 to FAIL-63 are normal messages and not subtext. They take the failed-turn message's place, and they are what the owner has to read and act on.
 - **FAIL-209** The Discord timestamp in FAIL-60 takes seconds, so chad divides `resetsAt` by 1,000 to print it. A test checks the printed time.
 - **FAIL-210** A plugin-started turn that ends as `LoggedOut` or `LoginFailed` begins the `logged-out` condition if it is not held, and one that ends as `UsageLimit` begins the `usage-limit` condition if it is not held (see "Notices outside a turn"). Without this, a token refresh that fails on a cron run would leave no message in the thread, no notice and no count toward a pause, and scheduled runs would stop with nothing said.
@@ -578,7 +578,7 @@ What `chad status` prints about the daemon, the plugins, the MCP servers, the mo
 - **FAIL-111** `/status` renders with no database and no model.
 - **FAIL-112** "Problems" comes first. It lists every standing condition once. A live key is shown from the daemon's own check (FAIL-213) and a table key from its held row (FAIL-308). The two classes are in "Notices outside a turn".
 - **FAIL-113** "Problems" also lists two things that have no key and no notice. These are a chat connection that is not connected and timers held for a plugin that is not loaded. Timers held for a plugin the owner turned off, or for a plugin deleted from the repo, are not listed here. `chad status` shows them with the plugin (see 11-settings.md).
-- **FAIL-114** (a) "Recent" shows the failed turns of the last 24 hours grouped by reason, the last five failed turns with their ids, the tokens used today and in the last 7 days, when the daemon started, (b) and whether the exit before that start was unclean. (a) Grouping by reason keeps two real failures visible on a day when 24 scheduled runs were skipped because chad was logged out.
+- **FAIL-114** (a) "Recent" shows the failed turns of the last 24 hours grouped by reason, the last five failed turns with their ids, the tokens used today and in the last 7 days, and when the daemon started. (b) Withdrawn. (a) Grouping by reason keeps two real failures visible on a day when 24 scheduled runs were skipped because chad was logged out.
 - **FAIL-115** "Today" is the current day in the owner's timezone.
 - **FAIL-116** Anything finer than the two blocks is read with `chad db query`.
 - **FAIL-117** `chad status` shows, for each plugin, its count of warnings and of errors logged since it loaded, with the latest line. The count rests on the copies in FAIL-30, which carry the plugin's name from every place in FAIL-27.
@@ -667,15 +667,15 @@ Three things about a full disk have not run at all. chad's handling of a full di
 
 Two detections stand next to each other, and each has its own outcome.
 
-- **FAIL-146** An image that finds a `state/version` newer than its own exits 1 with the exit message that 02-storage.md gives. It holds the lock by then, so its `boot.refused` line goes to both sinks (FAIL-322), and it has touched nothing else on the volume. The message names the copy of the database that was taken before the migration. That boot does not count as unclean (see 01-image-and-volume.md).
-- **FAIL-147** A database that cannot be opened or migrated for any other reason, such as a corrupt file or a migration the image does not know in a restored file, keeps chad up without sessions. chad connects to Discord from `secrets/connections.json`, and that boot does not count as unclean, because safe mode cannot fix a database (see 02-storage.md).
-- **FAIL-148** In that state chad answers every owner message with "chad's database can't be used: <error>. Sessions are off until it is fixed. `chad status` has the detail." `chad status` shows the same error.
+- **FAIL-146** An image that finds a `state/version` newer than its own exits 1 with the exit message that 02-storage.md gives. It holds the lock by then, so its `boot.refused` line goes to both sinks (FAIL-322), and it has touched nothing else on the volume. The message names the copy of the database that was taken before the migration.
+- **FAIL-147** A database that cannot be opened or migrated for any other reason, such as a corrupt file or a migration the image does not know in a restored file, keeps chad up without sessions. chad connects to Discord from `secrets/connections.json` (see 02-storage.md).
+- **FAIL-148** In that state chad answers every owner message that is a direct message or mentions chad (FAIL-339) with "chad's database can't be used: <error>. Sessions are off until it is fixed. `chad status` has the detail." `chad status` shows the same error.
 - **FAIL-149** At boot in that state chad sends the same text, without waiting for an owner's message, to the thread recorded in `state/notice-thread` (FAIL-159). It sends it once for as long as the database stays unusable, restarts included.
 - **FAIL-225** chad writes the file `state/db-unusable` when it sends that notice, and a boot that finds the file does not send the notice again. A crash loop on an unusable database would otherwise post the same message at every restart.
 - **FAIL-226** A boot that opens and migrates the database removes `state/db-unusable`.
 - **FAIL-227** Only when `state/db-unusable` cannot be written does chad fall back to sending the notice once per boot.
 - **FAIL-228** While the database is unusable chad sends only the database notice. Every other live key shows under "Problems" and sends no notice, because no row can record that a notice was sent and every boot would otherwise send every held notice again.
-- **FAIL-339** While the database is unusable, an owner's message gets the answer of FAIL-148 when it is in a direct message or mentions chad, and a mention in a plain channel is answered there without opening a thread. A message in a thread that does not mention chad gets no answer, because which threads are sessions is recorded in the database.
+- **FAIL-339** While the database is unusable, an owner's message gets the answer of FAIL-148 when it is in a direct message or mentions chad, and a mention in a plain channel is answered there without opening a thread. A message that does not mention chad, in a thread or in a plain channel, gets no answer, because which threads are sessions is recorded in the database.
 
 ## Notices outside a turn
 
@@ -686,10 +686,10 @@ A notice outside a turn is a message chad sends the owner that belongs to no tur
 - **FAIL-152** A condition that begins again within 24 hours of its last notice is not announced again. A hook that fails three times, works once and fails three more would otherwise post on every cycle.
 - **FAIL-153** The keys live in the database table `notices`. Its SQL is in 02-storage.md.
 - **FAIL-154** chad sends no reminders. `chad status` is the list of what is wrong now.
-- **FAIL-155** A one-off notice has no key and is posted every time. The one-off notices are a turn that failed with `ThreadGone`, a paused cron job, an expired MCP login and a changed bundled skill (FAIL-167). The hash under `state/` already limits the last to once per change (see 12-skills-and-mcp.md).
+- **FAIL-155** A one-off notice has no key and is posted every time. The one-off notices are a turn that failed with `ThreadGone`, a paused cron job and a changed bundled skill (FAIL-167). The hash under `state/` already limits the last to once per change (see 12-skills-and-mcp.md).
 - **FAIL-156** A notice outside a turn is a normal message and not subtext, because it is the content and not a footnote. In a server thread it starts with the owner's mention, as a cron job's answer does. In a DM every message notifies. It contains no emoji.
 - **FAIL-337** The owner's mention of FAIL-156 is a mention of each owner on the list of the connection that posts the notice, and only those users are let be notified by it. On the `local` platform, which has no mentions, the notice is its text alone.
-- **FAIL-157** (a) Subtext stays for lines inside a turn's flow, which are the status message, "Stopped after 48s.", the turn id line and the session line in FAIL-176. (b) The expired login line of FAIL-170 is subtext too, and it goes to the thread that asked for the login.
+- **FAIL-157** (a) Subtext stays for lines inside a turn's flow, which are the status message, "Stopped after 48s.", the turn id line and the session line in FAIL-176. (b) Withdrawn.
 - **FAIL-158** A notice outside a turn goes to the owner's most recently active DM session. If there is none, it goes to the most recent session of any kind. It is always logged as well.
 - **FAIL-159** chad writes that destination to the file `state/notice-thread` whenever an owner's message changes it. The file is one JSON line with the connection's name and the thread, written by temp file and rename like the other files under `state/`, and its shape is in 02-storage.md. It lets a boot with an unusable database tell the owner without waiting for a message.
 - **FAIL-160** When chad knows no session, as on a fresh volume, or when the post fails twice, the notice is logged as `notice.undelivered` and its row records that it was not delivered. If its condition still holds when a session first exists, chad posts it then. What "Problems" shows for it is in FAIL-313.
@@ -709,8 +709,6 @@ The keys, with the class of each, what begins each condition and the check that 
 | `usage-limit` | Table | A model call hits the usage limit | The next model call succeeds, or a login succeeds |
 | `plugin-skipped:<name>` | Live | The plugin is skipped at boot | The plugin loads, is no longer in the applied repo, or is turned off |
 | `hook-failing:<plugin>:<hook>` | Live | The same hook has failed 3 times in a row | The hook next succeeds |
-| `mcp-needs-login:<server>` | Live | The server's token refresh fails and it drops to "needs login" | A login for the server succeeds, or the server leaves the applied `mcp.json` |
-| `safe-mode-auto` | Live | Three unclean boots in a row start chad in safe mode | Safe mode is turned off |
 | `settings-unparsable` | Live | `chad.json` cannot be parsed at boot | The next boot or apply finds the file good or gone |
 | `settings-ignored` | Live | Entries in `chad.json` are ignored at boot | The next boot or apply finds no ignored entry, or the file gone |
 | `mcp-config-unreadable` | Live | `mcp.json` cannot be read at boot | The next boot or apply finds the file good or gone |
@@ -737,22 +735,22 @@ The keys, with the class of each, what begins each condition and the check that 
 - **FAIL-321** The `usage-limit` line under "Problems" also prints the reset time when its row holds one. On the WebSocket transport, which v1 runs on, the error carries no reset time (FAIL-97), so there the line has the recorded time only.
 - **FAIL-342** The `usage-limit` row keeps a reset time in its text, which is the one renderer's (FAIL-310): after the text of FAIL-174 comes "It resets at <time>.", with `<time>` in UTC to the second as the recorded time is printed. A turn that hits the limit while the row already holds writes the text of its own error, with its reset time or none, and leaves the recorded time as it was (FAIL-320).
 - **FAIL-315** `plugin-skipped:<name>` clears when the plugin loads, when it is no longer in the applied repo, and when the plugin is turned off (see 11-settings.md).
-- **FAIL-316** `mcp-needs-login:<server>` clears when a login for the server succeeds, or when the server is no longer in the applied `mcp.json`.
-- **FAIL-317** `safe-mode-auto` clears when safe mode is turned off.
+- **FAIL-316** Withdrawn.
+- **FAIL-317** Withdrawn.
 
 The wordings. Text in angle brackets is filled in. "First line" is the first line of an error.
 
 - **FAIL-161** Plugins skipped at boot get one notice with one line per plugin, "Skipped at start: `<name>` (<first line of the error>)", ending with the line "`chad status` has the rest."
 - **FAIL-318** When a plugin is skipped because its file or directory name breaks the plugin name rule, the line of FAIL-161 quotes the name as it is written and cuts it, because it is the one name that broke the rule (see 07-plugin-loading.md).
-- **FAIL-162** An automatic safe mode is announced with "chad crashed on its last three starts, so it is in safe mode and nothing from the repo is loaded. The last apply was `<sha>` "<message>", <when>. Fix or `chad revert` it, then `/safe off`." The notice names the last apply because `/safe off` alone loads what crashed.
+- **FAIL-162** Withdrawn.
 - **FAIL-163** After 3 failures in a row of the same hook, chad tells the owner with "`<plugin>`'s `<hook>` hook has failed 3 times in a row (<first line>). It stays on." chad never turns a plugin off by itself.
 - **FAIL-164** A `chad.json` that cannot be parsed at boot is announced with "`chad.json` can't be parsed (<error>), so every plugin is on its defaults." Entries that were ignored are announced with "Ignored in `chad.json`: <list>." A `plugins` value that is not an object is listed there as the `plugins` key, and a plugin's entry whose `enabled` is not a boolean is listed as that entry (see 11-settings.md).
 - **FAIL-165** An `mcp.json` that cannot be read at boot is announced with "`mcp.json` can't be read (<error>), so no MCP servers are running."
 - **FAIL-166** A skill skipped at boot is announced with "Skipped skill `<name>`: <error>."
 - **FAIL-167** A bundled skill that changed in a new image while a repo skill hides it is announced with "The bundled skill `<name>` changed in this image. The repo's copy still hides it." (see 12-skills-and-mcp.md).
 - **FAIL-168** A model that fails its check at start is announced with "The model `<spec>` failed its check at start (<error>). If turns fail, set another with `/model`." The check can fail on an outage that passes, and chad still starts. Which models are checked is in 05-model-and-login.md.
-- **FAIL-169** An MCP server whose token refresh fails is announced with "MCP server `<name>` needs a login again. Run `chad mcp login <name>`." chad does not post a login link by itself.
-- **FAIL-170** An MCP login that expires after its 10 minutes gets a subtext line in the thread that asked for it, "The login for `<name>` expired. Run `chad mcp login <name>` to try again."
+- **FAIL-169** Withdrawn.
+- **FAIL-170** Withdrawn.
 - **FAIL-171** The `disk-low` notice reads "The data volume has <n> MB free."
 - **FAIL-172** Withdrawn.
 - **FAIL-173** When a plugin-started turn fails with `ThreadGone`, the core posts "`<plugin>` could not run `<label>` because its thread is gone."
@@ -817,8 +815,8 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 - **FAIL-G15** [builder] Whether the copy of a line logged from a sub-agent or from an MCP call carries the right session, turn and plugin name. The probes ran neither. TIM-557 item 8.
 - **FAIL-G16** [builder] The format of the human line `chad logs` prints. TIM-557 item 11.
 - **FAIL-G17** [builder] The wording of the update message in FAIL-125, and the wording of the session line in FAIL-176 for every command but `apply`. TIM-557 "Not settled here".
-- **FAIL-G18** [builder] The layout and text of the "Problems" and "Recent" blocks, how the daemon knows that the exit before its start was unclean, and what "today" is before a timezone is set. TIM-557 item 27 and TIM-548 "Not settled here".
-- **FAIL-G19** [builder] Small wordings. The notice for a repo plugin skipped because a bundled plugin took its name has no text (TIM-548 item 12). The logged-out notice's two sentences are joined here with a full stop that no ticket writes (TIM-535, TIM-557 item 40). The form of `<when>` in the safe mode notice and the rounding of `<n> MB` are not given, and neither is whether cron's pause line is subtext (TIM-557 item 40).
+- **FAIL-G18** [builder] The layout and text of the "Problems" and "Recent" blocks, and what "today" is before a timezone is set. TIM-557 item 27 and TIM-548 "Not settled here".
+- **FAIL-G19** [builder] Small wordings. The notice for a repo plugin skipped because a bundled plugin took its name has no text (TIM-548 item 12). The logged-out notice's two sentences are joined here with a full stop that no ticket writes (TIM-535, TIM-557 item 40). The rounding of `<n> MB` is not given, and neither is whether cron's pause line is subtext (TIM-557 item 40).
 - **FAIL-G21** [builder] The text of the `diagnose` skill and its `chad db query` recipes. TIM-557 item 43 names what it teaches and nothing more.
 - **FAIL-G22** [builder] Whether the real Codex service sends an `error.message` with a usage limit, and what a new connection gets while the limit is in force. Only the two live captures in FAIL-98 can answer it. TIM-557 "Not settled here".
 - **FAIL-G26** [builder] The contents of `state/db-unusable`. FAIL-225 to FAIL-227 read only whether the file exists.
@@ -908,7 +906,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-67 | TIM-557 item 15, amended by TIM-559 ruling on CRON-G11 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | FAIL-68 | TIM-557 items 14, 16 and 21, amended by TIM-559 ruling on FAIL-G2 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | FAIL-69 | TIM-533 item 4 | Tim | not run |  | `rule` | `turns` |
-| FAIL-70 | TIM-557 item 42 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
+| FAIL-70 | TIM-557 item 42, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | FAIL-71 | TIM-540 item 10 | Tim | not run |  | `rule` | `timers-cron` |
 | FAIL-72 | TIM-540 item 10, wording from TIM-557 item 40 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `timers-cron` |
 | FAIL-73 | TIM-540 item 10 | Tim | not run |  | `rule` | `timers-cron` |
@@ -952,7 +950,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-111 | TIM-557 item 27 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-112 | TIM-557 item 27, TIM-559 round 3 C5 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-113 | TIM-557 item 27, amended by TIM-559 ruling on SET-G11, TIM-559 round 3 C5, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
-| FAIL-114 | TIM-557 item 27 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| FAIL-114 | TIM-557 item 27, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-115 | TIM-557 item 27 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | FAIL-116 | TIM-557 round 1, Q16 | Architect (Tim has not read) | not run |  | `definition` | - |
 | FAIL-117 | TIM-557 item 28, amended by TIM-559 ruling on ASP-G12 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
@@ -984,31 +982,31 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-143 | TIM-557 item 34, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-144 | TIM-557 item 34, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run; fact run: a restart delivers the request again |  | `rule` | - |
 | FAIL-145 | TIM-557 item 34, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
-| FAIL-146 | TIM-541 item 14, TIM-557 item 35, TIM-559 round 3 on IMG-G19 and STO-G28; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `backup` |
-| FAIL-147 | TIM-536 item 14, TIM-557 item 35 | Tim | not run | TIM-541, TIM-557 | `rule` | `failures` |
-| FAIL-148 | TIM-536 item 14, wording from TIM-557 item 35 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| FAIL-146 | TIM-541 item 14, TIM-557 item 35, TIM-559 round 3 on IMG-G19 and STO-G28; TIM-559 cold read, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
+| FAIL-147 | TIM-536 item 14, TIM-557 item 35, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim | not run | TIM-541, TIM-557 | `rule` | `failures` |
+| FAIL-148 | TIM-536 item 14, wording from TIM-557 item 35, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-149 | TIM-557 items 35 and 38, amended by TIM-559 ruling on FAIL-G20 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-150 | TIM-557 item 36 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | FAIL-151 | TIM-557 item 36 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | FAIL-152 | TIM-557 item 36 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | FAIL-153 | TIM-557 item 36, amended by TIM-559 ruling on FAIL-G8 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-154 | TIM-557 item 36 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-155 | TIM-557 item 36, amended by TIM-559 ruling on FAIL-G7 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
+| FAIL-155 | TIM-557 item 36, amended by TIM-559 ruling on FAIL-G7, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | FAIL-156 | TIM-557 item 37, changing TIM-533 item 12 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
-| FAIL-157 | TIM-533 item 12, TIM-557 item 37, TIM-537 item 10 for the expired login line | Architect (Tim has not read) | not run |  | `rule` | `failures` |
+| FAIL-157 | TIM-533 item 12, TIM-557 item 37, TIM-537 item 10 for the expired login line, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-158 | TIM-534 item 15 | Tim | not run |  | `rule` | `failures` |
 | FAIL-159 | TIM-557 item 38, amended by TIM-559 rulings on FAIL-G9, STO-G18 and REC-G15, TIM-559 round 3 C4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-160 | TIM-557 item 38, TIM-559 round 3 C5 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-161 | TIM-534 item 5, wording from TIM-557 item 40 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| FAIL-162 | TIM-534 item 7, wording from TIM-557 item 40 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `apply` |
+| FAIL-162 | TIM-534 item 7, wording from TIM-557 item 40, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-557 | `rule` | - |
 | FAIL-163 | TIM-534 item 8, wording from TIM-557 item 40 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `plugin-api` |
 | FAIL-164 | TIM-548 item 12, wording from TIM-557 item 40, TIM-559 round 3 L2 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | FAIL-165 | TIM-534 item 5, TIM-537, wording from TIM-557 item 40 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-166 | TIM-549 item 19, wording from TIM-557 item 40 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-167 | TIM-549 item 23, wording from TIM-557 item 40 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-168 | TIM-535, wording from TIM-557 item 40, amended by TIM-559 ruling on MOD-G6 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `models` |
-| FAIL-169 | TIM-537 item 13, wording from TIM-557 item 40 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| FAIL-170 | TIM-537 item 10, wording from TIM-557 item 40 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| FAIL-169 | TIM-537 item 13, wording from TIM-557 item 40, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| FAIL-170 | TIM-537 item 10, wording from TIM-557 item 40, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-171 | TIM-536 item 16, wording from TIM-557 item 40 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | FAIL-172 | TIM-557 items 31 and 40, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run | TIM-557 | `rule` | - |
 | FAIL-173 | TIM-540 item 19, wording from TIM-557 item 40 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
@@ -1111,8 +1109,8 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-270 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | FAIL-271 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | FAIL-272 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| FAIL-273 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| FAIL-274 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| FAIL-273 | TIM-557 items 2 and 4, TIM-559 round 2 R4, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| FAIL-274 | TIM-557 items 2 and 4, TIM-559 round 2 R4, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-275 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-276 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-277 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
@@ -1130,7 +1128,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-289 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `loader` |
 | FAIL-290 | TIM-557 items 2 and 4, TIM-559 round 2 R4; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | FAIL-291 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| FAIL-292 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
+| FAIL-292 | TIM-557 items 2 and 4, TIM-559 round 2 R4, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-293 | TIM-557 items 2 and 4, TIM-559 round 2 R4; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | FAIL-294 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
 | FAIL-295 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
@@ -1140,7 +1138,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-299 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | FAIL-300 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | FAIL-301 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| FAIL-302 | TIM-559 round 2 R4, TIM-559 round 4 item 3 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
+| FAIL-302 | TIM-559 round 2 R4, TIM-559 round 4 item 3, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | FAIL-303 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
 | FAIL-304 | TIM-557 items 2 and 4, TIM-559 round 2 R4; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | FAIL-305 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
@@ -1154,8 +1152,8 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-313 | TIM-559 round 3 C5, TIM-557 item 38 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | FAIL-314 | TIM-559 round 3 on FAIL-G7, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run | TIM-557, TIM-559 | `rule` | - |
 | FAIL-315 | TIM-559 round 3 on FAIL-G7 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| FAIL-316 | TIM-559 round 3 on FAIL-G7 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| FAIL-317 | TIM-559 round 3 on FAIL-G7 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
+| FAIL-316 | TIM-559 round 3 on FAIL-G7, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| FAIL-317 | TIM-559 round 3 on FAIL-G7, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-318 | TIM-559 round 3 A2 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | FAIL-319 | TIM-559 round 4 item 9 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | FAIL-320 | TIM-559 round 4 item 9 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
@@ -1177,7 +1175,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-336 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-337 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-338 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
-| FAIL-339 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
+| FAIL-339 | Build, stage 2, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-340 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-341 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-342 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |

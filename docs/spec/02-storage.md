@@ -24,11 +24,9 @@ repo/                          the git repo and what chad builds from it, see 09
 secrets/                       mode 0700, files 0600
   connections.json             chat connections
   secrets.json                 named secrets
-  mcp-oauth.json               MCP OAuth tokens and client registrations
   auth/                        model login tokens and clanka's models.dev cache
 state/
   safe-mode                    the safe mode flag
-  boot-count                   the unclean boot counter
   model                        the model override
   (two more model overrides)   the sub-agent and summarizer models, see 05-model-and-login.md
   timezone                     the owner's timezone
@@ -64,7 +62,7 @@ logs/
 
 ## Files outside the database
 
-Anything chad has to read before the database is open, or write with no daemon running, is a plain file. That is what lets first setup save a chat connection on a volume that has never had a daemon, and what lets safe mode and the unclean boot rule work when the database is the thing that broke. Safe mode is chad running with nothing loaded from the repo, and an unclean boot is a start that follows a crash or a kill. Both are specified in 09-repo-and-recovery.md.
+Anything chad has to read before the database is open, or write with no daemon running, is a plain file. That is what lets first setup save a chat connection on a volume that has never had a daemon, and what lets safe mode work when the database is the thing that broke. Safe mode is chad running with nothing loaded from the repo. It is specified in 09-repo-and-recovery.md.
 
 - **STO-9** Secrets are files under `secrets/`, outside the repo and outside the database.
 - **STO-10** `secrets/connections.json` holds the chat connections, each one a platform's token and its owner ids. The CLI writes it, and first setup can save a connection before any daemon or database exists.
@@ -73,12 +71,12 @@ Anything chad has to read before the database is open, or write with no daemon r
 - **STO-11** `secrets/auth/` is Effect's file system `KeyValueStore` (a store that writes one file per key), and it is the one store chad gives clanka for model logins. A Codex login writes its token there under the key prefix `codex.auth/`, and that key is the only one chad's rules rest on. clanka's Copilot and xAI logins use the same store, with xAI tokens under `xai.auth/`, and clanka keeps its models.dev cache under `models-dev/` in whatever store it is given. Those keys land in this directory when clanka writes them. chad does not write them itself and does not promise that any path of chad makes clanka write them. The CLI can write the store with no daemon running. See 05-model-and-login.md.
 - **STO-139** chad sets mode 0600 on each file under `secrets/` with a chmod after the write, and never changes the process umask. See 01-image-and-volume.md and 05-model-and-login.md.
 - **STO-197** The format number of `secrets/connections.json` is 1. A CLI that finds a higher number refuses every `connection` and `owner` command, the ones that only read included, with exit 1 and the line `chad <command>: <path> has format <found> and this chad reads format <known>. Use the chad that wrote it.` on stderr, and it changes nothing. `chad status` prints the same line on stderr beside what else it can read, and keeps its own exit code. A `chad serve` that finds a higher number, or a file that it cannot read as the object of STO-137, refuses the boot with exit 1 and a `boot.refused` line whose reason is `connections`, and leaves the file as it is.
-- **STO-12** `secrets/secrets.json` holds the named secrets managed by `chad secret`, with a kind (`totp` or plain) and a note for each secret. See 15-credentials.md.
-- **STO-13** The unclean boot counter, the safe mode flag and the model override are the small files `state/boot-count`, `state/safe-mode` and `state/model`.
+- **STO-12** `secrets/secrets.json` holds the named secrets managed by `chad secret`, with a note for each secret. See 15-credentials.md.
+- **STO-13** The safe mode flag and the model override are the small files `state/safe-mode` and `state/model`.
 - **STO-14** The files in STO-13 are written by writing a temporary file and renaming it over the old one.
-- **STO-15** The files in STO-13 are read before SQLite is opened, so safe mode and the rule that three unclean boots start safe mode still work when the database cannot be opened.
-- **STO-140** `state/boot-count` holds one line of plain text, the count as one decimal number.
-- **STO-141** `state/safe-mode` holds one word, `on` for safe mode turned on by hand or `auto` for safe mode that chad started itself. The file is absent when safe mode is off. See 09-repo-and-recovery.md.
+- **STO-15** The files in STO-13 are read before SQLite is opened, so safe mode still works when the database cannot be opened.
+- **STO-140** Withdrawn.
+- **STO-141** `state/safe-mode` holds one word, `on`. The file is absent when safe mode is off. See 09-repo-and-recovery.md.
 - **STO-142** `state/model` holds one line of plain text, the model value in the form 05-model-and-login.md gives.
 - **STO-143** The sub-agent and summarizer model overrides are kept under `state/`, beside `state/model`. See 05-model-and-login.md.
 - **STO-16** `state/timezone` holds the owner's timezone set by `chad timezone`. See 10-cli.md.
@@ -87,8 +85,8 @@ Anything chad has to read before the database is open, or write with no daemon r
 - **STO-145** `state/version` holds one line of plain text, the chad version.
 - **STO-121** `state/notice-thread` holds the thread in which chad posts a notice outside a turn, as the one JSON line `{"connection": "<name>", "thread": "<thread>"}`. `connection` is the name of the chat connection that posts, and `thread` is the thread string of STO-153. The connection's name is stored and not the platform, because two connections can share a platform and the file is read when the database cannot be. chad rewrites the file by temporary file and rename whenever that destination changes. Which thread that is is in 09-repo-and-recovery.md, and how a notice is sent is in 16-failures-logs-status.md.
 - **STO-18** chad keeps a hash of each bundled skill in `state/bundled-skills.json`. What the hash covers and the file's shape are in 12-skills-and-mcp.md.
-- **STO-19** Tokens and client registrations for MCP servers that sign in with OAuth are kept in `secrets/mcp-oauth.json`, a file of its own apart from `secrets/secrets.json`, outside the repo. The file has one entry for each server, keyed by the server's name, and an entry records the URL it was issued for. See 12-skills-and-mcp.md.
-- **STO-146** `chad secret` and the `${NAME}` expansion never read or list what `secrets/mcp-oauth.json` holds.
+- **STO-19** Withdrawn.
+- **STO-146** Withdrawn.
 - **STO-20** A session works in `sessions/<session-id>/`, which is the startup directory of that session's clanka Agent.
 - **STO-194** A session id is a UUID from `crypto.randomUUID()`, in its lowercase text form. It is the name of the session's directory under `sessions/` and the `session` key of the session's log lines.
 - **STO-206** A turn id is `t_` followed by 12 lowercase hexadecimal digits.
@@ -155,8 +153,8 @@ effect's `Migrator` records applied migrations in a table and runs the pending o
 - **STO-187** Every build slice that changes the schema appends a new migration, from the first slice on, and a migration that a delivered slice added is never edited. The migrations of the delivered slices are the fixtures for the tests that migrate an older database (see 17-testing.md).
 - **STO-195** The first migration, which the `harness` slice adds, creates the table `sessions` with the columns `id`, `thread` and `created_at` and nothing else, and an index on `thread` and `created_at`. `thread` holds the thread string of the session's chat thread. A row is written on a thread's first message. The other columns and tables of a session arrive with the `turns` slice, in a new migration.
 - **STO-41** chad refuses to start sessions on a database that holds a migration the image does not know. The check is chad's own code.
-- **STO-42** A boot touches storage in this order: take the lock on `state/daemon.lock`, check `state/version` (STO-48), raise `state/boot-count`, start listening on the socket, check the shard count row, copy the database when STO-44 asks for it, with the copy's version beside it (STO-192), and write `state/migrating`, run the migrations, write `state/version` and remove `state/migrating`, start sessions.
-- **STO-155** The full boot order, with the start-up check, the boot counter and what puts the counter back after a refused boot, is the numbered list in 01-image-and-volume.md.
+- **STO-42** A boot touches storage in this order: take the lock on `state/daemon.lock`, check `state/version` (STO-48), start listening on the socket, check the shard count row, copy the database when STO-44 asks for it, with the copy's version beside it (STO-192), and write `state/migrating`, run the migrations, write `state/version` and remove `state/migrating`, start sessions.
+- **STO-155** The full boot order, with the start-up check, is the numbered list in 01-image-and-volume.md.
 - **STO-43** The daemon listens on its socket before it opens, copies or migrates the database, so `chad status` and `chad health` answer while a long copy runs.
 - **STO-196** `chad serve` creates `state/` when it takes the lock, because the lock file is in it, and `logs/` when it opens the log file (see 01-image-and-volume.md). It creates the other directories it finds missing (STO-2) after the check of `state/version` (STO-48) and before it listens. A boot that is refused the lock creates nothing.
 - **STO-44** The first boot of a new image copies the database to `db/chad.db.before-migration` before anything migrates. A boot is such a boot when `db/chad.db` exists and `state/version` is older than the running version or is absent.
@@ -168,7 +166,7 @@ effect's `Migrator` records applied migrations in a table and runs the pending o
 - **STO-45** chad keeps only the most recent such copy. It is replaced at the next migration.
 - **STO-46** The copy is made with `node:sqlite`'s stepped online backup, so the daemon keeps answering pings while it runs.
 - **STO-47** The copy is for rolling back on the volume it sits on. It is not part of `chad backup`.
-- **STO-48** An older `chad serve` that finds a newer version in `state/version` exits 1 with a message that names the copy, `db/chad.db.before-migration`. When the version written beside the copy (STO-192) is the running chad's own, the message gives the steps of STO-193. When it is another version, the message gives no steps and names the version the copy belongs to. The check runs straight after the lock is taken and before the boot counter goes up, the socket, the shard count check and the database, so the refused boot opens no database and writes nothing on the volume but its lines in `logs/chad.log`, which it writes because it holds the lock (see 16-failures-logs-status.md). It runs after the lock so that a `chad restore` that finishes between an unlocked read and the lock cannot slip a newer volume past it, and the lock itself writes no data. That boot does not count as unclean. This check is separate from the unusable database state of STO-117, and both stand.
+- **STO-48** An older `chad serve` that finds a newer version in `state/version` exits 1 with a message that names the copy, `db/chad.db.before-migration`. When the version written beside the copy (STO-192) is the running chad's own, the message gives the steps of STO-193. When it is another version, the message gives no steps and names the version the copy belongs to. The check runs straight after the lock is taken and before the socket, the shard count check and the database, so the refused boot opens no database and writes nothing on the volume but its lines in `logs/chad.log`, which it writes because it holds the lock (see 16-failures-logs-status.md). It runs after the lock so that a `chad restore` that finishes between an unlocked read and the lock cannot slip a newer volume past it, and the lock itself writes no data. This check is separate from the unusable database state of STO-117, and both stand.
 - **STO-192** A boot that copies the database (STO-44) writes the version the copy was taken from in a file beside the copy, under `db/`. That version is the one `state/version` held before the migration, and it is what lets an older `chad serve` tell whether the copy is its own. The file is replaced together with the copy.
 - **STO-193** The steps in the exit message of STO-48 are to put `db/chad.db.before-migration` back as `db/chad.db`, to delete `db/chad.db-wal` and `db/chad.db-shm`, and to write the older version back into `state/version`. The two deletions are among the steps because a restored database that is opened under the newer database's write-ahead log is corrupted. The version is among them because restoring the copy alone leaves the newer `state/version` in place, and the older image then refuses again.
 - **STO-49** With no daemon running, a CLI that is older than the version in `state/version` refuses to write to the volume. See 10-cli.md.
@@ -184,7 +182,7 @@ Cluster stores each message under a shard number. If the number of shards change
 - **STO-52** The count is kept in the database and not under `state/`, so that a database restored without `state/` still carries the guard.
 - **STO-53** A daemon that finds a different shard count in that row refuses to start, exits 1 and names both numbers.
 - **STO-54** The shard count check runs before the database copy and before the migrations, so a refused boot copies nothing, migrates nothing and changes nothing in the database. The boot holds the lock by then, so its `boot.refused` line goes to the log file as well as to standard output (see 16-failures-logs-status.md).
-- **STO-55** A boot refused by the shard count check does not count as unclean.
+- **STO-55** Withdrawn.
 
 The message, as the prototype printed it for a database made at 300 shards:
 
@@ -318,9 +316,9 @@ CREATE TABLE steers (
 
 - **STO-207** chad records each turn whose prompt the stored history took as one row of the table `prompts`, keyed by the turn's request key, in the same transaction as the batch that stores the prompt. A compaction that takes the prompt out of the history leaves the row, and the row is what tells a resume after a kill before the prompt was stored (SES-161) from one after it. `prompts` rows are never deleted.
 - **STO-208** chad records each chat command it runs as one row of the table `commands`, keyed by the dedupe key of the chat event that carried it, and writes the row before the command runs. `commands` rows are never deleted.
-- **STO-209** The migration after the one that adds `prompts` fills it from what a volume stored before: a row for each stored message that carries a turn's request key, and a row for each unfinished turn that has started once or more, whose session has a stored history in which no message carries a key. Such a history was written before prompts carried their key, and its prompt was stored with the rest.
-- **STO-210** The migration after STO-209's leaves a `prompts` row only where the volume shows that the turn's prompt was stored. It adds a row for each unfinished turn with recorded usage, because clanka puts a send's prompt batch on its output before any of its usage and chad stores each part before it reads the next. It removes the row of each unfinished turn that was already there when STO-209's migration ran, that has no recorded usage and whose key no stored message carries. Such a turn resumes as one whose prompt was not stored (SES-161), and the restart note asks the model to check before it repeats anything.
-- **STO-211** The migration after STO-210's records in the table `unproven`, by request key, each unfinished turn whose prompt the volume shows neither as stored nor as never stored: one that started before the second after STO-209's migration ran, with no recorded usage and whose key no stored message carries. STO-210's migration took the `prompts` row of each such turn that had one, and a row STO-207 wrote with the prompt looks the same there as one STO-209 inferred. The delivery of a turn in `unproven` stays unanswered and starts nothing: no start is counted, the model is not called, nothing is posted, and it does not take its session before the thread's other requests (SES-200). Every other unfinished turn has a `prompts` row exactly when its prompt was stored, from a stored message that carries its key, from recorded usage, or from STO-207, and resumes by SES-161 or SES-101. Tim rules on what a turn in `unproven` does.
+- **STO-209** Withdrawn.
+- **STO-210** Withdrawn.
+- **STO-211** Withdrawn.
 
 ```sql
 CREATE TABLE prompts (
@@ -331,10 +329,6 @@ CREATE TABLE commands (
   event_key TEXT PRIMARY KEY,    -- the dedupe key of the chat event that carried the command
   thread TEXT,                   -- the thread string of the command's chat thread
   ran_at INTEGER                 -- milliseconds since the epoch
-) STRICT;
-CREATE TABLE unproven (
-  request_key TEXT PRIMARY KEY,  -- the key of the turn's request, as in turns.request_key
-  session_id TEXT                -- the turn's session
 ) STRICT;
 ```
 
@@ -441,7 +435,7 @@ chad restore <tar>
 - **STO-191** A `chad backup` that fails is recorded as the event `backup.failed`. The table of events is in 16-failures-logs-status.md.
 - **STO-96** chad schedules no backups. A Kubernetes CronJob or a volume snapshot does that, and the copy has to leave the volume.
 - **STO-97** Directories the owner mounts next to the volume, such as a vault, are not chad's to back up. The asphodel daemon's volume is not in `chad backup` either.
-- **STO-98** Browser state that a sign-in tool keeps under `home/` is in `chad backup`. A Chromium sidecar's profile is not, and neither is anything a tool keeps under the cache directory. See 15-credentials.md.
+- **STO-98** Browser state that a sign-in tool keeps under `home/` is in `chad backup`. Anything a tool keeps under the cache directory is not.
 - **STO-99** `chad restore <tar>` works only on an empty volume with no daemon running. It refuses while the daemon's lock is held, so the owner restores from a one-off container with the daemon stopped.
 - **STO-179** For `chad restore` a volume is empty when it holds nothing an owner made, which means no file under `secrets/` and no row in `sessions`. A `chad serve` that booted once leaves `db/chad.db` and `repo/work/` with its first commit, so those two alone do not make a volume count as used.
 - **STO-180** A volume whose database cannot be read is not empty.
@@ -480,14 +474,14 @@ The prune is the only job in chad that deletes old session data. It runs on `Clu
 
 ## An unusable database
 
-A database is unusable when it cannot be opened or cannot be migrated. Safe mode cannot fix a database, so chad neither enters it nor counts the boot towards it. The owner still needs to be told, and the chat connection does not depend on the database, so chad stays reachable.
+A database is unusable when it cannot be opened or cannot be migrated. Safe mode cannot fix a database. The owner still needs to be told, and the chat connection does not depend on the database, so chad stays reachable.
 
 - **STO-117** When the database cannot be opened or migrated, for any reason other than the newer `state/version` of STO-48, chad stays up without sessions. A corrupt file and a database that holds a migration the image does not know (STO-41) are both this case.
-- **STO-118** In that state chad connects to Discord from `secrets/connections.json` and answers any owner message with the message below.
+- **STO-118** In that state chad connects to Discord from `secrets/connections.json` and answers any owner message that is a direct message or mentions chad (FAIL-339) with the message below.
 - **STO-136** At a boot that ends in that state chad sends the same message without waiting for an owner message, to the thread recorded in `state/notice-thread` (STO-121), unless `state/db-unusable` exists. What chad does when no thread is recorded, when the post fails or when `state/db-unusable` cannot be written is in 16-failures-logs-status.md.
 - **STO-186** chad writes `state/db-unusable` when it sends the message of STO-136, and a boot that opens and migrates the database removes the file. A crash loop on an unusable database therefore posts the message once and not at every restart.
 - **STO-119** In that state `chad status` and `/status` show the error under "Problems", and `/status` renders with no database. Its key, `database-unusable`, is a live key (STO-169), so "Problems" shows it without reading the `notices` table. See 16-failures-logs-status.md.
-- **STO-120** A boot that could not open the database does not count as unclean. The same holds for a boot that was refused the lock, found a newer `state/version`, or was refused by the shard count check.
+- **STO-120** Withdrawn.
 
 The message of STO-118 and STO-136:
 
@@ -528,14 +522,14 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-9 | TIM-536 item 1 | Tim | not run |  | `rule` | `cli` |
 | STO-10 | TIM-536 item 1, TIM-534 item 11 | Tim | not run |  | `rule` | `cli` |
 | STO-11 | TIM-536 item 1, TIM-535, TIM-559 cold read | Tim | run |  | `rule` | `models` |
-| STO-12 | TIM-542 item 14, amended by TIM-546 | Tim. Architect (Tim has not read) for the kind and the note | not run | TIM-546 | `rule` | `settings` |
-| STO-13 | TIM-536 item 2 | Tim | not run |  | `rule` | `apply` |
+| STO-12 | TIM-542 item 14, amended by TIM-546, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim. Architect (Tim has not read) for the kind and the note | not run | TIM-546 | `rule` | `settings` |
+| STO-13 | TIM-536 item 2, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim | not run |  | `rule` | `apply` |
 | STO-14 | TIM-536 item 2 | Tim | not run |  | `rule` | `apply` |
-| STO-15 | TIM-536 item 2 | Tim | not run |  | `rule` | `apply` |
+| STO-15 | TIM-536 item 2, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim | not run |  | `rule` | `apply` |
 | STO-16 | TIM-542 item 16 | Tim | not run |  | `rule` | `settings` |
 | STO-17 | TIM-541 item 14 | Architect (Tim has not read) | run |  | `rule` | `harness` |
 | STO-18 | TIM-549 item 23, amended by TIM-559 ruling on MCP-G16 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| STO-19 | TIM-537 item 13, amended by TIM-559 rulings on STO-G19 and MCP-G8, TIM-559 round 3 L3 | Tim. Architect (Tim has not read) for the file and its key | not run | TIM-559 | `rule` | `skills-mcp` |
+| STO-19 | TIM-537 item 13, amended by TIM-559 rulings on STO-G19 and MCP-G8, TIM-559 round 3 L3, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim. Architect (Tim has not read) for the file and its key | not run | TIM-559 | `rule` | - |
 | STO-20 | TIM-536 item 10 | Tim | read |  | `rule` | `turns` |
 | STO-21 | TIM-536 item 10, TIM-532 item 15 | Tim | not run |  | `rule` | `turns` |
 | STO-22 | TIM-536 item 10, TIM-541 item 10 | Tim | run |  | `rule` | `turns` |
@@ -558,20 +552,20 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-39 | TIM-536 item 5 | Tim | not run |  | `rule` | `harness` |
 | STO-40 | TIM-536 item 5 | Tim | run for cluster's tables, not run for the key-value layer |  | `rule` | `harness` |
 | STO-41 | TIM-536 item 5 | Tim | not run |  | `rule` | `failures` |
-| STO-42 | TIM-550 items 7 and 8, TIM-553 item 4, TIM-536 items 5 and 13, TIM-541 item 14, amended by TIM-559 ruling on STO-G5 and on STO-G2, TIM-559 round 3 on IMG-G19 and STO-G28 for the copy's version | Tim for the copy and the migrations. Architect (Tim has not read) for the rest | not run |  | `rule` | `backup` |
+| STO-42 | TIM-550 items 7 and 8, TIM-553 item 4, TIM-536 items 5 and 13, TIM-541 item 14, amended by TIM-559 ruling on STO-G5 and on STO-G2, TIM-559 round 3 on IMG-G19 and STO-G28 for the copy's version, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim for the copy and the migrations. Architect (Tim has not read) for the rest | not run |  | `rule` | `backup` |
 | STO-43 | TIM-550 item 7, TIM-541 round 1 point 13, amended by TIM-559 ruling on STO-G5 | Architect (Tim has not read) | run |  | `rule` | `cli` |
 | STO-44 | TIM-536 item 13, amended by TIM-559 ruling on STO-G2 and STO-G3 | Tim. Architect (Tim has not read) for the file name and the test | not run | TIM-559 | `rule` | `backup` |
 | STO-45 | TIM-536 item 13, TIM-541 item 15 | Tim | not run |  | `rule` | `backup` |
 | STO-46 | TIM-541 item 15 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | STO-47 | TIM-541 item 15 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
-| STO-48 | TIM-541 item 14, amended by TIM-557 item 35, TIM-559 ruling on STO-G3 and STO-G5, TIM-559 round 3 on IMG-G19 and STO-G28, TIM-559 cold read | Architect (Tim has not read) | not run | TIM-541, TIM-557, TIM-559 | `rule` | `backup` |
+| STO-48 | TIM-541 item 14, amended by TIM-557 item 35, TIM-559 ruling on STO-G3 and STO-G5, TIM-559 round 3 on IMG-G19 and STO-G28, TIM-559 cold read, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-541, TIM-557, TIM-559 | `rule` | `backup` |
 | STO-49 | TIM-542 item 5, TIM-541 ("What this changes in closed tickets") | Tim | not run |  | `rule` | `cli` |
 | STO-50 | TIM-553 item 4 | Architect (Tim has not read) | run | TIM-553 | `rule` | `harness` |
 | STO-51 | TIM-553 item 4 | Architect (Tim has not read) | run |  | `rule` | `harness` |
 | STO-52 | TIM-553 ("Where the recommendation changed") | Architect (Tim has not read) | not run |  | `definition` | - |
 | STO-53 | TIM-553 item 4 | Architect (Tim has not read) | run |  | `rule` | `harness` |
 | STO-54 | TIM-553 item 4, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| STO-55 | TIM-553 item 4 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
+| STO-55 | TIM-553 item 4, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | STO-56 | TIM-536 item 3 | Tim | not run |  | `rule` | `plugin-api` |
 | STO-57 | TIM-536 item 3 | Tim | not run |  | `rule` | `plugin-api` |
 | STO-58 | TIM-548 item 12 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
@@ -614,7 +608,7 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-95 | TIM-542 item 30 | Tim | not run |  | `rule` | `backup` |
 | STO-96 | TIM-536 item 9 | Tim | not run |  | `definition` | - |
 | STO-97 | TIM-534 item 10, TIM-541 item 23 | Tim. Architect (Tim has not read) for asphodel's volume | not run |  | `rule` | `backup` |
-| STO-98 | TIM-546 item 23, as recorded on TIM-536 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
+| STO-98 | TIM-546 item 23, as recorded on TIM-536, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | STO-99 | TIM-536 item 8, TIM-542 follow-up point 1 | Tim. Architect (Tim has not read) for the refusal while the lock is held | not run | TIM-559 | `rule` | `backup` |
 | STO-100 | TIM-542 item 30 | Tim | not run |  | `rule` | `backup` |
 | STO-101 | TIM-542 follow-up point 2 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
@@ -634,9 +628,9 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-115 | TIM-536 item 16, amended by TIM-557 items 31 and 36, TIM-559 round 3 on FAIL-G7 for the clearing levels, amended by Tim's ruling on a full disk, chat 2026-11-15 | Tim for the 1 GB threshold. Architect (Tim has not read) for the second threshold, the keys and the clearing | not run | TIM-557 | `rule` | `failures` |
 | STO-116 | TIM-536 ("How well each is supported"), TIM-557 ("Facts found before the grilling") | Tim. Architect (Tim has not read) for `bavail * bsize` | read for `statfs`, run for `bavail * bsize` |  | `rule` | `failures` |
 | STO-117 | TIM-536 item 14, amended by TIM-557 item 35 | Tim. Architect (Tim has not read) for the split from STO-48 and the two named cases | not run | TIM-541, TIM-557 | `rule` | `failures` |
-| STO-118 | TIM-536 item 14, amended by TIM-557 item 35 | Tim. Architect (Tim has not read) for the wording | not run |  | `rule` | `failures` |
+| STO-118 | TIM-536 item 14, amended by TIM-557 item 35, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Tim. Architect (Tim has not read) for the wording | not run |  | `rule` | `failures` |
 | STO-119 | TIM-536 item 14, amended by TIM-557 item 27, TIM-559 round 3 C5 | Tim. Architect (Tim has not read) for "Problems", `/status` and the live key | not run |  | `rule` | `failures` |
-| STO-120 | TIM-536 item 14, TIM-541 item 26, TIM-550 item 8, TIM-553 item 4 | Tim for the database. Architect (Tim has not read) for the other three | not run | TIM-541, TIM-550, TIM-553 | `rule` | `apply` |
+| STO-120 | TIM-536 item 14, TIM-541 item 26, TIM-550 item 8, TIM-553 item 4, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim for the database. Architect (Tim has not read) for the other three | not run | TIM-541, TIM-550, TIM-553 | `rule` | - |
 | STO-121 | TIM-557 item 38, amended by TIM-559 rulings on STO-G18 and FAIL-G9, TIM-559 round 3 C4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | STO-122 | TIM-558 item 20 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | STO-123 | TIM-557 item 29 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `turns` |
@@ -656,13 +650,13 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-137 | TIM-559 ruling on STO-G17 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | STO-138 | TIM-559 ruling on STO-G17 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | STO-139 | TIM-559 ruling on IMG-G2 and MOD-G16 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
-| STO-140 | TIM-559 ruling on STO-G18 and REC-G9 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| STO-141 | TIM-559 ruling on STO-G18 and REC-G9 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
+| STO-140 | TIM-559 ruling on STO-G18 and REC-G9, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| STO-141 | TIM-559 ruling on STO-G18 and REC-G9, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | STO-142 | TIM-559 ruling on STO-G18 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | STO-143 | TIM-559 ruling on MOD-G2 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | STO-144 | TIM-559 ruling on STO-G18 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | STO-145 | TIM-559 ruling on STO-G18 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| STO-146 | TIM-559 ruling on STO-G19 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
+| STO-146 | TIM-559 ruling on STO-G19, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
 | STO-147 | TIM-559 ruling on STO-G8, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | STO-148 | TIM-559 ruling on STO-G8 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | STO-149 | TIM-559 ruling on STO-G8, amended by TIM-559 round 3 L4 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
@@ -671,7 +665,7 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-152 | TIM-559 ruling on STO-G10, amended by Tim, chat 2026-11-15 | Architect (Tim has not read). Tim for the change that carries the migration, which was a pull request of its own | not run |  | `definition` | - |
 | STO-153 | TIM-559 ruling on SES-G4 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
 | STO-154 | TIM-559 ruling on STO-G6 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| STO-155 | TIM-559 ruling on STO-G5 | Architect (Tim has not read) | not run |  | `definition` | - |
+| STO-155 | TIM-559 ruling on STO-G5, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `definition` | - |
 | STO-156 | TIM-559 ruling on STO-G2 and STO-G3 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | STO-157 | TIM-559 ruling on STO-G2 and STO-G3 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | STO-158 | TIM-559 ruling on STO-G2 and STO-G3 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `backup` |
@@ -724,7 +718,7 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-205 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
 | STO-206 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
 | STO-207 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
-| STO-208 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
-| STO-209 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
-| STO-210 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
-| STO-211 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| STO-208 | Build, stage 2, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| STO-209 | Build, stage 2, withdrawn by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | - |
+| STO-210 | Build, stage 2, withdrawn by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | - |
+| STO-211 | Build, stage 2, withdrawn by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | - |

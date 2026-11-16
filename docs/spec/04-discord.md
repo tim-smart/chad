@@ -1,6 +1,6 @@
 # What a turn looks like in Discord
 
-This part covers what the owner sees in Discord from the moment a message is sent until the turn is over. That is the status message, the answer, files in both directions, the login code, the two buttons, and the wording of the notices that belong to a turn. It also lists what the bot needs from Discord and the limits of effect/chat's Discord adapter that the design works inside. It leans on 03-sessions-and-turns.md for what a session and a turn are, for `/new` and `/stop` and for the resume after a restart, on 05-model-and-login.md for the login itself, on 15-credentials.md for the commands behind the Enter button, on 06-plugin-api.md for the tool and plugin shapes, on 16-failures-logs-status.md for the wording of a failed turn and of every notice outside a turn, and on 17-testing.md for how this part is tested. Nothing in this part has been run against a real Discord bot.
+This part covers what the owner sees in Discord from the moment a message is sent until the turn is over. That is the status message, the answer, files in both directions, the login code, the Stop button, and the wording of the notices that belong to a turn. It also lists what the bot needs from Discord and the limits of effect/chat's Discord adapter that the design works inside. It leans on 03-sessions-and-turns.md for what a session and a turn are, for `/new` and `/stop` and for the resume after a restart, on 05-model-and-login.md for the login itself, on 06-plugin-api.md for the tool and plugin shapes, on 16-failures-logs-status.md for the wording of a failed turn and of every notice outside a turn, and on 17-testing.md for how this part is tested. Nothing in this part has been run against a real Discord bot.
 
 Four terms are used throughout. The owner is a person whose Discord user id is on chad's allowlist. A session's thread is the DM channel or the Discord thread the session lives in, and a server thread is a session's thread that sits in a Discord server and not in a DM. A notice is a short message that chad itself writes, as opposed to the model's answer. Subtext is Discord's small grey text, which a line gets by starting with `-# `.
 
@@ -9,14 +9,14 @@ Four terms are used throughout. The owner is a person whose Discord user id is o
 DIS-3 and DIS-4 are facts about Discord itself. A scripted gateway answers as its author thinks Discord does and cannot show either, so neither has a test on the scripted gateway, and the hand checks confirm both (see 17-testing.md).
 
 - **DIS-1** chad connects to Discord over the gateway through dfx, so it needs no inbound port. Which gateway layer it uses and how events are replayed after a restart are in 03-sessions-and-turns.md.
-- **DIS-2** Button clicks and modal submits arrive over the same gateway through `layerGatewayInteractions` and are handled by a `ChatInteraction.Handler`. They are not chat events and carry no dedupe key.
+- **DIS-2** Button clicks arrive over the same gateway through `layerGatewayInteractions` and are handled by a `ChatInteraction.Handler`. They are not chat events and carry no dedupe key.
 - **DIS-3** The bot needs Discord's privileged message content intent. Without it chad cannot read an owner's message in a thread when the message does not mention the bot. What `chad setup` does about the intent is in 10-cli.md.
 - **DIS-4** The bot needs the Create Public Threads permission in a server channel where it is mentioned, because a mention in a plain channel opens a thread on that message (see 03-sessions-and-turns.md).
 - **DIS-86** chad identifies to the gateway with the intents for guilds, guild messages, direct messages and message content.
 - **DIS-87** In a server channel the bot needs the permissions View Channel, Send Messages, Send Messages in Threads, Create Public Threads, Read Message History and Attach Files.
 - **DIS-88** One constant in chad holds the intents of DIS-86 and the permissions of DIS-87. The intents chad identifies with come from it, and so do the permissions in the invite URL that `chad connection add discord` prints and the privileged intents that its output names. Message content is the only privileged intent in the list. The constant is written when chad first identifies to the gateway, for DIS-86, and what this rule adds to it is the invite URL and the named intents. The command, the URL's scopes and what `chad setup` shows of it are in 10-cli.md.
 - **DIS-89** The intents of DIS-86 and the permissions of DIS-87 have not been run against a real Discord, and the hand checks are what confirm them (see 17-testing.md). This rule has no test in the gate.
-- **DIS-5** chad registers no Discord slash commands. Its chat commands, such as `/new` and `/stop`, are plain text, and none of them reaches the model. The list of the chat commands is in 10-cli.md, how they are matched is in 03-sessions-and-turns.md, and each command is specified in 03-sessions-and-turns.md, 05-model-and-login.md, 10-cli.md or 15-credentials.md.
+- **DIS-5** chad registers no Discord slash commands. Its chat commands, such as `/new` and `/stop`, are plain text, and none of them reaches the model. The list of the chat commands is in 10-cli.md, how they are matched is in 03-sessions-and-turns.md, and each command is specified in 03-sessions-and-turns.md, 05-model-and-login.md or 10-cli.md.
 - **DIS-6** Only an owner's message triggers chad. A message from anyone else is ignored and never enters a session's history.
 - **DIS-80** chad drops its own messages before it checks for an owner, and an id on the allowlist is an owner whether or not it belongs to a bot. Both rules are in 03-sessions-and-turns.md.
 - **DIS-7** chad posts only in threads it already knows, because effect/chat cannot open a DM from a user id.
@@ -37,8 +37,8 @@ These are properties of effect/chat's Discord adapter and of clanka, read from s
 - **DIS-14** One outgoing message carries at most 10 files and at most 10 MiB. Files go out through `post` and not through `stream`.
 - **DIS-15** Every write sends `allowed_mentions: { parse: [] }` and suppresses link embeds unless `withPostOptions` says otherwise, and a reply does not ping its author by default. chad keeps these defaults everywhere except in DIS-55, DIS-58, DIS-60, DIS-62 and DIS-74.
 - **DIS-16** An `edit` that passes no `actions` removes the buttons the message had.
-- **DIS-17** A click has to be answered inside Discord's 3 seconds, of which the handler gets 2. A modal can open only as the reply to a click or to a slash command, and chad registers no slash commands (DIS-5), so in chad a modal opens only from a button.
-- **DIS-18** A modal's text field cannot be masked, because neither the adapter nor Discord has a masked input.
+- **DIS-17** A click has to be answered inside Discord's 3 seconds, of which the handler gets 2.
+- **DIS-18** Withdrawn.
 
 ## The status message
 
@@ -102,28 +102,20 @@ yield* Effect.ignore(chat.delete(thread(threadId), status.id))
 
 ## Buttons and the modal
 
-- **DIS-38** v1 has two buttons, Stop and Enter, and one modal. It has no selects.
+- **DIS-38** v1 has one button, Stop, and no modal. It has no selects.
 - **DIS-39** The Stop button sits on the status message and does what `/stop` does. The click goes to the session's entity as a `stop` request that is not persisted, and chad acknowledges it inside the deadline in DIS-17 (see 03-sessions-and-turns.md). In the session prototype the acknowledgement took 2 to 38 ms.
 - **DIS-40** A click on the Stop button from anyone who is not an owner is ignored.
-- **DIS-41** The Enter button is posted in the session's thread by `chad secret request` and by `/secret NAME` in chat. An owner's click opens a modal with one text field. A click from anyone who is not an owner is ignored, which means no modal opens, nothing is stored and the button stays.
-- **DIS-96** A click on either button from anyone who is not an owner is answered with the plain acknowledgement, inside the deadline in DIS-17, and chad posts nothing. The acknowledgement ends the click and tells a stranger nothing.
-- **DIS-42** What the owner types into the modal is not a channel message. It arrives as a `ModalSubmitted` interaction and never enters a session or its history.
-- **DIS-43** On a submit chad checks the input, replies to Discord, saves the value, and then edits the message, in that order. The reply comes before the save because a submit that waited for the daemon's queue first was late at 3001 ms and the typed value was lost.
-- **DIS-44** If the save fails after the reply, the message says so and the button stays.
-- **DIS-45** After a submit chad edits the button's message to "Saved NAME" for a stored secret, or to "Code received" for a one-off code, and removes the button.
-- **DIS-46** A button's message ends in one of the states in the table below. The commands, waits and exit codes behind each state are in 15-credentials.md.
-- **DIS-47** The Enter button's id carries the secret's name and its kind, so a click is handled from the id alone and a button still works after a restart. A secret's name matches `[A-Z_][A-Z0-9_]*` and is 64 characters at most, which keeps the id inside Discord's limit.
-- **DIS-48** When an owner clicks a button that the daemon has forgotten after a restart, chad compares the time the secret was saved with the time of the button's message. If the secret was saved later, chad edits the message to "Saved NAME" and opens no modal.
-- **DIS-49** The message that carries the Enter button reads as the agent asking. It names the session and quotes the `-m` text as the agent's words. When no owner is present in the turn, the stored form posts the button with a ping (see 15-credentials.md).
-- **DIS-97** After `/stop` kills a waiting stored-form command, the Enter button stays and its message is not edited, as after a timeout and after an answer in chat. The button works from its id alone.
-
-| What happened | Stored form (`chad secret request NAME`, `/secret NAME`) | One-off code (`chad secret request --code`) |
-| --- | --- | --- |
-| The owner submitted the modal | Edited to `Saved NAME`, button removed | Edited to `Code received`, button removed |
-| The 5 minute wait ran out | Button stays | Edited to `Timed out`, button removed |
-| The owner sent a message in the thread instead | Button stays | Edited to `Answered in chat`, button removed |
-| `/stop` killed the waiting command | Button stays | Edited to `Cancelled`, button removed |
-| The name was saved by another path | Every remembered button for the name, in every thread, is edited to `Saved NAME` | Does not apply |
+- **DIS-41** Withdrawn.
+- **DIS-96** A click on the Stop button from anyone who is not an owner is answered with the plain acknowledgement, inside the deadline in DIS-17, and chad posts nothing. The acknowledgement ends the click and tells a stranger nothing.
+- **DIS-42** Withdrawn.
+- **DIS-43** Withdrawn.
+- **DIS-44** Withdrawn.
+- **DIS-45** Withdrawn.
+- **DIS-46** Withdrawn.
+- **DIS-47** Withdrawn.
+- **DIS-48** Withdrawn.
+- **DIS-49** Withdrawn.
+- **DIS-97** Withdrawn.
 
 The Stop button's click handler in the session prototype:
 
@@ -231,10 +223,10 @@ The login itself, its single shared wait and its timeout are in 05-model-and-log
 - **DIS-103** When `/new` arrives during a running turn, chad posts both notices, the "Stopped after" notice of DIS-59 first and the "New session started" notice of DIS-75 second.
 - **DIS-76** After `/stop` with nothing running chad posts the notice "Nothing is running."
 - **DIS-77** When chad cannot open a thread on a mention, it posts in the channel "I couldn't open a thread on that message (<Discord's reason>). I need Create Public Threads here, or you can DM me." and drops the event. This one is a normal message and not subtext, because it is the only thing the owner gets back for that message and it asks the owner to fix a permission.
-- **DIS-78** A notice that belongs to no turn, such as a skipped plugin or an automatic safe mode, follows the notice rule in 16-failures-logs-status.md, which gives its wording, where it goes and when it may be sent again.
+- **DIS-78** A notice that belongs to no turn, such as a skipped plugin, follows the notice rule in 16-failures-logs-status.md, which gives its wording, where it goes and when it may be sent again.
 - **DIS-83** A command run from a session that changes what is loaded or deletes stored data posts one subtext line in that session's thread (see 16-failures-logs-status.md).
 - **DIS-84** Every text chad posts in chat is a template in one `Messages` module, and tests refer to a message by its name there (see 17-testing.md).
-- **DIS-79** The local dev adapter is a connection kind whose chat platform is effect/chat's `ChatTest`, running outside the daemon. The platform lives in the repo's test support and is not in the image (see 17-testing.md, and 10-cli.md for the `connection` commands). `ChatTest` shows subtext and relative timestamps as their raw text. It can press the Stop button through `click` and `interact`, and it supports modals.
+- **DIS-79** The local dev adapter is a connection kind whose chat platform is effect/chat's `ChatTest`, running outside the daemon. The platform lives in the repo's test support and is not in the image (see 17-testing.md, and 10-cli.md for the `connection` commands). `ChatTest` shows subtext and relative timestamps as their raw text. It can press the Stop button through `click` and `interact`.
 - **DIS-85** What only a real Discord can show of this part is checked by a wire slice over a scripted gateway and by the checks a person does by hand once, at the end of the build (see 17-testing.md).
 
 Every wording this part fixes, in one place. Text in angle brackets is filled in, and `big.zip`, "48 MB" and "48s" stand for the real name, size and duration. The wordings of a failed turn, of the give-up message, of a login that timed out or failed, of the retry line and of every notice outside a turn are in 16-failures-logs-status.md.
@@ -250,7 +242,6 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | `Read your message: <first 60 characters>` | Status line | The agent read a steering message (DIS-30) |
 | `Restarted mid-turn, picking it back up.` | Status line | A turn was resumed after a restart (DIS-32) |
 | `Waiting for login` | Status line | A login is pending for the session (DIS-29) |
-| `Saved NAME`, `Code received`, `Timed out`, `Cancelled`, `Answered in chat` | Edit of the Enter button's message | See the table under DIS-49 |
 
 ## Gaps
 
@@ -265,9 +256,8 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 - **DIS-G14** [builder] The wording and form of the login prompt that carries the verify URL and the code. The login prototype logged "Open <verify URL> and enter <code>". TIM-533 item 10 and TIM-544.
 - **DIS-G15** [builder] The value `sendFile` returns on success and the text of its errors. TIM-533 item 7.
 - **DIS-G16** [builder] When the skipped-file notice is posted relative to the status message, and the wording of the matching line in the prompt. TIM-532 item 15 and TIM-533 item 12.
-- **DIS-G19** [builder] The style of the Stop button and the label, title and style of the Enter button and its modal. The prototypes used a "danger" Stop, a "primary" Enter, the title "Enter a secret" and the field label "Value" (TIM-543, TIM-554).
-- **DIS-G20** [builder] The wording of the Enter button's message when a save fails after the modal's reply. TIM-554 decision 5.
-- **DIS-G26** [builder] Whether a click or a modal submit that Discord delivers a second time after the gateway resumes is handled a second time. DIS-2 says an interaction has no dedupe key and no rule says what a second delivery does. Recommended: find out in the wire slice whether dfx delivers one twice at all, and if it does, handle it again with no dedupe of chad's own.
+- **DIS-G19** [builder] The style of the Stop button. The prototypes used a "danger" Stop (TIM-543).
+- **DIS-G26** [builder] Whether a click that Discord delivers a second time after the gateway resumes is handled a second time. DIS-2 says an interaction has no dedupe key and no rule says what a second delivery does. Recommended: find out in the wire slice whether dfx delivers one twice at all, and if it does, handle it again with no dedupe of chad's own.
 - **DIS-G27** [builder] What the daemon does with a gateway that Discord has closed for good, after it writes `chat.refused` (DIS-110). One reading keeps the daemon up with that connection stopped until the token changes or the daemon restarts, and the other exits so that the container's restart policy takes over. Recommended: the daemon stays up, stops reconnecting that connection and keeps serving the socket, since 16-failures-logs-status.md lists a chat connection that is not connected under "Problems". Which closes write `chat.disconnected` and which fields the three lines carry belong with the event table in 16-failures-logs-status.md.
 - **DIS-G28** [builder] What the notice of DIS-72 links to when the pending login was started by `chad login` or `chad model` and so has no thread of its own. Recommended: follow what 05-model-and-login.md settles for where such a login's code is posted. If the code also goes to the thread that a notice outside a turn goes to, link that thread.
 
@@ -276,10 +266,10 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | Rule | Source | Agreed by | Support | Changed by | Kind | Slice |
 | --- | --- | --- | --- | --- | --- | --- |
 | DIS-1 | Map, facts found at charting | charting | read |  | `rule` | `wire` |
-| DIS-2 | TIM-533 facts comment, TIM-543, TIM-559 cold read | Tim | read |  | `rule` | `discord-ui` |
+| DIS-2 | TIM-533 facts comment, TIM-543, TIM-559 cold read, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim | read |  | `rule` | `discord-ui` |
 | DIS-3 | TIM-532 item 5, TIM-542 item 33, TIM-559 cold read | Tim | not run |  | `fact` | `wire` |
 | DIS-4 | TIM-532 item 1, TIM-533 item 12 | Tim | not run |  | `fact` | `wire` |
-| DIS-5 | TIM-532 item 6, TIM-542 item 22, TIM-546 item 15, TIM-559 cold read | Tim, and Architect (Tim has not read) for `/secret` | not run | TIM-546 | `rule` | `turns` |
+| DIS-5 | TIM-532 item 6, TIM-542 item 22, TIM-546 item 15, TIM-559 cold read, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim, and Architect (Tim has not read) for `/secret` | not run | TIM-546 | `rule` | `turns` |
 | DIS-6 | Map, agreed at charting, TIM-532 item 5 | charting | not run |  | `rule` | `harness` |
 | DIS-7 | TIM-530 resolution, TIM-533 facts comment | Tim | read |  | `rule` | `harness` |
 | DIS-8 | Map, facts found at charting, TIM-533 item 1 | Tim | read |  | `rule` | `wire` |
@@ -291,8 +281,8 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-14 | TIM-533 facts comment, map facts found at charting | Tim | read |  | `fact` | `discord-ui` |
 | DIS-15 | TIM-533 facts comment, TIM-557 items 15 and 37 | Tim, and Architect (Tim has not read) for the exceptions in DIS-60, DIS-62 and DIS-74 | read |  | `rule` | `wire` |
 | DIS-16 | TIM-533 facts comment | Tim | read |  | `fact` | `discord-ui` |
-| DIS-17 | TIM-533 facts comment, TIM-546 facts comment, read again under TIM-559 round 2 R8 | Tim, and Architect (Tim has not read) for the wording after the second read | read |  | `fact` | `discord-ui` |
-| DIS-18 | TIM-546 item 17 | Architect (Tim has not read) | read |  | `fact` | `settings` |
+| DIS-17 | TIM-533 facts comment, TIM-546 facts comment, read again under TIM-559 round 2 R8, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim, and Architect (Tim has not read) for the wording after the second read | read |  | `fact` | `discord-ui` |
+| DIS-18 | TIM-546 item 17, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | read |  | `fact` | - |
 | DIS-19 | TIM-533 item 1, amended by TIM-559 ruling on DIS-G8 and SES-G10 | Tim, and Architect (Tim has not read) for the order | not run |  | `rule` | `discord-ui` |
 | DIS-20 | TIM-533 item 1 | Tim | not run |  | `rule` | `discord-ui` |
 | DIS-21 | TIM-533 item 1 | Tim | not run |  | `rule` | `discord-ui` |
@@ -312,18 +302,18 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-35 | TIM-533 item 3 | Tim | not run |  | `rule` | `discord-ui` |
 | DIS-36 | TIM-533 resolution, passed on to other tickets | Tim | not run |  | `definition` | - |
 | DIS-37 | TIM-533 item 11 | Tim | not run |  | `rule` | `plugin-api` |
-| DIS-38 | TIM-533 item 8, amended by TIM-546 item 16 | Architect (Tim has not read) | not run | TIM-546 | `rule` | `settings` |
+| DIS-38 | TIM-533 item 8, amended by TIM-546 item 16, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-546 | `rule` | `settings` |
 | DIS-39 | TIM-533 item 8, TIM-543 resolution | Tim | run |  | `rule` | `discord-ui` |
 | DIS-40 | TIM-533 item 8 | Tim | not run |  | `rule` | `discord-ui` |
-| DIS-41 | TIM-546 items 9 and 15 | Architect (Tim has not read) | run |  | `rule` | `settings` |
-| DIS-42 | TIM-546 facts comment | Architect (Tim has not read) | read |  | `fact` | `settings` |
-| DIS-43 | TIM-546 item 9, amended by TIM-554 decision 5 | Architect (Tim has not read) | run |  | `rule` | `settings` |
-| DIS-44 | TIM-554 decision 5 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| DIS-45 | TIM-546 items 9 and 11 | Architect (Tim has not read) | run |  | `rule` | `settings` |
-| DIS-46 | TIM-546 items 12 and 14, TIM-554 decision 8 | Architect (Tim has not read) | run |  | `rule` | `settings` |
-| DIS-47 | TIM-546 items 9 and 14, TIM-554 decision 6 | Architect (Tim has not read) | run |  | `rule` | `settings` |
-| DIS-48 | TIM-554 decision 7 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| DIS-49 | TIM-546 items 10 and 13 | Architect (Tim has not read) | run |  | `rule` | `settings` |
+| DIS-41 | TIM-546 items 9 and 15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
+| DIS-42 | TIM-546 facts comment, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | read |  | `fact` | - |
+| DIS-43 | TIM-546 item 9, amended by TIM-554 decision 5, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
+| DIS-44 | TIM-554 decision 5, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| DIS-45 | TIM-546 items 9 and 11, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
+| DIS-46 | TIM-546 items 12 and 14, TIM-554 decision 8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
+| DIS-47 | TIM-546 items 9 and 14, TIM-554 decision 6, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
+| DIS-48 | TIM-554 decision 7, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| DIS-49 | TIM-546 items 10 and 13, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | DIS-50 | Map, agreed at charting, TIM-533 item 6 | Tim | not run |  | `rule` | `harness` |
 | DIS-51 | TIM-533 item 6 and facts comment | Tim | read |  | `rule` | `discord-ui` |
 | DIS-52 | TIM-533 item 6 | Tim | not run |  | `rule` | `discord-ui` |
@@ -352,8 +342,8 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-75 | TIM-533 item 12 | Tim | not run |  | `rule` | `turns` |
 | DIS-76 | TIM-533 item 12 | Tim | run |  | `rule` | `turns` |
 | DIS-77 | TIM-532 item 1, TIM-533 item 12, amended by TIM-559 ruling on DIS-G22 | Tim, and Architect (Tim has not read) for the normal message | not run | TIM-559 | `rule` | `turns` |
-| DIS-78 | TIM-534 item 15, amended by TIM-557 items 36, 38 and 40 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
-| DIS-79 | TIM-533 resolution, support section, TIM-546 facts comment, amended by TIM-558 items 20 to 22 | Tim, and Architect (Tim has not read) for the connection kind and `ChatTest` running outside the daemon | read |  | `rule` | `harness` |
+| DIS-78 | TIM-534 item 15, amended by TIM-557 items 36, 38 and 40, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
+| DIS-79 | TIM-533 resolution, support section, TIM-546 facts comment, amended by TIM-558 items 20 to 22, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim, and Architect (Tim has not read) for the connection kind and `ChatTest` running outside the daemon | read |  | `rule` | `harness` |
 | DIS-80 | TIM-558 item 40 | Architect (Tim has not read) | not run | TIM-558 | `rule` | `harness` |
 | DIS-81 | TIM-557 item 4 | Architect (Tim has not read) | not run |  | `rule` | `discord-ui` |
 | DIS-82 | TIM-557 items 32 and 33, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
@@ -370,8 +360,8 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-93 | TIM-559 ruling on DIS-G9 | Architect (Tim has not read) | not run |  | `rule` | `discord-ui` |
 | DIS-94 | TIM-559 ruling on DIS-G9 | Architect (Tim has not read) | not run |  | `rule` | `discord-ui` |
 | DIS-95 | TIM-559 ruling on SES-G17 | Architect (Tim has not read) | not run |  | `rule` | `discord-ui` |
-| DIS-96 | TIM-559 ruling on DIS-G18 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| DIS-97 | TIM-559 ruling on DIS-G20 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
+| DIS-96 | TIM-559 ruling on DIS-G18, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
+| DIS-97 | TIM-559 ruling on DIS-G20, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | DIS-98 | TIM-559 ruling on DIS-G12 | Architect (Tim has not read) | not run |  | `rule` | `discord-ui` |
 | DIS-99 | TIM-559 ruling on DIS-G12 | Architect (Tim has not read) | not run |  | `rule` | `discord-ui` |
 | DIS-100 | TIM-559 ruling on DIS-G12, widened by TIM-559 round 3 on DIS-G24 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `discord-ui` |

@@ -35,7 +35,7 @@ export const shardCountChanged = (stored: number, now: number) =>
 
 /** Another `chad serve` holds the daemon lock on the volume (docs/spec/01-image-and-volume.md, IMG-60). */
 export const lockHeld = (data: string) =>
-  `chad serve: another chad serve holds the lock on ${data}. This boot is not counted.`
+  `chad serve: another chad serve holds the lock on ${data}.`
 
 /** The socket path is longer than a unix socket path may be. `chad serve` and the CLI print the same line (IMG-63, CLI-12). */
 export const socketPathTooLong = (path: string, bytes: number, limit: number) =>

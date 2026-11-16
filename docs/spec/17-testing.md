@@ -94,9 +94,9 @@ In the plugin API prototype the first four failed with `Type 'Own' is not assign
 - **TST-23** Layer 1 checks that the `chad` package exports exactly its four modules, which are `.`, `./Plugin`, `./Session` and `./Turns` (see 01-image-and-volume.md).
 - **TST-24** Layer 1 runs the doc comment check of TST-88.
 - **TST-177** Once the `plugin-api` slice is delivered, layer 1 type-checks the signature code blocks of the spec against the `chad` package.
-- **TST-25** Layer 2 tests pure code under `it.effect` with the test clock. It holds at least the following: the `${NAME}` expander against clanka's, cron next-run times with timezones and daylight saving changes, `chad.json` and `mcp.json` validation, the splitting of an answer into Discord messages, the status message's text, TOTP against the RFC vectors, secret names, log rotation, and each message template against the spec's wording.
+- **TST-25** Layer 2 tests pure code under `it.effect` with the test clock. It holds at least the following: the `${NAME}` expander against clanka's, cron next-run times with timezones and daylight saving changes, `chad.json` and `mcp.json` validation, the splitting of an answer into Discord messages, the status message's text, secret names, log rotation, and each message template against the spec's wording.
 - **TST-26** Layer 3 runs the real daemon in one process, which is the test's own (TST-203), on live time, built from its own composition root, with the chat platform, the network and the durations supplied by the test. Sessions, turns, hooks, the plugin swap, the MCP rebuild, timers, cron, credentials and the CLI are tested here.
-- **TST-27** Layer 4 runs the same daemon as a child process that the driver kills or stops at a chosen event and restarts on the same volume. A resumed turn, the give-up, the boot counter and safe mode, the lock, the stop, backup and restore, migrations and an unusable database are tested here.
+- **TST-27** Layer 4 runs the same daemon as a child process that the driver kills or stops at a chosen event and restarts on the same volume. A resumed turn, the give-up, safe mode, the lock, the stop, backup and restore, migrations and an unusable database are tested here.
 - **TST-28** In layer 4 the chat state and the model script live in the driver, because the process being killed cannot hold them.
 - **TST-29** Layer 5 runs the built image on a real Docker engine, with the real `chad serve`.
 - **TST-30** Layer 6 holds the checks that need a Discord bot or a Codex login. None of it gates a pull request.
@@ -149,7 +149,7 @@ The product carries no test code. Three seams make that possible. The daemon is 
 - **TST-216** The recording of TST-43 is made with `scripts/record-codex.ts`, which Tim runs once on his own Codex login (TST-165) and which no test or job runs on a real login. It logs in by the device flow into a token store held in memory, drives the Codex model as chad builds it through the flows of TST-39 that reach the Codex side and the refusals of TST-40, and records each HTTP exchange and each socket frame. The flows are the login and a refresh, an answer over the socket and over HTTP, a tool call and the call that carries its result, a stop during a streaming response, and the socket idling out and reconnecting. It writes the recording only through the stripper of TST-41, and writes nothing when a token, the account id or a code of the login that it saw is still in the result. A usage limit cannot be provoked on demand, so the recording lists it as missing until a second run, made while the login is at its limit, adds its frame. A test runs the recorder on the fake's Codex side with the fake's credentials. The builder then replaces the hand-made frames with the recording and runs the comparison, and the slice does not wait for that. This settles TST-G22.
 - **TST-44** The image layer stays on `openai-compat`. The shipped binary cannot be pointed at a fake Codex host, and chad gets no test certificate authority and no host entries to make that possible.
 - **TST-45** A kill point is made by holding something outside the core, which is a model response, a fixture plugin's hook or an MCP server. The daemon gets no pause points.
-- **TST-213** The test of SES-20 provokes its defect with a fixture plugin's hook that dies, because clanka contains every fake model response tried for it: an unknown tool, arguments that are not an object, a failed call, and a script that throws `null`, leaves a rejection unhandled or completes with a circular value.
+- **TST-213** Withdrawn.
 - **TST-46** Layers 3 and 4 import the built package from `dist`, not chad's source through vite. A plugin's imports are answered by the host's `require`, so source loaded through vite could give a plugin a second copy of `chad/Plugin`.
 - **TST-47** One layer 3 scenario asserts that the running daemon holds one copy of `chad` and one copy of `effect`.
 
@@ -195,7 +195,7 @@ Running the daemon on `ChatTest` leaves out what only Discord's side of effect/c
 
 The allowlist of owners is chad's one security rule, so each way in gets a test from someone who is not an owner.
 
-- **TST-65** The allowlist gets a negative test for every inbound kind from a non-owner in layer 3. The kinds are a direct message, a mention, a Stop click, an Enter click, a modal submit and each slash command.
+- **TST-65** The allowlist gets a negative test for every inbound kind from a non-owner in layer 3. The kinds are a direct message, a mention, a Stop click and each slash command.
 - **TST-66** The allowlist gets one negative test in the wire slice.
 - **TST-67** chad drops a message that is `isSelf` before the owner check. Without that order, chad's own id on the owner list would make every answer in a thread start a turn (see 04-discord.md). On `ChatTest` the scenario delivers a hand-made event whose author is marked `isSelf` and whose id is on the owner list. How Discord's side sets the mark is what the wire slice covers (TST-61).
 - **TST-68** Apart from the `isSelf` drop, the allowlist is by id and nothing else. An id on the list is an owner whether or not it is a bot, there is no flag for bots, and `chad owner add` says nothing special about one. A webhook is an owner only if its id was added.
@@ -236,15 +236,8 @@ The first table holds the durations chad sets, which are the ones `Timings` hold
 | Stop, queued hooks | Until 50 seconds from SIGTERM, which is 35 seconds after the requests' 15 | 01-image-and-volume.md (IMG-83) |
 | Stop, close of plugin scopes and then the MCP layer | Until 60 seconds from SIGTERM, which is the last 10 seconds | 01-image-and-volume.md (IMG-83) |
 | Stop, forced exit with code 1 | 60 seconds from SIGTERM | 01-image-and-volume.md (IMG-82) |
-| MCP rebuild, drain of calls in flight | 30 seconds | 12-skills-and-mcp.md (MCP-70) |
-| MCP rebuild, wait for each interrupted call to stop | 1 second | 12-skills-and-mcp.md (MCP-130) |
-| MCP rebuild, pause between interrupting calls and closing the old layer | 250 milliseconds | 12-skills-and-mcp.md (MCP-72) |
-| MCP call held during a rebuild or before the first layer connects, backstop | 120 seconds | 12-skills-and-mcp.md (MCP-78, MCP-91) |
 | Model login timeout | 15 minutes | 05-model-and-login.md (MOD-44) |
 | Model trial request, deadline with no retry | 60 seconds | 05-model-and-login.md (MOD-88) |
-| MCP login, life of a pending login | 10 minutes | 12-skills-and-mcp.md (MCP-61) |
-| `chad secret request` wait | 5 minutes | 15-credentials.md (CRED-56) |
-| TOTP, time left in the window under which `code` and `run` wait for the next one | 5 seconds | 15-credentials.md (CRED-36) |
 | Session passivation after idle | 30 minutes | 03-sessions-and-turns.md (SES-92) |
 | Cluster's `entityMessagePollInterval` | 1 second | 03-sessions-and-turns.md (SES-24), 02-storage.md (STO-36) |
 | `MessageRetention` for the `Session` entity | One day | 03-sessions-and-turns.md (SES-21) |
@@ -253,7 +246,6 @@ The first table holds the durations chad sets, which are the ones `Timings` hold
 | `chad health`, time the daemon has to answer the ping | 2 seconds | 01-image-and-volume.md (IMG-74), 10-cli.md (CLI-127) |
 | CLI, time the daemon has to answer before the CLI says "starting or frozen" | 2 seconds | 10-cli.md (CLI-15) |
 | Daemon lock, busy timeout | 3 seconds | 10-cli.md (CLI-26) |
-| Boot counter, time after the boot finished loading at which it clears | 60 seconds | 01-image-and-volume.md (IMG-90), 09-repo-and-recovery.md (REC-68) |
 | Free space check, interval after the check at boot | 1 hour | 02-storage.md (STO-114), 01-image-and-volume.md (IMG-67) |
 | Prune, time of day | 04:00 in the owner's timezone | 02-storage.md (STO-104) |
 | Prune, age of a reset session's history | 30 days | 02-storage.md (STO-105) |
@@ -270,22 +262,19 @@ The second table holds durations the spec names that chad does not set. They bel
 | Close of a stdio MCP server that ignores its stdin closing and SIGTERM | 4 seconds each, one after another | clanka | 12-skills-and-mcp.md (MCP-74) |
 | `Agent.TurnTimeout` | 5 minutes by default | clanka | 16-failures-logs-status.md (FAIL-79) |
 | Silence of one model call after which chad ends the turn | 15 minutes, which is three turn timeouts in a row on that call | clanka for the timeout, chad for the count of three | 16-failures-logs-status.md (FAIL-84) |
-| `run` moving a command to the background | 2 minutes | clanka | 15-credentials.md (CRED-88) |
-| `bash` timeout in the `chad secret request` recipe | `timeoutMs: 330000`, and `scriptTimeout` unset or 330 seconds or more | The `credentials` skill's recipe | 15-credentials.md (CRED-62) |
 | Codex WebSocket idle close | 60 seconds | effect's `OpenAiClient` | 05-model-and-login.md, 16-failures-logs-status.md (FAIL-96) |
 | Device code life | 15 minutes after it is issued | The provider | 05-model-and-login.md (MOD-44) |
 | RPC client ping | 5 seconds | effect RPC's default | 10-cli.md (CLI-19) |
 | SQLite connection busy timeout | 5 seconds | `@effect/sql-sqlite-node` | 02-storage.md (STO-33) |
-| Interaction deadline for a click or a modal | 3 seconds, of which the handler gets 2 | Discord and effect/chat | 04-discord.md (DIS-17), 03-sessions-and-turns.md (SES-74) |
+| Interaction deadline for a click | 3 seconds, of which the handler gets 2 | Discord and effect/chat | 04-discord.md (DIS-17), 03-sessions-and-turns.md (SES-74) |
 | Least time between two writes | 1.5 seconds | The Discord adapter | 04-discord.md (DIS-13) |
 | Handler time under `layerDispatchHook` before the shard reconnects | About 41 seconds | effect/chat and Discord | 03-sessions-and-turns.md |
 | Reconnect delay after a refused event | 1 second, doubling up to 2 minutes | dfx | 03-sessions-and-turns.md (SES-128) |
-| TOTP window | 30 seconds unless the URI says otherwise | The stored URI | 15-credentials.md (CRED-21) |
 | `HEALTHCHECK` | `--interval=30s --timeout=5s --retries=3 --start-period=60s --start-interval=2s` | The Dockerfile | 01-image-and-volume.md (IMG-79) |
 | Kubernetes liveness probe | Every 30 seconds, 5 second timeout, 3 failures | The example manifests | 01-image-and-volume.md (IMG-76) |
 | Kubernetes startup probe | Every 2 seconds, 30 failures | The example manifests | 01-image-and-volume.md (IMG-77) |
 | Stop grace period | 90 seconds | The Kubernetes example | 01-image-and-volume.md (IMG-87) |
-| Docker's default stop timeout | 10 seconds | Docker | 01-image-and-volume.md (IMG-91) |
+| Docker's default stop timeout | 10 seconds | Docker | 01-image-and-volume.md |
 
 ## Suite rules
 
@@ -302,7 +291,7 @@ These rules come from traps the prototypes hit. Forty scenarios started at once 
 - **TST-84** Scenarios assert on the chat transcript, CLI output, `chad db query` and named log events. They never assert on internals or on message text, and they refer to a message by its name in the `Messages` module of TST-90.
 - **TST-85** A scenario that depends on an order states the order in the test. The check that a removed plugin's queued hook is dropped and logged holds the first hook open until the plugin is removed (see 08-apply-and-swap.md).
 - **TST-86** Each scenario's volume sits under a short path, because a runner's temporary path is long and a unix socket path holds at most 107 bytes on Linux and 103 bytes on macOS.
-- **TST-87** The driver kills its process group at the end of a scenario, and fails the scenario if a daemon or an MCP child process outlives it.
+- **TST-87** The driver kills its process group at the end of a scenario, and fails the scenario if a daemon or an MCP child process outlives it. It also ends every other process it recorded for the scenario, such as a session's background job that left the group. That part is best effort, because an unprivileged driver cannot find a process that left the group, dropped the scenario's mark and lost its parent.
 - **TST-189** The driver of the process scenarios points the daemon at a temporary directory with `CHAD_DATA`, and sets `HOME`, the npm prefix and the cache directory to paths inside that directory. `CHAD_DATA` moves none of the three, so without this a `bash` command in a scripted turn would write into the developer's home (see 01-image-and-volume.md for the variables).
 
 ## Checks on skills, messages and closed lists
@@ -336,7 +325,6 @@ Other parts name checks that "CI" makes. Each one has a layer.
 | The checks on the bundled skills, with the examples path and effect's `AGENTS.md` and `ai-docs` paths | 14-self-edit-skill.md (SELF-109 to SELF-116), 01-image-and-volume.md (IMG-12), 12-skills-and-mcp.md (MCP-19), 11-settings.md (SET-56) | 5 |
 | The lock survives forced garbage collections | 10-cli.md (CLI-27) | 4 |
 | The removed plugin's queued hook, with the first hook held open | 08-apply-and-swap.md (SWAP-115) | 3 |
-| The seven credential runs that were asked for and not made | 15-credentials.md (CRED-104) | 3 for six of them. The container one is part of the one run on Tim's k3s node (TST-111) |
 
 - **TST-99** Each check that another part assigns to CI runs in the layer the table above gives.
 
@@ -347,8 +335,8 @@ The prototypes left a list of things that were decided and never run. Each is pl
 - **TST-100** Layer 2 tests cron expressions, which no prototype ran. Only one-shot times and fixed intervals were run.
 - **TST-179** The layer 2 tests of cron next-run times pin real dates in `Pacific/Auckland`, with a time inside the hour that a daylight saving change skips and a time inside the hour that it repeats (see 13-timers-and-cron.md for the expected times). The dates are real ones because the source of effect's `Cron` warns that `next` near a gap is not guaranteed to be the nearest match.
 - **TST-180** One layer 2 test checks that the reset time of a usage limit, which chad holds in milliseconds, is divided down to seconds in the Discord timestamp chad posts, because a Discord timestamp takes seconds (see 16-failures-logs-status.md).
-- **TST-101** Layer 3 tests the following, none of which a prototype ran: context-overflow compaction with a scripted context-length error, several sessions at once, the bundled plugins, plugin scopes closing before the MCP layer, the Enter modal on `ChatTest`, and `chad mcp login` with the "needs login" message against the MCP SDK's example OAuth server run locally.
-- **TST-102** Layer 3 tests six of the seven credential runs that were asked for and not made: retiring a forgotten button on a click, the name limit at `request` and `/secret`, a save failing after the modal's reply, `${NAME}` in `mcp.json` naming a TOTP secret failing the apply, a dotenv value with a newline or with both `'` and ` #`, and where an MCP server's working directory is (see 15-credentials.md).
+- **TST-101** Layer 3 tests the following, none of which a prototype ran: context-overflow compaction with a scripted context-length error, several sessions at once, the bundled plugins, and plugin scopes closing before the MCP layer.
+- **TST-102** Withdrawn.
 - **TST-103** Withdrawn.
 - **TST-181** One test runs the predicate that tells clanka's turn timeout from another error against real clanka and a model that stays silent, so that a change to clanka's wording fails CI and cannot remove the silence bound unnoticed (see 16-failures-logs-status.md). Whether that test shortens clanka's turn timeout is part of TST-G2.
 - **TST-104** Layer 4 tests the following, none of which a prototype ran: a backup and restore round trip, a migration from each released schema, the copy made before a migration, a newer `state/version`, a corrupt database, an unknown migration, a kill while a turn waits on the hooks of a compacted turn, a kill straight after a message steered a turn, a kill of the daemon during a CLI call, a daemon stopped with SIGSTOP, the shard guard and its place before the migrations, the queued hooks in a stop, and the lock under forced garbage collections.
@@ -360,7 +348,7 @@ The prototypes left a list of things that were decided and never run. Each is pl
 - **TST-183** A layer 4 scenario kills the daemon on each side of the commit that stores a steering message in the history and records it as read. After a kill before the commit the redelivered message steers the turn again, after a kill after the commit it does not, and the stored history holds the message once in both cases. The rule that a message is in the stored history exactly once (SES-47 in 03-sessions-and-turns.md) counts as proven only when this scenario passes.
 - **TST-109** Layer 5 tests everything the image prototype ran, and the following, none of which a prototype ran: Docker marking a daemon that lost its lock unhealthy, one copy of effect, no Claude Code binary, a boot in safe mode with every bundled plugin on its defaults, and the bundled skill checks.
 - **TST-184** Withdrawn.
-- **TST-110** The Kubernetes checks are a script that runs against a cluster. They are the probes, `fsGroup` on a local-path volume, the backup CronJob and the browser sidecar's wiring in chad's pod (see 01-image-and-volume.md).
+- **TST-110** The Kubernetes checks are a script that runs against a cluster. They are the probes, `fsGroup` on a local-path volume and the backup CronJob (see 01-image-and-volume.md).
 - **TST-111** The Kubernetes checks run once on Tim's k3s node, as an item on the live list, because the filesystem on that node was never checked.
 - **TST-166** One named test checks that the text the model reads from a script's output is byte-identical at every value of `CHAD_LOG_LEVEL`. The values are `all`, `trace`, `debug`, `info`, `warn`, `error`, `fatal` and `none`. It tests the rule that the level filters chad's own sinks and never what a script sees (see 16-failures-logs-status.md).
 - **TST-167** Withdrawn.
@@ -431,7 +419,7 @@ The live layer has two lists, the hand checks and the Codex list. Tim runs each 
 
 ### The hand checks
 
-- **TST-144** A person who is an owner does five things by hand once, at the end of the build. Three are a direct message, a click on Stop, and the Enter modal completed. The fourth is a mention of chad in a server channel, which opens a thread, followed by a message in that thread that does not mention chad. The fifth is `chad setup` on a real bot. A bot cannot send another bot a direct message, and nothing can click a button through Discord's API. Both statements are from memory and were not checked. The fourth and the fifth are what confirm DIS-3, DIS-4, SES-8, DIS-89 and CLI-122 on a real Discord, which no job talks to.
+- **TST-144** A person who is an owner does four things by hand once, at the end of the build. Two are a direct message and a click on Stop. The third is a mention of chad in a server channel, which opens a thread, followed by a message in that thread that does not mention chad. The fourth is `chad setup` on a real bot. A bot cannot send another bot a direct message, and nothing can click a button through Discord's API. Both statements are from memory and were not checked. The third and the fourth are what confirm DIS-3, DIS-4, SES-8, DIS-89 and CLI-122 on a real Discord, which no job talks to.
 
 ### The Codex list
 
@@ -548,7 +536,7 @@ Once:
 - **TST-G10** [builder] How a script for the fake model server is written, how a hold is released, and the shape of the one interface to the fakes are not given. Whether the call index counts a request the daemon makes for itself, such as the model check at start, is not given either. Recommended: the fake tells that check apart by its fixed prompt (see 05-model-and-login.md) and does not count it. TIM-558 items 14 and 24.
 - **TST-G11** [builder] The scenarios of the wire slice are not listed. The decision says "about a dozen" and names what they cover. How the wire slice points the Discord adapter's REST calls at the fake REST server is not given either. TIM-558 item 26.
 - **TST-G15** [builder] The layer of the test of TST-166 and the layer of the recipe check of TST-169 are not named. TIM-557 items 6 and 43.
-- **TST-G16** [builder] These things were recorded as not run and no decision places any of them in a layer by name. Each falls under TST-173 like any other rule. From TIM-558 and the tickets before it they are the lock and the volume on filesystems other than ext4, tmpfs, NFS and sshfs; a real `npx -y` MCP server; the setup wizard; a hook that ignores interruption, a secret change during a swap, and the next boot with a setting value that still fails; a secret in an MCP HTTP header and the hint for a long server list; a background task that outlives an Agent rebuild; on Codex, the `session-id` header without `prompt_cache_key`, turns with no owner present failing without a call until a login succeeds, background sub-agents, efforts above `medium` on the three smaller models and anything longer than five minutes; and for credentials a real site, a derived image with a browser, `chad backup` with browser state and `--note ""`. From TIM-557 they are the plugin name, the Info cap and the ids on a copied log line together, with the lines of sub-agents, MCP calls and a background task; the history reconcile, a lost `HistoryReplaced` and the window with real SQLite; the update message, also after passivation; the retry count per agent and the silence bound; what a real Codex backend reports as usage; the notice table and its 24 hour rule; `/status` with no database; `state/notice-thread`; the cron counting rules; and `chad logs`. TIM-558 items 51 to 55, TIM-557 "How well each is supported".
+- **TST-G16** [builder] These things were recorded as not run and no decision places any of them in a layer by name. Each falls under TST-173 like any other rule. From TIM-558 and the tickets before it they are the lock and the volume on filesystems other than ext4, tmpfs, NFS and sshfs; a real `npx -y` MCP server; the setup wizard; a hook that ignores interruption, a secret change during a swap, and the next boot with a setting value that still fails; a secret in an MCP HTTP header and the hint for a long server list; a background task that outlives an Agent rebuild; on Codex, the `session-id` header without `prompt_cache_key`, turns with no owner present failing without a call until a login succeeds, background sub-agents, efforts above `medium` on the three smaller models and anything longer than five minutes; and for credentials `--note ""`. From TIM-557 they are the plugin name, the Info cap and the ids on a copied log line together, with the lines of sub-agents, MCP calls and a background task; the history reconcile, a lost `HistoryReplaced` and the window with real SQLite; the update message, also after passivation; the retry count per agent and the silence bound; what a real Codex backend reports as usage; the notice table and its 24 hour rule; `/status` with no database; `state/notice-thread`; the cron counting rules; and `chad logs`. TIM-558 items 51 to 55, TIM-557 "How well each is supported".
 - **TST-G17** [builder] Three details of the rule-id script are not given. They are what a test that names a bare id does once the rule carries letters (TST-190), what `show <id>` prints for a rule that points at a table or a code block (TST-194), and how an id is told from text in a test title that only looks like one, such as `UTF-8` (TST-10). Recommended: a bare id names the rule and no letter, and does not fail. `show` prints the rule's text, its file and line, its section heading and its Provenance row, and a flag prints the whole section. A word in a title counts as an id only when its prefix is one of the spec's prefixes. TIM-559 cold read, repo reader.
 - **TST-G20** [builder] Where the script of IMG-119 gets the tarballs of a newer effect commit is not said, and neither is what enforces TST-185. Recommended: the script takes a commit, downloads the snapshot's packages for that commit from pkg.pr.new, rewrites `vendor/` and the manifest, runs the first harness scenario, and puts the old set back when the scenario fails. TIM-559 cold read, harness reader.
 - **TST-G22** [builder] Who makes the first Codex recording of TST-43, with which script and over which flows, is not said, and neither is whether the `models` slice waits for it. A builder has no Codex login and may not use one outside the live lists. Recommended: the builder writes the fake's Codex side from the source of clanka and effect, and commits a recorder script that covers the flows of TST-39 and the refusals of TST-40. Tim runs it once (TST-165) and the builder replaces the hand-written frames with the recording. The slice does not wait for that. TST-41 and TST-43 need no test of their own, because the recording comparison of TST-42 is what catches a difference. TIM-559 cold read, models reader.
@@ -585,9 +573,9 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-22 | TIM-558 item 7, TIM-530 resolution, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Tim for the six mistakes; Architect (Tim has not read) for the assertion | run for the six failing, not run for the assertion |  | `definition` | - |
 | TST-23 | TIM-558 item 7, TIM-553 decision 3, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-24 | TIM-558 items 7 and 31, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
-| TST-25 | TIM-558 item 8, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-25 | TIM-558 item 8, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-26 | TIM-558 item 9; TIM-559 cold read, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
-| TST-27 | TIM-558 item 10, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-27 | TIM-558 item 10, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-28 | TIM-558 item 10, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-29 | TIM-558 item 11, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-30 | TIM-558 item 12, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
@@ -625,7 +613,7 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-62 | TIM-558 item 26, amended by TIM-557 item 32 | Architect (Tim has not read) | read for the shared handler, not run for the full disk answer | TIM-557 | `rule` | `failures` |
 | TST-63 | TIM-558 item 27, amended by Tim, chat 2026-11-15 | Architect (Tim has not read). Tim for the stage in place of a build issue | not run |  | `definition` | - |
 | TST-64 | TIM-558 item 27, round 2 R4, amended by Tim, chat 2026-11-15; TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that tests are chosen by behaviour, chat 2026-11-15 | Architect (Tim has not read). Tim for the slice in place of a build issue | not run |  | `definition` | - |
-| TST-65 | TIM-558 item 35 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
+| TST-65 | TIM-558 item 35, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | TST-66 | TIM-558 item 35 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | TST-67 | TIM-558 item 40, comment on TIM-532; TIM-559 cold read | Architect (Tim has not read) | read | TIM-558 | `rule` | `harness` |
 | TST-68 | TIM-558 item 40, round 2 R1 | Architect (Tim has not read) | read | TIM-558 | `rule` | `harness` |
@@ -647,7 +635,7 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-84 | TIM-558 item 30, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-85 | TIM-558 item 30, TIM-553 comment on TIM-552, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-86 | TIM-558 item 30, amended by TIM-559 round 2 R5, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
-| TST-87 | TIM-558 item 30, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-87 | TIM-558 item 30, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-88 | TIM-558 item 31, comment on TIM-549 item 4 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | TST-89 | TIM-558 item 32, comment on TIM-549 item 21, TIM-557 item 43 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | TST-90 | TIM-558 item 33, round 1 Q12 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
@@ -661,8 +649,8 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-98 | TIM-558 item 48, TIM-554 (Tim's ruling) | Tim | not run |  | `rule` | `bundled-skills` |
 | TST-99 | TIM-558 items 7, 8, 19, 52, 53 and 54, "What this changes in closed tickets"; TIM-541 items 3 and 21, TIM-548 items 6 and 10, TIM-549 items 4 and 21, TIM-553 decision 5, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-100 | TIM-558 item 51, TIM-543, TIM-540 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
-| TST-101 | TIM-558 item 52 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
-| TST-102 | TIM-558 item 52, TIM-554 "Not run" | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| TST-101 | TIM-558 item 52, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
+| TST-102 | TIM-558 item 52, TIM-554 "Not run", withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-103 | TIM-558 item 52, withdrawn by TIM-559 ruling on OV-G1 and main session ruling on Q8 | Architect (Tim has not read) | read |  | `rule` | - |
 | TST-104 | TIM-558 item 53 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | TST-105 | TIM-558 item 53, round 1 Q8, TIM-553 decision 5 | Architect (Tim has not read) | not run through vitest, run in the image prototype |  | `rule` | `kills` |
@@ -670,7 +658,7 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-107 | TIM-558 item 53 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | TST-108 | TIM-558 item 53, round 1 Q8 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
 | TST-109 | TIM-558 item 54, TIM-557 comment on TIM-558, amended by Tim's ruling that the image is amd64 only, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
-| TST-110 | TIM-558 item 55, round 1 Q8, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `image` |
+| TST-110 | TIM-558 item 55, round 1 Q8, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | TST-111 | TIM-558 item 55 | Architect (Tim has not read) | not run |  | `rule` | `live` |
 | TST-112 | TIM-558 item 41, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15, amended by Tim's ruling that `pnpm test` has a target of one minute, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-113 | TIM-558 item 41, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
@@ -704,7 +692,7 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-141 | TIM-558 item 36, round 2 R1, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-142 | TIM-558 item 36, round 2 F, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-143 | TIM-558 item 36, amended by TIM-559 main session ruling on Q9 point 10 and round 2 R6 point 2; TIM-559 cold read, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| TST-144 | TIM-558 item 37, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run, from memory |  | `rule` | `live` |
+| TST-144 | TIM-558 item 37, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run, from memory |  | `rule` | `live` |
 | TST-145 | TIM-558 item 38, "What Tim has to do", TIM-559 round 2 R10 point 5, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `live` |
 | TST-146 | TIM-558 item 38 | Architect (Tim has not read) | not run |  | `rule` | `live` |
 | TST-147 | TIM-558 body and facts comment, TIM-544 "Not run", TIM-558 item 16, TIM-557 comment on TIM-558 | Architect (Tim has not read) | not run |  | `rule` | `live` |
@@ -773,7 +761,7 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-210 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | TST-211 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | TST-212 | Build, stage 2 | Builder (Tim has not read) | run |  | `definition` | - |
-| TST-213 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `plugin-api` |
+| TST-213 | Build, stage 2, withdrawn by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | - |
 | TST-214 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
 | TST-215 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
 | TST-216 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |

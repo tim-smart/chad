@@ -130,7 +130,7 @@ describe("the spec in the repository", () => {
   it("OV-55 AGENTS.md at the root holds the builder's contract", () => {
     const contract = read("AGENTS.md")
     expect(contract).toContain("This file is the builder's contract.")
-    expect(contract).toContain("## The stop rule")
+    expect(contract).toContain("## Binding rules and defaults")
   })
 
   it("ORD-9 the delivered file lists the delivered slices in build order", () => {

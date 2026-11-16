@@ -151,7 +151,7 @@ const boot = Effect.fnUntraced(function* (
     data: volume.data,
   })
 
-  // Steps 3 and 4, the check for a newer state/version and the boot counter, belong here.
+  // Step 3, the check for a newer state/version, belongs here.
   yield* Volume.prepare(volume)
 
   // The stored connections are read before the socket listens, so that status names them from its first answer.

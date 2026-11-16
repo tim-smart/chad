@@ -33,7 +33,7 @@ chad runs sessions on effect cluster. An entity is an addressable actor that han
 - **SES-149** The entity id is the thread string `ChatThread.toString(thread)`, which on Discord is `discord:<channel id>`. effect/chat defines that form and a codec for it, and chad defines no second format.
 - **SES-150** The same thread string is the value of every stored thread column, which covers the `sessions` rows, the `timers` rows, `PluginTurn.thread` and the cron plugin's job records (see 02-storage.md, 06-plugin-api.md and 13-timers-and-cron.md).
 - **SES-185** A session answers through the chat connection its message arrived on. Each connection has its own adapter and its own `Chat` router, because effect/chat's adapter registry holds one adapter for a platform and two connections can share a platform (see 02-storage.md). The `message` request carries the name of its connection, so a reply never goes out with another connection's token.
-- **SES-14** An owner message is a persisted request to that entity. Its primary key is `ChatEvent.dedupeKey` of the event. chad has no hand-written inbox and no dedupe table.
+- **SES-14** An owner message is a persisted request to that entity. Its primary key is `ChatEvent.dedupeKey` of the event. chad has no hand-written inbox, and no dedupe table apart from `commands` (STO-208), which holds chat commands only.
 - **SES-151** The `message` request stores the whole chat message in effect/chat's own encoded form, plus the attachment ids, so that a redelivered request rebuilds `Origin.Message` without asking Discord again.
 - **SES-152** A stored request that no longer decodes ends as `Failed` with the reason `Internal` and a message in the thread. It does not block the boot and is not retried. A deploy is a graceful stop, so a cut turn is redelivered under the new image, and effect/chat's encoding can differ between two images.
 - **SES-153** What cluster does with a stored request that does not decode has not been run. A process scenario covers it (see 17-testing.md).
@@ -51,9 +51,9 @@ chad runs sessions on effect cluster. An entity is an addressable actor that han
 - **SES-24** `entityMessagePollInterval` is 1 second. Only a request that carries a delivery time waits for this poll, which is how a timer fires under a second late (see 13-timers-and-cron.md).
 - **SES-25** `SingleRunner` runs with `shardsPerGroup: 1`, from the first release.
 - **SES-26** The shard count the database was made with is kept in a database row (see 02-storage.md). A daemon configured with another count refuses to start and names both numbers, because a changed count silently strands stored requests.
-- **SES-27** Where the shard check sits in the boot and what a boot that it refuses writes are in 01-image-and-volume.md and 16-failures-logs-status.md. Whether that boot counts as unclean is in 02-storage.md.
+- **SES-27** Where the shard check sits in the boot and what a boot that it refuses writes are in 01-image-and-volume.md and 16-failures-logs-status.md.
 - **SES-28** Cluster's shard lock is keyed by runner address and does not stop a second daemon on the same file. The daemon lock in 10-cli.md does that.
-- **SES-29** When the database cannot be opened or migrated, for any reason other than a `state/version` newer than the image, chad stays up without sessions and answers any owner message with the error. `/status` still answers in that state (see 02-storage.md and 16-failures-logs-status.md).
+- **SES-29** When the database cannot be opened or migrated, for any reason other than a `state/version` newer than the image, chad stays up without sessions and answers any owner message that is a direct message or mentions chad (FAIL-339) with the error. `/status` still answers in that state (see 02-storage.md and 16-failures-logs-status.md).
 - **SES-126** Every duration that chad sets in this part is a default of the `Timings` service, and the shipped daemon has no setting that changes one (see 17-testing.md).
 
 The protocol below is the one the prototype ran, with its test helpers removed. The request that carries `/new` (SES-138) was not in the prototype and is not shown. `Steered` and `Dropped` are replies that only an owner message can get. The plugin API's `Outcome` has the first three tags only (see 06-plugin-api.md).
@@ -150,7 +150,7 @@ effect/chat runs chad's handler inline, one event at a time for the whole bot. U
 - **SES-186** The reply of SES-148 is the subtext notice "There is no session in this channel. Mention me with a message and I'll open a thread for it.", posted in the channel.
 - **SES-188** `/stop` as the first message in a DM or a thread that has no `sessions` row posts "Nothing is running." and creates no row. `/new` there creates the thread's first row and posts its notice.
 - **SES-35** `/new` and `/stop` are specified in this part. `/status`, `/safe` and `/model` run the same daemon calls as the CLI, print the same text and do not go through the model (see 10-cli.md).
-- **SES-36** `/secret NAME`, `/secret NAME totp` and `/secret` are plain text like `/new`, follow the same mention rule and never reach the session (see 15-credentials.md).
+- **SES-36** Withdrawn.
 - **SES-37** When dfx has to identify again instead of resuming, chad reads forward with `Chat.history` from the last message it saw in each session that was active in the past 7 days, and sends what it finds through the normal persisted path.
 - **SES-38** effect/chat does not say whether the gateway resumed or identified again. chad watches the gateway dispatch itself, where dfx's shard tells `READY` from `RESUMED`, to know when to catch up.
 - **SES-170** The last message chad saw in a session is a column on its `sessions` row, and the catch-up of SES-37 reads forward from it (see 02-storage.md).
@@ -195,7 +195,7 @@ Three clanka facts shape this. A second `send` during a turn is not rejected and
 - **SES-49** A tool handler queues a turn for its own thread with `Turns.queue`, which returns once the request is saved and does not wait for the outcome, because the queued turn runs only after the calling turn ends. `Turns.start` called from a tool handler for the thread of its own turn fails at once with a message that names `Turns.queue` (see 06-plugin-api.md and 13-timers-and-cron.md).
 - **SES-50** clanka runs with `ConversationMode` on, so a turn ends at a text reply with nothing waiting.
 - **SES-51** clanka keeps a turn open while a background sub-agent runs, even after the model has answered. An owner message sent in that time steers the open turn, and no new turn starts until the sub-agent finishes. What this means after an apply is in 08-apply-and-swap.md.
-- **SES-52** While `chad secret request` is waiting in a thread, an owner message there ends the request first and then steers the turn as usual (see 15-credentials.md).
+- **SES-52** Withdrawn.
 - **SES-53** For a turn a plugin started, an answer that is exactly `[SILENT]` is not posted. In a server thread, the `mention` given to `Turns.start` or `Turns.schedule` goes at the start of the answer, and the core drops a mention whose id is not on the allowlist (see 13-timers-and-cron.md).
 
 ## What chad does when a turn starts
@@ -430,7 +430,7 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-11 | TIM-536 item 10, TIM-531 item 4 | Tim | read |  | `rule` | `plugin-api` |
 | SES-12 | Map "Out of scope", TIM-532 body | charting | not run |  | `definition` | - |
 | SES-13 | TIM-532 item 2, TIM-543 | Tim | run |  | `rule` | `harness` |
-| SES-14 | TIM-532 item 2 | Tim | run |  | `rule` | `harness` |
+| SES-14 | TIM-532 item 2, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Tim | run |  | `rule` | `harness` |
 | SES-15 | TIM-532 item 2, TIM-540 item 12, amended by TIM-559 ruling on API-G6 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | SES-16 | TIM-540 item 12, TIM-532 "Not settled here" | Tim | run |  | `rule` | `timers-cron` |
 | SES-17 | TIM-532 item 2 | Tim | run |  | `rule` | `harness` |
@@ -443,16 +443,16 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-24 | TIM-543 decision 2 | Tim | run |  | `rule` | `timers-cron` |
 | SES-25 | TIM-553 decision 4, comment on TIM-543 | Architect (Tim has not read) | run | TIM-553 | `rule` | `harness` |
 | SES-26 | TIM-553 decision 4 | Architect (Tim has not read) | run | TIM-553 | `rule` | `harness` |
-| SES-27 | TIM-553 decision 4, TIM-559 cold read | Architect (Tim has not read) | not run | TIM-553 | `definition` | - |
+| SES-27 | TIM-553 decision 4, TIM-559 cold read, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-553 | `definition` | - |
 | SES-28 | TIM-536 "How well each is supported", TIM-543 body | Tim | read |  | `fact` | `cli` |
-| SES-29 | TIM-536 item 14, amended by TIM-557 items 27 and 35 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
+| SES-29 | TIM-536 item 14, amended by TIM-557 items 27 and 35, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | SES-30 | TIM-532 item 3, map "Facts found at charting" | Tim | read |  | `rule` | `wire` |
 | SES-31 | TIM-532 item 3 | Tim | read |  | `rule` | `turns` |
 | SES-32 | TIM-532 item 3, amended by TIM-557 item 32, TIM-559 cold read | Architect (Tim has not read) | not run | TIM-557 | `rule` | `wire` |
 | SES-33 | TIM-532 item 2, TIM-543 finding 4 | Tim | run |  | `rule` | `harness` |
 | SES-34 | TIM-532 item 6 | Tim | read |  | `rule` | `turns` |
 | SES-35 | TIM-542 item 22 | Tim | read |  | `rule` | `apply` |
-| SES-36 | TIM-546 item 15, comment on TIM-532 | Architect (Tim has not read) | not run | TIM-546 | `rule` | `settings` |
+| SES-36 | TIM-546 item 15, comment on TIM-532, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-546 | `rule` | - |
 | SES-37 | TIM-532 item 14 | Tim | read |  | `rule` | `kills` |
 | SES-38 | TIM-532 "How well each is supported" | Tim | read |  | `rule` | `wire` |
 | SES-39 | TIM-532 item 14 | Tim | read |  | `definition` | - |
@@ -468,7 +468,7 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-49 | TIM-540 item 13, TIM-543, amended by TIM-559 ruling on API-G6 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | SES-50 | TIM-532 item 4 | Tim | run |  | `rule` | `harness` |
 | SES-51 | TIM-552 comment on TIM-543, TIM-552 question 1 (Tim agreed on the ticket) | Tim | run |  | `rule` | `turns` |
-| SES-52 | TIM-546 item 12, comment on TIM-532 | Architect (Tim has not read) | run | TIM-546 | `rule` | `settings` |
+| SES-52 | TIM-546 item 12, comment on TIM-532, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | - |
 | SES-53 | TIM-540 items 14 and 15, amended by TIM-559 ruling on CRON-G11 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | SES-54 | TIM-547 item 12, TIM-552 decision 5 (Tim agreed the TIM-552 part) | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SES-55 | TIM-531 item 1 | Tim | run |  | `rule` | `plugin-api` |
@@ -620,5 +620,5 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-201 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | SES-202 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | SES-203 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
-| SES-204 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
+| SES-204 | Build, stage 2, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | SES-205 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |

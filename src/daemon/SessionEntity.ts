@@ -1470,20 +1470,6 @@ export const layer = Layer.unwrap(
                         }
                 return reply
               }
-              // A turn whose prompt the volume shows neither as stored nor as not stored is held: its delivery stays
-              // unanswered and starts nothing, and the thread's other requests go on, until Tim rules on it (STO-211).
-              // Such a request that does not decode fails with the defect cluster gave it before the entity decoded
-              // the message itself, and nothing else.
-              if (
-                row !== undefined &&
-                (yield* Sessions.unproven(payload.key))
-              ) {
-                yield* take(payload.key)
-                if (Exit.isFailure(decoded)) {
-                  return yield* Effect.die(Cause.squash(decoded.cause))
-                }
-                return yield* Effect.never
-              }
               // A message that joined a turn and is delivered again has nothing left to do.
               if (yield* Sessions.steered(payload.key)) {
                 yield* duplicate

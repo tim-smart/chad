@@ -83,10 +83,10 @@ A string in a plugin's settings can name a value that is kept outside the repo. 
 - **SET-21** A value from the secret store is never copied into `process.env`.
 - **SET-22** A name found in neither place, with no default, fails that plugin's load with an error that names it. That fails an apply and skips the plugin at a boot.
 - **SET-23** The settings of a plugin that is off are not expanded, so a name that resolves nowhere in an off plugin's settings fails nothing.
-- **SET-24** `${NAME}` naming a secret of the TOTP kind in `chad.json` fails the apply, and `chad secret set NAME --totp` is refused while the applied `chad.json` names NAME (see 15-credentials.md).
+- **SET-24** Withdrawn.
 - **SET-25** Process env as the second source is how a Kubernetes Secret supplies a plugin's token. Any name `chad.json` refers to that the secret store does not have is part of the container's env list (see 01-image-and-volume.md).
 - **SET-26** With the daemon running, `chad secret set` and `chad secret rm` reload the plugins whose settings name that secret. A plugin that fails to load with the new value keeps its old instance, the command exits 1 and the secret stays stored (see 10-cli.md and 08-apply-and-swap.md).
-- **SET-78** The TOTP check of SET-24 and the refusal of `chad secret set NAME --totp` read every plugin's entry in `chad.json`, whether the plugin is on or off, so that turning a plugin on later cannot expose a TOTP seed.
+- **SET-78** Withdrawn.
 - **SET-79** The reload after `chad secret set` or `chad secret rm` leaves out a plugin that is off, because nothing of it is loaded.
 - **SET-80** The reload after `chad secret set` or `chad secret rm` also tries a plugin that a boot skipped, when that plugin's settings name the secret (see 09-repo-and-recovery.md).
 
@@ -159,7 +159,7 @@ v1 has no command that turns a plugin off, so the switch is a setting in the fil
 
 ## Safe mode and bundled plugins
 
-Safe mode loads nothing from the repo and keeps bundled plugins on (see 09-repo-and-recovery.md). It can start by itself after three unclean boots with nobody watching. If it ignored the file altogether it would bring back a cron the owner stopped on purpose and fire its overdue jobs, and a bundled plugin left off cannot block a recovery. So safe mode reads one thing from the file.
+Safe mode loads nothing from the repo and keeps bundled plugins on (see 09-repo-and-recovery.md). If it ignored the file altogether it would bring back a cron the owner stopped on purpose and fire its overdue jobs, and a bundled plugin left off cannot block a recovery. So safe mode reads one thing from the file.
 
 - **SET-44** Safe mode reads `"enabled": false` on bundled plugins from the applied `chad.json` and reads nothing else from that file.
 - **SET-45** If the applied `chad.json` cannot be read or cannot be parsed, every bundled plugin is on.
@@ -206,7 +206,7 @@ An apply leaves a plugin running when neither its code nor its settings changed 
 
 - **SET-62** A plugin's settings changed when its entry in `chad.json` differs from its entry in the applied `chad.json`. The comparison is made before `${NAME}` is expanded, so a changed secret value is not a settings change.
 - **SET-63** An apply reloads a plugin when its code or its settings changed.
-- **SET-64** After an apply that changed only a plugin's settings, a running turn's call to one of its tools is answered by the new version with the new settings. There are two exceptions. A call to a tool whose rendered declaration changed because it is built from a setting fails with "<tool> was changed by an apply. The new version is in your next turn." A call whose parameters the new version no longer accepts fails as a parameter error, and the handler does not run (see 08-apply-and-swap.md).
+- **SET-64** Withdrawn.
 
 ## The settings listing
 
@@ -267,7 +267,7 @@ const greeting = yield* Config.String("greeting").pipe(Config.withDefault("Hello
 | SET-21 | TIM-537 item 7 | Tim | not run |  | `rule` | `settings` |
 | SET-22 | TIM-548 item 5 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | SET-23 | TIM-548 item 5 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| SET-24 | TIM-546 item 8 | Architect (Tim has not read) | not run | TIM-546 | `rule` | `settings` |
+| SET-24 | TIM-546 item 8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-546 | `rule` | - |
 | SET-25 | TIM-548 (passed to TIM-541), TIM-541 item 18, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | SET-26 | TIM-542 item 14 | Tim | not run |  | `rule` | `settings` |
 | SET-27 | TIM-548 item 6 | Architect (Tim has not read) | read |  | `rule` | `settings` |
@@ -307,7 +307,7 @@ const greeting = yield* Config.String("greeting").pipe(Config.withDefault("Hello
 | SET-61 | TIM-548 item 12 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | SET-62 | TIM-548 item 13 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | SET-63 | TIM-542 item 10, TIM-538 item 3; run in TIM-552 | Tim | run |  | `rule` | `settings` |
-| SET-64 | TIM-547 item 7, amended by TIM-552 items 1 and 2 | Tim | run |  | `rule` | `settings` |
+| SET-64 | TIM-547 item 7, amended by TIM-552 items 1 and 2, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
 | SET-65 | TIM-548 item 14 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | SET-66 | TIM-548 item 14, amending TIM-542 item 28 | Architect (Tim has not read) | not run | TIM-548 | `rule` | `settings` |
 | SET-67 | TIM-548 item 14 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
@@ -321,7 +321,7 @@ const greeting = yield* Config.String("greeting").pipe(Config.withDefault("Hello
 | SET-75 | TIM-548 (passed to TIM-549), TIM-549 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SET-76 | TIM-558 item 8 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | SET-77 | TIM-557 item 27 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `settings` |
-| SET-78 | TIM-559 ruling on SET-G8 | Architect (Tim has not read) | not run | TIM-546, TIM-559 | `rule` | `settings` |
+| SET-78 | TIM-559 ruling on SET-G8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-546, TIM-559 | `rule` | - |
 | SET-79 | TIM-559 ruling on SET-G8 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `settings` |
 | SET-80 | TIM-559 ruling on REC-G19 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `settings` |
 | SET-81 | TIM-559 ruling on SET-G10 | Architect (Tim has not read) | not run |  | `rule` | `settings` |

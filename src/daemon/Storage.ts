@@ -4,10 +4,7 @@ import { SqlClient } from "effect/sql"
 import sessions from "./migrations/0001_sessions.ts"
 import turns from "./migrations/0002_turns.ts"
 import kills from "./migrations/0003_kills.ts"
-import prompts from "./migrations/0004_prompts.ts"
-import evidence from "./migrations/0005_evidence.ts"
-import unproven from "./migrations/0006_unproven.ts"
-import updates from "./migrations/0007_updates.ts"
+import updates from "./migrations/0004_updates.ts"
 import type { Volume } from "./Volume.ts"
 
 /** The number of cluster shards chad runs with, from the first release. */
@@ -18,10 +15,7 @@ export const migrations = {
   "0001_sessions": sessions,
   "0002_turns": turns,
   "0003_kills": kills,
-  "0004_prompts": prompts,
-  "0005_evidence": evidence,
-  "0006_unproven": unproven,
-  "0007_updates": updates,
+  "0004_updates": updates,
 }
 
 /** The one connection to `db/chad.db`, serialized, in WAL mode and with the driver's 5 second busy timeout. */

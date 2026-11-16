@@ -52,12 +52,12 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 | `models` | 2 | The providers, the Codex login on the fake's Codex side, `/model`, the model check, the usage limit, the retry line and the silence bound. |
 | `plugin-api` | 3 | The plugin API with plugins handed to `runDaemon` through its plugins input (see 17-testing.md): the four modules, hooks and their ordering, prompt chunks, the key-value store, `Turns` and plugin-started turns, `sendFile`, tools, the Agent rebuild by generation. No loading from the repo. |
 | `loader` | 3 | The type layer with the six mistakes, check and bundle, loading plugins from an exported tree. |
-| `apply` | 3 | The repo, `chad apply`, the swap, revert, recovery, safe mode and the boot counter. |
-| `settings` | 4 | `chad.json`, settings, secrets, the timezone, the persona, `chad setup`, and the credential tools (`chad secret run`, `code`, `request`, the Enter button). |
-| `skills-mcp` | 4 | Skills, MCP servers, `chad mcp login`, and the stop's 60 second deadline, which only an MCP server can hold a stop open long enough to reach. |
+| `apply` | 3 | The repo, `chad apply`, the swap, revert, recovery and safe mode. |
+| `settings` | 4 | `chad.json`, settings, secrets, the timezone, the persona, `chad setup`, and the credential tools (`chad secret set`, `list`, `rm` and `run`). |
+| `skills-mcp` | 4 | Skills, MCP servers, and the stop's 60 second deadline, which only an MCP server can hold a stop open long enough to reach. |
 | `timers-cron` | 4 | Timers and the cron plugin. |
 | `backup` | 5 | `chad backup` and `chad restore`, the prune job, the before-migration copy. |
-| `image` | 5 | The Kubernetes manifests and the script of their checks, the browser sidecar wiring. |
+| `image` | 5 | The Kubernetes manifests and the script of their checks. |
 | `bundled-skills` | 5 | The `self-edit`, `credentials` and `diagnose` skills, the skill text and its checks. |
 | `asphodel` | 5 | The check that all twelve asphodel scenarios are green. Each scenario's own rules go in the earliest slice that can run it. |
 | `live` | 5 | The rest of the live layer: the Codex list, and one checklist for it and for the hand checks. |
@@ -82,7 +82,12 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 
 - **ORD-26** The spec is published as the first pull request of the chad repo, `tim-smart/chad`, under `docs/spec/`, with the `AGENTS.md` of ORD-32 and no workflow. `main` holds only a README until Tim merges that pull request.
 - **ORD-27** Tim merging the spec's pull request is the go for the build. No stage starts before it.
-- **ORD-28** After the merge a change to an existing rule waits for Tim. A builder who finds a rule wrong or impossible to build stops work on that rule, says so on the parent build issue, builds nothing else in its place, and carries on with the rest of the stage.
+- **ORD-28** After the merge a change to a binding rule (ORD-47) waits for Tim. A builder who finds a binding rule wrong or impossible to build stops work on that rule, says so on the parent build issue, builds nothing else in its place, and carries on with the rest of the stage.
+- **ORD-47** A rule binds when Tim agreed it, when it decides who chad obeys or what chad keeps secret, when breaking it loses or damages what is on the volume, or when it says what a kill, a crash, a restart or two things happening at once must not lose or do twice. Tim agreed a rule when the Agreed by cell of its Provenance row names him without "Tim has not read", and where the cell gives Tim one clause and somebody else another, only Tim's clause binds. In a rule that binds for one of the other three reasons the outcome binds, and a number, a deadline, a wording, an order of steps or a mechanism in it is a default unless the outcome depends on it.
+- **ORD-48** Every other rule is a default, which describes one way that works. A builder builds it as written when that is also the simplest way. When something simpler gives the owner, a plugin, the model and the CLI the same outcome, or the rule covers a case that one owner on one server will not meet, the builder builds the simpler thing or leaves the case out, without stopping and without waiting for Tim.
+- **ORD-49** The delivered file holds a fourth list, the simplified rules. Each entry gives the id of a default that was not built as written and one sentence on what chad does instead. The rule is not reworded. The rule-id script does not read the list, a simplified rule counts as built, and Tim reads the list when he reviews the pull request.
+- **ORD-50** A withdrawn rule is not built. A rule that still names a withdrawn rule, or a feature that 00-overview.md lists as cut from v1 (OV-57), holds as far as it makes sense without it, and a builder does not stop over the reference.
+- **ORD-51** A stopped entry on a rule that is a default under ORD-47 no longer waits for Tim. The stage that is open settles it as ORD-48 says and moves the entry to the simplified rules, or removes the entry when the rule is built as written.
 - **ORD-29** Where the spec is silent, the builder picks the reading that fits the rest of it. If the choice is visible to the owner, a plugin, the model or the CLI, the builder adds it to the spec as a new rule in the same change, and names it in the hand-off comment. The new rule takes the next number after the highest id of its part's prefix. Its Provenance row has the Source "Build, stage" with the stage's number, the Agreed by "Builder (Tim has not read)", the Support "run", and the slice that is being built. A gap tagged for the builder is settled the same way and does not wait for Tim.
 - **ORD-30** If effect/chat ships in a release of effect before stage 1 starts, chad installs the released packages and the repo has no `vendor/` directory (see 00-overview.md).
 - **ORD-31** The prototype archives are on a branch of the chad repo named `prototypes`, which is never merged. Each stage issue names the archives that ran the rules of its slices (see 17-testing.md).
@@ -91,7 +96,7 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 A builder reads `AGENTS.md` at the root of the repo on every run and may not read the parent build issue, so the file repeats what every stage has to follow.
 
 - **ORD-32** `AGENTS.md` at the root of the chad repo holds the builder's contract and nothing about chad's behaviour. It is short enough to read in full on every run.
-- **ORD-33** `AGENTS.md` states the stop rule of ORD-28: a rule that is wrong or cannot be built is reported and left, and nothing else is built in its place.
+- **ORD-33** `AGENTS.md` states which rules bind and which are defaults (ORD-47 and ORD-48), the list of simplified rules (ORD-49), what a withdrawn rule means (ORD-50) and the stop rule of ORD-28: a binding rule that is wrong or cannot be built is reported and left, and nothing else is built in its place.
 - **ORD-34** `AGENTS.md` says that a test names the rule ids it covers in its title, where it covers any, that tests are chosen by what chad does and only three kinds of rule need a test of their own, and that the instruction to skip tests in a builder's own brief does not apply to this repo (see 17-testing.md).
 - **ORD-35** `AGENTS.md` says how to look a rule up: the rule-id script's `show <id>` mode prints one rule, and its list mode prints the ids of one slice. It tells the builder to read 00-overview.md and 17-testing.md in full and the other parts by rule, never the whole spec in one run.
 - **ORD-36** `AGENTS.md` gives the path of effect's own `AGENTS.md` inside the installed package and tells the builder to read it before writing Effect code.
@@ -133,12 +138,12 @@ A builder reads `AGENTS.md` at the root of the repo on every run and may not rea
 | ORD-25 | The slice tags of MOD-18 and SWAP-8 | Jarvis, assembling the spec (Tim has not read) | not run |  | `definition` | - |
 | ORD-26 | TIM-559 round 2 R1; Tim, chat 2026-11-15 | Architect (Tim has not read). Tim created the repo himself and made it public | not run |  | `definition` | - |
 | ORD-27 | TIM-559 round 2 R1 | Architect (Tim has not read) | not run |  | `definition` | - |
-| ORD-28 | TIM-559 round 2 R7 and R10 item 1 | Architect (Tim has not read) | not run |  | `definition` | - |
+| ORD-28 | TIM-559 round 2 R7 and R10 item 1, amended by Tim's ruling that most rules are defaults, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-29 | TIM-559 round 2 R7, amended by Tim's ruling that tests are chosen by behaviour, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-30 | TIM-559 ruling on OV-G2 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-31 | TIM-559 round 2 R10 item 6 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-32 | TIM-559 round 2 R10 item 1 | Architect (Tim has not read) | not run |  | `definition` | - |
-| ORD-33 | TIM-559 round 2 R10 item 1 | Architect (Tim has not read) | not run |  | `definition` | - |
+| ORD-33 | TIM-559 round 2 R10 item 1, amended by Tim's ruling that most rules are defaults, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-34 | TIM-559 round 2 R10 item 1; TIM-558 item 3, amended by Tim's ruling that a rule another rule's test runs needs no test of its own, chat 2026-11-15, amended by Tim's ruling that tests are chosen by behaviour, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-35 | TIM-559 round 2 R10 items 1 and 2 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-36 | TIM-559 round 2 R10 item 1 | Architect (Tim has not read) | not run |  | `definition` | - |
@@ -151,3 +156,8 @@ A builder reads `AGENTS.md` at the root of the repo on every run and may not rea
 | ORD-43 | TIM-559 cold read, wire reader; TIM-559 round 2 R7; TIM-559 round 5 item 1 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-44 | TIM-559 cold read, wire reader; TIM-558 item 3; TIM-559 round 5 item 2, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15, amended by Tim's ruling that tests are chosen by behaviour, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-46 | TIM-559 cold read, wire reader; follows from Tim, chat 2026-11-15; TIM-559 round 5 item 3, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| ORD-47 | Tim's ruling that most rules are defaults, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `definition` | - |
+| ORD-48 | Tim's ruling that most rules are defaults, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `definition` | - |
+| ORD-49 | Tim's ruling that most rules are defaults, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `definition` | - |
+| ORD-50 | Tim's ruling that most rules are defaults, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `definition` | - |
+| ORD-51 | Tim's ruling that most rules are defaults, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `definition` | - |

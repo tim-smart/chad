@@ -10,7 +10,7 @@ A background task is a `bash` command or a sub-agent that clanka keeps running a
 
 A version is one built instance of a plugin, which is the plugin's Layer built from one bundle in a scope of its own. The bundle hash is the hash of the plugin's bundled code (see 07-plugin-loading.md). A tool's declaration is the text that clanka's `ToolkitRenderer` renders for that tool in the system prompt.
 
-A swap replaces the running versions of one or more plugins. The gate is what holds calls into a plugin while it is being swapped. The drain is the wait for work that was already running inside the old version. The activation is the moment the new versions become current and the gate opens.
+A swap replaces the running versions of one or more plugins. The gate is what keeps new work out of a plugin while it is being swapped. The drain is the wait for work that was already running inside the old version. The activation is the moment the new versions become current and the gate opens.
 
 The generation is a number in the daemon that tells a session whether what is loaded has changed since its Agent was built.
 
@@ -56,7 +56,7 @@ A rebuild has three steps. chad builds a new Agent, sets the old history and the
 - **SWAP-21** On a Codex login and on `openai` with an API key, chad passes the session id as `prompt_cache_key` and also sends it in the `session-id` request header, through one `OpenAiClient` per session. The key alone keeps only the system prompt cached across a new connection. Which requests carry the header, the opening of the Codex WebSocket included, is in 05-model-and-login.md, and so is the `openai-compat` provider, which gets neither the key nor the header.
 - **SWAP-116** chad's logger and the session's one object that holds the session id and the id of the turn that is running are in place where the session's executor layer is built and where each Agent is built, so a rebuilt Agent logs under the same session (see 16-failures-logs-status.md).
 
-The session's side of a rebuild, from the host that ran the swap with live sessions. `Plugins.wrapper` is defined under "Routing a running turn's tool calls".
+The session's side of a rebuild, from the host that ran the swap with live sessions. `Plugins.wrapper` is the prototype's wrapper. It took the bundle hash and the declaration because it routed calls, and chad's wrapper takes neither (SWAP-153).
 
 ```ts
 // One executor per session, kept across rebuilds.
@@ -229,7 +229,7 @@ Every change to which plugin versions are running goes through one path with fiv
 - **SWAP-53** A handler or hook that did not stop when interrupted is logged when the swap moves on and again when it ends. For a tool the line says that two versions of the plugin now overlap. For a hook it says that the plugin's hook queue has moved on to the new version.
 - **SWAP-119** A handler or hook that did not stop, two versions of a plugin that overlap, and hooks dropped in a swap or in a stop are log lines only. chad sends the owner no notice for them (see 16-failures-logs-status.md).
 - **SWAP-120** The log lines of a swap, of the wrapper and of an abandoned swap follow the logging rules in 16-failures-logs-status.md and take their event names from its closed list, where every name is `area.name` with exactly one dot. A handler or hook that did not stop is `swap.overrun` when the swap moves on and `swap.overrun-ended` when it ends (SWAP-53). A close past its deadline is `swap.close-abandoned` (SWAP-47). A hook interrupted at the drain deadline is `hook.failed` (SWAP-82). A queued hook that is dropped is `hook.dropped` (SWAP-83, SWAP-84 and SWAP-105). An apply is `apply.done` or `apply.failed` (SWAP-56 and SWAP-147). The names in this part's code blocks are the prototype's and are not chad's.
-- **SWAP-54** When one apply changes plugins and `mcp.json`, the plugin gate and the MCP gate close together, and the plugins activate without waiting for the MCP layer to connect (see 12-skills-and-mcp.md).
+- **SWAP-54** When one apply changes plugins and `mcp.json`, the plugins activate without waiting for the MCP layer to connect (see 12-skills-and-mcp.md).
 - **SWAP-55** An apply cancelled before its commit changes nothing. From its commit on it finishes, even when the CLI that started it is killed (see 10-cli.md). Only a graceful stop ends it early (see SWAP-101 to SWAP-106).
 - **SWAP-56** From its commit on, an apply moves `live`, swaps and writes its `apply.done` log line inside a region the CLI client cannot interrupt. That region gives way to a graceful stop.
 - **SWAP-121** An apply, a `chad revert`, a `chad safe on|off`, a `chad secret rm` or a `chad timezone` that was run from a session and succeeded posts one subtext line in that session's thread. The same command from the owner's shell posts nothing, and a failed one that changed nothing posts nothing. The line's text and the full list of commands that post it are in 16-failures-logs-status.md.
@@ -242,7 +242,7 @@ Every change to which plugin versions are running goes through one path with fiv
 
 What the run measured with the real constants. The drain took 30.0 seconds, the finalizer that hangs was abandoned at 10.0 seconds, and the new version activated 40.0 seconds after the gate closed. A call already in flight finished on the old instance while the swap waited 3.0 seconds for it. A handler in an uninterruptible region ran 4.5 seconds past the deadline inside a version whose scope had closed.
 
-The swap itself, from the prototype that ran it. `Version` is one built instance of a plugin and `Slot` is what the daemon keeps per plugin name. The prototype's two diagnostic switches and some of its log lines are left out.
+The swap itself, from the prototype that ran it. `Version` is one built instance of a plugin and `Slot` is what the daemon keeps per plugin name. The prototype's two diagnostic switches and some of its log lines are left out. The prototype named a session as affected only when a plugin's bundle hash changed. chad names it for any plugin in the swap (SWAP-75).
 
 ```ts
 /** One deadline for everything in flight into the old versions: tool calls and hooks together. */
@@ -423,146 +423,33 @@ export interface ApplyResult {
 
 ## Routing a running turn's tool calls
 
-clanka resolves a tool's handler from the context when the Agent is built, and it decodes each call's parameters and encodes its result with the toolkit of that Agent. A running turn therefore cannot be given new tools, and a call it makes after a swap would reach a version whose scope has closed. chad puts a wrapper round every plugin tool handler to decide, per call, whether the call can be answered by the version that is current now.
+clanka resolves a tool's handler from the context when the Agent is built, and it decodes each call's parameters and encodes its result with the toolkit of that Agent. A running turn therefore cannot be given new tools, and a call it makes after a swap would reach a version whose scope has closed. chad puts a wrapper round every plugin tool handler to decide, per call, whether the version the Agent was built on is still the current one.
 
-- **SWAP-59** chad wraps every plugin tool handler it hands to clanka. The wrapper keeps what the Agent was built with, which is the plugin's bundle hash, the tool's rendered declaration and the tool's schemas, and it looks up the plugin's current version when a call is made.
+- **SWAP-59** chad wraps every plugin tool handler it hands to clanka. The wrapper keeps which version of the plugin the Agent was built on, and it looks up the plugin's current version when a call is made.
 - **SWAP-122** The wrapper sets the plugin's name around the plugin's handler, in a `Context.Reference` that chad's logger reads from the fiber, so the copy of a handler's log line in chad's log carries the plugin's name (see 16-failures-logs-status.md).
-- **SWAP-60** A running turn keeps its tool list across a swap. Each call it makes to a plugin tool is either routed to the plugin's current version or refused, and the turn carries on either way.
-- **SWAP-61** A call is routed to the plugin's current version only when the plugin's bundle hash is the one the turn's Agent was built with and the tool's rendered declaration is unchanged.
-- **SWAP-62** chad compares two rendered declarations byte for byte, per tool, on the text clanka's `ToolkitRenderer` renders, with no normalising. It compares the current version's text with the text the turn's Agent was built with, and not the outgoing version with the incoming one. A setting that is changed and changed back within one turn therefore routes again.
-- **SWAP-63** The bundle hash is checked before the declarations, so declarations are compared only between instances of identical code. Any difference in the text is then a difference in what the model was told.
-- **SWAP-64** A routed call that is answered by another instance than the Agent was built on is carried across the two schemas. chad encodes the parameters with the Agent's schema and decodes them with the current version's, and takes the result back the other way. The rendered declaration is the decoded type and hides schema changes such as a trim or a minimum length.
-- **SWAP-65** Parameters that the current version's schema rejects fail as a parameter error, and the handler does not run.
-- **SWAP-66** A result that the Agent's schema rejects fails with message 7 in "The messages returned to the model", followed by the schema's own description of the mismatch. The message tells the model that the call ran.
-- **SWAP-67** After any reload where the plugin's code did not change, including an apply that changed only its settings, a running turn's calls are routed and are answered by the new instance.
-- **SWAP-68** A change to only a plugin's settings reaches a running turn at once unless it changes a tool's description, or the tool's parameters stop accepting the value. In the first case the tool waits for the next turn. In the second the call fails as a parameter error.
-- **SWAP-69** Any other call fails at once, also at a closed gate, with message 1 in "The messages returned to the model". The rule is per bundle, so a tool whose own code did not change fails too when another part of its plugin's bundle changed.
+- **SWAP-60** A running turn keeps its tool list across a swap. Each call it makes to a plugin tool is either answered by the version its Agent was built on or refused, and the turn carries on either way.
+- **SWAP-153** After a swap replaced a plugin's running version, a call that a running turn or one of its sub-agents makes to a tool of that plugin fails at once. The handler does not run and the turn carries on. This holds whatever caused the swap, which is an apply that changed the plugin's code or its settings, `chad plugin reload`, or a secret, owner or timezone change. It also holds for a call that arrives while the swap is in progress, or after a graceful stop abandoned the swap with the old version closed, so no call is held at the gate. The message says that the tool changed and that it is back in the session's next turn (SWAP-69). chad compares no bundle hash and no declaration and re-encodes nothing across schemas, and the wrapper only needs to know which version the turn's Agent was built on. A plugin that is not part of the swap is untouched, and its tools keep working in a running turn (SWAP-41). After a reload that is not an apply the exact wording of the message is the builder's choice.
+- **SWAP-61** Withdrawn.
+- **SWAP-62** Withdrawn.
+- **SWAP-63** Withdrawn.
+- **SWAP-64** Withdrawn.
+- **SWAP-65** Withdrawn.
+- **SWAP-66** Withdrawn.
+- **SWAP-67** Withdrawn.
+- **SWAP-68** Withdrawn.
+- **SWAP-69** A call that SWAP-153 fails gets message 1 in "The messages returned to the model", unless a rule below names another message. The rule is per plugin, so a tool whose own code did not change fails too when its plugin was swapped.
 - **SWAP-70** While the turn has a sub-agent running, the refusal is message 2, the longer form that says the next turn cannot start while a sub-agent is running. Turns without a sub-agent keep the plain message.
 - **SWAP-71** A call to a tool that the swap removed fails with message 3.
 - **SWAP-72** A call to a tool of a plugin that safe mode turned off fails with message 4.
 - **SWAP-140** A call to a tool of a plugin that an apply turned off with `"enabled": false` fails with message 3, the same message as for a tool that the swap removed.
-- **SWAP-73** A call that arrives after the gate has closed, from an Agent built on the bundle that is being reloaded, is held for the activation and is never cut off. After the activation it goes through the routing rule again.
-- **SWAP-74** A call that reaches a closed gate from an Agent built on another bundle fails at once and is not held.
-- **SWAP-75** Once an apply changes a plugin's code, a running turn in any session loses that plugin's tools until the turn ends. That includes sessions other than the one that ran the apply.
+- **SWAP-73** Withdrawn.
+- **SWAP-74** Withdrawn.
+- **SWAP-75** Once a swap replaces a plugin's running version, a running turn in any session loses that plugin's tools until the turn ends. That includes sessions other than the one that ran the apply or the reload.
 - **SWAP-76** An agent that fixes a tool and applies cannot call the fixed tool in the same turn. The fixed tool is in its next turn.
 - **SWAP-77** Calls from sub-agents follow the same rules as calls from the turn's main agent.
 - **SWAP-78** The apply output names the sessions with a running turn that it affects, counts their sub-agents, says how long it waited and names any call it interrupted (see 10-cli.md).
 
-What the run measured. One turn on one Agent made four calls, and four instances of the same bundle answered them, after `chad plugin reload`, after a timezone change and after an apply that changed one setting. A call that arrived during a swap was held 2.98 seconds and answered by the new instance. A call from an Agent built on another bundle failed 18 milliseconds after the gate closed. With routing by tool name alone, a handler written for a string was handed a number, which is why the rule is by bundle hash.
-
-The wrapper, from the prototype that ran it, with the diagnostic switches removed:
-
-```ts
-/** clanka keeps a turn open while a sub-agent runs, and a message sent meanwhile is steered into it, not into a new turn. */
-const nextTurn = (session: string) =>
-  (runningTurns.get(session)?.subagents ?? 0) > 0
-    ? "your next turn, which cannot start while this turn has a sub-agent running."
-    : "your next turn."
-const changed = (tool: string, session: string) => tool + " was changed by an apply. The new version is in " + nextTurn(session)
-const removed = (tool: string) => tool + " was removed by an apply and is gone from your next turn."
-const safeOff = (tool: string) => tool + " is off in safe mode."
-const cutMessage = (tool: string) => tool + " was interrupted by an apply, it may have partly run."
-const stuckMessage = (tool: string) => tool + " did not stop when an apply interrupted it and may still be running."
-const issue = (error: unknown) => String((error as any)?.message ?? error).split("\n").slice(0, 3).join(" ").slice(0, 300)
-
-/**
- * What chad hands clanka as the handler of one plugin tool when it builds a session's Agent.
- * It closes over what the Agent was built with: the plugin's bundle hash and the tool's rendered
- * declaration. The plugin's current version is looked up when a call is made.
- */
-export const wrapper = (session: string, plugin: string, tool: string, built: { readonly hash: string; readonly decl: string; readonly instance: number; readonly tool: any }) =>
-(params: any): Effect.Effect<any, string> =>
-  Effect.suspend(function attempt(): Effect.Effect<any, string> {
-    const s = slot(plugin)
-    const refuse = (message: string, at: string) => {
-      log("call.refused", { session, tool, at, built: built.hash, current: s.current ? id(s.current) : s.status, message })
-      return Effect.fail(message)
-    }
-    const gone = (status: Status) => status === "safe" ? safeOff(tool) : removed(tool)
-    if (s.swap !== undefined) {
-      const incoming = s.swap.incoming
-      // Held only when the call could be routed after the activation.
-      if (incoming !== undefined && incoming.hash === built.hash) { // adjusted: TIM-552, diagnostic switch removed
-        const started = Date.now()
-        log("call.held", { session, tool, built: built.hash })
-        return Deferred.await(s.swap.gate).pipe(
-          Effect.andThen(Effect.sync(() => log("call.released", { session, tool, heldMs: Date.now() - started }))),
-          Effect.andThen(Effect.suspend(attempt))
-        )
-      }
-      return refuse(incoming === undefined ? gone(s.swap.becoming) : incoming.tools.has(tool) ? changed(tool, session) : removed(tool), "closed gate")
-    }
-    const current = s.current
-    if (current === undefined && s.status === "between") {
-      // A graceful stop abandoned the swap after the old version closed. Nothing can answer, and
-      // "removed" would be a lie: the call waits for the stop to cut its turn, which resumes after the restart.
-      log("call.heldForStop", { session, tool, built: built.hash })
-      return Effect.never
-    }
-    if (current === undefined) return refuse(gone(s.status), "no version")
-    const entry = current.tools.get(tool)
-    if (current.hash !== built.hash) return refuse(entry === undefined ? removed(tool) : changed(tool, session), "bundle hash")
-    if (entry === undefined) return refuse(removed(tool), "declaration")
-    if (entry.decl !== built.decl) return refuse(changed(tool, session), "declaration")
-    // The Agent's schemas decoded these parameters and will encode the result. When another instance
-    // answers, both are carried across: encoded with one side's schema, decoded with the other's.
-    // Same code, so the schemas only differ where the plugin built one from a setting.
-    const recode = current.instance !== built.instance // adjusted: TIM-552, diagnostic switches removed
-    const input: Effect.Effect<any, string> = !recode ? Effect.succeed(params) : Schema.encodeUnknownEffect(built.tool.parametersSchema)(params).pipe(
-      Effect.flatMap((encoded) => Schema.decodeUnknownEffect(entry.tool.parametersSchema)(encoded)),
-      Effect.mapError((error) => {
-        const message = tool + ": the parameters do not fit the version an apply loaded. " + issue(error)
-        log("call.refused", { session, tool, at: "parameters", built: built.hash, current: id(current), message })
-        return message
-      })
-    )
-    return input.pipe(Effect.flatMap((decoded) => {
-      log("call.routed", { session, tool, built: built.hash, to: id(current), recoded: recode })
-      return fly(current, "tool", tool, session, entry.handler(decoded)).pipe(
-        Effect.flatMap(({ exit, flight }): Effect.Effect<any, string> => {
-          if (Exit.isSuccess(exit)) {
-            if (!recode) return Effect.succeed(exit.value)
-            return Schema.encodeUnknownEffect(entry.tool.successSchema)(exit.value).pipe(
-              Effect.flatMap((encoded) => Schema.decodeUnknownEffect(built.tool.successSchema)(encoded)),
-              // The call has run by now, so the message says so.
-              Effect.mapError((error) => {
-                const message = tool + " ran, but its result does not fit the declaration this turn was built with. " + issue(error)
-                log("call.resultRefused", { session, tool, built: built.hash, on: id(current), message })
-                return message
-              })
-            )
-          }
-          if (flight.stuck) return Effect.fail(stuckMessage(tool))
-          if (flight.cut) return Effect.fail(cutMessage(tool))
-          const failure = Cause.squash(exit.cause)
-          return Effect.fail(typeof failure === "string" ? failure : failure instanceof Error ? failure.message : JSON.stringify(failure))
-        })
-      )
-    }))
-  })
-
-/**
- * Registers the flight and starts it in one synchronous step, so the drain can never miss one,
- * then waits for it. The effect runs on a fiber of its own, which is what the drain interrupts.
- */
-const fly = <A, E>(version: Version, kind: Flight["kind"], label: string, session: string | undefined, effect: Effect.Effect<A, E>) => {
-  const flight: Flight = { kind, label, session, startedAt: Date.now(), done: Deferred.makeUnsafe<void>(), fiber: undefined, cut: false, stuck: false, cutNow: Deferred.makeUnsafe<void>() }
-  version.inflight.add(flight)
-  const fiber = Effect.runFork(effect)
-  flight.fiber = fiber
-  fiber.addObserver(() => {
-    version.inflight.delete(flight)
-    Deferred.doneUnsafe(flight.done, Exit.void)
-  })
-  return Effect.raceFirst(
-    Fiber.await(fiber) as Effect.Effect<Exit.Exit<A, E>>,
-    Effect.as(Deferred.await(flight.cutNow), Exit.interrupt() as Exit.Exit<A, E>)
-  ).pipe(
-    Effect.onInterrupt(() => Fiber.interrupt(fiber)),
-    Effect.map((exit) => ({ exit, flight }))
-  )
-}
-```
+The prototype that ran this part had a wrapper that routed a call to the plugin's current version when the bundle hash and the declaration were unchanged, and chad's wrapper does not (SWAP-153).
 
 ## Hooks across a swap
 
@@ -625,8 +512,8 @@ In the run, a timezone reload with one plugin that failed to build swapped the o
 - **SWAP-104** Old versions that are not closed yet go through the ordinary graceful stop, with their queued hooks run inside their budgets.
 - **SWAP-105** A plugin that is between its close and its activation when the stop lands drops its queued hooks with a log line.
 - **SWAP-106** After a stop that landed after the commit, the next boot loads the new version, and a turn the stop cut resumes on it.
-- **SWAP-107** A call held at the gate when a stop abandons the swap goes through the routing rule again against the version that is now current.
-- **SWAP-108** When the plugin is between its close and its activation, a held call is not answered. It waits for the stop to cut its turn, which resumes after the restart.
+- **SWAP-107** Withdrawn.
+- **SWAP-108** Withdrawn.
 - **SWAP-109** A graceful stop has no 10 second step of its own for closing the plugins. The plugins' scopes close in the stop's last step, before the MCP layer, and that step ends 60 seconds from SIGTERM. The stop's order and its 60 second deadline are in 01-image-and-volume.md.
 
 The abandon step, from the prototype that ran it at four points of a swap. It is the swap's interruption handler.
@@ -664,7 +551,7 @@ Effect.onInterrupt(() =>
 - **SWAP-111** Calls from a background sub-agent need no rule of their own. They are a running turn's calls, and no background task calls a plugin tool outside a turn.
 - **SWAP-112** The apply output counts "sub-agents" for each affected session.
 
-The host that ran this counted a turn's sub-agents from the `SubagentStart` and `SubagentComplete` parts of the turn's stream. In the run a foreground and a background sub-agent each made one call that was routed after `chad plugin reload` and one that was refused after a code change.
+The host that ran this counted a turn's sub-agents from the `SubagentStart` and `SubagentComplete` parts of the turn's stream. In the run a foreground and a background sub-agent each made one call that was refused after a code change.
 
 ## The messages returned to the model
 
@@ -672,7 +559,7 @@ Each message below is the failure text of a plugin tool call, and the table name
 
 - **SWAP-113** A call interrupted at the drain deadline whose handler stopped within the 1 second wait fails with message 5. The message does not tell the model to call again, because that is unsafe for a tool with side effects.
 - **SWAP-114** A call interrupted at the drain deadline whose handler did not stop within the 1 second wait fails with message 6.
-- **SWAP-123** The seven messages in the table below are templates in chad's one `Messages` module, and a test refers to each by its name there (see 17-testing.md).
+- **SWAP-123** The six messages in the table below are templates in chad's one `Messages` module, and a test refers to each by its name there (see 17-testing.md).
 
 | # | Text | Sent by |
 | --- | --- | --- |
@@ -682,7 +569,6 @@ Each message below is the failure text of a plugin tool call, and the table name
 | 4 | `<tool> is off in safe mode.` | SWAP-72 |
 | 5 | `<tool> was interrupted by an apply, it may have partly run.` | SWAP-113 |
 | 6 | `<tool> did not stop when an apply interrupted it and may still be running.` | SWAP-114 |
-| 7 | `<tool> ran, but its result does not fit the declaration this turn was built with.` | SWAP-66 |
 
 ## Carried to the test suite
 
@@ -694,11 +580,10 @@ Each message below is the failure text of a plugin tool call, and the table name
 ## Gaps
 
 - **SWAP-G3** [builder] The exact wording of the chunk update message. Only the text for one changed chunk ran. The line for a removed chunk, the text for a chunk the session has never seen, and the layout when several chunks change at once or share the message with the lines about what chad posted are not fixed (TIM-531 item 3, TIM-557 item 30).
-- **SWAP-G6** [builder] The wording of the parameter error for a routed call whose parameters the current schema rejects. The decision says "a parameter error". The prototype sent `<tool>: the parameters do not fit the version an apply loaded.` followed by the schema's description (TIM-552 decision 2).
 - **SWAP-G8** [builder] The exact text of the apply output lines for the wait, the interrupted calls and the affected sessions. The prototype printed `s-c1 loses echo until its turn ends (0 sub-agents running)` for a session (TIM-547 item 9).
 - **SWAP-G10** [builder] The wording of the safe mode line in the rendered prompt, and where in the prompt it goes (TIM-549 item 15).
 - **SWAP-G12** [builder] Five things are decided and were never run, and no layer is named for their tests. They are a hook that ignores interruption, a secret change through the swap path, the next boot after a reload whose build failed, `stopTask` through the owner id wrapper, and the completion notice of SWAP-17 (TIM-552, TIM-531, TIM-558 items 51 to 55).
-- **SWAP-G14** [builder] The closed list of event names in 16-failures-logs-status.md has no name for four lines the prototype wrote, which are a call the wrapper refused, a call held at the gate, a call routed to another instance and a swap that a graceful stop abandoned. No ticket says whether chad logs them or under which name (TIM-557 items 2 and 3, TIM-559 round 2 R4).
+- **SWAP-G14** [builder] The closed list of event names in 16-failures-logs-status.md has no name for two lines the prototype wrote, which are a call the wrapper refused and a swap that a graceful stop abandoned. No ticket says whether chad logs them or under which name (TIM-557 items 2 and 3, TIM-559 round 2 R4).
 
 ## Provenance
 
@@ -757,28 +642,28 @@ Each message below is the failure text of a plugin tool call, and the table name
 | SWAP-51 | TIM-538 item 9 | Tim | run |  | `rule` | `apply` |
 | SWAP-52 | TIM-538 item 9, amended by TIM-552 question 2 | Tim | run |  | `rule` | `apply` |
 | SWAP-53 | TIM-552 decision 3 | Tim | run |  | `rule` | `apply` |
-| SWAP-54 | TIM-549 item 28, kept by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| SWAP-54 | TIM-549 item 28, kept by TIM-555, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | SWAP-55 | TIM-542 item 6, amended by TIM-547 item 15 and TIM-550 item 11 | Architect (Tim has not read) | run | TIM-547, TIM-550 | `rule` | `apply` |
 | SWAP-56 | TIM-550 item 11 | Architect (Tim has not read) | run | TIM-547, TIM-550 | `rule` | `apply` |
 | SWAP-57 | TIM-542 item 25 | Tim | not run |  | `rule` | `apply` |
 | SWAP-58 | TIM-548 item 9 | Architect (Tim has not read) | not run | TIM-548 | `rule` | `settings` |
-| SWAP-59 | TIM-547 item 7 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
-| SWAP-60 | TIM-547 items 7 to 9 (comment on TIM-531) | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
-| SWAP-61 | TIM-547 item 7 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
-| SWAP-62 | TIM-552 decision 1 | Tim | run |  | `rule` | `apply` |
-| SWAP-63 | TIM-552 decision 1 | Tim | run |  | `rule` | `apply` |
-| SWAP-64 | TIM-552 decision 2 | Tim | run |  | `rule` | `apply` |
-| SWAP-65 | TIM-552 decision 2 | Tim | run |  | `rule` | `apply` |
-| SWAP-66 | TIM-552 decision 2 | Tim | run |  | `rule` | `apply` |
-| SWAP-67 | TIM-547 item 7 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
-| SWAP-68 | TIM-549 item 12, amended by TIM-552 | Tim | run |  | `rule` | `settings` |
-| SWAP-69 | TIM-547 item 8 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
+| SWAP-59 | TIM-547 item 7, amended by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
+| SWAP-60 | TIM-547 items 7 to 9 (comment on TIM-531), amended by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
+| SWAP-61 | TIM-547 item 7, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | - |
+| SWAP-62 | TIM-552 decision 1, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
+| SWAP-63 | TIM-552 decision 1, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
+| SWAP-64 | TIM-552 decision 2, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
+| SWAP-65 | TIM-552 decision 2, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
+| SWAP-66 | TIM-552 decision 2, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
+| SWAP-67 | TIM-547 item 7, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | - |
+| SWAP-68 | TIM-549 item 12, amended by TIM-552, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
+| SWAP-69 | TIM-547 item 8, amended by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SWAP-70 | TIM-552 decision 7, amending TIM-547 item 8 | Tim | run |  | `rule` | `apply` |
 | SWAP-71 | TIM-547 item 8 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SWAP-72 | TIM-547 item 8 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
-| SWAP-73 | TIM-547 item 3 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
-| SWAP-74 | TIM-547 item 8 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
-| SWAP-75 | TIM-547 item 9 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
+| SWAP-73 | TIM-547 item 3, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | - |
+| SWAP-74 | TIM-547 item 8, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | - |
+| SWAP-75 | TIM-547 item 9, amended by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SWAP-76 | TIM-547 items 7 to 9 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SWAP-77 | TIM-547 item 8 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SWAP-78 | TIM-547 item 9, amended by TIM-552 decision 6 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
@@ -810,8 +695,8 @@ Each message below is the failure text of a plugin tool call, and the table name
 | SWAP-104 | TIM-547 item 15 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SWAP-105 | TIM-547 item 15 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SWAP-106 | TIM-547 item 15 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
-| SWAP-107 | TIM-552 decision 4, amending TIM-547 item 15 | Tim | run |  | `rule` | `apply` |
-| SWAP-108 | TIM-552 decision 4, amending TIM-547 item 15 | Tim | run |  | `rule` | `apply` |
+| SWAP-107 | TIM-552 decision 4, amending TIM-547 item 15, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
+| SWAP-108 | TIM-552 decision 4, amending TIM-547 item 15, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
 | SWAP-109 | TIM-547 (passed to TIM-541), TIM-541 item 25, changed by TIM-553 question 1, provisional by TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `apply` |
 | SWAP-110 | TIM-552 question 1 | Tim | run |  | `fact` | `turns` |
 | SWAP-111 | TIM-552 decision 6 | Tim | run |  | `definition` | - |
@@ -826,7 +711,7 @@ Each message below is the failure text of a plugin tool call, and the table name
 | SWAP-120 | TIM-557 items 2 and 3, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | SWAP-121 | TIM-557 item 39, defining TIM-550 item 11, changed by the TIM-559 ruling on SWAP-G13 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | SWAP-122 | TIM-557 item 8 | Architect (Tim has not read) | run |  | `rule` | `plugin-api` |
-| SWAP-123 | TIM-558 items 30 and 33 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
+| SWAP-123 | TIM-558 items 30 and 33, amended by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | SWAP-124 | TIM-558 items 9, 29 and 42, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | SWAP-125 | TIM-559 ruling on SWAP-G1 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `apply` |
 | SWAP-126 | TIM-559 ruling on SWAP-G1 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `apply` |
@@ -856,3 +741,4 @@ Each message below is the failure text of a plugin tool call, and the table name
 | SWAP-150 | TIM-559 round 3 C1 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | SWAP-151 | TIM-559 round 3 API-G15 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `timers-cron` |
 | SWAP-152 | TIM-559 round 3 C2 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `apply` |
+| SWAP-153 | Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `apply` |

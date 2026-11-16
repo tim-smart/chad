@@ -23,12 +23,12 @@ chad is a personal assistant that one person runs for themselves. It replaces He
 
 | Feature | Detail in |
 | --- | --- |
-| Skills and MCP servers, with OAuth login for HTTP MCP servers | 12-skills-and-mcp.md |
+| Skills and MCP servers | 12-skills-and-mcp.md |
 | Recovery from a bad self-edit, with safe mode and `chad revert` | 09-repo-and-recovery.md |
 | Plugin settings in `chad.json`, and turning a plugin off | 11-settings.md |
 | The model login completed from Discord or from `chad login` | 05-model-and-login.md |
 | Backup of chad's state on the volume to one tar, and restore from it | 02-storage.md |
-| Credential tools, which are stored secrets, one-off codes and asking the owner for a value, with no browser in the image | 15-credentials.md |
+| Credential tools, which are stored secrets and the commands that use them, with no browser in the image | 15-credentials.md |
 | The bundled `self-edit` skill that teaches chad to change itself | 14-self-edit-skill.md |
 | The log on standard output and in `logs/chad.log`, the `chad logs` command, what the owner is told when a turn fails or a condition needs attention, the tokens each turn used, and the bundled `diagnose` skill | 16-failures-logs-status.md |
 
@@ -36,9 +36,10 @@ chad is a personal assistant that one person runs for themselves. It replaces He
 
 - **OV-12** chad does not validate Slack, and v1 writes no new effect/chat adapters such as Telegram or WhatsApp.
 - **OV-13** v1 has no web dashboard, no chat CLI or TUI, no alternative terminal backends and no profiles. The `chad` CLI that manages chad and runs first setup is in scope.
-- **OV-14** clanka is used as it is. v1 depends on no change to clanka except one, an auth provider argument on `McpServers.layer` for HTTP MCP servers that sign in with OAuth, and the pinned release carries it as `McpServers.layer(config, authProvider?)` (see 12-skills-and-mcp.md). The cost of this rule is that answer text cannot be streamed token by token.
+- **OV-14** clanka is used as it is. v1 depends on no change to clanka. The cost of this rule is that answer text cannot be streamed token by token.
 - **OV-15** Moving from Hermes is not part of v1. Existing Hermes skills already use `SKILL.md` and are copied over as files, and chad imports no history.
 - **OV-49** v1 works out no cost for a turn, moves to no other model by itself when a login reaches its usage limit, gives a plugin no API of its own to notify the owner, and gives plugin authors no test helper (see 16-failures-logs-status.md and 17-testing.md).
+- **OV-57** Tim cut five things from v1 on 2026-11-16, and their rules are withdrawn in their parts. v1 has no OAuth for MCP servers, so an HTTP server signs in with a header (see 12-skills-and-mcp.md). v1 has no way to ask the owner for a secret from Discord, no Enter button or modal, no TOTP codes and no browser recipes, so a secret is saved with `chad secret set` (see 15-credentials.md). Safe mode never starts by itself, and the owner turns it on (see 09-repo-and-recovery.md). A running turn's call to a plugin tool is never routed to a version that an apply or a reload loaded, and the tool is back in the session's next turn (see 08-apply-and-swap.md). A rebuild of the MCP layer has no gate, no drain and no held calls (see 12-skills-and-mcp.md).
 
 ## Pinned versions
 
@@ -79,18 +80,18 @@ container, image ghcr.io/tim-smart/chad, user node (uid 1000)
                                    stdio MCP servers (CHAD_SESSION=daemon)
   chad <command>                   a client, run by the owner with docker exec or by the agent
 /data                              the data volume
-other containers                   asphodel, and a browser if the owner wants one
+other containers                   asphodel
 ```
 
 - **OV-19** There is one `chad` executable. `chad serve` is the daemon and the container's command, and every other command is a short-lived client that reaches the daemon over a unix socket at `run/chad.sock` with effect RPC. chad listens on no network port, because the CLI uses the socket and Discord is reached over an outbound gateway connection (see 10-cli.md).
 - **OV-20** One daemon runs per data volume. The daemon holds a SQLite lock on `state/daemon.lock` for its whole life, and a second `chad serve` on the same volume fails to take it and exits (see 10-cli.md).
 - **OV-21** The daemon is one process that holds the chat connection, every session, the loaded plugins, the MCP connections and the timers. Plugin tools and hooks run on its main thread, the agent's scripts run in a worker, and the commands the agent runs and the stdio MCP servers are child processes of the daemon. A synchronous loop in a plugin therefore freezes the whole daemon, and the liveness probe `chad health` is the answer (see 07-plugin-loading.md and 01-image-and-volume.md).
-- **OV-22** All of chad's own state is on the one data volume, mounted at `/data`. Sessions, turns, timers, the stored requests that dedupe chat events, the record of the notices chad has sent and plugin state are in one SQLite file, `db/chad.db`, and each plugin gets a namespaced key-value store in it. Chat connections with their owner ids, secrets, model tokens, the safe mode flag, the boot counter, the model override and the thread that notices go to are files outside the database and outside the repo (see 02-storage.md and 16-failures-logs-status.md).
+- **OV-22** All of chad's own state is on the one data volume, mounted at `/data`. Sessions, turns, timers, the stored requests that dedupe chat events, the record of the notices chad has sent and plugin state are in one SQLite file, `db/chad.db`, and each plugin gets a namespaced key-value store in it. Chat connections with their owner ids, secrets, model tokens, the safe mode flag, the model override and the thread that notices go to are files outside the database and outside the repo (see 02-storage.md and 16-failures-logs-status.md).
 - **OV-23** One queue in the daemon orders everything that changes what is loaded, so two such changes never run at once (see 10-cli.md).
 - **OV-41** The daemon writes every log entry to two places, standard output as one logfmt line and `logs/chad.log` as one JSON line. The entries include the source and the output of the agent's scripts with nothing masked, so those go wherever the container's logs are shipped. The one exception to the two places is a boot that is refused before it holds the daemon lock. It writes its lines to standard output only and writes nothing to the volume (see 16-failures-logs-status.md and 01-image-and-volume.md).
 - **OV-42** One function, `runDaemon(inputs)`, owns the parts of the daemon that belong to the process, and `chad serve` is a few lines that call it. Every duration the spec names lives in one `Timings` service (see 17-testing.md, which also specifies the one `Messages` module for what chad posts in chat, its CLI errors and the messages the model reads as tool results).
 
-The owner can run other containers next to chad. asphodel runs as a Kubernetes sidecar (see 01-image-and-volume.md and 18-asphodel-plugin.md), and a browser runs as a container that shares chad's network namespace (see 15-credentials.md). Neither is part of the chad image.
+The owner can run other containers next to chad. asphodel runs as a Kubernetes sidecar (see 01-image-and-volume.md and 18-asphodel-plugin.md). It is not part of the chad image.
 
 ### The main parts of the daemon
 
@@ -171,7 +172,7 @@ The parts use these terms with the meanings below. Paths are relative to the dat
 | Apply | The command `chad apply -m <why>`. It checks the whole of `repo/work/`, commits it, moves `live` and makes the daemon load the change. | 10-cli.md, 08-apply-and-swap.md |
 | Generation | A number in the daemon that tells a session whether what is loaded has changed since its Agent was built. A session that is behind rebuilds its Agent at the start of its next turn. | 08-apply-and-swap.md |
 | Swap | The step in which new versions of plugins take over from the old ones. All new versions build, a gate closes, work in flight drains, the old scopes close and the new versions activate together. | 08-apply-and-swap.md |
-| Safe mode | chad as the image ships it. Nothing from the repo is loaded except the `enabled` flags of bundled plugins. It is turned on by `CHAD_SAFE_MODE=1`, `/safe on` or `chad safe on`, and it starts by itself after three unclean boots. | 09-repo-and-recovery.md |
+| Safe mode | chad as the image ships it. Nothing from the repo is loaded except the `enabled` flags of bundled plugins. It is turned on by `CHAD_SAFE_MODE=1`, `/safe on` or `chad safe on`, and it never starts by itself. | 09-repo-and-recovery.md |
 | Timer | A scheduled run of a plugin turn that the core holds for a plugin. A plugin creates one with `Turns.schedule`, and it lives as a delayed request to the `Timer` entity plus a row in the `timers` table. | 13-timers-and-cron.md |
 | Local platform | effect/chat's `ChatTest` behind an RPC server that listens at `run/local.sock`, outside the daemon. The local dev adapter is the daemon's client to it. | 17-testing.md |
 | Slice | A named group of rules that is built together. Every rule's row in a Provenance table names its slice, and a rule is pending while its slice is not delivered. | 19-build-order.md, 17-testing.md |
@@ -186,18 +187,18 @@ The parts use these terms with the meanings below. Paths are relative to the dat
 | 01-image-and-volume.md | The image, its user and environment variables, the volume's directory tree, the pinned packages, boot checks, the health probe, stopping, and the Kubernetes example. |
 | 02-storage.md | The SQLite database and its tables, the files kept outside it, backup and restore, pruning, and an unusable database. |
 | 03-sessions-and-turns.md | Sessions, the `Session` entity, steering, `/new` and `/stop`, what is stored, passivation, a turn cut by a restart, and the order of hooks around a turn. |
-| 04-discord.md | What a turn looks like in Discord, which is the status message, the answer, the buttons, sent files and the notices. |
+| 04-discord.md | What a turn looks like in Discord, which is the status message, the answer, the Stop button, sent files and the notices. |
 | 05-model-and-login.md | The model setting, the providers, the login from a container with no terminal, the token store and the prompt cache. |
 | 06-plugin-api.md | What a plugin exports, the services it gets, hooks and their budgets, background work, and starting or scheduling a turn. |
 | 07-plugin-loading.md | The runtime, bundling and running a plugin, the type-check, the exported trees and the order of an apply. |
 | 08-apply-and-swap.md | Generations, the Agent rebuild, the frozen system prompt, the swap path and what a running turn's tool calls do. |
-| 09-repo-and-recovery.md | The git repo, drafts, `chad revert`, boot, safe mode and unclean boots. |
+| 09-repo-and-recovery.md | The git repo, drafts, `chad revert`, boot and safe mode. |
 | 10-cli.md | Every `chad` command, the socket, the daemon lock, the queue, exit codes and the chat commands. |
 | 11-settings.md | `chad.json`, a plugin's settings and turning a plugin off. |
-| 12-skills-and-mcp.md | Skills, `mcp.json`, OAuth for HTTP MCP servers and the MCP layer's rebuild. |
+| 12-skills-and-mcp.md | Skills, `mcp.json` and the MCP layer's rebuild. |
 | 13-timers-and-cron.md | The timer machinery in the core and the bundled cron plugin. |
 | 14-self-edit-skill.md | The bundled `self-edit` skill, the core prompt's fixed sentences and the persona. |
-| 15-credentials.md | `chad secret`, one-off codes, asking the owner for a value and the `credentials` skill. |
+| 15-credentials.md | `chad secret` and the `credentials` skill. |
 | 16-failures-logs-status.md | The log formats and `chad logs`, the reasons a turn fails and what the owner is told, retries and the usage limit, the usage columns of the `turns` table, the blocks of `chad status`, a full disk, the notices and the bundled `diagnose` skill. |
 | 17-testing.md | How chad is tested, which is the six layers, the harness around `runDaemon`, the local platform, the rule ids on tests, what gates the pull request, and the live checks. |
 | 18-asphodel-plugin.md | The asphodel plugin written against the plugin API. |
@@ -246,7 +247,7 @@ Every part that states rules ends with a Provenance table that has one row per r
 | OV-11 | TIM-537; TIM-534; TIM-548; TIM-535; TIM-536 items 7 and 8; TIM-546 amended by TIM-554; TIM-549; TIM-557 items 1, 11, 14, 24, 36 and 43 | Tim (TIM-537, TIM-534, TIM-535, TIM-536, TIM-554 items 1 and 2); Architect (Tim has not read) for TIM-548, TIM-546, TIM-549 and TIM-557 | not run | TIM-557 | `definition` | - |
 | OV-12 | Map "Out of scope" | charting | not run |  | `definition` | - |
 | OV-13 | Map "Out of scope" | charting | not run |  | `definition` | - |
-| OV-14 | Map "Agreed at charting" and "Out of scope"; TIM-537 items 9 and 14; the pinned release carrying the argument TIM-559 ruling on OV-G1 | charting; Tim; Architect (Tim has not read) for the pinned release | read |  | `rule` | `repo` |
+| OV-14 | Map "Agreed at charting" and "Out of scope"; TIM-537 items 9 and 14; the pinned release carrying the argument TIM-559 ruling on OV-G1, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | charting; Tim; Architect (Tim has not read) for the pinned release | read |  | `rule` | `repo` |
 | OV-15 | Map "Out of scope" | charting | not run |  | `definition` | - |
 | OV-16 | TIM-538 item 1; Map "Facts found at charting"; TIM-541 item 1 | Tim; image base Architect (Tim has not read) | run |  | `rule` | `repo` |
 | OV-17 | TIM-559 ruling on OV-G1 | Architect (Tim has not read) | read |  | `rule` | `repo` |
@@ -254,7 +255,7 @@ Every part that states rules ends with a Provenance table that has one row per r
 | OV-19 | TIM-542 items 1 and 2; TIM-541 item 6; Map "Facts found at charting" | Tim; Architect (Tim has not read) for the image | run (TIM-550) for the socket, read for the Discord gateway |  | `rule` | `cli` |
 | OV-20 | TIM-542 item 3; TIM-550 item 8; TIM-553 item 5 | Tim; Architect (Tim has not read) for TIM-550 and TIM-553 | run |  | `rule` | `cli` |
 | OV-21 | TIM-534 "How well each is supported"; TIM-538; TIM-550 item 3 | Tim; Architect (Tim has not read) for TIM-550 | read |  | `rule` | `timers-cron` |
-| OV-22 | Map "Agreed at charting"; TIM-536 items 1 to 3; TIM-532 item 2; TIM-534 item 11; TIM-557 items 36 and 38 | charting; Tim; Architect (Tim has not read) for the notice record and the notice thread | run for `node:sqlite` and the session tables, read for the rest; the notice record and the notice thread not run |  | `rule` | `timers-cron` |
+| OV-22 | Map "Agreed at charting"; TIM-536 items 1 to 3; TIM-532 item 2; TIM-534 item 11; TIM-557 items 36 and 38, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | charting; Tim; Architect (Tim has not read) for the notice record and the notice thread | run for `node:sqlite` and the session tables, read for the rest; the notice record and the notice thread not run |  | `rule` | `timers-cron` |
 | OV-23 | TIM-542 item 4; TIM-550 item 1 | Tim | run (TIM-550) |  | `rule` | `cli` |
 | OV-24 | Map "Agreed at charting"; TIM-532 items 1, 3 and 5, amended by TIM-558 item 40 | charting; Tim; Architect (Tim has not read) for the drop of chad's own messages | read; the drop not run | TIM-558 | `rule` | `turns` |
 | OV-25 | Map "Agreed at charting" and "Facts found at charting"; TIM-532 items 2 and 4; TIM-540 item 12 | charting; Tim | run (TIM-543) |  | `rule` | `timers-cron` |
@@ -289,3 +290,4 @@ Every part that states rules ends with a Provenance table that has one row per r
 | OV-54 | TIM-559 ruling on where the spec lives (main session) | Architect (Tim has not read) | not run |  | `rule` | `repo` |
 | OV-55 | TIM-559 round 2 R10 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
 | OV-56 | Tim, chat 2026-11-15 | Tim | not run |  | `definition` | - |
+| OV-57 | Tim's ruling on the cuts from v1, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `definition` | - |

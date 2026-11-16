@@ -296,10 +296,11 @@ export const layer = (connection: Live) =>
   )
 
 /**
- * The handler while the database cannot be opened or migrated (STO-118, FAIL-148, SES-29). Every owner's message gets
- * the error where it was posted, with or without a mention, and a plain channel opens no thread for it. `/status`
- * gets the status, which renders with no database. Nothing is saved, so a post that fails is logged and the event is
- * not refused.
+ * The handler while the database cannot be opened or migrated (STO-118, FAIL-148, SES-29). An owner's message in a
+ * direct message, or one that mentions chad, gets the error where it was posted, and a plain channel opens no thread
+ * for it. `/status` gets the status, which renders with no database. A message that does not mention chad, in a thread
+ * or a plain channel, is ignored, because which threads are sessions is in the database (FAIL-339). Nothing is saved,
+ * so a post that fails is logged and the event is not refused.
  */
 export const unusable = (
   connection: Live,
@@ -310,7 +311,7 @@ export const unusable = (
     Effect.fnUntraced(function* (event) {
       if (event._tag !== "MessageCreated") return
       const { message } = event
-      const ignored = (reason: "own" | "not-owner") =>
+      const ignored = (reason: "own" | "not-owner" | "not-mentioned") =>
         Logger.event("message.ignored", "A message was ignored", {
           reason,
           author: message.author.id,
@@ -319,6 +320,9 @@ export const unusable = (
       if (message.author.isSelf) return yield* ignored("own")
       if (!connection.owners().includes(message.author.id)) {
         return yield* ignored("not-owner")
+      }
+      if (event.kind !== "direct" && !ChatMessage.mentionsSelf(message)) {
+        return yield* ignored("not-mentioned")
       }
       const answer =
         command(message) === "status" ? Messages.status(yield* status) : text

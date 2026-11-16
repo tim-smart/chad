@@ -24,14 +24,12 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 | --------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | SES-69b   | `plugin-api`     | `afterTurn` is a plugin hook, which the `plugin-api` slice delivers.                                                                                                                     |
 | CLI-138b  | `apply`          | `/safe` arrives with the `apply` slice.                                                                                                                                                  |
-| CLI-138d  | `settings`       | The `/secret` forms arrive with the `settings` slice.                                                                                                                                    |
 | CLI-141b  | `apply`          | The route goes through `/safe on`, which the `apply` slice delivers.                                                                                                                     |
 | IMG-85b   | `skills-mcp`     | The cut is made by the stop's 60 second deadline (IMG-82) and its line by the synchronous `stop.cut` write (IMG-139), which the `skills-mcp` slice delivers.                             |
 | IMG-88    | `backup`         | Two of the table's rows rest on later slices: the stop cut by its deadline on `skills-mcp`, and the `state/version` check (IMG-39) on `backup`.                                          |
 | STO-28b   | `backup`         | `chad backup` and `chad restore`, which hold the lock for the whole copy, arrive with the `backup` slice.                                                                                |
 | REC-96b   | `backup`         | The other owner commands arrive with later slices, and the last of them, `restore` and `backup` to stdout, with the `backup` slice.                                                      |
 | CLI-14b   | `apply`          | `chad apply`, which is the command that waits behind the boot, arrives with the `apply` slice.                                                                                           |
-| CLI-20c   | `settings`       | The one call that returns what the owner typed is the one behind `chad secret request --code`, which arrives with the `settings` slice.                                                  |
 | CLI-30b   | `skills-mcp`     | `chad plugin new` and `chad skill new`, which write into `work/` whatever the lock's state, arrive by the `skills-mcp` slice (CLI-156).                                                  |
 | CLI-31b   | `settings`       | `chad setup`, `chad secret` and `chad timezone` arrive with the `settings` slice.                                                                                                        |
 | CLI-31d   | `apply`          | `chad safe` arrives with the `apply` slice.                                                                                                                                              |
@@ -41,7 +39,6 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 | CLI-35b   | `settings`       | The files `state/safe-mode`, `state/model`, `state/timezone`, `secrets/secrets.json` and `secrets/auth/` are written by commands of later slices, the last of them the `settings` slice. |
 | CLI-37b   | `backup`         | The other changes that go through the queue arrive with later slices, and the last of them, a backup while it copies, with the `backup` slice.                                           |
 | CLI-42b   | `loader`         | The deadline of a plugin's Layer is LOAD-14, which the `loader` slice delivers.                                                                                                          |
-| CLI-42d   | `skills-mcp`     | The deadline of an MCP login is MCP-61, which the `skills-mcp` slice delivers.                                                                                                           |
 | CLI-49b   | `settings`       | `chad secret run` and its own usage errors arrive with the `settings` slice.                                                                                                             |
 | CLI-51b   | `settings`       | `chad secret run`, which passes its child's exit code through, arrives with the `settings` slice.                                                                                        |
 | CLI-57b   | `settings`       | `chad setup` arrives with the `settings` slice.                                                                                                                                          |
@@ -53,9 +50,7 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 | CLI-125d  | `apply`          | `work/` and its draft arrive with the repo, which the `apply` slice delivers.                                                                                                            |
 | CLI-125e  | `loader`         | Plugins are loaded from the repo, and skipped with a reason, by the `loader` slice.                                                                                                      |
 | CLI-125f  | `skills-mcp`     | MCP servers arrive with the `skills-mcp` slice.                                                                                                                                          |
-| CLI-205c  | `settings`       | The Enter modal, which saves a secret, arrives with the `settings` slice.                                                                                                                |
 | FAIL-286b | `apply`          | Safe mode, and why it is on, arrive with the `apply` slice.                                                                                                                              |
-| FAIL-302c | `settings`       | The Enter modal, which saves a secret, arrives with the `settings` slice.                                                                                                                |
 | CLI-46b   | `apply`          | `chad log` arrives with the `apply` slice (CLI-80).                                                                                                                                      |
 | CLI-46d   | `settings`       | `chad secret list` arrives with the `settings` slice (CLI-101).                                                                                                                          |
 | CLI-137b  | `settings`       | `chad.json` and its `"enabled": false` arrive with the `settings` slice (SET-34).                                                                                                        |
@@ -64,21 +59,18 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 | STO-83b   | `bundled-skills` | The `self-edit` skill arrives with the `bundled-skills` slice.                                                                                                                           |
 | STO-133c  | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                                                            |
 | FAIL-108c | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                                                            |
-| FAIL-114b | `apply`          | Whether the exit before the daemon's start was unclean comes from the boot counter (IMG-89 to IMG-92), which the `apply` slice delivers.                                                 |
-| FAIL-157b | `skills-mcp`     | The expired MCP login line of FAIL-170 arrives with the `skills-mcp` slice.                                                                                                              |
 | STO-110   | `backup`         | The prune job whose runs leave the request and reply arrives with the `backup` slice.                                                                                                    |
 
 ## Stopped rules
 
-A rule that a builder reported as wrong or impossible to build, with one sentence on what is wrong. Tim rules on each one.
+A binding rule (ORD-47) that a builder reported as wrong or impossible to build, with one sentence on what is wrong. Tim rules on each one. An entry on a rule that is a default does not wait for Tim: the open stage settles it and moves it to the simplified rules (ORD-51).
 
-| Rule     | What is wrong                                                                                                                                                                                                                                                                                                                               |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CRED-77  | It says what the agent does, which only a real model following the `credentials` skill can show, and Tim's fifth ruling of 2026-11-15 withdrew the skill runs, the one check that watched a real model follow a bundled skill.                                                                                                              |
-| CRED-78  | As CRED-77, only a real model that is handed a pasted password can show it, and the skill runs are withdrawn.                                                                                                                                                                                                                               |
-| IMG-130  | It says when a stop makes IMG-120's attempt to write turn ends, and Tim's fifth ruling of 2026-11-15 took that attempt out of IMG-120 without naming this rule, so there is nothing left for it to time.                                                                                                                                    |
-| CLI-161  | A statement of `chad db query` or `chad db check` holds the CLI's one thread until SQLite returns, so no handler can run and SIGTERM ends the command by the signal itself, which a shell reports as 143, and exiting 130 there would take a second process, which STO-80 rules out; every other client command exits 130 for both signals. |
-| TST-87   | Review reads it as ending every process a scenario started, and on Linux and macOS alike an unprivileged driver cannot find a background process that leaves its process group, drops the scenario's mark and loses its parent before the driver looks, so the driver ends what it recorded and cannot promise the rest.                    |
-| STO-209  | Its second half takes an unfinished turn's prompt as stored when the session's history carries no request key, but a compaction or an earlier turn leaves such a history too, so it can mark a prompt that was never stored and the resume then loses the owner's message.                                                                  |
-| STO-210  | Its removal takes the `prompts` row that STO-207 wrote with the prompt of a turn that started before STO-209's migration ran or in the same second, which the volume cannot tell from STO-209's inference, and its last sentence resends such a turn's prompt by a policy Tim has not ruled on.                                             |
-| FAIL-339 | It is a builder rule that narrows FAIL-148, SES-29 and STO-118, which say chad answers every owner message with the error while the database is unusable, to a direct message or a mention, and Tim has not ruled on that narrowing.                                                                                                        |
+| Rule | What is wrong |
+| ---- | ------------- |
+
+## Simplified rules
+
+A default (ORD-48) that was not built as written, with one sentence on what chad does instead. The rule-id script does not read this list. Tim reads it when he reviews the pull request.
+
+| Rule | What chad does instead |
+| ---- | ---------------------- |

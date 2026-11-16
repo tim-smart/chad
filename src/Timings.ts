@@ -23,23 +23,9 @@ export interface Timings {
   readonly stopHooksUntil: Duration.Duration
   /** Stop, the point from SIGTERM at which the scopes are closed and the exit is forced. */
   readonly stopDeadline: Duration.Duration
-  /** MCP rebuild, drain of calls in flight. */
-  readonly mcpDrain: Duration.Duration
-  /** MCP rebuild, wait for each interrupted call to stop. */
-  readonly mcpInterruptWait: Duration.Duration
-  /** MCP rebuild, pause between interrupting calls and closing the old layer. */
-  readonly mcpClosePause: Duration.Duration
-  /** MCP call held during a rebuild or before the first layer connects. */
-  readonly mcpCallBackstop: Duration.Duration
   readonly modelLogin: Duration.Duration
   /** Model trial request, deadline with no retry. */
   readonly modelTrial: Duration.Duration
-  /** MCP login, life of a pending login. */
-  readonly mcpLogin: Duration.Duration
-  /** `chad secret request` wait. */
-  readonly secretRequest: Duration.Duration
-  /** TOTP, time left in the window under which `code` and `run` wait for the next one. */
-  readonly totpWait: Duration.Duration
   /** Session passivation after idle. */
   readonly sessionIdle: Duration.Duration
   /** Cluster's `entityMessagePollInterval`. */
@@ -56,8 +42,6 @@ export interface Timings {
   readonly cliAnswer: Duration.Duration
   /** Daemon lock, busy timeout. */
   readonly lockBusy: Duration.Duration
-  /** Boot counter, time after the boot finished loading at which it clears. */
-  readonly bootCountClear: Duration.Duration
   /** Free space check, interval after the check at boot. */
   readonly freeSpaceInterval: Duration.Duration
   /** Prune, time of day in the owner's timezone. It is not a length, so no scale factor changes it. */
@@ -90,15 +74,8 @@ export const defaults: Timings = {
   stopRequests: Duration.seconds(15),
   stopHooksUntil: Duration.seconds(50),
   stopDeadline: Duration.seconds(60),
-  mcpDrain: Duration.seconds(30),
-  mcpInterruptWait: Duration.seconds(1),
-  mcpClosePause: Duration.millis(250),
-  mcpCallBackstop: Duration.seconds(120),
   modelLogin: Duration.minutes(15),
   modelTrial: Duration.seconds(60),
-  mcpLogin: Duration.minutes(10),
-  secretRequest: Duration.minutes(5),
-  totpWait: Duration.seconds(5),
   sessionIdle: Duration.minutes(30),
   messagePoll: Duration.seconds(1),
   messageRetention: Duration.days(1),
@@ -107,7 +84,6 @@ export const defaults: Timings = {
   healthPing: Duration.seconds(2),
   cliAnswer: Duration.seconds(2),
   lockBusy: Duration.seconds(3),
-  bootCountClear: Duration.seconds(60),
   freeSpaceInterval: Duration.hours(1),
   pruneAt: { hour: 4, minute: 0 },
   pruneAge: Duration.days(30),
