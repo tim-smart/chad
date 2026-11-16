@@ -142,7 +142,7 @@ export const resolveServer = <E, R>(
       return {
         config: {
           type: "unavailable",
-          error: "SSE transport is not supported",
+          error: Messages.mcpSse,
         },
       } satisfies Resolved as Resolved
     const text = (value: string) =>

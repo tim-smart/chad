@@ -251,7 +251,7 @@ const report = (state: State): Effect.Effect<Report> =>
       })),
       off: state.off(),
       skipped: state.skipped(),
-      mcp: state.mcp(),
+      ...(state.mcp().length === 0 ? {} : { mcp: state.mcp() }),
       ...(repository === undefined ? {} : { repository }),
     }),
   )

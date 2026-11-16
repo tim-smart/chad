@@ -1420,6 +1420,9 @@ export const mcpNoServerConnected = "searchTools: no MCP server is connected."
 /** A call made when no layer exists and none is being built (MCP-143). */
 export const mcpNotRunning = "MCP servers are not running."
 
+/** The status error of an entry with `"type": "sse"` (MCP-22). */
+export const mcpSse = "SSE transport is not supported"
+
 /** `mcp.json` that is not JSON (MCP-33). */
 export const mcpNotJson = (error: string) => `it is not JSON: ${error}`
 

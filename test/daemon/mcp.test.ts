@@ -61,6 +61,16 @@ const turn = async (running: Scenario, script: string | undefined) => {
   return running.fakes.model.calls()
 }
 
+/** Each server's line once a rebuild ends. */
+const connected = (name: string, tools: number) =>
+  Messages.mcpServerLine({ name, state: "connected", tools })
+const unavailable = (name: string, error: string) =>
+  Messages.mcpServerLine({ name, state: "failed", error })
+
+/** What a message says before the text it is given. */
+const before = (message: (text: string) => string) =>
+  message("\u0000").split("\u0000")[0] ?? ""
+
 const apply = (running: Scenario, message: string) =>
   running.chad(["apply", "-m", message])
 
@@ -86,28 +96,30 @@ test("MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-
   // A check connects nothing, names what an apply adds and warns of the name that resolves nowhere (MCP-36, MCP-113).
   const check = await running.chad(["check"])
   expect(check.code).toBe(0)
-  expect(check.stdout).toContain("MCP server tools: an apply adds it.")
+  for (const line of Messages.mcpCheckLines({
+    added: ["tools", "broken", "missing", "legacy"],
+    removed: [],
+    changed: [],
+  }))
+    expect(check.stdout).toContain(line)
   expect(check.stdout).toContain(
     Messages.mcpCheckUnresolved("missing", "NOPE_NOT_SET"),
   )
-  expect(check.stdout).toContain("The check connected no MCP server.")
 
   // The apply prints its commit line first, then each server once the layer is current (MCP-35, MCP-111, MCP-112).
   const applied = await apply(running, "Add MCP servers")
   expect(applied.code).toBe(0)
   const out = applied.stdout.split("\n")
   const at = (text: string) => out.findIndex((line) => line.startsWith(text))
-  expect(at("MCP server tools: connected, 3 tools.")).toBeGreaterThan(0)
+  expect(at(connected("tools", 3))).toBeGreaterThan(0)
   expect(out.at(-1) === "" ? out.at(-2) : out.at(-1)).toBe(
     Messages.appliedClosing,
   )
-  expect(at("MCP server broken: unavailable:")).toBeGreaterThan(0)
+  expect(at(unavailable("broken", "").trimEnd())).toBeGreaterThan(0)
   expect(applied.stdout).toContain(
-    `MCP server missing: unavailable: ${Messages.mcpUnresolved("NOPE_NOT_SET")}`,
+    unavailable("missing", Messages.mcpUnresolved("NOPE_NOT_SET")),
   )
-  expect(applied.stdout).toContain(
-    "MCP server legacy: unavailable: SSE transport is not supported",
-  )
+  expect(applied.stdout).toContain(unavailable("legacy", Messages.mcpSse))
 
   // The model calls the server. The token reached it from the store, and it runs in HOME as the daemon (MCP-31, MCP-109).
   const calls = await turn(
@@ -123,9 +135,7 @@ test("MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-
 
   const status = await running.chad(["status"])
   expect(status.stdout).toContain("mcp: tools, connected, 3 tools")
-  expect(status.stdout).toMatch(
-    /mcp: legacy, failed \(SSE transport is not supported/,
-  )
+  expect(status.stdout).toContain(`mcp: legacy, failed (${Messages.mcpSse})`)
 
   // A secret mcp.json names rebuilds the layer and prints it, and one it does not name rebuilds nothing (MCP-40).
   const second = "second-91aa-not-in-env"
@@ -134,9 +144,9 @@ test("MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-
     {},
     second + "\n",
   )
-  expect(changed.stdout).toContain("MCP server tools: connected, 3 tools.")
+  expect(changed.stdout).toContain(connected("tools", 3))
   const other = await running.chad(["secret", "set", "UNRELATED"], {}, "x\n")
-  expect(other.stdout).not.toContain("MCP server")
+  expect(other.stdout).not.toContain(connected("tools", 3))
   expect(
     results(
       (await turn(running, "console.log(await mcp.tools.token({}))"))[1],
@@ -163,7 +173,9 @@ test("MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-
   write(work, { "mcp.json": "{ not json" })
   const malformed = await apply(running, "Malformed")
   expect(malformed.code).toBe(1)
-  expect(malformed.stderr).toContain("work/mcp.json: it is not JSON")
+  expect(malformed.stderr).toContain(
+    before((error) => Messages.mcpRefused(Messages.mcpNotJson(error))),
+  )
   expect((await running.chad(["status"])).stdout).toContain(
     "mcp: tools, connected, 3 tools",
   )
@@ -226,7 +238,7 @@ test("MCP-38 MCP-39 MCP-41 MCP-42 MCP-66 MCP-67 MCP-68 MCP-71 MCP-73 MCP-81 MCP-
   rmSync(gate)
   const restarted = await restart.done
   expect(restarted).toMatchObject({ code: 0 })
-  expect(restarted.stdout).toContain("MCP server slow: connected, 2 tools.")
+  expect(restarted.stdout).toContain(connected("slow", 2))
 
   // An apply drops a server and a tool and adds a tool while the turn runs. Its old keys reach the new layer
   // (MCP-66, MCP-81, MCP-82, MCP-87).
@@ -258,14 +270,17 @@ test("MCP-7 MCP-37 MCP-90 MCP-91 MCP-92 REC-11 REC-45 LOAD-46 FAIL-165 FAIL-272 
   await first.logged("mcp.config-unreadable")
   // The second boot's chat fake numbers its messages from the start again, so this boot takes no message.
   const broken = (await first.chad(["status"])).stdout
-  expect(broken).toContain("`mcp.json` can't be read (it is not JSON")
+  const unreadable = before((error) =>
+    Messages.mcpUnreadable(Messages.mcpNotJson(error)),
+  )
+  expect(broken).toContain(unreadable)
   expect(broken).not.toContain("mcp: ")
 
   write(join(first.data, "repo/work"), {
     "mcp.json": mcpJson({ slow: fixture("--tools", "echo", "--gate", gate) }),
   })
   expect((await apply(first, "Fix mcp.json")).code).toBe(0)
-  expect((await first.chad(["status"])).stdout).not.toContain("can't be read")
+  expect((await first.chad(["status"])).stdout).not.toContain(unreadable)
   expect(await first.stop()).toBe(0)
 
   // A boot is a rebuild in the background: a turn before the first layer connects starts without MCP (MCP-90, MCP-92).
@@ -287,11 +302,11 @@ test("MCP-7 MCP-37 MCP-90 MCP-91 MCP-92 REC-11 REC-45 LOAD-46 FAIL-165 FAIL-272 
 
   // Safe mode stops every server, and safe off brings them back (MCP-7).
   expect((await second.chad(["safe", "on"])).stdout).not.toContain(
-    "MCP server slow",
+    connected("slow", 1),
   )
   expect((await second.chad(["status"])).stdout).not.toContain("mcp: slow")
   expect(systemText((await turn(second, undefined))[0])).not.toContain("- slow")
   expect((await second.chad(["safe", "off"])).stdout).toContain(
-    "MCP server slow: connected, 1 tools.",
+    connected("slow", 1),
   )
 }, 60_000)
