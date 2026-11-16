@@ -3,6 +3,7 @@ import { join } from "node:path"
 import type { ChatThread } from "effect/chat"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
+import * as Cli from "../support/cli.ts"
 import { query } from "../support/database.ts"
 import { owner, type Scenario, scenario } from "../support/driver.ts"
 import { eventually } from "../support/owner.ts"
@@ -211,4 +212,48 @@ test("MOD-12 MOD-22 MOD-90 CLI-31 CLI-178 with no daemon chad model tries the mo
     () => turnModels(running),
     (models) => models.length === 1,
   )
+})
+
+test("MOD-81 MOD-126 MOD-90 with no daemon, a chad model whose trial outlasts another change is planned again on what that change stored, so no override of another provider is stored", async () => {
+  const first = await scenario()
+  await first.stop()
+  const env = { ...alone(first), CHAD_DATA: first.data }
+
+  const held = first.model.holdChecks("small-held")
+  const override = Cli.start(
+    ["model", "--subagent", "openai-compat/small-held"],
+    env,
+  )
+  await held.reached
+  const moved = await first.chad(["model", "openai/new-main"], env)
+  expect(moved).toMatchObject({
+    code: 0,
+    stdout: `${Messages.modelNow("openai/new-main")}\n`,
+  })
+  held.release()
+  expect(await override.done).toMatchObject({
+    code: 1,
+    stdout: "",
+    stderr: expect.stringContaining(
+      Messages.modelRefused(
+        Messages.modelOverrideProvider("openai-compat/small-held", "openai"),
+      ),
+    ),
+  })
+  expect(stored(first, "model")?.trim()).toBe("openai/new-main")
+  expect(stored(first, "subagent-model")).toBeUndefined()
+  const shown = await first.chad(["model"], env)
+  // What the next chad model shows is what was stored, with no override left out.
+  expect(shown.stdout.split("\n")[0]).toMatch(/^model: openai\/new-main /)
+  expect(shown.stdout.split("\n").slice(1)).toEqual([
+    ...Messages.modelShown({
+      main: "",
+      subagent: undefined,
+      summarizer: undefined,
+      ignored: [],
+    })
+      .split("\n")
+      .slice(1),
+    "",
+  ])
 })

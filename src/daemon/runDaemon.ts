@@ -449,16 +449,11 @@ const modelCommand = (
 ) => {
   const request = ModelSpec.parseWords(words)
   if (Result.isFailure(request)) return where.post(request.failure)
-  let posted = false
   const leader: Login.SessionRef = {
     id: `model ${where.link}`,
     ownerPresent: true,
     link: where.link,
-    post: (markdown) =>
-      Effect.suspend(() => {
-        posted = true
-        return where.post(markdown)
-      }),
+    post: where.post,
     notice: where.post,
     waiting: Effect.void,
   }
@@ -467,11 +462,9 @@ const modelCommand = (
     request.success,
     Queue.caller(undefined),
     {
-      // The code of the login this command started went to `leader` already.
+      // A login this command joins prints its code here. One it starts posts the code to `leader` and prints nothing.
       print: (prompt) =>
-        posted
-          ? Effect.void
-          : where.post(Messages.loginPrompt(prompt.verifyUrl, prompt.code)),
+        where.post(Messages.loginPrompt(prompt.verifyUrl, prompt.code)),
       leader,
     },
   ).pipe(

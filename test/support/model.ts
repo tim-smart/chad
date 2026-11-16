@@ -88,6 +88,13 @@ export interface FakeModel {
   readonly checks: () => ReadonlyArray<Call>
   /** Makes every later check fail with the HTTP status, or answer again with `undefined`. */
   readonly failChecks: (status: number | undefined) => void
+  /**
+   * Holds every check of one model until `release` is called. `reached` resolves when the first of them arrives.
+   */
+  readonly holdChecks: (model: string) => {
+    readonly reached: Promise<void>
+    readonly release: () => void
+  }
   /** A new Codex token that the fake accepts, or one whose access token has expired and whose refresh is good. */
   readonly token: (options?: { readonly expired?: boolean }) => StoredToken
   /** The refresh tokens the login exchanged, oldest first. */
@@ -335,6 +342,10 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
   let calls: Array<Call> = []
   const checks: Array<Call> = []
   let checkFailure: number | undefined
+  const heldChecks = new Map<
+    string,
+    { readonly reach: () => void; readonly released: Promise<void> }
+  >()
   const held = new Map<number, () => void>()
   const released = new Set<number>()
   const waiting: Array<() => void> = []
@@ -413,6 +424,17 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
     const refusal = codex ? refused(call.headers, call.body) : undefined
     if (isTrial(call.body)) {
       checks.push({ ...call, index: checks.length })
+      const gate = heldChecks.get(
+        typeof call.body === "object" &&
+          call.body !== null &&
+          "model" in call.body
+          ? String(call.body.model)
+          : "",
+      )
+      if (gate !== undefined) {
+        gate.reach()
+        await gate.released
+      }
       if (refusal !== undefined) return refusal
       return checkFailure === undefined
         ? { index: -1, reply: { text: "ok" } }
@@ -597,6 +619,21 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
     socket: `ws://127.0.0.1:${socketPort}/codex`,
     opened: () => opened,
     checks: () => checks,
+    holdChecks: (model) => {
+      const reached = Promise.withResolvers<void>()
+      const released = Promise.withResolvers<void>()
+      heldChecks.set(model, {
+        reach: reached.resolve,
+        released: released.promise,
+      })
+      return {
+        reached: reached.promise,
+        release: () => {
+          heldChecks.delete(model)
+          released.resolve()
+        },
+      }
+    },
     failChecks: (status) => {
       checkFailure = status
     },

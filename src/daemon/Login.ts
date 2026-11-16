@@ -4,7 +4,16 @@ import {
   type TokenData,
 } from "clanka/CodexAuth"
 import { DeviceCodeHandler } from "clanka/DeviceCodeHandler"
-import { Context, Data, Deferred, type Duration, Effect, Layer } from "effect"
+import {
+  Context,
+  Data,
+  Deferred,
+  type Duration,
+  Effect,
+  Exit,
+  Layer,
+  Scope,
+} from "effect"
 import { HttpClient } from "effect/http"
 import * as Messages from "../Messages.ts"
 import * as Logger from "./Logger.ts"
@@ -90,7 +99,8 @@ export type Outcome = "logged-in" | "already"
 /** One waiter on a login: a turn's session, or a `chad login` that prints the code. */
 interface Waiter {
   readonly session: SessionRef | undefined
-  readonly print: ((prompt: Prompt) => Effect.Effect<void>) | undefined
+  /** Prints the code. A call that starts a login with a leader has none, because the leader's thread gets the code. */
+  print: ((prompt: Prompt) => Effect.Effect<void>) | undefined
   told: boolean
 }
 
@@ -110,6 +120,12 @@ interface Flow {
   readonly sessions: Set<string>
   /** The sessions told of this login already, which get no second notice. */
   readonly noticed: Set<string>
+  /**
+   * Where the code is delivered: each waiter's print and thread, and the leader's post or the notice route, each on
+   * its own fiber. None of them holds up another or clanka's poll for approval, and what is still running when the
+   * login ends is cut (MOD-55, MOD-118).
+   */
+  readonly deliveries: Scope.Closeable
 }
 
 export class Login extends Context.Service<
@@ -155,31 +171,55 @@ export const make = Effect.fnUntraced(function* (options: {
   /** Moves on each logout, so that a login that ends after it does not put its token back. */
   let epoch = 0
 
-  /** A waiter learns of the code: the terminal prints it, and a turn's thread gets its status line and notice. */
-  const greet = (current: Flow, waiter: Waiter) =>
-    Effect.gen(function* () {
-      const prompt = current.prompt
-      if (prompt === undefined) return
-      waiter.told = true
-      if (waiter.print !== undefined) yield* waiter.print(prompt)
-      const session = waiter.session
-      if (session === undefined) return
-      yield* session.waiting
+  /** Runs a delivery of the login's code on a fiber of its own, which the login's end cuts. */
+  const deliver = (current: Flow, effect: Effect.Effect<void>) =>
+    Effect.forkIn(effect, current.deliveries, { startImmediately: true }).pipe(
+      Effect.asVoid,
+    )
+
+  /** A waiting session's notice that names the thread the code went to, once that is known (MOD-42, MOD-118). */
+  const notify = (current: Flow, session: SessionRef) =>
+    Effect.suspend(() => {
+      const link = current.link
       if (
         session.id === current.leader?.id ||
         !session.ownerPresent ||
         current.noticed.has(session.id) ||
-        current.link === undefined ||
+        link === undefined ||
         // The thread the code went to by the notice route has it already (MOD-118).
-        current.link === session.link
+        link === session.link
       ) {
-        return
+        return Effect.void
       }
       current.noticed.add(session.id)
-      yield* session.notice(Messages.loginWaitingIn(current.link))
+      return session.notice(Messages.loginWaitingIn(link))
     })
 
-  /** clanka's handler: the code goes to the leader's thread, or by the notice route, and every waiter is told. */
+  /**
+   * A waiter learns of the code once: the terminal prints it, and a turn's thread gets its status line and notice.
+   * The waiter counts as told at once, whatever the delivery does after.
+   */
+  const greet = (current: Flow, waiter: Waiter) =>
+    Effect.suspend(() => {
+      const prompt = current.prompt
+      if (prompt === undefined || waiter.told) return Effect.void
+      waiter.told = true
+      const { print, session } = waiter
+      return deliver(
+        current,
+        Effect.gen(function* () {
+          if (print !== undefined) yield* print(prompt)
+          if (session === undefined) return
+          yield* session.waiting
+          yield* notify(current, session)
+        }),
+      )
+    })
+
+  /**
+   * clanka's handler: every waiter is told, and the code goes to the leader's thread or by the notice route. clanka
+   * polls for approval once it returns, so it waits on none of them (MOD-55, MOD-118).
+   */
   const handler = DeviceCodeHandler.of({
     onCode: ({ verifyUrl, deviceCode }) =>
       Effect.gen(function* () {
@@ -188,14 +228,24 @@ export const make = Effect.fnUntraced(function* (options: {
         current.prompt = { verifyUrl, code: deviceCode }
         const text = Messages.loginPrompt(verifyUrl, deviceCode)
         const leader = current.leader
-        if (leader === undefined) {
-          current.link = yield* options.announce(text)
-        } else {
-          current.noticed.add(leader.id)
-          yield* leader.post(text)
-          current.link = leader.link
-        }
+        if (leader !== undefined) current.noticed.add(leader.id)
         for (const waiter of current.waiters) yield* greet(current, waiter)
+        yield* deliver(
+          current,
+          Effect.gen(function* () {
+            if (leader === undefined) {
+              current.link = yield* options.announce(text)
+            } else {
+              yield* leader.post(text)
+              current.link = leader.link
+            }
+            for (const waiter of current.waiters) {
+              if (waiter.told && waiter.session !== undefined) {
+                yield* deliver(current, notify(current, waiter.session))
+              }
+            }
+          }),
+        )
       }),
   })
 
@@ -216,6 +266,7 @@ export const make = Effect.fnUntraced(function* (options: {
         waiters: new Set(),
         sessions: new Set(),
         noticed: new Set(),
+        deliveries: Scope.makeUnsafe(),
       }
       flow = created
       return [created, true] as const
@@ -232,6 +283,7 @@ export const make = Effect.fnUntraced(function* (options: {
       Effect.onExit((exit) =>
         Effect.gen(function* () {
           flow = undefined
+          yield* Scope.close(current.deliveries, Exit.void)
           if (exit._tag === "Success" && started === epoch) token = exit.value
           if (exit._tag === "Success" && current.prompt !== undefined) {
             yield* Logger.event("model.logged-in", "A login completed", {})
@@ -258,6 +310,10 @@ export const make = Effect.fnUntraced(function* (options: {
   const wait = (waiter: Waiter, leader = waiter.session) =>
     Effect.gen(function* () {
       const [current, fresh] = yield* take(leader)
+      // The leader's thread gets the code of a login that this call starts, so the call prints nothing (MOD-91).
+      if (fresh && leader !== undefined && leader !== waiter.session) {
+        waiter.print = undefined
+      }
       if (fresh) yield* run(current)
       return yield* join(current, waiter)
     })

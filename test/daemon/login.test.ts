@@ -269,3 +269,30 @@ test("MOD-57 MOD-58 MOD-62 MOD-64 MOD-109 MOD-110 CLI-34 CLI-57c with no daemon 
     stderr: "",
   })
 })
+
+test("MOD-55 MOD-118 MOD-36 a chad login through the daemon prints its code and completes while the notice route's thread lookup does not answer", async () => {
+  const first = await scenario()
+  const direct = await first.fakes.chat.makeThread("direct")
+  await says(first, direct, "/status")
+  await first.fakes.chat.answers(direct, 1)
+  expect(await first.stop()).toBe(0)
+
+  // The notice route's destination is restored, and the lookup of its kind is held for the whole login.
+  const running = await scenario({
+    ...codex,
+    directory: first.directory,
+    timings: { modelLogin: Duration.seconds(10) },
+  })
+  expect(await running.fakes.chat.makeThread("direct")).toEqual(direct)
+  const held = running.holdThreads()
+  const login = Cli.start(["login"], { CHAD_DATA: running.data })
+  await login.printed(prompt(1))
+  running.model.approve()
+  expect(await login.done).toMatchObject({
+    code: 0,
+    stdout: `${prompt(1)}\n${Messages.loggedIn}\n`,
+  })
+  expect(running.model.deviceCodes()).toBe(1)
+  held.release()
+  expect(await running.stop()).toBe(0)
+})

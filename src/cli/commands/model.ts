@@ -1,6 +1,6 @@
 import { CodexAuth } from "clanka/CodexAuth"
 import { DeviceCodeHandler } from "clanka/DeviceCodeHandler"
-import { Console, Context, Effect, Option, Stream } from "effect"
+import { Console, Context, Effect, Option, Result, Stream } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { KeyValueStore } from "effect/persistence"
 import * as Errno from "../../Errno.ts"
@@ -63,7 +63,7 @@ const alone = (request: ModelSpec.Request) =>
       openaiApiUrl: environment.openaiApiUrl,
       openaiApiKey: environment.openaiApiKey,
     }
-    const current = yield* Spec.read(environment.data, inputs).pipe(
+    const settings = Spec.read(environment.data, inputs).pipe(
       Effect.mapError(
         (error) =>
           new Failure({
@@ -76,6 +76,7 @@ const alone = (request: ModelSpec.Request) =>
           }),
       ),
     )
+    const current = yield* settings
     if (Spec.isShow(request)) {
       const state = yield* Account.fromFiles
       return yield* Console.log(Spec.shown(current, Status.logins[state.login]))
@@ -83,7 +84,7 @@ const alone = (request: ModelSpec.Request) =>
     yield* Files.writable("model")
     const timings = yield* Timings
     const { auth, store, handler } = yield* Login.terminal
-    const planned = yield* Spec.prepare({
+    yield* Spec.prepare({
       current,
       request,
       endpoint: inputs,
@@ -105,8 +106,19 @@ const alone = (request: ModelSpec.Request) =>
         ),
       ),
     )
-    yield* Files.locked("model", Spec.store(environment.data, planned))
-    yield* Console.log(planned.text)
+    // Another change may have been stored while the trials ran, so the change is planned again under the lock on what
+    // the files hold now. The models to try come from the request alone, so they are the ones just tried, and a main
+    // model that moved to another provider refuses an override of the old one (MOD-81, MOD-126).
+    const stored = yield* Files.locked(
+      "model",
+      Effect.gen(function* () {
+        const again = Spec.plan(yield* settings, request, inputs)
+        if (Result.isFailure(again)) return yield* again.failure
+        yield* Spec.store(environment.data, again.success)
+        return again.success
+      }),
+    )
+    yield* Console.log(stored.text)
   }).pipe(
     Effect.catchTag("ModelUnchanged", (error) => Effect.fail(unchanged(error))),
   )
