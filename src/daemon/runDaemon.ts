@@ -54,6 +54,7 @@ import * as Logger from "./Logger.ts"
 import * as Login from "./Login.ts"
 import * as Model from "./Model.ts"
 import * as Notices from "./Notices.ts"
+import * as Persona from "./Persona.ts"
 import * as PluginTurns from "./PluginTurns.ts"
 import * as Plugins from "./Plugins.ts"
 import * as PluginSettings from "./PluginSettings.ts"
@@ -370,6 +371,10 @@ const boot = Effect.fnUntraced(function* (
   })
   const off = Settings.off(appliedSettings)
   for (const name of off) yield* notices.clear(Plugins.skippedKey(name))
+  // The persona of the tree `live` points at, which safe mode leaves out of the prompt (REC-11, SELF-45).
+  const persona = yield* Persona.read(
+    Option.isSome(applied) ? applied.value.directory : undefined,
+  )
   // The one Codex login of the process. Its code goes to the thread of the turn that asked, or by the notice route,
   // and its wait is the daemon's, so a turn or a CLI that goes does not end it (MOD-36, MOD-41, MOD-101).
   const login = yield* Login.make({
@@ -488,6 +493,10 @@ const boot = Effect.fnUntraced(function* (
             on: () =>
               (repository === undefined ? safe : repository.safe()) !== "off",
           }),
+          Layer.succeed(SessionEntity.Persona, {
+            text: () =>
+              repository === undefined ? persona : repository.persona(),
+          }),
           Layer.succeed(SessionEntity.Stopping, {
             stopping: () => state.phase === "stopping",
           }),
@@ -598,6 +607,7 @@ const boot = Effect.fnUntraced(function* (
     plugins,
     bundled: inputs.plugins ?? [],
     settings: appliedSettings,
+    persona,
     notices,
     queue,
     scope,

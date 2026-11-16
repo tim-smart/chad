@@ -16,6 +16,7 @@ import * as Timezone from "../Timezone.ts"
 import * as Loader from "./Loader.ts"
 import * as Logger from "./Logger.ts"
 import type * as Notices from "./Notices.ts"
+import * as Persona from "./Persona.ts"
 import * as PluginSettings from "./PluginSettings.ts"
 import type * as Plugins from "./Plugins.ts"
 import * as Queue from "./Queue.ts"
@@ -71,6 +72,8 @@ export interface Commands {
    * them. It runs inside the queue the owner change holds. With an owner removed, one that fails is unloaded (CLI-120b).
    */
   readonly owners: (removed: boolean) => Effect.Effect<void>
+  /** The persona of the applied tree, which a session takes when its Agent is built (SELF-43, SWAP-128). */
+  readonly persona: () => string
   /** The plugins the applied `chad.json` turns off, which `chad status` and `chad plugin purge` read (SET-34). */
   readonly off: () => ReadonlySet<string>
   /** The plugins whose settings in the applied `chad.json` name a secret, less those that are off (SET-26, SET-79). */
@@ -107,6 +110,8 @@ export const make = Effect.fnUntraced(function* (options: {
   readonly bundled: ReadonlyArray<Plugins.Entry>
   /** The applied `chad.json` as the boot read it. */
   readonly settings: Settings.File
+  /** The applied tree's persona as the boot read it. */
+  readonly persona: string
   /** The notices, of which an apply clears the two about `chad.json` once the file it applied passed its checks. */
   readonly notices: Notices.Notices["Service"]
   readonly queue: Queue.Queue
@@ -130,6 +135,8 @@ export const make = Effect.fnUntraced(function* (options: {
   let safe = options.initial
   /** The applied `chad.json`, which an apply or a revert replaces at its commit. */
   let applied = options.settings
+  /** The applied tree's persona, which an apply or a revert replaces before its swap bumps the generation (SWAP-128). */
+  let persona = options.persona
   const guide = Messages.effectGuide(
     join(repo, "node_modules/effect/AGENTS.md"),
   )
@@ -337,6 +344,8 @@ export const make = Effect.fnUntraced(function* (options: {
         return yield* refused("settings", validated.errors)
       }
       const file = validated.file
+      // The persona is read from the tree the change exported, never from work/ (REC-11).
+      const nextPersona = yield* Persona.read(exported.directory)
       const { build, remove } = planOf(checked.loaded, file)
       const prepared = yield* plugins.prepare({
         build,
@@ -409,6 +418,8 @@ export const make = Effect.fnUntraced(function* (options: {
                   name: saved.ref.split("/").pop()!,
                   sha,
                 })
+          // The persona is in place before the swap's generation bump, which is its one path to a session (SWAP-128).
+          persona = nextPersona
           const swapped =
             safe === "off"
               ? yield* prepared.swap
@@ -624,6 +635,7 @@ export const make = Effect.fnUntraced(function* (options: {
           safe: false,
           notices: options.notices,
         })
+        persona = yield* Persona.read(tree)
         const off = Settings.off(applied)
         const plan = planFor(
           PluginSettings.entries({
@@ -807,6 +819,7 @@ export const make = Effect.fnUntraced(function* (options: {
         )
       }),
     safe: () => safe,
+    persona: () => persona,
     // Once the owners are stored the plugins follow them, so a client that goes away does not leave a removed owner in
     // a running plugin (CLI-120b, SWAP-99).
     owners: (removed) =>
