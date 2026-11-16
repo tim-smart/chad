@@ -1058,8 +1058,6 @@ describe("the bundled skills in the image, on a volume that booted once", () => 
       ...Object.values(ExitCode),
       ...Object.values(RunCode),
     ])
-    const templates = Skills.templates(read("src/Messages.ts"))
-    const roots = new Set(["data", "mnt", "opt"])
     const problems = files.flatMap(({ name, text }) => [
       ...Skills.commands(text).flatMap((words) =>
         Skills.problems(tree, words).map((problem) => `${name}: ${problem}`),
@@ -1067,15 +1065,13 @@ describe("the bundled skills in the image, on a volume that booted once", () => 
       ...Skills.exitCodes(text)
         .filter((code) => !codes.has(code))
         .map((code) => `${name}: exit code ${code}`),
-      ...Skills.quoted(text)
-        .filter((quote) => !Skills.inMessages(quote, templates))
-        .map((quote) => `${name}: no message "${quote}"`),
+      ...Skills.unquotable(text).map(
+        (quote) => `${name}: no message "${quote}"`,
+      ),
     ])
     expect(problems).toEqual([])
 
-    const paths = [
-      ...new Set(files.flatMap(({ text }) => Skills.paths(text, roots))),
-    ]
+    const paths = [...new Set(files.flatMap(({ text }) => Skills.paths(text)))]
     expect(paths).toEqual(
       expect.arrayContaining([
         "/data/repo/examples/",

@@ -12,6 +12,7 @@ import {
   writeFileSync,
 } from "node:fs"
 import { join, relative } from "node:path"
+import * as Messages from "../../dist/Messages.js"
 import { owner, type Ran } from "./cli.ts"
 import { path } from "./repo.ts"
 
@@ -72,12 +73,18 @@ export const commands = (text: string): ReadonlyArray<ReadonlyArray<string>> =>
       ),
     )
 
-/** Every absolute path whose first directory is one of `roots`, cut before its first placeholder. */
-export const paths = (text: string, roots: ReadonlySet<string>) =>
+/** The chat commands a skill names, which look like absolute paths. */
+const chatCommands = new Set(["/new", "/safe"])
+
+/**
+ * Every absolute path, whatever its root, cut before its first placeholder. A chat command is not a path. A path the
+ * image lacks fails the check, so a path with a mistyped root is not dropped (SELF-112).
+ */
+export const paths = (text: string): ReadonlyArray<string> =>
   code(text)
     .flatMap((line) => [...line.matchAll(/(?:^|\s)(\/[^\s`'"]+)/g)])
     .map(([, found]) => found!.split("<")[0]!.replace(/[.,:;)]+$/, ""))
-    .filter((found) => roots.has(found.split("/")[1]!))
+    .filter((found) => !chatCommands.has(found))
 
 /** Every exit code the prose names. */
 export const exitCodes = (text: string): ReadonlyArray<number> =>
@@ -180,112 +187,25 @@ export const problems = (
   return found
 }
 
-const gap = "\u0000"
-
 /**
- * The string literals and template literals of a TypeScript source, each `${...}` of a template as a gap. A template
- * inside a gap is one of its own.
+ * The messages a skill may quote, as `Messages` renders them with a `<name>` for each part that varies (SELF-113,
+ * TST-91). A quote has to be part of one of them, letter for letter, so a skill that quotes a new message adds its
+ * render here.
  */
-export const templates = (source: string): ReadonlyArray<string> => {
-  const found: Array<string> = []
-  let at = 0
-  const quotedString = (close: string) => {
-    let text = ""
-    at++
-    while (at < source.length && source[at] !== close) {
-      if (source[at] === "\\") {
-        text += source[at + 1]
-        at += 2
-      } else text += source[at++]
-    }
-    at++
-    return text
-  }
-  const template = () => {
-    let text = ""
-    at++
-    while (at < source.length && source[at] !== "`") {
-      if (source[at] === "\\") {
-        text += source[at + 1]
-        at += 2
-      } else if (source.startsWith("${", at)) {
-        at += 2
-        expression("}")
-        text += gap
-      } else text += source[at++]
-    }
-    at++
-    return text
-  }
-  // Reads code up to the closing character, collecting every literal in it.
-  const expression = (close: string | undefined) => {
-    let depth = 0
-    while (at < source.length) {
-      const char = source[at]!
-      if (source.startsWith("//", at)) at = source.indexOf("\n", at)
-      else if (source.startsWith("/*", at)) at = source.indexOf("*/", at) + 2
-      else if (char === '"' || char === "'") found.push(quotedString(char))
-      else if (char === "`") found.push(template())
-      else if (char === "{") {
-        depth++
-        at++
-      } else if (char === "}" && depth === 0 && close === "}") {
-        at++
-        return
-      } else {
-        if (char === "}") depth--
-        at++
-      }
-      if (at < 0) return
-    }
-  }
-  expression(undefined)
-  return found
-}
+export const quotable: ReadonlyArray<string> = [
+  Messages.toolChanged("<tool>"),
+  Messages.toolChangedSubagent("<tool>"),
+  Messages.mcpInterrupted("<server>.<tool>"),
+  Messages.mcpRestarting,
+  Messages.secretMissing("run", "<NAME>"),
+  Messages.replaceMeRefused("<tool>"),
+]
 
-/**
- * Whether a quoted message can be part of what a template gives: some text matches the quote, with each `<name>` as
- * any text, and is part of a text that matches the template, with each gap as any text.
- */
-export const fits = (quote: string, template: string): boolean => {
-  // The gaps around the quote stand for the rest of the template's text.
-  const q = gap + quote.replace(/<[^<>]+>/g, gap) + gap
-  const t = template
-  // matched[j] holds whether q from i on matches t from j on, for the row i being worked out.
-  let next: Array<boolean> = Array.from({ length: t.length + 1 }, (_, j) =>
-    t
-      .slice(j)
-      .split("")
-      .every((char) => char === gap),
+/** The quoted messages of a skill that are part of no quotable message. */
+export const unquotable = (text: string): ReadonlyArray<string> =>
+  quoted(text).filter(
+    (quote) => !quotable.some((message) => message.includes(quote)),
   )
-  for (let i = q.length - 1; i >= 0; i--) {
-    const row: Array<boolean> = Array(t.length + 1).fill(false)
-    for (let j = t.length; j >= 0; j--) {
-      const a = q[i]!
-      const b = t[j]
-      row[j] =
-        (a === gap && (next[j]! || (b !== undefined && row[j + 1]!))) ||
-        (b === gap && (row[j + 1]! || next[j]!)) ||
-        (b !== undefined && a !== gap && b !== gap && a === b && next[j + 1]!)
-    }
-    next = row
-  }
-  return next[0]!
-}
-
-/** Whether a quoted message fits one of the templates. */
-export const inMessages = (
-  quote: string,
-  all: ReadonlyArray<string>,
-): boolean => {
-  const word = quote
-    .replace(/<[^<>]+>/g, " ")
-    .split(/[^A-Za-z]+/)
-    .reduce((a, b) => (b.length > a.length ? b : a), "")
-  return all.some(
-    (template) => template.includes(word) && fits(quote, template),
-  )
-}
 
 /**
  * A directory for PATH that holds a `chad` that runs this checkout's CLI and, for each of `fakes`, a command that
