@@ -206,7 +206,7 @@ An apply leaves a plugin running when neither its code nor its settings changed 
 
 - **SET-62** A plugin's settings changed when its entry in `chad.json` differs from its entry in the applied `chad.json`. The comparison is made before `${NAME}` is expanded, so a changed secret value is not a settings change.
 - **SET-63** An apply reloads a plugin when its code or its settings changed.
-- **SET-64** After an apply that changed only a plugin's settings, a running turn's call to one of its tools is answered by the new version with the new settings. There are two exceptions. A call to a tool whose rendered declaration changed because it is built from a setting fails with "<tool> was changed by an apply. The new version is in your next turn." A call whose parameters the new version no longer accepts fails as a parameter error, and the handler does not run (see 08-apply-and-swap.md).
+- **SET-64** Withdrawn.
 
 ## The settings listing
 
@@ -307,7 +307,7 @@ const greeting = yield* Config.String("greeting").pipe(Config.withDefault("Hello
 | SET-61 | TIM-548 item 12 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | SET-62 | TIM-548 item 13 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | SET-63 | TIM-542 item 10, TIM-538 item 3; run in TIM-552 | Tim | run |  | `rule` | `settings` |
-| SET-64 | TIM-547 item 7, amended by TIM-552 items 1 and 2 | Tim | run |  | `rule` | `settings` |
+| SET-64 | TIM-547 item 7, amended by TIM-552 items 1 and 2, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
 | SET-65 | TIM-548 item 14 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | SET-66 | TIM-548 item 14, amending TIM-542 item 28 | Architect (Tim has not read) | not run | TIM-548 | `rule` | `settings` |
 | SET-67 | TIM-548 item 14 | Architect (Tim has not read) | not run |  | `rule` | `settings` |

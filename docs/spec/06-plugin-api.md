@@ -135,7 +135,7 @@ A plugin reads its settings and secrets with Effect's `Config`. The file that ho
 - **API-33** A tool name that another plugin or clanka already uses fails the load, and the error names who holds the name. What a boot does with such a plugin is in 07-plugin-loading.md.
 - **API-34** A sub-agent shares the main agent's handlers, and a handler cannot tell which of the two called it. A sub-agent inside a turn the owner started can therefore call a plugin's owner-only tools, which is accepted.
 - **API-35** A tool handler that fails or dies fails only that call. clanka returns the failure to the calling script and the turn continues.
-- **API-36** chad wraps every plugin tool handler. Once an apply changes a plugin's code, a running turn in any session cannot call that plugin's tools until the turn ends. The routing and refusal rules are in 08-apply-and-swap.md.
+- **API-36** chad wraps every plugin tool handler. Once a swap replaces a plugin's running version, a running turn in any session cannot call that plugin's tools until the turn ends. The refusal rules are in 08-apply-and-swap.md.
 - **API-97** A log call a plugin makes inside a tool handler is printed into the calling script's output, and chad writes a copy to its own log with the plugin's name, the session and the turn, at the level the plugin gave it. A log call a plugin makes anywhere else goes to chad's log only. The logger is in 16-failures-logs-status.md.
 - **API-106** chad sets the plugin's name around everything it runs for a plugin, which is the Layer build, the tool handlers, the hooks, the prompt render, the finalizers and the `Plugin.background` fibers that chad forks at activation. A log line written from any of them carries the plugin's name.
 - **API-125** chad writes every line a plugin logs through Effect's logger to its own log under the event name `plugin.log`, from whichever of the places in API-106 the line came. The table of event names is in 16-failures-logs-status.md.
@@ -853,7 +853,7 @@ export declare class Turns extends Turns_base {}
 | API-33 | TIM-530 resolution (reviewed, no separate yes), TIM-549 item 20 | Tim | not run |  | `rule` | `plugin-api` |
 | API-34 | TIM-539 item 1 | Tim | read |  | `fact` | `plugin-api` |
 | API-35 | TIM-534 supporting facts | Tim | read |  | `fact` | `plugin-api` |
-| API-36 | TIM-547 items 7 to 9, amended by TIM-552 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
+| API-36 | TIM-547 items 7 to 9, amended by TIM-552, amended by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | API-37 | TIM-537 item 4 | Tim | not run |  | `definition` | - |
 | API-38 | TIM-530 resolution | Tim | not run |  | `rule` | `plugin-api` |
 | API-39 | TIM-531 item 3, TIM-539 resolution | Tim | run |  | `rule` | `plugin-api` |

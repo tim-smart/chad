@@ -200,12 +200,12 @@ Nothing in chad's code enforces the rules in this section. The agent follows the
 - **SELF-76** When the owner mounts a directory, the agent records it in `persona.md` with its path under `/mnt` and what it holds.
 - **SELF-77** The agent tests a change to a plugin's code in the turn after the one that applied it.
 - **SELF-78** The skill says that the next turn cannot start while the current turn has a background sub-agent running. A message the owner sends then is steered into the running turn and runs on the old Agent, so the new version is not there yet. The refusal the agent sees ends with the sentence shown below.
-- **SELF-79** A change to only a plugin's settings reaches the running turn at once, unless it changes a tool's description, or the tool's parameters stop accepting the value. In those two cases the tool waits for the next turn as well.
+- **SELF-79** Withdrawn.
 - **SELF-80** With no owner around, the agent tests by scheduling a one-off cron job. The job's prompt stands on its own and says what to call, with what, and what counts as a pass.
 - **SELF-81** If the cron plugin is off, the agent reports what it changed and stops.
 - **SELF-82** v1 adds no command for testing a change.
 - **SELF-127** The `chad` package gives a plugin author no test helper in v1 (see 17-testing.md).
-- **SELF-83** An apply that changes a plugin's code affects other sessions. The agent reads the apply output, which names those sessions, and says so in its answer.
+- **SELF-83** An apply that changes a plugin's code or its settings affects other sessions. The agent reads the apply output, which names those sessions, and says so in its answer.
 - **SELF-126** Whatever the agent says, chad itself posts one subtext line in a session's thread when a command run from that session applies, reverts, turns safe mode on or off, purges a plugin, removes a secret or sets the timezone (see 16-failures-logs-status.md).
 
 The skill's line for an unattended turn:
@@ -230,7 +230,7 @@ The loop and the repo:
 - **SELF-85** The skill teaches that an apply resets the branch in `work/` to the applied commit, so commits the agent makes there do not last.
 - **SELF-86** The skill teaches that an apply covers the whole of `work/`, another session's draft included.
 - **SELF-87** The skill teaches that an applied change reaches a session on its next turn and not in the turn that applied it.
-- **SELF-88** The skill teaches that a tool whose plugin's code an apply changed fails for the rest of the running turn with "changed by an apply", in every session, and that the fixed tool is there in the next turn.
+- **SELF-88** The skill teaches that a tool whose plugin's code or settings an apply changed fails for the rest of the running turn with "changed by an apply", in every session, and that the fixed tool is there in the next turn.
 - **SELF-89** The skill teaches the commands. `chad plugin new` and `chad skill new` start a file. `chad check` shows errors without committing. `chad apply -m` applies. `chad status` shows what loaded and what was skipped. `chad plugin reload` rebuilds one plugin whose code did not change. `chad plugin purge` drops the data and timers of a plugin that is gone from the applied repo, or of a bundled plugin that is turned off (see 11-settings.md).
 - **SELF-131** The skill tells the agent that a skill of chad's own goes in `skills/` in the repo and never in a `.agents/skills` or `.kiro/skills` directory. It gives the reason. clanka announces a skill it finds in one of those two directories to the running session with no apply, so no check ran on it and no revert covers it. How far clanka looks for them is stated in 12-skills-and-mcp.md.
 - **SELF-132** The skill tells the agent never to write an `AGENTS.md` file in the repo, and that what the agent should always know goes in `persona.md`. It gives the reason. clanka reads an `AGENTS.md` in the directory the agent works in, and in the directories above it that 12-skills-and-mcp.md names, straight into the session, so a draft `work/AGENTS.md` reaches the model with no apply.
@@ -345,8 +345,8 @@ Your plugins, skills, MCP servers, settings and persona are files in one git rep
 ## Rules that are easy to get wrong
 
 - An apply takes the whole of `work/`, drafts from another session included. Read the list of changed files that `chad check` prints. If a file there is not yours, stop and tell the owner.
-- A change reaches a session on its next turn. In the turn that applied it you keep the tools you had. A tool whose plugin's code you changed fails with "changed by an apply" until the turn ends. A change to only that plugin's settings reaches your running turn at once, unless it changes a tool's description, or the tool's parameters stop accepting the value. Then that tool waits for the next turn too. <!-- adjusted: TIM-552 -->
-- An apply that changes a plugin's code affects other sessions. Their running turns lose that plugin's tools until they end, and a call still running 30 seconds into the swap is interrupted and may have partly run. The apply output names the affected sessions. Say so in your answer.
+- A change reaches a session on its next turn. In the turn that applied it you keep the tools you had. A tool whose plugin's code or settings you changed fails with "changed by an apply" until the turn ends. <!-- adjusted: Tim's ruling, chat 2026-11-16 -->
+- An apply that changes a plugin's code or its settings affects other sessions. Their running turns lose that plugin's tools until they end, and a call still running 30 seconds into the swap is interrupted and may have partly run. The apply output names the affected sessions. Say so in your answer. <!-- adjusted: Tim's ruling, chat 2026-11-16 -->
 - An apply resets the branch in `work/` to the applied commit, so commits you make there do not last. Use git in `work/` to read history or bring one file back (`git checkout <commit> -- plugins/x.ts`), then apply.
 - A secret never goes in a file in the repo. Save it with `chad secret set NAME`, with the value on stdin, and write `${NAME}` where it is needed in `chad.json` or `mcp.json`.
 - In a scheduled run, or any turn whose prompt says nobody is there to answer questions, do not apply, revert, purge or change safe mode unless the prompt tells you to. Leave the change as a draft and say so in the answer.
@@ -545,7 +545,7 @@ export default Plugin.make(NotesTools, Chunk)
 - The description is all the model knows about the tool. Say what it does and when to call it. `chad check` reports a description that still starts with "Replace me", and `chad apply` refuses it. <!-- adjusted: TIM-549 item 18 -->
 - A tool learns its session and turn by listing `Session.CurrentSession` in its `dependencies`.
 - A tool cannot tell you from one of your sub-agents.
-- After an apply that changes the plugin's code, a turn that is still running cannot call its tools until the turn ends.
+- After an apply that changes the plugin's code or its settings, a turn that is still running cannot call its tools until the turn ends. <!-- adjusted: Tim's ruling, chat 2026-11-16 -->
 - A tool call still running 30 seconds into a swap is interrupted and may have partly run. Keep tools with side effects short or safe to repeat.
 
 ## Prompt chunks
@@ -577,7 +577,7 @@ export default Plugin.make(NotesTools, Chunk)
 - A secret is `Config.Redacted("token")`, written as `"${NAME}"` in `chad.json`.
 - Give a setting a default where one makes sense, so the plugin loads with an empty `chad.json`.
 - List the settings in the comment block at the top of the file. `chad check` prints the keys the plugin read and warns about keys in the file it did not read.
-- A tool whose description is built from a setting changes when that setting does, so a running turn loses it until its next turn. The same holds when a setting changes a tool's parameters so that they stop accepting the value. <!-- adjusted: TIM-552 -->
+- A change to a setting reloads the plugin, so a running turn loses the plugin's tools until its next turn. <!-- adjusted: Tim's ruling, chat 2026-11-16 -->
 
 ## Starting turns
 
@@ -690,16 +690,16 @@ export default Plugin.make(NotesTools, Chunk)
 | SELF-76 | TIM-549 item 11, TIM-534 as changed by TIM-549 | Architect (Tim has not read) | not run | TIM-549 | `rule` | `bundled-skills` |
 | SELF-77 | TIM-549 item 12 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SELF-78 | TIM-549 "Changed by TIM-552", TIM-552 decision 7 | Tim | run |  | `rule` | `bundled-skills` |
-| SELF-79 | TIM-547 item 7, TIM-552 decision 1, TIM-549 item 12 as changed by TIM-552 | Tim | run |  | `rule` | `settings` |
+| SELF-79 | TIM-547 item 7, TIM-552 decision 1, TIM-549 item 12 as changed by TIM-552, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
 | SELF-80 | TIM-549 item 12 and round 1 point 7 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SELF-81 | TIM-549 item 12 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SELF-82 | TIM-549 item 12 | Architect (Tim has not read) | not run |  | `definition` | - |
-| SELF-83 | TIM-549 item 13 | Architect (Tim has not read) | not run | TIM-547, TIM-549 | `rule` | `bundled-skills` |
+| SELF-83 | TIM-549 item 13, amended by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-547, TIM-549 | `rule` | `bundled-skills` |
 | SELF-84 | TIM-549 body, from TIM-534 item 2 and TIM-538 | Tim | not run |  | `rule` | `bundled-skills` |
 | SELF-85 | TIM-549 body, from TIM-538 | Tim | not run |  | `rule` | `bundled-skills` |
 | SELF-86 | TIM-549 body, from TIM-542 item 9 | Tim | not run |  | `rule` | `bundled-skills` |
 | SELF-87 | TIM-549 body, from TIM-531 | Tim | not run |  | `rule` | `bundled-skills` |
-| SELF-88 | TIM-549 comment "From four tickets closed on 2026-11-14", from TIM-547; run in TIM-552 | Architect (Tim has not read) | run | TIM-547 | `rule` | `bundled-skills` |
+| SELF-88 | TIM-549 comment "From four tickets closed on 2026-11-14", from TIM-547; run in TIM-552, amended by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | `bundled-skills` |
 | SELF-89 | TIM-549 body, from TIM-542 items 7 to 12; round 1 corrections; TIM-559 round 3 C7 | Tim; the purge of a bundled plugin that is off Architect (Tim has not read) | not run | TIM-559 | `rule` | `bundled-skills` |
 | SELF-90 | TIM-549 body and item 1, from TIM-542 item 27 | Tim | not run |  | `rule` | `bundled-skills` |
 | SELF-91 | TIM-549 body, from TIM-530 | Tim | not run |  | `rule` | `bundled-skills` |
