@@ -103,17 +103,29 @@ from its secret store or from its own environment.
 ### Backup
 
 `chad backup` writes one tar that holds the database, the repo, the secrets and the home directory. The tar holds
-tokens, so keep it as you keep a password. With chad running:
+the Discord token, the Codex login and every saved secret, so keep it as you keep a password, and write it so that only
+you can read it. With chad running:
 
 ```sh
-docker exec chad chad backup - > "chad-$(date +%F).tar"
+backup="chad-$(date +%F).tar"
+rm -f "$backup"
+(umask 077 && docker exec chad chad backup - > "$backup") || rm -f "$backup"
+ls -l "$backup"   # -rw-------
 ```
 
-asphodel's store is not in that tar. Back it up next to it:
+The `umask` makes a new file owner-only. It does nothing to a file that already exists: a redirect into one keeps its
+old mode, and anyone who already opened it reads what is written into it. That is why `rm -f` comes first. A backup that fails is deleted
+rather than left as a partial tar.
+
+asphodel's store is not in that tar. It holds what asphodel remembers about you, so back it up next to it the same way.
+`asphodel backup --out -` streams the copy and exits non-zero when its length or hash does not check out, and the
+`rm` then deletes what it wrote:
 
 ```sh
-docker exec asphodel asphodel backup --out=/data/backup.db
-docker cp asphodel:/data/backup.db "asphodel-$(date +%F).db"
+backup="asphodel-$(date +%F).db"
+rm -f "$backup"
+(umask 077 && docker exec asphodel asphodel backup --out - > "$backup") || rm -f "$backup"
+ls -l "$backup"   # -rw-------
 ```
 
 ### Restore

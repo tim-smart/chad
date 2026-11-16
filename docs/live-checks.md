@@ -197,7 +197,8 @@ in again. Without `asphodel.toml` a fresh asphodel waits for setup and does not 
    ```
 
 2. Save what the asphodel backup leaves out. `secrets.toml` may not exist, when the token comes from the environment
-   and the LLM needs no key.
+   and the LLM needs no key. If `mkdir` says `restore-check` exists, stop and remove it first, because an existing
+   directory keeps its old mode.
 
    ```sh
    umask 077
@@ -209,7 +210,7 @@ in again. Without `asphodel.toml` a fresh asphodel waits for setup and does not 
      sed -n 's/^ASPHODEL_TOKEN=//p')
    ```
 
-3. Take both backups, as `docs/running.md` says under "Backup". The `umask` from step 2 makes the tar owner-only.
+3. Take both backups into the directory. The `umask` from step 2 makes the tar owner-only.
    `docker cp` keeps each file's mode from the container, so the last line makes the copies owner-only too:
 
    ```sh
