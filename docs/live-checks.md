@@ -180,7 +180,9 @@ The asphodel image tag in `docs/running.md` is `latest`. Pin it to the version y
 
 This restores chad and asphodel onto two new volumes and checks that the restored pair still knows something said
 before the backup. The old containers are renamed and the old volumes are kept, so you can go back until the check
-passes. Run it from an empty directory on the host. That directory will hold tokens, so delete it at the end.
+passes. Run it from an empty directory on the host, and run steps 2 to 7 in one shell, since step 5 uses the `token`
+variable from step 2. The `restore-check` directory will hold chad's Discord token, its Codex login and every saved
+secret, so step 2 makes it readable by you alone before anything is written to it, and the end deletes it.
 
 asphodel's backup holds its store only. Its tuning file `asphodel.toml`, its `secrets.toml` (the token and the LLM
 key, when setup kept them) and a ChatGPT login stay in the old volume, so the steps carry the first two over and log
@@ -198,19 +200,23 @@ in again. Without `asphodel.toml` a fresh asphodel waits for setup and does not 
    and the LLM needs no key.
 
    ```sh
-   mkdir restore-check
+   umask 077
+   mkdir -m 700 restore-check
+   ls -ld restore-check   # drwx------
    docker cp asphodel:/data/asphodel.toml restore-check/asphodel.toml
    docker cp asphodel:/data/secrets.toml restore-check/secrets.toml || echo "no secrets.toml"
    token=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' asphodel |
      sed -n 's/^ASPHODEL_TOKEN=//p')
    ```
 
-3. Take both backups, as `docs/running.md` says under "Backup":
+3. Take both backups, as `docs/running.md` says under "Backup". The `umask` from step 2 makes the tar owner-only.
+   `docker cp` keeps each file's mode from the container, so the last line makes the copies owner-only too:
 
    ```sh
    docker exec chad chad backup - > restore-check/chad.tar
    docker exec asphodel asphodel backup --out=/data/backup.db
    docker cp asphodel:/data/backup.db restore-check/asphodel.db
+   chmod 600 restore-check/*
    ```
 
 4. Stop both and keep them under other names:
