@@ -294,7 +294,7 @@ export const make = Effect.fnUntraced(function* (options: {
           yield* Repo.point(repo, tree)
           const restored =
             saved === undefined
-              ? yield* Effect.as(Repo.reset(repo, sha), true)
+              ? yield* Effect.as(Repo.reset(repo, sha), undefined)
               : yield* Repo.restore(repo, {
                   saved: saved.commit,
                   sha,

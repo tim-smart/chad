@@ -72,30 +72,15 @@ export default Plugin.make(
 `
 
 /**
- * Holds the next commit to `applied` inside its git process, after the ref moved and before the process returns, until
- * `release` is called. The hook keeps the fifo open itself, so the release never blocks, and one whose git process
- * was killed has nothing left to release.
+ * A place for a git process to wait until `release` is called. `wait` is the shell that waits: it keeps the fifo open
+ * itself, so the release never blocks, and one whose git process was killed has nothing left to release.
  */
-const holdCommit = (work: string) => {
-  const fifo = join(work, ".git", "test-release")
-  const marker = join(work, ".git", "test-held")
+const holder = (work: string, name: string) => {
+  const fifo = join(work, ".git", `test-${name}-release`)
+  const marker = join(work, ".git", `test-${name}-held`)
   execFileSync("mkfifo", [fifo])
-  writeFileSync(
-    join(work, ".git", "hooks", "reference-transaction"),
-    [
-      "#!/bin/sh",
-      "input=$(cat)",
-      '[ "$1" = committed ] || exit 0',
-      'case "$input" in *" refs/heads/applied"*) ;; *) exit 0 ;; esac',
-      'rm -f "$0"',
-      `exec 3<> '${fifo}'`,
-      `: > '${marker}'`,
-      "read -r line <&3",
-      "",
-    ].join("\n"),
-    { mode: 0o755 },
-  )
   return {
+    wait: [`exec 3<> '${fifo}'`, `: > '${marker}'`, "read -r line <&3"],
     held: () =>
       eventually(
         () => existsSync(marker),
@@ -110,8 +95,57 @@ const holdCommit = (work: string) => {
         // No reader: the hook is gone with its git process.
       }
       rmSync(fifo)
-      rmSync(marker)
+      rmSync(marker, { force: true })
     },
+  }
+}
+
+/** Holds the next commit to `applied` inside its git process, after the ref moved and before the process returns. */
+const holdCommit = (work: string) => {
+  const hold = holder(work, "commit")
+  writeFileSync(
+    join(work, ".git", "hooks", "reference-transaction"),
+    [
+      "#!/bin/sh",
+      "input=$(cat)",
+      '[ "$1" = committed ] || exit 0',
+      'case "$input" in *" refs/heads/applied"*) ;; *) exit 0 ;; esac',
+      'rm -f "$0"',
+      ...hold.wait,
+      "",
+    ].join("\n"),
+    { mode: 0o755 },
+  )
+  return { held: hold.held, release: hold.release }
+}
+
+/**
+ * Holds the next time git writes `path` out of the repo once `arm` is called, inside the smudge filter that the
+ * repo's own config and attributes give the path.
+ */
+const holdSmudge = (work: string, path: string) => {
+  const hold = holder(work, "smudge")
+  const armed = join(work, ".git", "test-smudge-armed")
+  const filter = join(work, ".git", "test-smudge")
+  writeFileSync(
+    filter,
+    [
+      "#!/bin/sh",
+      `if [ -e '${armed}' ]; then`,
+      `rm -f '${armed}'`,
+      ...hold.wait,
+      "fi",
+      "exec cat",
+      "",
+    ].join("\n"),
+    { mode: 0o755 },
+  )
+  git(work, ["config", "filter.held.smudge", filter])
+  write(join(work, ".git", "info"), { attributes: `${path} filter=held\n` })
+  return {
+    arm: () => writeFileSync(armed, ""),
+    held: hold.held,
+    release: hold.release,
   }
 }
 
@@ -281,9 +315,14 @@ test("SWAP-1 SWAP-2 SWAP-4 LOAD-14 LOAD-23 LOAD-53 LOAD-70 REC-82 REC-86 REC-116
   expect(back.output).toContain("face one")
 
   // A revert to a tree with notes/entry.txt, where work/ holds an ignored file named notes, is refused and leaves it.
-  write(work, { "notes/entry.txt": "applied notes" })
+  write(work, {
+    "notes/entry.txt": "applied notes",
+    "notes/more.txt": "applied more",
+    "readme.md": "with notes",
+  })
   expect((await running.chad(["apply", "-m", "Add notes"])).code).toBe(0)
   rmSync(join(work, "notes"), { recursive: true })
+  write(work, { "readme.md": "without notes" })
   expect((await running.chad(["apply", "-m", "Drop notes"])).code).toBe(0)
   write(join(work, ".git/info"), { exclude: "notes.local\nnotes\n" })
   write(work, { notes: "ignored notes" })
@@ -294,19 +333,36 @@ test("SWAP-1 SWAP-2 SWAP-4 LOAD-14 LOAD-23 LOAD-53 LOAD-70 REC-82 REC-86 REC-116
   expect(readFileSync(join(work, "notes"), "utf8")).toBe("ignored notes")
   expect(await log()).toHaveLength(commits)
 
-  // An ignored file made where the revert puts one back, after the check and the save, stays: the revert keeps its
-  // commit, puts no file back and says so.
+  // An ignored file made at a path the revert puts back, and an edit to a tracked file it replaces, both while git
+  // writes out another of its files, stay as they are. The revert keeps its commit, puts the other file back and
+  // names the ones it left. The smudge is armed once the
+  // commit is made, so it holds the restore and not the export before the checks.
   rmSync(join(work, "notes"))
   const late = holdCommit(work)
+  const smudge = holdSmudge(work, "notes/entry.txt")
   const holding = Cli.start(["revert"], { CHAD_DATA: running.data })
   await late.held()
-  write(work, { "notes/entry.txt": "ignored, written during the revert" })
+  smudge.arm()
   late.release()
+  await smudge.held()
+  write(work, {
+    "notes/more.txt": "ignored, written during the restore",
+    "readme.md": "edited during the restore",
+  })
+  smudge.release()
   const kept = await holding.done
   expect(kept.code).toBe(0)
-  expect(kept.stdout).toContain("no file was put back")
+  expect(kept.stdout).toContain(
+    Messages.revertLeft(["notes/more.txt", "readme.md"]),
+  )
+  expect(readFileSync(join(work, "readme.md"), "utf8")).toBe(
+    "edited during the restore",
+  )
+  expect(readFileSync(join(work, "notes/more.txt"), "utf8")).toBe(
+    "ignored, written during the restore",
+  )
   expect(readFileSync(join(work, "notes/entry.txt"), "utf8")).toBe(
-    "ignored, written during the revert",
+    "applied notes",
   )
   expect(await log()).toHaveLength(commits + 1)
 }, 90_000)

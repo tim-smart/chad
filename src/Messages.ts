@@ -5,6 +5,7 @@
 import * as Connections from "./Connections.ts"
 import type * as Failed from "./daemon/Failed.ts"
 import type { Format } from "./daemon/Format.ts"
+import type * as Repo from "./Repo.ts"
 
 /** The start-up check found no data directory (docs/spec/01-image-and-volume.md, IMG-58). */
 export const dataMissing = (data: string) =>
@@ -908,6 +909,14 @@ export const revertNotApplied = (commit: string) =>
 export const revertObstructed = (paths: ReadonlyArray<string>, saved: string) =>
   `The revert would write over ${paths.join(", ")} in work/, which the save at ${saved} does not hold. Nothing was reverted. Move ${paths.length === 1 ? "it" : "them"} away and run chad revert again.`
 
+/** The files a revert left in work/ as they were, since they changed or appeared after its save (REC-154). */
+export const revertLeft = (paths: ReadonlyArray<string>) =>
+  `These files in work/ changed or appeared after the save, so the revert left them as they are: ${paths.join(", ")}. git diff in work/ shows how the tracked ones differ from the revert.`
+
+/** Where a revert kept a file that it moved aside and could not put back (REC-139). */
+export const revertKept = (directory: string) =>
+  `A file that changed after the save could not go back to its path, so it is kept under ${directory}.`
+
 /** The message of a revert's commit, which names the commit it went back to (REC-136). */
 export const revertMessage = (commit: string) => `Revert to ${commit}`
 
@@ -966,7 +975,7 @@ export const appliedOutput = (options: {
   readonly files: ReadonlyArray<string>
   readonly safe: boolean
   readonly saved: string | undefined
-  readonly restored: boolean
+  readonly restored: Repo.Restored | undefined
   readonly swapped:
     | {
         readonly swapped: ReadonlyArray<string>
@@ -985,11 +994,12 @@ export const appliedOutput = (options: {
   ...(options.saved === undefined
     ? []
     : [`What work/ held is saved at ${options.saved}.`]),
-  ...(options.restored
+  ...(options.restored === undefined || options.restored.left.length === 0
     ? []
-    : [
-        "A file in work/ changed or appeared after the save, so no file was put back. git diff in work/ shows how the tracked files differ from the revert.",
-      ]),
+    : [revertLeft(options.restored.left)]),
+  ...(options.restored?.kept === undefined
+    ? []
+    : [revertKept(options.restored.kept)]),
   "Changed files:",
   ...options.files.map((file) => `  ${file}`),
   ...(options.safe

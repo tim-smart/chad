@@ -4,7 +4,8 @@
  * history is the `applied` branch of that repo, one commit per apply or revert, and git is the only store of it.
  */
 import { randomBytes } from "node:crypto"
-import { join } from "node:path"
+import { rmdir } from "node:fs/promises"
+import { dirname, join } from "node:path"
 import { Data, Effect, FileSystem, Option, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/process"
 
@@ -204,7 +205,8 @@ export const reset = (repo: string, sha: string) =>
 /**
  * The paths where a revert to `target` would write over something in `work/` that its save did not capture, such as
  * an ignored file: a path the target adds that `work/` already holds, or one of its parent directories that `work/`
- * holds as a file (REC-139, REC-154).
+ * holds as a file (REC-154). This refuses the revert before its commit when what is in the way is there already.
+ * It is not what keeps the files: `restore` writes over nothing, whenever a file appears.
  */
 export const obstructed = Effect.fnUntraced(function* (
   repo: string,
@@ -273,13 +275,33 @@ export const obstructed = Effect.fnUntraced(function* (
   return [...found]
 })
 
+/** What a revert's restore did with the files of `work/`. */
+export interface Restored {
+  /** The paths it left as `work/` held them, since they changed or appeared after the save. */
+  readonly left: ReadonlyArray<string>
+  /** The directory under `repo/` that holds what it moved aside and could not put back at its path, or nothing. */
+  readonly kept: string | undefined
+}
+
+/** One path that differs between the saved tree and the revert's, as `diff-tree --raw` gives it. */
+interface Differs {
+  readonly path: string
+  readonly before: { readonly mode: string; readonly sha: string } | undefined
+  readonly after: { readonly mode: string; readonly sha: string } | undefined
+}
+
+const absent = "000000"
+const gitlink = "160000"
+
 /**
- * Puts the files of a revert's target back in `work/` and moves its branch to the commit. git does it with
- * `checkout --no-overwrite-ignore` from the saved commit to the revert's, in a git directory of its own that shares the
- * repo's objects, so `work/`'s HEAD and index never point anywhere else. It checks every path at the moment it writes:
- * a file the save captured is replaced or deleted only while it still matches the save, and nothing that the save did
- * not capture is written over, an ignored file included. A file made or edited after the save therefore stays, and
- * when one is in the way nothing is put back and it gives false (REC-82, REC-139, REC-154).
+ * Puts the files of a revert's target back in `work/` and moves its branch to the commit, and writes over nothing
+ * that the save did not capture (REC-82, REC-139, REC-154).
+ *
+ * The target's files are first written to a directory of their own under `repo/`. After that `work/` is changed in
+ * two ways only. A file the save held at a path the revert replaces or deletes is renamed aside and compared with the
+ * save, and when it differs it is linked back. A file of the target is linked into place, which fails where the path
+ * holds anything. Neither can destroy bytes at a path of `work/`, whenever a writer lands. What changed or appeared
+ * after the save is left as it is, and its path is in `left`.
  */
 export const restore = Effect.fnUntraced(function* (
   repo: string,
@@ -293,35 +315,149 @@ export const restore = Effect.fnUntraced(function* (
   const fs = yield* FileSystem.FileSystem
   const { work } = paths(repo)
   const directory = join(repo, `.restore-${unique()}`)
-  const env = { GIT_DIR: directory, GIT_WORK_TREE: work }
-  const restored = yield* Effect.gen(function* () {
-    yield* git(repo, ["init", "-q", "--bare", "--template=", directory])
-    yield* git(work, ["config", "core.bare", "false"], env)
-    yield* fs.makeDirectory(join(directory, "objects", "info"), {
-      recursive: true,
+  const staged = join(directory, "new")
+  const moved = join(directory, "old")
+  const env = {
+    GIT_DIR: join(work, ".git"),
+    GIT_WORK_TREE: work,
+    GIT_INDEX_FILE: join(directory, "index"),
+  }
+  const fields = (yield* git(work, [
+    "diff-tree",
+    "-r",
+    "-z",
+    "--no-renames",
+    options.saved,
+    options.sha,
+  ])).split("\0")
+  const entries: Array<Differs> = []
+  for (let i = 0; i + 1 < fields.length; i += 2) {
+    const [before, after, beforeSha, afterSha] = fields[i]!.slice(1).split(" ")
+    // A submodule is not a file of work/, and the save never holds one.
+    if (before === gitlink || after === gitlink) continue
+    entries.push({
+      path: fields[i + 1]!,
+      before:
+        before === absent ? undefined : { mode: before!, sha: beforeSha! },
+      after: after === absent ? undefined : { mode: after!, sha: afterSha! },
     })
-    yield* fs.writeFileString(
-      join(directory, "objects", "info", "alternates"),
-      `${join(work, ".git", "objects")}\n`,
-    )
-    yield* git(work, ["update-ref", "--no-deref", "HEAD", options.saved], env)
-    // An index of what the save captured, with the stat of each file that still matches it.
-    yield* git(work, ["read-tree", options.saved], env)
-    yield* Effect.ignore(git(work, ["update-index", "-q", "--refresh"], env))
-    yield* git(
-      work,
-      ["checkout", "-q", "--no-overwrite-ignore", "--detach", options.sha],
-      env,
-    )
+  }
+  const left = new Set<string>()
+  const kept: Array<string> = []
+  const clean = yield* Effect.gen(function* () {
+    yield* fs.makeDirectory(staged, { recursive: true })
+    const placed = entries.filter(({ after }) => after !== undefined)
+    if (placed.length > 0) {
+      yield* git(work, ["read-tree", options.sha], env)
+      yield* git(
+        work,
+        [
+          "checkout-index",
+          `--prefix=${staged}/`,
+          "--",
+          ...placed.map(({ path }) => path),
+        ],
+        env,
+      )
+    }
+    const same = (
+      path: string,
+      file: string,
+      before: NonNullable<Differs["before"]>,
+    ) =>
+      Effect.gen(function* () {
+        const info = yield* fs.lstat(file)
+        if ((info.type === "SymbolicLink") !== (before.mode === "120000")) {
+          return false
+        }
+        // A link's blob is the path it holds, which is hashed from a file of its own.
+        if (info.type === "SymbolicLink") {
+          const text = join(directory, "link")
+          yield* fs.writeFileString(text, yield* fs.readLink(file))
+          return (
+            (yield* git(work, ["hash-object", "--no-filters", text])) ===
+            before.sha
+          )
+        }
+        return (
+          (yield* git(work, ["hash-object", `--path=${path}`, file])) ===
+          before.sha
+        )
+      }).pipe(Effect.orElseSucceed(() => false))
+
+    // What the save held, out of the way. Whatever no longer matches the save goes back where it was.
+    const vacated: Array<string> = []
+    for (const { path, before } of entries) {
+      if (before === undefined) continue
+      const file = join(work, path)
+      const info = yield* Effect.option(fs.lstat(file))
+      if (info._tag === "None") continue
+      if (info.value.type === "Directory") {
+        left.add(path)
+        continue
+      }
+      const aside = join(moved, path)
+      yield* fs.makeDirectory(dirname(aside), { recursive: true })
+      if (!(yield* Effect.isSuccess(fs.rename(file, aside)))) {
+        left.add(path)
+        continue
+      }
+      if (yield* same(path, aside, before)) {
+        yield* fs.remove(aside, { force: true })
+        vacated.push(path)
+        continue
+      }
+      left.add(path)
+      if (yield* Effect.isSuccess(fs.link(aside, file))) {
+        yield* fs.remove(aside, { force: true })
+      } else {
+        kept.push(path)
+      }
+    }
+    // A directory that the moves emptied goes, so a file of the target can take its name.
+    const parents = new Set<string>()
+    for (const path of vacated) {
+      for (let at = dirname(path); at !== "."; at = dirname(at)) parents.add(at)
+    }
+    for (const parent of [...parents].sort((a, b) => b.length - a.length)) {
+      yield* Effect.ignore(Effect.tryPromise(() => rmdir(join(work, parent))))
+    }
+    // The target's files, each linked in only where its path is free.
+    for (const { path } of placed) {
+      if (left.has(path)) continue
+      const file = join(work, path)
+      const linked = yield* Effect.isSuccess(
+        fs
+          .makeDirectory(dirname(file), { recursive: true })
+          .pipe(Effect.andThen(fs.link(join(staged, path), file))),
+      )
+      if (!linked) left.add(path)
+    }
+    return kept.length === 0
   }).pipe(
-    Effect.as(true),
-    Effect.orElseSucceed(() => false),
+    // Staging failed before work/ was touched, or a step failed part way. What was not put back counts as left, and
+    // what was moved aside stays where it is.
+    Effect.catch(() =>
+      Effect.sync(() => {
+        for (const { path, after } of entries) {
+          if (after !== undefined) left.add(path)
+        }
+        return false
+      }),
+    ),
     Effect.ensuring(
-      Effect.ignore(fs.remove(directory, { recursive: true, force: true })),
+      Effect.ignore(fs.remove(staged, { recursive: true, force: true })),
     ),
   )
+  yield* Effect.ignore(fs.remove(join(directory, "index"), { force: true }))
+  if (clean) {
+    yield* Effect.ignore(fs.remove(directory, { recursive: true, force: true }))
+  }
   yield* reset(repo, options.sha)
-  return restored
+  return {
+    left: [...left].sort(),
+    kept: clean || !(yield* fs.exists(moved)) ? undefined : moved,
+  } satisfies Restored
 })
 
 /**
