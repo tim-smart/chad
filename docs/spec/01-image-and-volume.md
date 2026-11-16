@@ -15,7 +15,7 @@ The image is built from a two-stage Dockerfile. The first stage installs the pac
 - **IMG-5** The image's `node_modules` carries TypeScript 7 and esbuild with its native binary for the image's platform. The image has no Python package and no compiler toolchain.
 - **IMG-6** The JavaScript of `@anthropic-ai/claude-agent-sdk` stays in the image, because clanka imports it. Its 349 MB platform binary, which is Claude Code, is left out with pnpm `ignoredOptionalDependencies` entries. Keeping the JavaScript makes no provider usable, and which providers chad refuses is in 05-model-and-login.md.
 - **IMG-7** The image's CI imports `clanka/ClaudeAgent` and fails if the platform binary's package is in `node_modules`.
-- **IMG-8** The image never carries a browser. An owner who wants one runs it as another container that chad reaches over the Chrome DevTools Protocol (CDP).
+- **IMG-8** The image never carries a browser. An owner who wants one adds it on their own (see 15-credentials.md).
 - **IMG-9** The image is `ghcr.io/tim-smart/chad`, built for amd64 and tagged by version.
 - **IMG-121** The image's version tag is the chad package's version with no prefix. It is the same string that `state/version` holds and `chad status` prints, so an owner can match a tag to a running chad.
 - **IMG-10** The image exposes no port, keeps `STOPSIGNAL` at SIGTERM and has no `VOLUME` line in its Dockerfile.
@@ -524,7 +524,7 @@ asphodel is the memory daemon that the asphodel plugin talks to over http (see 1
 - **IMG-98** Withdrawn.
 - **IMG-99** Withdrawn.
 - **IMG-100** Withdrawn.
-- **IMG-101** A browser sidecar in an example shares chad's network namespace, as a container in the same pod on Kubernetes. Chrome listens on loopback only, whatever `--remote-debugging-address` says.
+- **IMG-101** Withdrawn.
 - **IMG-135** Withdrawn.
 - **IMG-136** Withdrawn.
 - **IMG-137** Withdrawn.
@@ -613,7 +613,7 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-5 | TIM-541 item 2, TIM-538 | Architect (Tim has not read) | run |  | `rule` | `harness` |
 | IMG-6 | TIM-541 item 3, TIM-535 as changed by TIM-541, TIM-559 cold read | Architect (Tim has not read) | run | TIM-541 | `rule` | `harness` |
 | IMG-7 | TIM-541 item 3 | Architect (Tim has not read) | run |  | `rule` | `harness` |
-| IMG-8 | TIM-541 item 4, TIM-546 item 1 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
+| IMG-8 | TIM-541 item 4, TIM-546 item 1, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | IMG-9 | TIM-541 item 6, amended by Tim's ruling that the image is amd64 only, chat 2026-11-15 | Architect (Tim has not read) | run |  | `rule` | `image` |
 | IMG-10 | TIM-541 item 6, TIM-542 item 2, TIM-553 item 10 | Architect (Tim has not read) | run |  | `rule` | `harness` |
 | IMG-11 | TIM-549 item 22 (comment on TIM-541), TIM-553, TIM-559 cold read | Architect (Tim has not read) | run |  | `rule` | `loader` |
@@ -706,7 +706,7 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-98 | TIM-541 item 29, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | IMG-99 | TIM-541 item 23, TIM-539, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | IMG-100 | TIM-541 item 29, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| IMG-101 | TIM-554 item 4 (comment on TIM-541) (support: podman), amended by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | run |  | `rule` | `image` |
+| IMG-101 | TIM-554 item 4 (comment on TIM-541) (support: podman), amended by Tim's ruling that chad has no Compose example, chat 2026-11-15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | IMG-102 | TIM-541 item 27, TIM-536 item 18 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-103 | TIM-541 item 27 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-104 | TIM-541 item 27 | Architect (Tim has not read) | not run |  | `fact` | `image` |

@@ -32,10 +32,10 @@ A client talks to the daemon over a unix socket on the volume, using effect's RP
 - **CLI-15** The CLI does not retry a connection. When the lock is held and the socket is missing, refuses the connection, or accepts it and gives no answer inside 2 seconds, the CLI says the daemon is "starting or frozen", exits 4 and touches no files.
 - **CLI-16** The RPC server interrupts a client's running calls when that client disconnects. A CLI that is killed, by Ctrl-C or by `kill -9`, therefore cancels its call. In the prototype the handler was interrupted within about 15 ms.
 - **CLI-17** The daemon writes the log event `rpc.cancelled`, at debug level, each time it interrupts a call because the call's client went away. The server cannot tell a Ctrl-C from a `kill -9` or a dropped connection, so each of them writes the line (see 16-failures-logs-status.md).
-- **CLI-18** The daemon notices a client that drops while a `chad secret request` is pending, so that `/stop` can edit the request's message to "Cancelled" (see 15-credentials.md).
+- **CLI-18** Withdrawn.
 - **CLI-19** The RPC client's ping stays at its default of 5 seconds. When the daemon stops answering during a call, or is stopped during one, the CLI exits 4 with a message to run `chad status` and `chad logs`.
-- **CLI-20** (a) The daemon logs no RPC request body, no RPC response body and no chat interaction payload. (b) No RPC call returns a stored secret value. (c) The one call that returns something typed by the owner is the one behind `chad secret request --code`, and that value is never stored (see 15-credentials.md).
-- **CLI-205** (a) When a CLI command or (b) a chat command (a) that changes something finishes in the daemon, the daemon writes the log event `command.ran`. The line carries the command, the caller and the outcome, and never a secret's value. The caller is the owner, a session id or the daemon, as `CHAD_SESSION` gives it. (c) A secret saved through the Enter modal writes the same event with no command behind it, and its caller is the owner who submitted the modal (see 15-credentials.md and 16-failures-logs-status.md).
+- **CLI-20** (a) The daemon logs no RPC request body, no RPC response body and no chat interaction payload. (b) No RPC call returns a stored secret value (see 15-credentials.md). (c) Withdrawn.
+- **CLI-205** (a) When a CLI command or (b) a chat command (a) that changes something finishes in the daemon, the daemon writes the log event `command.ran`. The line carries the command, the caller and the outcome, and never a secret's value. The caller is the owner, a session id or the daemon, as `CHAD_SESSION` gives it (see 15-credentials.md and 16-failures-logs-status.md). (c) Withdrawn.
 - **CLI-238** `/new` is a chat command that changes something. It writes `command.ran` with the command `/new`, the owner as the caller and the new session's id. `/stop` and `/status` write no `command.ran`.
 
 The wiring the prototypes ran is below. The serialization (newline-delimited JSON) and the header names are the prototypes' choices.
@@ -158,7 +158,7 @@ Several things change what chad has loaded, and two of them running at once coul
 
 - **CLI-37** (a) The daemon has one queue for everything that changes what is loaded. (b) That is `apply`, `check`, `revert`, `plugin reload`, `plugin purge`, `mcp restart`, a secret change, (a) a connection, owner (b) or timezone change, `safe on|off`, and a backup while it copies. (a) Two of them never run at once.
 - **CLI-38** Withdrawn.
-- **CLI-39** A secret saved through the Enter button's modal takes the same queue path as `chad secret set` (see 15-credentials.md).
+- **CLI-39** Withdrawn.
 - **CLI-40** A CLI whose command is waiting in the queue prints what it waits on. When the command ahead of it ends or is killed, the waiting one starts. In the prototype it started 14 ms after the first was killed.
 - **CLI-41** `chad status`, `chad health`, `chad db query` and `chad db check` never wait in the queue.
 - **CLI-159** `chad model`, `chad login` and `chad logout` take no place in the queue, because none of them changes what is loaded.
@@ -188,8 +188,8 @@ Several things change what chad has loaded, and two of them running at once coul
 | Code | Meaning | Examples |
 | --- | --- | --- |
 | 0 | Done. | An apply with nothing changed. `chad status` when the daemon answered. `chad health` when the lock is held and the ping was answered. |
-| 1 | The command ran and failed. | A failed check or apply. A reload where one plugin failed to rebuild. `chad login` that lost a race with a starting daemon. `chad secret request` ended by an owner reply. A command refused for a version mismatch. `chad safe off` while `CHAD_SAFE_MODE=1` is set. |
-| 2 | Bad usage. | An unknown command, a missing argument, a missing answer when there is no terminal. `chad secret request` run outside a session. `chad backup -` with stdout on a terminal. A zone that `chad timezone` does not accept. |
+| 1 | The command ran and failed. | A failed check or apply. A reload where one plugin failed to rebuild. `chad login` that lost a race with a starting daemon. A command refused for a version mismatch. `chad safe off` while `CHAD_SAFE_MODE=1` is set. |
+| 2 | Bad usage. | An unknown command, a missing argument, a missing answer when there is no terminal. `chad backup -` with stdout on a terminal. A zone that `chad timezone` does not accept. |
 | 3 | Refused as an owner command, because `CHAD_SESSION` is set. | `chad model` run by the agent. |
 | 4 | The daemon is needed and is missing or silent. | No daemon for `chad apply`. A daemon that is starting or frozen. A daemon that goes away during a call. `chad health` with the lock free. `chad status` when the daemon did not answer. |
 | 125 | `chad secret run` was used wrongly or was given a secret name that does not exist. | The message is on stderr and the child is not started. |
@@ -221,7 +221,7 @@ chad marks every process that a session starts with an environment variable, `CH
 - **CLI-57** The owner commands are (b) `setup`, (a) the `connection` and `owner` commands, (c) `login`, `logout`, `model`, (d) `restore`, and `backup` to stdout. (a) The CLI refuses them with exit 3 when `CHAD_SESSION` is set. (d) `backup` to stdout is on the list because the tar would land in the model's context and in the stored history.
 - **CLI-58** (a) Every other command is open to the agent, (b) including `secret`, `timezone`, `safe`, `plugin purge`, `db`, `logs` and `backup <path>`.
 - **CLI-59** Only the CLI refuses. The daemon does not refuse a call because it carries a session id. The CLI still sends the session id with every request, because the apply record and the line of CLI-150 use it.
-- **CLI-60** `CHAD_SESSION` has three more uses. An apply records it as the session that ran the apply. A command that posts the line of CLI-150 uses it to find the thread. `chad secret request` uses it to find the thread and to decide whether it waits, and is refused when it is unset or `daemon`. Because the variable is easy to unset, that refusal is a convenience and not a guard.
+- **CLI-60** `CHAD_SESSION` has two more uses. An apply records it as the session that ran the apply. A command that posts the line of CLI-150 uses it to find the thread.
 - **CLI-150** A command run from a session that changes what is loaded or deletes stored data posts one subtext line in that session's thread when it succeeds. The commands are `apply`, `revert`, `safe on|off`, `plugin purge`, `secret rm` and `timezone`. The same command from the owner's shell posts nothing, a command that fails and changes nothing posts nothing, and an apply with nothing changed posts nothing. A command that stored its change and exits 1 because some plugins kept their previous version does post the line, and the line names those plugins (see 08-apply-and-swap.md). `/safe on|off` typed in chat posts no such line, because its own output is already in the thread. The wording is in 16-failures-logs-status.md.
 - **CLI-61** The refusal is not a security boundary. The agent can read a secret file if it goes looking, and it can get round a refusal by unsetting the variable or by writing the file itself. In the prototype `env -u CHAD_SESSION chad <owner command>` from a session's shell was accepted. v1 does not stop either. The refusals stop an agent that is confused or was told something by a web page. A real boundary would need the agent's scripts to run outside the daemon's process.
 - **CLI-62** When the agent should hold back from an open command is a rule in the bundled `self-edit` skill and not a check in the CLI. The skill tells the agent that an unattended turn does not apply, revert, purge or change safe mode, and when it may run `chad safe off` (see 14-self-edit-skill.md).
@@ -280,13 +280,10 @@ The table lists every command in v1. "No daemon" says what the command does when
 | `chad plugin purge <name>` | exits 4 | yes | yes | this part, 11-settings.md |
 | `chad skill new <name>` | works, and exits 4 when `repo/work` is missing | yes | no | 12-skills-and-mcp.md |
 | `chad mcp restart` | exits 4 | yes | yes | 12-skills-and-mcp.md |
-| `chad secret set <NAME> [--totp] [--note <text>]` | works | yes | yes | 15-credentials.md |
+| `chad secret set <NAME> [--note <text>]` | works | yes | yes | 15-credentials.md |
 | `chad secret list [--json]` | works | yes | no | 15-credentials.md |
 | `chad secret rm <NAME>` | works | yes | yes | 15-credentials.md |
 | `chad secret run --env VAR=NAME [--stdin NAME] -- <command>` | works | yes | no | 15-credentials.md |
-| `chad secret code <NAME>` | works | yes | no | 15-credentials.md |
-| `chad secret request <NAME> [--totp] [--note <text>] [-m "<why>"] [--no-wait]` | needs a session | only inside a session | the save only | 15-credentials.md |
-| `chad secret request --code -m "<why>"` | needs a session | only inside a session | no | 15-credentials.md |
 | `chad model [<spec>]` | works | owner only | no | 05-model-and-login.md |
 | `chad login` | works | owner only | no | 05-model-and-login.md |
 | `chad logout` | works | owner only | no | 05-model-and-login.md |
@@ -313,7 +310,7 @@ An apply is the only way an edit in `repo/work/` reaches the running daemon. The
 - **CLI-64** An apply with nothing changed exits 0 and makes no commit.
 - **CLI-65** An apply covers the whole of `work/`, so it takes another session's draft with it. Its output lists every changed file. v1 has no apply limited to paths.
 - **CLI-66** A failed apply changes nothing, prints the errors and exits 1. There is no flag that skips a check. The one exception is an apply that fails from its commit on, as when the volume fills. It exits 1, and its message says that the commit was made and that it loads at the next start (see 09-repo-and-recovery.md).
-- **CLI-67** An apply fails on a type error, a default export that is not a `Plugin.Plugin`, a plugin with top-level await, an import of a package the image does not ship, a plugin Layer that fails to build or takes more than 30 seconds, a tool name clash, a malformed `mcp.json`, a stdio entry in `mcp.json` with a relative `cwd`, a `chad.json` that breaks the rules in 11-settings.md, a repo plugin that has a bundled plugin's name, a plugin that exists both as `plugins/<name>.ts` and as `plugins/<name>/index.ts`, a `${NAME}` in a plugin's settings that resolves nowhere, a `${NAME}` that names a TOTP secret, a tool whose description starts with "Replace me", a plugin whose file or directory name breaks the name rule of CLI-85, a file named `AGENTS.md` or a directory named `.agents` or `.kiro` anywhere in the exported tree or on disk in `repo/work/`, and a malformed skill. The look on disk means that an `AGENTS.md`, `.agents` or `.kiro` which `.gitignore` keeps out of the export fails the apply as well. The message for `AGENTS.md`, `.agents` and `.kiro` names `skills/` and `persona.md` as the places for what they would hold. That refusal, with the two directories its look on disk leaves out, and the one for a plugin's name are in 07-plugin-loading.md. A malformed skill is one with no front matter, a missing or empty `name` or `description`, a name that differs from its directory, or a name that two skills in the repo share (see 12-skills-and-mcp.md). An MCP server that fails to connect does not fail an apply, and neither does a `${NAME}` in `mcp.json` that resolves nowhere, which leaves that one server unavailable (see 12-skills-and-mcp.md).
+- **CLI-67** An apply fails on a type error, a default export that is not a `Plugin.Plugin`, a plugin with top-level await, an import of a package the image does not ship, a plugin Layer that fails to build or takes more than 30 seconds, a tool name clash, a malformed `mcp.json`, a stdio entry in `mcp.json` with a relative `cwd`, a `chad.json` that breaks the rules in 11-settings.md, a repo plugin that has a bundled plugin's name, a plugin that exists both as `plugins/<name>.ts` and as `plugins/<name>/index.ts`, a `${NAME}` in a plugin's settings that resolves nowhere, a tool whose description starts with "Replace me", a plugin whose file or directory name breaks the name rule of CLI-85, a file named `AGENTS.md` or a directory named `.agents` or `.kiro` anywhere in the exported tree or on disk in `repo/work/`, and a malformed skill. The look on disk means that an `AGENTS.md`, `.agents` or `.kiro` which `.gitignore` keeps out of the export fails the apply as well. The message for `AGENTS.md`, `.agents` and `.kiro` names `skills/` and `persona.md` as the places for what they would hold. That refusal, with the two directories its look on disk leaves out, and the one for a plugin's name are in 07-plugin-loading.md. A malformed skill is one with no front matter, a missing or empty `name` or `description`, a name that differs from its directory, or a name that two skills in the repo share (see 12-skills-and-mcp.md). An MCP server that fails to connect does not fail an apply, and neither does a `${NAME}` in `mcp.json` that resolves nowhere, which leaves that one server unavailable (see 12-skills-and-mcp.md).
 - **CLI-68** chad rewrites the errors of its own check steps so that they say the fix. A top-level await error names the line. A missing module error lists what can be imported. A tool name clash names who holds the name. The "Replace me" error says to describe the tool or delete it, and a skill name mismatch says to set `name: <dir>`.
 - **CLI-69** When a type error is in a file under `plugins/`, a failed `chad check` or `chad apply` ends with one line that names the path of effect's `AGENTS.md`. The line is printed once.
 - **CLI-70** A successful apply prints the commit and what changed per plugin, skill and MCP server. It names the plugins it rebuilt, says that a deleted plugin's data and timers are kept, says when a repo skill hides a bundled one, and prints each MCP server's status and tool count when `mcp.json` changed. It ends by saying that sessions pick the change up on their next message and that this turn keeps the tools it has.
@@ -369,20 +366,20 @@ MCP (Model Context Protocol) servers are external tool servers listed in `mcp.js
 
 ### Secrets
 
-A secret is a named value in `secrets/secrets.json`, mode 0600, outside the repo. Settings and `mcp.json` refer to one as `${NAME}`. The whole design, including the Enter button, TOTP codes and the recipes, is in 15-credentials.md.
+A secret is a named value in `secrets/secrets.json`, mode 0600, outside the repo. Settings and `mcp.json` refer to one as `${NAME}`. The whole design is in 15-credentials.md.
 
 - **CLI-95** Secrets are stored in `secrets/secrets.json`, mode 0600.
 - **CLI-96** Settings that are not secrets live in `chad.json` in the repo, edited in `work/` and applied like `mcp.json`. A setting that is a secret names it as `${NAME}` (see 11-settings.md).
-- **CLI-97** There is no `chad secret get`. chad's commands never print a stored value, with the one exception that `chad secret code` prints a one-time code. chad masks nothing in its output. `chad secret run -- printenv` does print a value, and the `credentials` skill names that route so the agent avoids it. The check that no command prints a stored value is in 17-testing.md.
+- **CLI-97** There is no `chad secret get`. chad's commands never print a stored value. chad masks nothing in its output. `chad secret run -- printenv` does print a value, and the `credentials` skill names that route so the agent avoids it. The check that no command prints a stored value is in 17-testing.md.
 - **CLI-98** `chad secret set <NAME>` takes the value from stdin or from a hidden prompt and never as an argument.
 - **CLI-99** A secret's name matches `[A-Z_][A-Z0-9_]*` and is 64 characters at most. `chad secret set` also refuses the name `CHAD_DOLLAR`, which is reserved (see 11-settings.md).
-- **CLI-100** `--totp` stores a TOTP seed, given as base32 or as an `otpauth://` URI, and refuses what does not decode. `--note <text>` stores a note. `set` on an existing name replaces the value and the kind and says so. It keeps the note unless `--note` is given, and `--note ""` clears it. `set <NAME> --totp` is refused while the applied `mcp.json` or `chad.json` names that secret.
-- **CLI-101** `chad secret list` prints each secret's name, kind, note and date, and takes `--json`. `chad secret rm <NAME>` deletes a secret.
+- **CLI-100** `--note <text>` stores a note. `set` on an existing name replaces the value and says so. It keeps the note unless `--note` is given, and `--note ""` clears it.
+- **CLI-101** `chad secret list` prints each secret's name, note and date, and takes `--json`. `chad secret rm <NAME>` deletes a secret.
 - **CLI-102** With the daemon running, `set` and `rm` reload the plugins whose settings name that secret and rebuild the MCP layer if `mcp.json` names it, and print what they reloaded. A plugin that fails to load with the new value keeps its old version, the command exits 1 and names the plugin and the error, and the secret stays stored.
 - **CLI-103** `chad secret run --env VAR=NAME [--stdin NAME] -- <command>` runs the command with the named secrets in its environment, or one secret on its stdin. The CLI reads `secrets/secrets.json` itself, with or without a daemon. A name that does not exist exits 125 with the message on stderr, and so does a usage error of `run` itself. A command that is not found exits 127, and one that is found and cannot be executed exits 126. Otherwise the child's own exit code passes through (see 15-credentials.md).
-- **CLI-104** `chad secret code <NAME>` prints the current TOTP code and the seconds left. It is refused for a secret that is not of the TOTP kind.
-- **CLI-105** `chad secret request` asks the owner for a value through an Enter button in the session's thread. The stored form saves the value under `<NAME>`. The `--code` form prints what the owner typed on stdout and stores nothing. Both wait 5 minutes, and `--no-wait` exists for the stored form. The command is refused when `CHAD_SESSION` is unset or `daemon` and points at `chad secret set`. It exits 1 with "owner replied in chat instead" when an owner message ends the wait, and exits 1 without waiting when no owner is present. The full behaviour is in 15-credentials.md.
-- **CLI-177** `chad secret request` exits 2 when it is refused because `CHAD_SESSION` is unset or `daemon`. Exit 1 stays for an owner reply and for no owner present, which the agent has to tell apart from a refusal.
+- **CLI-104** Withdrawn.
+- **CLI-105** Withdrawn.
+- **CLI-177** Withdrawn.
 
 ### Model and login
 
@@ -515,9 +512,9 @@ What a backup holds and what a restore rebuilds are in 02-storage.md. The rules 
 
 A few commands can be typed in chat. They are plain text that chad matches after it strips the mention, and they are not Discord slash commands. They never reach the model.
 
-- **CLI-138** The chat commands are (a) `/new`, `/stop`, (b) `/safe [on|off]`, (c) `/model [<spec>]`, (a) `/status`, (d) `/secret NAME`, `/secret NAME totp` and `/secret`. `/new` and `/stop` are in 03-sessions-and-turns.md and the `/secret` forms are in 15-credentials.md.
+- **CLI-138** The chat commands are (a) `/new`, `/stop`, (b) `/safe [on|off]`, (c) `/model [<spec>]` and (a) `/status`. (d) Withdrawn. `/new` and `/stop` are in 03-sessions-and-turns.md.
 - **CLI-139** `/safe`, `/model` and `/status` run the same daemon calls as `chad safe`, `chad model` and `chad status` and print the same text.
-- **CLI-140** `/secret` with no name prints what `chad secret list` prints.
+- **CLI-140** Withdrawn.
 - **CLI-149** `/status` renders with no database and no model. It answers when the database cannot be used and when the model is down, which is when the owner has little else to go on in chat (see 16-failures-logs-status.md).
 - **CLI-141** (a) No other CLI command has a chat form. There is no `/revert`, `/login`, `/logout` or `/logs`. (b) The route from a phone after a bad change is `/safe on`, then asking chad to revert or fix it.
 - **CLI-203** How chad matches a chat command, what trailing text does and what a command does in a plain channel with no session are in 03-sessions-and-turns.md.
@@ -581,9 +578,9 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-15 | TIM-542 item 3, TIM-550 item 7 | Tim; the no-retry rule Architect (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-16 | TIM-542 item 6, TIM-550 item 1 | Tim | run |  | `fact` | `cli` |
 | CLI-17 | TIM-550 item 13, TIM-559 round 2 R4 for the event name, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `cli` |
-| CLI-18 | TIM-550 comment "Changed by TIM-546" | Architect (Tim has not read) | not run |  | `rule` | `settings` |
+| CLI-18 | TIM-550 comment "Changed by TIM-546", withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CLI-19 | TIM-550 item 10, amended by TIM-559 ruling on CLI-G21 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
-| CLI-20 | TIM-546 item 21 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
+| CLI-20 | TIM-546 item 21, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | CLI-21 | TIM-550 item 5 | Architect (Tim has not read) | run | TIM-550 | `rule` | `cli` |
 | CLI-22 | TIM-542 item 5 | Tim | run |  | `rule` | `cli` |
 | CLI-23 | TIM-542 item 5, TIM-541 item 14 | Tim; the file `state/version` Architect (Tim has not read) | not run |  | `rule` | `cli` |
@@ -602,7 +599,7 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-36 | TIM-535 CLI section, TIM-544 "What ran" | Tim | run |  | `rule` | `cli` |
 | CLI-37 | TIM-542 item 4, TIM-547 item 1, TIM-559 ruling on CLI-G6 | Tim; `safe on`, `safe off` and `plugin purge` in the queue Architect (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-38 | TIM-537 comment "From TIM-542", amended by TIM-559 ruling on CLI-G7 and MCP-G6, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the place taken only for the rebuild Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
-| CLI-39 | TIM-546 item 9 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
+| CLI-39 | TIM-546 item 9, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CLI-40 | TIM-542 item 4, TIM-550 item 1 | Tim | run |  | `rule` | `apply` |
 | CLI-41 | TIM-542 items 20 and 21 | Tim | not run |  | `rule` | `apply` |
 | CLI-42 | TIM-542 item 6, TIM-559 cold read, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | `cli` |
@@ -623,14 +620,14 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-57 | TIM-542 item 30, TIM-534 item 12, TIM-535 CLI section | Tim | run |  | `rule` | `cli` |
 | CLI-58 | TIM-542 item 30, TIM-549 round 1 corrections, TIM-557 item 11, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; `logs` Architect (Tim has not read) | not run | TIM-557 | `rule` | `cli` |
 | CLI-59 | TIM-550 item 2, TIM-557 item 39, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | run; the session line not run | TIM-550 | `rule` | `cli` |
-| CLI-60 | TIM-542 item 29, TIM-550 item 3, TIM-546 item 13, TIM-557 item 39, TIM-559 ruling on CLI-G13, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the `daemon` value, `secret request` and the session line Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| CLI-60 | TIM-542 item 29, TIM-550 item 3, TIM-546 item 13, TIM-557 item 39, TIM-559 ruling on CLI-G13, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim; the `daemon` value, `secret request` and the session line Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | CLI-61 | TIM-542 item 31, TIM-550 item 2 | Tim | run |  | `rule` | `cli` |
 | CLI-62 | TIM-549 items 8 and 9 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | CLI-63 | TIM-542 item 9, TIM-534 item 9 | Tim | not run |  | `rule` | `apply` |
 | CLI-64 | TIM-542 item 9 | Tim | not run |  | `rule` | `apply` |
 | CLI-65 | TIM-542 item 9 | Tim | not run |  | `rule` | `apply` |
 | CLI-66 | TIM-531 item 5, TIM-534 item 4, TIM-538 item 6, amended by TIM-559 ruling on REC-G20 | Tim; the failure from the commit on Architect (Tim has not read) | run | TIM-559 | `rule` | `apply` |
-| CLI-67 | TIM-534 item 4, TIM-538 items 2 and 5, TIM-542 item 6, TIM-548 items 5 and 11, TIM-546 item 8, TIM-549 items 18 and 19, TIM-559 ruling on LOAD-G9, MCP-G12 and MCP-G14, TIM-559 round 3 A1 and A2, TIM-559 round 4 item 7 | Tim; the `chad.json`, TOTP, "Replace me" and skill checks, the two forms of one plugin, the relative `cwd`, the unresolved name in `mcp.json`, the name rule and the refusal of `AGENTS.md`, `.agents` and `.kiro` Architect (Tim has not read) | not run |  | `rule` | `apply` |
+| CLI-67 | TIM-534 item 4, TIM-538 items 2 and 5, TIM-542 item 6, TIM-548 items 5 and 11, TIM-546 item 8, TIM-549 items 18 and 19, TIM-559 ruling on LOAD-G9, MCP-G12 and MCP-G14, TIM-559 round 3 A1 and A2, TIM-559 round 4 item 7, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim; the `chad.json`, TOTP, "Replace me" and skill checks, the two forms of one plugin, the relative `cwd`, the unresolved name in `mcp.json`, the name rule and the refusal of `AGENTS.md`, `.agents` and `.kiro` Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | CLI-68 | TIM-549 item 20 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | CLI-69 | TIM-549 item 3 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | CLI-70 | TIM-542 items 12 and 28, TIM-538 item 3, TIM-537 items 3, 6 and 11, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | `apply` |
@@ -660,15 +657,15 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-94 | TIM-537 item 11, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | - |
 | CLI-95 | TIM-542 item 14 | Tim | not run |  | `rule` | `settings` |
 | CLI-96 | TIM-542 item 15, amended by TIM-548 | Tim; the file name `chad.json` Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| CLI-97 | TIM-542 item 14, TIM-546 item 2, TIM-554 items 1 and 2, TIM-558 item 48 | Tim; the check Architect (Tim has not read) | run; the check not run | TIM-546 | `rule` | `settings` |
+| CLI-97 | TIM-542 item 14, TIM-546 item 2, TIM-554 items 1 and 2, TIM-558 item 48, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim; the check Architect (Tim has not read) | run; the check not run | TIM-546 | `rule` | `settings` |
 | CLI-98 | TIM-542 item 14, TIM-550 "What held" | Tim | run |  | `rule` | `settings` |
 | CLI-99 | TIM-554 item 6, TIM-548 item 6 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| CLI-100 | TIM-546 items 4, 5 and 8, TIM-554 item 9 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| CLI-101 | TIM-542 item 14, TIM-546 item 5 | Tim; kind, note and date Architect (Tim has not read) | not run | TIM-546 | `rule` | `settings` |
+| CLI-100 | TIM-546 items 4, 5 and 8, TIM-554 item 9, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
+| CLI-101 | TIM-542 item 14, TIM-546 item 5, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim; kind, note and date Architect (Tim has not read) | not run | TIM-546 | `rule` | `settings` |
 | CLI-102 | TIM-542 item 14, TIM-547 item 14, TIM-555 rule 1 | Tim; the kept old version and `chad status` mark Architect (Tim has not read) | run |  | `rule` | `settings` |
 | CLI-103 | TIM-546 item 7, amended by TIM-559 ruling on CRED-G11 | Architect (Tim has not read) | run |  | `rule` | `settings` |
-| CLI-104 | TIM-546 item 8 | Architect (Tim has not read) | run |  | `rule` | `settings` |
-| CLI-105 | TIM-546 items 9, 11, 12 and 13, TIM-554 item 8 | Architect (Tim has not read) | run |  | `rule` | `settings` |
+| CLI-104 | TIM-546 item 8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
+| CLI-105 | TIM-546 items 9, 11, 12 and 13, TIM-554 item 8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | CLI-106 | TIM-535 "The model setting", TIM-536 item 2, TIM-559 cold read | Tim | not run |  | `rule` | `models` |
 | CLI-107 | TIM-535 "The model setting" | Tim | not run |  | `rule` | `models` |
 | CLI-108 | TIM-535 "The model setting", TIM-544 comment "From TIM-542" | Tim | not run |  | `rule` | `models` |
@@ -701,9 +698,9 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-135 | TIM-536 item 8, TIM-542 follow-up point 1, TIM-550 item 9, TIM-559 ruling on STO-G23 | Tim; the refusal on a held lock and what counts as empty Architect (Tim has not read) | not run | TIM-559 | `rule` | `backup` |
 | CLI-136 | TIM-536 item 9 | Tim | not run |  | `rule` | `backup` |
 | CLI-137 | TIM-542 items 15 and 23 as changed by TIM-557 item 11, TIM-540 item 18 as changed, TIM-549 item 23, TIM-557 items 26 and 43 | Tim; no `chad turns` and the `diagnose` skill Architect (Tim has not read) | not run | TIM-557 | `rule` | `cli` |
-| CLI-138 | TIM-532 item 6, TIM-542 item 22, TIM-546 item 15, TIM-559 ruling on REC-G11 | Tim; `/secret` and `/safe` with no argument Architect (Tim has not read) | not run | TIM-546 | `rule` | `turns` |
+| CLI-138 | TIM-532 item 6, TIM-542 item 22, TIM-546 item 15, TIM-559 ruling on REC-G11, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim; `/secret` and `/safe` with no argument Architect (Tim has not read) | not run | TIM-546 | `rule` | `turns` |
 | CLI-139 | TIM-542 item 22 | Tim | not run |  | `rule` | `apply` |
-| CLI-140 | TIM-546 item 15 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
+| CLI-140 | TIM-546 item 15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CLI-141 | TIM-542 item 22, TIM-534 item 9, TIM-535 Login section, TIM-557 item 11 | Tim; no `/logs` Architect (Tim has not read) | not run |  | `rule` | `turns` |
 | CLI-142 | TIM-550 item 12 | Architect (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-143 | TIM-550 item 12, TIM-553 "What ran" | Architect (Tim has not read) | run |  | `rule` | `cli` |
@@ -740,7 +737,7 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-174 | TIM-559 ruling on CLI-G13 and MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CLI-175 | TIM-559 ruling on CLI-G13 and MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CLI-176 | TIM-559 ruling on CLI-G13 and MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CLI-177 | TIM-559 ruling on CLI-G14 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
+| CLI-177 | TIM-559 ruling on CLI-G14, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CLI-178 | TIM-559 ruling on CLI-G8 and MOD-G7 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | CLI-179 | TIM-559 ruling on CLI-G8 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | CLI-180 | TIM-559 ruling on MOD-G13 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `models` |
@@ -768,7 +765,7 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-202 | TIM-559 ruling on STO-G21 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | CLI-203 | TIM-559 ruling on SES-G3 | Architect (Tim has not read) | not run |  | `definition` | - |
 | CLI-204 | TIM-553 question 2, TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `cli` |
-| CLI-205 | TIM-559 round 2 R4, TIM-559 round 4 item 3 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
+| CLI-205 | TIM-559 round 2 R4, TIM-559 round 4 item 3, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | CLI-206 | TIM-559 round 3 L4 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | CLI-207 | TIM-559 round 3 L4 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | CLI-208 | TIM-559 round 3 A4 | Architect (Tim has not read) | not run |  | `rule` | `cli` |

@@ -28,7 +28,7 @@ chad is a personal assistant that one person runs for themselves. It replaces He
 | Plugin settings in `chad.json`, and turning a plugin off | 11-settings.md |
 | The model login completed from Discord or from `chad login` | 05-model-and-login.md |
 | Backup of chad's state on the volume to one tar, and restore from it | 02-storage.md |
-| Credential tools, which are stored secrets, one-off codes and asking the owner for a value, with no browser in the image | 15-credentials.md |
+| Credential tools, which are stored secrets and the commands that use them, with no browser in the image | 15-credentials.md |
 | The bundled `self-edit` skill that teaches chad to change itself | 14-self-edit-skill.md |
 | The log on standard output and in `logs/chad.log`, the `chad logs` command, what the owner is told when a turn fails or a condition needs attention, the tokens each turn used, and the bundled `diagnose` skill | 16-failures-logs-status.md |
 
@@ -80,7 +80,7 @@ container, image ghcr.io/tim-smart/chad, user node (uid 1000)
                                    stdio MCP servers (CHAD_SESSION=daemon)
   chad <command>                   a client, run by the owner with docker exec or by the agent
 /data                              the data volume
-other containers                   asphodel, and a browser if the owner wants one
+other containers                   asphodel
 ```
 
 - **OV-19** There is one `chad` executable. `chad serve` is the daemon and the container's command, and every other command is a short-lived client that reaches the daemon over a unix socket at `run/chad.sock` with effect RPC. chad listens on no network port, because the CLI uses the socket and Discord is reached over an outbound gateway connection (see 10-cli.md).
@@ -91,7 +91,7 @@ other containers                   asphodel, and a browser if the owner wants on
 - **OV-41** The daemon writes every log entry to two places, standard output as one logfmt line and `logs/chad.log` as one JSON line. The entries include the source and the output of the agent's scripts with nothing masked, so those go wherever the container's logs are shipped. The one exception to the two places is a boot that is refused before it holds the daemon lock. It writes its lines to standard output only and writes nothing to the volume (see 16-failures-logs-status.md and 01-image-and-volume.md).
 - **OV-42** One function, `runDaemon(inputs)`, owns the parts of the daemon that belong to the process, and `chad serve` is a few lines that call it. Every duration the spec names lives in one `Timings` service (see 17-testing.md, which also specifies the one `Messages` module for what chad posts in chat, its CLI errors and the messages the model reads as tool results).
 
-The owner can run other containers next to chad. asphodel runs as a Kubernetes sidecar (see 01-image-and-volume.md and 18-asphodel-plugin.md), and a browser runs as a container that shares chad's network namespace (see 15-credentials.md). Neither is part of the chad image.
+The owner can run other containers next to chad. asphodel runs as a Kubernetes sidecar (see 01-image-and-volume.md and 18-asphodel-plugin.md). It is not part of the chad image.
 
 ### The main parts of the daemon
 
@@ -187,7 +187,7 @@ The parts use these terms with the meanings below. Paths are relative to the dat
 | 01-image-and-volume.md | The image, its user and environment variables, the volume's directory tree, the pinned packages, boot checks, the health probe, stopping, and the Kubernetes example. |
 | 02-storage.md | The SQLite database and its tables, the files kept outside it, backup and restore, pruning, and an unusable database. |
 | 03-sessions-and-turns.md | Sessions, the `Session` entity, steering, `/new` and `/stop`, what is stored, passivation, a turn cut by a restart, and the order of hooks around a turn. |
-| 04-discord.md | What a turn looks like in Discord, which is the status message, the answer, the buttons, sent files and the notices. |
+| 04-discord.md | What a turn looks like in Discord, which is the status message, the answer, the Stop button, sent files and the notices. |
 | 05-model-and-login.md | The model setting, the providers, the login from a container with no terminal, the token store and the prompt cache. |
 | 06-plugin-api.md | What a plugin exports, the services it gets, hooks and their budgets, background work, and starting or scheduling a turn. |
 | 07-plugin-loading.md | The runtime, bundling and running a plugin, the type-check, the exported trees and the order of an apply. |
@@ -198,7 +198,7 @@ The parts use these terms with the meanings below. Paths are relative to the dat
 | 12-skills-and-mcp.md | Skills, `mcp.json` and the MCP layer's rebuild. |
 | 13-timers-and-cron.md | The timer machinery in the core and the bundled cron plugin. |
 | 14-self-edit-skill.md | The bundled `self-edit` skill, the core prompt's fixed sentences and the persona. |
-| 15-credentials.md | `chad secret`, one-off codes, asking the owner for a value and the `credentials` skill. |
+| 15-credentials.md | `chad secret` and the `credentials` skill. |
 | 16-failures-logs-status.md | The log formats and `chad logs`, the reasons a turn fails and what the owner is told, retries and the usage limit, the usage columns of the `turns` table, the blocks of `chad status`, a full disk, the notices and the bundled `diagnose` skill. |
 | 17-testing.md | How chad is tested, which is the six layers, the harness around `runDaemon`, the local platform, the rule ids on tests, what gates the pull request, and the live checks. |
 | 18-asphodel-plugin.md | The asphodel plugin written against the plugin API. |

@@ -53,11 +53,11 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 | `plugin-api` | 3 | The plugin API with plugins handed to `runDaemon` through its plugins input (see 17-testing.md): the four modules, hooks and their ordering, prompt chunks, the key-value store, `Turns` and plugin-started turns, `sendFile`, tools, the Agent rebuild by generation. No loading from the repo. |
 | `loader` | 3 | The type layer with the six mistakes, check and bundle, loading plugins from an exported tree. |
 | `apply` | 3 | The repo, `chad apply`, the swap, revert, recovery and safe mode. |
-| `settings` | 4 | `chad.json`, settings, secrets, the timezone, the persona, `chad setup`, and the credential tools (`chad secret run`, `code`, `request`, the Enter button). |
+| `settings` | 4 | `chad.json`, settings, secrets, the timezone, the persona, `chad setup`, and the credential tools (`chad secret set`, `list`, `rm` and `run`). |
 | `skills-mcp` | 4 | Skills, MCP servers, and the stop's 60 second deadline, which only an MCP server can hold a stop open long enough to reach. |
 | `timers-cron` | 4 | Timers and the cron plugin. |
 | `backup` | 5 | `chad backup` and `chad restore`, the prune job, the before-migration copy. |
-| `image` | 5 | The Kubernetes manifests and the script of their checks, the browser sidecar wiring. |
+| `image` | 5 | The Kubernetes manifests and the script of their checks. |
 | `bundled-skills` | 5 | The `self-edit`, `credentials` and `diagnose` skills, the skill text and its checks. |
 | `asphodel` | 5 | The check that all twelve asphodel scenarios are green. Each scenario's own rules go in the earliest slice that can run it. |
 | `live` | 5 | The rest of the live layer: the Codex list, and one checklist for it and for the hand checks. |

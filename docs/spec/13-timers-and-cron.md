@@ -165,8 +165,6 @@ A server thread is a Discord thread inside a server, as opposed to a direct mess
 - **CRON-87** When a plugin-started turn fails, the core posts the failed-turn message in the turn's thread as 16-failures-logs-status.md describes, which also names the reasons that post nothing there. A plugin-started turn that ends as `Failed` with `LoggedOut`, `LoginFailed` or `UsageLimit` is among them. It posts nothing in its thread, and the core begins the keyed notice for that condition if none is held (see 16-failures-logs-status.md). These runs never pause a job, so a five minute job under a usage limit would otherwise post and ping on every run for hours. In a server thread the failed-turn message starts with the turn's `mention` when one was given.
 - **CRON-88** A plugin-started turn that the provider refuses because the login's usage limit is reached ends as `Failed` with `UsageLimit`, and the next one tries again, because chad keeps no "limit in force" state. The owner gets one notice for that condition when no owner was present. See 16-failures-logs-status.md.
 
-A plugin-started turn also counts as a turn with no owner present for the credential commands in 15-credentials.md.
-
 ## The cron plugin and what a job is
 
 Cron is a bundled plugin, which means it ships in the image and not in the owner's repo. Its TypeScript source ships inside the `chad` package as a plugin in a directory, and the agent can read it as a worked example at `/data/repo/examples/cron/`.

@@ -71,7 +71,7 @@ Anything chad has to read before the database is open, or write with no daemon r
 - **STO-11** `secrets/auth/` is Effect's file system `KeyValueStore` (a store that writes one file per key), and it is the one store chad gives clanka for model logins. A Codex login writes its token there under the key prefix `codex.auth/`, and that key is the only one chad's rules rest on. clanka's Copilot and xAI logins use the same store, with xAI tokens under `xai.auth/`, and clanka keeps its models.dev cache under `models-dev/` in whatever store it is given. Those keys land in this directory when clanka writes them. chad does not write them itself and does not promise that any path of chad makes clanka write them. The CLI can write the store with no daemon running. See 05-model-and-login.md.
 - **STO-139** chad sets mode 0600 on each file under `secrets/` with a chmod after the write, and never changes the process umask. See 01-image-and-volume.md and 05-model-and-login.md.
 - **STO-197** The format number of `secrets/connections.json` is 1. A CLI that finds a higher number refuses every `connection` and `owner` command, the ones that only read included, with exit 1 and the line `chad <command>: <path> has format <found> and this chad reads format <known>. Use the chad that wrote it.` on stderr, and it changes nothing. `chad status` prints the same line on stderr beside what else it can read, and keeps its own exit code. A `chad serve` that finds a higher number, or a file that it cannot read as the object of STO-137, refuses the boot with exit 1 and a `boot.refused` line whose reason is `connections`, and leaves the file as it is.
-- **STO-12** `secrets/secrets.json` holds the named secrets managed by `chad secret`, with a kind (`totp` or plain) and a note for each secret. See 15-credentials.md.
+- **STO-12** `secrets/secrets.json` holds the named secrets managed by `chad secret`, with a note for each secret. See 15-credentials.md.
 - **STO-13** The safe mode flag and the model override are the small files `state/safe-mode` and `state/model`.
 - **STO-14** The files in STO-13 are written by writing a temporary file and renaming it over the old one.
 - **STO-15** The files in STO-13 are read before SQLite is opened, so safe mode still works when the database cannot be opened.
@@ -439,7 +439,7 @@ chad restore <tar>
 - **STO-191** A `chad backup` that fails is recorded as the event `backup.failed`. The table of events is in 16-failures-logs-status.md.
 - **STO-96** chad schedules no backups. A Kubernetes CronJob or a volume snapshot does that, and the copy has to leave the volume.
 - **STO-97** Directories the owner mounts next to the volume, such as a vault, are not chad's to back up. The asphodel daemon's volume is not in `chad backup` either.
-- **STO-98** Browser state that a sign-in tool keeps under `home/` is in `chad backup`. A Chromium sidecar's profile is not, and neither is anything a tool keeps under the cache directory. See 15-credentials.md.
+- **STO-98** Browser state that a sign-in tool keeps under `home/` is in `chad backup`. Anything a tool keeps under the cache directory is not.
 - **STO-99** `chad restore <tar>` works only on an empty volume with no daemon running. It refuses while the daemon's lock is held, so the owner restores from a one-off container with the daemon stopped.
 - **STO-179** For `chad restore` a volume is empty when it holds nothing an owner made, which means no file under `secrets/` and no row in `sessions`. A `chad serve` that booted once leaves `db/chad.db` and `repo/work/` with its first commit, so those two alone do not make a volume count as used.
 - **STO-180** A volume whose database cannot be read is not empty.
@@ -526,7 +526,7 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-9 | TIM-536 item 1 | Tim | not run |  | `rule` | `cli` |
 | STO-10 | TIM-536 item 1, TIM-534 item 11 | Tim | not run |  | `rule` | `cli` |
 | STO-11 | TIM-536 item 1, TIM-535, TIM-559 cold read | Tim | run |  | `rule` | `models` |
-| STO-12 | TIM-542 item 14, amended by TIM-546 | Tim. Architect (Tim has not read) for the kind and the note | not run | TIM-546 | `rule` | `settings` |
+| STO-12 | TIM-542 item 14, amended by TIM-546, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim. Architect (Tim has not read) for the kind and the note | not run | TIM-546 | `rule` | `settings` |
 | STO-13 | TIM-536 item 2, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim | not run |  | `rule` | `apply` |
 | STO-14 | TIM-536 item 2 | Tim | not run |  | `rule` | `apply` |
 | STO-15 | TIM-536 item 2, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim | not run |  | `rule` | `apply` |
@@ -612,7 +612,7 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-95 | TIM-542 item 30 | Tim | not run |  | `rule` | `backup` |
 | STO-96 | TIM-536 item 9 | Tim | not run |  | `definition` | - |
 | STO-97 | TIM-534 item 10, TIM-541 item 23 | Tim. Architect (Tim has not read) for asphodel's volume | not run |  | `rule` | `backup` |
-| STO-98 | TIM-546 item 23, as recorded on TIM-536 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
+| STO-98 | TIM-546 item 23, as recorded on TIM-536, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | STO-99 | TIM-536 item 8, TIM-542 follow-up point 1 | Tim. Architect (Tim has not read) for the refusal while the lock is held | not run | TIM-559 | `rule` | `backup` |
 | STO-100 | TIM-542 item 30 | Tim | not run |  | `rule` | `backup` |
 | STO-101 | TIM-542 follow-up point 2 | Architect (Tim has not read) | not run |  | `rule` | `backup` |

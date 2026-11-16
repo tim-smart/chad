@@ -135,7 +135,7 @@ clanka expands names through Effect's `Config`, so the `ConfigProvider` that is 
 - **MCP-26** A value from the secret store is never copied into `process.env`.
 - **MCP-27** At load, a name that resolves nowhere and has no default marks that one server unavailable. The other servers carry on.
 - **MCP-28** `mcp.json` has no escape for a literal `${`. The name `CHAD_DOLLAR` is reserved for writing one, as `${CHAD_DOLLAR:-$}{X}`, and `chad secret set` refuses that name (see 11-settings.md, where the same expander rules apply to `chad.json`).
-- **MCP-29** A `${NAME}` in `mcp.json` that names a TOTP secret fails the apply, and `chad secret set NAME --totp` is refused while the applied `mcp.json` names `NAME` (see 15-credentials.md).
+- **MCP-29** Withdrawn.
 - **MCP-30** chad passes the values of an entry's `env` to `McpServers.layer` as `Redacted` values. clanka fails a server whose `env` values are plain strings with "Unable to get redacted value".
 - **MCP-31** A stdio server is started by clanka outside the spawner chad wraps. It gets the daemon's whole environment plus the entry's `env`, and so it carries `CHAD_SESSION=daemon` and not a session id (see 01-image-and-volume.md and 10-cli.md).
 - **MCP-109** chad gives every stdio entry an absolute `cwd` before it hands the config to clanka. An entry with no `cwd` gets the daemon's `HOME`.
@@ -368,7 +368,7 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-26 | TIM-537 item 7 | Tim | not run |  | `rule` | `skills-mcp` |
 | MCP-27 | TIM-534, as recorded on TIM-537 | Tim | read |  | `rule` | `skills-mcp` |
 | MCP-28 | TIM-548 item 6 | Architect (Tim has not read) | read |  | `rule` | `skills-mcp` |
-| MCP-29 | TIM-546 item 8 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| MCP-29 | TIM-546 item 8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | MCP-30 | TIM-553, as recorded on TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-31 | TIM-550 item 3, TIM-553 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-32 | TIM-537 item 5 | Tim | not run |  | `rule` | `skills-mcp` |

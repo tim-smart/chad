@@ -18,7 +18,7 @@ chad teaches the agent to change itself through one skill. The skill's wording i
 - **SELF-8** `chad status` prints chad's version and effect's version (see 10-cli.md).
 - **SELF-9** The text of `SKILL.md` and `plugin.md` at the end of this part and the starter file shown below are a starting point and are not normative. What binds a builder is what the skill has to teach, the decisions in this part, the file layout and the CI checks. The final wording is settled when someone watches an agent use the skill against a built chad.
 - **SELF-10** A repo skill named `self-edit` replaces the bundled one, as a repo skill replaces any bundled skill with the same name (see 12-skills-and-mcp.md).
-- **SELF-11** A second bundled skill, `credentials`, ships beside `self-edit`. The secrets section of `self-edit` points at it for passwords and sign-in codes (see 15-credentials.md).
+- **SELF-11** A second bundled skill, `credentials`, ships beside `self-edit`. The secrets section of `self-edit` points at it for passwords (see 15-credentials.md).
 - **SELF-124** A third bundled skill, `diagnose`, ships beside `self-edit` and `credentials`. It teaches the agent to answer why a turn failed (see 16-failures-logs-status.md).
 
 ```
@@ -417,7 +417,7 @@ Edit `mcp.json` and apply. There is no command that adds one.
 - `${NAME:-default}` gives a default. To write a literal `${X}`, write `${CHAD_DOLLAR:-$}{X}`.
 - `chad status` lists the settings each loaded plugin read and where each came from. It is the only place a bundled plugin's settings are listed.
 - `chad secret set NAME`, `chad secret list`, `chad secret rm NAME`. There is no way to read a value back. Changing a secret reloads what names it. If a plugin fails to load with the new value, it keeps its old instance, the command exits 1 and the secret stays stored. `chad status` marks it as running with the previous secret.
-- For a password or a code that a tool signs in with, read the `credentials` skill.
+- For a password that a tool signs in with, read the `credentials` skill.
 
 ## The persona
 
@@ -620,7 +620,7 @@ export default Plugin.make(NotesTools, Chunk)
 | SELF-8 | TIM-549 item 7, TIM-542 as changed by TIM-549 | Architect (Tim has not read) | not run | TIM-549 | `rule` | `cli` |
 | SELF-9 | TIM-549 item 31 and "Not settled here" | Architect (Tim has not read) | not run |  | `definition` | - |
 | SELF-10 | TIM-537 item 3, TIM-549 item 19 | Tim | not run |  | `rule` | `bundled-skills` |
-| SELF-11 | TIM-546 item 22, TIM-549 "Passed on to other tickets" | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
+| SELF-11 | TIM-546 item 22, TIM-549 "Passed on to other tickets", amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SELF-12 | Tim's comment on TIM-549 of 2026-11-14 17:51 | Tim | not run |  | `rule` | `bundled-skills` |
 | SELF-13 | TIM-549 item 2, kept by the repo/examples follow-up item 3 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SELF-14 | TIM-549 "Changed by TIM-553", TIM-553 "How well each is supported" | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |

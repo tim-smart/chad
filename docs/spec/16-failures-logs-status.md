@@ -121,7 +121,7 @@ A line chad itself writes carries an `event` annotation from this list. The copy
 | **FAIL-299** | `chat.disconnected` | Builder's | The gateway closed. Carries the close code. |
 | **FAIL-300** | `chat.refused` | Builder's | Discord closed the gateway for good, as for a bad token or missing intents. |
 | **FAIL-301** | `message.ignored` | Info for `not-owner` (decided) | A message was dropped. Carries the reason, which is `not-owner`, `own`, `duplicate` or `not-mentioned`, and the author's id, and never the content (see 03-sessions-and-turns.md and 04-discord.md). |
-| **FAIL-302** | `command.ran` | Builder's | (a) A CLI or (b) chat command (a) that changes something finished, (c) or a secret was saved through the Enter modal. (a) Carries the command, the caller, which is the owner, a session id or the daemon, and the outcome, and never a secret's value (see 10-cli.md). (c) A modal save writes its own line on every save, with the owner as the caller and the save of a secret as the command, whether or not a command is waiting for it. A save that a waiting `chad secret request` sees therefore leaves two lines, the owner's save and the agent's command (see 15-credentials.md). |
+| **FAIL-302** | `command.ran` | Builder's | (a) A CLI or (b) chat command (a) that changes something finished. (a) Carries the command, the caller, which is the owner, a session id or the daemon, and the outcome, and never a secret's value (see 10-cli.md). (c) Withdrawn. |
 | **FAIL-303** | `timer.held` | Builder's | A timer came due for a plugin that is not loaded (see 13-timers-and-cron.md). |
 | **FAIL-304** | `rpc.cancelled` | Debug (decided) | The RPC server interrupted a call because its client went away, as it does when the owner presses Ctrl-C (see 10-cli.md). The daemon cannot tell Ctrl-C from a killed client or a closed socket, so it writes one line for each call that is interrupted this way. |
 | **FAIL-305** | `notice.sent` | Info | A notice outside a turn was posted. Carries its key or its kind. |
@@ -1138,7 +1138,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-299 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | FAIL-300 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | FAIL-301 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| FAIL-302 | TIM-559 round 2 R4, TIM-559 round 4 item 3 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
+| FAIL-302 | TIM-559 round 2 R4, TIM-559 round 4 item 3, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | FAIL-303 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
 | FAIL-304 | TIM-557 items 2 and 4, TIM-559 round 2 R4; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | FAIL-305 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
