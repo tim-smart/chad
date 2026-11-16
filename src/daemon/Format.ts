@@ -8,15 +8,15 @@ import type * as Connections from "../Connections.ts"
  * `effect/chat` alone and a platform brings only its formatter.
  */
 export interface Format {
-  /** A notice inside a turn's flow, as the platform writes it (docs/spec/04-discord.md, DIS-22, DIS-74). */
+  /** A notice inside a turn's flow, as the platform writes it. */
   readonly subtext: (line: string) => string
-  /** A link to a thread, as the platform writes one (MOD-42). */
+  /** A link to a thread, as the platform writes one. */
   readonly link: (thread: ChatThread.ChatThread) => string
-  /** A moment, shown relative to the reader's now (DIS-20). */
+  /** A moment, shown relative to the reader's now. */
   readonly relativeTime: (at: number) => string
   /**
    * The platform's post options for a reply to the owner's message: the reply ping on and no other mention, and a
-   * message that is gone does not refuse the post (DIS-55, DIS-52, DIS-100).
+   * message that is gone does not refuse the post.
    */
   readonly reply: <A, E, R>(
     effect: Effect.Effect<A, E, R>,
@@ -29,7 +29,7 @@ export const discord: Format = {
   // A Discord thread's id is its channel's.
   link: (thread) => `<#${thread.id}>`,
   relativeTime: (at) => `<t:${Math.floor(at / 1000)}:R>`,
-  // Discord posts a reply to a message that is gone as a plain message, and does not refuse it (DIS-100).
+  // Discord posts a reply to a message that is gone as a plain message, and does not refuse it.
   reply: DiscordChat.withPostOptions({
     notify: { repliedUser: true },
     failIfNotExists: false,
@@ -37,7 +37,7 @@ export const discord: Format = {
 }
 
 /**
- * The local platform stands in for Discord (DIS-79, OV-5), so the owner reads the same markup. It has no Discord post
+ * The local platform stands in for Discord, so the owner reads the same markup. It has no Discord post
  * options, so a reply is posted as it is.
  */
 export const local: Format = {

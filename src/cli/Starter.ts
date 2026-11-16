@@ -1,12 +1,12 @@
 /**
- * The file `chad plugin new` writes, which is the starter of 14-self-edit-skill.md with the name filled in (SELF-47 to
- * SELF-52). It names the paths under the repo the way the daemon does, which is `/data/repo` in the image.
+ * The file `chad plugin new` writes: a plugin with one tool and a setting, with the name filled in. It names the paths
+ * under the repo the way the daemon does, which is `/data/repo` in the image.
  */
 
 /**
  * The name's hyphen-separated parts joined in camel case, each part after the first with its first letter upper-cased.
  * A result that would be empty or start with a digit gets `plugin` in front, so the tool's name and the handler's key
- * are identifiers (SELF-137).
+ * are identifiers.
  */
 export const camelName = (name: string): string => {
   const parts = name.split("-").filter((part) => part.length > 0)
@@ -21,7 +21,7 @@ export const camelName = (name: string): string => {
     : joined
 }
 
-/** The starter file for the plugin `name`, in the repo at `repo` (SELF-49, SELF-50, SELF-52). */
+/** The starter file for the plugin `name`, in the repo at `repo`. */
 export const file = (options: {
   readonly name: string
   readonly repo: string

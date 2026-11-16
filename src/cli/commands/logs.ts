@@ -17,7 +17,7 @@ import { Environment } from "../Environment.ts"
 import { ExitCode, Failure } from "../Failure.ts"
 import * as Flags from "../Flags.ts"
 
-/** The entries `chad logs` prints when no filter is given (FAIL-41). */
+/** The entries `chad logs` prints when no filter is given. */
 const last = 200
 
 /** How often `-f` looks for new lines. */
@@ -59,8 +59,7 @@ const levelOf = (entry: Entry): LogLevel.LogLevel =>
   logLevelNamed(entry.level) ?? "Info"
 
 /**
- * A `--since` value: a duration such as `15m` or `2h`, or an ISO 8601 time. An ISO time with no offset is UTC
- * (FAIL-196, FAIL-197).
+ * A `--since` value: a duration such as `15m` or `2h`, or an ISO 8601 time. An ISO time with no offset is UTC.
  */
 export const since = (value: string, now: number): number | undefined => {
   const duration = /^(\d+)(s|m|h|d)$/.exec(value)
@@ -109,11 +108,11 @@ interface Filters {
   readonly since: Option.Option<number>
 }
 
-/** Whether any of the six filters is given (FAIL-41). */
+/** Whether any of the six filters is given. */
 const filtered = (filters: Filters) =>
   Object.values(filters).some((filter) => Option.isSome(filter))
 
-/** Whether an entry passes every filter given (FAIL-194). */
+/** Whether an entry passes every filter given. */
 const matches = (filters: Filters) => (entry: Entry) => {
   const key = (name: "turn" | "session" | "plugin") =>
     Option.match(filters[name], {
@@ -163,7 +162,7 @@ const readText = (path: string) =>
 
 const lines = (text: string) => text.split("\n").filter((line) => line !== "")
 
-/** `chad logs`: the daemon's log, read from the volume in the CLI's own process (FAIL-38). */
+/** `chad logs`: the daemon's log, read from the volume in the CLI's own process. */
 export const logs = Command.make(
   "logs",
   {
@@ -230,7 +229,7 @@ export const logs = Command.make(
     if (!follow) {
       const texts = yield* Effect.forEach(files, readText)
       const found = parsed(texts.flatMap(lines))
-      // Nothing that matches is no failure (FAIL-200).
+      // Nothing that matches is no failure.
       return yield* print(filtered(filters) ? found : found.slice(-last))
     }
     return yield* followed(
@@ -253,7 +252,7 @@ interface Open {
 }
 
 /**
- * `-f`: what is there, and then each line as it is written (FAIL-199). A rotation renames the files, so a file is
+ * `-f`: what is there, and then each line as it is written. A rotation renames the files, so a file is
  * known by its inode and not by its name. The open file is read to its end, then each kept file that later rotations
  * left is read whole, oldest first, and then the newest is followed. The file read last stays open until the next one
  * is, so its inode cannot name another file in between.

@@ -1,8 +1,8 @@
 import { Effect } from "effect"
 import { SqlClient } from "effect/sql"
 
-// The `turns` slice's schema: the rest of a session's row, its history, the record of every turn and the record of
-// every message that steered one. This file is never edited once its slice is delivered.
+// The turns schema: the rest of a session's row, its history, the record of every turn and the record of every
+// message that steered one. This file is never edited once it has shipped.
 export default Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
   for (const column of [

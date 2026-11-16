@@ -41,7 +41,7 @@ import * as TurnLog from "./TurnLog.ts"
 import type { Notices } from "./Notices.ts"
 
 /**
- * The models of the daemon (docs/spec/05-model-and-login.md): the settings in force, the model layer a turn gets, a
+ * The models of the daemon: the settings in force, the model layer a turn gets, a
  * change of the setting, and the check at start. What has nothing of the daemon in it is in `ModelSpec.ts`, which the
  * CLI shares.
  */
@@ -70,12 +70,11 @@ export type Provided =
   | Compaction.SummarizerModel
 
 /**
- * The model layer of one session: the main model, the sub-agents' and the summarizer's, over the session's one client
- * (MOD-81, MOD-96). Without an override the sub-agents and the summarizer run on their own copies of the main model
- * (MOD-13). The summarizer layer is always there, so a summary still running when its turn ends keeps a working model
- * (MOD-14, SES-116). The agents' models are watched for chad's own ends of a turn, which are counted at each call
- * (FAIL-84, FAIL-87, FAIL-89, FAIL-212), and a call of any of the three that succeeds clears the model's conditions (FAIL-94,
- * FAIL-235).
+ * The model layer of one session: the main model, the sub-agents' and the summarizer's, over the session's one
+ * client. Without an override the sub-agents and the summarizer run on their own copies of the main model. The
+ * summarizer layer is always there, so a summary still running when its turn ends keeps a working model. The agents'
+ * models are watched for chad's own ends of a turn, which are counted at each call, and a call of any of the three that
+ * succeeds clears the model's conditions.
  */
 export const session = (
   settings: Settings & { readonly main: Result.Success<Spec, unknown> },
@@ -103,9 +102,9 @@ export class Models extends Context.Service<
     /** The settings in force. */
     readonly settings: () => Settings
     /**
-     * Readies a turn's model on the settings it read at its start: the token check of a provider that needs the login
-     * (SES-56, MOD-99), and then the layer the session builds when it has none for this generation. A setting that
-     * cannot run fails the turn with its refusal as an `Internal` defect (MOD-G27).
+     * Readies a turn's model on the settings it read at its start: the token check of a provider that needs the login,
+     * and then the layer the session builds when it has none for this generation. A setting that cannot run fails the
+     * turn with its refusal as an `Internal` defect.
      */
     readonly prepare: (
       session: string,
@@ -116,7 +115,7 @@ export class Models extends Context.Service<
     }>
     /**
      * `chad model` and `/model` with a change: the login when one is needed, the trial requests, the store and the
-     * generation bump, one change at a time (MOD-15 to MOD-17, MOD-84, MOD-126). It gives what the command prints.
+     * generation bump, one change at a time. It gives what the command prints.
      */
     readonly change: (
       request: Request,
@@ -131,9 +130,9 @@ export const make = (options: {
   readonly data: string
   readonly inputs: Inputs
   readonly requirements: Context.Context<Requirements | FileSystem.FileSystem>
-  /** How long a trial request may take (MOD-88). */
+  /** How long a trial request may take. */
   readonly deadline: Duration.Duration
-  /** What a change that is stored clears: the failed check of a model nobody runs any more (FAIL-235). */
+  /** What a change that is stored clears: the failed check of a model nobody runs any more. */
   readonly changed: Effect.Effect<void>
 }): Models["Service"] => {
   const { data, inputs, requirements, deadline } = options
@@ -148,7 +147,7 @@ export const make = (options: {
         if (Result.isFailure(main)) {
           return yield* Effect.die(new Error(main.failure.error))
         }
-        // The WebSocket transport asks for a token as its layer is built, so the check comes before the build (MOD-33).
+        // The WebSocket transport asks for a token as its layer is built, so the check comes before the build.
         if (needsLogin(main.success)) yield* Effect.orDie(auth.get)
         return {
           generation: settings.generation,
@@ -160,7 +159,7 @@ export const make = (options: {
     change: (request, login) =>
       changes.withPermit(
         Effect.gen(function* () {
-          // Planned on what the change before this one stored, since only one runs at a time (MOD-126).
+          // Planned on what the change before this one stored, since only one runs at a time.
           const planned = yield* prepare({
             current,
             request,
@@ -169,7 +168,7 @@ export const make = (options: {
             login,
           })
           // The store and the settings in force move together: an interrupt waits for both, and a store that fails
-          // part way reads the files again, so the daemon runs what the volume holds (MOD-12).
+          // part way reads the files again, so the daemon runs what the volume holds.
           yield* Effect.uninterruptible(
             store(data, planned).pipe(
               Effect.andThen(
@@ -204,16 +203,15 @@ export const make = (options: {
 
 /**
  * The check at start: one small request on each model chad will run, which is the main model and each override that
- * is set (MOD-25). A model on the Codex login is skipped when no token is stored, and when the token check fails, so
- * the check never waits on a login (MOD-93, MOD-94). A failure is logged and announced under one key, with a sentence
- * for each failed model in the order main, sub-agent, summarizer, and chad runs on (MOD-G30). A check that passes
- * clears the key (FAIL-234).
+ * is set. A model on the Codex login is skipped when no token is stored, and when the token check fails, so the check
+ * never waits on a login. A failure is logged and announced under one key, with a sentence for each failed model in
+ * the order main, sub-agent, summarizer, and chad runs on. A check that passes clears the key.
  */
 export const check = Effect.fnUntraced(function* (options: {
   readonly settings: Settings
   readonly endpoint: Endpoint
   readonly requirements: Context.Context<Requirements>
-  /** How long one request may take before it has failed (MOD-88). */
+  /** How long one request may take before it has failed. */
   readonly deadline: Duration.Duration
   readonly notices: Pick<Notices["Service"], "raise" | "clear">
 }) {
@@ -246,8 +244,8 @@ export const check = Effect.fnUntraced(function* (options: {
     for (const spec of specs) {
       if (spec === undefined) continue
       if (needsLogin(spec)) {
-        // No stored token skips the check (MOD-93). An expired one is refreshed through the shared login, on a fiber
-        // that starts no device flow, and a refresh that fails skips the check too (MOD-94).
+        // No stored token skips the check. An expired one is refreshed through the shared login, on a fiber
+        // that starts no device flow, and a refresh that fails skips the check too.
         const stored = yield* tokens
           .get(STORE_TOKEN_KEY)
           .pipe(Effect.orElseSucceed(() => Option.none<TokenData>()))
@@ -269,7 +267,7 @@ export const check = Effect.fnUntraced(function* (options: {
     : options.notices.raise({ key: checkKey, text: failures.join("\n") })
 })
 
-/** The key of the notice of a failed check (FAIL-233). */
+/** The key of the notice of a failed check. */
 export const checkKey = "model-check-failed"
 
 export { Unchanged }

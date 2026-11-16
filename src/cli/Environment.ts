@@ -16,15 +16,15 @@ export interface Environment {
   readonly session: string | undefined
   /** `CHAD_MODEL`, the main model when no override is stored. */
   readonly model?: string | undefined
-  /** Whether `CHAD_OPENAI_API_KEY` is set, which puts `openai` on the API and off the Codex login (MOD-2). */
+  /** Whether `CHAD_OPENAI_API_KEY` is set, which puts `openai` on the API and off the Codex login. */
   readonly openaiApiKey?: string | undefined
-  /** `CHAD_OPENAI_API_URL`, the endpoint of a trial request `chad model` makes with no daemon (MOD-90). */
+  /** `CHAD_OPENAI_API_URL`, the endpoint of a trial request `chad model` makes with no daemon. */
   readonly openaiApiUrl?: string | undefined
-  /** Whether `CHAD_SAFE_MODE=1` is set, which holds safe mode on (REC-57). */
+  /** Whether `CHAD_SAFE_MODE=1` is set, which holds safe mode on. */
   readonly safeMode?: boolean
-  /** `TZ`, the owner's timezone when none is stored (IMG-27). */
+  /** `TZ`, the owner's timezone when none is stored. */
   readonly tz?: string | undefined
-  /** The whole environment the CLI started with, which a child of `chad secret run` inherits (CRED-28). */
+  /** The whole environment the CLI started with, which a child of `chad secret run` inherits. */
   readonly inherited: Readonly<Record<string, string | undefined>>
 }
 

@@ -10,7 +10,7 @@ import * as Repository from "../Repository.ts"
 /** The commits `chad log` prints when no `--limit` is given. */
 const last = 20
 
-/** `chad log`: the applied commits, newest first, read from the repo alone with no daemon (REC-86, CLI-168). */
+/** `chad log`: the applied commits, newest first, read from the repo alone with no daemon. */
 export const log = Command.make(
   "log",
   {

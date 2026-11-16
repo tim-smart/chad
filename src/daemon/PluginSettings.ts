@@ -1,5 +1,5 @@
 /**
- * What the daemon does with `chad.json` (docs/spec/11-settings.md): the read a boot makes with its notices, and the
+ * What the daemon does with `chad.json`: the read a boot makes with its notices, and the
  * entries each plugin loads as. The file's own rules are in `src/Settings.ts`.
  */
 import { Effect, FileSystem, Option } from "effect"
@@ -11,15 +11,15 @@ import * as Logger from "./Logger.ts"
 import type * as Notices from "./Notices.ts"
 import type * as Plugins from "./Plugins.ts"
 
-/** The notice keys of a file a boot could not parse and of what a boot ignored (FAIL-164, FAIL-236). */
+/** The notice keys of a file a boot could not parse and of what a boot ignored. */
 export const unparsableKey = "settings-unparsable"
 export const ignoredKey = "settings-ignored"
 
 /**
  * The applied `chad.json` as a boot reads it. Nothing in it stops the boot: a file that cannot be read or parsed counts
- * as empty, and what does not fit is ignored, each with a notice and a log line (SET-57 to SET-59, SET-90 to SET-92,
- * SET-97, FAIL-164). In safe mode only `"enabled": false` of a bundled plugin is used, a bad `enabled` counts as on,
- * and nothing is announced, since the file is not otherwise read (SET-44, SET-45, SET-86).
+ * as empty, and what does not fit is ignored, each with a notice and a log line. In safe mode only `"enabled": false`
+ * of a bundled plugin is used, a bad `enabled` counts as on, and nothing is announced, since the file is not otherwise
+ * read.
  */
 export const atBoot = Effect.fnUntraced(function* (options: {
   /** The applied tree, or nothing when there is none. */
@@ -81,7 +81,7 @@ export const announce = (
 
 /**
  * The plugins that load, each with its settings from the file: the bundled ones and those of the tree, less those the
- * file turns off (SET-4, SET-5, SET-34, LOAD-52). In safe mode only the bundled ones load, on their defaults (SET-46).
+ * file turns off. In safe mode only the bundled ones load, on their defaults.
  * A bundled entry given its settings by the caller keeps them when the file gives none, which is how a test hands a
  * bundled plugin its settings.
  */
@@ -114,7 +114,7 @@ export const entries = (options: {
 
 /**
  * The lookup of a `${NAME}`: the secret store on the volume, read at each lookup, then the daemon's environment
- * as it started (SET-20). A store value is only returned and never put in the environment (SET-21).
+ * as it started. A store value is only returned and never put in the environment.
  */
 export const lookup =
   (
@@ -134,8 +134,8 @@ export const lookup =
     )(variable).pipe(Effect.provideService(FileSystem.FileSystem, fs))
 
 /**
- * The plugins whose settings in a file name a secret, before expansion, which a secret change reloads (SET-26). A
- * plugin that is off is left out (SET-79).
+ * The plugins whose settings in a file name a secret, before expansion, which a secret change reloads. A plugin that
+ * is off is left out.
  */
 export const users = (
   file: Settings.File,

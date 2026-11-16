@@ -7,7 +7,7 @@ import type { ModelState, Report } from "./Rpcs.ts"
  */
 
 /**
- * Safe mode, the applied commit and the draft (CLI-125b to CLI-125d). A daemon that answers gives them in its report,
+ * Safe mode, the applied commit and the draft. A daemon that answers gives them in its report,
  * and with none the CLI reads them from `state/safe-mode`, its own `CHAD_SAFE_MODE` and the repo.
  */
 export type Repository = NonNullable<Report["repository"]>
@@ -27,7 +27,7 @@ export type View =
         readonly volume: string | undefined
         /** The connections `secrets/connections.json` holds. */
         readonly connections?: ReadonlyArray<Connection>
-        /** The main model and the login state, as the files and the environment give them (CLI-125). */
+        /** The main model and the login state, as the files and the environment give them. */
         readonly model?: ModelState
       }
     /** The lock is held and the daemon gave no answer in time. */
@@ -48,7 +48,7 @@ const safeLines: Record<Repository["safe"], string> = {
   toggle: "safe mode: on (chad safe on)",
 }
 
-/** Safe mode, the applied commit and the draft, a line each (CLI-125b to CLI-125d). */
+/** Safe mode, the applied commit and the draft, a line each. */
 const repositoryLines = (
   repository: Repository | undefined,
 ): ReadonlyArray<string> =>
@@ -84,7 +84,7 @@ const connections = (list: ReadonlyArray<Connection> = []) =>
     (connection) => `connection: ${connection.name} (${connection.kind})`,
   )
 
-/** A login state as `chad status` and `chad model` write it (CLI-125, MOD-19). */
+/** A login state as `chad status` and `chad model` write it. */
 export const logins: Record<ModelState["login"], string> = {
   "logged-in": "logged in",
   "logged-out": "not logged in",
@@ -92,7 +92,7 @@ export const logins: Record<ModelState["login"], string> = {
   "not-needed": "needs no login",
 }
 
-/** The model and the login state, as one line (CLI-125). */
+/** The model and the login state, as one line. */
 const model = (state: ModelState | undefined) =>
   state === undefined ? [] : [`model: ${state.spec} (${logins[state.login]})`]
 
@@ -139,14 +139,14 @@ export const render = (view: View): string => {
     ...(report.skipped ?? []).map(
       ({ name, reason }) => `plugin: ${name}, skipped (${reason})`,
     ),
-    // A repo skill that hides a bundled one is marked (MCP-12, SELF-121, MCP-147).
+    // A repo skill that hides a bundled one is marked.
     ...(report.hiding ?? []).map(Messages.skillHidesMark),
     ...(report.mcp ?? []).map(mcp),
     ...blocks(report),
   ].join("\n")
 }
 
-/** One line per loaded plugin, with its warnings and errors since it loaded and the latest of them (FAIL-117). */
+/** One line per loaded plugin, with its warnings and errors since it loaded and the latest of them. */
 const plugins = (list: Report["plugins"]): ReadonlyArray<string> =>
   (list ?? [])
     .map(
@@ -160,7 +160,7 @@ const plugins = (list: Report["plugins"]): ReadonlyArray<string> =>
         : [line, `  settings: ${Messages.settingsStatus(settings)}`]
     })
 
-/** One line per MCP server, with its tool count or the first line of its error (CLI-125f, MCP-144). */
+/** One line per MCP server, with its tool count or the first line of its error. */
 const mcp = (server: NonNullable<Report["mcp"]>[number]) =>
   server.state === "connected"
     ? `mcp: ${server.name}, connected, ${server.tools ?? 0} tools`
@@ -172,8 +172,8 @@ const mcp = (server: NonNullable<Report["mcp"]>[number]) =>
 const time = (at: number) => `${new Date(at).toISOString().slice(0, 19)}Z`
 
 /**
- * The "Problems" and "Recent" blocks, each a heading and then one fact to a line, after a blank line (FAIL-110,
- * FAIL-333). A daemon that sends neither block gets none.
+ * The "Problems" and "Recent" blocks, each a heading and then one fact to a line, after a blank line. A daemon that
+ * sends neither block gets none.
  */
 const blocks = (report: Report): ReadonlyArray<string> => {
   if (report.problems === undefined && report.recent === undefined) return []

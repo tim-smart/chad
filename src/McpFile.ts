@@ -1,7 +1,7 @@
 /**
- * `mcp.json` at the root of the repo (docs/spec/12-skills-and-mcp.md): its read, its checks and its expansion into the
+ * `mcp.json` at the root of the repo: its read, its checks and its expansion into the
  * config clanka's `McpServers.layer` takes. chad reads this one file itself, with the keys and the `${NAME}` rules of
- * clanka's loader, and never the files `McpConfig.load` also reads (MCP-20, MCP-141).
+ * clanka's loader, and never the files `McpConfig.load` also reads.
  */
 import { join, isAbsolute } from "node:path"
 import type * as McpServers from "clanka/McpServers"
@@ -41,7 +41,7 @@ export type File = ReadonlyMap<string, Server>
 
 export const empty: File = new Map()
 
-/** What a read of the file gives: no file, a file that parses, or why it does not (MCP-33, MCP-37). */
+/** What a read of the file gives: no file, a file that parses, or why it does not. */
 export type Read =
   | { readonly _tag: "File"; readonly file: File }
   | { readonly _tag: "Malformed"; readonly error: string }
@@ -107,7 +107,7 @@ export const read = Effect.fnUntraced(function* (tree: string | undefined) {
   return typeof text === "string" ? parse(text) : text
 })
 
-/** Every `${NAME}` the file refers to, before expansion, which a secret change compares (MCP-40). */
+/** Every `${NAME}` the file refers to, before expansion, which a secret change compares. */
 export const names = (file: File | undefined): ReadonlySet<string> => {
   const found = new Set<string>()
   for (const server of file?.values() ?? []) {
@@ -133,7 +133,7 @@ export interface Resolved {
 /**
  * Puts `${NAME}` back in place of each value the names expanded to, as it is and as JSON escapes it. An error from
  * clanka, a spawn's included, can quote a command, an argument, a `cwd`, a URL or a server's stderr, so every
- * diagnostic of a layer passes through it before it reaches the CLI, the log or the model (CRED-80).
+ * diagnostic of a layer passes through it before it reaches the CLI, the log or the model.
  */
 export const scrubber = (
   servers: Iterable<{ readonly values: ReadonlyMap<string, string> }>,
@@ -156,7 +156,7 @@ export const scrubber = (
 /**
  * Expands one server's names, the secret store first and then the daemon's environment, and builds the entry clanka
  * takes. Values of `env` and `headers` are `Redacted`, and a stdio server gets an absolute `cwd`, `home` when it
- * names none (MCP-24 to MCP-27, MCP-30, MCP-109). A name that resolves nowhere, a lookup that fails and a relative
+ * names none. A name that resolves nowhere, a lookup that fails and a relative
  * `cwd` each leave that one server unavailable.
  */
 export const resolveServer = <E, R>(
@@ -292,7 +292,7 @@ export const resolve = <E, R>(
     (pairs) => new Map(pairs) as ReadonlyMap<string, Resolved>,
   )
 
-/** The servers an apply would add, remove or change, by the entries as written (MCP-36). */
+/** The servers an apply would add, remove or change, by the entries as written. */
 export const diff = (before: File, after: File) => ({
   added: [...after.keys()].filter((name) => !before.has(name)),
   removed: [...before.keys()].filter((name) => !after.has(name)),

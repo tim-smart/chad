@@ -1,7 +1,7 @@
 /**
- * The owner's timezone (docs/spec/10-cli.md, "Timezone"): the zone stored in `state/timezone` by `chad timezone`, else a
- * `TZ` that names a valid zone, else UTC. The file holds one line, the IANA name, written by temporary file and rename
- * (IMG-27, IMG-138, STO-16, STO-144, CLI-35, CLI-113, CLI-182 to CLI-185). The CLI and the daemon read it the same way.
+ * The owner's timezone: the zone stored in `state/timezone` by `chad timezone`, else a
+ * `TZ` that names a valid zone, else UTC. The file holds one line, the IANA name, written by temporary file and rename.
+ * The CLI and the daemon read it the same way.
  */
 import { dirname, join } from "node:path"
 import { DateTime, Effect, FileSystem } from "effect"
@@ -11,7 +11,7 @@ export const file = (data: string): string => join(data, "state/timezone")
 /** Where the zone in force came from: the stored file, the `TZ` variable or the UTC fallback. */
 export type Source = "stored" | "variable" | "fallback"
 
-/** The zone in force and where it came from. `ignored` is a `TZ` that names no valid zone (CLI-185). */
+/** The zone in force and where it came from. `ignored` is a `TZ` that names no valid zone. */
 export interface InForce {
   readonly zone: string
   readonly source: Source
@@ -20,7 +20,7 @@ export interface InForce {
 
 /**
  * The name `Intl` resolves a zone to, or nothing when it is no valid zone. An offset such as `+05:00` is refused,
- * though `Intl` takes it, because it is no IANA name and is wrong as a process's `TZ` (CLI-182, CLI-183).
+ * though `Intl` takes it, because it is no IANA name and is wrong as a process's `TZ`.
  */
 export const canonical = (zone: string): string | undefined => {
   const trimmed = zone.trim()
@@ -72,7 +72,7 @@ export const write = Effect.fnUntraced(function* (data: string, zone: string) {
   yield* fs.rename(temporary, target)
 })
 
-/** The start of the day that holds `now`, in the zone, in milliseconds since the epoch (FAIL-115). */
+/** The start of the day that holds `now`, in the zone, in milliseconds since the epoch. */
 export const startOfDay = (now: number, zone: string): number =>
   DateTime.toEpochMillis(
     DateTime.startOf(DateTime.makeZonedUnsafe(now, { timeZone: zone }), "day"),

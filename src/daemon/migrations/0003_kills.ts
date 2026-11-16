@@ -1,9 +1,9 @@
 import { Effect } from "effect"
 import { SqlClient } from "effect/sql"
 
-// The `kills` slice's schema: what stays true of a request across a restart and a compaction. `prompts` holds a row
-// for each turn whose prompt the stored history took (STO-207), and `commands` a row for each chat command chad ran
-// (STO-208). This file is never edited once its slice is delivered.
+// What stays true of a request across a restart and a compaction. `prompts` holds a row for each turn whose prompt
+// the stored history took, and `commands` a row for each chat command chad ran. This file is never edited once it has
+// shipped.
 export default Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
   yield* sql`

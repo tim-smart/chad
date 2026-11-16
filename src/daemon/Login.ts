@@ -21,7 +21,7 @@ import * as Logger from "./Logger.ts"
 /**
  * Set on a fiber that asks the login for a token with no owner present, as the check at start does. Such a fiber
  * starts no device flow and joins none: clanka answers a refresh that failed by clearing the token and asking for a
- * device code, and the client below refuses that request before it leaves (MOD-94).
+ * device code, and the client below refuses that request before it leaves.
  */
 export const Unattended = Context.Reference<boolean>("chad/Login/Unattended", {
   defaultValue: () => false,
@@ -48,8 +48,7 @@ export const client = Layer.effect(
 )
 
 /**
- * The handler of clanka's other logins, which chad does not run (MOD-7, MOD-G34). Such a login ends as a defect and
- * nothing is posted.
+ * The handler of clanka's other logins, which chad does not run. Such a login ends as a defect and nothing is posted.
  */
 export const otherLogins = DeviceCodeHandler.of({
   onCode: () => Effect.die(new Error(Messages.loginUnavailable)),
@@ -58,7 +57,7 @@ export const otherLogins = DeviceCodeHandler.of({
 /** The session a turn runs in, as the login sees it: where its code and its notices go. */
 export interface SessionRef {
   readonly id: string
-  /** Whether an owner's message started the turn. Only such a turn is told of a login (MOD-42). */
+  /** Whether an owner's message started the turn. Only such a turn is told of a login. */
   readonly ownerPresent: boolean
   /** A link to the session's thread, as its platform writes one. */
   readonly link: string
@@ -66,14 +65,13 @@ export interface SessionRef {
   readonly post: (markdown: string) => Effect.Effect<void>
   /** Posts a notice in subtext in the session's thread. */
   readonly notice: (line: string) => Effect.Effect<void>
-  /** The session's running turn waits on a login that has a code: its status line and its log line (MOD-100). */
+  /** The session's running turn waits on a login that has a code: its status line and its log line. */
   readonly waiting: Effect.Effect<void>
 }
 
 /**
  * The session whose turn asks for a token, set around the build of its model layer and around the turn, so that the
- * handler knows which thread asked (MOD-34, MOD-35). It is nothing outside a turn, and the code then goes by the
- * notice route (MOD-36).
+ * handler knows which thread asked. It is nothing outside a turn, and the code then goes by the notice route.
  */
 export const CurrentSession = Context.Reference<SessionRef | undefined>(
   "chad/Login/CurrentSession",
@@ -86,14 +84,14 @@ export interface Prompt {
   readonly code: string
 }
 
-/** chad's own end of a login whose time ran out (MOD-44, MOD-75), which is no `CodexAuthError` (MOD-G23). */
+/** chad's own end of a login whose time ran out, which is no `CodexAuthError`. */
 export class TimedOut extends Data.TaggedError("LoginTimedOut")<{}> {
   override get message() {
     return Messages.loginTimedOut
   }
 }
 
-/** How a `chad login` through the daemon ended: a new login, or the token that was good already (MOD-119). */
+/** How a `chad login` through the daemon ended: a new login, or the token that was good already. */
 export type Outcome = "logged-in" | "already"
 
 /** One waiter on a login: a turn's session, or a `chad login` that prints the code. */
@@ -104,18 +102,18 @@ interface Waiter {
   told: boolean
 }
 
-/** The one login of the process while it runs (MOD-41). */
+/** The one login of the process while it runs. */
 interface Flow {
   readonly done: Deferred.Deferred<TokenData, CodexAuthError | TimedOut>
-  /** The session that started it, whose thread gets the code, or nothing for a `chad login` (MOD-38, MOD-118). */
+  /** The session that started it, whose thread gets the code, or nothing for a `chad login`. */
   readonly leader: SessionRef | undefined
   prompt: Prompt | undefined
-  /** The link to the thread the code went to, which the other threads' notice names (MOD-42, MOD-118). */
+  /** The link to the thread the code went to, which the other threads' notice names. */
   link: string | undefined
   readonly waiters: Set<Waiter>
   /**
    * The sessions that have waited on this login. A model call that clanka's turn timeout cuts leaves the wait before
-   * its retry is reported, so the login stays pending for the session until it ends (MOD-50, MOD-102).
+   * its retry is reported, so the login stays pending for the session until it ends.
    */
   readonly sessions: Set<string>
   /** The sessions told of this login already, which get no second notice. */
@@ -123,7 +121,7 @@ interface Flow {
   /**
    * Where the code is delivered: each waiter's print and thread, and the leader's post or the notice route, each on
    * its own fiber. None of them holds up another or clanka's poll for approval, and what is still running when the
-   * login ends is cut (MOD-55, MOD-118).
+   * login ends is cut.
    */
   readonly deliveries: Scope.Closeable
 }
@@ -135,33 +133,33 @@ export class Login extends Context.Service<
     readonly auth: CodexAuth["Service"]
     /**
      * `chad login`, and a `chad model` or `/model` that needs the login: joins a pending login or starts one, and
-     * prints the code (MOD-56, MOD-92, MOD-107). A login it starts posts its code to `leader` when there is one, which
-     * is where a `/model` was typed (MOD-91), and by the notice route when there is none (MOD-118).
+     * prints the code. A login it starts posts its code to `leader` when there is one, which is where a `/model` was
+     * typed, and by the notice route when there is none.
      */
     readonly login: (
       print: (prompt: Prompt) => Effect.Effect<void>,
       leader?: SessionRef,
     ) => Effect.Effect<Outcome, CodexAuthError | TimedOut>
-    /** `chad logout` through the daemon (MOD-60). */
+    /** `chad logout` through the daemon. */
     readonly logout: Effect.Effect<void>
-    /** Whether a login with a code is pending for a session, which hides its retries (MOD-50, MOD-102). */
+    /** Whether a login with a code is pending for a session, which hides its retries. */
     readonly pendingFor: (session: string) => boolean
-    /** Whether a login with a code is pending at all, as `chad status` shows it (CLI-125). */
+    /** Whether a login with a code is pending at all, as `chad status` shows it. */
     readonly pending: () => boolean
   }
 >()("chad/Login") {}
 
 /**
- * The one Codex login of the daemon (05-model-and-login.md). The first caller that needs a token starts clanka's
- * `get` in a fiber of the daemon's scope, and every other caller awaits the same result. The timeout is on that one
- * fiber, so a waiter that goes, a killed CLI or a stopped turn, never ends the login and never starts a second one
- * (MOD-41, MOD-45, MOD-51, MOD-101). It needs the daemon's `HttpClient` and the token store.
+ * The one Codex login of the daemon. The first caller that needs a token starts clanka's `get` in a fiber of the
+ * daemon's scope, and every other caller awaits the same result. The timeout is on that one fiber, so a waiter that
+ * goes, a killed CLI or a stopped turn, never ends the login and never starts a second one. It needs the daemon's
+ * `HttpClient` and the token store.
  */
 export const make = Effect.fnUntraced(function* (options: {
   readonly timeout: Duration.Duration
-  /** Posts a text by the notice route and gives the link of the thread it went to, or nothing (MOD-36). */
+  /** Posts a text by the notice route and gives the link of the thread it went to, or nothing. */
   readonly announce: (text: string) => Effect.Effect<string | undefined>
-  /** What a login that completes clears, which is the usage limit's condition (FAIL-94). */
+  /** What a login that completes clears, which is the usage limit's condition. */
   readonly loggedIn: Effect.Effect<void>
 }) {
   const scope = yield* Effect.scope
@@ -177,7 +175,7 @@ export const make = Effect.fnUntraced(function* (options: {
       Effect.asVoid,
     )
 
-  /** A waiting session's notice that names the thread the code went to, once that is known (MOD-42, MOD-118). */
+  /** A waiting session's notice that names the thread the code went to, once that is known. */
   const notify = (current: Flow, session: SessionRef) =>
     Effect.suspend(() => {
       const link = current.link
@@ -186,7 +184,7 @@ export const make = Effect.fnUntraced(function* (options: {
         !session.ownerPresent ||
         current.noticed.has(session.id) ||
         link === undefined ||
-        // The thread the code went to by the notice route has it already (MOD-118).
+        // The thread the code went to by the notice route has it already.
         link === session.link
       ) {
         return Effect.void
@@ -218,7 +216,7 @@ export const make = Effect.fnUntraced(function* (options: {
 
   /**
    * clanka's handler: every waiter is told, and the code goes to the leader's thread or by the notice route. clanka
-   * polls for approval once it returns, so it waits on none of them (MOD-55, MOD-118).
+   * polls for approval once it returns, so it waits on none of them.
    */
   const handler = DeviceCodeHandler.of({
     onCode: ({ verifyUrl, deviceCode }) =>
@@ -272,7 +270,7 @@ export const make = Effect.fnUntraced(function* (options: {
       return [created, true] as const
     })
 
-  /** Runs a new login in the daemon's scope, until it ends or its time runs out (MOD-44, MOD-74). */
+  /** Runs a new login in the daemon's scope, until it ends or its time runs out. */
   const run = (current: Flow) => {
     const started = epoch
     return inner.get.pipe(
@@ -310,7 +308,7 @@ export const make = Effect.fnUntraced(function* (options: {
   const wait = (waiter: Waiter, leader = waiter.session) =>
     Effect.gen(function* () {
       const [current, fresh] = yield* take(leader)
-      // The leader's thread gets the code of a login that this call starts, so the call prints nothing (MOD-91).
+      // The leader's thread gets the code of a login that this call starts, so the call prints nothing.
       if (fresh && leader !== undefined && leader !== waiter.session) {
         waiter.print = undefined
       }
@@ -330,7 +328,7 @@ export const make = Effect.fnUntraced(function* (options: {
     const session = yield* CurrentSession
     return yield* wait({ session, print: undefined, told: false })
   }).pipe(
-    // A timeout is no failure of clanka's, and a model call does not retry it (MOD-46).
+    // A timeout is no failure of clanka's, and a model call does not retry it.
     Effect.catchTag("LoginTimedOut", (error) => Effect.die(error)),
   )
 

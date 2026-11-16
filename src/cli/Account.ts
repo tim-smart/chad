@@ -16,7 +16,7 @@ export const model = Effect.gen(function* () {
   }
 })
 
-/** The model and the login state with no daemon to ask, which no login can be pending in (CLI-125). */
+/** The model and the login state with no daemon to ask, which no login can be pending in. */
 export const fromFiles: Effect.Effect<
   ModelState,
   never,

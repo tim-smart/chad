@@ -2,7 +2,7 @@ import { Effect } from "effect"
 import { Command, Flag } from "effect/cli"
 import * as Repository from "../Repository.ts"
 
-/** `chad apply -m <why>`: commits what `work/` holds and loads it, or changes nothing (SWAP-1, SWAP-2, REC-116). */
+/** `chad apply -m <why>`: commits what `work/` holds and loads it, or changes nothing. */
 export const apply = Command.make(
   "apply",
   {

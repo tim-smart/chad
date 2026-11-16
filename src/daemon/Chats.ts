@@ -24,7 +24,7 @@ export class Chats extends Context.Service<
      */
     readonly ready: (connection: string) => Effect.Effect<void>
     /**
-     * Waits until a connection of the daemon has first connected (MOD-95, MOD-127). A `local` connection has when its
+     * Waits until a connection of the daemon has first connected. A `local` connection has when its
      * adapter registers, which it does once its platform answers. A Discord adapter registers before its gateway
      * dials, so its gateway says when its session is up, through `Connected`.
      */
@@ -111,7 +111,7 @@ export const make = <R>(
 ) =>
   Effect.gen(function* () {
     // The connections' scope is taken now, before the sessions are built, so that it closes after them: a graceful
-    // stop waits for the turns in flight (SES-110), and they still post through their connection meanwhile.
+    // stop waits for the turns in flight, and they still post through their connection meanwhile.
     const parent = yield* Scope.fork(yield* Effect.scope)
     const entries = new Map<string, Entry>()
     const first = yield* Deferred.make<void>()

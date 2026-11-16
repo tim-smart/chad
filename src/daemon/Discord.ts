@@ -85,7 +85,7 @@ const watched = (connection: Connection, refused: Deferred.Deferred<number>) =>
 
 /**
  * dfx's dispatch hook. The shard hands the hook every dispatch, `READY` among them, which is the one that follows a
- * fresh identify. After one the catch-up reads what the gateway did not replay (SES-37), off the dispatch path.
+ * fresh identify. After one the catch-up reads what the gateway did not replay, off the dispatch path.
  */
 const caughtUp = Layer.effect(
   DispatchHook,
@@ -110,11 +110,11 @@ const caughtUp = Layer.effect(
 ).pipe(Layer.provide(DiscordChat.layerDispatchHook))
 
 /**
- * chad's line `chat.connected`, and the daemon's word that the connection is connected (MOD-95, MOD-127), at `READY`
+ * chad's line `chat.connected`, and the daemon's word that the connection is connected, at `READY`
  * for a fresh identify and `RESUMED` for a resume. The shard stores the session and its sequence once the hook has
  * returned, and only then hands the dispatch to the gateway's subscribers. So the line, and the startup check that
  * `Chats.Connected` lets run, come after the session is stored, and a daemon killed after the line resumes it at the
- * next start (SES-30b). The subscriptions are in place before the shard can have a session.
+ * next start. The subscriptions are in place before the shard can have a session.
  */
 const connected = (connection: Connection) =>
   Layer.effectDiscard(

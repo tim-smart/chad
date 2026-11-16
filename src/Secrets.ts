@@ -1,5 +1,5 @@
 /**
- * The secret store, `secrets/secrets.json` on the volume (docs/spec/15-credentials.md, "The secret store"): one JSON
+ * The secret store, `secrets/secrets.json` on the volume: one JSON
  * object keyed by name, each entry a value, an optional note and the time it was saved. This module holds its shape and
  * its read. A missing file is an empty store.
  */
@@ -8,17 +8,17 @@ import { Data, Effect, FileSystem, Option, Schema } from "effect"
 import type { PlatformError } from "effect/PlatformError"
 import * as Errno from "./Errno.ts"
 
-/** The store's file on the volume (CRED-16). */
+/** The store's file on the volume. */
 export const file = (data: string): string => join(data, "secrets/secrets.json")
 
-/** The pattern a stored name matches, and its most characters (CRED-18). */
+/** The pattern a stored name matches, and its most characters. */
 export const NAME = /^[A-Z_][A-Z0-9_]*$/
 export const NAME_MAX = 64
 
-/** The name kept for writing a literal `${` in configuration, which `chad secret set` refuses (SET-32, CRED-19). */
+/** The name kept for writing a literal `${` in configuration, which `chad secret set` refuses. */
 export const RESERVED = "CHAD_DOLLAR"
 
-/** Whether `chad secret set` takes a name: the pattern, the length and not the reserved one (CRED-18, CRED-19). */
+/** Whether `chad secret set` takes a name: the pattern, the length and not the reserved one. */
 export const valid = (name: string): boolean =>
   NAME.test(name) && name.length <= NAME_MAX && name !== RESERVED
 
@@ -28,7 +28,7 @@ export const Name = Schema.String.check(
   Schema.isMaxLength(NAME_MAX),
 )
 
-/** One stored secret (CRED-17). */
+/** One stored secret. */
 export const Entry = Schema.Struct({
   value: Schema.String,
   note: Schema.optionalKey(Schema.String),
@@ -67,7 +67,7 @@ export const read = (
       ),
     )
     if (Option.isNone(text)) return {}
-    // The parse error is left out: it can quote what the file holds, which may be a value (CRED-10).
+    // The parse error is left out: it can quote what the file holds, which may be a value.
     return yield* decode(text.value).pipe(
       Effect.mapError(
         () =>
@@ -78,13 +78,13 @@ export const read = (
     )
   })
 
-/** Where a `${NAME}` found its value: the secret store or the daemon's process env (SET-20). */
+/** Where a `${NAME}` found its value: the secret store or the daemon's process env. */
 export type From = "store" | "env"
 
 /**
  * Looks a name up in the secret store first and then in an environment, which is the daemon's process env as it
  * started. An empty value counts as none, as `Config.String` reads an empty variable. A value from the store is only
- * returned, and is never put into the environment (SET-20, SET-21).
+ * returned, and is never put into the environment.
  */
 export const lookup =
   (data: string, env: Readonly<Record<string, string | undefined>>) =>
@@ -108,7 +108,7 @@ export const lookup =
 /**
  * Writes the whole store by a temporary file and a rename, so a kill leaves the old store or the new one and never
  * part of either. `secrets/` gets mode 0700 and the file 0600 before it takes the store's name, each by a chmod, and
- * the process umask is left alone (CRED-16, CLI-95). The caller holds the daemon's queue or the lock.
+ * the process umask is left alone. The caller holds the daemon's queue or the lock.
  */
 export const write = Effect.fnUntraced(function* (
   data: string,
@@ -139,7 +139,7 @@ export type Changed =
 
 /**
  * The store after a save. An existing name gets the new value and keeps its note unless one is given, and `""`
- * clears it (CRED-23, CRED-24).
+ * clears it.
  */
 export const save = (
   store: Store,

@@ -2,7 +2,7 @@ import { Effect, Option } from "effect"
 import { Argument, Command } from "effect/cli"
 import * as Repository from "../Repository.ts"
 
-/** `chad revert [<commit>]`: applies an earlier applied commit's tree as a new commit, saving `work/` first (REC-82). */
+/** `chad revert [<commit>]`: applies an earlier applied commit's tree as a new commit, saving `work/` first. */
 export const revert = Command.make(
   "revert",
   {

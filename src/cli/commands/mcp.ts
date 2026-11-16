@@ -4,7 +4,7 @@ import * as Repository from "../Repository.ts"
 
 /**
  * `chad mcp restart`: rebuilds the MCP layer, which restarts every server. It needs the daemon and takes its place in
- * the daemon's queue (CLI-32, CLI-91, CLI-92, MCP-39, MCP-42).
+ * the daemon's queue.
  */
 const restart = Command.make(
   "restart",

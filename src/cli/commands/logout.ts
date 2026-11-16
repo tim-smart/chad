@@ -9,7 +9,7 @@ import * as Owner from "../Owner.ts"
 
 /**
  * `chad logout`: clears the stored Codex token, through the daemon when one runs, whatever model is in force
- * (MOD-60, MOD-64, MOD-110). It stops no running turn, and says so (MOD-61, CLI-111).
+ *. It stops no running turn, and says so.
  */
 export const logout = Command.make(
   "logout",

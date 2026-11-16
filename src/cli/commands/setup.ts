@@ -55,7 +55,7 @@ const storedBot = (name: string) =>
 /**
  * `chad setup`: a wizard over `connection add discord` or `connection token`, `owner add`, `timezone` and `login`.
  * Each question has a flag, shows what is stored and keeps it on an empty answer, and a run after the first only adds
- * or replaces (CLI-121 to CLI-124, CLI-191 to CLI-195, CLI-210, CLI-242 to CLI-246, MOD-65, IMG-94).
+ * or replaces.
  */
 export const setup = Command.make(
   command,
@@ -83,14 +83,14 @@ export const setup = Command.make(
     skipLogin,
   }) {
     yield* Owner.only(command)
-    // A blank `--owner` is no answer, so it is missing like one not given (CLI-242).
+    // A blank `--owner` is no answer, so it is missing like one not given.
     const owner = flag.pipe(
       Option.map((id) => id.trim()),
       Option.filter((id) => id !== ""),
     )
     const environment = yield* Environment
     const terminal = yield* (yield* Stdio.Stdio).stdinIsTerminal
-    // A zone that is no zone stops setup before it changes anything (CLI-182).
+    // A zone that is no zone stops setup before it changes anything.
     const zone = Option.isSome(timezone)
       ? yield* TimezoneCommand.parse(timezone.value)
       : undefined
@@ -98,8 +98,7 @@ export const setup = Command.make(
     const current = (yield* listed).find(({ kind }) => kind === "discord")
     const login = yield* Account.fromFiles
 
-    // With no terminal, an answer that is neither given nor stored fails before anything changes (CLI-123, CLI-195,
-    // CLI-242).
+    // With no terminal, an answer that is neither given nor stored fails before anything changes.
     if (!terminal) {
       const missing = [
         ...(current === undefined && Option.isNone(tokenFile)
@@ -118,7 +117,7 @@ export const setup = Command.make(
       }
     }
 
-    // The token: never printed, a stored one named by its bot (CLI-118, CLI-192, CLI-194, CLI-210).
+    // The token: never printed, a stored one named by its bot.
     const name = current?.name ?? "discord"
     if (current !== undefined) {
       yield* Console.log(
@@ -154,7 +153,7 @@ export const setup = Command.make(
       } else {
         yield* Console.log(Messages.connectionToken(name))
       }
-      // The message content intent, which Discord lets an app in fewer than 100 servers turn on itself (CLI-122).
+      // The message content intent, which Discord lets an app in fewer than 100 servers turn on itself.
       const checked = yield* Discord.checkToken(token).pipe(Effect.option)
       const switched = Option.isSome(checked)
         ? yield* Discord.messageContent(token, checked.value.flags)
@@ -170,7 +169,7 @@ export const setup = Command.make(
       )
     }
 
-    // The owner: `--owner` is given once, and a stored owner stays (CLI-191, CLI-193, CLI-194).
+    // The owner: `--owner` is given once, and a stored owner stays.
     const owners = current?.owners ?? []
     const id = Option.isSome(owner)
       ? owner.value
@@ -200,7 +199,7 @@ export const setup = Command.make(
       yield* Console.log(Messages.setupOwnersKept(owners, name))
     }
 
-    // The timezone: a zone is always in force, so an empty answer keeps it and nothing is missing (CLI-184).
+    // The timezone: a zone is always in force, so an empty answer keeps it and nothing is missing.
     const inForce = yield* Timezone.read(environment.data, environment.tz)
     const next =
       zone !== undefined
@@ -230,7 +229,7 @@ export const setup = Command.make(
       )
     }
 
-    // The model login, which `--skip-login` skips (MOD-65).
+    // The model login, which `--skip-login` skips.
     if (skipLogin) return yield* Console.log(Messages.setupLoginSkipped)
     if (login.login === "not-needed")
       return yield* Console.log(Messages.loginNotNeeded(login.spec))

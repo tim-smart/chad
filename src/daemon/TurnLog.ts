@@ -19,10 +19,10 @@ import * as Sessions from "./Sessions.ts"
 import type { Lines } from "./StatusMessage.ts"
 
 /**
- * What a turn writes to the log: its start, its steps and its end (FAIL-11, FAIL-12). The steps are read from the
- * Agent's output, which is also what the status message is made from, so a step's status line and its log line are
- * written by the one function here. A script's own lines are the exception: they are written where the executor runs
- * the script, which also sees a background sub-agent's scripts (FAIL-241).
+ * What a turn writes to the log: its start, its steps and its end. The steps are read from the Agent's output, which
+ * is also what the status message is made from, so a step's status line and its log line are written by the one
+ * function here. A script's own lines are the exception: they are written where the executor runs the script, which
+ * also sees a background sub-agent's scripts.
  */
 
 /** The ids every line of a turn carries. */
@@ -31,9 +31,9 @@ export interface Ids {
   readonly turn: string
 }
 
-/** The most of a script's source a line carries (FAIL-13). */
+/** The most of a script's source a line carries. */
 export const sourceChars = 2000
-/** How much of the start and of the end of a script's output a line carries (FAIL-14). */
+/** How much of the start and of the end of a script's output a line carries. */
 export const outputChars = 1000
 
 /** A script's source as it is logged, cut at `sourceChars`. */
@@ -58,7 +58,7 @@ export interface Steps {
    */
   retries: number
   /**
-   * The turn timeouts in a row on the agent's current model call, which the silence bound counts (FAIL-84). They are
+   * The turn timeouts in a row on the agent's current model call, which the silence bound counts. They are
    * counted where the agent's model is called (`watched`), so the agent is the one that made the call.
    */
   readonly timeouts: Map<number | undefined, number>
@@ -75,21 +75,20 @@ export const steps = (): Steps => ({
 
 /**
  * The turn timeouts in a row after which chad ends the turn: 15 minutes of a provider saying nothing at clanka's
- * default turn timeout (FAIL-84).
+ * default turn timeout.
  */
 export const silenceBound = 3
 
 /**
  * The turn waits on a login: the count toward the silence bound starts again from zero, because the login's own
- * timeout is what ends that wait (MOD-102, MOD-103, FAIL-212).
+ * timeout is what ends that wait.
  */
 export const loginWaited = (state: Steps) => state.timeouts.clear()
 
 /**
  * chad's own end of the turn at a retry of a model call, for what clanka would keep retrying: a usage limit, a plan that
- * does not include the usage, and the third turn timeout in a row on one model call (SES-133, FAIL-84, FAIL-87,
- * FAIL-89). A timeout that cut the call while a login was pending for the session does not count (FAIL-212). `retry` is
- * the number of the retry on the call.
+ * does not include the usage, and the third turn timeout in a row on one model call. A timeout that cut the call while
+ * a login was pending for the session does not count. `retry` is the number of the retry on the call.
  */
 const ends = (
   state: Steps,
@@ -115,7 +114,7 @@ const ends = (
   const silent = (state.timeouts.get(agent) ?? 0) + 1
   state.timeouts.set(agent, silent)
   if (silent < silenceBound) return undefined
-  // `TurnTimeout` is chad's own reason, with clanka's text as it arrived (API-113, FAIL-203).
+  // `TurnTimeout` is chad's own reason, with clanka's text as it arrived.
   return {
     _tag: "ModelError",
     reason: "TurnTimeout",
@@ -128,16 +127,16 @@ const subagentOf = (agent: number | undefined) =>
   agent === undefined ? {} : { subagent: agent }
 
 /**
- * One part of the Agent's output. A part that is a step of the turn gets its log line here (FAIL-245 to FAIL-250), and
- * a part of a sub-agent carries the sub-agent's id (FAIL-241), apart from a retry, whose lines name no agent. A step that the status message shows gets its status line
- * here too, from the same call (FAIL-11, DIS-81). A script's own lines are not read from here: see `scriptStarted`.
+ * One part of the Agent's output. A part that is a step of the turn gets its log line here, and a part of a sub-agent
+ * carries the sub-agent's id, apart from a retry, whose lines name no agent. A step that the status message shows gets
+ * its status line here too, from the same call. A script's own lines are not read from here: see `scriptStarted`.
  */
 export const step = Effect.fnUntraced(function* (
   state: Steps,
   ids: Ids,
   part: AgentOutput.Output,
   status: Lines,
-  /** Whether a login with a code is pending for the session, which hides the retry line (DIS-29, MOD-50). */
+  /** Whether a login with a code is pending for the session, which hides the retry line. */
   loginPending: () => boolean = () => false,
 ) {
   const agent = part._tag === "SubagentPart" ? part.id : undefined
@@ -159,7 +158,7 @@ export const step = Effect.fnUntraced(function* (
       )
     }
     case "SubagentComplete": {
-      // A sub-agent's end gets its line for the same reason as a script's (FAIL-193).
+      // A sub-agent's end gets its line for the same reason as a script's.
       const at = state.subagents.get(inner.id)
       state.subagents.delete(inner.id)
       return yield* Logger.event("turn.subagent-ended", "A sub-agent ended", {
@@ -181,9 +180,9 @@ export const step = Effect.fnUntraced(function* (
     case "ErrorRetry": {
       // chad's own ends are made where the model is called, which sees the agent that made the call and the login at
       // each attempt (`watched`). Here a retry is only shown and logged, and a turn chad ended gets no more of them, so
-      // the one event of a usage limit is `turn.failed` (FAIL-242, MOD-114).
+      // the one event of a usage limit is `turn.failed`.
       if (state.ended) return
-      // The count is the turn's, and the lines name no agent, because the part may be another agent's (DIS-28).
+      // The count is the turn's, and the lines name no agent, because the part may be another agent's.
       const retry = ++state.retries
       if (!loginPending()) {
         yield* status.add(Messages.statusRetry(inner.error.reason._tag, retry))
@@ -198,7 +197,7 @@ export const step = Effect.fnUntraced(function* (
   }
 })
 
-/** A compaction's status line and its log line, from the one call for every agent (DIS-27, DIS-81, FAIL-11). */
+/** A compaction's status line and its log line, from the one call for every agent. */
 const compaction = (status: Lines, fields: Readonly<Record<string, unknown>>) =>
   Effect.andThen(
     status.add(Messages.statusCompaction()),
@@ -207,7 +206,7 @@ const compaction = (status: Lines, fields: Readonly<Record<string, unknown>>) =>
 
 /**
  * The end lines of the sub-agents whose end the Agent's output did not carry, because the turn was stopped or failed
- * while they ran and their `SubagentComplete` was never read (FAIL-193, FAIL-248). Each start gets one end.
+ * while they ran and their `SubagentComplete` was never read. Each start gets one end.
  */
 export const unended = (state: Steps, ids: Ids) =>
   Effect.suspend(() => {
@@ -281,7 +280,7 @@ const hidden = Effect.map(chain, (found) => {
 export interface Owner {
   readonly steps: Steps
   readonly loginPending: () => boolean
-  /** What a model call of the turn that succeeds does, see `succeeding` (FAIL-94, FAIL-235). */
+  /** What a model call of the turn that succeeds does, see `succeeding`. */
   readonly succeeded: Effect.Effect<void>
   /** Ends the turn with `Failed.Ended`. */
   readonly end: (reason: Failed.Reason) => void
@@ -298,11 +297,11 @@ type Provided =
 
 /**
  * A model of the turn's agents, watched for chad's own ends of the turn: a usage limit, a plan that does not include the
- * usage, and the third turn timeout in a row on one model call (FAIL-84, FAIL-87, FAIL-89). They are counted here, at
+ * usage, and the third turn timeout in a row on one model call. They are counted here, at
  * each attempt of the agent that makes it, for every agent. The Agent's output is no place to count them: it leaves out
  * the parts of a background sub-agent and of every agent under one, and while one shown agent's output runs it holds
  * back another's parts and later gives them as the first agent's (clanka's `Agent.ts:432-470,577-608`). Nothing is
- * logged here and no status line is added (ruling 98c53ea): `step` shows and logs a shown agent's retries.
+ * logged here and no status line is added: `step` shows and logs a shown agent's retries.
  */
 export const watched = <E, R>(
   layer: Layer.Layer<Provided, E, R>,
@@ -310,7 +309,7 @@ export const watched = <E, R>(
 
 /**
  * A model whose calls that succeed run the turn's `succeeded`, which clears the conditions a model call or the check
- * at start began (FAIL-94, FAIL-235). A call has succeeded when its stream gives the `finish` part, unless the call
+ * at start began. A call has succeeded when its stream gives the `finish` part, unless the call
  * failed: the finish reason is `error`, or an `error` part came before it, which is how the decoder gives a
  * `response.failed` and which clanka retries. That holds for every agent of the turn, a hidden one too, and for a
  * provider that reports no usage, which gives no `Usage` part.
@@ -369,7 +368,7 @@ interface Call {
   /**
    * Whether a login was pending for the session when clanka's turn timeout cut the last attempt, or `undefined` when
    * the timeout did not cut it. The cut counts at the next attempt, which is clanka's retry of it, with the login as it
-   * stood at the cut (FAIL-212, MOD-102): clanka's backoff runs between the two, and a login can complete in it. It
+   * stood at the cut: clanka's backoff runs between the two, and a login can complete in it. It
    * counts there and not at the cut because a stop, a parent's cancel or the end of the turn after a long silence also
    * looks like a cut, and none of them has a next attempt.
    */
@@ -456,10 +455,10 @@ const watch = (
 }
 
 /**
- * The compaction line of an agent whose `CompactionEnded` the Agent's output leaves out (FAIL-249). clanka renders the
+ * The compaction line of an agent whose `CompactionEnded` the Agent's output leaves out. clanka renders the
  * environment with `reset` right before it puts a compacted history in place, and for nothing else
  * (`Agent.ts:876-879,1025-1030`, `AgentExecutor.ts:90-93`). clanka keeps the reason and the token counts to itself
- * for such an agent, so the line has neither. Its status line is added with it, as every compaction's is (DIS-27). The
+ * for such an agent, so the line has neither. Its status line is added with it, as every compaction's is. The
  * other agents' compactions are logged by `step`.
  */
 export const compacted = (
@@ -476,7 +475,7 @@ export const compacted = (
 
 /**
  * The ids of a script's lines. chad logs a script where the executor runs it, which sees every agent's scripts, as the
- * Agent's output does not show a background sub-agent's (FAIL-241).
+ * Agent's output does not show a background sub-agent's.
  */
 const scriptIds = (ids: Logger.SessionLogIds, agent: number | undefined) => ({
   session: ids.session,
@@ -485,9 +484,8 @@ const scriptIds = (ids: Logger.SessionLogIds, agent: number | undefined) => ({
 })
 
 /**
- * A script starts to run (FAIL-13), with its line in the status message (DIS-24, FAIL-11). The source is the whole
- * script, which is what clanka's `ScriptDelta` carries too (DIS-25). `status` is `none` for an agent whose steps the
- * Agent's output leaves out.
+ * A script starts to run, with its line in the status message. The source is the whole script, which is what clanka's
+ * `ScriptDelta` carries too. `status` is `none` for an agent whose steps the Agent's output leaves out.
  */
 export const scriptStarted = (
   ids: Logger.SessionLogIds,
@@ -508,7 +506,7 @@ export const scriptStarted = (
     }).pipe(Logger.ownConsole),
   )
 
-/** A script ended, whether or not the status message has a line for it (FAIL-14, FAIL-192). */
+/** A script ended, whether or not the status message has a line for it. */
 export const scriptEnded = (
   ids: Logger.SessionLogIds,
   agent: number | undefined,
@@ -525,11 +523,11 @@ export const scriptEnded = (
 /** Where a turn came from. Only an owner's message starts one so far. */
 export type Origin = "message" | "plugin"
 
-/** The first start of a turn (FAIL-244, FAIL-326). */
+/** The first start of a turn. */
 export const started = (ids: Ids, origin: Origin) =>
   Logger.event("turn.started", "A turn started", { ...ids, origin })
 
-/** A later start of a turn, after a restart (FAIL-253, FAIL-326), with its line in the status message (DIS-32). */
+/** A later start of a turn, after a restart, with its line in the status message. */
 export const resumed = (
   ids: Ids,
   origin: Origin,
@@ -545,7 +543,7 @@ export const resumed = (
     }),
   )
 
-/** What every end of a turn carries (FAIL-254, FAIL-255). `session` is missing when the turn ended before it had one. */
+/** What every end of a turn carries. `session` is missing when the turn ended before it had one. */
 export interface End {
   readonly session?: string | undefined
   readonly turn: string
@@ -563,7 +561,7 @@ const endFields = (end: End) => ({
   reconciled: end.reconciled,
 })
 
-/** A turn that ended as answered or stopped (FAIL-254). */
+/** A turn that ended as answered or stopped. */
 export const ended = (end: End, outcome: "answered" | "stopped") =>
   Logger.event("turn.ended", "The turn ended", {
     ...endFields(end),
@@ -571,7 +569,7 @@ export const ended = (end: End, outcome: "answered" | "stopped") =>
   })
 
 /**
- * A turn that ended as failed, at Error with the full cause (FAIL-16, FAIL-255). `fields` is what one reason adds,
+ * A turn that ended as failed, at Error with the full cause. `fields` is what one reason adds,
  * such as the reset time of a usage limit. A turn that chad gave up on has no cause.
  */
 export const failed = (

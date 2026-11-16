@@ -26,7 +26,7 @@ import {
 import * as Sessions from "./Sessions.ts"
 import * as Timers from "./Timers.ts"
 
-/** The `Turns.start` calls that wait in this process, by their request's key. The session resolves them (SES-125). */
+/** The `Turns.start` calls that wait in this process, by their request's key. The session resolves them. */
 export type Waiting = Map<string, Deferred.Deferred<Outcome>>
 
 /** Resolves the call that waits on a request, if one does. */
@@ -46,7 +46,7 @@ const connectionOf = (
 ) =>
   Effect.gen(function* () {
     for (const connection of connections()) {
-      // A timer released as the daemon boots can run before the connection's adapter registers (CRON-26).
+      // A timer released as the daemon boots can run before the connection's adapter registers.
       yield* chats.ready(connection.name)
       const chat = yield* chats.get(connection.name)
       const found = yield* Effect.exit(chat.descriptor(platform))
@@ -134,10 +134,9 @@ const unsaved = (what: "started" | "queued") => (cause: Cause.Cause<unknown>) =>
 
 /**
  * Saves a plugin turn's request and waits for its outcome, from whichever is first: the session's own record of the
- * end, or cluster's reply. A reply that cannot be saved never comes, and the call returns all the same (SES-125,
- * API-100, CRON-84, FAIL-141). The request's fiber is left to finish, because interrupting it would interrupt the
- * request. A request whose turn has already ended is answered from its row, which a timer's wake-up delivered again
- * after a kill relies on (CRON-29).
+ * end, or cluster's reply. A reply that cannot be saved never comes, and the call returns all the same. The request's
+ * fiber is left to finish, because interrupting it would interrupt the request. A request whose turn has already ended
+ * is answered from its row, which a timer's wake-up delivered again after a kill relies on.
  */
 const run = (
   options: Options,
@@ -173,11 +172,11 @@ const run = (
 
 /**
  * Runs one of a timer's runs, as the `TimerRuns` entity's handler asks: a scheduled run with the timer on the turn's
- * origin (CRON-9, CRON-19, CRON-20), or a queued one with the timer's name on `origin.queuedFor` (API-137).
+ * origin, or a queued one with the timer's name on `origin.queuedFor`.
  */
 export const runQueued = (options: Options) => (queued: Timers.Queued) =>
   Effect.gen(function* () {
-    // A run whose turn ended before a kill gets its outcome from the row and starts nothing (CRON-29).
+    // A run whose turn ended before a kill gets its outcome from the row and starts nothing.
     const ended = yield* options
       .database(Sessions.turn(queued.key))
       .pipe(Effect.orDie)
@@ -206,10 +205,9 @@ export const runQueued = (options: Options) => (queued: Timers.Queued) =>
   })
 
 /**
- * The `Turns` of one plugin (06-plugin-api.md, "Starting a turn" and "Scheduling a turn"). A call saves a persisted
+ * The `Turns` of one plugin. A call saves a persisted
  * `plugin` request on the thread's session entity, which runs the turn once the session is idle, or a timer's row and
- * its wake-up. A call that cannot save what it asked for dies with a message for the model (API-129, API-130, API-133,
- * API-135).
+ * its wake-up. A call that cannot save what it asked for dies with a message for the model.
  */
 export const make =
   (options: Options) =>
@@ -217,7 +215,7 @@ export const make =
     Turns.of({
       start: (turn) =>
         Effect.gen(function* () {
-          // A tool's own turn would wait for the turn it asks for, so the call fails at once (API-79).
+          // A tool's own turn would wait for the turn it asks for, so the call fails at once.
           const current = yield* Effect.serviceOption(CurrentSession)
           if (
             Option.isSome(current) &&
@@ -226,7 +224,7 @@ export const make =
           ) {
             return yield* Effect.die(new Error(Messages.startInOwnThread))
           }
-          // Every call is a turn of its own (API-73, CRON-99).
+          // Every call is a turn of its own.
           const outcome = yield* run(
             options,
             plugin,
@@ -244,7 +242,7 @@ export const make =
             turn,
             `start/${randomUUID()}`,
           )
-          // A turn queued for a timer is one request at the timer's runs, which run one at a time (API-137).
+          // A turn queued for a timer is one request at the timer's runs, which run one at a time.
           const saved =
             turn.timer === undefined
               ? entity.plugin(payload, { discard: true })
@@ -308,7 +306,7 @@ const timerUnsaved = (cause: Cause.Cause<unknown>) =>
 
 /**
  * The `Chat` a plugin posts through: effect/chat's router, each call sent to the connection whose platform has the
- * thread (API-18).
+ * thread.
  */
 export const chat = (
   chats: Chats["Service"],

@@ -13,12 +13,12 @@ import * as Flags from "../Flags.ts"
 import * as Repository from "../Repository.ts"
 
 /**
- * `chad secret`: the named values in `secrets/secrets.json` (docs/spec/15-credentials.md). No command prints a stored
- * value, and there is no `get` (CLI-97, CRED-8 to CRED-11).
+ * `chad secret`: the named values in `secrets/secrets.json`. No command prints a stored value, and
+ * there is no `get`.
  */
 
-/** The exit codes of `chad secret run`'s own failures, which a child rarely returns (CRED-113 to CRED-115). */
-/** The codes `chad secret run` exits with for its own failures (CRED-31, CRED-32, CRED-115). */
+/** The exit codes of `chad secret run`'s own failures, which a child rarely returns. */
+/** The codes `chad secret run` exits with for its own failures. */
 export const RunCode = {
   usage: 125,
   notExecutable: 126,
@@ -34,7 +34,7 @@ const broken = (command: string) => (error: Secrets.SecretsError) =>
 
 /**
  * The value, from stdin when it is not a terminal and from a prompt that echoes nothing otherwise, and never from an
- * argument (CRED-22, CLI-98). One line ending at the end is dropped, which `echo` adds, and nothing else (CRED-137).
+ * argument. One line ending at the end is dropped, which `echo` adds, and nothing else.
  */
 const value = (name: string) =>
   Effect.gen(function* () {
@@ -63,8 +63,8 @@ const value = (name: string) =>
 
 /**
  * A change to the store. With a daemon it goes through the daemon's queue, which reloads the plugins that name the
- * secret (CRED-25, SWAP-94). With none the CLI writes the file itself under the lock, by temporary file and rename, and
- * the next start reads it. With no daemon nothing writes a `command.ran` line (CLI-35, CRED-138).
+ * secret. With none the CLI writes the file itself under the lock, by temporary file and rename, and
+ * the next start reads it. With no daemon nothing writes a `command.ran` line.
  */
 const change = (
   command: "set" | "rm",
@@ -116,7 +116,7 @@ const change = (
     yield* Console.log(printed(changed))
   })
 
-/** `chad secret set <NAME> [--note <text>]` (CRED-18 to CRED-25, CLI-98 to CLI-100). */
+/** `chad secret set <NAME> [--note <text>]`. */
 const set = Command.make(
   "set",
   {
@@ -159,7 +159,7 @@ const set = Command.make(
   Command.withDescription("Store a secret, read from stdin or a hidden prompt"),
 )
 
-/** `chad secret list [--json]`: each name, note and date, never a value (CRED-26, CLI-101). */
+/** `chad secret list [--json]`: each name, note and date, never a value. */
 const list = Command.make(
   "list",
   {
@@ -191,7 +191,7 @@ const list = Command.make(
   }),
 ).pipe(Command.withDescription("List the stored secrets, with no value"))
 
-/** `chad secret rm <NAME>` (CLI-101, CRED-27). */
+/** `chad secret rm <NAME>`. */
 const rm = Command.make(
   "rm",
   {
@@ -208,9 +208,9 @@ const rm = Command.make(
 
 /**
  * Runs a command and gives its exit code: the child's own, 128 and the signal's number for one a signal ended, 127
- * for a command that is not found and 126 for one that is found and cannot be executed (CRED-32, CRED-114, CRED-115).
+ * for a command that is not found and 126 for one that is found and cannot be executed.
  * The child inherits the CLI's stdio, but for stdin when `input` is given, which is written with no line ending and
- * then closed (CRED-29). A CLI that a signal ends takes its child with it.
+ * then closed. A CLI that a signal ends takes its child with it.
  */
 const execute = (
   inherited: Readonly<Record<string, string | undefined>>,
@@ -270,8 +270,8 @@ const pair = /^([A-Za-z_][A-Za-z0-9_]*)=(.+)$/
 
 /**
  * `chad secret run [--env VAR=NAME]... [--stdin NAME] -- <command> [args]`. The CLI reads the store itself, with or
- * without a daemon, and puts each value only into the child's environment or stdin (CRED-28 to CRED-32, CRED-113 to
- * CRED-115, CLI-103). Its own failures exit 125, and otherwise the child's code passes through (CLI-49b, CLI-51b).
+ * without a daemon, and puts each value only into the child's environment or stdin. Its own failures exit 125, and
+ * otherwise the child's code passes through.
  */
 const runCommand = Command.make(
   "run",

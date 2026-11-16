@@ -50,7 +50,7 @@ export const guard = Effect.gen(function* () {
 /** Runs the migrations that the database does not hold yet, under `Migrator`'s default table name. */
 /**
  * Drops one plugin's key-value table, `plugin_kv_<name>` quoted as `layerSql` quotes it, in one transaction, and gives
- * the number of keys it held, or nothing when the plugin has no table. No other table is touched (STO-61, STO-162).
+ * the number of keys it held, or nothing when the plugin has no table. No other table is touched.
  */
 export const dropPluginTable = (name: string) =>
   Effect.gen(function* () {
@@ -79,8 +79,8 @@ export class UnknownMigration extends Data.TaggedError("UnknownMigration")<{
 }> {}
 
 /**
- * Refuses a database that holds a migration this chad does not know, as a restored file from a newer image does
- * (STO-41). It is chad's own check, because the migrator only runs the migrations above the newest one it finds and
+ * Refuses a database that holds a migration this chad does not know, as a restored file from a newer image does.
+ * It is chad's own check, because the migrator only runs the migrations above the newest one it finds and
  * says nothing about one it does not have.
  */
 export const known = Effect.gen(function* () {

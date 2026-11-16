@@ -6,10 +6,10 @@ import * as Paths from "./Paths.ts"
  * parses the same text in `daemon/Model.ts`.
  */
 
-/** The model chad runs when `CHAD_MODEL` is unset and no override is stored (MOD-79). */
+/** The model chad runs when `CHAD_MODEL` is unset and no override is stored. */
 export const fallback = "openai/gpt-6-astra/medium"
 
-/** The text of an override file: its one line, or nothing when the file is missing or empty (STO-142). */
+/** The text of an override file: its one line, or nothing when the file is missing or empty. */
 export const readLine = Effect.fnUntraced(function* (path: string) {
   const fs = yield* FileSystem.FileSystem
   const text = yield* fs
@@ -25,18 +25,18 @@ export const readLine = Effect.fnUntraced(function* (path: string) {
   return line === "" ? undefined : line
 })
 
-/** The main setting in force: `state/model`, then `CHAD_MODEL`, then the fallback (MOD-11). */
+/** The main setting in force: `state/model`, then `CHAD_MODEL`, then the fallback. */
 export const main = (data: string, model: string | undefined) =>
   Effect.map(
     readLine(Paths.model(data)),
     (stored) => stored ?? model ?? fallback,
   )
 
-/** Whether a setting's provider needs the Codex login: `openai` with no API key (MOD-2). */
+/** Whether a setting's provider needs the Codex login: `openai` with no API key. */
 export const needsLogin = (text: string, apiKey: string | undefined) =>
   text.split("/", 1)[0] === "openai" && apiKey === undefined
 
-/** The word of a flag of `chad model` and `/model` that clears its override (MOD-83, MOD-123). */
+/** The word of a flag of `chad model` and `/model` that clears its override. */
 export const clear = "none"
 
 /** A flag's value as a change holds it: `none` clears the override, as `null`. */

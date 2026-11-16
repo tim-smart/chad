@@ -65,7 +65,7 @@ export class Message extends Schema.Class<Message>("chad/Session/Message")({
   connection: Schema.String,
   /**
    * The whole chat message, in effect/chat's own encoded form. The entity decodes it itself, so that a stored message
-   * a later image no longer reads still ends its request with a message in the thread (SES-152). The stored bytes are
+   * a later image no longer reads still ends its request with a message in the thread. The stored bytes are
    * the ones a `ChatMessage` field gave.
    */
   message: Schema.Json,
@@ -86,8 +86,8 @@ export class Message extends Schema.Class<Message>("chad/Session/Message")({
 
 /**
  * A turn a plugin asked for with `Turns.start` or `Turns.queue`, or that a timer started, as cluster persists it, so it
- * survives a restart and restores a passivated session (API-72, CRON-21). Its primary key is `start/<random UUID>`
- * (CRON-99), or `timer/<plugin>/<name>/<scheduled time>` for a timer's run (CRON-98).
+ * survives a restart and restores a passivated session. Its primary key is `start/<random UUID>`,
+ * or `timer/<plugin>/<name>/<scheduled time>` for a timer's run.
  */
 export class PluginTurn extends Schema.Class<PluginTurn>(
   "chad/Session/PluginTurn",
@@ -99,7 +99,7 @@ export class PluginTurn extends Schema.Class<PluginTurn>(
   label: Schema.String,
   prompt: Schema.String,
   mention: Schema.optionalKey(Schema.String),
-  /** The timer that started the turn and the time its run was due, in milliseconds since the epoch (CRON-9). */
+  /** The timer that started the turn and the time its run was due, in milliseconds since the epoch. */
   timer: Schema.optionalKey(
     Schema.Struct({ name: Schema.String, scheduledAt: Schema.Number }),
   ),
@@ -179,9 +179,9 @@ export const Session = Entity.make("Session", [
 
 /**
  * Whether the daemon is stopping. A request that would start a turn in the wait of a graceful stop starts none, and is
- * left for the next start (SES-201).
+ * left for the next start.
  */
-/** Whether safe mode is on now, which adds its line to the system prompt (SELF-38). */
+/** Whether safe mode is on now, which adds its line to the system prompt. */
 export const Safe = Context.Reference<{ readonly on: () => boolean }>(
   "chad/SessionEntity/Safe",
   { defaultValue: () => ({ on: () => false }) },
@@ -189,8 +189,7 @@ export const Safe = Context.Reference<{ readonly on: () => boolean }>(
 
 /**
  * The persona of the applied tree, which an apply, a revert or `chad safe off` replaces before the generation bump it
- * comes with. A session takes it when its Agent is built, so a change reaches it through the rebuild of its next turn
- * (SELF-43, SWAP-128).
+ * comes with. A session takes it when its Agent is built, so a change reaches it through the rebuild of its next turn.
  */
 export const Persona = Context.Reference<{ readonly text: () => string }>(
   "chad/SessionEntity/Persona",
@@ -199,7 +198,7 @@ export const Persona = Context.Reference<{ readonly text: () => string }>(
 
 /**
  * The skills a session's Agent is built with, which an apply, a revert or `chad safe` replaces before the generation
- * bump it comes with. The list takes the place of clanka's own discovery, empty or not (MCP-3, MCP-5, REC-51).
+ * bump it comes with. The list takes the place of clanka's own discovery, empty or not.
  */
 export const SkillList = Context.Reference<{
   readonly list: () => ReadonlyArray<Skills.Provided>
@@ -214,18 +213,17 @@ export const Stopping = Context.Reference<{ readonly stopping: () => boolean }>(
 
 /**
  * What the entity needs of the daemon for a turn a plugin started: whether chad is logged out with no login pending,
- * which ends such a turn before the model (API-83), and the owner ids of a connection, which a mention must be one of
- * (API-76).
+ * which ends such a turn before the model, and the owner ids of a connection, which a mention must be one of.
  */
 export const Support = Context.Reference<{
   readonly loggedOut: Effect.Effect<boolean>
   readonly owners: (connection: string) => ReadonlyArray<string>
   /**
    * The session's own record of a plugin turn's end, by its request's key. It resolves a `Turns.start` that waits in
-   * this process, whether or not cluster could save the reply (SES-125, API-100).
+   * this process, whether or not cluster could save the reply.
    */
   readonly ended: (key: string, outcome: Outcome) => void
-  /** The owner's timezone now, which every process a session starts gets as `TZ` (IMG-28, CLI-54). */
+  /** The owner's timezone now, which every process a session starts gets as `TZ`. */
   readonly timezone: () => string
 }>("chad/SessionEntity/Support", {
   defaultValue: () => ({
@@ -236,7 +234,7 @@ export const Support = Context.Reference<{
   }),
 })
 
-/** The answer of a plugin-started turn that is not posted (API-77). */
+/** The answer of a plugin-started turn that is not posted. */
 const silent = "[SILENT]"
 
 /** The text parts of a message, as `Turn.prompt` holds them. */
@@ -253,14 +251,14 @@ const sameChunks = (
   b: ReadonlyMap<string, string>,
 ) => a.size === b.size && [...a].every(([name, text]) => b.get(name) === text)
 
-/** The chunks folded into a system prompt that is rendered, in plugin name order (SWAP-36). */
+/** The chunks folded into a system prompt that is rendered, in plugin name order. */
 const folded = (chunks: ReadonlyMap<string, string>) =>
   [...chunks]
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([name, text]) => `\n## ${name}\n\n${text}\n`)
     .join("")
 
-/** A failure reason as a plugin sees it, with times as `DateTime.Utc` (API-112). */
+/** A failure reason as a plugin sees it, with times as `DateTime.Utc`. */
 const publicReason = (reason: Failed.Reason): PublicSession.FailedReason =>
   reason._tag === "UsageLimit"
     ? reason.resetsAt === undefined
@@ -278,7 +276,7 @@ export const publicOutcome = (outcome: Outcome): PublicSession.Outcome =>
 
 /**
  * The system prompt as chad renders it, which is what a session freezes and what its fingerprint is taken of. The
- * persona follows the core block, and safe mode leaves it out (SELF-42, SELF-45, SWAP-28).
+ * persona follows the core block, and safe mode leaves it out.
  */
 export const system = (
   options: {
@@ -304,36 +302,36 @@ interface Live {
   agent: Agent.Agent
   /**
    * Builds a new Agent on the same executor, moves the history and the environment onto it and closes the old one's
-   * scope. It runs only at a turn's start, when the Agent has nothing running (SWAP-5, SWAP-12 to SWAP-14).
+   * scope. It runs only at a turn's start, when the Agent has nothing running.
    */
   readonly rebuild: Effect.Effect<void>
-  /** The notices of background tasks that ended after the Agent that started them was discarded (SWAP-17). */
+  /** The notices of background tasks that ended after the Agent that started them was discarded. */
   readonly ended: Effect.Effect<ReadonlyArray<string>>
   readonly directory: string
-  /** The ids the session's log lines carry, whose turn is the one running (FAIL-25, FAIL-26). */
+  /** The ids the session's log lines carry, whose turn is the one running. */
   readonly ids: Logger.SessionLogIds
   /** The session as a plugin sees it. */
   readonly session: PublicSession.Session
-  /** The turn a tool call of the session reads through `CurrentSession.turn` (API-32, API-105). */
+  /** The turn a tool call of the session reads through `CurrentSession.turn`. */
   readonly current: {
     turn: PublicSession.Turn | undefined
     steps: TurnLog.Steps | undefined
   }
-  /** The plugin generation the Agent was built on, which a turn's start compares with the plugins' (SWAP-1, SWAP-4). */
+  /** The plugin generation the Agent was built on, which a turn's start compares with the plugins'. */
   plugins: number
-  /** The persona as it was when the Agent was built, which a rebuild takes again (SWAP-128). */
+  /** The persona as it was when the Agent was built, which a rebuild takes again. */
   persona: string
-  /** The chunk texts the session last saw, by plugin name (SWAP-30). */
+  /** The chunk texts the session last saw, by plugin name. */
   chunks: ReadonlyMap<string, string>
   /** The system prompt the session last sent, with the fingerprint of what chad rendered for it. */
   frozen: { readonly system: string; readonly fingerprint: string } | undefined
   /** Whether the frozen prompt has changed since it was stored. */
   unsaved: boolean
-  /** Where the running turn's steps put their lines, which the executor reads for a script (DIS-24). */
+  /** Where the running turn's steps put their lines, which the executor reads for a script. */
   readonly view: { lines: StatusMessage.Lines }
   /**
    * The session's model layer, built once for a generation of the settings and kept in a scope of its own, so that a
-   * new one replaces it only when the model or the login changed (MOD-30).
+   * new one replaces it only when the model or the login changed.
    */
   model:
     | {
@@ -389,16 +387,16 @@ interface Turn {
   status: StatusMessage.StatusMessage | undefined
   /**
    * The model settings, read once as the turn starts. Its row records them and its model layer is built on them, so a
-   * change while the turn runs reaches its session's next turn and leaves this one as it is (MOD-117, MOD-18).
+   * change while the turn runs reaches its session's next turn and leaves this one as it is.
    */
   readonly settings: Model.Settings
-  /** What the turn's steps have seen, which a wait on a login resets the silence count of (MOD-103). */
+  /** What the turn's steps have seen, which a wait on a login resets the silence count of. */
   steps: TurnLog.Steps
-  /** The owner's messages that chad recorded as having steered the turn (API-55). */
+  /** The owner's messages that chad recorded as having steered the turn. */
   readonly steered: Array<ChatMessage.ChatMessage>
-  /** The history as the turn's `send` began, which what the turn appended is told from (API-55). */
+  /** The history as the turn's `send` began, which what the turn appended is told from. */
   initial: ReadonlyArray<Prompt.Message> | undefined
-  /** Whether the turn's stream carried a compaction (API-60). */
+  /** Whether the turn's stream carried a compaction. */
   compacted: boolean
   /** The turn as a plugin sees it, once its start is counted. */
   public: PublicSession.Turn | undefined
@@ -410,7 +408,7 @@ interface State {
   turn: Turn | undefined
   /** Resolves when the `/new` that made this state has finished. No turn starts before it. */
   readonly ready: Deferred.Deferred<void> | undefined
-  /** The plugin hooks a compaction queued, which the next turn waits for (SWAP-38). */
+  /** The plugin hooks a compaction queued, which the next turn waits for. */
   hooks: Effect.Effect<void> | undefined
 }
 
@@ -439,7 +437,7 @@ export const layer = Layer.unwrap(
         const chats = yield* Chats
         const fs = yield* FileSystem.FileSystem
         const plugins = yield* Plugins
-        // The one MCP wrapper of the process, which every Agent is handed (MCP-65).
+        // The one MCP wrapper of the process, which every Agent is handed.
         const mcp = yield* Effect.serviceOption(McpServers.McpServers)
         const support = yield* Support
         const services = yield* Effect.context<
@@ -456,7 +454,7 @@ export const layer = Layer.unwrap(
         const persona = yield* Persona
         const skills = yield* SkillList
         // The request of a turn that a restart cut takes the session before any other request of the thread, so
-        // that the messages that waited to steer it steer it again (SES-200).
+        // that the messages that waited to steer it steer it again.
         const unfinished = yield* Sessions.unfinished(key).pipe(Effect.orDie)
         let first =
           unfinished === undefined
@@ -487,8 +485,8 @@ export const layer = Layer.unwrap(
 
         /**
          * The owner's message that the answer, the failed-turn message and the give-up message of a turn reply to: the
-         * one that started the turn, also when others steered it (DIS-98, DIS-99). A DM gets plain posts (DIS-53), and
-         * so does a turn whose message is in the channel that chad opened the thread from (DIS-118). A kind that cannot
+         * one that started the turn, also when others steered it. A DM gets plain posts, and
+         * so does a turn whose message is in the channel that chad opened the thread from. A kind that cannot
          * be read counts as a server thread's, which keeps the ping.
          */
         const replyTo = (request: Request) => {
@@ -506,7 +504,7 @@ export const layer = Layer.unwrap(
 
         /**
          * The mention a plugin-started turn's posts start with: only in a server thread or channel, and only of an
-         * owner, so a plugin can ping no one else (API-76). Discord is the one platform with mentions. It is read when
+         * owner, so a plugin can ping no one else. Discord is the one platform with mentions. It is read when
          * the post is made, so an owner removed while the turn ran is not pinged.
          */
         const mentionOf = (request: Request) =>
@@ -536,7 +534,7 @@ export const layer = Layer.unwrap(
                 DiscordChat.withPostOptions({ notify: { users: [mention] } }),
               )
 
-        /** A plugin-started turn whose thread is gone tells the owner by the notice route (FAIL-173). */
+        /** A plugin-started turn whose thread is gone tells the owner by the notice route. */
         const threadGone = (request: Request) =>
           request.plugin === undefined
             ? Effect.void
@@ -598,7 +596,7 @@ export const layer = Layer.unwrap(
             ).pipe(Effect.provideContext(services)),
           )
           // The Agents of the session are numbered as they are built. A task that ends is kept with the number of the Agent
-          // that started it, so a later Agent can announce it once that Agent is discarded (SWAP-17, SWAP-132).
+          // that started it, so a later Agent can announce it once that Agent is discarded.
           const agents = { current: 0 }
           const starters = new Map<string, number>()
           const endings: Array<{
@@ -652,8 +650,8 @@ export const layer = Layer.unwrap(
             turn: undefined,
             steps: undefined,
           }
-          // Every plugin's tools, whose handlers see this session and the turn that runs (API-30 to API-32). They are
-          // taken again for each Agent, so a swap reaches a session at its next turn (SWAP-1, SWAP-6).
+          // Every plugin's tools, whose handlers see this session and the turn that runs. They are
+          // taken again for each Agent, so a swap reaches a session at its next turn.
           const currentSession = PublicSession.CurrentSession.of({
             session,
             turn: Effect.sync(() => Option.fromUndefinedOr(current.turn)),
@@ -668,7 +666,7 @@ export const layer = Layer.unwrap(
           ).pipe(Effect.provideService(Logger.CurrentLogIds, ids))
           const inner = Context.get(built, AgentExecutor.AgentExecutor)
           // A sub-agent's number by the environment clanka starts it in, until its first script ties the number to its
-          // task owner (FAIL-241, FAIL-328). An environment rendered from a numbered one keeps the number.
+          // task owner. An environment rendered from a numbered one keeps the number.
           const starting = new WeakMap<
             AgentExecutor.ExecutionEnvironment,
             number
@@ -685,7 +683,7 @@ export const layer = Layer.unwrap(
             return first
           }
           // A sub-agent's fiber is marked with its number where it starts, so that its compactions, which the Agent's
-          // output leaves out for a background sub-agent, are logged with it (FAIL-249).
+          // output leaves out for a background sub-agent, are logged with it.
           // `messageAgent` starts a new turn only for a sub-agent that is not running, and clanka runs that turn in the
           // background (`Agent.ts:712-725`).
           const agentTasks = (
@@ -738,9 +736,9 @@ export const layer = Layer.unwrap(
                         ),
                       ),
                     ),
-            // A script is logged here, where every agent's script runs, a background sub-agent's included (FAIL-13,
-            // FAIL-14, FAIL-192). clanka reports a script's failure through the logger, with the script's own output
-            // as the console, and chad's logger prints such a line into the script's output (FAIL-23).
+            // A script is logged here, where every agent's script runs, a background sub-agent's included. clanka
+            // reports a script's failure through the logger, with the script's own output as the console, and chad's
+            // logger prints such a line into the script's output.
             execute: (options) => {
               const subagent = subagentOf(options)
               return Stream.unwrap(
@@ -764,7 +762,7 @@ export const layer = Layer.unwrap(
                   )
                   const at = Date.now()
                   let text = ""
-                  // The end is logged however the script ends, a stop included, with what it printed so far (FAIL-192).
+                  // The end is logged however the script ends, a stop included, with what it printed so far.
                   return ran.pipe(
                     Stream.tap((chunk) =>
                       Effect.sync(() => {
@@ -788,7 +786,7 @@ export const layer = Layer.unwrap(
           })
           /**
            * One Agent in a scope of its own, on the session's one executor. Its root agent's scripts run under the session
-           * id as their task owner, so a later Agent lists and reads the tasks an earlier one started (SWAP-15, SWAP-16).
+           * id as their task owner, so a later Agent lists and reads the tasks an earlier one started.
            */
           const build = Effect.fnUntraced(function* () {
             const number = ++agents.current
@@ -888,8 +886,7 @@ export const layer = Layer.unwrap(
               live.plugins = next.generation
               live.persona = next.persona
             }),
-            // Each task is announced once: only one an earlier Agent started, and only if nothing reported it yet
-            // (SWAP-134 to SWAP-137).
+            // Each task is announced once: only one an earlier Agent started, and only if nothing reported it yet.
             ended: Effect.gen(function* () {
               const due = endings.filter(
                 (entry) => entry.agent < agents.current,
@@ -936,9 +933,9 @@ export const layer = Layer.unwrap(
             readonly agentsMd: string
           }) => {
             // Safe mode is one line of the prompt, which is part of the fingerprint, so turning it on or off renders
-            // the prompt again (SELF-38, SELF-39).
+            // the prompt again.
             const rendered = system(options, safe.on(), live.persona)
-            // The fingerprint leaves the chunks out, so a chunk change keeps the prompt frozen (SWAP-129).
+            // The fingerprint leaves the chunks out, so a chunk change keeps the prompt frozen.
             const fingerprint = createHash("sha256")
               .update(rendered)
               .digest("hex")
@@ -969,7 +966,7 @@ export const layer = Layer.unwrap(
           for (const steer of steers) {
             turn.steers.splice(turn.steers.indexOf(steer), 1)
             turn.steered.push(steer.message)
-            // The status message's line and the log line of a steer the agent read come from here (DIS-30, FAIL-11).
+            // The status message's line and the log line of a steer the agent read come from here.
             yield* (turn.status ?? StatusMessage.none).add(
               Messages.statusRead(steer.text),
             )
@@ -1014,7 +1011,7 @@ export const layer = Layer.unwrap(
           format: Format,
         ) {
           // A resumed start sends the restart note in place of the owner's message when the stored history holds that
-          // message. When a kill came before it was stored, the message goes first and the note after it (SES-161).
+          // message. When a kill came before it was stored, the message goes first and the note after it.
           const held = turn.resumed && (yield* Sessions.holds(turn.key))
           const message = request.message
           const read =
@@ -1030,7 +1027,7 @@ export const layer = Layer.unwrap(
                 })
           if (read !== undefined) yield* tell(chat, format, request, read)
           // The turn's own message: the owner's with the lines for its files, or the plugin's prompt, to which chad's
-          // core adds no line (SELF-40, API-82).
+          // core adds no line.
           const own = held
             ? undefined
             : read !== undefined
@@ -1046,7 +1043,7 @@ export const layer = Layer.unwrap(
           })
           const main =
             own === undefined ? [note] : [own, ...(turn.resumed ? [note] : [])]
-          // `Turn.prompt` is the text that starts the turn, with the lines for files and the restart note (API-50).
+          // `Turn.prompt` is the text that starts the turn, with the lines for files and the restart note.
           const publicTurn: PublicSession.Turn = {
             ...turn.public!,
             prompt: main.map(textOf).join("\n\n"),
@@ -1056,7 +1053,7 @@ export const layer = Layer.unwrap(
           live.current.steps = turn.steps
 
           // Every chunk is rendered and compared with what the session last saw. A render that failed keeps that text,
-          // and a plugin with no chunk now has its section removed (SWAP-30, SWAP-33, SWAP-35).
+          // and a plugin with no chunk now has its section removed.
           const rendered = yield* plugins.chunks(live.session)
           const next = new Map<string, string>()
           for (const [name, text] of rendered) {
@@ -1079,8 +1076,7 @@ export const layer = Layer.unwrap(
           const fold = fresh ? next : live.chunks
 
           // What chad posted in the thread since the last answer the owner read and the chunks that changed go ahead
-          // of the prompt, in one update message that the system prompt does not change for (FAIL-125, FAIL-127,
-          // FAIL-131, SWAP-31, SWAP-117).
+          // of the prompt, in one update message that the system prompt does not change for.
           const pending = yield* Sessions.updates(live.id)
           const outlived = yield* live.ended
           const sections = [
@@ -1105,7 +1101,7 @@ export const layer = Layer.unwrap(
                       : { options: Sessions.updateOf(pending.last) }),
                   }),
                 ]
-          // The `beforeTurn` texts follow the update, each its own message, in plugin name order (SES-60, API-49).
+          // The `beforeTurn` texts follow the update, each its own message, in plugin name order.
           const contexts = yield* plugins.beforeTurn(publicTurn)
           const messages = [
             ...update,
@@ -1126,13 +1122,13 @@ export const layer = Layer.unwrap(
           turn.known = known
           const steps = TurnLog.steps()
           turn.steps = steps
-          // chad's end of the turn at a model call of an agent whose parts the output leaves out (FAIL-84, FAIL-87).
+          // chad's end of the turn at a model call of an agent whose parts the output leaves out.
           const ended = Deferred.makeUnsafe<never, Failed.Ended>()
           const owner: TurnLog.Owner = {
             steps,
             loginPending: () => login.pendingFor(live.id),
             // Every model call that succeeds clears the conditions a model call or the check at start began, whichever
-            // turn makes it and however many of its calls came before (FAIL-94, FAIL-235). A key whose row does not
+            // turn makes it and however many of its calls came before. A key whose row does not
             // hold costs no read.
             succeeded: Effect.all(
               [
@@ -1213,7 +1209,7 @@ export const layer = Layer.unwrap(
             ),
             Effect.raceFirst(Deferred.await(ended)),
             // A sub-agent whose end the output did not carry, because the turn stopped or failed while it ran, gets its
-            // end line here (FAIL-193).
+            // end line here.
             Effect.ensuring(TurnLog.unended(steps, ids)),
             Effect.as(""),
             Effect.catchTag("AgentFinished", (finished) =>
@@ -1229,7 +1225,7 @@ export const layer = Layer.unwrap(
               readonly chat: ChatService
               readonly format: Format
               waited: boolean
-              /** Whether an owner's message started the turn (MOD-42). */
+              /** Whether an owner's message started the turn. */
               readonly owner: boolean
             }
           | undefined
@@ -1238,7 +1234,7 @@ export const layer = Layer.unwrap(
 
         /**
          * The session as the login sees it. It stays the same for the session's life, because the model layer keeps the
-         * one it was built with, and it reads the turn that runs now (MOD-34, MOD-35).
+         * one it was built with, and it reads the turn that runs now.
          */
         const sessionRef = (live: Live, format: Format): Login.SessionRef => {
           if (reference?.live === live) return reference.ref
@@ -1256,7 +1252,7 @@ export const layer = Layer.unwrap(
             link: format.link(thread),
             post: (markdown) => say(() => markdown),
             notice: (line) => say((format) => format.subtext(line)),
-            // A turn's wait gets one status line and one log line, however often clanka retries its call (MOD-51).
+            // A turn's wait gets one status line and one log line, however often clanka retries its call.
             waiting: Effect.suspend(() => {
               const now = asking
               if (now !== undefined) TurnLog.loginWaited(now.turn.steps)
@@ -1279,8 +1275,8 @@ export const layer = Layer.unwrap(
 
         /**
          * The model's part on the session's model layer. The token check comes first, then the layer is built when the
-         * session has none for the settings in force (SES-56, MOD-30). The session is set around both, so a login either
-         * asks for posts its code in this thread (MOD-33, MOD-34).
+         * session has none for the settings in force. The session is set around both, so a login either
+         * asks for posts its code in this thread.
          */
         const ask = (
           live: Live,
@@ -1304,7 +1300,7 @@ export const layer = Layer.unwrap(
               sessionRef(live, format),
             ),
             // A turn with no owner present never starts a login. It joins one that is pending, and otherwise takes
-            // only a token that is good or refreshes (API-83, MOD-94).
+            // only a token that is good or refreshes.
             Effect.provideService(
               Login.Unattended,
               request.plugin !== undefined && !login.pending(),
@@ -1320,7 +1316,7 @@ export const layer = Layer.unwrap(
         ) {
           const prepared = yield* models.prepare(live.id, turn.settings)
           // A session behind the plugins' generation rebuilds its Agent at the turn's start, with the tools the
-          // plugins have now (SWAP-1, SWAP-4, SWAP-6).
+          // plugins have now.
           if (
             live.model !== undefined &&
             live.model.generation === prepared.generation &&
@@ -1330,7 +1326,7 @@ export const layer = Layer.unwrap(
           }
           if (live.model?.generation !== prepared.generation) {
             // A session behind the generation rebuilds its Agent here, at a turn's start, through the same bump a
-            // model change makes (SWAP-4, SWAP-8, MOD-18).
+            // model change makes.
             if (live.model !== undefined) {
               yield* Scope.close(live.model.scope, Exit.void)
               yield* live.rebuild
@@ -1374,7 +1370,7 @@ export const layer = Layer.unwrap(
             turn.steers.map((steer) => steer.text),
             candidates.map(Sessions.textOf),
           ).map((index) => turn.steers[index]!)
-          // A replace that no `HistoryReplaced` announced is a compaction of this turn all the same (SES-135).
+          // A replace that no `HistoryReplaced` announced is a compaction of this turn all the same.
           if (!prefix) turn.compacted = true
           const write = prefix ? Sessions.append : Sessions.replace
           yield* write(
@@ -1428,11 +1424,11 @@ export const layer = Layer.unwrap(
         ): reason is Messages.Posted =>
           reason._tag === "ModelError" ||
           reason._tag === "Internal" ||
-          // A plugin-started turn posts nothing for these, and a notice goes instead (API-120).
+          // A plugin-started turn posts nothing for these, and a notice goes instead.
           (request.plugin === undefined &&
             (reason._tag === "LoginFailed" || reason._tag === "UsageLimit"))
 
-        /** What a failed turn's row records of its reason: the tag and the whole reason (STO-76). */
+        /** What a failed turn's row records of its reason: the tag and the whole reason. */
         const recorded = (reason: Failed.Reason) => ({
           tag: reason._tag,
           detail: Failed.detail(reason),
@@ -1441,7 +1437,7 @@ export const layer = Layer.unwrap(
         /**
          * Ends a turn that a defect outside the model's part cut: its row, the failed-turn message and its log line. A
          * turn whose end cannot be written either, or that has no row to write it on, is `unrecorded`: its request
-         * gets no reply, so that the next start delivers it again (FAIL-135). It resumes as a turn a crash cut, or,
+         * gets no reply, so that the next start delivers it again. It resumes as a turn a crash cut, or,
          * when its row was never written, runs as a fresh delivery.
          */
         const failed = (turn: Turn, own: State, request: Request) =>
@@ -1449,7 +1445,7 @@ export const layer = Layer.unwrap(
             const connection = request.connection
             const at = Date.now()
             const reason = Failed.classify(cause)
-            // A full volume is no special mode: the turn fails as `Internal`, and the log says why (FAIL-135, FAIL-281).
+            // A full volume is no special mode: the turn fails as `Internal`, and the log says why.
             if (Disk.isFull(cause)) {
               yield* Logger.event(
                 "disk.full",
@@ -1475,10 +1471,10 @@ export const layer = Layer.unwrap(
                 ).pipe(Effect.as(false)),
               ),
             )
-            // The status message goes however the turn ends (DIS-35), and a turn whose end is not written finds it gone
+            // The status message goes however the turn ends, and a turn whose end is not written finds it gone
             // when it is delivered again.
             if (turn.status !== undefined) yield* turn.status.remove
-            // In a server thread it replies to the owner's message, which pings them (FAIL-66).
+            // In a server thread it replies to the owner's message, which pings them.
             if (posted(reason, request)) {
               yield* Effect.all([
                 chats.get(connection),
@@ -1527,7 +1523,7 @@ export const layer = Layer.unwrap(
           const format = yield* chats.format(request.connection)
           const reply = yield* replyTo(request)
           if (own.ready !== undefined) yield* Deferred.await(own.ready)
-          // The plugins are loaded before a turn starts, and the hooks a compaction queued have run (SWAP-38).
+          // The plugins are loaded before a turn starts, and the hooks a compaction queued have run.
           yield* plugins.ready
           if (own.hooks !== undefined) {
             const hooks = own.hooks
@@ -1563,7 +1559,7 @@ export const layer = Layer.unwrap(
               turn.id = started.turn
               turn.usage = turn.earlier = started.earlier
               turn.resumed = started.starts > 1
-              // A resumed turn keeps the first attempt's id and origin (API-51).
+              // A resumed turn keeps the first attempt's id and origin.
               turn.public = {
                 id: turn.id,
                 session: own.live?.session ?? {
@@ -1605,8 +1601,8 @@ export const layer = Layer.unwrap(
           }
           const { session, started } = counted.value
           const ids = { session, turn: turn.id }
-          // After two starts that a kill ended, the model does not run again (SES-106). The status message the turn
-          // left behind goes, and the give-up message is posted in place of the failed-turn message (DIS-62, FAIL-63).
+          // After two starts that a kill ended, the model does not run again. The status message the turn
+          // left behind goes, and the give-up message is posted in place of the failed-turn message.
           if (Sessions.kills(started) >= 2) {
             const at = Date.now()
             const reason: Failed.Reason = { _tag: "GaveUp" }
@@ -1641,9 +1637,9 @@ export const layer = Layer.unwrap(
             )
             return { _tag: "Failed", reason } as const
           }
-          // The first start writes `turn.started`, and each later one `turn.resumed` (FAIL-326). Only the delivery that
+          // The first start writes `turn.started`, and each later one `turn.resumed`. Only the delivery that
           // gives up, above, writes neither. They come before anything that can fail, so that a turn that ends early has
-          // its start in the log too (FAIL-12). A later start's status line waits for the status message.
+          // its start in the log too. A later start's status line waits for the status message.
           const early = StatusMessage.pending()
           const origin = request.plugin === undefined ? "message" : "plugin"
           if (turn.resumed) {
@@ -1674,7 +1670,7 @@ export const layer = Layer.unwrap(
             return { _tag: "Failed", reason } as const
           })
           // A turn a plugin started on a chad that is logged out, with no login pending, ends before its status message
-          // is posted, so a skipped run makes no sound in the thread (API-83, DIS-91, FAIL-175).
+          // is posted, so a skipped run makes no sound in the thread.
           if (request.plugin !== undefined && (yield* support.loggedOut)) {
             yield* notices.raise({
               key: Notices.loggedOutKey,
@@ -1682,7 +1678,7 @@ export const layer = Layer.unwrap(
             })
             return yield* endsEarly({ _tag: "LoggedOut" })
           }
-          // The status message comes before the Agent is built and before anything the turn sends (DIS-19). A
+          // The status message comes before the Agent is built and before anything the turn sends. A
           // delivery at boot comes before the platform may have answered.
           yield* chats.ready(request.connection)
           const status = yield* StatusMessage.open({
@@ -1695,13 +1691,13 @@ export const layer = Layer.unwrap(
             interval: timings.statusEditInterval,
             scope,
           })
-          // A thread that is gone ends the turn before the model runs, and nothing is posted (DIS-94, FAIL-207).
+          // A thread that is gone ends the turn before the model runs, and nothing is posted.
           if (status === "gone") {
             yield* threadGone(request)
             return yield* endsEarly({ _tag: "ThreadGone" })
           }
           turn.status = status
-          // The id goes into the row as soon as the post returns, before anything else of the turn (DIS-90, STO-75).
+          // The id goes into the row as soon as the post returns, before anything else of the turn.
           if (status.id !== undefined && status.id !== started.status) {
             yield* Sessions.status(turn.key, status.id)
           }
@@ -1717,7 +1713,7 @@ export const layer = Layer.unwrap(
           }
           const live = built.value
           live.view.lines = status
-          // A line the session logs from here until the turn closes carries the turn's id (FAIL-26).
+          // A line the session logs from here until the turn closes carries the turn's id.
           live.ids.turn = turn.id
           Deferred.doneUnsafe(turn.open, Effect.succeed(live))
 
@@ -1731,7 +1727,7 @@ export const layer = Layer.unwrap(
             turn.fiber = fiber
             if (turn.stopped) yield* Fiber.interrupt(fiber)
             // Only a shutdown interrupts the turn itself, at the end of the wait for requests in flight. The cut is
-            // recorded with the reconcile, and the request is left unanswered for the next start (SES-112, FAIL-327).
+            // recorded with the reconcile, and the request is left unanswered for the next start.
             exit = yield* Fiber.await(fiber).pipe(
               Effect.onInterrupt(() =>
                 Effect.gen(function* () {
@@ -1761,8 +1757,8 @@ export const layer = Layer.unwrap(
                 ? { _tag: "Answered", text: exit.value }
                 : { _tag: "Failed", reason: Failed.classify(exit.cause) }
             const at = Date.now()
-            // A stop and a failure are posted in place of an answer, so the next turn tells the model of them
-            // (FAIL-125), and their line is written with the end.
+            // A stop and a failure are posted in place of an answer, so the next turn tells the model of them,
+            // and their line is written with the end.
             yield* Sessions.ended({
               key: turn.key,
               outcome: lower[outcome._tag],
@@ -1779,7 +1775,7 @@ export const layer = Layer.unwrap(
             return yield* failed(turn, own, request)(end.cause)
 
           const { outcome, reconciled, at } = end.value
-          // The status message goes however the turn ends, before what it ends with is posted (DIS-35, OV-28).
+          // The status message goes however the turn ends, before what it ends with is posted.
           yield* status.remove
           const fields: TurnLog.End = {
             ...ids,
@@ -1789,8 +1785,8 @@ export const layer = Layer.unwrap(
           }
           if (outcome._tag === "Failed") {
             const reason = outcome.reason
-            // An owner's turn tells the owner in the thread, so the condition's row records the limit and no notice goes
-            // (FAIL-94, FAIL-319). A plugin's turn posts nothing for it, so the notice goes (FAIL-174, FAIL-210).
+            // An owner's turn tells the owner in the thread, so the condition's row records the limit and no notice
+            // goes. A plugin's turn posts nothing for it, so the notice goes.
             if (reason._tag === "UsageLimit") {
               const notice = {
                 key: Notices.usageLimitKey,
@@ -1800,7 +1796,7 @@ export const layer = Layer.unwrap(
                 ? notices.record(notice)
                 : notices.raise(notice)
             }
-            // A plugin's turn that a failed login ended begins the logged-out condition (FAIL-210, MOD-106).
+            // A plugin's turn that a failed login ended begins the logged-out condition.
             if (reason._tag === "LoginFailed" && request.plugin !== undefined) {
               yield* notices.raise({
                 key: Notices.loggedOutKey,
@@ -1825,7 +1821,7 @@ export const layer = Layer.unwrap(
               fields,
               reason._tag,
               Exit.isFailure(exit) ? exit.cause : undefined,
-              // The reset time of a usage limit is on the turn's one line (FAIL-242, MOD-114).
+              // The reset time of a usage limit is on the turn's one line.
               reason._tag === "UsageLimit" && reason.resetsAt !== undefined
                 ? { resets_at: new Date(reason.resetsAt).toISOString() }
                 : {},
@@ -1833,11 +1829,10 @@ export const layer = Layer.unwrap(
             return outcome
           }
           // The answer goes out through the connection the message arrived on, as a reply to the owner's message in a
-          // server thread (DIS-55). An answer that could not be posted, also the second time (DIS-54), leaves the turn
-          // `Answered`, because the history holds it (FAIL-51), and the model is told that the owner has not read it
-          // (FAIL-129).
-          // A plugin-started turn's answer that is exactly `[SILENT]` is not posted (API-77). Its answer starts with
-          // the mention it asked for (API-76).
+          // server thread. An answer that could not be posted, also the second time, leaves the turn
+          // `Answered`, because the history holds it, and the model is told that the owner has not read it.
+          // A plugin-started turn's answer that is exactly `[SILENT]` is not posted. Its answer starts with
+          // the mention it asked for.
           const delivered = yield* outcome._tag === "Answered"
             ? request.plugin !== undefined && outcome.text.trim() === silent
               ? Effect.succeed("posted" as const)
@@ -1852,8 +1847,7 @@ export const layer = Layer.unwrap(
                   },
                 )
             : post(chat, format, Messages.stopped(format, at - turn.at))
-          // An answer for a thread that no longer exists ends the turn `ThreadGone`, which posts nothing (FAIL-44,
-          // FAIL-64).
+          // An answer for a thread that no longer exists ends the turn `ThreadGone`, which posts nothing.
           if (delivered === "gone" && outcome._tag === "Answered") {
             const reason: Failed.Reason = { _tag: "ThreadGone" }
             // The row holds the turn's end already, so a rewrite that fails leaves it `Answered` and the request
@@ -1980,7 +1974,7 @@ export const layer = Layer.unwrap(
           })
           yield* post(chat, format, Messages.newSession(format))
           // The new session's first turn waits for the hooks each plugin queued ahead of `Reset`, and for `Reset`
-          // itself, each inside its budget (API-59, API-61, SWAP-150).
+          // itself, each inside its budget.
           if (previous !== undefined) {
             const hooks = yield* plugins.onSession({
               _tag: "Reset",
@@ -2006,7 +2000,7 @@ export const layer = Layer.unwrap(
 
         /**
          * A stored request whose chat message this image cannot decode, which a deploy that changes effect/chat's
-         * encoding leaves (SES-152, SES-205). It fails as `Internal` with the failed-turn message and is answered, so
+         * encoding leaves. It fails as `Internal` with the failed-turn message and is answered, so
          * it does not block the thread and is not tried again.
          */
         const undecodable = Effect.fnUntraced(function* (
@@ -2031,7 +2025,7 @@ export const layer = Layer.unwrap(
             yield* chats.ready(payload.connection)
             const chat = yield* chats.get(payload.connection)
             const format = yield* chats.format(payload.connection)
-            // The status message a cut start left behind gets one attempt at its removal (DIS-95).
+            // The status message a cut start left behind gets one attempt at its removal.
             if (ended.status !== undefined) {
               yield* StatusMessage.discard(chat, thread, ended.status)
             }
@@ -2057,7 +2051,7 @@ export const layer = Layer.unwrap(
 
         /**
          * Runs one turn of a request on the session as it is now, and queues the plugins' `afterTurn` for it however
-         * it ended, a stop included (API-54, SES-69). A compaction in it queues `Compacted` after that (API-60).
+         * it ended, a stop included. A compaction in it queues `Compacted` after that.
          */
         const runTurn = Effect.fnUntraced(function* (
           own: State,
@@ -2109,7 +2103,7 @@ export const layer = Layer.unwrap(
         ) {
           const live = own.live
           const initial = new Set(turn.initial ?? [])
-          // Built after the reconcile, so it has what only the reconcile wrote (API-107).
+          // Built after the reconcile, so it has what only the reconcile wrote.
           const appended =
             live === undefined || turn.initial === undefined
               ? []
@@ -2125,7 +2119,7 @@ export const layer = Layer.unwrap(
           })
           if (turn.compacted) {
             // clanka dropped the update messages when it compacted, so the next turn renders the system prompt again
-            // with the chunks folded in. The row forgets it too, for a restart before that turn (SES-121, SWAP-25, SWAP-36).
+            // with the chunks folded in. The row forgets it too, for a restart before that turn.
             if (live !== undefined) {
               live.frozen = undefined
               live.unsaved = false
@@ -2205,7 +2199,7 @@ export const layer = Layer.unwrap(
                   if (stopping.stopping()) return yield* Effect.never
                   const outcome = yield* runTurn(own, request)
                   // A turn whose end could not be written leaves its request unprocessed, as a crash would, and
-                  // cluster delivers it at the next start (FAIL-135). The turn is closed, so the thread goes on.
+                  // cluster delivers it at the next start. The turn is closed, so the thread goes on.
                   if (outcome === unrecorded) return yield* Effect.never
                   return outcome
                 }
@@ -2245,7 +2239,7 @@ export const layer = Layer.unwrap(
                 yield* Deferred.await(first.taken)
               }
               // A thread with no session gets one for the turn, of the kind effect/chat reads for it. A thread the
-              // platform does not have ends the turn `ThreadGone` (API-116 to API-118).
+              // platform does not have ends the turn `ThreadGone`.
               if ((yield* Sessions.current(key)) === undefined) {
                 yield* chats.ready(payload.connection)
                 const chat = yield* chats.get(payload.connection)
@@ -2264,8 +2258,8 @@ export const layer = Layer.unwrap(
                   kind === "direct" || kind === "channel" ? kind : "thread",
                 )
               }
-              // A plugin's turn waits for the session to be idle and never steers (API-72). Owners' messages that
-              // waited on the same turn take the session first (SES-164).
+              // A plugin's turn waits for the session to be idle and never steers. Owners' messages that
+              // waited on the same turn take the session first.
               while (true) {
                 const own = state
                 if (own.turn !== undefined) {
@@ -2281,7 +2275,7 @@ export const layer = Layer.unwrap(
             }).pipe(
               // Every outcome the handler returns, the early ones for a thread that is gone and a turn that already
               // ended included, reaches a caller waiting in this process here, and not from cluster's reply alone,
-              // which may never be saved (SES-125, API-100).
+              // which may never be saved.
               Effect.tap((outcome) =>
                 Effect.sync(() => support.ended(payload.key, outcome)),
               ),
@@ -2323,7 +2317,7 @@ export const layer = Layer.unwrap(
       {
         maxIdleTime: timings.sessionIdle,
         concurrency: "unbounded",
-        // A defect that escapes a handler fails that one request, and the activation carries on (SES-20).
+        // A defect that escapes a handler fails that one request, and the activation carries on.
         disableFatalDefects: true,
       },
     )

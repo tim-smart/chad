@@ -4,8 +4,8 @@ import * as Paths from "../Paths.ts"
 import * as SafeMode from "../SafeMode.ts"
 
 /**
- * What the daemon takes from the environment table of docs/spec/01-image-and-volume.md. It is read when `runDaemon`
- * starts and never at module load, so two daemons started one after another in one process can differ.
+ * What the daemon takes from the environment. It is read when `runDaemon` starts and never at module load, so two
+ * daemons started one after another in one process can differ.
  */
 export interface Environment {
   /** `CHAD_DATA`, the data directory. */
@@ -21,11 +21,11 @@ export interface Environment {
   readonly logLevel: LogLevel.LogLevel
   /** The value of `CHAD_LOG_LEVEL` when it names no level. */
   readonly unknownLogLevel: string | undefined
-  /** Whether `CHAD_SAFE_MODE=1` holds safe mode on (REC-129). */
+  /** Whether `CHAD_SAFE_MODE=1` holds safe mode on. */
   readonly safeMode: boolean
-  /** The whole environment as the daemon started, where a `${NAME}` in a plugin's settings is looked up after the secret store (SET-20). */
+  /** The whole environment as the daemon started, where a `${NAME}` in a plugin's settings is looked up after the secret store. */
   readonly variables: Readonly<Record<string, string | undefined>>
-  /** `TZ`, the owner's timezone when none is stored (IMG-27). The daemon sets none on itself. */
+  /** `TZ`, the owner's timezone when none is stored. The daemon sets none on itself. */
   readonly tz: string | undefined
 }
 

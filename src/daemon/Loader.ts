@@ -1,8 +1,7 @@
 /**
- * The loader of plugins from an exported tree (docs/spec/07-plugin-loading.md): which files are plugins, the
- * type-check, the bundle and the run of a bundle, and the rewrite of error text to `work/` paths. The daemon never
- * imports a plugin file (LOAD-66). It bundles it with esbuild into one CJS file held in memory and runs that with the
- * host's own `require` (LOAD-7 to LOAD-12, LOAD-16).
+ * The loader of plugins from an exported tree: which files are plugins, the type-check, the bundle and the run of a
+ * bundle, and the rewrite of error text to `work/` paths. The daemon never imports a plugin file. It bundles it with
+ * esbuild into one CJS file held in memory and runs that with the host's own `require`.
  */
 import { createHash } from "node:crypto"
 import * as Module from "node:module"
@@ -24,7 +23,7 @@ import * as Plugin from "../Plugin.ts"
 
 /**
  * The compiler options of every type-check of plugins: `chad check`, `chad apply`, the image's test and the
- * type-check of the fixture plugins all read them from here (LOAD-77 to LOAD-80, TST-188).
+ * type-check of the fixture plugins all read them from here.
  */
 export const compilerOptions = {
   target: "es2024",
@@ -64,20 +63,19 @@ const messageOf = (cause: Cause.Cause<unknown>) => {
   return error instanceof LoadError ? error.message : Cause.pretty(cause)
 }
 
-/** A plugin's name is lower-case letters, digits and hyphens, since it goes into the name of its table (LOAD-92). */
+/** A plugin's name is lower-case letters, digits and hyphens, since it goes into the name of its table. */
 const named = /^[a-z0-9-]+$/
 
 /**
  * The plugins of a tree. Every `.ts` file directly in `plugins/` is one, and so is every directory there with an
- * `index.ts` (LOAD-5, LOAD-73). A name kept both ways or breaking the name rule is a problem (LOAD-72, LOAD-92).
+ * `index.ts`. A name kept both ways or breaking the name rule is a problem.
  */
 export const discover = Effect.fnUntraced(function* (tree: string) {
   const fs = yield* FileSystem.FileSystem
   const directory = join(tree, "plugins")
   const found: Array<Found> = []
   const problems: Array<Skipped> = []
-  // A `plugins` that is missing, is not a directory or cannot be read holds no plugin, and the boot goes on (REC-48,
-  // LOAD-99).
+  // A `plugins` that is missing, is not a directory or cannot be read holds no plugin, and the boot goes on.
   const entries = yield* fs
     .readDirectory(directory)
     .pipe(Effect.orElseSucceed((): ReadonlyArray<string> => []))
@@ -122,7 +120,7 @@ export const discover = Effect.fnUntraced(function* (tree: string) {
   return { found, problems }
 })
 
-/** Error text names files the agent edits, so a path inside the tree becomes a `work/` path (LOAD-30, LOAD-41). */
+/** Error text names files the agent edits, so a path inside the tree becomes a `work/` path. */
 export const toWork = (text: string, tree: string, cwd?: string) => {
   const prefixes = [
     pathToFileURL(tree).href + "/",
@@ -143,18 +141,17 @@ const typescript = join(
 )
 
 /**
- * A missing module that is a package, and not a file of the plugin's own, is told what a plugin can import (LOAD-22).
+ * A missing module that is a package, and not a file of the plugin's own, is told what a plugin can import.
  * A side-effect import of one fails with TS2882 in place of TS2307.
  */
 const missingPackage =
   /^(.*error TS(?:2307|2882): .*'[^./][^']*')(?: or its corresponding type declarations)?\.?$/
 
 /**
- * Type-checks the plugins of a tree with the image's `tsc` (LOAD-25), from `repo/` so that `effect`, `chad` and the
- * Node types resolve through `repo/node_modules` (LOAD-27). chad writes the tsconfig itself, next to the tree, and
- * deletes it after the run, so no file in the repo can loosen the check (LOAD-29, REC-27). It covers
- * `plugins/**\/*.ts` and nothing else (LOAD-81). The result is the rewritten output, or nothing when the check
- * passed.
+ * Type-checks the plugins of a tree with the image's `tsc`, from `repo/` so that `effect`, `chad` and the Node types
+ * resolve through `repo/node_modules`. chad writes the tsconfig itself, next to the tree, and deletes it after the
+ * run, so no file in the repo can loosen the check. It covers `plugins/**\/*.ts` and nothing else. The result is the
+ * rewritten output, or nothing when the check passed.
  */
 export const typecheck = Effect.fnUntraced(function* (
   repo: string,
@@ -202,12 +199,12 @@ export const typecheck = Effect.fnUntraced(function* (
         missingPackage,
         (_, error: string) => `${error}. ${Messages.importable}`,
       )
-      // A relative import names its file as it is, `.ts` included, and TypeScript's hint names `.js` (LOAD-79, SELF-62).
+      // A relative import names its file as it is, `.ts` included, and TypeScript's hint names `.js`.
       .replace(/(error TS2835: .* Did you mean '[^']*)\.js'\?$/, "$1.ts'?"),
   )
   return [
     ...rewritten,
-    // One line names effect's guide when an error is in a plugin's file (LOAD-31).
+    // One line names effect's guide when an error is in a plugin's file.
     ...(rewritten.some((line) => line.startsWith("work/plugins/"))
       ? [Messages.effectGuide(join(repo, "node_modules/effect/AGENTS.md"))]
       : []),
@@ -223,16 +220,16 @@ export interface Bundle {
   readonly tree: string
   readonly code: string
   readonly map: Module.SourceMap
-  /** SHA-256 of the bundle's text, cut to 12 hex characters (LOAD-48, LOAD-G5). */
+  /** SHA-256 of the bundle's text, cut to 12 hex characters. */
   readonly hash: string
   /** The name its frames carry in a stack. */
   readonly filename: string
 }
 
 /**
- * The one call of the bundler, so it can be replaced alone (LOAD-11). esbuild runs as a child process of the daemon
- * and writes nothing (LOAD-8). Every package import stays a `require` call (LOAD-9), and the paths in the bundle are
- * relative to the tree, so the same source gives the same text in every tree (LOAD-49).
+ * The one call of the bundler, so it can be replaced alone. esbuild runs as a child process of the daemon and writes
+ * nothing. Every package import stays a `require` call, and the paths in the bundle are relative to the tree, so the
+ * same source gives the same text in every tree.
  */
 const build = (tree: string, file: string) =>
   Effect.tryPromise({
@@ -249,10 +246,10 @@ const build = (tree: string, file: string) =>
         sourcemap: "external",
         packages: "external",
         // A tsconfig of the tree's own is not read, so its `paths` cannot point a package at a file of the tree. The
-        // type-check ignores it too, and the two resolve packages alike (LOAD-9, LOAD-29).
+        // type-check ignores it too, and the two resolve packages alike.
         tsconfigRaw: { compilerOptions: { verbatimModuleSyntax: true } },
         // An `import()` becomes a `require` with the host's, so it resolves where a static import does and gets the
-        // host's instance (LOAD-16, LOAD-17).
+        // host's instance.
         supported: { "dynamic-import": false },
         logLevel: "silent",
       }),
@@ -267,7 +264,7 @@ const build = (tree: string, file: string) =>
     })),
   )
 
-/** esbuild's messages, with `work/` paths and the top-level await error rewritten to its fix (LOAD-23). */
+/** esbuild's messages, with `work/` paths and the top-level await error rewritten to its fix. */
 const bundleError = (found: Found, error: unknown) => {
   const messages =
     typeof error === "object" &&
@@ -310,12 +307,12 @@ export const bundle = (tree: string, found: Found) =>
     })),
   )
 
-/** The bundles of the plugin versions that run, by the name their frames carry (LOAD-85). */
+/** The bundles of the plugin versions that run, by the name their frames carry. */
 const running = new Map<string, Bundle>()
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 
-/** Rewrites the frames of the given bundles to the source file, line and column, as `work/` paths (LOAD-10). */
+/** Rewrites the frames of the given bundles to the source file, line and column, as `work/` paths. */
 const mapFrames = (text: string, bundles: Iterable<Bundle>) => {
   let result = text
   for (const bundle of bundles) {
@@ -337,13 +334,13 @@ const mapFrames = (text: string, bundles: Iterable<Bundle>) => {
   return result
 }
 
-/** Rewrites the frames of every running plugin version in a stack (LOAD-86). */
+/** Rewrites the frames of every running plugin version in a stack. */
 export const mapStack = (text: string) =>
   running.size === 0 ? text : mapFrames(text, running.values())
 
 /**
  * Rewrites the stacks of the errors in a cause in place, so every place that renders it, the log, a notice and the
- * tool error the model reads, gives `work/` paths (LOAD-86).
+ * tool error the model reads, gives `work/` paths.
  */
 export const remap = <E>(cause: Cause.Cause<E>): Cause.Cause<E> => {
   if (running.size === 0) return cause
@@ -360,7 +357,7 @@ export const remap = <E>(cause: Cause.Cause<E>): Cause.Cause<E> => {
   return cause
 }
 
-/** Keeps a version's source map for as long as the scope it runs in is open (LOAD-85). */
+/** Keeps a version's source map for as long as the scope it runs in is open. */
 export const register = (bundle: Bundle, scope: Scope.Scope) =>
   Effect.gen(function* () {
     running.set(bundle.filename, bundle)
@@ -376,7 +373,7 @@ export const register = (bundle: Bundle, scope: Scope.Scope) =>
 
 const hostRequire = Module.createRequire(import.meta.url)
 
-/** The error of a bundle that threw, down to its last frame inside the bundle (LOAD-41). */
+/** The error of a bundle that threw, down to its last frame inside the bundle. */
 const thrown = (bundle: Bundle, error: unknown) => {
   const lines = (
     error instanceof Error ? (error.stack ?? String(error)) : String(error)
@@ -390,9 +387,9 @@ const thrown = (bundle: Bundle, error: unknown) => {
 }
 
 /**
- * Runs a bundle with `vm.compileFunction`, the host's `require` and a fresh `module` (LOAD-12). Every package the
- * plugin imports is the host's own instance (LOAD-16, LOAD-17). The default export must pass `Plugin.isPlugin`,
- * because a bare Layer passes the type-check (LOAD-6, API-6).
+ * Runs a bundle with `vm.compileFunction`, the host's `require` and a fresh `module`. Every package the plugin
+ * imports is the host's own instance. The default export must pass `Plugin.isPlugin`, because a bare Layer passes the
+ * type-check.
  */
 export const run = (bundle: Bundle) =>
   Effect.try({
@@ -434,8 +431,8 @@ export interface Loaded {
 }
 
 /**
- * Loads every plugin of an exported tree: each one bundled and run, with no type-check (LOAD-61). A plugin that
- * breaks a name rule, does not bundle, throws or exports no `Plugin` is skipped with its error, and the others load.
+ * Loads every plugin of an exported tree: each one bundled and run, with no type-check. A plugin that breaks a name
+ * rule, does not bundle, throws or exports no `Plugin` is skipped with its error, and the others load.
  */
 export const load = Effect.fnUntraced(function* (
   tree: string,
@@ -443,7 +440,7 @@ export const load = Effect.fnUntraced(function* (
 ) {
   const { found, problems } = yield* discover(tree)
   const loaded: Array<Loaded> = []
-  // A plugin with a bundled plugin's name is skipped before its module runs, since the bundled one loads (REC-42).
+  // A plugin with a bundled plugin's name is skipped before its module runs, since the bundled one loads.
   const skipped: Array<Skipped> = [
     ...problems.filter(({ name }) => !bundled.has(name)),
     ...[...problems, ...found]
@@ -467,9 +464,9 @@ export const load = Effect.fnUntraced(function* (
 })
 
 /**
- * The checks of a tree that come before any Layer is built, in the order of LOAD-98 and LOAD-53: the plugins' names
- * first, a repo plugin with a bundled plugin's name among them (SET-54), then `tsc`, then each plugin bundled, run and
- * tested with `Plugin.isPlugin`. The result is the errors, none when the tree passed, and the plugins that loaded.
+ * The checks of a tree that come before any Layer is built, in this order: the plugins' names first, a repo plugin
+ * with a bundled plugin's name among them, then `tsc`, then each plugin bundled, run and tested with
+ * `Plugin.isPlugin`. The result is the errors, none when the tree passed, and the plugins that loaded.
  */
 export const check = Effect.fnUntraced(function* (
   repo: string,
@@ -504,7 +501,7 @@ export const check = Effect.fnUntraced(function* (
   return { errors, loaded }
 })
 
-/** The names that clanka's walk would read as instructions, which a check refuses in the repo (LOAD-94). */
+/** The names that clanka's walk would read as instructions, which a check refuses in the repo. */
 const instructionNames: ReadonlySet<string> = new Set([
   "AGENTS.md",
   ".agents",
@@ -513,7 +510,7 @@ const instructionNames: ReadonlySet<string> = new Set([
 
 /**
  * Every `AGENTS.md`, `.agents` and `.kiro` under a directory, at any depth, as paths relative to it. The walk goes
- * into no `.git` and no `node_modules`, and follows no link (LOAD-94, LOAD-96).
+ * into no `.git` and no `node_modules`, and follows no link.
  */
 export const instructions = Effect.fnUntraced(function* (root: string) {
   const fs = yield* FileSystem.FileSystem

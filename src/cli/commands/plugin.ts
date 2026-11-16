@@ -11,12 +11,12 @@ import * as Flags from "../Flags.ts"
 import * as Repository from "../Repository.ts"
 import * as Starter from "../Starter.ts"
 
-/** The name rule of every plugin in the repo (CLI-85, LOAD-92). */
+/** The name rule of every plugin in the repo. */
 const named = /^[a-z0-9-]+$/
 
 /**
  * `chad plugin new <name> [--dir]`: writes the starter file into `work/` in this process, whether or not a daemon runs,
- * and does nothing else (CLI-84 to CLI-87, CLI-156, CLI-157, SELF-47 to SELF-52).
+ * and does nothing else.
  */
 const create = Command.make(
   "new",
@@ -93,7 +93,7 @@ const create = Command.make(
   }),
 ).pipe(Command.withDescription("Write a starter plugin into work/"))
 
-/** `chad plugin reload <name>`: builds one plugin again and swaps it when the build succeeds (CLI-88, CLI-171). */
+/** `chad plugin reload <name>`: builds one plugin again and swaps it when the build succeeds. */
 const reload = Command.make(
   "reload",
   {
@@ -108,7 +108,7 @@ const reload = Command.make(
 
 /**
  * `chad plugin purge <name>`: drops the data of a plugin that is gone from the applied repo, or a bundled one that is
- * off. It needs the daemon, which runs it in its queue (CLI-90, CLI-158, SET-40, SET-95).
+ * off. It needs the daemon, which runs it in its queue.
  */
 const purge = Command.make(
   "purge",

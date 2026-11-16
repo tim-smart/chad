@@ -10,7 +10,7 @@ export interface Queue {
     effect: Effect.Effect<A, E, R>,
     label?: string,
   ) => Effect.Effect<A, E, R>
-  /** What runs now, by the label it was queued with, or nothing when the queue is free (CLI-40). */
+  /** What runs now, by the label it was queued with, or nothing when the queue is free. */
   readonly busy: () => string | undefined
 }
 

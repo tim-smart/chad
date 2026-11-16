@@ -16,20 +16,20 @@ import * as Paths from "../Paths.ts"
 import { version } from "../Version.ts"
 
 /**
- * The tar of `chad backup` and `chad restore` (docs/spec/02-storage.md, "Backup and restore"). GNU tar writes and reads
- * it, and the CLI puts the manifest and the copy of the database in front of what it takes from the volume.
+ * The tar of `chad backup` and `chad restore`. GNU tar writes and reads it, and the CLI puts the manifest and the copy
+ * of the database in front of what it takes from the volume.
  */
 
-/** The first entry of the tar (STO-89, STO-178). */
+/** The first entry of the tar. */
 export const manifestName = "manifest.json"
 
 /** This chad's version, which a restore names when it refuses a newer tar. */
 export const ownVersion = version
 
-/** The format number of the tar. A restore refuses a higher one (STO-89, STO-215). */
+/** The format number of the tar. A restore refuses a higher one. */
 export const format = 1
 
-/** What `manifest.json` holds: the format number and the chad version that made the tar (STO-215). */
+/** What `manifest.json` holds: the format number and the chad version that made the tar. */
 export const Manifest = Schema.Struct({
   format: Schema.Number,
   version: Schema.String,
@@ -49,12 +49,12 @@ export class NotBackup extends Data.TaggedError("NotBackup")<{
   readonly why: string
 }> {}
 
-/** The tar was made by a newer chad, or in a newer format (STO-182). */
+/** The tar was made by a newer chad, or in a newer format. */
 export class Newer extends Data.TaggedError("Newer")<{
   readonly made: string
 }> {}
 
-/** What `chad backup` takes from the volume beside the database, in the order the tar holds them (STO-86 to STO-88). */
+/** What `chad backup` takes from the volume beside the database, in the order the tar holds them. */
 const taken = (options: {
   readonly home: boolean
   readonly sessions: boolean
@@ -68,7 +68,7 @@ const taken = (options: {
 
 /**
  * What tar leaves out of the volume's paths: the lock's file, which a restore never replaces, and the tools' cache
- * under `home/` (STO-86, STO-98).
+ * under `home/`.
  */
 const excluded = ["state/daemon.lock", "home/.cache"]
 
@@ -109,7 +109,7 @@ const tar = Effect.fnUntraced(function* (
   }
 })
 
-/** Copies the database with SQLite's online backup, on a read-only connection of the CLI's own (STO-92). */
+/** Copies the database with SQLite's online backup, on a read-only connection of the CLI's own. */
 const copyDatabase = (from: string, to: string) =>
   Effect.tryPromise({
     try: async () => {
@@ -129,7 +129,8 @@ const copyDatabase = (from: string, to: string) =>
 /**
  * Writes the tar to `to`, or to standard output when it is undefined. The manifest and the online copy of the database
  * are made in a directory under `cache/`, which no backup holds, and a tar written to a path is renamed into place once
- * it is complete, and removed when it is not (STO-218). GNU tar's exit code 1 is a file that changed while it was read, as a running session's may.
+ * it is complete, and removed when it is not. GNU tar's exit code 1 is a file that changed while it was read, as a
+ * running session's may.
  */
 export const create = (options: {
   readonly data: string
@@ -198,7 +199,7 @@ const text = (bytes: Uint8Array) =>
 
 /**
  * Reads the manifest off the front of the tar and gives it with the whole tar as a stream, so a tar that arrives on a
- * pipe is checked before anything else is read and before anything is written (STO-178, STO-182).
+ * pipe is checked before anything else is read and before anything is written.
  */
 export const open = <E>(source: Stream.Stream<Uint8Array, E>) =>
   Effect.gen(function* () {

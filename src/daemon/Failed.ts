@@ -3,21 +3,21 @@ import { Cause, Data, Schema } from "effect"
 import { AiError } from "effect/ai"
 
 /**
- * Why a turn failed: one tag of a closed set of seven (FAIL-43, SES-131, CRON-45), with the fields API-112 gives each.
- * The `turns` row stores the tag in `failure` and the whole reason, encoded, in `failure_detail` (STO-76).
+ * Why a turn failed: one tag of a closed set of seven, each with the fields the plugin API exposes. The `turns` row
+ * stores the tag in `failure` and the whole reason, encoded, in `failure_detail`.
  */
 export const Reason = Schema.Union([
-  // The turn's thread no longer exists (FAIL-44).
+  // The turn's thread no longer exists.
   Schema.TaggedStruct("ThreadGone", {}),
-  // clanka's stream failed with RetriesExhausted or with an AiError it does not retry (FAIL-45).
+  // clanka's stream failed with RetriesExhausted or with an AiError it does not retry.
   Schema.TaggedStruct("ModelError", {
     reason: Schema.String,
     message: Schema.String,
     retries: Schema.Number,
   }),
-  // The provider said the plan's usage limit is reached. The reset time is stored as epoch milliseconds (FAIL-206).
+  // The provider said the plan's usage limit is reached. The reset time is stored as epoch milliseconds.
   Schema.TaggedStruct("UsageLimit", {
-    /** Integer milliseconds since the epoch, like the times in the `turns` table (FAIL-206). */
+    /** Integer milliseconds since the epoch, like the times in the `turns` table. */
     resetsAt: Schema.optionalKey(Schema.Number),
   }),
   // A login the turn needed did not complete.
@@ -31,9 +31,9 @@ export const Reason = Schema.Union([
   }),
   // A turn with no owner present on a chad that is logged out.
   Schema.TaggedStruct("LoggedOut", {}),
-  // A resumed turn chad stopped retrying after two kills (FAIL-49).
+  // A resumed turn chad stopped retrying after two kills.
   Schema.TaggedStruct("GaveUp", {}),
-  // Any other defect in chad or in clanka, a full disk included (FAIL-50).
+  // Any other defect in chad or in clanka, a full disk included.
   Schema.TaggedStruct("Internal", { message: Schema.String }),
 ])
 export type Reason = typeof Reason.Type
@@ -75,7 +75,7 @@ export const fromRow = (
 
 /**
  * chad's own end of a turn's model part, for the two cases clanka would keep retrying: the silence bound and a usage
- * limit (SES-133). It carries the reason the turn ends with, which `classify` gives as it is.
+ * limit. It carries the reason the turn ends with, which `classify` gives as it is.
  */
 export class Ended extends Data.TaggedError("TurnEnded")<{
   readonly reason: Reason
@@ -83,8 +83,8 @@ export class Ended extends Data.TaggedError("TurnEnded")<{
 
 /**
  * Whether an error is clanka's turn timeout, which is how clanka reports a model call that sent nothing for
- * `Agent.TurnTimeout`. This and `turnTimeout` are the one place chad matches clanka's wording (FAIL-204), and a test runs it against real
- * clanka and a silent model (FAIL-205, TST-181).
+ * `Agent.TurnTimeout`. This and `turnTimeout` are the one place chad matches clanka's wording, and a test runs it
+ * against real clanka and a silent model.
  */
 export const isTurnTimeout = (error: AiError.AiError): boolean =>
   error.module === "clanka/Agent" &&
@@ -94,7 +94,7 @@ export const isTurnTimeout = (error: AiError.AiError): boolean =>
 
 /**
  * clanka's turn timeout as its `ErrorRetry` part carries it (`Agent.ts:1683`), for an agent whose parts the Agent's
- * output leaves out and whose timeout chad sees only as a cut model call (FAIL-84).
+ * output leaves out and whose timeout chad sees only as a cut model call.
  */
 export const turnTimeout: AiError.AiError = AiError.make({
   module: "clanka/Agent",
@@ -102,7 +102,7 @@ export const turnTimeout: AiError.AiError = AiError.make({
   reason: new AiError.UnknownError({ description: "TurnTimeout was reached" }),
 })
 
-/** The codes that end a turn as `UsageLimit` with no reset time, on either transport (FAIL-88). */
+/** The codes that end a turn as `UsageLimit` with no reset time, on either transport. */
 const limitCodes: ReadonlySet<unknown> = new Set([
   "insufficient_quota",
   "credit_balance_exhausted",
@@ -125,7 +125,7 @@ const fieldsOf = (error: AiError.AiError) => {
   return { socket, http, body: reason.http?.body }
 }
 
-/** The reset time an HTTP body holds as `resets_at` in epoch seconds, in epoch milliseconds (FAIL-90, FAIL-206). */
+/** The reset time an HTTP body holds as `resets_at` in epoch seconds, in epoch milliseconds. */
 const resetOf = (body: unknown): number | undefined => {
   if (typeof body !== "string") return undefined
   try {
@@ -139,8 +139,8 @@ const resetOf = (body: unknown): number | undefined => {
 }
 
 /**
- * The `UsageLimit` an error names, or nothing (FAIL-46, FAIL-88). Only an HTTP body carries a reset time, because
- * effect's WebSocket decoder drops `resets_at` (FAIL-90, FAIL-97).
+ * The `UsageLimit` an error names, or nothing. Only an HTTP body carries a reset time, because
+ * effect's WebSocket decoder drops `resets_at`.
  */
 export const usageLimit = (
   error: AiError.AiError,
@@ -167,7 +167,7 @@ export const usageLimit = (
   return undefined
 }
 
-/** Whether an error says the plan does not include the usage, which ends the turn at once as `ModelError` (FAIL-89). */
+/** Whether an error says the plan does not include the usage, which ends the turn at once as `ModelError`. */
 export const notIncluded = (error: AiError.AiError): boolean => {
   const { socket, http } = fieldsOf(error)
   return (
@@ -194,8 +194,8 @@ type LoginReason = Extract<Reason, { readonly _tag: "LoginFailed" }>["reason"]
 
 /**
  * The reason of a failed login that a defect carries, or nothing. clanka's client dies with its `CodexAuthError`, and
- * chad's own timeout dies with `LoginTimedOut` (MOD-46, MOD-75, MOD-76). A defect that wraps one in its `cause`
- * counts too.
+ * chad's own timeout dies with `LoginTimedOut`. A defect that wraps one in its `cause` counts
+ * too.
  */
 const loginReason = (defect: unknown): LoginReason | undefined => {
   for (let value = defect, depth = 0; depth < 5; depth++) {
@@ -251,7 +251,7 @@ export const classify = (cause: Cause.Cause<unknown>): Reason => {
       }
     }
     if (AiError.isAiError(error)) {
-      // A usage limit is also recognised in a final error, such as the API key path's `QuotaExhaustedError` (FAIL-87).
+      // A usage limit is also recognised in a final error, such as the API key path's `QuotaExhaustedError`.
       const limit = usageLimit(error)
       if (limit !== undefined) return limit
       return {

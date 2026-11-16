@@ -4,7 +4,7 @@ import type { PlatformError } from "effect/PlatformError"
 import * as Messages from "../Messages.ts"
 import * as Paths from "../Paths.ts"
 
-/** The paths of the data volume, as the tree in docs/spec/01-image-and-volume.md lays them out. */
+/** The paths of the data volume. */
 export interface Volume {
   readonly data: string
   readonly database: string

@@ -1,15 +1,14 @@
 /**
- * Safe mode's state (docs/spec/09-repo-and-recovery.md): the file `state/safe-mode`, which holds the one word `on`
+ * Safe mode's state: the file `state/safe-mode`, which holds the one word `on`
  * and is absent when safe mode is off, and the variable `CHAD_SAFE_MODE=1`, which forces it on whatever the file
- * says. The file is read before SQLite is opened and written by temporary file and rename (STO-13 to STO-15,
- * STO-141, REC-56, REC-57, REC-127).
+ * says. The file is read before SQLite is opened and written by temporary file and rename.
  */
 import { dirname, join } from "node:path"
 import { Effect, FileSystem } from "effect"
 
 export const file = (data: string): string => join(data, "state/safe-mode")
 
-/** What turned safe mode on, or `off` (REC-129). */
+/** What turned safe mode on, or `off`. */
 export type State = "off" | "variable" | "toggle"
 
 /** Whether the variable forces safe mode on. */

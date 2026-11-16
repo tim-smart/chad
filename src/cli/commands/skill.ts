@@ -10,7 +10,7 @@ import * as Files from "../Files.ts"
 
 /**
  * `chad skill new <name>`: writes `skills/<name>/SKILL.md` into `work/` in the CLI's own process, with or without a
- * daemon, and does nothing else, so the skill is a draft until an apply (MCP-8, CLI-84 to CLI-85, CLI-156, CLI-157).
+ * daemon, and does nothing else, so the skill is a draft until an apply.
  */
 const create = Command.make(
   "new",

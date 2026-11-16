@@ -22,7 +22,7 @@ const failed = (reason: string) =>
 
 /**
  * The login through a running daemon, which runs it and owns its timeout. The CLI prints the code it hears and waits
- * with no deadline of its own, and a CLI that is killed ends only its own wait (MOD-56, MOD-59, MOD-107).
+ * with no deadline of its own, and a CLI that is killed ends only its own wait.
  */
 export const throughDaemon = Effect.gen(function* () {
   const client = yield* Daemon.reach("login")
@@ -52,9 +52,9 @@ export const throughDaemon = Effect.gen(function* () {
 
 /**
  * clanka's login with no daemon, over the token store. The code goes to the terminal, and the daemon's lock is taken
- * only to store the token, so a daemon that started meanwhile wins and the command fails (MOD-57, MOD-58), and so does
- * a `chad restore` that was cut meanwhile (STO-217). `chad model <spec>` with no daemon runs its login and its trial
- * request on it (MOD-90).
+ * only to store the token, so a daemon that started meanwhile wins and the command fails, and so does
+ * a `chad restore` that was cut meanwhile. `chad model <spec>` with no daemon runs its login and its trial
+ * request on it.
  */
 export const terminal = Effect.fnUntraced(function* (command: string) {
   const environment = yield* Environment
@@ -97,7 +97,7 @@ export const terminal = Effect.fnUntraced(function* (command: string) {
 })
 
 /**
- * The login on `terminal`'s login, with the daemon's timeout from `Timings` (MOD-108). It fails with the command's
+ * The login on `terminal`'s login, with the daemon's timeout from `Timings`. It fails with the command's
  * failure for the reason the login did not complete.
  */
 export const run = <E>(
@@ -121,7 +121,7 @@ export const run = <E>(
     )
   })
 
-/** The login with no daemon, which the CLI runs itself on `terminal` (MOD-57, MOD-58, MOD-108). */
+/** The login with no daemon, which the CLI runs itself on `terminal`. */
 export const alone = Effect.gen(function* () {
   yield* Files.writable("login")
   const { spec, needsLogin } = yield* Account.model
@@ -131,7 +131,7 @@ export const alone = Effect.gen(function* () {
   yield* Console.log(told() ? Messages.loggedIn : Messages.alreadyLoggedIn)
 })
 
-/** `chad login`: the Codex login, through the daemon when one runs (MOD-55 to MOD-58, MOD-62, MOD-64). */
+/** `chad login`: the Codex login, through the daemon when one runs. */
 export const login = Command.make(
   "login",
   {},

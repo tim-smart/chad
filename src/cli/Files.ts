@@ -59,8 +59,8 @@ export const writable = Effect.fn("Files.writable")(function* (
 /**
  * Takes the daemon lock for a write with no daemon, and gives its release. It fails when a daemon holds the lock, and
  * when a `chad restore` left the volume half replaced, which is checked again under the lock because the restore may
- * have been cut while this command waited on something before its write (STO-217). The lock is released on a refusal. The lock's directory exists already.
- * `started` is what the command says when a daemon holds the lock.
+ * have been cut while this command waited on something before its write. The lock is released on a refusal. The
+ * lock's directory exists already. `started` is what the command says when a daemon holds the lock.
  */
 export const take = Effect.fnUntraced(function* (
   command: string,
@@ -112,7 +112,7 @@ export const locked = <A, E, R>(
 /**
  * Runs a write to `repo/work` that a command makes whether or not a daemon runs, such as a starter file. It holds the
  * restore lock, so no `chad restore` begins to replace the volume between its check of `restore.installing` and its
- * write, and a daemon that stops meanwhile changes nothing. A volume a cut restore left is refused (STO-217, STO-219).
+ * write, and a daemon that stops meanwhile changes nothing. A volume a cut restore left is refused.
  */
 export const scaffold = <A, E, R>(
   command: string,

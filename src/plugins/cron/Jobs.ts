@@ -1,44 +1,44 @@
-// A cron job as cron stores it, one entry per job in the plugin's key-value store (CRON-48, CRON-53), and the texts
-// cron puts around a job's prompt (CRON-69, CRON-121).
+// A cron job as cron stores it, one entry per job in the plugin's key-value store, and the texts
+// cron puts around a job's prompt.
 import { Cron, DateTime, Duration, Option, Result, Schema } from "effect"
 import { ChatThread } from "effect/chat"
 import type { FailedReason } from "../../Session.ts"
 import type { Timer } from "../../Turns.ts"
 
-/** One job. The key is its name, which never changes (CRON-109, CRON-110). */
+/** One job. The key is its name, which never changes. */
 export const Job = Schema.Struct({
   name: Schema.String,
-  /** The owner's prompt with the wrapper lines in front (CRON-69). */
+  /** The owner's prompt with the wrapper lines in front. */
   prompt: Schema.String,
   /** A one-shot's time, in milliseconds since the epoch. */
   at: Schema.optionalKey(Schema.Number),
   /** A recurring job's 5-field cron expression. */
   cron: Schema.optionalKey(Schema.String),
-  /** The IANA timezone, present only when it was given (CRON-114). */
+  /** The IANA timezone, present only when it was given. */
   timezone: Schema.optionalKey(Schema.String),
-  /** The thread string, `discord:<channel id>` (CRON-95). */
+  /** The thread string, `discord:<channel id>`. */
   thread: Schema.String,
   enabled: Schema.Boolean,
   notify: Schema.Boolean,
-  /** The id of the owner who created the job. Absent when no owner was behind the turn (CRON-113). */
+  /** The id of the owner who created the job. Absent when no owner was behind the turn. */
   owner: Schema.optionalKey(Schema.String),
-  /** Failed runs in a row (CRON-122). */
+  /** Failed runs in a row. */
   failures: Schema.Number,
   /** Why cron paused the job, when cron did. An owner's pause leaves it absent. */
   pausedBy: Schema.optionalKey(Schema.String),
   /**
    * Made when the job is created. The job's timer is named after it, and each run carries that name, so a run's outcome
-   * goes only to the job that asked for the run (CRON-149).
+   * goes only to the job that asked for the run.
    */
   id: Schema.String,
-  /** A one-shot's run by `cronRun` that is in progress, and the job's time when it started (CRON-67, CRON-149). */
+  /** A one-shot's run by `cronRun` that is in progress, and the job's time when it started. */
   started: Schema.optionalKey(
     Schema.Struct({ turn: Schema.String, at: Schema.Number }),
   ),
 })
 export type Job = typeof Job.Type
 
-/** The wrapper lines that never change, stored with the prompt (CRON-69, CRON-121, CRON-142). */
+/** The wrapper lines that never change, stored with the prompt. */
 export const wrap = (name: string, prompt: string) =>
   `This is a scheduled run of the cron job "${name}", and nobody is there to answer questions.\n` +
   `Do the task below on your own and answer with what the owner should read. Answer exactly [SILENT] when there is nothing worth posting.\n\n` +
@@ -52,10 +52,10 @@ export const unwrap = (job: Job) => {
     : job.prompt
 }
 
-/** The user id a job's runs mention: its owner's, unless `notify` is off (CRON-71). */
+/** The user id a job's runs mention: its owner's, unless `notify` is off. */
 export const mentionOf = (job: Job) => (job.notify ? job.owner : undefined)
 
-/** The job's timezone: the one it was given, or the owner's (CRON-115, CRON-116). */
+/** The job's timezone: the one it was given, or the owner's. */
 export const zoneOf = (job: Job, owner: string) => job.timezone ?? owner
 
 /** The thread the job was created in or moved to, where its runs go and cron's own lines go. */
@@ -63,8 +63,7 @@ export const threadOf = (job: Job) =>
   Option.getOrThrow(ChatThread.fromString(job.thread))
 
 /**
- * The name of the job's timer, which every run of the job is queued for, so the runs go one at a time (CRON-72,
- * CRON-148, CRON-149).
+ * The name of the job's timer, which every run of the job is queued for, so the runs go one at a time.
  */
 export const timerName = (job: Job) => `${job.name}#${job.id}`
 
@@ -79,7 +78,7 @@ export const timerOf = (job: Job, owner: string) => ({
   mention: mentionOf(job),
 })
 
-/** Whether the core's timer matches the job record in everything `Turns.schedule` was given (CRON-128). */
+/** Whether the core's timer matches the job record in everything `Turns.schedule` was given. */
 export const matches = (timer: Timer, job: Job, owner: string) =>
   ChatThread.toString(timer.thread) === job.thread &&
   timer.prompt === job.prompt &&
@@ -102,7 +101,7 @@ export const show = (time: DateTime.DateTime, zone: string) =>
     onSome: DateTime.formatIsoZoned,
   })
 
-/** A schedule the tools were given, checked (CRON-50, CRON-119). */
+/** A schedule the tools were given, checked. */
 export type Schedule = { readonly at: number } | { readonly cron: string }
 
 /** Reads the one of `at`, `in` and `cron` a tool was given, or says which field is wrong. */
@@ -146,7 +145,7 @@ export const parseSchedule = (
     at = DateTime.toEpochMillis(now) + Duration.toMillis(delay.value)
   } else {
     const text = (given.at ?? "").trim()
-    // A time with no offset is read in the job's timezone (CRON-140).
+    // A time with no offset is read in the job's timezone.
     const parsed: Option.Option<DateTime.DateTime> =
       /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)
         ? DateTime.make(text)

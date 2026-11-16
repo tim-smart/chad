@@ -1,6 +1,6 @@
 /**
  * The derived entries of `repo/` that let a plugin be type-checked and read: the link to the image's `node_modules`,
- * the link to the bundled plugins' source and `package.json` (LOAD-26, IMG-44 to IMG-46).
+ * the link to the bundled plugins' source and `package.json`.
  */
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -9,21 +9,21 @@ import * as Errno from "../Errno.ts"
 import * as Messages from "../Messages.ts"
 import * as Logger from "./Logger.ts"
 
-/** The image's `node_modules`, which holds this chad's own package as `chad` (IMG-49). */
+/** The image's `node_modules`, which holds this chad's own package as `chad`. */
 export const modules = fileURLToPath(
   new URL("../../node_modules", import.meta.url),
 )
 
-/** The bundled plugins' TypeScript source inside the chad package (IMG-45, IMG-51). */
+/** The bundled plugins' TypeScript source inside the chad package. */
 export const examples = fileURLToPath(new URL("../../plugins", import.meta.url))
 
-/** What `repo/package.json` holds. Without it `tsc` reads a plugin file as CommonJS (LOAD-26). */
+/** What `repo/package.json` holds. Without it `tsc` reads a plugin file as CommonJS. */
 const manifest = `${JSON.stringify({ type: "module" }, null, 2)}\n`
 
 /**
  * Makes `repo/node_modules` and `repo/examples` again at every boot, so they follow the image. A link found there is
  * replaced without asking, and anything else is moved to `<name>.replaced-<timestamp>` and logged, so nothing the
- * owner kept there is lost (IMG-46, FAIL-289). `repo/package.json` is written when it is missing.
+ * owner kept there is lost. `repo/package.json` is written when it is missing.
  */
 export const prepare = Effect.fnUntraced(function* (repo: string) {
   const fs = yield* FileSystem.FileSystem
@@ -55,7 +55,7 @@ export const prepare = Effect.fnUntraced(function* (repo: string) {
     if (found === "link") yield* fs.remove(path)
     if (found === "other") {
       // A name that is taken already, by an earlier move in the same millisecond or by the owner, gets a counter, so
-      // the move never replaces what an earlier one kept (IMG-143).
+      // the move never replaces what an earlier one kept.
       const stamped = `${path}.replaced-${new Date().toISOString().replace(/[:.]/g, "-")}`
       let to = stamped
       for (let n = 1; yield* taken(to); n++) to = `${stamped}-${n}`

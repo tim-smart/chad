@@ -1,4 +1,4 @@
-// The bundled plugin `send-file` (DIS-65 to DIS-69). It uses only the plugin API, and its source is the example the
+// The bundled plugin `send-file`. It uses only the plugin API, and its source is the example the
 // self-edit skill points at.
 import { Effect, FileSystem, Layer, Path, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
@@ -6,7 +6,7 @@ import { Chat } from "effect/chat"
 import * as Plugin from "../Plugin.ts"
 import { CurrentSession } from "../Session.ts"
 
-/** The largest file Discord takes from a bot (DIS-67). */
+/** The largest file Discord takes from a bot. */
 const limit = 10 * 1024 * 1024
 
 /** A few content types by extension. Anything else is sent as bytes, and Discord still shows its name. */
@@ -47,7 +47,7 @@ const handlers = tools.toLayer(
       sendFile: ({ path: given, caption }) =>
         Effect.gen(function* () {
           const { session } = yield* CurrentSession
-          // Any path the agent can read, a relative one from the directory its scripts run in (DIS-68).
+          // Any path the agent can read, a relative one from the directory its scripts run in.
           const file = path.resolve(session.directory, given)
           const info = yield* fs
             .stat(file)
@@ -72,7 +72,7 @@ const handlers = tools.toLayer(
               ),
             )
           const name = path.basename(file)
-          // The file is its own message, posted now, and the answer comes later (DIS-66, DIS-105, DIS-107).
+          // The file is its own message, posted now, and the answer comes later.
           yield* chat
             .post(session.thread, {
               markdown: caption ?? "",

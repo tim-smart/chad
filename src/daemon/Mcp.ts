@@ -1,9 +1,9 @@
 /**
- * The MCP layer (docs/spec/12-skills-and-mcp.md). The process has one wrapper around clanka's `McpServers`, which
- * every Agent is handed, and under it one clanka layer at a time, built in a scope of its own and rebuilt whole. Every
- * rebuild takes one path, whatever caused it: the calls in flight are interrupted, the old layer is closed, the new
- * one connects, and once it is current the generation moves so each session rebuilds its Agent on its next turn. A
- * rebuild has no gate, no drain and no held calls (OV-35, SWAP-19, MCP-65 to MCP-75, MCP-140, SWAP-127).
+ * The MCP layer. The process has one wrapper around clanka's `McpServers`, which every Agent is handed, and under it
+ * one clanka layer at a time, built in a scope of its own and rebuilt whole. Every rebuild takes one path, whatever
+ * caused it: the calls in flight are interrupted, the old layer is closed, the new one connects, and once it is current
+ * the generation moves so each session rebuilds its Agent on its next turn. A rebuild has no gate, no drain and no
+ * held calls.
  */
 import * as McpServers from "clanka/McpServers"
 import {
@@ -29,51 +29,51 @@ type OnImage = Parameters<McpServers.McpServers["Service"]["handlers"]>[0]
 /** One clanka layer and what chad keeps of it. */
 interface Built {
   readonly services: McpServers.McpServers["Service"]
-  /** Keeps the values of the layer's `${NAME}`s out of what it says (CRED-80). */
+  /** Keeps the values of the layer's `${NAME}`s out of what it says. */
   readonly scrub: (text: string) => string
   /** Each server's name by the identifier its keys carry. */
   readonly names: ReadonlyMap<string, string>
-  /** Done when a rebuild starts, which interrupts every call this layer has in flight (MCP-71). */
+  /** Done when a rebuild starts, which interrupts every call this layer has in flight. */
   readonly restart: Deferred.Deferred<void>
   readonly scope: Scope.Closeable
   open: boolean
 }
 
 export interface Mcp {
-  /** The wrapper every Agent is handed in place of a layer (MCP-65). */
+  /** The wrapper every Agent is handed in place of a layer. */
   readonly servers: McpServers.McpServers["Service"]
   /** Moves each time a new layer becomes current. */
   readonly generation: () => number
   /** The applied `mcp.json` the next rebuild builds, or none in safe mode and when it could not be read. */
   readonly file: () => McpFile.File | undefined
   readonly set: (file: McpFile.File | undefined) => void
-  /** A file's servers after expansion, as the next rebuild would build them, which a check reads (MCP-36, MCP-113). */
+  /** A file's servers after expansion, as the next rebuild would build them, which a check reads. */
   readonly resolve: (
     file: McpFile.File,
   ) => Effect.Effect<ReadonlyMap<string, McpFile.Resolved>>
   /**
    * Starts a rebuild in the service's own scope, so a caller that goes away once it has started does not stop it, and
-   * gives the wait for it, which gives each server's state once the new layer is current (CLI-102b).
+   * gives the wait for it, which gives each server's state once the new layer is current.
    */
   readonly rebuild: Effect.Effect<
     Effect.Effect<ReadonlyArray<Messages.McpServerState>>
   >
-  /** A rebuild nothing waits for, as a boot's (MCP-90). */
+  /** A rebuild nothing waits for, as a boot's. */
   readonly start: Effect.Effect<void>
-  /** Each server for `chad status`, as its transport is now (MCP-38, CLI-125f). */
+  /** Each server for `chad status`, as its transport is now. */
   readonly report: Effect.Effect<ReadonlyArray<Messages.McpServerState>>
-  /** The servers of every layer whose close has not ended, which a stop cut by its deadline names (MCP-97). */
+  /** The servers of every layer whose close has not ended, which a stop cut by its deadline names. */
   readonly open: () => ReadonlyArray<string>
-  /** A stop abandons a rebuild in progress (MCP-94). */
+  /** A stop abandons a rebuild in progress. */
   readonly abandon: Effect.Effect<void>
 }
 
-/** The notice key of an `mcp.json` a boot or `chad safe off` could not read (MCP-37, FAIL-165). */
+/** The notice key of an `mcp.json` a boot or `chad safe off` could not read. */
 export const unreadableKey = "mcp-unreadable"
 
 /**
  * The applied `mcp.json` as a boot reads it. A file that cannot be read or parsed starts chad with no MCP servers,
- * with a notice, which "Problems" lists, and a log line. No file stops a boot (MCP-37, REC-45, FAIL-165, FAIL-272).
+ * with a notice, which "Problems" lists, and a log line. No file stops a boot.
  */
 export const atBoot = Effect.fnUntraced(function* (
   tree: string | undefined,
@@ -115,10 +115,10 @@ const split = (key: string) => {
 }
 
 export const make = Effect.fnUntraced(function* <E, R>(options: {
-  /** The scope the layers are built in, which a stop closes after the plugins' (IMG-84). */
+  /** The scope the layers are built in, which a stop closes after the plugins'. */
   readonly scope: Scope.Scope
   readonly lookup: Settings.Lookup<E, R>
-  /** The daemon's `HOME`, a stdio server's `cwd` when it names none (MCP-109). */
+  /** The daemon's `HOME`, a stdio server's `cwd` when it names none. */
   readonly home: string
 }) {
   const context = yield* Effect.context<R>()
@@ -137,8 +137,7 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
     const file = wanted ?? McpFile.empty
     const resolved = yield* McpFile.resolve(file, options.lookup, options.home)
     rebuilding = true
-    // Every call in flight is told at once, and the old layer closes before the new one starts, with no deadline
-    // (MCP-71, MCP-73, MCP-74).
+    // Every call in flight is told at once, and the old layer closes before the new one starts, with no deadline.
     const old = current
     if (old !== undefined) {
       yield* Deferred.succeed(old.restart, undefined)
@@ -174,8 +173,7 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
       McpServers.McpServers,
     )
     const next: Built = Object.assign(built, { services })
-    // The new layer is current once clanka has connected it (MCP-75), and sessions follow it on their next turn
-    // (MCP-68, SWAP-127).
+    // The new layer is current once clanka has connected it, and sessions follow it on their next turn.
     current = next
     rebuilding = false
     generation++
@@ -205,7 +203,7 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
 
   const fork = FiberSet.run(fibers, once)
 
-  /** A call by its key, routed to the layer that is current when it is made (MCP-66). */
+  /** A call by its key, routed to the layer that is current when it is made. */
   const call = (
     key: string,
     params: unknown,
@@ -236,7 +234,7 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
       const search = handlers["searchTools"]
       if (search === undefined)
         return Effect.fail(Messages.mcpNoServerConnected)
-      // A tool the current layer has and this turn holds no key for is named, callable from the next turn (MCP-87).
+      // A tool the current layer has and this turn holds no key for is named, callable from the next turn.
       const fresh = Object.keys(handlers).filter(
         (name) => name !== "searchTools" && !held.has(name),
       )
@@ -255,7 +253,7 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
           Effect.fail(Messages.mcpInterrupted(key)),
         ),
       )
-    // chad words what the new layer lacks itself, from its config and status (MCP-81 to MCP-83).
+    // chad words what the new layer lacks itself, from its config and status.
     const ids = split(key)
     const name = layer.names.get(ids.server)
     if (name === undefined)
@@ -276,8 +274,8 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
       () => current?.services.status ?? Effect.succeed({}),
     ),
     // clanka reads the prompt section and the declarations once, when an Agent is built. A turn that starts during a
-    // rebuild takes those of the last layer that finished connecting, and one before the first layer has none and
-    // message 7 when servers are on their way (MCP-89, MCP-91, MCP-92).
+    // rebuild takes those of the last layer that finished connecting, and one before the first layer has none, with
+    // `Messages.mcpStarting` in place of the section when servers are on their way.
     get prompt() {
       if (current !== undefined) return current.scrub(current.services.prompt)
       return rebuilding && (wanted?.size ?? 0) > 0 ? Messages.mcpStarting : ""
@@ -285,8 +283,7 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
     get dts() {
       return current?.services.dts ?? ""
     },
-    // Asked once per spawn: the keys are those of the current layer, and each call is routed when it is made
-    // (MCP-66, MCP-88).
+    // Asked once per spawn: the keys are those of the current layer, and each call is routed when it is made.
     handlers: (onImage: OnImage) => {
       const origin = current
       if (origin === undefined) return {}

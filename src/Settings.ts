@@ -1,6 +1,6 @@
 /**
- * `chad.json`, the file in the repo that holds each plugin's settings and its on/off switch
- * (docs/spec/11-settings.md): the checks an apply makes on it, the lenient read a boot makes, the `${NAME}` expander,
+ * `chad.json`, the file in the repo that holds each plugin's settings and its on/off switch:
+ * the checks an apply makes on it, the lenient read a boot makes, the `${NAME}` expander,
  * and the ConfigProvider that answers a plugin's `Config` reads and records what it asked for. All of it is pure
  * code apart from `read` and the lookup the expander is handed.
  */
@@ -16,21 +16,21 @@ import {
 import * as Errno from "./Errno.ts"
 import * as Messages from "./Messages.ts"
 
-/** The file's name at the root of the repo (SET-1). */
+/** The file's name at the root of the repo. */
 export const fileName = "chad.json"
 
-/** One plugin's entry: both keys are optional (SET-3). */
+/** One plugin's entry: both keys are optional. */
 export interface Entry {
   readonly enabled?: boolean
   readonly settings?: Readonly<Record<string, unknown>>
 }
 
-/** The file as chad uses it, keyed by plugin name (SET-2). */
+/** The file as chad uses it, keyed by plugin name. */
 export interface File {
   readonly plugins: Readonly<Record<string, Entry>>
 }
 
-/** A missing file is the same as an empty one (SET-6). */
+/** A missing file is the same as an empty one. */
 export const empty: File = { plugins: {} }
 
 /**
@@ -75,8 +75,7 @@ const parse = (
 
 /**
  * The checks an apply and `chad check` make on the file, which is `undefined` when it is missing. `known` is every
- * plugin name, bundled or in the repo. The result is the file and every error, none when it passed (SET-49 to SET-53,
- * SET-87 to SET-89).
+ * plugin name, bundled or in the repo. The result is the file and every error, none when it passed.
  */
 export const validate = (
   text: string | undefined,
@@ -127,7 +126,7 @@ export const validate = (
  * which is the read of safe mode and of the file an apply already checked. A file that cannot be parsed counts as empty. An unknown
  * key, an entry that names no plugin, a `plugins` that is not an object, an entry that is not an object or whose
  * `enabled` is not a boolean, and a `settings` that is not an object are each ignored, and the rest of the file is
- * used. `ignored` lists each one by its path in the file (SET-57 to SET-59, SET-90 to SET-92, SET-97).
+ * used. `ignored` lists each one by its path in the file.
  */
 export const lenient = (
   text: string | undefined,
@@ -187,7 +186,7 @@ export const lenient = (
   return { file: { plugins: entries }, unparsable: undefined, ignored }
 }
 
-/** The plugins the file turns off with `"enabled": false` (SET-34). */
+/** The plugins the file turns off with `"enabled": false`. */
 export const off = (file: File): ReadonlySet<string> =>
   new Set(
     Object.entries(file.plugins)
@@ -195,7 +194,7 @@ export const off = (file: File): ReadonlySet<string> =>
       .map(([name]) => name),
   )
 
-/** A plugin's `settings` object, which is empty with no entry or no key (SET-4). */
+/** A plugin's `settings` object, which is empty with no entry or no key. */
 export const settingsOf = (
   file: File,
   name: string,
@@ -216,16 +215,15 @@ const canonical = (value: unknown): unknown =>
         )
       : value
 
-/** Whether two `settings` objects are the same before expansion, which says whether the settings changed (SET-62). */
+/** Whether two `settings` objects are the same before expansion, which says whether the settings changed. */
 export const same = (a: unknown, b: unknown): boolean =>
   JSON.stringify(canonical(a ?? {})) === JSON.stringify(canonical(b ?? {}))
 
-// The expander: chad's copy of clanka's pattern and the code around it, with the lookup replaced by chad's own
-// (SET-27 to SET-30).
+// The expander: chad's copy of clanka's pattern and the code around it, with the lookup replaced by chad's own.
 
 const variablePattern = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g
 
-/** A `${NAME}` with no default that resolves nowhere (SET-22). */
+/** A `${NAME}` with no default that resolves nowhere. */
 export class MissingVariable extends Data.TaggedError("MissingVariable")<{
   readonly variable: string
 }> {
@@ -237,7 +235,7 @@ export class MissingVariable extends Data.TaggedError("MissingVariable")<{
 /** Where a name resolved. */
 export type From = "store" | "env"
 
-/** The secret store first, then process env (SET-20). */
+/** The secret store first, then process env. */
 export type Lookup<E, R> = (
   name: string,
 ) => Effect.Effect<
@@ -246,7 +244,7 @@ export type Lookup<E, R> = (
   R
 >
 
-/** Where a setting's value came from, which the listing shows in place of the value (SET-71, SET-93). */
+/** Where a setting's value came from, which the listing shows in place of the value. */
 export type Source =
   | { readonly from: "file" }
   | { readonly from: "default" }
@@ -298,7 +296,7 @@ export const expandString = Effect.fnUntraced(function* <E, R>(
 
 /**
  * A path in a plugin's settings, as the listing names it: its keys joined with dots. An array is one key, since it is
- * read whole (SET-13), so the path stops before the first index.
+ * read whole, so the path stops before the first index.
  */
 export const keyOf = (path: ReadonlyArray<string | number>): string => {
   const index = path.findIndex((part) => typeof part === "number")
@@ -311,7 +309,7 @@ export interface Expanded {
   readonly sources: ReadonlyMap<string, ReadonlyArray<Source>>
 }
 
-/** Expands `${NAME}` and `${NAME:-default}` in every string of a plugin's settings, in one pass (SET-19, SET-29). */
+/** Expands `${NAME}` and `${NAME:-default}` in every string of a plugin's settings, in one pass. */
 export const expand = <E, R>(
   settings: unknown,
   lookup: Lookup<E, R>,
@@ -348,7 +346,7 @@ export const expand = <E, R>(
     return { value: yield* walk(settings ?? {}, []), sources }
   })
 
-/** Every name a plugin's settings refer to with `${NAME}`, before expansion (SET-26). */
+/** Every name a plugin's settings refer to with `${NAME}`, before expansion. */
 export const names = (settings: unknown): ReadonlySet<string> => {
   const found = new Set<string>()
   const walk = (value: unknown): void => {
@@ -361,14 +359,14 @@ export const names = (settings: unknown): ReadonlySet<string> => {
   return found
 }
 
-/** One key the listing shows: its path, where its value came from, and whether it was read at load or at call time (SET-94). */
+/** One key the listing shows: its path, where its value came from, and whether it was read at load or at call time. */
 export interface Item {
   readonly key: string
   readonly sources: ReadonlyArray<Source>
   readonly at: "load" | "call"
 }
 
-/** Every key at full path depth, a nested one by its whole path and an array as one key (SET-68). */
+/** Every key at full path depth, a nested one by its whole path and an array as one key. */
 const leaves = (
   value: unknown,
   path: ReadonlyArray<string> = [],
@@ -381,13 +379,13 @@ const leaves = (
 
 /** A plugin's provider and what it recorded. */
 export interface Recorder {
-  /** The provider: `ConfigProvider.fromUnknown` over the expanded settings and nothing else (SET-11, SET-12). */
+  /** The provider: `ConfigProvider.fromUnknown` over the expanded settings and nothing else. */
   readonly provider: ConfigProvider.ConfigProvider
-  /** Marks the end of the load. A read after it is a read at call time (SET-70). */
+  /** Marks the end of the load. A read after it is a read at call time. */
   readonly loaded: () => void
-  /** The keys asked for, in the order first asked, with no value (SET-65, SET-67, SET-71, SET-72). */
+  /** The keys asked for, in the order first asked, with no value. */
   readonly items: () => ReadonlyArray<Item>
-  /** The keys in the settings that were not read while loading (SET-68). */
+  /** The keys in the settings that were not read while loading. */
   readonly unread: () => ReadonlyArray<string>
 }
 

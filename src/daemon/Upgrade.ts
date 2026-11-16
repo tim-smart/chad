@@ -7,7 +7,7 @@ import type { Volume } from "./Volume.ts"
 
 /**
  * What a boot does about the chad version that last wrote the volume: the refusal of a newer one, and the copy of the
- * database taken before a new image migrates it (docs/spec/02-storage.md, "Migrations and the order of a boot").
+ * database taken before a new image migrates it.
  */
 
 class CopyFailed extends Data.TaggedError("CopyFailed")<{
@@ -35,8 +35,8 @@ const isNewer = (text: string) => {
 }
 
 /**
- * The check of step 3: the exit message when `state/version` names a newer chad, or nothing. It only reads, so a boot
- * it refuses has written nothing on the volume but its log lines (STO-48, IMG-127).
+ * The check that runs right after the lock is taken: the exit message when `state/version` names a newer chad, or
+ * nothing. It only reads, so a boot it refuses has written nothing on the volume but its log lines.
  */
 export const newer = Effect.fnUntraced(function* (data: string) {
   const fs = yield* FileSystem.FileSystem
@@ -68,11 +68,11 @@ export interface Copied {
  * Copies the database before the migrations when this is the first boot of a new image: the database existed before
  * this boot opened it and
  * `state/version` is older or absent. A boot that finds `state/migrating` takes no copy, because the one in place is
- * the database from before the migration that did not finish (STO-44, STO-158).
+ * the database from before the migration that did not finish.
  *
  * The copy is SQLite's stepped online backup, so the socket goes on answering, and it is written under a temporary name
  * and renamed once complete. The version beside it is removed before the copy is renamed and written after, so a kill
- * between the two never pairs a copy with another copy's version (STO-46, STO-156, STO-192).
+ * between the two never pairs a copy with another copy's version.
  */
 export const copy = Effect.fnUntraced(function* (
   volume: Volume,
@@ -115,7 +115,7 @@ export const copy = Effect.fnUntraced(function* (
   return { previous, copy: path } satisfies Copied
 })
 
-/** Writes `state/version` after the migrations, then removes `state/migrating` (STO-42, STO-157). */
+/** Writes `state/version` after the migrations, then removes `state/migrating`. */
 export const written = Effect.fnUntraced(function* (volume: Volume) {
   const fs = yield* FileSystem.FileSystem
   yield* fs.writeFileString(volume.version, version + "\n")

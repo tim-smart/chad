@@ -9,7 +9,7 @@ export const repoOf = (data: string) => join(data, "repo")
 
 /**
  * A command that changes what is loaded from the repo, run in the daemon. The CLI prints that it waits when another
- * command holds the queue, then what the daemon gives it, and exits with the daemon's code (CLI-40, CLI-46).
+ * command holds the queue, then what the daemon gives it, and exits with the daemon's code.
  */
 export const through = (command: string, request: RepoRequest) =>
   Effect.gen(function* () {

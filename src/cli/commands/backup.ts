@@ -23,7 +23,7 @@ import * as Flags from "../Flags.ts"
 import * as Owner from "../Owner.ts"
 
 /**
- * Takes the daemon lock for as long as the scope lasts, for a command that runs with no daemon (CLI-133, CLI-135).
+ * Takes the daemon lock for as long as the scope lasts, for a command that runs with no daemon.
  * A daemon that took the lock since the lock test fails the command before it reads or writes anything.
  */
 const holdLock = Effect.fnUntraced(function* (command: string) {
@@ -50,8 +50,8 @@ const holdLock = Effect.fnUntraced(function* (command: string) {
 
 /**
  * Takes a place in the running daemon's queue and holds it for as long as the scope lasts. Closing the scope ends the
- * call, which frees the place, and a CLI that dies frees it the same way (STO-93). It gives an effect that fails once
- * the place is lost, because the daemon went away, so the tar is never finished without it (CLI-218).
+ * call, which frees the place, and a CLI that dies frees it the same way. It gives an effect that fails once
+ * the place is lost, because the daemon went away, so the tar is never finished without it.
  */
 const holdQueue = Effect.fnUntraced(function* (
   command: string,
@@ -79,7 +79,7 @@ const holdQueue = Effect.fnUntraced(function* (
   }
 })
 
-/** `chad backup`: one tar of the volume, to a path or to standard output (STO-85 to STO-95, CLI-132, CLI-133). */
+/** `chad backup`: one tar of the volume, to a path or to standard output. */
 export const backup = Command.make(
   "backup",
   {
@@ -146,7 +146,7 @@ export const backup = Command.make(
   }),
 ).pipe(Command.withDescription("Write a backup of the volume as one tar"))
 
-/** Whether the volume holds anything an owner made: a file under `secrets/` or a row in `sessions` (STO-179, STO-180). */
+/** Whether the volume holds anything an owner made: a file under `secrets/` or a row in `sessions`. */
 const used = Effect.fnUntraced(function* (data: string) {
   const fs = yield* FileSystem.FileSystem
   const secrets = join(data, "secrets")
@@ -174,7 +174,7 @@ const used = Effect.fnUntraced(function* (data: string) {
   )
 })
 
-/** The directories a backup holds beside its manifest, which are all that a restore moves onto the volume (STO-86). */
+/** The directories a backup holds beside its manifest, which are all that a restore moves onto the volume. */
 const parts: ReadonlySet<string> = new Set([
   "db",
   "repo",
@@ -190,7 +190,7 @@ const plain = ["db", "secrets", "state"]
 /**
  * Why the unpacked tar is not a backup to move onto the volume, or `undefined`. Each part is a directory and no link,
  * and nothing else is there, so the install never reaches outside `staging`. The lock's file is never in a backup,
- * and one that a tar brings is refused, because the restore holds the volume's (STO-98, STO-215).
+ * and one that a tar brings is refused, because the restore holds the volume's.
  */
 const unfit = Effect.fnUntraced(function* (staging: string) {
   const fs = yield* FileSystem.FileSystem
@@ -222,8 +222,7 @@ const unfit = Effect.fnUntraced(function* (staging: string) {
 
 /**
  * Moves what the tar held from `staging` onto the volume. `db/`, `repo/` and every other directory the tar holds
- * replace the volume's, and `state/` is replaced file by file, because the daemon lock's file is in it and is held
- * (STO-181).
+ * replace the volume's, and `state/` is replaced file by file, because the daemon lock's file is in it and is held.
  */
 const install = Effect.fnUntraced(function* (data: string, staging: string) {
   const fs = yield* FileSystem.FileSystem
@@ -256,7 +255,7 @@ const install = Effect.fnUntraced(function* (data: string, staging: string) {
  * and checked before anything is moved. An unpacking that fails or is cut leaves the volume as it was, so the next
  * restore checks it again. Only once the unpacked tar is checked does `restore.installing` mark the volume as the
  * restore's: no daemon boots and no command writes while it exists, and the next `chad restore` replaces the volume
- * without the check for an empty one, which this one passed (STO-99 to STO-103, STO-179 to STO-182, STO-216, STO-217).
+ * without the check for an empty one, which this one passed.
  */
 export const restore = Command.make(
   "restore",
@@ -302,7 +301,7 @@ export const restore = Command.make(
           ),
         )
         // From its first write on, the restore holds the restore lock too. A command that writes repo/work, with a daemon
-        // running or not, takes it around its check of restore.installing and its write (STO-219). The volume check above
+        // running or not, takes it around its check of restore.installing and its write. The volume check above
         // needs no lock: it reads no file a scaffold writes, and a resumed restore's marker is there before either starts.
         const timings = yield* Timings
         yield* fs.makeDirectory(dirname(Paths.restoreLock(data)), {

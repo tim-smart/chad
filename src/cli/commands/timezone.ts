@@ -10,7 +10,7 @@ import * as Repository from "../Repository.ts"
 
 /**
  * Stores a zone that is already known to be valid. With a daemon it stores it and reloads every plugin in its queue;
- * with none the CLI writes `state/timezone` under the lock, which the next start reads (CLI-35, CLI-113, CLI-114).
+ * with none the CLI writes `state/timezone` under the lock, which the next start reads.
  */
 export const store = (zone: string) =>
   Effect.gen(function* () {
@@ -34,7 +34,7 @@ export const store = (zone: string) =>
     yield* Console.log(Messages.timezoneSet(zone))
   })
 
-/** The zone `chad timezone` takes, by the name `Intl` resolves it to. Anything else exits 2 (CLI-182, CLI-183). */
+/** The zone `chad timezone` takes, by the name `Intl` resolves it to. Anything else exits 2. */
 export const parse = (zone: string) => {
   const canonical = Timezone.canonical(zone)
   return canonical === undefined
@@ -47,7 +47,7 @@ export const parse = (zone: string) => {
     : Effect.succeed(canonical)
 }
 
-/** `chad timezone [zone]`: prints the zone in force and where it came from, or stores a new one (CLI-113 to CLI-185). */
+/** `chad timezone [zone]`: prints the zone in force and where it came from, or stores a new one. */
 export const timezone = Command.make(
   "timezone",
   {

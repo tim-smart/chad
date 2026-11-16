@@ -4,7 +4,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process"
 /**
  * The session marker. Every process a session starts carries `CHAD_SESSION=<session id>`, which is how the CLI tells
  * a command the agent runs from one the owner types. It carries `HOME` too, which is `home/` on the volume for every
- * session, and `TZ`, the owner's timezone as it is when the process starts (IMG-28, CLI-54).
+ * session, and `TZ`, the owner's timezone as it is when the process starts.
  */
 
 /** Adds the marker to a command, and to each side of a pipeline. The child keeps the rest of its environment. */

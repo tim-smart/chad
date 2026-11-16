@@ -26,7 +26,7 @@ const root = Command.make("chad").pipe(
   Command.withSubcommands(commands),
 )
 
-/** The usage error of `chad secret run` (CRED-113). */
+/** The usage error of `chad secret run`. */
 const secretRunUsage = 125
 
 /** Resolves on the first SIGINT or SIGTERM, and takes its handlers off the process when it is done with. */
@@ -46,7 +46,7 @@ const signalled = Effect.callback<void>((resume) => {
 
 /**
  * The exit code of a command that did not end well. effect's CLI module has printed a usage error by now. A usage
- * error of `chad secret run` exits 125, since its child's code passes through (CLI-49b, CRED-113).
+ * error of `chad secret run` exits 125, since its child's code passes through.
  */
 const ended = (
   args: ReadonlyArray<string>,
@@ -77,8 +77,8 @@ export const runCli = (inputs: CliInputs): Promise<number> => {
   const services = Layer.mergeAll(
     NodeServices.layer,
     inputs.httpClient,
-    // The socket a Codex trial request of `chad model` with no daemon dials (MOD-90). It is no input of `runCli`, which
-    // takes an HttpClient and the durations only (TST-209).
+    // The socket a Codex trial request of `chad model` with no daemon dials. It is no input of `runCli`, which
+    // takes an HttpClient and the durations only.
     NodeSocket.layerWebSocketConstructor,
     Layer.succeed(Environment.Environment, environment),
     Layer.succeed(Timings, inputs.timings),

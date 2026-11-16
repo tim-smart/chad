@@ -26,13 +26,13 @@ import * as Server from "./Server.ts"
 import * as Storage from "./Storage.ts"
 import * as Volume from "./Volume.ts"
 
-/** The key of an unusable database, a live key with no row, because the `notices` table is in that database (FAIL-311). */
+/** The key of an unusable database, a live key with no row, because the `notices` table is in that database. */
 const key = "database-unusable"
 
 /**
- * The rest of a boot whose database could not be opened or migrated (STO-117, FAIL-147). chad stays up without
- * sessions: it connects from `secrets/connections.json`, answers each owner message with the error, shows it under
- * "Problems", and tells the owner once at boot. It never returns.
+ * The rest of a boot whose database could not be opened or migrated. chad stays up without sessions: it connects from
+ * `secrets/connections.json`, answers each owner message with the error, shows it under "Problems", and tells the
+ * owner once at boot. It never returns.
  */
 export const run = Effect.fnUntraced(function* (options: {
   readonly inputs: Pick<DaemonInputs, "chat" | "timings">
@@ -56,7 +56,7 @@ export const run = Effect.fnUntraced(function* (options: {
   )
 
   // Its key and every other live key show under "Problems" and send no notice, because no row can record that one was
-  // sent (FAIL-228, STO-119). "Recent" says why it is missing.
+  // sent. "Recent" says why it is missing.
   const live = new Map<string, string>([[key, text]])
   state.problems.push(() => [...live.values()])
   state.recent = Effect.fail(error)
@@ -105,7 +105,7 @@ export const run = Effect.fnUntraced(function* (options: {
 /**
  * Sends the error to the thread `state/notice-thread` records, once for as long as the database stays unusable,
  * restarts included: `state/db-unusable` marks the send, and only when it cannot be written is the notice sent again
- * at the next boot (STO-136, STO-186, FAIL-149, FAIL-225, FAIL-227).
+ * at the next boot.
  */
 const notify = (data: string, text: string, running: Chats.Running<unknown>) =>
   Effect.gen(function* () {
@@ -124,7 +124,7 @@ const notify = (data: string, text: string, running: Chats.Running<unknown>) =>
       connection: destination.connection,
       thread: destination.thread,
     }
-    // A destination whose kind is unknown is posted in as a server's, as the notices do (FAIL-341).
+    // A destination whose kind is unknown is posted in as a server's, as the notices do.
     const direct =
       (yield* Notices.directMessage(
         running.chats,

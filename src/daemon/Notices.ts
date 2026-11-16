@@ -21,38 +21,38 @@ import * as Logger from "./Logger.ts"
 import * as Sessions from "./Sessions.ts"
 
 /**
- * The notices outside a turn (docs/spec/16-failures-logs-status.md, "Notices outside a turn"). A notice about a
- * condition has a key, is sent when the condition begins, and is not sent again while it holds, restarts included,
- * nor within 24 hours of its last send. The `notices` table remembers both (STO-128, STO-129, FAIL-150 to FAIL-153).
+ * The notices outside a turn. A notice about a condition has a key, is sent when the condition begins, and is not
+ * sent again while it holds, restarts included, nor within 24 hours of its last send. The `notices` table remembers
+ * both.
  */
 
-/** A notice about a condition: its key, and the text its key's renderer gave, which "Problems" prints too (FAIL-310). */
+/** A notice about a condition: its key, and the text its key's renderer gave, which "Problems" prints too. */
 export interface Notice {
   readonly key: string
   readonly text: string
 }
 
 /**
- * The table keys, whose condition only their row remembers (FAIL-307). Every other key is live: the running daemon
- * answers it from memory or from files, and "Problems" never reads its row (STO-169).
+ * The table keys, whose condition only their row remembers. Every other key is live: the running daemon answers it
+ * from memory or from files, and "Problems" never reads its row.
  */
 const tableKeys: ReadonlySet<string> = new Set(["usage-limit", "prune-failed"])
 
 export const isTableKey = (key: string) => tableKeys.has(key)
 
-/** The key of "the last model call hit the usage limit" (FAIL-94, FAIL-319). */
+/** The key of "the last model call hit the usage limit". */
 export const usageLimitKey = "usage-limit"
 
-/** The key of "chad is logged out and a turn with no owner present could not run" (FAIL-175). */
+/** The key of "chad is logged out and a turn with no owner present could not run". */
 export const loggedOutKey = "logged-out"
 
-/** The notice of `disk-low`, a live key (FAIL-171, STO-115). */
+/** The notice of `disk-low`, a live key. */
 export const diskLow = (bytes: number): Notice => ({
   key: "disk-low",
   text: Messages.diskLow(bytes),
 })
 
-/** Where a notice outside a turn goes, as `state/notice-thread` holds it (STO-121, FAIL-232). */
+/** Where a notice outside a turn goes, as `state/notice-thread` holds it. */
 export const Destination = Schema.Struct({
   connection: Schema.String,
   thread: Schema.String,
@@ -65,7 +65,7 @@ const decodeDestination = Schema.decodeUnknownOption(
 
 /**
  * The destination `state/notice-thread` records, or `undefined` when there is none or it cannot be read. It needs no
- * database, so a boot that cannot use one can still tell the owner (FAIL-232).
+ * database, so a boot that cannot use one can still tell the owner.
  */
 export const readDestination = Effect.fnUntraced(function* (data: string) {
   const fs = yield* FileSystem.FileSystem
@@ -77,7 +77,7 @@ export const readDestination = Effect.fnUntraced(function* (data: string) {
   )
 })
 
-/** Writes `state/notice-thread` by temporary file and rename, as one JSON line (STO-121, FAIL-159, REC-109). */
+/** Writes `state/notice-thread` by temporary file and rename, as one JSON line. */
 const writeDestination = Effect.fnUntraced(function* (
   data: string,
   destination: Destination,
@@ -107,9 +107,9 @@ export type Post = (
 
 /**
  * The post through the daemon's connections. A notice is a normal message. On Discord outside a direct message it
- * starts with the mention of each owner of the posting connection, and only those users are notified (FAIL-156,
- * DIS-74, FAIL-337). The local platform has no mentions. A post made as the daemon boots waits for the connection's
- * adapter, so that it is not refused for want of it.
+ * starts with the mention of each owner of the posting connection, and only those users are notified. The local
+ * platform has no mentions. A post made as the daemon boots waits for the connection's adapter, so that it is not
+ * refused for want of it.
  */
 export const post =
   (
@@ -145,7 +145,7 @@ export const post =
  * Whether a destination's thread is a direct message, as its platform says, or `undefined` while nothing says. Only
  * an answer that settles it is `false`: a thread of another kind, a thread the platform says is gone, one on no
  * connection of this daemon, or one that does not parse. Any other failure, one its platform refuses for good
- * included, says nothing of the thread's kind (FAIL-341). It waits for the connection's adapter, as a post does.
+ * included, says nothing of the thread's kind. It waits for the connection's adapter, as a post does.
  */
 export const directMessage =
   (chats: Chats["Service"], connections: () => ReadonlyArray<Connection>) =>
@@ -177,7 +177,7 @@ export const directMessage =
     )
   }
 
-/** What a `notices` row holds (STO-169, FAIL-229). Both times are milliseconds since the epoch. */
+/** What a `notices` row holds. Both times are milliseconds since the epoch. */
 interface Row {
   readonly holds: boolean
   readonly recorded: number | null
@@ -199,34 +199,34 @@ export class Notices extends Context.Service<
     readonly raise: (notice: Notice) => Effect.Effect<void>
     /**
      * A condition holds and its row records it, but no notice is owed, because the owner was told where it happened, as
-     * a usage limit in a turn an owner started is (FAIL-94). A row that holds already keeps its times.
+     * a usage limit in a turn an owner started is. A row that holds already keeps its times.
      */
     readonly record: (notice: Notice) => Effect.Effect<void>
-    /** A condition cleared. Nothing is posted, and the row keeps the time its notice was last sent (FAIL-151). */
+    /** A condition cleared. Nothing is posted, and the row keeps the time its notice was last sent. */
     readonly clear: (key: string) => Effect.Effect<void>
-    /** An owner's message arrived in a thread, which may move the destination (FAIL-158, FAIL-231, REC-145). */
+    /** An owner's message arrived in a thread, which may move the destination. */
     readonly arrived: (
       at: Destination & { readonly direct: boolean },
     ) => Effect.Effect<void>
-    /** The lines "Problems" shows for the live keys that hold, from memory alone (STO-169, FAIL-309). */
+    /** The lines "Problems" shows for the live keys that hold, from memory alone. */
     readonly problems: () => ReadonlyArray<string>
-    /** The lines "Problems" shows for the table keys whose row holds, with the time each was recorded (FAIL-320). */
+    /** The lines "Problems" shows for the table keys whose row holds, with the time each was recorded. */
     readonly held: Effect.Effect<ReadonlyArray<string>, unknown>
     /**
      * Posts a text once in the destination, and gives the destination, or nothing when there is none or the post
-     * failed. It keeps no row and logs no text, because a login's code is what it carries (MOD-36, MOD-118).
+     * failed. It keeps no row and logs no text, because a login's code is what it carries.
      */
     readonly announce: (text: string) => Effect.Effect<Destination | undefined>
   }
 >()("chad/Notices") {}
 
 /**
- * The notices of one daemon. The destination starts as `state/notice-thread` has it (FAIL-338), and the sends run
+ * The notices of one daemon. The destination starts as `state/notice-thread` has it, and the sends run
  * in fibers of the scope it is made in, so that a post that waits for its connection holds up nothing else.
  */
 export const make = Effect.fnUntraced(function* (options: {
   readonly data: string
-  /** The time after a key's last notice in which the key is not announced again (FAIL-152). */
+  /** The time after a key's last notice in which the key is not announced again. */
   readonly quiet: Duration.Duration
   readonly post: Post
   /** Whether a thread is a direct message, as its platform says, or `undefined` while it cannot say. */
@@ -240,14 +240,14 @@ export const make = Effect.fnUntraced(function* (options: {
   const rows = yield* Semaphore.make(1)
   const moves = yield* Semaphore.make(1)
   const sending = yield* Semaphore.make(1)
-  /** The rows that could not be written, held until a write next succeeds (FAIL-230). */
+  /** The rows that could not be written, held until a write next succeeds. */
   const pending = new Map<string, Row>()
   /** The live keys that hold in this daemon, with their text. */
   const live = new Map<string, string>()
   /**
    * The keys whose row holds, read once here and kept by `write`, so that a clear of a key that does not hold reads
-   * nothing. Every model call that succeeds clears two keys (FAIL-94, FAIL-235). `undefined` when the table could not
-   * be read, and then a clear reads the row.
+   * nothing. Every model call that succeeds clears two keys. `undefined` when the table could not be read, and then a
+   * clear reads the row.
    */
   const holding = yield* sql<{
     key: string
@@ -257,7 +257,7 @@ export const make = Effect.fnUntraced(function* (options: {
   )
 
   const stored = yield* readDestination(options.data)
-  // The file does not say whether its thread is a direct message (STO-121), so that is looked up when it first matters.
+  // The file does not say whether its thread is a direct message, so that is looked up when it first matters.
   let destination: Target | undefined =
     stored === undefined ? undefined : { ...stored, direct: undefined }
   /** Whether the destination in memory is newer than the file, because the file could not be written. */
@@ -265,9 +265,9 @@ export const make = Effect.fnUntraced(function* (options: {
 
   /**
    * Whether a destination is a direct message. The thread the file named is looked up once: its session's kind, or
-   * its platform's word when it has no session, because a direct message that only a command reached has none
-   * (FAIL-231, REC-101). A platform that cannot say, or with `wait` has not answered by then, leaves the kind unknown,
-   * and the next owner's message or notice asks again (FAIL-341).
+   * its platform's word when it has no session, because a direct message that only a command reached has none. A
+   * platform that cannot say, or with `wait` has not answered by then, leaves the kind unknown, and the next owner's
+   * message or notice asks again.
    */
   const directOf = (target: Target, wait?: Duration.Duration) =>
     target.direct !== undefined
@@ -321,7 +321,7 @@ export const make = Effect.fnUntraced(function* (options: {
     )
   }
 
-  /** Writes a key's row together with every row that is still held in memory, or holds them all (FAIL-230). */
+  /** Writes a key's row together with every row that is still held in memory, or holds them all. */
   const write = (key: string, row: Row) => {
     pending.set(key, row)
     if (row.holds) holding?.add(key)
@@ -358,8 +358,8 @@ export const make = Effect.fnUntraced(function* (options: {
   }
 
   /**
-   * Posts a notice in the destination, trying twice, and logs it either way (FAIL-158, FAIL-160, REC-102). The model
-   * of the session in that thread is told at its next turn (FAIL-131). Says whether the post was delivered.
+   * Posts a notice in the destination, trying twice, and logs it either way. The model of the session in that thread
+   * is told at its next turn. Says whether the post was delivered.
    */
   const deliver = Effect.fnUntraced(function* (key: string, text: string) {
     const target = destination
@@ -372,7 +372,7 @@ export const make = Effect.fnUntraced(function* (options: {
       return false
     }
     const where = { connection: target.connection, thread: target.thread }
-    // A destination whose kind is unknown is posted in as a server's, so that its owners are mentioned (FAIL-341).
+    // A destination whose kind is unknown is posted in as a server's, so that its owners are mentioned.
     const direct = (yield* directOf(target)) ?? false
     const posted = yield* Effect.exit(
       Effect.suspend(() => options.post(target, direct, text)).pipe(
@@ -412,8 +412,9 @@ export const make = Effect.fnUntraced(function* (options: {
 
   /**
    * Sends a key's notice while its row holds and has no delivered post, and records the send in the row. One send
-   * runs at a time, so a send and the resend of FAIL-160 never post one notice twice. `again` is the resend, which
-   * sends a live key only while this daemon holds it, because its row may hold from a boot whose condition passed.
+   * runs at a time, so a send and the resend of an undelivered notice never post one notice twice. `again` is the
+   * resend, which sends a live key only while this daemon holds it, because its row may hold from a boot whose
+   * condition passed.
    */
   const send = (key: string, again: boolean) =>
     sending.withPermits(1)(
@@ -442,7 +443,7 @@ export const make = Effect.fnUntraced(function* (options: {
       scope,
     )
 
-  /** Posts every keyed notice whose condition holds and whose last post was not delivered (FAIL-160, REC-110). */
+  /** Posts every keyed notice whose condition holds and whose last post was not delivered. */
   const resend = Effect.gen(function* () {
     const found = yield* sql<{
       key: string
@@ -459,7 +460,7 @@ export const make = Effect.fnUntraced(function* (options: {
         const { key, text } = notice
         if (!isTableKey(key)) live.set(key, text)
         const row = yield* read(key)
-        // A condition that already holds is not announced again, whatever restarts came between (FAIL-150).
+        // A condition that already holds is not announced again, whatever restarts came between.
         if (row?.holds === true) {
           if (row.text !== text) yield* write(key, { ...row, text })
           return
@@ -477,7 +478,7 @@ export const make = Effect.fnUntraced(function* (options: {
           delivered: quiet ? row.delivered : false,
         })
         if (quiet) return
-        // With no session known the notice is logged as not delivered now, and waits for the first one (FAIL-160).
+        // With no session known the notice is logged as not delivered now, and waits for the first one.
         if (destination === undefined) {
           yield* deliver(key, text).pipe(
             Effect.provideService(SqlClient.SqlClient, sql),
@@ -496,7 +497,7 @@ export const make = Effect.fnUntraced(function* (options: {
           if (row.text !== text) yield* write(key, { ...row, text })
           return
         }
-        // Nothing is owed, so the resend of FAIL-160 finds nothing to post.
+        // Nothing is owed, so the resend of undelivered notices finds nothing to post.
         yield* write(key, {
           holds: true,
           recorded: Date.now(),
@@ -524,8 +525,8 @@ export const make = Effect.fnUntraced(function* (options: {
         const same =
           now?.connection === at.connection && now.thread === at.thread
         if (same && !unwritten) return
-        // A direct message session stays the destination while the owner writes elsewhere (REC-101), and so does one
-        // whose kind the platform has not said yet (FAIL-341).
+        // A direct message session stays the destination while the owner writes elsewhere, and so does one whose kind
+        // the platform has not said yet.
         if (
           !same &&
           now !== undefined &&
@@ -547,7 +548,7 @@ export const make = Effect.fnUntraced(function* (options: {
             wrote.cause,
           )
         }
-        // The first session chad knows gets the notices that had nowhere to go (FAIL-160).
+        // The first session chad knows gets the notices that had nowhere to go.
         if (now === undefined) yield* fork(resend)
       }),
     )

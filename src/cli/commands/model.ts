@@ -24,7 +24,7 @@ const unchanged = (error: { readonly text: string }) =>
 
 /**
  * `chad model` through a running daemon, which runs the change and prints what `/model` would post. The code of a login
- * the change needs is printed as `chad login` prints it (MOD-92). A killed CLI ends the change before its store.
+ * the change needs is printed as `chad login` prints it. A killed CLI ends the change before its store.
  */
 const throughDaemon = (request: typeof ModelRequest.Type) =>
   Effect.gen(function* () {
@@ -51,7 +51,7 @@ const throughDaemon = (request: typeof ModelRequest.Type) =>
 
 /**
  * `chad model` with no daemon: the settings from the files, and a change that the CLI tries itself before it stores it
- * under the daemon's lock (MOD-22, MOD-90). A login it needs runs in the terminal as `chad login` runs it.
+ * under the daemon's lock. A login it needs runs in the terminal as `chad login` runs it.
  */
 const alone = (request: ModelSpec.Request) =>
   Effect.gen(function* () {
@@ -108,7 +108,7 @@ const alone = (request: ModelSpec.Request) =>
     )
     // Another change may have been stored while the trials ran, so the change is planned again under the lock on what
     // the files hold now. The models to try come from the request alone, so they are the ones just tried, and a main
-    // model that moved to another provider refuses an override of the old one (MOD-81, MOD-126).
+    // model that moved to another provider refuses an override of the old one.
     const stored = yield* Files.locked(
       "model",
       Effect.gen(function* () {
@@ -128,7 +128,7 @@ const spec = Argument.String("spec").pipe(
   Argument.optional,
 )
 
-/** One of the two override flags, whose value `none` clears it (MOD-82, MOD-83, MOD-123). */
+/** One of the two override flags, whose value `none` clears it. */
 const override = (name: string, what: string) =>
   Flag.String(name).pipe(
     Flag.withDescription(
@@ -138,8 +138,8 @@ const override = (name: string, what: string) =>
   )
 
 /**
- * `chad model`: shows the model and the login state, or changes the model after a trial request (MOD-15 to MOD-22).
- * It is an owner command, with no argument too, since `chad status` shows the agent the model (MOD-21, CLI-179).
+ * `chad model`: shows the model and the login state, or changes the model after a trial request.
+ * It is an owner command, with no argument too, since `chad status` shows the agent the model.
  */
 export const model = Command.make(
   "model",

@@ -5,13 +5,13 @@ import type { PlatformError } from "effect/PlatformError"
 import * as Paths from "./Paths.ts"
 
 /**
- * The token store of the model logins: Effect's file system `KeyValueStore` in `secrets/auth/`, one file per key
- * (docs/spec/05-model-and-login.md, "Token store"). The daemon and the CLI both open it, so a login with no daemon
+ * The token store of the model logins: Effect's file system `KeyValueStore` in `secrets/auth/`, one file per key.
+ * The daemon and the CLI both open it, so a login with no daemon
  * writes the same files. clanka's Codex login keeps its token under `codex.auth/`.
  *
  * The store writes a file with the process umask, which leaves a token readable by others under 022. Each write is
  * followed by a chmod to 0600 and the directory gets 0700, and the umask is never changed, because it is also the
- * mode of every file the agent creates (MOD-67, MOD-68, MOD-111).
+ * mode of every file the agent creates.
  */
 export const layer = (
   data: string,
@@ -70,7 +70,7 @@ export const layer = (
 export const codexFile = (data: string): string =>
   join(Paths.auth(data), encodeURIComponent("codex.auth/token"))
 
-/** Whether a Codex token is stored, which is what `chad status` calls logged in (CLI-125). It opens no store. */
+/** Whether a Codex token is stored, which is what `chad status` calls logged in. It opens no store. */
 export const codexStored = (data: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
@@ -79,7 +79,7 @@ export const codexStored = (data: string) =>
 
 /**
  * The store over another whose every write first runs `before`, as a login with no daemon takes the lock only when
- * it stores the token (MOD-58). `before` gives what releases the lock once the write is done.
+ * it stores the token. `before` gives what releases the lock once the write is done.
  */
 export const guarded = (
   store: KeyValueStore.KeyValueStore,

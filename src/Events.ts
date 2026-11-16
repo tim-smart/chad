@@ -2,7 +2,7 @@ import type { LogLevel } from "effect"
 
 /**
  * The event names chad writes to its log, each with its level. The list is closed: a name is added here only together
- * with its row in the event table of docs/spec/16-failures-logs-status.md.
+ * with its level.
  *
  * Two names take more than one level. `message.ignored` is at Info for the reason `not-owner` and at Debug for every
  * other reason, and `plugin.log` takes the level of the plugin's own line.
@@ -73,7 +73,7 @@ export const events = {
 
 export type EventName = keyof typeof events
 
-/** The level names `CHAD_LOG_LEVEL` and `chad logs --level` take, in any letter case, each with effect's level (FAIL-17). */
+/** The level names `CHAD_LOG_LEVEL` and `chad logs --level` take, in any letter case, each with effect's level. */
 export const logLevels: Readonly<Record<string, LogLevel.LogLevel>> = {
   all: "All",
   trace: "Trace",

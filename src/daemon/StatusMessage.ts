@@ -13,7 +13,7 @@ import type { ChatService } from "./Chats.ts"
 import type { Format } from "./Format.ts"
 
 /**
- * The status message of a running turn (docs/spec/04-discord.md): one message that chad posts when the turn starts,
+ * The status message of a running turn: one message that chad posts when the turn starts,
  * edits in place as the agent acts, and removes when the turn ends. It carries the Stop button.
  *
  * The seam for what posts after it: the entity opens the status message with `open`, the steps of the turn add their
@@ -21,13 +21,13 @@ import type { Format } from "./Format.ts"
  * ends with. `discard` is the one attempt at a message whose turn chad closes without running it.
  */
 
-/** The Stop button, which does what `/stop` does (DIS-39, SES-74). */
+/** The Stop button, which does what `/stop` does. */
 export const StopButton = ChatInteraction.button("stop", {
   label: "Stop",
   style: "danger",
 })
 
-/** Where a step of the turn puts its line. The function that adds a line also writes the step's log line (FAIL-11). */
+/** Where a step of the turn puts its line. The function that adds a line also writes the step's log line. */
 export interface Lines {
   readonly add: (line: string) => Effect.Effect<void>
 }
@@ -37,7 +37,7 @@ export const none: Lines = { add: () => Effect.void }
 
 /**
  * Lines added before the status message is open, so that a step logged before the post still gets its line from the
- * call that logs it (FAIL-11, DIS-81). `into` adds them to the message, in their order.
+ * call that logs it. `into` adds them to the message, in their order.
  */
 export const pending = () => {
   const added: Array<string> = []
@@ -51,7 +51,7 @@ export const pending = () => {
 export interface StatusMessage extends Lines {
   /** The message's id, or nothing when its post failed. */
   readonly id: string | undefined
-  /** Removes the message, once, and drops the edit that waits (DIS-35). A failed removal is logged (DIS-93). */
+  /** Removes the message, once, and drops the edit that waits. A failed removal is logged. */
   readonly remove: Effect.Effect<void>
 }
 
@@ -64,7 +64,7 @@ const notFound = (cause: Cause.Cause<unknown>) =>
       reason.error.reason._tag === "NotFound",
   )
 
-/** One attempt to delete a status message, whose failure is logged and nothing more (DIS-93, DIS-95). */
+/** One attempt to delete a status message, whose failure is logged and nothing more. */
 export const discard = (
   chat: ChatService,
   thread: ChatThread.ChatThread,
@@ -80,9 +80,9 @@ export const discard = (
 
 /**
  * Opens a turn's status message. A turn whose row holds the id of one an earlier start posted edits that one, and
- * posts none (SES-104, DIS-32). Otherwise it is posted, and `gone` says that the post found the thread gone (DIS-94).
- * Any other failure is logged and the turn goes on without one (DIS-93). Edits wait in `scope`, at most one every
- * `interval` (DIS-21), and every edit sends the Stop button again (DIS-33).
+ * posts none. Otherwise it is posted, and `gone` says that the post found the thread gone. Any other failure is
+ * logged and the turn goes on without one. Edits wait in `scope`, at most one every `interval`, and every edit sends
+ * the Stop button again.
  */
 export const open = Effect.fnUntraced(function* (options: {
   readonly chat: ChatService

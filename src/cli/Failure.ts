@@ -1,6 +1,6 @@
 import { Data } from "effect"
 
-/** The exit codes of the client commands, which are the rows of the table in docs/spec/10-cli.md. */
+/** The exit codes of the client commands. */
 export const ExitCode = {
   /** Done. */
   done: 0,
@@ -23,7 +23,7 @@ export type ExitCode = (typeof ExitCode)[keyof typeof ExitCode]
  * printed what there is to say.
  */
 export class Failure extends Data.TaggedError("Failure")<{
-  /** One of the table's codes, or, for `chad secret run`, any code its child exits with (CLI-51b). */
+  /** One of the codes of `ExitCode`, or, for `chad secret run`, any code its child exits with. */
   readonly code: ExitCode | number
   readonly message?: string
 }> {}

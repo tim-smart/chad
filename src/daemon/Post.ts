@@ -11,14 +11,14 @@ import type { Format } from "./Format.ts"
 import * as Logger from "./Logger.ts"
 
 /**
- * How chad posts in a session's thread (docs/spec/04-discord.md, "The answer"): the split of long Markdown, the reply to
- * the owner's message and the second try of an answer.
+ * How chad posts in a session's thread: the split of long Markdown, the reply to the owner's message and the second
+ * try of an answer.
  */
 
-/** The most messages a post goes out in. Whatever is left after them is one file (DIS-51). */
+/** The most messages a post goes out in. Whatever is left after them is one file. */
 export const maxParts = 5
 
-/** The name of the file that carries the rest of a post past its last message (DIS-51). */
+/** The name of the file that carries the rest of a post past its last message. */
 export const overflowFile = "answer.md"
 
 /** What became of a post: it reached the thread, the thread is gone, or it failed otherwise. */
@@ -27,12 +27,12 @@ export type Posting = "posted" | "gone" | "failed"
 export interface Options {
   /**
    * The owner's message the post replies to, under the formatter's reply options: the reply ping on, and a plain post
-   * when that message is gone (DIS-55, DIS-100, FAIL-66).
+   * when that message is gone.
    */
   readonly replyTo?: string | undefined
   /**
    * Set for an answer, with the ids its log line carries. A failed answer has its unsent remainder tried once more,
-   * and a second failure is logged as `turn.answer-unposted` (DIS-54, FAIL-256).
+   * and a second failure is logged as `turn.answer-unposted`.
    */
   readonly answer?: Readonly<Record<string, unknown>> | undefined
 }
@@ -41,7 +41,7 @@ export interface Options {
 const failure = (cause: Cause.Cause<unknown>) =>
   cause.reasons.find((reason) => reason._tag === "Fail")?.error
 
-/** Whether a post failed because the platform does not have the thread or the message (FAIL-44). */
+/** Whether a post failed because the platform does not have the thread or the message. */
 export const notFound = (cause: Cause.Cause<unknown>) => {
   const error = failure(cause)
   const chat =
@@ -69,10 +69,10 @@ const markdown = (
   )
 
 /**
- * Posts Markdown in the thread, in up to `maxParts` messages and then the file (DIS-51), and says what became of it.
+ * Posts Markdown in the thread, in up to `maxParts` messages and then the file, and says what became of it.
  * A failed post that left its reply unsent, and a failed answer, try what was not sent once more. That try is a plain
  * post, except after a failure that was worth a retry, so that a reply the platform refused does not make the post
- * fail (DIS-100, DIS-119). Its first part is a reply only when nothing was posted before it.
+ * fail. Its first part is a reply only when nothing was posted before it.
  */
 export const post = Effect.fnUntraced(function* (
   chat: ChatService,
@@ -117,7 +117,7 @@ export const post = Effect.fnUntraced(function* (
     error.cause.error.reason.retry === "retry"
       ? options.replyTo
       : undefined
-  // A part that may have landed is not sent again, and it still takes one of the messages (DIS-51). A post sends each
+  // A part that may have landed is not sent again, and it still takes one of the messages. A post sends each
   // part once, so what is uncertain is the one part whose write failed.
   const slots = maxParts - sent - ((error.uncertain ?? "") === "" ? 0 : 1)
   // `ChatMarkdown` posts at least one part, so with no slot left the rest goes out as the file alone.

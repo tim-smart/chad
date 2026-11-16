@@ -1,6 +1,6 @@
 /**
- * Skills (docs/spec/12-skills-and-mcp.md): `skills/<name>/SKILL.md` in the repo and in the image's bundled directory.
- * chad scans them itself and hands clanka the list, so a skill reaches a session only through an apply (MCP-1 to MCP-4).
+ * Skills: `skills/<name>/SKILL.md` in the repo and in the image's bundled directory.
+ * chad scans them itself and hands clanka the list, so a skill reaches a session only through an apply.
  */
 import { createHash } from "node:crypto"
 import { dirname, join, sep } from "node:path"
@@ -9,7 +9,7 @@ import { Effect, FileSystem, Schema } from "effect"
 import { Yaml } from "effect/encoding"
 import * as Messages from "./Messages.ts"
 
-/** The bundled skills, `skills/` at the root of the package, next to `dist/`: `/opt/chad/skills` in the image (MCP-145). */
+/** The bundled skills, `skills/` at the root of the package, next to `dist/`: `/opt/chad/skills` in the image. */
 export const bundledDirectory = fileURLToPath(
   new URL("../skills", import.meta.url),
 )
@@ -17,7 +17,7 @@ export const bundledDirectory = fileURLToPath(
 /** The skill file in a skill's directory. */
 export const fileName = "SKILL.md"
 
-/** A skill name is made of lower-case letters, digits and hyphens (MCP-8, CLI-85). */
+/** A skill name is made of lower-case letters, digits and hyphens. */
 export const validName = (name: string): boolean => /^[a-z0-9-]+$/.test(name)
 
 /** A skill whose `SKILL.md` passed the checks. Its name is its directory's. */
@@ -54,7 +54,7 @@ const filled = (value: unknown) =>
 
 /**
  * Checks one `SKILL.md`: front matter as clanka reads it, a name and a description that are not empty, and a name that is
- * the directory's (MCP-16, SELF-55 to SELF-57). As a name is its directory's, two skills never share one (SELF-58).
+ * the directory's. As a name is its directory's, two skills never share one.
  */
 export const parse = (dir: string, text: string): Skill | Bad => {
   const match = frontMatter.exec(text)
@@ -88,7 +88,7 @@ export const parse = (dir: string, text: string): Skill | Bad => {
  * directory that is missing or cannot be read holds none. A skill with a file that resolves outside the tree the directory
  * is in, or to nothing, through its own link or a linked directory, fails the checks. The model reads a skill's other
  * files through `repo/live`, so this holds for every file of the skill and not only its `SKILL.md`: a skill only ever
- * holds what was applied (MCP-1, MCP-2, REC-11, MCP-149).
+ * holds what was applied.
  */
 export const scan = Effect.fnUntraced(function* (
   directory: string | undefined,
@@ -178,7 +178,7 @@ export const scan = Effect.fnUntraced(function* (
   return { skills, bad } satisfies Found
 })
 
-/** The errors a check or an apply prints for a tree's skills, each naming the file (MCP-17, SELF-59). */
+/** The errors a check or an apply prints for a tree's skills, each naming the file. */
 export const check = Effect.fnUntraced(function* (tree: string) {
   const found = yield* scan(join(tree, "skills"))
   return {
@@ -189,13 +189,13 @@ export const check = Effect.fnUntraced(function* (tree: string) {
   }
 })
 
-/** The repo skills that hide a bundled skill of the same name (MCP-10 to MCP-12). */
+/** The repo skills that hide a bundled skill of the same name. */
 export const hiding = (repo: Found, bundled: Found): ReadonlyArray<string> => {
   const names = new Set(bundled.skills.map(({ name }) => name))
   return repo.skills.map(({ name }) => name).filter((name) => names.has(name))
 }
 
-/** The repo skills an apply adds, changes and removes, from the paths its commit changed (CLI-70). */
+/** The repo skills an apply adds, changes and removes, from the paths its commit changed. */
 export const changes = (
   before: Found,
   after: Found,
@@ -216,7 +216,7 @@ export const changes = (
   }
 }
 
-/** A skill as clanka takes it in the `skills` option (MCP-4). */
+/** A skill as clanka takes it in the `skills` option. */
 export interface Provided {
   readonly name: string
   readonly description: string
@@ -225,9 +225,8 @@ export interface Provided {
 
 /**
  * The list a session's Agent is built with. A repo skill wins over a bundled one of the same name, and safe mode lists
- * the bundled skills alone (MCP-3, MCP-7, MCP-10, MCP-105). Each one's content ends with where its files are: a repo
- * skill's through `repo/live`, unresolved, and a bundled one's in the image, and with where an edit goes (MCP-4,
- * MCP-102 to MCP-104, LOAD-87, MCP-146).
+ * the bundled skills alone. Each one's content ends with where its files are: a repo
+ * skill's through `repo/live`, unresolved, and a bundled one's in the image, and with where an edit goes.
  */
 export const provided = (options: {
   readonly repo: Found | undefined
@@ -257,8 +256,7 @@ export const provided = (options: {
 }
 
 /**
- * A bundled skill's hash: SHA-256 over the sorted relative paths of the files in its directory and their contents
- * (MCP-107).
+ * A bundled skill's hash: SHA-256 over the sorted relative paths of the files in its directory and their contents.
  */
 export const hash = Effect.fnUntraced(function* (directory: string) {
   const fs = yield* FileSystem.FileSystem
@@ -274,7 +272,7 @@ export const hash = Effect.fnUntraced(function* (directory: string) {
   return digest.digest("hex")
 })
 
-/** Where the hashes are kept (MCP-106, STO-18). */
+/** Where the hashes are kept. */
 export const hashesFile = (data: string) =>
   join(data, "state/bundled-skills.json")
 
@@ -282,8 +280,8 @@ const Hashes = Schema.Record(Schema.String, Schema.String)
 
 /**
  * Stores the bundled skills' hashes and gives the skills whose hash changed since the stored one while a repo skill
- * hides them. A file that is missing or cannot be read is a first boot, which gives none (MCP-13, MCP-14, MCP-106 to
- * MCP-108, SELF-118 to SELF-120). The file is written to a temporary name and renamed.
+ * hides them. A file that is missing or cannot be read is a first boot, which gives none. The file is written to a
+ * temporary name and renamed.
  */
 export const bundledChanged = Effect.fnUntraced(function* (options: {
   readonly data: string
@@ -319,12 +317,12 @@ export const bundledChanged = Effect.fnUntraced(function* (options: {
   )
 })
 
-/** The key of a skipped skill's notice (FAIL-233). */
+/** The key of a skipped skill's notice. */
 export const skippedKey = (name: string) => `skill-skipped:${name}`
 
 /**
  * What `chad skill new` writes: front matter with the name and an empty description, which a check refuses until the
- * agent says when to read the skill, and a line on what the body holds (SELF-139). The name is quoted, as YAML reads
+ * agent says when to read the skill, and a line on what the body holds. The name is quoted, as YAML reads
  * a name such as `123` or `true` as something other than a string.
  */
 export const template = (name: string) =>

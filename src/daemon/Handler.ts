@@ -31,7 +31,7 @@ export class Status extends Context.Service<
 
 /**
  * `/model`, which runs outside the handler of its event: the handler hands it the words after the command and where it
- * was typed, and is done (MOD-20, MOD-125).
+ * was typed, and is done.
  */
 export class ModelCommand extends Context.Service<
   ModelCommand,
@@ -49,8 +49,7 @@ export class ModelCommand extends Context.Service<
 >()("chad/Handler/ModelCommand") {}
 
 /**
- * `/safe [on|off]`, which runs `chad safe` in the daemon and posts what it prints where it was typed (CLI-138b,
- * CLI-141b, REC-118).
+ * `/safe [on|off]`, which runs `chad safe` in the daemon and posts what it prints where it was typed.
  */
 export const SafeCommand = Context.Reference<{
   readonly run: (
@@ -142,13 +141,13 @@ export const layer = (connection: Live) =>
           )
         // A command is not a persisted request, so its stored claim is what keeps a second delivery from running it
         // again: the other connection of a thread two bots share, a replay or a catch-up, before a restart or after
-        // it (SES-203, SES-204).
+        // it.
         const claim = (where: ChatThread.ChatThread) =>
           Sessions.claim(ChatEvent.dedupeKey(event), ChatThread.toString(where))
         const mentioned = ChatMessage.mentionsSelf(message)
         const word = command(message)
         const status = Effect.flatMap(Status, (service) => service.text)
-        // `/model` is answered where it was typed, in a plain channel too, which gets no thread for it (MOD-91).
+        // `/model` is answered where it was typed, in a plain channel too, which gets no thread for it.
         const model = (where: ChatThread.ChatThread) =>
           Effect.flatMap(ModelCommand, (service) =>
             service.run(words(message).slice(1), {
@@ -220,7 +219,7 @@ export const layer = (connection: Live) =>
 
         const key = ChatThread.toString(thread)
         // Every owner's message in a thread counts for where a notice outside a turn goes, a chat command included,
-        // and it is worked out here so that no query finds it (FAIL-158, FAIL-231, REC-145).
+        // and it is worked out here so that no query finds it.
         yield* (yield* Notices.Notices).arrived({
           connection: connection.name,
           thread: key,
@@ -272,7 +271,7 @@ export const layer = (connection: Live) =>
         // A save that fails because the data volume is full is answered in the thread, and the event is accepted once
         // the answer is posted, so it is not replayed and the message does not run later by itself. Any other failed
         // save, and a full one whose answer cannot be posted either, refuses the event so that the platform sends it
-        // again (FAIL-136, FAIL-137, SES-127).
+        // again.
         const unsaved = (cause: Cause.Cause<unknown>) =>
           Disk.isFull(cause)
             ? Logger.event(
@@ -328,11 +327,11 @@ export const layer = (connection: Live) =>
   )
 
 /**
- * The handler while the database cannot be opened or migrated (STO-118, FAIL-148, SES-29). An owner's message in a
- * direct message, or one that mentions chad, gets the error where it was posted, and a plain channel opens no thread
- * for it. `/status` gets the status, which renders with no database. A message that does not mention chad, in a thread
- * or a plain channel, is ignored, because which threads are sessions is in the database (FAIL-339). Nothing is saved,
- * so a post that fails is logged and the event is not refused.
+ * The handler while the database cannot be opened or migrated. An owner's message in a direct message, or one that
+ * mentions chad, gets the error where it was posted, and a plain channel opens no thread for it. `/status` gets the
+ * status, which renders with no database. A message that does not mention chad, in a thread or a plain channel, is
+ * ignored, because which threads are sessions is in the database. Nothing is saved, so a post that fails is logged and
+ * the event is not refused.
  */
 export const unusable = (
   connection: Live,
@@ -370,7 +369,7 @@ export const unusable = (
 /**
  * What chad does with a click of one connection. A click on Stop goes to the session of its thread as the `stop` request
  * that `/stop` sends, and is answered at once, before the stop is done, so that the answer is inside the platform's
- * deadline (SES-74, DIS-39). A click from anyone who is not an owner is answered and does nothing else (SES-75, DIS-40).
+ * deadline. A click from anyone who is not an owner is answered and does nothing else.
  */
 export const interactions = (connection: Live) =>
   ChatInteraction.group(StopButton)

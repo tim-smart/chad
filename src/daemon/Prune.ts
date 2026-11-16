@@ -7,18 +7,17 @@ import * as Logger from "./Logger.ts"
 import type * as Notices from "./Notices.ts"
 
 /**
- * The nightly prune, the only job that deletes old session data (docs/spec/02-storage.md, "Pruning and retention").
+ * The nightly prune, the only job that deletes old session data.
  */
 
-/** The key of "the nightly prune failed", a table key that the next prune that succeeds clears (FAIL-312). */
+/** The key of "the nightly prune failed", a table key that the next prune that succeeds clears. */
 export const failedKey = "prune-failed"
 
 /**
  * Prunes each session that was reset before `before`, in milliseconds since the epoch: its directory under `sessions`
  * first, then its history and its updates in a transaction of its own that also clears the prompt and the environment
  * of its row. The row stays and no `turns` row is touched. A session whose row is not cleared yet is selected again,
- * so the next run finishes one that an exit cut (STO-105, STO-106, STO-107, STO-171, STO-183, STO-185). It gives the
- * number of sessions it pruned.
+ * so the next run finishes one that an exit cut. It gives the number of sessions it pruned.
  */
 export const run = Effect.fnUntraced(function* (options: {
   readonly sessions: string
@@ -53,8 +52,8 @@ export const run = Effect.fnUntraced(function* (options: {
 
 /**
  * The prune as a `ClusterCron` in its default mode, at `at` in the owner's timezone as the boot read it, so a change of
- * timezone reaches it at the next restart (STO-104, STO-109, STO-111). A run that fails is logged and raises
- * `prune-failed`, and one that succeeds clears it (FAIL-284, FAIL-312).
+ * timezone reaches it at the next restart. A run that fails is logged and raises `prune-failed`,
+ * and one that succeeds clears it.
  */
 export const layer = (options: {
   readonly sessions: string

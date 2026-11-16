@@ -70,7 +70,7 @@ export interface Session {
   readonly environment: string | null
   readonly system: string | null
   readonly fingerprint: string | null
-  /** The chunk texts the session last saw, as a JSON object by plugin name (SWAP-11). */
+  /** The chunk texts the session last saw, as a JSON object by plugin name. */
   readonly chunks: string | null
   readonly tasks: string
 }
@@ -182,7 +182,7 @@ export const freeze = Effect.fnUntraced(function* (
   yield* sql`UPDATE sessions SET system = ${system}, fingerprint = ${fingerprint} WHERE id = ${id}`
 })
 
-/** Records the chunk texts a session has seen, by plugin name (SWAP-11). */
+/** Records the chunk texts a session has seen, by plugin name. */
 export const chunks = Effect.fnUntraced(function* (
   id: string,
   seen: Readonly<Record<string, string>>,
@@ -241,14 +241,14 @@ const write = Effect.fnUntraced(function* (
     yield* sql`INSERT OR IGNORE INTO steers (request_key, turn_id) VALUES (${steer.key}, ${steer.turn})`
   }
   // A turn's prompt is recorded with the batch that stores it, so the record outlives a compaction that drops the
-  // message itself (STO-207).
+  // message itself.
   for (const message of messages) {
     const key = requestOf(message)
     if (key !== undefined) {
       yield* sql`INSERT OR IGNORE INTO prompts (request_key, session_id) VALUES (${key}, ${id})`
     }
     // The lines an update message told are cleared with the batch that stores it, so a crash can neither lose them
-    // nor have them told twice (FAIL-215, STO-132).
+    // nor have them told twice.
     const told = updatesOf(message)
     if (told !== undefined) {
       yield* sql`DELETE FROM session_updates WHERE session_id = ${id} AND seq <= ${told}`
@@ -315,7 +315,7 @@ export interface Start {
   /** How many of the earlier starts a graceful stop cut. */
   readonly cuts: number
   readonly earlier: Usage
-  /** The id of the status message an earlier start posted, which this one edits (STO-75, SES-104). */
+  /** The id of the status message an earlier start posted, which this one edits. */
   readonly status: string | undefined
   /** When the request's first attempt started. */
   readonly at: number
@@ -369,7 +369,7 @@ export const started = Effect.fnUntraced(function* (start: {
   } satisfies Start
 })
 
-/** Records the id of a turn's status message as soon as its post returns, so that a resumed start edits it (DIS-90). */
+/** Records the id of a turn's status message as soon as its post returns, so that a resumed start edits it. */
 export const status = Effect.fnUntraced(function* (key: string, id: string) {
   const sql = yield* SqlClient.SqlClient
   yield* sql`UPDATE turns SET status_message_id = ${id} WHERE request_key = ${key}`
@@ -410,7 +410,7 @@ const updatesOf = (message: Prompt.Message): number | undefined => {
 
 /**
  * Whether the stored history took the prompt of a turn at some point, which it has not when a kill came before the
- * prompt was stored (SES-161). A compaction since then does not change the answer (STO-207).
+ * prompt was stored. A compaction since then does not change the answer.
  */
 export const holds = Effect.fnUntraced(function* (key: string) {
   const sql = yield* SqlClient.SqlClient
@@ -422,7 +422,7 @@ export const holds = Effect.fnUntraced(function* (key: string) {
 
 /**
  * Records that a chat command runs, by the dedupe key of its event, and says whether it is the first time. A command
- * whose key is recorded already, in this process or before a restart, does not run again (SES-203, SES-204).
+ * whose key is recorded already, in this process or before a restart, does not run again.
  */
 export const claim = Effect.fnUntraced(function* (key: string, thread: string) {
   const sql = yield* SqlClient.SqlClient
@@ -436,7 +436,7 @@ export const claim = Effect.fnUntraced(function* (key: string, thread: string) {
 
 /**
  * The request of a turn that a restart cut in a thread's current session: a `turns` row that has no outcome. It takes
- * the session before any other request of the thread (SES-200).
+ * the session before any other request of the thread.
  */
 export const unfinished = Effect.fnUntraced(function* (thread: string) {
   const sql = yield* SqlClient.SqlClient
@@ -450,7 +450,7 @@ export const unfinished = Effect.fnUntraced(function* (thread: string) {
 
 /**
  * The sessions that the catch-up after a fresh identify reads forward in: each one that has not ended and whose last
- * handled owner message is younger than `window`, with the kind of its thread and that message's id (SES-37, SES-199).
+ * handled owner message is younger than `window`, with the kind of its thread and that message's id.
  */
 export const active = Effect.fnUntraced(function* (since: number) {
   const sql = yield* SqlClient.SqlClient
@@ -508,7 +508,7 @@ export const usage = Effect.fnUntraced(function* (key: string, used: Usage) {
   `
 })
 
-/** A line to tell the model, as `session_updates` holds it (STO-170). */
+/** A line to tell the model, as `session_updates` holds it. */
 export type Line =
   | {
       readonly turn: string
@@ -544,8 +544,8 @@ const insertLine = Effect.fnUntraced(function* (session: string, line: Line) {
 })
 
 /**
- * Adds a line that the session's next turn tells the model (FAIL-131): a post of chad's in the thread that the
- * session's history does not hold.
+ * Adds a line that the session's next turn tells the model: a post of chad's in the thread that the session's
+ * history does not hold.
  */
 export const tell = Effect.fnUntraced(function* (session: string, line: Line) {
   const sql = yield* SqlClient.SqlClient
@@ -555,8 +555,8 @@ export const tell = Effect.fnUntraced(function* (session: string, line: Line) {
 /**
  * The lines that wait to be told to a session's model, oldest first, with the sequence number of the last. When a turn
  * waits to be told, the lines start with the session's other turns since the last answer the owner read, whose lines
- * an earlier update message told and cleared (FAIL-127). Those come from `turns`, so the clearing stays one
- * transaction with the history (FAIL-215).
+ * an earlier update message told and cleared. Those come from `turns`, so the clearing stays one transaction with
+ * the history.
  */
 export const updates = Effect.fnUntraced(function* (session: string) {
   const sql = yield* SqlClient.SqlClient
@@ -617,10 +617,10 @@ export class NoTurn extends Data.TaggedError("NoTurn")<{
 }> {}
 
 /**
- * Records how a turn ended: the outcome, and for a failed turn the reason's tag and the whole reason (STO-76). A turn
+ * Records how a turn ended: the outcome, and for a failed turn the reason's tag and the whole reason. A turn
  * whose end chad posted in the thread in place of an answer gets its line for the next turn in the same transaction.
  * A request with no row fails with `NoTurn` and writes nothing, its line included, so that an end is recorded only
- * where the volume holds it (FAIL-135).
+ * where the volume holds it.
  */
 export const ended = Effect.fnUntraced(function* (end: {
   readonly key: string
@@ -654,8 +654,8 @@ export const ended = Effect.fnUntraced(function* (end: {
 })
 
 /**
- * Records a stored request that no longer decodes as a failed turn, with no start counted (SES-152, SES-205). A
- * request that never started gets a row of the thread's current session with a fresh turn id, and one that a restart
+ * Records a stored request that no longer decodes as a failed turn, with no start counted. A request that never
+ * started gets a row of the thread's current session with a fresh turn id, and one that a restart
  * cut keeps the id and session of its row. The model is told of it with the next turn. Gives the turn id and the
  * session, or nothing when the row has an outcome already.
  */
@@ -692,7 +692,7 @@ export const undecodable = Effect.fnUntraced(function* (row: {
           failure: "Internal",
         })
       }
-      // The status message a cut start of the turn left behind (DIS-95).
+      // The status message a cut start of the turn left behind.
       return {
         turn: ended.turn_id,
         session,
@@ -702,7 +702,7 @@ export const undecodable = Effect.fnUntraced(function* (row: {
   )
 })
 
-/** What "Recent" in `chad status` reads from the `turns` table (FAIL-114). */
+/** What "Recent" in `chad status` reads from the `turns` table. */
 export interface Recent {
   /** The failed turns since `since`, as a count for each reason. */
   readonly failed: ReadonlyArray<{

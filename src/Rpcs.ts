@@ -48,7 +48,7 @@ export const Recent = Schema.Union([
 ])
 export type Recent = typeof Recent.Type
 
-/** The login state `chad status` shows beside the model (CLI-125). */
+/** The login state `chad status` shows beside the model. */
 export const LoginState = Schema.Literals([
   "logged-in",
   "logged-out",
@@ -57,7 +57,7 @@ export const LoginState = Schema.Literals([
 ])
 export type LoginState = typeof LoginState.Type
 
-/** The main model in force and its login state (CLI-125). */
+/** The main model in force and its login state. */
 export const ModelState = Schema.Struct({
   spec: Schema.String,
   login: LoginState,
@@ -66,7 +66,7 @@ export type ModelState = typeof ModelState.Type
 
 /**
  * One key of a plugin's settings listing: its path, where its value came from, and whether it was read at load or at
- * call time. It never holds a value (SET-71, SET-72, SET-94).
+ * call time. It never holds a value.
  */
 export const SettingItem = Schema.Struct({
   key: Schema.String,
@@ -95,15 +95,15 @@ export const Report = Schema.Struct({
   connections: Schema.Array(
     Schema.Struct({ name: Schema.String, kind: Schema.String }),
   ),
-  /** When the daemon started, in milliseconds since the epoch. A daemon before the `failures` slice sends none. */
+  /** When the daemon started, in milliseconds since the epoch. An older daemon sends none. */
   started: Schema.optionalKey(Schema.Number),
-  /** The "Problems" block: each standing condition once, from what the daemon holds without the database (FAIL-112). */
+  /** The "Problems" block: each standing condition once, from what the daemon holds without the database. */
   problems: Schema.optionalKey(Schema.Array(Schema.String)),
-  /** The "Recent" block, from the `turns` table, or why it could not be read (FAIL-114). */
+  /** The "Recent" block, from the `turns` table, or why it could not be read. */
   recent: Schema.optionalKey(Recent),
-  /** The main model and the login state, once the models are loaded (CLI-125). */
+  /** The main model and the login state, once the models are loaded. */
   model: Schema.optionalKey(ModelState),
-  /** Each loaded plugin's count of warnings and errors since it loaded, with the latest of those lines (FAIL-117). */
+  /** Each loaded plugin's count of warnings and errors since it loaded, with the latest of those lines. */
   plugins: Schema.optionalKey(
     Schema.Array(
       Schema.Struct({
@@ -111,22 +111,22 @@ export const Report = Schema.Struct({
         warnings: Schema.Number,
         errors: Schema.Number,
         latest: Schema.optionalKey(Schema.String),
-        /** The mark of a plugin that kept its running version (SWAP-141, SWAP-142). */
+        /** The mark of a plugin that kept its running version. */
         previous: Schema.optionalKey(Schema.String),
-        /** The keys it read at load and since, with no value (SET-70, SET-94). */
+        /** The keys it read at load and since, with no value. */
         settings: Schema.optionalKey(Schema.Array(SettingItem)),
       }),
     ),
   ),
-  /** The plugins the applied `chad.json` turns off (SET-34). */
+  /** The plugins the applied `chad.json` turns off. */
   off: Schema.optionalKey(Schema.Array(Schema.String)),
-  /** The held timers of each plugin that is off or deleted from the repo, which "Problems" leaves out (SET-41, SET-85). */
+  /** The held timers of each plugin that is off or deleted from the repo, which "Problems" leaves out. */
   held: Schema.optionalKey(
     Schema.Array(
       Schema.Struct({ plugin: Schema.String, count: Schema.Number }),
     ),
   ),
-  /** Safe mode and what turned it on, the applied commit and whether `work/` holds a draft (CLI-125b to CLI-125d). */
+  /** Safe mode and what turned it on, the applied commit and whether `work/` holds a draft. */
   repository: Schema.optionalKey(
     Schema.Struct({
       safe: Schema.Literals(["off", "variable", "toggle"]),
@@ -136,13 +136,13 @@ export const Report = Schema.Struct({
       draft: Schema.optional(Schema.Boolean),
     }),
   ),
-  /** Each plugin skipped at boot, with the first line of why (CLI-125). */
+  /** Each plugin skipped at boot, with the first line of why. */
   skipped: Schema.optionalKey(
     Schema.Array(Schema.Struct({ name: Schema.String, reason: Schema.String })),
   ),
-  /** The repo skills that hide a bundled skill of the same name (MCP-12, SELF-121). */
+  /** The repo skills that hide a bundled skill of the same name. */
   hiding: Schema.optionalKey(Schema.Array(Schema.String)),
-  /** Each MCP server, with its tool count or the first line of its error (CLI-125f). */
+  /** Each MCP server, with its tool count or the first line of its error. */
   mcp: Schema.optionalKey(
     Schema.Array(
       Schema.Struct({
@@ -190,7 +190,7 @@ export const OpenRpcs = RpcGroup.make(
   Rpc.make("Status", { success: Report }),
 )
 
-/** What a `chad login` through the daemon hears: the code to show, then how it ended (MOD-55, MOD-56, MOD-107). */
+/** What a `chad login` through the daemon hears: the code to show, then how it ended. */
 export const LoginEvent = Schema.Union([
   Schema.TaggedStruct("Code", {
     verifyUrl: Schema.String,
@@ -204,7 +204,7 @@ export const LoginEvent = Schema.Union([
 ])
 export type LoginEvent = typeof LoginEvent.Type
 
-/** A login the daemon ran that did not complete, with the reason a waiting turn gets too (MOD-75, MOD-76). */
+/** A login the daemon ran that did not complete, with the reason a waiting turn gets too. */
 export class LoginFailed extends Schema.TaggedError<LoginFailed>(
   "chad/Rpcs/LoginFailed",
 )("LoginFailed", {
@@ -216,14 +216,14 @@ export class LoginFailed extends Schema.TaggedError<LoginFailed>(
   ]),
 }) {}
 
-/** What `chad model` asks for: a missing field is left as it is, and `null` clears an override (MOD-82, MOD-83). */
+/** What `chad model` asks for: a missing field is left as it is, and `null` clears an override. */
 export const ModelRequest = Schema.Struct({
   main: Schema.optionalKey(Schema.String),
   subagent: Schema.optionalKey(Schema.NullOr(Schema.String)),
   summarizer: Schema.optionalKey(Schema.NullOr(Schema.String)),
 })
 
-/** What a `chad model` through the daemon hears: the code of a login it needs, then what it prints (MOD-92). */
+/** What a `chad model` through the daemon hears: the code of a login it needs, then what it prints. */
 export const ModelEvent = Schema.Union([
   Schema.TaggedStruct("Code", {
     verifyUrl: Schema.String,
@@ -233,7 +233,7 @@ export const ModelEvent = Schema.Union([
 ])
 export type ModelEvent = typeof ModelEvent.Type
 
-/** A change the daemon stored nothing of, with what the CLI prints (MOD-16, MOD-124). */
+/** A change the daemon stored nothing of, with what the CLI prints. */
 export class ModelUnchanged extends Schema.TaggedError<ModelUnchanged>(
   "chad/Rpcs/ModelUnchanged",
 )("ModelUnchanged", { text: Schema.String }) {}
@@ -250,7 +250,7 @@ export const RepoRequest = Schema.Union([
   Schema.TaggedStruct("Timezone", { zone: Schema.String }),
   /**
    * `chad secret set`, the one request that carries a value to the daemon. What comes back is the printed lines, which
-   * hold names and flags and never the value (CRED-25, CRED-81). A missing note keeps the stored one and `""` clears it.
+   * hold names and flags and never the value. A missing note keeps the stored one and `""` clears it.
    */
   Schema.TaggedStruct("SecretSet", {
     name: Schema.String,
@@ -259,15 +259,15 @@ export const RepoRequest = Schema.Union([
   }),
   Schema.TaggedStruct("SecretRm", { name: Schema.String }),
   Schema.TaggedStruct("Purge", { name: Schema.String }),
-  /** `chad mcp restart` (MCP-39, MCP-42). */
+  /** `chad mcp restart`. */
   Schema.TaggedStruct("McpRestart", {}),
 ])
 export type RepoRequest = typeof RepoRequest.Type
 
-/** What such a command hears: that it waits behind another command, then what it prints and its exit code (CLI-40). */
+/** What such a command hears: that it waits behind another command, then what it prints and its exit code. */
 export const RepoEvent = Schema.Union([
   Schema.TaggedStruct("Waiting", { text: Schema.String }),
-  /** Lines printed before the command ends, as an apply's commit line before it waits for the MCP rebuild (MCP-112). */
+  /** Lines printed before the command ends, as an apply's commit line before it waits for the MCP rebuild. */
   Schema.TaggedStruct("Printed", { stdout: Schema.Array(Schema.String) }),
   Schema.TaggedStruct("Ended", {
     stdout: Schema.Array(Schema.String),
@@ -277,7 +277,7 @@ export const RepoEvent = Schema.Union([
 ])
 export type RepoEvent = typeof RepoEvent.Type
 
-/** What `chad backup` hears while it takes its place in the queue: that it waits, then that it holds the place (STO-93). */
+/** What `chad backup` hears while it takes its place in the queue: that it waits, then that it holds the place. */
 export const HoldEvent = Schema.Union([
   Schema.TaggedStruct("Waiting", { text: Schema.String }),
   Schema.TaggedStruct("Held", {}),
@@ -303,11 +303,11 @@ const checked = RpcGroup.make(
     success: Schema.Array(Connections.Checked),
     error: Connections.Rejected,
   }),
-  /** `chad login`. It takes no place in the queue (CLI-159), and the daemon's timeout is its only one (MOD-59). */
+  /** `chad login`. It takes no place in the queue, and the daemon's timeout is its only one. */
   Rpc.make("Login", { success: LoginEvent, error: LoginFailed, stream: true }),
   /** `chad logout`, which says whether the model in force needs the login. */
   Rpc.make("Logout", { success: Schema.Struct({ spec: Schema.String }) }),
-  /** `chad model`. It takes no place in the queue (CLI-159), and a killed CLI ends its change before the store. */
+  /** `chad model`. It takes no place in the queue, and a killed CLI ends its change before the store. */
   Rpc.make("Model", {
     payload: { request: ModelRequest },
     success: ModelEvent,
@@ -315,8 +315,8 @@ const checked = RpcGroup.make(
     stream: true,
   }),
   /**
-   * The commands that change what is loaded from the repo, which run one at a time in the queue (SWAP-40). From an
-   * apply's commit on, a CLI that goes away no longer stops it (CLI-43).
+   * The commands that change what is loaded from the repo, which run one at a time in the queue. From an
+   * apply's commit on, a CLI that goes away no longer stops it.
    */
   Rpc.make("Repository", {
     payload: { request: RepoRequest },
@@ -325,10 +325,10 @@ const checked = RpcGroup.make(
   }),
   /**
    * `chad backup` with a daemon running. The call takes a place in the queue and holds it until the CLI ends the call,
-   * or goes away (STO-93, CLI-37).
+   * or goes away.
    */
   Rpc.make("Backup", { success: HoldEvent, stream: true }),
-  /** A `chad backup` that failed while it held its place, which the daemon logs as `backup.failed` (STO-191, STO-214). */
+  /** A `chad backup` that failed while it held its place, which the daemon logs as `backup.failed`. */
   Rpc.make("BackupFailed", { payload: { error: Schema.String } }),
 ).middleware(VersionCheck)
 

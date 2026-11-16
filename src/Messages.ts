@@ -1,13 +1,13 @@
 /**
  * What chad posts in chat, its CLI errors and the messages the model reads as tool results. Each template is pinned to
- * the spec's wording by a test, and a scenario refers to a message by its name here.
+ * its wording by a test, and a scenario refers to a message by its name here.
  */
 import * as Connections from "./Connections.ts"
 import type * as Failed from "./daemon/Failed.ts"
 import type { Format } from "./daemon/Format.ts"
 import type * as Repo from "./Repo.ts"
 
-/** The start-up check found no data directory (docs/spec/01-image-and-volume.md, IMG-58). */
+/** The start-up check found no data directory. */
 export const dataMissing = (data: string) =>
   `chad serve: ${data} does not exist. Mount the data volume there or set CHAD_DATA.`
 
@@ -30,23 +30,23 @@ export const dataNotWritable = (
 export const repoNotOwned = (repo: string, uid: number, owner: Ownership) =>
   `chad serve: ${repo} is owned by uid ${owner.uid}, gid ${owner.gid}, mode ${owner.mode} and chad runs as uid ${uid}. git refuses a repository owned by another user. Give it to uid ${uid}: chown -R ${uid}:${uid} ${repo}`
 
-/** The shard count guard found a database made with another count (docs/spec/02-storage.md, STO-53). */
+/** The shard count guard found a database made with another count. */
 export const shardCountChanged = (stored: number, now: number) =>
   `chad serve: this database was made with ${stored} shards and this chad uses ${now}. Messages stored under the old count would never be delivered, so chad will not start.`
 
-/** Another `chad serve` holds the daemon lock on the volume (docs/spec/01-image-and-volume.md, IMG-60). */
+/** Another `chad serve` holds the daemon lock on the volume. */
 export const lockHeld = (data: string) =>
   `chad serve: another chad serve holds the lock on ${data}.`
 
-/** The socket path is longer than a unix socket path may be. `chad serve` and the CLI print the same line (IMG-63, CLI-12). */
+/** The socket path is longer than a unix socket path may be. `chad serve` and the CLI print the same line. */
 export const socketPathTooLong = (path: string, bytes: number, limit: number) =>
   `chad serve: the socket path ${path} is ${bytes} bytes and a unix socket path holds ${limit}. Set CHAD_SOCKET to a shorter path, for example /tmp/chad.sock.`
 
-/** The socket could not be created for a reason that is not the filesystem (CLI-213). */
+/** The socket could not be created for a reason that is not the filesystem. */
 export const socketFailed = (path: string, code: string) =>
   `chad serve: cannot create the socket ${path} (${code}).`
 
-/** The filesystem under the socket's directory cannot hold a unix socket (IMG-63, CLI-213). */
+/** The filesystem under the socket's directory cannot hold a unix socket. */
 export const socketUnsupported = (
   path: string,
   code: string,
@@ -56,19 +56,19 @@ export const socketUnsupported = (
 ) =>
   `chad serve: cannot create the socket ${path} (${code}). ${directory} is on ${type}, which cannot hold a unix socket. chad needs a local filesystem under ${data}.`
 
-/** The volume is on a network or FUSE filesystem (IMG-70). */
+/** The volume is on a network or FUSE filesystem. */
 export const filesystemNetwork = (data: string, type: string) =>
   `${data} is on ${type}. chad needs a local filesystem: SQLite's lock and write-ahead log are not safe on a network or FUSE filesystem.`
 
-/** The volume is on the container's own layer (IMG-70). */
+/** The volume is on the container's own layer. */
 export const filesystemContainer = (data: string) =>
   `${data} is on the container's own filesystem, not on a volume. Everything chad writes is lost when the container is removed. Mount a volume at ${data}.`
 
-/** The volume is on tmpfs or ramfs (IMG-70). */
+/** The volume is on tmpfs or ramfs. */
 export const filesystemMemory = (data: string, type: string) =>
   `${data} is on ${type}, which is memory. Everything chad writes is lost when the container stops.`
 
-/** One of `HOME`, `NPM_CONFIG_PREFIX` and `XDG_CACHE_HOME` is on the container's own layer or on tmpfs (IMG-72). */
+/** One of `HOME`, `NPM_CONFIG_PREFIX` and `XDG_CACHE_HOME` is on the container's own layer or on tmpfs. */
 export const filesystemInstall = (
   name: string,
   value: string,
@@ -77,7 +77,7 @@ export const filesystemInstall = (
 ) =>
   `${name}=${value} is on ${where}, not on the volume at ${data}. What is installed there is lost with the container. In the chad image the volume is mounted at /data.`
 
-/** `chad db query` or `chad db check` found no database file on the volume (docs/spec/02-storage.md). */
+/** `chad db query` or `chad db check` found no database file on the volume. */
 export const dbMissing = (command: "query" | "check", path: string) =>
   `chad db ${command}: no database at ${path}`
 
@@ -100,11 +100,11 @@ export const logsLevel = () =>
 export const logsSince = () =>
   "a duration such as 15m or 2h, or an ISO 8601 time"
 
-/** A command needs the daemon and the lock is free (docs/spec/10-cli.md). */
+/** A command needs the daemon and the lock is free. */
 export const noDaemon = (command: string, lock: string) =>
   `chad ${command}: no daemon (lock ${lock} is free)`
 
-/** The lock is held and the daemon gave no answer in time (CLI-15). */
+/** The lock is held and the daemon gave no answer in time. */
 export const daemonSilent = (
   command: string,
   socket: string,
@@ -112,42 +112,42 @@ export const daemonSilent = (
 ) =>
   `chad ${command}: daemon is starting or frozen (lock held, no answer on ${socket} in ${seconds}s)`
 
-/** The one line of a `chad health` that passed (CLI-212). */
+/** The one line of a `chad health` that passed. */
 export const healthy = () => "chad health: ok"
 
-/** The daemon refused a command because the CLI is of another chad version (CLI-22, CLI-214). */
+/** The daemon refused a command because the CLI is of another chad version. */
 export const versionMismatch = (command: string, cli: string, daemon: string) =>
   `chad ${command}: refused: this CLI is chad ${cli} and the daemon is chad ${daemon}. Run the command with the daemon's own CLI, for example: docker exec -it chad chad ${command}`
 
-/** The CLI refused an owner command because `CHAD_SESSION` is set (CLI-48, CLI-217). */
+/** The CLI refused an owner command because `CHAD_SESSION` is set. */
 export const ownerRefused = (command: string, session: string) =>
   `chad ${command}: refused: '${command}' is an owner command and this shell belongs to agent session ${session}. Ask the owner to run it.`
 
-/** The daemon stopped answering in the middle of a command (CLI-218). */
+/** The daemon stopped answering in the middle of a command. */
 export const daemonGone = (command: string) =>
   `chad ${command}: the daemon went away during the call`
 
-/** A command that writes with no daemon found no data directory (CLI-219). */
+/** A command that writes with no daemon found no data directory. */
 export const volumeMissing = (command: string, data: string) =>
   `chad ${command}: ${data} does not exist. Mount the data volume there or set CHAD_DATA.`
 
-/** A CLI that is older than the volume was asked to write with no daemon (CLI-220). */
+/** A CLI that is older than the volume was asked to write with no daemon. */
 export const cliOlder = (command: string, cli: string, volume: string) =>
   `chad ${command}: refused: this CLI is chad ${cli} and the volume was written by chad ${volume}. Use a chad of that version or a newer one.`
 
-/** A daemon took the lock while a command that writes with no daemon was at work (CLI-221). */
+/** A daemon took the lock while a command that writes with no daemon was at work. */
 export const daemonStarted = (command: string) =>
   `chad ${command}: a daemon started during the command, run chad ${command} again`
 
-/** A file the command needs could not be read. `detail` is the error's code (CLI-222). */
+/** A file the command needs could not be read. `detail` is the error's code. */
 export const unreadable = (command: string, path: string, detail: string) =>
   `chad ${command}: cannot read ${path} (${detail})`
 
-/** `secrets/connections.json` holds something else than connections (CLI-222). */
+/** `secrets/connections.json` holds something else than connections. */
 export const malformed = (command: string, path: string) =>
   `chad ${command}: ${path} is not a connections file`
 
-/** The stored connections were written by a newer chad (STO-197). */
+/** The stored connections were written by a newer chad. */
 export const newerFormat = (
   command: string,
   path: string,
@@ -156,15 +156,15 @@ export const newerFormat = (
 ) =>
   `chad ${command}: ${path} has format ${found} and this chad reads format ${known}. Use the chad that wrote it.`
 
-/** No token came on stdin, from the file or from the prompt (CLI-223). */
+/** No token came on stdin, from the file or from the prompt. */
 export const noToken = (command: string) =>
   `chad ${command}: no token was given`
 
-/** The prompt of a token typed at a terminal (CLI-223). */
+/** The prompt of a token typed at a terminal. */
 export const tokenPrompt = () => "Discord bot token"
 
 /**
- * Why a `connection` or `owner` command changed nothing (CLI-224). The reason comes from the store, which the CLI
+ * Why a `connection` or `owner` command changed nothing. The reason comes from the store, which the CLI
  * and the daemon share, so the line is the same whichever of them refused. For the two reasons about a file, `name`
  * is the file's path.
  */
@@ -205,21 +205,21 @@ export const connectionRejected = (
   }
 }
 
-/** `chad serve` could not use the stored connections (STO-197). */
+/** `chad serve` could not use the stored connections. */
 export const connectionsRefused = (rejected: {
   readonly reason: Connections.Reason
   readonly name: string
   readonly detail: string
 }) => connectionRejected("serve", rejected)
 
-/** What a `connection` or `owner` command prints when it has made its change (CLI-225). */
+/** What a `connection` or `owner` command prints when it has made its change. */
 export const connectionAdded = (name: string, kind: string) =>
   `connection ${name} added (${kind})`
 
-/** The invite URL of a Discord connection that was added (CLI-208, CLI-225). */
+/** The invite URL of a Discord connection that was added. */
 export const connectionInvite = (url: string) => `invite: ${url}`
 
-/** The privileged intents an invite cannot grant (CLI-209, CLI-225). */
+/** The privileged intents an invite cannot grant. */
 export const connectionIntents = (names: ReadonlyArray<string>) =>
   `intents: turn on ${names.join(", ")} for the bot in the Discord developer portal, because an invite URL cannot grant a privileged intent`
 
@@ -231,19 +231,19 @@ export const connectionRemoved = (name: string) => `connection ${name} removed`
 export const ownerAdded = (id: string, connection: string) =>
   `owner ${id} added to ${connection}`
 
-/** An owner change that found nothing to change (CLI-233). */
+/** An owner change that found nothing to change. */
 export const ownerListed = (id: string, connection: string) =>
   `owner ${id} is already an owner of ${connection}`
 
-/** What `chad owner remove` prints when it has made its change (CLI-225). */
+/** What `chad owner remove` prints when it has made its change. */
 export const ownerRemoved = (id: string, connection: string) =>
   `owner ${id} removed from ${connection}`
 
-/** An owner change that found nothing to change (CLI-233). */
+/** An owner change that found nothing to change. */
 export const ownerUnlisted = (id: string, connection: string) =>
   `owner ${id} is not an owner of ${connection}`
 
-/** One line of `chad connection list` (CLI-226). */
+/** One line of `chad connection list`. */
 export const connectionLine = (
   name: string,
   kind: string,
@@ -251,10 +251,10 @@ export const connectionLine = (
 ) =>
   `${name} (${kind}) owners: ${owners.length === 0 ? "none" : owners.join(", ")}`
 
-/** What `chad connection list` and `chad connection check` print when nothing is stored (CLI-226). */
+/** What `chad connection list` and `chad connection check` print when nothing is stored. */
 export const noConnections = () => "no connections"
 
-/** One line of `chad connection check` (CLI-227). */
+/** One line of `chad connection check`. */
 export const connectionChecked = (
   name: string,
   kind: string,
@@ -281,31 +281,31 @@ export const duration = (milliseconds: number) => {
     : `${Math.floor(seconds / 60)}m ${seconds % 60}s`
 }
 
-/** A turn was stopped (docs/spec/04-discord.md, DIS-59). */
+/** A turn was stopped. */
 export const stopped = (format: Format, milliseconds: number) =>
   format.subtext(`Stopped after ${duration(milliseconds)}.`)
 
 /**
  * The prompt of a turn that a restart cut, which a resumed start sends in place of the owner's message
- * (docs/spec/03-sessions-and-turns.md, SES-102). The model reads it, and the owner never sees it.
+ *. The model reads it, and the owner never sees it.
  */
 export const restartNote = () =>
   "[chad restarted while this turn was running. A script that was cut off may already have had its side effects. Check before you repeat anything, then finish the request above.]"
 
-/** The line every failed-turn message and the give-up message end with, as the formatter's subtext (FAIL-65). */
+/** The line every failed-turn message and the give-up message end with, as the formatter's subtext. */
 export const turnLine = (format: Format, turn: string) =>
   format.subtext(
     `Turn ${turn}. \`chad logs --turn ${turn}\` shows what it did.`,
   )
 
-/** chad gave up on a turn that two kills cut (docs/spec/03-sessions-and-turns.md, SES-106, FAIL-63). */
+/** chad gave up on a turn that two kills cut. */
 export const gaveUp = (format: Format, turn: string) =>
   `This turn was cut off by a crash twice, so I've stopped retrying it. Whatever its scripts already did is done. Send a message to carry on.\n${turnLine(format, turn)}`
 
-/** The most of an action's text that its line in the status message shows (DIS-20). */
+/** The most of an action's text that its line in the status message shows. */
 const statusLineChars = 120
 
-/** How many actions the status message shows, the newest last (DIS-20). */
+/** How many actions the status message shows, the newest last. */
 export const statusActions = 5
 
 /** An action's text cut to its first line and to `statusLineChars`, with the cut marked. */
@@ -322,7 +322,7 @@ const codeSpan = (text: string) =>
 
 /**
  * The status message: a header with the turn's start as the formatter's relative time, and the last actions, each as
- * its subtext (DIS-20, DIS-22).
+ * its subtext.
  */
 export const statusMessage = (
   format: Format,
@@ -334,41 +334,41 @@ export const statusMessage = (
     ...lines.slice(-statusActions).map((line) => format.subtext(line)),
   ].join("\n")
 
-/** A script's line in the status message: the script's own source, cut (DIS-24). */
+/** A script's line in the status message: the script's own source, cut. */
 export const statusScript = (source: string) => {
   const line = oneLine(source)
   return line.endsWith("…") ? `${codeSpan(line.slice(0, -1))}…` : codeSpan(line)
 }
 
-/** A sub-agent's line in the status message: the start of its prompt (DIS-26). */
+/** A sub-agent's line in the status message: the start of its prompt. */
 export const statusSubagent = (prompt: string) =>
   `Sub-agent: ${oneLine(prompt)}`
 
-/** A compaction's line in the status message (DIS-27). */
+/** A compaction's line in the status message. */
 export const statusCompaction = () => "Compacted the history"
 
-/** The line of a model error clanka retries: its cause and the count of the turn's retries so far (DIS-28, FAIL-80). */
+/** The line of a model error clanka retries: its cause and the count of the turn's retries so far. */
 export const statusRetry = (cause: string, retry: number) =>
   `Model error (${cause}), retrying (${retry} so far in this turn)`
 
-/** The line of a steering message the agent has read: its first 60 characters, on one line (DIS-30). */
+/** The line of a steering message the agent has read: its first 60 characters, on one line. */
 export const statusRead = (text: string) =>
   `Read your message: ${Array.from(text.trim().replace(/\s+/g, " ")).slice(0, 60).join("")}`
 
-/** The line of a turn that is resumed after a restart (DIS-32). */
+/** The line of a turn that is resumed after a restart. */
 export const statusRestarted = () => "Restarted mid-turn, picking it back up."
 
-/** The first line of an error's text, cut at 200 characters, because a provider's message can be a page of JSON (FAIL-59). */
+/** The first line of an error's text, cut at 200 characters, because a provider's message can be a page of JSON. */
 export const firstLine = (text: string): string =>
   (text.trim().split("\n", 1)[0] ?? "").trim().slice(0, 200)
 
-/** The reasons whose failed turn posts the failed-turn message, and what that message says of each (FAIL-55 to FAIL-58). */
+/** The reasons whose failed turn posts the failed-turn message, and what that message says of each. */
 export type Posted = Extract<
   Failed.Reason,
   { readonly _tag: "ModelError" | "Internal" | "LoginFailed" | "UsageLimit" }
 >
 
-/** The reason of a turn chad ended at the silence bound (FAIL-57). */
+/** The reason of a turn chad ended at the silence bound. */
 export const silenceReason = "the model did not answer for 15 minutes"
 
 const failedReason = (
@@ -383,22 +383,22 @@ const failedReason = (
         : `the model kept failing after ${reason.retries} retries (${reason.reason}: ${firstLine(reason.message)})`
 
 /**
- * The message of a turn that hit the usage limit, in place of the failed-turn message (FAIL-60). The reset time is a
- * timestamp of the platform, which takes seconds (FAIL-209), and it is left out when the error carried none (FAIL-90).
+ * The message of a turn that hit the usage limit, in place of the failed-turn message. The reset time is a timestamp
+ * of the platform, which takes seconds, and it is left out when the error carried none.
  */
 export const usageLimitReached = (format: Format, resetsAt?: number) =>
   `You've reached the usage limit on this login.${resetsAt === undefined ? "" : ` It resets ${format.relativeTime(resetsAt)}.`} Wait, or move to another provider with \`/model\`.`
 
 /**
- * The text of the `usage-limit` row, which its notice and its line under "Problems" both print (FAIL-174, FAIL-310,
- * FAIL-321, FAIL-342). The reset time is in UTC to the second, as the line's recorded time is (FAIL-336).
+ * The text of the `usage-limit` row, which its notice and its line under "Problems" both print. The reset time is in
+ * UTC to the second, as the line's recorded time is.
  */
 export const usageLimitNotice = (resetsAt?: number) =>
   `This login has reached its usage limit. Scheduled runs are skipped until it resets.${resetsAt === undefined ? "" : ` It resets at ${new Date(resetsAt).toISOString().slice(0, 19)}Z.`}`
 
 /**
- * A failed turn, as a normal message in its thread (FAIL-54, FAIL-65, DIS-104). A failed login and a usage limit have
- * their own messages in place of it (FAIL-60 to FAIL-62).
+ * A failed turn, as a normal message in its thread. A failed login and a usage limit have their own messages in place
+ * of it.
  */
 export const failedTurn = (
   format: Format,
@@ -414,11 +414,11 @@ export const failedTurn = (
         : loginFailed(reason.reason)
       : `That turn failed after ${duration(milliseconds)}: ${failedReason(reason)}. The conversation is intact, send a message to carry on.\n${turnLine(format, turn)}`
 
-/** One line of `session_updates`, as the update message reads it (STO-170). */
+/** One line of `session_updates`, as the update message reads it. */
 export type Update =
   | {
       readonly turn: string
-      /** How the turn ended. An `answered` line is an answer that could not be posted (FAIL-129). */
+      /** How the turn ended. An `answered` line is an answer that could not be posted. */
       readonly outcome: "answered" | "failed" | "stopped"
       /** The reason's tag, on a failed turn's line. */
       readonly failure?: string | undefined
@@ -441,7 +441,7 @@ const counted = (line: TurnUpdate, count: number) =>
       ? `${count} ${count === 1 ? "turn was" : "turns were"} stopped`
       : `${count} ${count === 1 ? "turn" : "turns"} failed with ${line.failure ?? "Internal"}`
 
-/** Whether a step was running when the turn ended, which a stop, a give-up and a defect cut (FAIL-130). */
+/** Whether a step was running when the turn ended, which a stop, a give-up and a defect cut. */
 const cut = (line: TurnUpdate) =>
   line.outcome === "stopped" ||
   (line.outcome === "failed" &&
@@ -449,7 +449,7 @@ const cut = (line: TurnUpdate) =>
 
 /**
  * The update message that tells the model what chad posted in the session's thread since the last turn it answered
- * and the owner read (FAIL-125 to FAIL-130, FAIL-332). It is clanka's `<environment-update>` form, which a compaction
+ * and the owner read. It is clanka's `<environment-update>` form, which a compaction
  * drops. Nothing is sent when there is no line.
  */
 export const update = (lines: ReadonlyArray<Update>): string | undefined => {
@@ -457,7 +457,7 @@ export const update = (lines: ReadonlyArray<Update>): string | undefined => {
   return body === undefined ? undefined : environmentUpdate([body])
 }
 
-/** One `<environment-update>` message of several sections, which a compaction drops (SWAP-117). */
+/** One `<environment-update>` message of several sections, which a compaction drops. */
 export const environmentUpdate = (sections: ReadonlyArray<string>) =>
   `<environment-update>\n${sections.join("\n\n")}\n</environment-update>`
 
@@ -501,53 +501,53 @@ export const updateBody = (
   return `# What chad posted in this thread\n\n${body.join("\n")}`
 }
 
-/** `/stop` found nothing running (DIS-76). */
+/** `/stop` found nothing running. */
 export const nothingRunning = (format: Format) =>
   format.subtext("Nothing is running.")
 
-/** `/new` started a session (DIS-75). */
+/** `/new` started a session. */
 export const newSession = (format: Format) =>
   format.subtext(
     "New session started. Nothing from the earlier conversation carries over.",
   )
 
-/** `/new` or `/stop` in a plain channel, where there is no session (docs/spec/03-sessions-and-turns.md, SES-148). */
+/** `/new` or `/stop` in a plain channel, where there is no session. */
 export const noSession = (format: Format) =>
   format.subtext(
     "There is no session in this channel. Mention me with a message and I'll open a thread for it.",
   )
 
-/** chad could not open a thread on a mention (DIS-77). It is a normal message. */
+/** chad could not open a thread on a mention. It is a normal message. */
 export const threadFailed = (reason: string) =>
   `I couldn't open a thread on that message (${reason}). I need Create Public Threads here, or you can DM me.`
 
 /** A size in whole binary megabytes, as a notice shows it. */
 const megabytes = (bytes: number) => `${Math.round(bytes / (1024 * 1024))} MB`
 
-/** A file over the limit was skipped (DIS-64). */
+/** A file over the limit was skipped. */
 export const fileSkipped = (format: Format, name: string, bytes: number) =>
   format.subtext(
     `Skipped \`${name}\` (${megabytes(bytes)}). The limit is 25 MB.`,
   )
 
-/** The data volume is short of space, the notice of the key `disk-low` (FAIL-171). */
+/** The data volume is short of space, the notice of the key `disk-low`. */
 export const diskLow = (bytes: number) =>
   `The data volume has ${megabytes(bytes)} free.`
 
-/** chad's reply when the owner's message could not be saved because the data volume is full (FAIL-136, FAIL-219). */
+/** chad's reply when the owner's message could not be saved because the data volume is full. */
 export const diskFull =
   "The data volume is full, so I stopped. Free some space and send that again."
 
 /**
- * The answer to every owner message, and the notice at boot, while the database cannot be opened or migrated (FAIL-148,
- * FAIL-149). "Problems" shows the same text.
+ * The answer to every owner message, and the notice at boot, while the database cannot be opened or migrated.
+ * "Problems" shows the same text.
  */
 export const databaseUnusable = (error: string) =>
   `chad's database can't be used: ${error}. Sessions are off until it is fixed. \`chad status\` has the detail.`
 
 /**
  * The line "Problems" prints for a table key: the row's text, and when chad recorded the condition as holding, in UTC
- * to the second (FAIL-320, FAIL-336).
+ * to the second.
  */
 export const heldProblem = (text: string, recorded: number) =>
   `${text} (recorded ${new Date(recorded).toISOString().slice(0, 19)}Z)`
@@ -569,36 +569,36 @@ export const promptFileSkipped = (name: string, bytes: number) =>
 export const promptFileFailed = (name: string) =>
   `The owner attached the file ${name}. It could not be downloaded and was not saved.`
 
-/** A model setting that is not `<provider>/<model>[/<effort>]` with a provider clanka knows (MOD-8, MOD-G27). */
+/** A model setting that is not `<provider>/<model>[/<effort>]` with a provider clanka knows. */
 export const modelUnparsable = (text: string) =>
   `The model setting \`${text}\` is not <provider>/<model>[/<effort>] with a provider chad knows.`
 
-/** The provider `claude`, which chad refuses (MOD-5). */
+/** The provider `claude`, which chad refuses. */
 export const modelClaudeRefused =
   "chad does not run the provider claude, because clanka reaches Claude only through an installed Claude Code, which chad does not ship. Reach Claude through an OpenAI-compatible gateway with openai-compat/<model>."
 
-/** `openai-compat` with no endpoint (MOD-4, MOD-G27). */
+/** `openai-compat` with no endpoint. */
 export const modelCompatNoUrl =
   "The provider openai-compat needs CHAD_OPENAI_API_URL."
 
-/** An override that names another provider than the main model (MOD-81). */
+/** An override that names another provider than the main model. */
 export const modelOverrideProvider = (text: string, provider: string) =>
   `The override \`${text}\` names another provider than the main model, which runs on ${provider}.`
 
 export { modelTrial } from "./Trial.ts"
 
-/** A check or a trial request that had no answer by its deadline (MOD-88). */
+/** A check or a trial request that had no answer by its deadline. */
 export const modelTrialTimedOut = "no answer within the deadline"
 
-/** One model's sentence of the `model-check-failed` notice (MOD-25, FAIL-168). */
+/** One model's sentence of the `model-check-failed` notice. */
 export const modelCheckFailed = (spec: string, error: string) =>
   `The model \`${spec}\` failed its check at start (${error}). If turns fail, set another with \`/model\`.`
 
-/** The usage line of `/model`, for words it does not take (MOD-82, MOD-123). */
+/** The usage line of `/model`, for words it does not take. */
 export const modelUsage =
   "Use /model [<provider>/<model>[/<effort>]] [--subagent <provider>/<model>[/<effort>]|none] [--summarizer <provider>/<model>[/<effort>]|none]."
 
-/** What `chad model` and `/model` print with no argument, one fact to a line (MOD-19, MOD-124). */
+/** What `chad model` and `/model` print with no argument, one fact to a line. */
 export const modelShown = (lines: {
   readonly main: string
   readonly subagent: string | undefined
@@ -612,11 +612,11 @@ export const modelShown = (lines: {
     ...lines.ignored,
   ].join("\n")
 
-/** The main model's value in what `chad model` shows, when it cannot run (MOD-G27). */
+/** The main model's value in what `chad model` shows, when it cannot run. */
 export const modelCannotRun = (spec: string, error: string) =>
   `${spec} (cannot run: ${error})`
 
-/** A stored override this run leaves out, in what `chad model` shows (MOD-G31, MOD-124). */
+/** A stored override this run leaves out, in what `chad model` shows. */
 export const modelIgnored = (
   override: "subagent" | "summarizer",
   spec: string,
@@ -624,10 +624,10 @@ export const modelIgnored = (
 ) =>
   `ignored: the ${override === "subagent" ? "sub-agent" : "summarizer"} override ${spec} (${error})`
 
-/** A changed main model (MOD-15, MOD-124). */
+/** A changed main model. */
 export const modelNow = (spec: string) => `The model is now ${spec}.`
 
-/** A set or cleared override (MOD-82, MOD-83, MOD-124). */
+/** A set or cleared override. */
 export const modelOverrideNow = (
   override: "subagent" | "summarizer",
   spec: string | undefined,
@@ -636,21 +636,21 @@ export const modelOverrideNow = (
     ? `Sub-agents now run on ${spec ?? "the main model"}.`
     : `The summarizer now runs on ${spec ?? "the main model"}.`
 
-/** The overrides a change of provider cleared (MOD-85). */
+/** The overrides a change of provider cleared. */
 export const modelOverridesCleared = (
   cleared: ReadonlyArray<"subagent" | "summarizer">,
   provider: string,
 ) =>
   `${cleared.length === 2 ? "The sub-agent and summarizer overrides were" : cleared[0] === "subagent" ? "The sub-agent override was" : "The summarizer override was"} cleared, because the main model left ${provider}.`
 
-/** A change refused before any request, so nothing was stored (MOD-5, MOD-81, MOD-124). */
+/** A change refused before any request, so nothing was stored. */
 export const modelRefused = (reason: string) => `Nothing was changed: ${reason}`
 
-/** A change whose trial request failed, so nothing was stored (MOD-16, MOD-84, MOD-88). */
+/** A change whose trial request failed, so nothing was stored. */
 export const modelTrialFailed = (spec: string, error: string) =>
   `The model ${spec} failed its trial request (${error}). Nothing was changed.`
 
-/** A change whose login did not complete, so nothing was stored (MOD-17). */
+/** A change whose login did not complete, so nothing was stored. */
 export const modelLoginFailed = (reason: string) =>
   reason === "TimedOut"
     ? "The login timed out. Nothing was changed."
@@ -660,68 +660,68 @@ export const modelLoginFailed = (reason: string) =>
 export const modelNotStored = (path: string, code: string) =>
   `The change was not stored in full: ${path} could not be written (${code}).`
 
-/** A model call needed a Codex login while chad has none and cannot post a code for one (MOD-2). */
+/** A model call needed a Codex login while chad has none and cannot post a code for one. */
 export const loginUnavailable = "chad is not logged in to Codex."
 
-/** The login prompt, in a thread and in the terminal (MOD-38, MOD-55, MOD-120). */
+/** The login prompt, in a thread and in the terminal. */
 export const loginPrompt = (verifyUrl: string, code: string) =>
   `To log chad in to Codex, open ${verifyUrl} and enter the code ${code}. The code is good for 15 minutes.`
 
-/** The notice in a thread whose turn waits on a login another thread has the code of (MOD-42, DIS-72). */
+/** The notice in a thread whose turn waits on a login another thread has the code of. */
 export const loginWaitingIn = (link: string) =>
   `Waiting for the login in ${link}`
 
-/** The status line of a turn that waits on a login (MOD-100, DIS-29). */
+/** The status line of a turn that waits on a login. */
 export const statusLoginWait = "Waiting for login"
 
-/** A waiting turn's message when the login's time ran out (MOD-45, MOD-49, MOD-75). */
+/** A waiting turn's message when the login's time ran out. */
 export const loginTimedOut = "Login timed out. Send a message to try again."
 
-/** A waiting turn's message when the login failed in any other way (MOD-76). */
+/** A waiting turn's message when the login failed in any other way. */
 export const loginFailed = (reason: string) =>
   `Login failed (${reason}). Send a message to try again.`
 
-/** `chad login` with no daemon, when a daemon took the lock while the owner logged in (MOD-58, CLI-34). */
+/** `chad login` with no daemon, when a daemon took the lock while the owner logged in. */
 export const loginRaced =
   "a daemon started during the login, run chad login again"
 
-/** `chad login` when the model in force needs no login (MOD-109). */
+/** `chad login` when the model in force needs no login. */
 export const loginNotNeeded = (spec: string) =>
   `The model ${spec} needs no login.`
 
-/** `chad login` when the login did not complete (MOD-108). */
+/** `chad login` when the login did not complete. */
 export const loginCliFailed = (reason: string) =>
   reason === "TimedOut"
     ? "chad login: the login timed out, run chad login again"
     : `chad login: the login failed (${reason}), run chad login again`
 
-/** `chad login` once the login completed (MOD-55). */
+/** `chad login` once the login completed. */
 export const loggedIn = "chad is logged in to Codex."
 
-/** `chad login` when the stored token is good, which a new login does not replace (MOD-119). */
+/** `chad login` when the stored token is good, which a new login does not replace. */
 export const alreadyLoggedIn =
   "chad is already logged in to Codex. To log in with another account, run chad logout and then chad login."
 
-/** `chad logout`, which stops no running turn (MOD-61, CLI-111, MOD-121). */
+/** `chad logout`, which stops no running turn. */
 export const loggedOut =
   "chad is logged out of Codex. A turn that is running is not stopped: it finishes on the connection it has, and the next one asks for a login."
 
-/** A hook ran past its budget, as the first line of its failure (API-43). */
+/** A hook ran past its budget, as the first line of its failure. */
 export const hookTimedOut = "ran past its budget"
 
-/** The same hook failed 3 times in a row (FAIL-163). */
+/** The same hook failed 3 times in a row. */
 export const hookFailing = (plugin: string, hook: string, first: string) =>
   `\`${plugin}\`'s \`${hook}\` hook has failed 3 times in a row (${first}). It stays on.`
 
-/** A plugin's tool has a name that someone else holds, which fails its load (API-33). */
+/** A plugin's tool has a name that someone else holds, which fails its load. */
 export const toolTaken = (name: string, holder: string) =>
   `The tool name "${name}" is already used by ${holder}.`
 
-/** A plugin-started turn whose thread is gone (FAIL-173). */
+/** A plugin-started turn whose thread is gone. */
 export const threadGone = (plugin: string, label: string) =>
   `\`${plugin}\` could not run \`${label}\` because its thread is gone.`
 
-/** The update message's part for the chunks that changed or went (SWAP-31, SWAP-33). */
+/** The update message's part for the chunks that changed or went. */
 export const chunksChanged = (
   changes: ReadonlyArray<{
     readonly plugin: string
@@ -737,19 +737,19 @@ export const chunksChanged = (
     ),
   ].join("\n")
 
-/** A `beforeTurn` text, as its own user message (SES-60). */
+/** A `beforeTurn` text, as its own user message. */
 export const pluginContext = (plugin: string, text: string) =>
   `<plugin-context plugin="${plugin}">\n${text}\n</plugin-context>`
 
-/** `Turns.start` called from a tool for the thread of its own turn (API-79, API-G17). */
+/** `Turns.start` called from a tool for the thread of its own turn. */
 export const startInOwnThread =
   "Turns.start cannot run a turn in the thread of the turn that called this tool, because that turn would wait for this one. Use Turns.queue, which returns once the turn is queued."
 
-/** A `Turns` call whose request could not be saved (API-130, API-135, API-133, API-G17). */
+/** A `Turns` call whose request could not be saved. */
 export const turnNotSaved = (what: "started" | "queued", why: string) =>
   `The turn was not ${what}, because chad could not save the request: ${why}`
 
-/** A `Turns.schedule` or `Turns.cancel` whose change could not be saved (API-133). */
+/** A `Turns.schedule` or `Turns.cancel` whose change could not be saved. */
 export const timerNotSaved = (why: string) =>
   `Nothing was changed, because chad could not save the timer: ${why}`
 
@@ -757,11 +757,11 @@ export const timerNotSaved = (why: string) =>
 export const timerInvalid = (why: string) =>
   `Nothing was changed, because the schedule is not valid: ${why}`
 
-/** The `logged-out` notice (FAIL-175). */
+/** The `logged-out` notice. */
 export const loggedOutNotice =
   "chad is logged out. Send a message or run `chad login`. Scheduled runs are skipped until then."
 
-/** A background task that ended after the Agent that started it was rebuilt, in clanka's own form (SWAP-134). */
+/** A background task that ended after the Agent that started it was rebuilt, in clanka's own form. */
 export const taskEnded = (task: {
   readonly id: string
   readonly kind: string
@@ -772,23 +772,23 @@ export const taskEnded = (task: {
 To read the output, call taskOutput(${JSON.stringify(task.id)}).
 </task>`
 
-/** A plugin kept both as a file and as a directory (LOAD-72). */
+/** A plugin kept both as a file and as a directory. */
 export const twoEntries = (name: string, file: string, index: string) =>
   `The plugin "${name}" has two entry files, ${file} and ${index}. Keep one of them.`
 
-/** A plugin whose name breaks the name rule (LOAD-92). */
+/** A plugin whose name breaks the name rule. */
 export const pluginName = (name: string, file: string) =>
   `The plugin name "${name}" (${file}) may hold only lower-case letters, digits and hyphens. Rename it.`
 
-/** The line after a TS2307 for a package (LOAD-22, SELF-64). */
+/** The line after a TS2307 for a package. */
 export const importable =
   "A plugin has no packages of its own. It can import chad, effect and Node's built-in modules, such as node:fs."
 
-/** The last line of a failed type-check of plugins (LOAD-31). */
+/** The last line of a failed type-check of plugins. */
 export const effectGuide = (path: string) =>
   `Read ${path} before you write Effect code.`
 
-/** A plugin with top-level await (LOAD-23, SELF-63). */
+/** A plugin with top-level await. */
 export const topLevelAwait = (name: string, at: string) =>
   `${name}: top-level await at ${at}. A plugin runs as a CommonJS bundle, which has no top-level await. Move the awaited work into the plugin's Layer, for example inside Layer.effect(Effect.gen(...)).`
 
@@ -796,36 +796,36 @@ export const topLevelAwait = (name: string, at: string) =>
 export const notBundled = (name: string, errors: ReadonlyArray<string>) =>
   [`${name}: could not be bundled`, ...errors].join("\n")
 
-/** A bundle that threw when it ran, with the error's stack (LOAD-41). */
+/** A bundle that threw when it ran, with the error's stack. */
 export const notLoaded = (name: string, stack: string) =>
   `${name} could not be loaded: ${stack}`
 
 /**
- * A default export that is not a `Plugin` (LOAD-6). A file directly in `plugins/` with no default export is most
- * likely a helper file, and the error says where one goes (LOAD-73).
+ * A default export that is not a `Plugin`. A file directly in `plugins/` with no default export is most
+ * likely a helper file, and the error says where one goes.
  */
 export const notPlugin = (name: string, file: string, helper: boolean) =>
   helper
     ? `${name}: ${file} has no default export. Every .ts file directly in plugins/ is a plugin's entry file, so a helper file goes in a subdirectory, such as plugins/<plugin>/<helper>.ts.`
     : `${name}: the default export of ${file} is not a Plugin. Wrap it in Plugin.make(...).`
 
-/** A plugin's Layer that did not build in time (LOAD-14, API-131). */
+/** A plugin's Layer that did not build in time. */
 export const buildTimedOut = (seconds: number) =>
   `The plugin's Layer did not build within ${seconds} seconds. A Turns call made while it builds never returns, so make it in Plugin.background.`
 
-/** The notice of a plugin skipped at boot, one for each plugin (FAIL-161, REC-101). */
+/** The notice of a plugin skipped at boot, one for each plugin. */
 export const pluginSkipped = (name: string, reason: string) =>
   `Skipped at start: \`${name}\` (${reason})\n\`chad status\` has the rest.`
 
-/** The line of `boot.moved-aside` (IMG-46, FAIL-289). */
+/** The line of `boot.moved-aside`. */
 export const movedAside = (path: string, to: string) =>
   `${path} was not a link, so it was moved to ${to}`
 
-/** A repo plugin that has a bundled plugin's name, which is skipped at boot (REC-42). */
+/** A repo plugin that has a bundled plugin's name, which is skipped at boot. */
 export const bundledName = (name: string) =>
   `${name}: a bundled plugin has this name, so the bundled one loads and this one is skipped. The two share one key-value table, and renaming this plugin does not move its data.`
 
-/** The refusal of a call to a tool whose version a swap took out of service (SWAP-69 to SWAP-72, REC-59). */
+/** The refusal of a call to a tool whose version a swap took out of service. */
 export const toolRefused = (
   why: "changed" | "removed" | "safe",
   tool: string,
@@ -839,32 +839,32 @@ export const toolRefused = (
         ? toolChangedSubagent(tool)
         : toolChanged(tool)
 
-/** Message 1 (SWAP-69). */
+/** The refusal of a call to a tool an apply changed. */
 export const toolChanged = (tool: string) =>
   `${tool} was changed by an apply. The new version is in your next turn.`
 
-/** Message 2 (SWAP-70). */
+/** The refusal of a call to a tool an apply changed, while the turn has a sub-agent running. */
 export const toolChangedSubagent = (tool: string) =>
   `${tool} was changed by an apply. The new version is in your next turn, which cannot start while this turn has a sub-agent running.`
 
-/** Message 3 (SWAP-71, SWAP-140). */
+/** The refusal of a call to a tool an apply removed. */
 export const toolRemoved = (tool: string) =>
   `${tool} was removed by an apply and is gone from your next turn.`
 
-/** Message 4 (SWAP-72, REC-59). */
+/** The refusal of a call to a tool of a plugin that safe mode turned off. */
 export const toolSafeMode = (tool: string) => `${tool} is off in safe mode.`
 
-/** Message 5 and message 6: a call the drain interrupted, which stopped within the wait or did not (SWAP-113, SWAP-114). */
+/** A call the drain interrupted, which stopped within the wait or did not. */
 export const toolCut = (tool: string, stopped: boolean) =>
   stopped
     ? `${tool} was interrupted by an apply, it may have partly run.`
     : `${tool} did not stop when an apply interrupted it and may still be running.`
 
-/** The line of `swap.overrun` for a tool call (SWAP-53). */
+/** The line of `swap.overrun` for a tool call. */
 export const overrunTool = (plugin: string, tool: string) =>
   `${tool} of ${plugin} did not stop when the swap interrupted it, so two versions of ${plugin} now overlap`
 
-/** The line of `swap.overrun` for a hook (SWAP-53). */
+/** The line of `swap.overrun` for a hook. */
 export const overrunHook = (plugin: string, hook: string) =>
   `The ${hook} hook of ${plugin} did not stop when the swap interrupted it, and the plugin's hook queue has moved on to the new version`
 
@@ -872,66 +872,66 @@ export const overrunHook = (plugin: string, hook: string) =>
 export const overrunEnded = (plugin: string, name: string) =>
   `${name} of ${plugin} ended after the swap moved on`
 
-/** The line of `swap.close-abandoned` (FAIL-265). */
+/** The line of `swap.close-abandoned`. */
 export const closeAbandoned = (plugin: string) =>
   `The close of the old version of ${plugin} ran past its deadline, and its finalizers were abandoned`
 
-/** An apply's refusal of a repo plugin with a bundled plugin's name (SET-54, CLI-67). */
+/** An apply's refusal of a repo plugin with a bundled plugin's name. */
 export const bundledNameRefused = (name: string) =>
   `The plugin "${name}" has the name of a bundled plugin. Rename it: the two would share one key-value table.`
 
-/** The refusal of `AGENTS.md`, `.agents` and `.kiro` in the repo, which names where their content goes (LOAD-94, LOAD-95). */
+/** The refusal of `AGENTS.md`, `.agents` and `.kiro` in the repo, which names where their content goes. */
 export const instructionsRefused = (paths: ReadonlyArray<string>) =>
   `The repo holds ${paths.map((path) => `work/${path}`).join(", ")}. chad refuses AGENTS.md, .agents and .kiro in the repo, because clanka would read them without an apply. Put a skill under skills/<name>/SKILL.md and standing instructions in persona.md, then delete these.`
 
-// Skills (docs/spec/12-skills-and-mcp.md). A check names the file as `work/skills/<dir>/SKILL.md`, the file the agent
-// edits, and a boot's notice names the skill by its directory (MCP-17, FAIL-166).
+// Skills. A check names the file as `work/skills/<dir>/SKILL.md`, the file the agent edits, and a boot's notice names
+// the skill by its directory.
 
 /** What is wrong with a `SKILL.md`, as a phrase that follows the file's name. */
 export const skillProblems = {
-  /** No front matter, or front matter that is not YAML (MCP-16, SELF-55). */
+  /** No front matter, or front matter that is not YAML. */
   noFrontMatter: (dir: string) =>
     `has no front matter. Start it with a line "---", then 'name: "${dir}"', "description: <when to read the skill>" and "---"`,
-  /** A missing or empty `name` (SELF-56). */
+  /** A missing or empty `name`. */
   noName: (dir: string) =>
     `has no name in its front matter. Set 'name: "${dir}"'`,
-  /** A missing or empty `description` (SELF-56). */
+  /** A missing or empty `description`. */
   noDescription:
     "has no description in its front matter. Say when a session should read the skill",
-  /** A name that differs from the directory (SELF-57, CLI-68). */
+  /** A name that differs from the directory. */
   otherName: (name: string, dir: string) =>
     `has the name "${name}", which differs from its directory. Set 'name: "${dir}"'`,
-  /** A `SKILL.md` that resolves outside the applied tree (REC-11). */
+  /** A `SKILL.md` that resolves outside the applied tree. */
   outside:
     "links to a file outside the repo. An applied skill holds only what the apply committed, so put the file itself in skills/",
-  /** Other files of the skill that resolve outside the applied tree or to nothing (MCP-149, REC-11). */
+  /** Other files of the skill that resolve outside the applied tree or to nothing. */
   outsideFiles: (paths: ReadonlyArray<string>) =>
     `has files that link outside the repo or to nothing: ${paths.join(", ")}. An applied skill holds only what the apply committed, so put the files themselves in its directory`,
   /** A file that cannot be read. */
   unreadable: (error: string) => `cannot be read: ${error}`,
 } as const
 
-/** A malformed skill in a check or an apply, which names the file (MCP-16, MCP-17, SELF-59, CLI-67, CLI-75). */
+/** A malformed skill in a check or an apply, which names the file. */
 export const skillRefused = (dir: string, problem: string) =>
   `work/skills/${dir}/SKILL.md ${problem}.`
 
-/** The notice of a skill a boot skipped (FAIL-166, MCP-18, REC-47). */
+/** The notice of a skill a boot skipped. */
 export const skillSkipped = (name: string, problem: string) =>
   `Skipped skill \`${name}\`: SKILL.md ${problem}.`
 
-/** The one-off notice of a bundled skill that changed while a repo skill hides it (FAIL-167, MCP-14). */
+/** The one-off notice of a bundled skill that changed while a repo skill hides it. */
 export const bundledSkillChanged = (name: string) =>
   `The bundled skill \`${name}\` changed in this image. The repo's copy still hides it.`
 
-/** The sentence chad appends to a repo skill's content (MCP-4, MCP-102, MCP-104, MCP-146). */
+/** The sentence chad appends to a repo skill's content. */
 export const repoSkillWhere = (live: string, work: string) =>
   `This skill's files are in ${live}. To change the skill, edit its copy in ${work} and run chad apply. An edit under ${live} is lost at the next apply.`
 
-/** The sentence chad appends to a bundled skill's content (MCP-4, MCP-103, MCP-104, MCP-146). */
+/** The sentence chad appends to a bundled skill's content. */
 export const bundledSkillWhere = (image: string, work: string) =>
   `This skill is bundled with chad and its files are in ${image}, which is read-only. To change the skill, copy its directory to ${work}, edit it there and run chad apply. The repo's copy then hides the bundled one.`
 
-/** An apply's lines for the repo skills it added, changed and removed (CLI-70). */
+/** An apply's lines for the repo skills it added, changed and removed. */
 export const skillChanges = (changes: {
   readonly added: ReadonlyArray<string>
   readonly changed: ReadonlyArray<string>
@@ -948,181 +948,173 @@ export const skillChanges = (changes: {
     : [`Skills removed: ${changes.removed.join(", ")}.`]),
 ]
 
-/** An apply's line for a repo skill that hides a bundled one (CLI-70, MCP-11, SELF-117, MCP-147). */
+/** An apply's line for a repo skill that hides a bundled one. */
 export const skillHides = (name: string) =>
   `The repo skill ${name} hides the bundled skill of the same name.`
 
-/** `chad status`'s mark on a repo skill that hides a bundled one (MCP-12, MCP-147). */
+/** `chad status`'s mark on a repo skill that hides a bundled one. */
 export const skillHidesMark = (name: string) =>
   `skill: ${name}, from the repo, hides the bundled one`
 
-/** `chad skill new` wrote its file (CLI-84). */
+/** `chad skill new` wrote its file. */
 export const skillWritten = (name: string) =>
   `Wrote work/skills/${name}/SKILL.md. Fill in its description and instructions. It is a draft until chad apply.`
 
-/** The body of the `SKILL.md` that `chad skill new` writes (SELF-139). */
+/** The body of the `SKILL.md` that `chad skill new` writes. */
 export const skillBody =
   "Write the instructions here: what the task is, the steps, and the commands to run."
 
-/** `chad skill new` with a name that breaks the name rule (CLI-85). */
+/** `chad skill new` with a name that breaks the name rule. */
 export const skillNameRule = (name: string) =>
   `"${name}" is not a skill name. Use lower-case letters, digits and hyphens.`
 
-/** `chad skill new` with a name the repo already has (CLI-85, MCP-8). */
+/** `chad skill new` with a name the repo already has. */
 export const skillTaken = (name: string) =>
   `work/skills/${name} exists already. Pick another name, or edit the skill that is there.`
 
-/** `chad skill new` with a bundled skill's name (CLI-85, MCP-8). */
+/** `chad skill new` with a bundled skill's name. */
 export const skillBundledName = (name: string) =>
   `${name} is the name of a bundled skill. Pick another name. To change the bundled one, copy its directory into work/skills/${name}.`
 
-/** `chad skill new` with no `repo/work`, which only `chad serve` creates (CLI-157). */
+/** `chad skill new` with no `repo/work`, which only `chad serve` creates. */
 export const skillNoRepo = (work: string) =>
   `${work} does not exist yet. Start chad serve once, which creates the repo.`
 
-/** The count of the errors a failed check does not print (CLI-47). */
+/** The count of the errors a failed check does not print. */
 export const moreErrors = (count: number) => `... and ${count} more errors.`
 
-/** A plugin whose Layer did not build, in a failed apply (REC-G13). */
+/** A plugin whose Layer did not build, in a failed apply. */
 export const couldNotLoad = (name: string, error: string) =>
   `${name} could not be loaded: ${error}`
 
-/** `chad check` on a tool that `chad apply` refuses (CLI-163, CLI-164). */
+/** `chad check` on a tool that `chad apply` refuses. */
 export const replaceMeCheck = (tool: string) =>
   `The tool ${tool} has a description that starts with "Replace me". chad apply will refuse it: describe the tool or delete it.`
 
-/** `chad apply` refusing that tool (SELF-54, CLI-68). */
+/** `chad apply` refusing that tool. */
 export const replaceMeRefused = (tool: string) =>
   `The tool ${tool} has a description that starts with "Replace me". Describe the tool or delete it.`
 
 /** A check that passed. */
 export const checkPassed = "The check passed. Nothing was applied."
 
-/** An apply or a revert with nothing changed (CLI-64, REC-142). */
+/** An apply or a revert with nothing changed. */
 export const nothingChanged = "Nothing changed. No commit was made."
 
-/** A revert with no applied commit before the current one (REC-140). */
+/** A revert with no applied commit before the current one. */
 export const revertNoEarlier =
   "There is no applied commit before the current one to revert to."
 
-/** A revert to a commit that is not on the `applied` branch (REC-141). */
+/** A revert to a commit that is not on the `applied` branch. */
 export const revertNotApplied = (commit: string) =>
   `${commit} is not an applied commit. \`chad log\` lists them.`
 
-/** A revert that would write over files its save did not capture, such as ignored ones (REC-139, REC-154). */
+/** A revert that would write over files its save did not capture, such as ignored ones. */
 export const revertObstructed = (paths: ReadonlyArray<string>, saved: string) =>
   `The revert would write over ${paths.join(", ")} in work/, which the save at ${saved} does not hold. Nothing was reverted. Move ${paths.length === 1 ? "it" : "them"} away and run chad revert again.`
 
-/** The files a revert left in work/ as they were, since they changed or appeared after its save (REC-154). */
+/** The files a revert left in work/ as they were, since they changed or appeared after its save. */
 export const revertLeft = (paths: ReadonlyArray<string>) =>
   `These files in work/ changed or appeared after the save, so the revert left them as they are: ${paths.join(", ")}. git diff in work/ shows how the tracked ones differ from the revert.`
 
-/** Where a revert keeps, as they were, the files it moved out of work/ (REC-139, REC-154). */
+/** Where a revert keeps, as they were, the files it moved out of work/. */
 export const revertKept = (directory: string) =>
   `The files the revert replaced or deleted in work/ are kept as they were under ${directory}. chad never deletes them, so remove that directory once nothing in it is needed.`
 
-/** The message of a revert's commit, which names the commit it went back to (REC-136). */
+/** The message of a revert's commit, which names the commit it went back to. */
 export const revertMessage = (commit: string) => `Revert to ${commit}`
 
-/** The session line of an apply (FAIL-177). */
+/** The session line of an apply. */
 export const appliedLine = (commit: string, message: string) =>
   `Applied \`${commit}\`: ${message}`
 
-/** The session line of a revert (REC-G17). */
+/** The session line of a revert. */
 export const revertedLine = (commit: string, from: string) =>
   `Reverted \`${from}\` as \`${commit}\`.`
 
-/** The session line of `chad safe on|off` (REC-G17). */
+/** The session line of `chad safe on|off`. */
 export const safeLine = (on: boolean) =>
   on ? "Safe mode is on." : "Safe mode is off."
 
-/**
- * The session line of `chad timezone`, which names the plugins kept on their previous version (FAIL-238, FAIL-345).
- */
+/** The session line of `chad timezone`, which names the plugins kept on their previous version. */
 export const timezoneLine = (zone: string, kept: ReadonlyArray<string>) =>
   kept.length === 0
     ? `Timezone set to ${zone}.`
     : `Timezone set to ${zone}. Still on the previous timezone: ${kept.join(", ")}.`
 
-/** What `chad timezone <zone>` prints once the zone is stored (CLI-239). */
+/** What `chad timezone <zone>` prints once the zone is stored. */
 export const timezoneSet = (zone: string) => `Timezone set to ${zone}.`
 
-/** What `chad secret set` prints once the value is stored, with the plugins that reloaded (CRED-23, CLI-102, CRED-139). */
+/** What `chad secret set` prints once the value is stored, with the plugins that reloaded. */
 export const secretSaved = (
   name: string,
   replaced: boolean,
   restarted: ReadonlyArray<string>,
 ) => `${replaced ? "Replaced" : "Saved"} ${name}${restartedSuffix(restarted)}`
 
-/** What `chad secret rm` prints once the secret is gone, with the plugins that reloaded (CLI-102, CRED-139). */
+/** What `chad secret rm` prints once the secret is gone, with the plugins that reloaded. */
 export const secretRemoved = (name: string, restarted: ReadonlyArray<string>) =>
   `Removed ${name}${restartedSuffix(restarted)}`
 
 const restartedSuffix = (restarted: ReadonlyArray<string>) =>
   restarted.length === 0 ? "" : `, restarted ${restarted.join(", ")}`
 
-/** `chad secret set` with a name the store cannot hold, which exits 2 (CRED-18, CRED-139). */
+/** `chad secret set` with a name the store cannot hold, which exits 2. */
 export const secretNameInvalid = () =>
   "chad secret set: the name must match [A-Z_][A-Z0-9_]* and be 64 characters at most"
 
-/** `chad secret set CHAD_DOLLAR`, which exits 2 (CRED-19, SET-33, CRED-139). */
+/** `chad secret set CHAD_DOLLAR`, which exits 2. */
 export const secretNameReserved = () =>
   "chad secret set: the name CHAD_DOLLAR is reserved for writing a literal ${ in configuration"
 
-/** `chad secret set` with an empty value, which exits 2 (CRED-137). */
+/** `chad secret set` with an empty value, which exits 2. */
 export const secretNoValue = () => "chad secret set: no value on stdin"
 
-/** The prompt of a value typed at a terminal, which echoes nothing (CRED-22). */
+/** The prompt of a value typed at a terminal, which echoes nothing. */
 export const secretPrompt = (name: string) => `Value of ${name}`
 
-/** A name the store does not hold: `rm` exits 1 and `run` 125 (CRED-31). */
+/** A name the store does not hold: `rm` exits 1 and `run` 125. */
 export const secretMissing = (command: "rm" | "run", name: string) =>
   `chad secret ${command}: no secret named ${name}`
 
-/**
- * A store that cannot be read or holds no store. It never carries what the file holds, which may be a value
- * (CRED-10, CRED-140).
- */
+/** A store that cannot be read or holds no store. It never carries what the file holds, which may be a value. */
 export const secretStoreBroken = (command: string, problem: string) =>
   `chad secret ${command}: ${problem}`
 
-/** An `--env` that is no `VAR=NAME` pair, which exits 125 (CRED-113). */
+/** An `--env` that is no `VAR=NAME` pair, which exits 125. */
 export const secretEnvPair = (pair: string) =>
   `chad secret run: --env takes VAR=NAME, got ${pair}`
 
-/** A command `chad secret run` did not find, which exits 127 (CRED-114). */
+/** A command `chad secret run` did not find, which exits 127. */
 export const secretNotFound = (command: string) =>
   `chad secret run: ${command}: command not found`
 
-/** A command `chad secret run` found and could not execute, with the error code, which exits 126 (CRED-115, CRED-139). */
+/** A command `chad secret run` found and could not execute, with the error code, which exits 126. */
 export const secretNotExecutable = (command: string, code: string) =>
   `chad secret run: ${command}: cannot execute (${code})`
 
-/** One line of `chad secret list`: the name, the time of the save and the note, never the value (CRED-26, CRED-139). */
+/** One line of `chad secret list`: the name, the time of the save and the note, never the value. */
 export const secretListed = (name: string, date: string, note?: string) =>
   note === undefined ? `${name}  ${date}` : `${name}  ${date}  ${note}`
 
-/** What `chad secret list` prints for an empty store (CRED-139). */
+/** What `chad secret list` prints for an empty store. */
 export const secretsNone = () => "No secrets are stored."
 
-/**
- * The session line of `chad secret rm`, which names the plugins kept on their previous version (CRED-106, FAIL-238,
- * FAIL-346).
- */
+/** The session line of `chad secret rm`, which names the plugins kept on their previous version. */
 export const secretLine = (name: string, kept: ReadonlyArray<string>) =>
   kept.length === 0
     ? `Secret ${name} removed.`
     : `Secret ${name} removed. Still on the previous secret: ${kept.join(", ")}.`
 
-/** A plugin that failed to build in a reload and kept its running version, with the error (CLI-114, SWAP-96, CLI-239). */
+/** A plugin that failed to build in a reload and kept its running version, with the error. */
 export const keptPrevious = (name: string, error: string) =>
   `${name}: ${firstLine(error)}`
 
-/** `chad timezone <zone>` with no named zone, which exits 2 (CLI-182, CLI-239). */
+/** `chad timezone <zone>` with no named zone, which exits 2. */
 export const timezoneInvalid = (zone: string) =>
   `chad timezone: ${JSON.stringify(zone)} is not a named timezone. Give an IANA name such as Europe/Berlin.`
 
-/** What `chad timezone` with no argument prints: the zone in force and where it came from (CLI-184, CLI-185, CLI-240). */
+/** What `chad timezone` with no argument prints: the zone in force and where it came from. */
 export const timezoneInForce = (
   zone: string,
   source: "stored" | "variable" | "fallback",
@@ -1136,7 +1128,7 @@ export const timezoneInForce = (
         ? `${zone}, the fallback. Nothing is set with chad timezone and TZ is not set.`
         : `${zone}, the fallback. Nothing is set with chad timezone and TZ=${ignored} is not a valid zone.`
 
-/** What `chad safe` prints: whether safe mode is on and what turned it on (REC-129, REC-G10). */
+/** What `chad safe` prints: whether safe mode is on and what turned it on. */
 export const safeState = (state: "off" | "variable" | "toggle") =>
   state === "off"
     ? "Safe mode is off."
@@ -1144,19 +1136,19 @@ export const safeState = (state: "off" | "variable" | "toggle") =>
       ? "Safe mode is on, held by CHAD_SAFE_MODE=1. Nothing from the repo is loaded."
       : "Safe mode is on, turned on by chad safe on. Nothing from the repo is loaded."
 
-/** `chad safe off` while `CHAD_SAFE_MODE=1` is set, which changes nothing (REC-128, CLI-169). */
+/** `chad safe off` while `CHAD_SAFE_MODE=1` is set, which changes nothing. */
 export const safeForced =
   "CHAD_SAFE_MODE=1 is set and holds safe mode on. Nothing was changed. Unset it on the container and restart chad to turn safe mode off."
 
-/** The two fixed sentences of the core prompt, which send the agent to the `self-edit` skill (SELF-37). */
+/** The two fixed sentences of the core prompt, which send the agent to the `self-edit` skill. */
 export const selfEditPrompt =
   "Your plugins, skills, MCP servers, settings and persona are files you can change with the `chad` CLI. Read the `self-edit` skill before you do."
 
-/** The line the system prompt has while safe mode is on (SELF-38, REC-58, SWAP-G10). */
+/** The line the system prompt has while safe mode is on. */
 export const safePrompt =
   "Safe mode is on. Nothing from the repo is loaded: no repo plugins, skills, MCP servers or persona."
 
-/** A command that waits behind another in the queue (CLI-40). */
+/** A command that waits behind another in the queue. */
 export const queueWaiting = (command: string) =>
   `Waiting for ${command} to finish.`
 
@@ -1168,27 +1160,27 @@ export const reloadUnknown = (name: string) =>
 export const reloadSafe = (name: string) =>
   `Safe mode is on, so ${name} from the repo is not loaded. Turn safe mode off first.`
 
-/** A name `chad plugin new` refuses as bad usage, which exits 2 (CLI-85, SELF-48). */
+/** A name `chad plugin new` refuses as bad usage, which exits 2. */
 export const pluginNameInvalid = (name: string) =>
   `"${name}" is not a plugin name. Use lower-case letters, digits and hyphens.`
 
-/** A name `chad plugin new` refuses because a bundled plugin holds it, which exits 1 (CLI-85, SET-54). */
+/** A name `chad plugin new` refuses because a bundled plugin holds it, which exits 1. */
 export const pluginNameBundled = (name: string) =>
   `"${name}" is the name of a bundled plugin. Pick another name.`
 
-/** A name `chad plugin new` refuses because a plugin in work/ has it, which exits 1 (CLI-85, SELF-48). */
+/** A name `chad plugin new` refuses because a plugin in work/ has it, which exits 1. */
 export const pluginNameTaken = (name: string) =>
   `work/plugins/ already holds a plugin named "${name}". Edit it, or pick another name.`
 
-/** `chad plugin new` and `chad skill new` before `chad serve` made the repo, which exits 4 (CLI-157). */
+/** `chad plugin new` and `chad skill new` before `chad serve` made the repo, which exits 4. */
 export const workMissing = (work: string) =>
   `${work} does not exist yet. chad serve creates the repo the first time it starts.`
 
-/** `chad plugin new` that could not write its file (CLI-84). */
+/** `chad plugin new` that could not write its file. */
 export const notWritten = (command: string, path: string, detail: string) =>
   `chad ${command}: cannot write ${path} (${detail})`
 
-/** What `chad plugin new` prints once the file is written (CLI-87, SELF-33, SELF-138). */
+/** What `chad plugin new` prints once the file is written. */
 export const pluginWritten = (path: string, agents: string, examples: string) =>
   [
     `Wrote ${path}.`,
@@ -1197,63 +1189,63 @@ export const pluginWritten = (path: string, agents: string, examples: string) =>
     `Its tool's description starts with "Replace me", which chad apply refuses. Describe the tool, then run chad check and chad apply -m "<why>".`,
   ].join("\n")
 
-/** `chad plugin purge` of a plugin still in the applied repo, which exits 1 (CLI-90, SET-40, CLI-247). */
+/** `chad plugin purge` of a plugin still in the applied repo, which exits 1. */
 export const purgeInRepo = (name: string) =>
   `${name} is still in the applied repo, so its data stays. Delete its file in work/, run chad apply, then purge it.`
 
-/** `chad plugin purge` of a bundled plugin that is on, which exits 1 (SET-95, CLI-247). */
+/** `chad plugin purge` of a bundled plugin that is on, which exits 1. */
 export const purgeBundledOn = (name: string) =>
   `${name} is a bundled plugin and it is on, so its data stays. Turn it off with "enabled": false in work/chad.json, run chad apply, then purge it.`
 
-/** `chad plugin purge` of a plugin chad holds no data for, which exits 0 (CLI-248). */
+/** `chad plugin purge` of a plugin chad holds no data for, which exits 0. */
 export const purgeNothing = (name: string) => `Nothing is stored for ${name}.`
 
-/** What `chad plugin purge` prints once it dropped the plugin's table (CLI-247). */
+/** What `chad plugin purge` prints once it dropped the plugin's table. */
 export const purged = (name: string, keys: number, timers = 0) =>
   timers === 0
     ? `Purged ${name}: its key-value table and its ${keys} ${keys === 1 ? "key" : "keys"} are deleted.`
     : `Purged ${name}: its key-value table, its ${keys} ${keys === 1 ? "key" : "keys"} and its ${timersCount(timers)} are deleted.`
 
-/** A purge of a plugin that had timers and no table (CRON-35). */
+/** A purge of a plugin that had timers and no table. */
 export const purgedTimers = (name: string, timers: number) =>
   `Purged ${name}: its ${timersCount(timers)} ${timers === 1 ? "is" : "are"} deleted.`
 
 const timersCount = (count: number) =>
   `${count} ${count === 1 ? "timer" : "timers"}`
 
-/** The apply line of a plugin back on, or back in the repo, with overdue held timers (CLI-71, SET-43, CRON-37). */
+/** The apply line of a plugin back on, or back in the repo, with overdue held timers. */
 export const timersWillFire = (name: string, overdue: number) =>
   `${name}: ${overdue} overdue held ${overdue === 1 ? "timer fires" : "timers fire"} once now.`
 
-/** The apply line of a plugin the apply unloaded that has timers, which are kept and held (CRON-34, CRON-41). */
+/** The apply line of a plugin the apply unloaded that has timers, which are kept and held. */
 export const timersHeldLine = (name: string, count: number) =>
   `${name}: its ${timersCount(count)} ${count === 1 ? "is" : "are"} kept and held until it loads again. chad plugin purge ${name} deletes them.`
 
-/** The "Problems" line of timers held for a plugin that is not loaded, and neither off nor deleted (FAIL-113). */
+/** The "Problems" line of timers held for a plugin that is not loaded, and neither off nor deleted. */
 export const timersHeldProblem = (name: string, count: number) =>
   `${timersCount(count)} held for plugin ${name}, which is not loaded`
 
-/** The `chad status` line of a plugin deleted from the repo that still has timers (SET-85). */
+/** The `chad status` line of a plugin deleted from the repo that still has timers. */
 export const timersDeletedPlugin = (name: string, count: number) =>
   `plugin: ${name}, deleted from the repo, ${timersCount(count)} held (chad plugin purge ${name} deletes them)`
 
-/** The `chad status` line of a plugin that is off, with its held timers (SET-41, CLI-126). */
+/** The `chad status` line of a plugin that is off, with its held timers. */
 export const offPlugin = (name: string, count: number) =>
   `plugin: ${name}, off${count === 0 ? "" : `, ${timersCount(count)} held`}`
 
-/** The session line of `chad plugin purge` (FAIL-176, FAIL-347). */
+/** The session line of `chad plugin purge`. */
 export const purgedLine = (name: string) => `Purged the data of plugin ${name}.`
 
 /** `chad plugin reload` that swapped. */
 export const reloaded = (name: string) =>
   `Reloaded ${name}. Sessions pick it up on their next message.`
 
-/** An apply that failed from its commit on (CLI-66, REC-120). */
+/** An apply that failed from its commit on. */
 export const failedAfterCommit = (commit: string, error: string) =>
   `The commit ${commit} was made, but the apply failed after it: ${error}. It loads at the next start.`
 
-/** What a successful apply or revert prints (CLI-70, CLI-71, REC-62, REC-82, SWAP-78, SWAP-112). */
-/** The line an apply ends with, after the MCP servers' lines when `mcp.json` changed (CLI-70). */
+/** What a successful apply or revert prints. */
+/** The line an apply ends with, after the MCP servers' lines when `mcp.json` changed. */
 export const appliedClosing =
   "Sessions pick the change up on their next message. This turn keeps the tools it has."
 
@@ -1277,7 +1269,7 @@ export const appliedOutput = (options: {
         }>
       }
     | undefined
-  /** In safe mode, the bundled plugins whose `enabled` flip took effect at once (SET-47, CLI-72). */
+  /** In safe mode, the bundled plugins whose `enabled` flip took effect at once. */
   readonly flipped?:
     | {
         readonly on: ReadonlyArray<string>
@@ -1288,9 +1280,9 @@ export const appliedOutput = (options: {
         }>
       }
     | undefined
-  /** The settings listing of the plugins the apply built (SET-66 to SET-69). */
+  /** The settings listing of the plugins the apply built. */
   readonly settings?: ReadonlyArray<string>
-  /** The lines of the skills the apply added, changed or removed, and of the repo skills that hide a bundled one (CLI-70, MCP-11). */
+  /** The lines of the skills the apply added, changed or removed, and of the repo skills that hide a bundled one. */
   readonly skills?: ReadonlyArray<string>
 }) => [
   `${options.kind === "revert" ? "Reverted" : "Applied"} ${options.commit}.`,
@@ -1353,61 +1345,60 @@ export const appliedOutput = (options: {
         ]),
 ]
 
-// chad.json (docs/spec/11-settings.md). The apply's errors name the file as `work/chad.json`, the file the agent
-// edits (SET-G4).
+// chad.json. The apply's errors name the file as `work/chad.json`, the file the agent edits.
 
-/** `chad.json` that is not JSON (SET-49). */
+/** `chad.json` that is not JSON. */
 export const settingsNotJson = (error: string) =>
   `work/chad.json is not JSON: ${error}`
 
 /** `chad.json` whose top level is not an object. */
 export const settingsNotObject = "work/chad.json is not a JSON object."
 
-/** A top-level key other than `plugins` (SET-50). */
+/** A top-level key other than `plugins`. */
 export const settingsTopKey = (key: string) =>
   `work/chad.json has the key "${key}". "plugins" is the only top-level key.`
 
-/** A `plugins` that is not an object (SET-87). */
+/** A `plugins` that is not an object. */
 export const settingsPluginsNotObject =
   'work/chad.json: "plugins" is not a JSON object.'
 
-/** An entry that names no plugin (SET-53). */
+/** An entry that names no plugin. */
 export const settingsUnknownPlugin = (name: string) =>
   `work/chad.json: plugins.${name} names no plugin, bundled or in the repo.`
 
-/** An entry that is not an object (SET-88). */
+/** An entry that is not an object. */
 export const settingsEntryNotObject = (name: string) =>
   `work/chad.json: plugins.${name} is not a JSON object.`
 
-/** A key in an entry other than `enabled` and `settings` (SET-51). */
+/** A key in an entry other than `enabled` and `settings`. */
 export const settingsEntryKey = (name: string, key: string) =>
   `work/chad.json: plugins.${name} has the key "${key}". An entry has only "enabled" and "settings".`
 
-/** An `enabled` that is not a boolean (SET-52). */
+/** An `enabled` that is not a boolean. */
 export const settingsEnabled = (name: string) =>
   `work/chad.json: plugins.${name}.enabled is not true or false.`
 
-/** A `settings` that is not an object (SET-89). */
+/** A `settings` that is not an object. */
 export const settingsSettings = (name: string) =>
   `work/chad.json: plugins.${name}.settings is not a JSON object.`
 
-/** A `${NAME}` with no default that resolves nowhere, which fails the plugin's load (SET-22, CLI-67). */
+/** A `${NAME}` with no default that resolves nowhere, which fails the plugin's load. */
 export const settingUnresolved = (name: string) =>
   `The settings name \${${name}}, which is in neither the secret store nor the daemon's environment. Save it with chad secret set ${name}.`
 
-/** The notice of a `chad.json` that cannot be parsed at a boot (SET-57, FAIL-164). */
+/** The notice of a `chad.json` that cannot be parsed at a boot. */
 export const settingsUnparsable = (error: string) =>
   `\`chad.json\` can't be parsed (${error}), so every plugin is on its defaults.`
 
-/** The notice of what a boot ignored in `chad.json` (SET-58, FAIL-164). */
+/** The notice of what a boot ignored in `chad.json`. */
 export const settingsIgnored = (paths: ReadonlyArray<string>) =>
   `Ignored in \`chad.json\`: ${paths.join(", ")}.`
 
-/** `chad plugin reload` of a plugin that is off (SET-83, CLI-172). */
+/** `chad plugin reload` of a plugin that is off. */
 export const reloadOff = (name: string) =>
   `${name} is off in chad.json ("enabled": false), so it is not loaded. Turn it on in work/chad.json and run chad apply.`
 
-/** Where one setting's value came from, never the value (SET-71, SET-72, SET-93, SET-G1). */
+/** Where one setting's value came from, never the value. */
 export const settingSource = (
   sources: ReadonlyArray<
     | { readonly from: "file" | "default" }
@@ -1433,8 +1424,7 @@ export const settingSource = (
 
 /**
  * A plugin's settings in the output of `chad check` and `chad apply`: the keys it read while loading and where each
- * value came from, a key on its default marked "(default)", and a warning for each key it did not read (SET-66 to
- * SET-69, CLI-71, SET-G1).
+ * value came from, a key on its default marked "(default)", and a warning for each key it did not read.
  */
 export const settingsListing = (
   name: string,
@@ -1455,7 +1445,7 @@ export const settingsListing = (
   ),
 ]
 
-/** A loaded plugin's settings in `chad status`: the keys read at load, then those read at call time since (SET-70, SET-G1). */
+/** A loaded plugin's settings in `chad status`: the keys read at load, then those read at call time since. */
 export const settingsStatus = (
   items: ReadonlyArray<{
     readonly key: string
@@ -1484,18 +1474,18 @@ export const settingsStatus = (
 export const logMissing =
   "There is no applied commit yet. The repo is made when chad first starts."
 
-/** The mark `chad status` gives a plugin that kept its running version when a reload failed to build it (SWAP-141, SWAP-142). */
+/** The mark `chad status` gives a plugin that kept its running version when a reload failed to build it. */
 export const runningPrevious = (
   what: "owners" | "instance" | "timezone" | "secret",
   error: string,
 ) => `running with the previous ${what}: ${firstLine(error)}`
 
-/** The line of `boot.setup-needed`, written when `chad serve` starts with no chat connection (IMG-33, FAIL-288). */
-/** `chad setup` with no terminal and an answer that is neither given nor stored, which exits 2 (CLI-123, CLI-242). */
+/** The line of `boot.setup-needed`, written when `chad serve` starts with no chat connection. */
+/** `chad setup` with no terminal and an answer that is neither given nor stored, which exits 2. */
 export const setupMissing = (flags: ReadonlyArray<string>) =>
   `chad setup: there is no terminal to ask on, so give ${flags.join(", ")}`
 
-/** The token question of a run after the first, which never prints the token and names the bot (CLI-192, CLI-246). */
+/** The token question of a run after the first, which never prints the token and names the bot. */
 export const setupTokenStored = (
   connection: string,
   bot: string | undefined,
@@ -1507,10 +1497,10 @@ export const setupTokenStored = (
 export const setupTokenPrompt =
   "Discord bot token (press Enter to keep the stored one)"
 
-/** The bot a token that setup stored belongs to (CLI-192). */
+/** The bot a token that setup stored belongs to. */
 export const setupBot = (bot: string) => `The token is the bot ${bot}'s.`
 
-/** Whether setup turned the message content intent on, or where the owner clicks (CLI-122, CLI-244). */
+/** Whether setup turned the message content intent on, or where the owner clicks. */
 export const setupIntent = (
   outcome: "on" | "already" | "portal",
   application: string | undefined,
@@ -1528,7 +1518,7 @@ export const setupOwnerPrompt = (owners: ReadonlyArray<string>) =>
 
 export const setupOwnerNeeded = "An owner id is needed."
 
-/** The owner question kept the stored owners (CLI-191, CLI-246). */
+/** The owner question kept the stored owners. */
 export const setupOwnersKept = (
   owners: ReadonlyArray<string>,
   connection: string,
@@ -1547,52 +1537,52 @@ export const setupLoggedIn = "chad is logged in to Codex."
 export const setupNeeded =
   "chad has no chat connection. Add one with chad connection add."
 
-// mcp.json and the MCP layer (docs/spec/12-skills-and-mcp.md). The seven texts the model reads are exact (MCP-99).
+// mcp.json and the MCP layer.
 
-/** Message 1: a call in flight when a rebuild started (MCP-71). */
+/** A call in flight when a rebuild started. */
 export const mcpInterrupted = (key: string) =>
   `mcp.${key} was interrupted by an MCP restart. It may have run in part or in full.`
 
-/** Message 2: a call made during a rebuild, before the new layer is current (MCP-140). */
+/** A call made during a rebuild, before the new layer is current. */
 export const mcpRestarting =
   "MCP servers are restarting. This call was not sent."
 
-/** Message 3: a server that is gone from `mcp.json` (MCP-81). */
+/** A server that is gone from `mcp.json`. */
 export const mcpRemoved = (key: string, name: string) =>
   `mcp.${key}: MCP server "${name}" was removed from mcp.json.`
 
-/** Message 4: a tool its connected server no longer lists (MCP-82). */
+/** A tool its connected server no longer lists. */
 export const mcpToolGone = (key: string, name: string) =>
   `mcp.${key}: "${name}" no longer lists this tool.`
 
-/** Message 5: a server that is configured and not connected (MCP-83). */
+/** A server that is configured and not connected. */
 export const mcpNotConnected = (key: string, name: string, error: string) =>
   `mcp.${key}: MCP server "${name}" is not connected: ${firstLine(error)}`
 
-/** Message 7: the prompt of a turn that started at boot before the first layer connected (MCP-92). */
+/** The prompt of a turn that started at boot before the first layer connected. */
 export const mcpStarting =
   "MCP servers were still starting when this turn began. They are available from your next turn."
 
-/** The most tools message 8 names before it counts the rest (MCP-142). */
+/** The most tools `mcpNextTurn` names before it counts the rest. */
 export const mcpNextTurnShown = 10
 
-/** Message 8, added to a `searchTools` result after a blank line (MCP-87, MCP-142). */
+/** The tools callable from the next turn, added to a `searchTools` result after a blank line. */
 export const mcpNextTurn = (keys: ReadonlyArray<string>) => {
   const shown = keys.slice(0, mcpNextTurnShown).map((key) => `mcp.${key}`)
   const rest = keys.length - shown.length
   return `${shown.join(", ")}${rest > 0 ? `, and ${rest} more` : ""} ${keys.length === 1 ? "is" : "are"} callable from your next turn.`
 }
 
-/** A `searchTools` call when no server of the current layer is connected (MCP-143). */
+/** A `searchTools` call when no server of the current layer is connected. */
 export const mcpNoServerConnected = "searchTools: no MCP server is connected."
 
-/** A call made when no layer exists and none is being built (MCP-143). */
+/** A call made when no layer exists and none is being built. */
 export const mcpNotRunning = "MCP servers are not running."
 
-/** The status error of an entry with `"type": "sse"` (MCP-22). */
+/** The status error of an entry with `"type": "sse"`. */
 export const mcpSse = "SSE transport is not supported"
 
-/** `mcp.json` that is not JSON (MCP-33). */
+/** `mcp.json` that is not JSON. */
 export const mcpNotJson = (error: string) => `it is not JSON: ${error}`
 
 /** `mcp.json` whose top level is not an object. */
@@ -1608,10 +1598,10 @@ export const mcpEntry = (name: string, error: string) =>
 /** A file that cannot be read at all. */
 export const mcpFileUnreadable = (code: string) => `it cannot be read (${code})`
 
-/** A malformed `mcp.json`, which fails an apply and a check (MCP-33, REC-28). */
+/** A malformed `mcp.json`, which fails an apply and a check. */
 export const mcpRefused = (error: string) => `work/mcp.json: ${error}.`
 
-/** A stdio entry whose `cwd` is relative (MCP-110). */
+/** A stdio entry whose `cwd` is relative. */
 export const mcpRelativeCwdRefused = (name: string, cwd: string) =>
   `work/mcp.json: MCP server "${name}" has the relative cwd "${cwd}". Give an absolute path.`
 
@@ -1619,15 +1609,15 @@ export const mcpRelativeCwdRefused = (name: string, cwd: string) =>
 export const mcpRelativeCwd = (cwd: string) =>
   `its cwd "${cwd}" is not an absolute path`
 
-/** The status error of a server with a `${NAME}` that resolves nowhere (MCP-27, MCP-114). */
+/** The status error of a server with a `${NAME}` that resolves nowhere. */
 export const mcpUnresolved = (name: string) =>
   `\${${name}} is in neither the secret store nor the daemon's environment`
 
-/** `chad check`'s warning for such a name, which leaves the check passing (MCP-113, CLI-74). */
+/** `chad check`'s warning for such a name, which leaves the check passing. */
 export const mcpCheckUnresolved = (server: string, name: string) =>
   `Warning: MCP server "${server}" names \${${name}}, which is in neither the secret store nor the daemon's environment. An apply lists it as unavailable.`
 
-/** What `chad check` says of `mcp.json` when it changed: the servers an apply would add, remove or change (MCP-36). */
+/** What `chad check` says of `mcp.json` when it changed: the servers an apply would add, remove or change. */
 export const mcpCheckLines = (diff: {
   readonly added: ReadonlyArray<string>
   readonly removed: ReadonlyArray<string>
@@ -1639,11 +1629,11 @@ export const mcpCheckLines = (diff: {
   "The check connected no MCP server.",
 ]
 
-/** The notice of an `mcp.json` that cannot be read at boot (FAIL-165). */
+/** The notice of an `mcp.json` that cannot be read at boot. */
 export const mcpUnreadable = (error: string) =>
   `\`mcp.json\` can't be read (${firstLine(error)}), so no MCP servers are running.`
 
-/** One MCP server as status and an apply show it (MCP-35, CLI-125f, MCP-144). */
+/** One MCP server as status and an apply show it. */
 export interface McpServerState {
   readonly name: string
   readonly state: "connected" | "failed" | "starting"
@@ -1651,7 +1641,7 @@ export interface McpServerState {
   readonly error?: string
 }
 
-/** One MCP server's line in what an apply, a secret change or `chad mcp restart` prints (MCP-35, MCP-144). */
+/** One MCP server's line in what an apply, a secret change or `chad mcp restart` prints. */
 export const mcpServerLine = (server: McpServerState) =>
   server.state === "connected"
     ? `MCP server ${server.name}: connected, ${server.tools ?? 0} tools.`
@@ -1666,9 +1656,9 @@ export const mcpRebuilt = (servers: ReadonlyArray<McpServerState>) =>
     : servers.map(mcpServerLine)
 
 /**
- * What an older `chad serve` says when `state/version` names a newer chad (STO-48, STO-193, STO-213). `copy` is the copy
- * of the database taken before the last migration and the version written beside it, when the volume holds them. The
- * steps are given only when that version is this chad's own.
+ * What an older `chad serve` says when `state/version` names a newer chad. `copy` is the copy of the database taken
+ * before the last migration and the version written beside it, when the volume holds them. The steps are given only
+ * when that version is this chad's own.
  */
 export const volumeNewer = (options: {
   readonly data: string
@@ -1697,11 +1687,11 @@ export const volumeNewer = (options: {
   ].join("\n")
 }
 
-/** The notice of `prune-failed`, a table key, which the next prune that succeeds clears (FAIL-312, FAIL-348). */
+/** The notice of `prune-failed`, a table key, which the next prune that succeeds clears. */
 export const pruneFailed = (error: string) =>
   `The nightly prune of old sessions failed: ${firstLine(error)}. chad tries again at the next run.`
 
-/** `chad backup -` with a terminal on standard output (STO-177, CLI-202). */
+/** `chad backup -` with a terminal on standard output. */
 export const backupTerminal = () =>
   "chad backup: refused: standard output is a terminal, and the tar holds tokens. Redirect it to a file or a pipe, or give a path."
 
@@ -1712,11 +1702,11 @@ export const backupWritten = (path: string) => `Backup written to ${path}.`
 export const backupFailed = (error: string) =>
   `chad backup: failed: ${firstLine(error)}`
 
-/** `chad restore` with a daemon holding the lock (STO-99, CLI-135). */
+/** `chad restore` with a daemon holding the lock. */
 export const restoreDaemon = (data: string) =>
   `chad restore: refused: a chad serve holds the lock on ${data}. Stop it and restore from a one-off container.`
 
-/** `chad restore` onto a volume that holds what an owner made (STO-179, STO-180). */
+/** `chad restore` onto a volume that holds what an owner made. */
 export const restoreNotEmpty = (data: string, what: string) =>
   `chad restore: refused: ${data} is not empty: ${what}. chad restores only onto an empty volume.`
 
@@ -1724,7 +1714,7 @@ export const restoreNotEmpty = (data: string, what: string) =>
 export const restoreNotBackup = (tar: string, why: string) =>
   `chad restore: ${tar} is not a chad backup: ${why}`
 
-/** The tar given to `chad restore` was made by a newer chad, or in a newer format (STO-182, STO-103). */
+/** The tar given to `chad restore` was made by a newer chad, or in a newer format. */
 export const restoreNewer = (made: string, own: string) =>
   `chad restore: refused: the backup was made by chad ${made}, which is newer than this chad ${own}. Restore it with chad ${made} or a newer one.`
 
@@ -1732,14 +1722,14 @@ export const restoreNewer = (made: string, own: string) =>
 export const restoreFailed = (error: string) =>
   `chad restore: failed: ${firstLine(error)}`
 
-/** `chad restore` finished (STO-101, STO-102). */
+/** `chad restore` finished. */
 export const restored = (data: string, made: string) =>
   `Restored a backup of chad ${made} into ${data}. Start chad serve: its first start rebuilds repo/versions, repo/live and repo/node_modules from the applied branch, and migrates the database when this chad is newer.`
 
-/** A command, or `chad serve` as `serve`, on a volume that a cut `chad restore` left half replaced (STO-217). */
+/** A command, or `chad serve` as `serve`, on a volume that a cut `chad restore` left half replaced. */
 export const restoreUnfinished = (command: string, data: string) =>
   `chad ${command}: refused: a chad restore into ${data} did not finish, so the volume is half replaced. Run chad restore again with the same tar.`
 
-/** The restore lock was held for longer than the lock's busy time (STO-219). */
+/** The restore lock was held for longer than the lock's busy time. */
 export const restoreBusy = (command: string, data: string) =>
   `chad ${command}: refused: a chad restore or another command is writing ${data}. Try again when it is done.`

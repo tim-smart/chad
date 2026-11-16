@@ -9,7 +9,7 @@ import * as Repository from "../Repository.ts"
 
 /**
  * `chad safe [on|off]`. With a daemon it swaps; with none it reads or stores the toggle, which the next start reads.
- * While `CHAD_SAFE_MODE=1` is set, `off` changes nothing and exits 1 (REC-56, REC-128, REC-129, REC-G23).
+ * While `CHAD_SAFE_MODE=1` is set, `off` changes nothing and exits 1.
  */
 export const safe = Command.make(
   "safe",

@@ -1,5 +1,5 @@
 /**
- * The repo on the volume (docs/spec/09-repo-and-recovery.md): the git repo at `repo/work/` where the agent edits, the
+ * The repo on the volume: the git repo at `repo/work/` where the agent edits, the
  * exported trees under `repo/versions/<tree>/` and the `repo/live` link to the one that is loaded. The applied
  * history is the `applied` branch of that repo, one commit per apply or revert, and git is the only store of it.
  */
@@ -14,14 +14,14 @@ export class GitError extends Data.TaggedError("GitError")<{
   readonly message: string
 }> {}
 
-/** The identity of the applied commits, which the repo's own config holds (LOAD-84, REC-115). */
+/** The identity of the applied commits, which the repo's own config holds. */
 export const identity = { name: "chad", email: "chad@localhost" } as const
 
-/** The branch of the applied history, and the branch checked out in `work/` (REC-15, LOAD-82). */
+/** The branch of the applied history, and the branch checked out in `work/`. */
 export const applied = "applied"
 export const main = "main"
 
-/** The trailer that records the session that ran an apply (REC-116). */
+/** The trailer that records the session that ran an apply. */
 export const sessionTrailer = "Chad-Session"
 
 export const paths = (repo: string) => ({
@@ -84,8 +84,8 @@ export const treeOf = (work: string, commit: string) =>
 
 /**
  * A snapshot of `work/` as one tree: `git add -A` into a temporary index that starts empty, then `git write-tree`.
- * The agent's own index, HEAD and branch are untouched, and `.gitignore` is respected (LOAD-33, LOAD-34, REC-22,
- * REC-23). An index that starts empty hashes every file, so no edit is missed for a timestamp.
+ * The agent's own index, HEAD and branch are untouched, and `.gitignore` is respected. An index that
+ * starts empty hashes every file, so no edit is missed for a timestamp.
  */
 export const snapshot = Effect.fnUntraced(function* (repo: string) {
   const fs = yield* FileSystem.FileSystem
@@ -100,7 +100,7 @@ export const snapshot = Effect.fnUntraced(function* (repo: string) {
 
 /**
  * Exports a tree to `repo/versions/<tree>/`, written under a temporary name and renamed once it is complete, so a kill
- * never leaves a half-written directory under a tree's name (LOAD-35, LOAD-83). `fresh` is false when the directory
+ * never leaves a half-written directory under a tree's name. `fresh` is false when the directory
  * was there already, which a failed check must then leave alone.
  */
 export const exportTree = Effect.fnUntraced(function* (
@@ -130,7 +130,7 @@ export const exportTree = Effect.fnUntraced(function* (
   return { directory, fresh: true }
 })
 
-/** Repoints `repo/live` at a tree with a rename, so a reader sees the old tree or the new one (LOAD-37). */
+/** Repoints `repo/live` at a tree with a rename, so a reader sees the old tree or the new one. */
 export const point = Effect.fnUntraced(function* (repo: string, tree: string) {
   const fs = yield* FileSystem.FileSystem
   const temporary = join(repo, `.live-${unique()}`)
@@ -147,7 +147,7 @@ export const pointed = Effect.fnUntraced(function* (repo: string) {
   )
 })
 
-/** Deletes every exported tree but one, and whatever an export or a check left under `versions/` (LOAD-39). */
+/** Deletes every exported tree but one, and whatever an export or a check left under `versions/`. */
 export const prune = Effect.fnUntraced(function* (repo: string, keep: string) {
   const fs = yield* FileSystem.FileSystem
   const { versions } = paths(repo)
@@ -164,7 +164,7 @@ export const prune = Effect.fnUntraced(function* (repo: string, keep: string) {
 
 /**
  * A commit of a tree on the `applied` branch, with the previous applied commit as its parent. The message is the
- * `-m` text and the session that ran it is a trailer, so git alone holds both (LOAD-36, REC-116).
+ * `-m` text and the session that ran it is a trailer, so git alone holds both.
  */
 export const commit = Effect.fnUntraced(function* (
   repo: string,
@@ -197,7 +197,7 @@ export const commit = Effect.fnUntraced(function* (
 
 /**
  * Moves the branch in `work/` to an applied commit and keeps the files, so after an apply `git status` is clean and
- * `git diff` shows what is edited after it (LOAD-38).
+ * `git diff` shows what is edited after it.
  */
 export const reset = (repo: string, sha: string) =>
   git(paths(repo).work, ["reset", "-q", "--mixed", sha])
@@ -205,7 +205,7 @@ export const reset = (repo: string, sha: string) =>
 /**
  * The paths where a revert to `target` would write over something in `work/` that its save did not capture, such as
  * an ignored file: a path the target adds that `work/` already holds, or one of its parent directories that `work/`
- * holds as a file (REC-154). This refuses the revert before its commit when what is in the way is there already.
+ * holds as a file. This refuses the revert before its commit when what is in the way is there already.
  * It is not what keeps the files: `restore` writes over nothing, whenever a file appears.
  */
 export const obstructed = Effect.fnUntraced(function* (
@@ -299,7 +299,7 @@ export const reverted = (repo: string, name: string) =>
 
 /**
  * Puts the files of a revert's target back in `work/` and moves its branch to the commit. It deletes nothing that
- * `work/` held (REC-82, REC-139, REC-154).
+ * `work/` held.
  *
  * The target's files, and the saved files as git would write them out, are first written to a directory of their own
  * under `repo/`. After that `work/` changes in three ways only:
@@ -484,7 +484,7 @@ const removeEmpty = (directory: string) =>
 
 /**
  * Saves what `work/` holds as a commit under `refs/chad/saved/<timestamp>`, from the same snapshot an apply takes, so
- * it keeps untracked files and respects `.gitignore` (REC-82, REC-137). It gives the ref, the saved tree and the commit.
+ * it keeps untracked files and respects `.gitignore`. It gives the ref, the saved tree and the commit.
  */
 export const save = Effect.fnUntraced(function* (repo: string) {
   const { work } = paths(repo)
@@ -504,7 +504,7 @@ export const save = Effect.fnUntraced(function* (repo: string) {
   return { ref, tree, commit: sha }
 })
 
-/** The commit a revert goes back to, or the reason there is none (REC-78, REC-140, REC-141). */
+/** The commit a revert goes back to, or the reason there is none. */
 export const target = Effect.fnUntraced(function* (
   repo: string,
   current: string,
@@ -533,7 +533,7 @@ export const target = Effect.fnUntraced(function* (
   return on ? sha : undefined
 })
 
-/** The files that differ between two trees, as `git diff --name-status` lists them (CLI-65). */
+/** The files that differ between two trees, as `git diff --name-status` lists them. */
 export const changed = (repo: string, from: string | undefined, to: string) =>
   git(paths(repo).work, [
     "diff-tree",
@@ -553,7 +553,7 @@ export const changed = (repo: string, from: string | undefined, to: string) =>
     ),
   )
 
-/** One applied commit as `chad log` shows it (REC-143, CLI-165). */
+/** One applied commit as `chad log` shows it. */
 export interface Entry {
   readonly commit: string
   readonly time: string
@@ -561,7 +561,7 @@ export interface Entry {
   readonly message: string
 }
 
-/** The newest applied commits, read from the commits alone, so it needs no daemon and no database (CLI-168). */
+/** The newest applied commits, read from the commits alone, so it needs no daemon and no database. */
 export const log = Effect.fnUntraced(function* (repo: string, limit: number) {
   const { work } = paths(repo)
   const text = yield* git(work, [
@@ -588,7 +588,7 @@ export const log = Effect.fnUntraced(function* (repo: string, limit: number) {
 /**
  * Makes the repo when `work/` has none: `git init` on the branch `main`, chad's identity in the repo's own config,
  * and a first commit of `chad.json` as `{ "plugins": {} }` and an empty `persona.md`, which is also the head of
- * `applied` (IMG-33, REC-6, REC-115, SELF-44). A repo that has `work/` but no `applied` branch gets one at its own
+ * `applied`. A repo that has `work/` but no `applied` branch gets one at its own
  * first commit of the files it holds.
  */
 const create = Effect.fnUntraced(function* (repo: string) {
@@ -621,7 +621,7 @@ const create = Effect.fnUntraced(function* (repo: string) {
 })
 
 /**
- * The repo as a boot needs it (IMG-43, LOAD-42, LOAD-89, REC-121): the repo with its first commit when there is none,
+ * The repo as a boot needs it: the repo with its first commit when there is none,
  * and `live` naming the tree of the head of `applied`, exported first when `versions/` does not hold it. The head of
  * `applied` wins over what `live` named, and the other entries of `versions/` go. It gives the loaded tree.
  */
@@ -637,7 +637,7 @@ export const prepare = Effect.fnUntraced(function* (repo: string) {
 
 /**
  * What `chad status` shows of the repo, read from it alone: the applied commit, and whether `work/` holds a draft,
- * which is a file that differs from the applied commit (CLI-125c, CLI-125d). A repo that cannot be read gives neither.
+ * which is a file that differs from the applied commit. A repo that cannot be read gives neither.
  */
 export const state = (repo: string) =>
   Effect.gen(function* () {

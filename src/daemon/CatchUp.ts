@@ -4,10 +4,10 @@ import { Timings } from "../Timings.ts"
 import * as Sessions from "./Sessions.ts"
 
 /**
- * The catch-up after a gateway that had to identify again instead of resuming (docs/spec/03-sessions-and-turns.md,
- * SES-37). For each session of the platform that is still active, it reads forward from the last message chad saw in
- * it (SES-170) and hands each owner message it finds to the gateway handler, which saves it as any message is saved.
- * A message the handler already saved is dropped there by its key.
+ * The catch-up after a gateway that had to identify again instead of resuming. For each session of the platform that
+ * is still active, it reads forward from the last message chad saw in it and hands each owner message it finds to the
+ * gateway handler, which saves it as any message is saved. A message the handler already saved is dropped there by its
+ * key.
  */
 export const run = Effect.fnUntraced(function* (platform: string) {
   const timings = yield* Timings

@@ -1,6 +1,5 @@
-// The bundled plugin `cron` (13-timers-and-cron.md, CRON-48 to CRON-138). It uses only the plugin API (CRON-1): jobs
-// live in the plugin's key-value store and each enabled job has one timer in the core. Its source is the example the
-// self-edit skill points at, as `repo/examples/cron/`.
+// The bundled plugin `cron`. It uses only the plugin API: jobs live in the plugin's key-value store and each enabled
+// job has one timer in the core. Its source is the example the self-edit skill points at, as `repo/examples/cron/`.
 import {
   Context,
   DateTime,
@@ -25,7 +24,7 @@ import {
 import { Turns } from "../../Turns.ts"
 import * as Jobs from "./Jobs.ts"
 
-/** Failures in a row that pause a job (CRON-74). */
+/** Failures in a row that pause a job. */
 const limit = 3
 
 /** The jobs, the lock and the calls every part of cron shares. */
@@ -34,7 +33,7 @@ class Cron extends Context.Service<
   {
     /** The plugin's name, which a turn's `origin.plugin` carries. */
     readonly name: string
-    /** The one lock of the tools, the reconcile and the `afterTurn` hook (CRON-132). */
+    /** The one lock of the tools, the reconcile and the `afterTurn` hook. */
     readonly locked: <A, E, R>(
       effect: Effect.Effect<A, E, R>,
     ) => Effect.Effect<A, E, R>
@@ -42,13 +41,13 @@ class Cron extends Context.Service<
     readonly all: Effect.Effect<ReadonlyArray<Jobs.Job>>
     readonly set: (job: Jobs.Job) => Effect.Effect<void>
     readonly remove: (name: string) => Effect.Effect<void>
-    /** The owner's timezone, which a job without one of its own follows (CRON-51, CRON-115). */
+    /** The owner's timezone, which a job without one of its own follows. */
     readonly zone: string
-    /** Schedules the job's timer, then writes the record (CRON-129). */
+    /** Schedules the job's timer, then writes the record. */
     readonly enable: (job: Jobs.Job) => Effect.Effect<void>
-    /** Writes the record, then cancels the job's timer (CRON-130). */
+    /** Writes the record, then cancels the job's timer. */
     readonly disable: (job: Jobs.Job) => Effect.Effect<void>
-    /** Deletes the record, then cancels the job's timer (CRON-65, CRON-130). */
+    /** Deletes the record, then cancels the job's timer. */
     readonly delete: (job: Jobs.Job) => Effect.Effect<void>
   }
 >()("chad/plugins/cron/Cron") {
@@ -91,7 +90,7 @@ class Cron extends Context.Service<
   )
 }
 
-/** The fields a schedule takes in `cronCreate` and `cronUpdate` (CRON-61, CRON-140). */
+/** The fields a schedule takes in `cronCreate` and `cronUpdate`. */
 const scheduleFields = {
   at: Schema.optionalKey(Schema.String).annotate({
     description:
@@ -115,7 +114,7 @@ const scheduleFields = {
   }),
 }
 
-/** One job as `cronList` returns it (CRON-118, CRON-137, CRON-141). */
+/** One job as `cronList` returns it. */
 const Listed = Schema.Struct({
   name: Schema.String,
   prompt: Schema.String,
@@ -186,7 +185,7 @@ const tools = Toolkit.make(
   }),
 )
 
-/** The id of the owner behind the calling turn (CRON-112, CRON-113). */
+/** The id of the owner behind the calling turn. */
 const ownerOf = (cron: Cron["Service"], turn: Option.Option<Turn>) =>
   Effect.gen(function* () {
     if (Option.isNone(turn)) return undefined
@@ -197,7 +196,7 @@ const ownerOf = (cron: Cron["Service"], turn: Option.Option<Turn>) =>
 
 const unknown = (job: string) => `name: no job is named "${job}".`
 
-/** A timezone the tools were given, checked (CRON-119). */
+/** A timezone the tools were given, checked. */
 const checkZone = (zone: string | undefined) =>
   zone === undefined || Option.isSome(DateTime.zoneMakeNamed(zone))
     ? Effect.void
@@ -264,7 +263,7 @@ const handlers = tools.toLayer(
             return jobs.map((job) => {
               const zone = Jobs.zoneOf(job, cron.zone)
               const timer = timers.get(Jobs.timerName(job))
-              // An enabled one-shot past its time with no timer fired, and its outcome never reached cron (CRON-137).
+              // An enabled one-shot past its time with no timer fired, and its outcome never reached cron.
               const fired =
                 job.enabled &&
                 job.at !== undefined &&
@@ -325,12 +324,12 @@ const handlers = tools.toLayer(
               ...(input.prompt === undefined
                 ? {}
                 : { prompt: Jobs.wrap(job.name, input.prompt) }),
-              // Called from another thread, the job moves there (CRON-64).
+              // Called from another thread, the job moves there.
               thread: ChatThread.toString(session.thread),
               enabled,
               notify: input.notify ?? job.notify,
             }
-            // Turning a job on starts its count again (CRON-125), and a pause set here is the owner's own.
+            // Turning a job on starts its count again, and a pause set here is the owner's own.
             if (input.enabled !== undefined) {
               const { pausedBy: _pausedBy, ...kept } = updated
               updated = { ...kept, failures: input.enabled ? 0 : job.failures }
@@ -357,9 +356,9 @@ const handlers = tools.toLayer(
           Effect.gen(function* () {
             const job = yield* cron.get(name)
             if (job === undefined) return yield* Effect.fail(unknown(name))
-            // The schedule is left alone, so a paused job runs too (CRON-66, CRON-120). The run is queued for the job's
+            // The schedule is left alone, so a paused job runs too. The run is queued for the job's
             // timer, behind the job's runs that are queued or in progress wherever they are, and runs in the job's
-            // thread (CRON-72, CRON-148). The one request is all that is saved.
+            // thread. The one request is all that is saved.
             yield* turns.queue({
               thread: Jobs.threadOf(job),
               prompt: job.prompt,
@@ -374,14 +373,14 @@ const handlers = tools.toLayer(
   }),
 )
 
-/** The two static lines on how to schedule (CRON-68, CRON-143). */
+/** The two static lines on how to schedule. */
 const chunk =
   "Scheduled jobs: cronCreate runs a prompt later in this thread, once (at a time or in a delay) or on a 5-field cron expression, and cronList, cronUpdate, cronRemove and cronRun see and manage the jobs.\n" +
   "A job's prompt runs with nobody there to answer questions, so write it to be done alone and to say what to post. A run may answer [SILENT] to post nothing."
 
 /**
  * The job a turn of cron's is a run of: the job its label names, when the turn carries that job's timer name. A run
- * of an earlier job of the same name carries another one, and has no job (CRON-111, CRON-149).
+ * of an earlier job of the same name carries another one, and has no job.
  */
 const jobOf = (cron: Cron["Service"], turn: Turn) =>
   Effect.gen(function* () {
@@ -394,7 +393,7 @@ const jobOf = (cron: Cron["Service"], turn: Turn) =>
     return job !== undefined && Jobs.timerName(job) === timer ? job : undefined
   })
 
-/** When a scheduled run was due and how late it started (CRON-70, CRON-144). */
+/** When a scheduled run was due and how late it started. */
 const due = (cron: Cron["Service"], turn: Turn) =>
   Effect.gen(function* () {
     const origin = turn.origin
@@ -418,7 +417,7 @@ const due = (cron: Cron["Service"], turn: Turn) =>
 
 /**
  * Records a one-shot's time when a `cronRun` run of it starts, so a change of the time during the run outlives the
- * run (CRON-67, CRON-149). A resumed turn keeps its id, and the time recorded at its first start.
+ * run. A resumed turn keeps its id, and the time recorded at its first start.
  */
 const mark = (cron: Cron["Service"], turn: Turn) =>
   Effect.gen(function* () {
@@ -436,8 +435,7 @@ const mark = (cron: Cron["Service"], turn: Turn) =>
   })
 
 /**
- * What a run's outcome makes of its job: the job to keep, or none when a one-shot is done, and the pause line to post
- * (CRON-52, CRON-73 to CRON-77, CRON-89, CRON-122 to CRON-127).
+ * What a run's outcome makes of its job: the job to keep, or none when a one-shot is done, and the pause line to post.
  */
 const afterRun = (
   job: Jobs.Job,
@@ -453,11 +451,11 @@ const afterRun = (
       case "LoggedOut":
       case "LoginFailed":
       case "UsageLimit":
-        // Not the job's failure. A one-shot is kept, paused, so it is not lost (CRON-77, CRON-126).
+        // Not the job's failure. A one-shot is kept, paused, so it is not lost.
         return oneShot ? pause(reason._tag) : { job }
       case "ThreadGone":
       case "GaveUp":
-        // Paused at once, and a one-shot is deleted (CRON-52, CRON-76, CRON-89).
+        // Paused at once, and a one-shot is deleted.
         return oneShot ? {} : pause(reason._tag)
       default: {
         if (oneShot) return {}
@@ -476,7 +474,7 @@ const afterRun = (
       }
     }
   }
-  // An answer or a stop is a run that happened, so a one-shot is done (CRON-52). A stop leaves the count (CRON-124).
+  // An answer or a stop is a run that happened, so a one-shot is done. A stop leaves the count.
   if (oneShot) return {}
   return { job: outcome._tag === "Answered" ? { ...job, failures: 0 } : job }
 }
@@ -489,7 +487,7 @@ const settle = (cron: Cron["Service"], { turn, outcome }: TurnEnded) =>
     const { started, ...job } = found
     const save = (next: Jobs.Job) =>
       next.enabled ? cron.set(next) : cron.disable(next)
-    // A one-shot moved to a new time while this run was in progress keeps its new time (CRON-67, CRON-149).
+    // A one-shot moved to a new time while this run was in progress keeps its new time.
     const timer = turn.origin.timer
     const at =
       timer !== undefined
@@ -505,14 +503,14 @@ const settle = (cron: Cron["Service"], { turn, outcome }: TurnEnded) =>
     yield* save(after.job)
     if (after.line !== undefined) {
       const chat = yield* Chat.Chat
-      // The line reports an event, so every such pause posts it (CRON-74, FAIL-72).
+      // The line reports an event, so every such pause posts it.
       yield* chat.post(Jobs.threadOf(job), { markdown: after.line })
     }
   })
 
 /**
- * Makes the core's timers match the job records, which are the truth (CRON-78, CRON-79, CRON-128). It runs once each
- * activation, in a background fiber, so its `Turns` calls wait for the activation and not the build (CRON-131).
+ * Makes the core's timers match the job records, which are the truth. It runs once each
+ * activation, in a background fiber, so its `Turns` calls wait for the activation and not the build.
  */
 const reconcile = (cron: Cron["Service"]) =>
   Effect.gen(function* () {
@@ -533,7 +531,7 @@ const reconcile = (cron: Cron["Service"]) =>
       if (!job.enabled) continue
       const timer = scheduled.get(Jobs.timerName(job))
       if (timer !== undefined && Jobs.matches(timer, job, cron.zone)) continue
-      // A one-shot past its time with no timer fired, and cron leaves it for its outcome (CRON-79, CRON-138).
+      // A one-shot past its time with no timer fired, and cron leaves it for its outcome.
       if (timer === undefined && job.at !== undefined && job.at <= now) continue
       yield* turns.schedule(Jobs.timerOf(job, cron.zone))
     }

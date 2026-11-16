@@ -113,7 +113,7 @@ export const checkToken = Effect.fn("Discord.checkToken")(function* (
 /**
  * Turns the message content intent on for the bot of a checked token, through Discord's API, which allows it for an
  * app in fewer than 100 servers. `on` is a switch this call made, `already` one that was on, and `portal` an answer
- * that leaves the owner to click it (CLI-122).
+ * that leaves the owner to click it.
  */
 export const messageContent = Effect.fn("Discord.messageContent")(function* (
   token: string,

@@ -100,9 +100,9 @@ export interface DaemonInputs {
   readonly webSocketConstructor: Layer.Layer<Socket.WebSocketConstructor>
   /** One complete set of durations. */
   readonly timings: Timings
-  /** The plugins the daemon loads at boot, which `chad serve` gives as the bundled ones (LOAD-74). */
+  /** The plugins the daemon loads at boot, which `chad serve` gives as the bundled ones. */
   readonly plugins?: ReadonlyArray<Plugins.Entry> | undefined
-  /** The directory of the bundled skills, which `chad serve` gives as the image's (MCP-9, MCP-145). None by default. */
+  /** The directory of the bundled skills, which `chad serve` gives as the image's. None by default. */
   readonly skills?: string | undefined
 }
 
@@ -122,8 +122,8 @@ const signalled = Effect.callback<void>((resume) => {
 })
 
 /**
- * The steps of a boot, in the order of the numbered list in docs/spec/01-image-and-volume.md. It gives the exit code
- * of a boot that was refused, and never returns from one that was not.
+ * The steps of a boot, in order, as the numbered comments below mark them. It gives the exit code of a boot that was
+ * refused, and never returns from one that was not.
  */
 const boot = Effect.fnUntraced(function* (
   inputs: DaemonInputs,
@@ -174,18 +174,18 @@ const boot = Effect.fnUntraced(function* (
     version,
     node: process.version,
     data: volume.data,
-    // Whether safe mode is on and why (FAIL-286b).
+    // Whether safe mode is on and why.
     safe: yield* SafeMode.read(volume.data, environment.safeMode),
   })
 
   // Step 3. A volume a newer chad wrote is refused under the lock and before the socket or the database is touched, so
-  // the refused boot has written nothing but its log lines (STO-48, IMG-127, FAIL-146).
+  // the refused boot has written nothing but its log lines.
   const newer = yield* Upgrade.newer(volume.data)
   if (newer !== undefined) {
     yield* Logger.event("boot.refused", newer, { reason: "version" })
     return 1
   }
-  // A volume that a cut `chad restore` left half replaced is the restore's until it runs again (STO-217).
+  // A volume that a cut `chad restore` left half replaced is the restore's until it runs again.
   if (yield* fs.exists(Paths.restoreCut(volume.data))) {
     yield* Logger.event(
       "boot.refused",
@@ -207,7 +207,7 @@ const boot = Effect.fnUntraced(function* (
   )
   if (Option.isNone(stored)) return 1
   state.connections = StoredConnections.listed(stored.value)
-  // A volume with no chat connection runs, and says that setup is needed (IMG-33, CLI-6, FAIL-288).
+  // A volume with no chat connection runs, and says that setup is needed.
   if (stored.value.length === 0) {
     yield* Logger.event("boot.setup-needed", Messages.setupNeeded, {})
   }
@@ -243,8 +243,8 @@ const boot = Effect.fnUntraced(function* (
   )
 
   // Steps 6 to 8. The guard runs before the migrations, so a boot it refuses changes nothing in the database. A
-  // database that cannot be opened or migrated for any other reason keeps chad up without sessions (STO-117).
-  // Opening the database makes the file, so whether this boot found one is read first (STO-44).
+  // database that cannot be opened or migrated for any other reason keeps chad up without sessions.
+  // Opening the database makes the file, so whether this boot found one is read first.
   const existed = yield* fs.exists(volume.database)
   const opened = yield* Effect.gen(function* () {
     const base = Context.merge(
@@ -255,7 +255,7 @@ const boot = Effect.fnUntraced(function* (
     state.phase = "database"
     yield* Storage.known.pipe(Effect.provide(base))
     // The copy comes after the shard count check and before the migrations, and a database that cannot be opened
-    // never reaches it, so the previous copy stays (STO-42, STO-159).
+    // never reaches it, so the previous copy stays.
     const copied = yield* Upgrade.copy(volume, existed)
     const migrated = yield* Storage.migrate.pipe(Effect.provide(base))
     return { base, migrated, copied }
@@ -306,7 +306,7 @@ const boot = Effect.fnUntraced(function* (
       copy: (yield* fs.exists(copy)) ? copy : "none",
     })
   }
-  // The database is usable again, so a later time it is not sends its notice again (FAIL-226, STO-186).
+  // The database is usable again, so a later time it is not sends its notice again.
   yield* fs
     .remove(Paths.dbUnusable(volume.data), { force: true })
     .pipe(
@@ -316,10 +316,10 @@ const boot = Effect.fnUntraced(function* (
     )
   yield* Upgrade.written(volume)
   // The owner's timezone: `state/timezone`, else a valid `TZ`, else UTC. `chad timezone` changes it in the daemon's
-  // queue, and plugins, session processes and "today" read it from here (IMG-27, IMG-28, API-17).
+  // queue, and plugins, session processes and "today" read it from here.
   let zone = (yield* Timezone.read(volume.data, environment.tz)).zone
   const timezone = () => zone
-  // "Recent" reads the `turns` table from here on. "Today" is the day in the owner's timezone (FAIL-115).
+  // "Recent" reads the `turns` table from here on. "Today" is the day in the owner's timezone.
   state.recent = Effect.suspend(() => {
     const now = Date.now()
     return Sessions.recent({
@@ -331,15 +331,14 @@ const boot = Effect.fnUntraced(function* (
 
   // Step 9.
   state.phase = "loading"
-  // The plugins of the applied tree load beside the bundled ones, through the bundle loader and with no type-check
-  // (LOAD-61). They are bundled before any session or connection starts, and their Layers build once the sessions
-  // can take turns. `repo/`'s links come first, so the agent finds the packages and the examples (IMG-44 to IMG-46).
+  // The plugins of the applied tree load beside the bundled ones, through the bundle loader and with no type-check.
+  // They are bundled before any session or connection starts, and their Layers build once the sessions can take
+  // turns. `repo/`'s links come first, so the agent finds the packages and the examples.
   yield* RepoLinks.prepare(volume.repo)
-  // Safe mode is read from its file and the variable, never from the database (STO-15, REC-56, REC-57).
+  // Safe mode is read from its file and the variable, never from the database.
   const safe = yield* SafeMode.read(volume.data, environment.safeMode)
   // The repo with its first commit when there is none, and `live` on the head of `applied`, which wins over what
-  // `live` named. No file in the repo stops a boot, so a repo that cannot be readied loads nothing (IMG-43, LOAD-89,
-  // REC-48, REC-121).
+  // `live` named. No file in the repo stops a boot, so a repo that cannot be readied loads nothing.
   const applied = yield* Repo.prepare(volume.repo).pipe(
     Effect.tapCause((cause) =>
       Effect.logWarning(
@@ -351,14 +350,13 @@ const boot = Effect.fnUntraced(function* (
   )
   const bundledNames = new Set((inputs.plugins ?? []).map(({ name }) => name))
   const fromRepo =
-    // Safe mode loads nothing from the repo and never starts esbuild (LOAD-63, LOAD-90, REC-50).
+    // Safe mode loads nothing from the repo and never starts esbuild.
     safe !== "off" || Option.isNone(applied)
       ? { loaded: [], skipped: [] }
-      : // A repo plugin with a bundled plugin's name is skipped before it runs, since the two would share one table
-        // (REC-42).
+      : // A repo plugin with a bundled plugin's name is skipped before it runs, since the two would share one table.
         yield* Loader.load(applied.value.directory, bundledNames)
   // The token store and the one Codex login of the process, which every session's model layer is built over. clanka's
-  // login reads the stored token once, as it is built (MOD-26, MOD-66).
+  // login reads the stored token once, as it is built.
   const tokens = yield* Layer.buildWithScope(
     TokenStore.layer(volume.data),
     scope,
@@ -390,7 +388,7 @@ const boot = Effect.fnUntraced(function* (
   }).pipe(Effect.provideContext(base))
   state.problems.push(notices.problems)
   // The applied `chad.json`, which no file can make stop the boot. A plugin it turns off is not loaded and is not
-  // skipped (SET-34, SET-57, SET-58, LOAD-63, FAIL-315).
+  // skipped.
   const appliedSettings = yield* PluginSettings.atBoot({
     tree: Option.isSome(applied) ? applied.value.directory : undefined,
     known: new Set([
@@ -404,8 +402,8 @@ const boot = Effect.fnUntraced(function* (
   const off = Settings.off(appliedSettings)
   for (const name of off) yield* notices.clear(Plugins.skippedKey(name))
   // The MCP layer, in a scope forked before the plugins' so a stop closes it after them, and the deadline only ever
-  // cuts MCP servers (IMG-84, LOAD-64, SWAP-109). A boot is a rebuild, in the background, so turns start before the
-  // servers connect. Safe mode loads no MCP server (MCP-7, MCP-90, REC-11, LOAD-46).
+  // cuts MCP servers. A boot is a rebuild, in the background, so turns start before the servers connect. Safe mode
+  // loads no MCP server.
   const mcp = yield* Mcp.make({
     scope: yield* Scope.fork(scope),
     lookup: PluginSettings.lookup(volume.data, environment.variables, fs),
@@ -417,13 +415,13 @@ const boot = Effect.fnUntraced(function* (
   }
   state.mcp = mcp.report
   state.open = mcp.open
-  // The persona of the tree `live` points at, which safe mode leaves out of the prompt (REC-11, SELF-45).
+  // The persona of the tree `live` points at, which safe mode leaves out of the prompt.
   const persona = yield* Persona.read(
     Option.isSome(applied) ? applied.value.directory : undefined,
   )
   // The bundled skills and the applied tree's. A malformed one is skipped with a notice and the rest load, and safe mode
-  // loads none from the repo (MCP-7, MCP-18, REC-47). The repo's are still read in safe mode for what they hide, so a
-  // bundled skill that changed is announced once whatever mode the boot is in (MCP-14).
+  // loads none from the repo. The repo's are still read in safe mode for what they hide, so a bundled skill that
+  // changed is announced once whatever mode the boot is in.
   const bundledSkills = yield* Skills.scan(inputs.skills)
   const repoSkills = yield* Skills.scan(
     Option.isSome(applied)
@@ -446,7 +444,7 @@ const boot = Effect.fnUntraced(function* (
             "A bundled skill that a repo skill hides changed",
             { skill: name },
           ).pipe(
-            // A one-off notice, which waits for its connection on a fiber of its own (FAIL-155, FAIL-167).
+            // A one-off notice, which waits for its connection on a fiber of its own.
             Effect.andThen(
               Effect.forkIn(
                 notices.announce(Messages.bundledSkillChanged(name)),
@@ -465,7 +463,7 @@ const boot = Effect.fnUntraced(function* (
     )
   }
   // The one Codex login of the process. Its code goes to the thread of the turn that asked, or by the notice route,
-  // and its wait is the daemon's, so a turn or a CLI that goes does not end it (MOD-36, MOD-41, MOD-101).
+  // and its wait is the daemon's, so a turn or a CLI that goes does not end it.
   const login = yield* Login.make({
     timeout: inputs.timings.modelLogin,
     announce: (text) =>
@@ -532,15 +530,14 @@ const boot = Effect.fnUntraced(function* (
     ),
   })
   // The plugins are loaded once the sessions can take their turns, and every turn waits for them. Their scope is
-  // forked here, so it closes after the sessions' and a graceful stop runs their queued hooks after the turns end
-  // (API-67).
+  // forked here, so it closes after the sessions' and a graceful stop runs their queued hooks after the turns end.
   const pluginScope = yield* Scope.fork(scope)
   let repository: Apply.Commands | undefined
   const waiting: PluginTurns.Waiting = new Map()
   // A timer's handler can run as soon as cluster is up, and runs its turn once the plugins' `Turns` are made.
   const turnOptions = yield* Deferred.make<PluginTurns.Options>()
   // Completed wake-ups are pruned like a session's requests, because the handler checks each one against the
-  // `timers` row and never reads a stored reply (CRON-18, STO-113, SES-22).
+  // `timers` row and never reads a stored reply.
   const timerRetention = MessageRetention.make({
     entity: Timers.Timer,
     retention: inputs.timings.messageRetention,
@@ -549,7 +546,7 @@ const boot = Effect.fnUntraced(function* (
       Duration.minutes(1),
     ),
   })
-  // A timer's finished runs are pruned the same way, since a run delivered again reads the `turns` row (CRON-29).
+  // A timer's finished runs are pruned the same way, since a run delivered again reads the `turns` row.
   const runsRetention = MessageRetention.make({
     entity: Timers.TimerRuns,
     retention: inputs.timings.messageRetention,
@@ -573,8 +570,7 @@ const boot = Effect.fnUntraced(function* (
       Effect.flatMap(Deferred.await(loaded), (host) => host.onSession(event)),
     status: () => host?.status() ?? [],
     skipped: () => host?.skipped() ?? [],
-    // An MCP rebuild moves the generation as a plugin swap does, so a session rebuilds its Agent on its next turn
-    // (MCP-68, SWAP-127).
+    // An MCP rebuild moves the generation as a plugin swap does, so a session rebuilds its Agent on its next turn.
     generation: () => (host?.generation() ?? 0) + mcp.generation(),
     versions: () => host?.versions() ?? [],
     prepare: (plan) =>
@@ -584,7 +580,7 @@ const boot = Effect.fnUntraced(function* (
     whenActive: (name) =>
       Effect.flatMap(Deferred.await(loaded), (host) => host.whenActive(name)),
   }
-  // A stop abandons a swap and an MCP rebuild in progress (SWAP-101, MCP-94).
+  // A stop abandons a swap and an MCP rebuild in progress.
   state.abandon = Effect.andThen(plugins.abandon, mcp.abandon)
   const sessions = yield* Layer.buildWithScope(
     Layer.mergeAll(
@@ -593,7 +589,7 @@ const boot = Effect.fnUntraced(function* (
       Timers.layer,
       timerRetention,
       runsRetention,
-      // The nightly prune, whose runs are kept for good because no `MessageRetention` covers them (STO-110).
+      // The nightly prune, whose runs are kept for good because no `MessageRetention` covers them.
       Prune.layer({
         sessions: volume.sessions,
         zone,
@@ -676,7 +672,7 @@ const boot = Effect.fnUntraced(function* (
           Layer.succeed(Volume.Volume, volume),
           Layer.succeed(Timings, inputs.timings),
           Agent.ConversationMode.layer(true),
-          // Only a test sets clanka's turn timeout, and the shipped daemon leaves clanka's default (FAIL-79, TST-215).
+          // Only a test sets clanka's turn timeout, and the shipped daemon leaves clanka's default.
           inputs.timings.turnTimeout === undefined
             ? Layer.empty
             : Agent.TurnTimeout.layer(inputs.timings.turnTimeout),
@@ -727,8 +723,7 @@ const boot = Effect.fnUntraced(function* (
     timings: inputs.timings,
     stopping: () => state.stopping,
     notices,
-    // The trial `Agent.makeWith` of an apply, on an executor of its own, since clanka dies when two tools share a name
-    // (SWAP-3).
+    // The trial `Agent.makeWith` of an apply, on an executor of its own, since clanka dies when two tools share a name.
     trial: (tools) =>
       Agent.makeWith({ loopTools: tools.toolkit }).pipe(
         Effect.provide(tools.context),
@@ -793,7 +788,7 @@ const boot = Effect.fnUntraced(function* (
     zoned: (next) => {
       zone = next
     },
-    // A command's line goes to the thread of the session that ran it, as subtext (REC-108, FAIL-177).
+    // A command's line goes to the thread of the session that ran it, as subtext.
     announce: (session, line) =>
       Effect.gen(function* () {
         const thread = yield* Sessions.threadOf(session)
@@ -834,7 +829,7 @@ const boot = Effect.fnUntraced(function* (
     connections: stored.value.length,
   })
   // The check at start runs once chad is connected, which is when the first connection of the boot has connected, a
-  // Discord one at its gateway's `READY`, and nothing waits for it (MOD-95, MOD-127). With no connection there is
+  // Discord one at its gateway's `READY`, and nothing waits for it. With no connection there is
   // nothing to wait for, so it runs at once.
   yield* Effect.gen(function* () {
     if (stored.value.length > 0) yield* running.chats.connected
@@ -852,8 +847,8 @@ const boot = Effect.fnUntraced(function* (
 /**
  * `/model` from chat. Words it does not take get the usage line. Otherwise the command runs in a fiber of the daemon's
  * scope, so the event's handler is done at once, and posts what it prints where it was typed. A restart drops a
- * command that is still running, and nothing is said (MOD-125). A login it starts posts its code there too, and one
- * that runs already has its code posted there as well (MOD-91).
+ * command that is still running, and nothing is said. A login it starts posts its code there too, and one that runs
+ * already has its code posted there as well.
  */
 const modelCommand = (
   account: Server.Account,
@@ -926,8 +921,7 @@ export const runDaemon = (inputs: DaemonInputs): Promise<number> => {
       yield* Logger.event("stop.started", "chad is stopping", {})
     }
     // From here the stop has until the deadline. Then the `stop.cut` line, naming what is still open, is written to both
-    // sinks before the process exits with 1, since both write synchronously (IMG-82, IMG-85b, IMG-139, FAIL-243,
-    // REC-148).
+    // sinks before the process exits with 1, since both write synchronously.
     const deadline = setTimeout(() => {
       Effect.runSync(
         Logger.event("stop.cut", "The stop's deadline cut it", {
@@ -937,7 +931,7 @@ export const runDaemon = (inputs: DaemonInputs): Promise<number> => {
       )
       process.exit(1)
     }, Duration.toMillis(inputs.timings.stopDeadline))
-    // A swap that runs is abandoned first, before anything waits on requests in flight (SWAP-101).
+    // A swap that runs is abandoned first, before anything waits on requests in flight.
     yield* state.abandon
     yield* Server.interruptCalls(state)
     yield* Scope.close(scope, Exit.void)

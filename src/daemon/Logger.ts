@@ -13,7 +13,7 @@ import { TaskOwner } from "clanka/AgentTools"
 import { type EventName, levelOf } from "../Events.ts"
 import * as Paths from "../Paths.ts"
 
-/** The size past which `chad.log` is rotated, and how many rotated files are kept (FAIL-32). */
+/** The size past which `chad.log` is rotated, and how many rotated files are kept. */
 export const rotation = {
   maxBytes: 10 * 1024 * 1024,
   keep: Paths.logKept,
@@ -23,7 +23,7 @@ export const rotation = {
  * The file sink. A line written before the file is opened waits, because until the daemon may write the volume another
  * daemon may be the one that owns the file. `open` then writes the waiting lines, in the order stdout has them. Once
  * the file is open every line is appended as it is written, so nothing waits for a later write and no exit path
- * leaves a line behind (FAIL-35, FAIL-36).
+ * leaves a line behind.
  */
 export interface FileSink {
   readonly write: (line: string) => void
@@ -61,7 +61,7 @@ export const makeFileSink = (
     }
     size = 0
   }
-  // A rotation happens only between two lines, so no line is split across two files (FAIL-33).
+  // A rotation happens only between two lines, so no line is split across two files.
   const append = (lines: ReadonlyArray<string>) => {
     if (path === undefined || lines.length === 0) return
     try {
@@ -84,7 +84,7 @@ export const makeFileSink = (
         size += bytes
       }
     } catch {
-      // A write that fails, as on a full disk, is dropped, and stdout still has the line (FAIL-37).
+      // A write that fails, as on a full disk, is dropped, and stdout still has the line.
     }
   }
   return {
@@ -102,16 +102,15 @@ export const makeFileSink = (
 }
 
 /**
- * The ids a session's lines carry, one mutable object per session (FAIL-25). chad provides it where the session's
- * executor layer is built and where its Agent is built, sets `turn` when a turn starts and clears it when the turn
- * ends (FAIL-26).
+ * The ids a session's lines carry, one mutable object per session. chad provides it where the session's executor
+ * layer is built and where its Agent is built, sets `turn` when a turn starts and clears it when the turn ends.
  */
 export interface SessionLogIds {
   readonly session: string
   turn: string | undefined
   /**
-   * The number of each of the session's sub-agents, by the task owner clanka runs its scripts' tool calls under
-   * (FAIL-241, FAIL-328). The root agent's owner is never in it.
+   * The number of each of the session's sub-agents, by the task owner clanka runs its scripts' tool calls under.
+   * The root agent's owner is never in it.
    */
   readonly subagents: Map<string, number>
 }
@@ -121,13 +120,13 @@ export const CurrentLogIds = Context.Reference<SessionLogIds | undefined>(
   { defaultValue: () => undefined },
 )
 
-/** The number of the sub-agent whose script a fiber runs, where chad runs the script (FAIL-241, FAIL-328). */
+/** The number of the sub-agent whose script a fiber runs, where chad runs the script. */
 export const CurrentSubagent = Context.Reference<number | undefined>(
   "chad/CurrentSubagent",
   { defaultValue: () => undefined },
 )
 
-/** The name of the plugin chad runs something for (FAIL-27). Nothing sets it until plugins arrive. */
+/** The name of the plugin chad runs something for. Nothing sets it until plugins arrive. */
 export const PluginName = Context.Reference<string | undefined>(
   "chad/PluginName",
   { defaultValue: () => undefined },
@@ -135,7 +134,7 @@ export const PluginName = Context.Reference<string | undefined>(
 
 /**
  * What the text of a fiber's lines passes through before they are formatted. The MCP layer's fibers carry one that
- * keeps the values its `${NAME}`s expanded to out of the log (CRED-80, MCP-148).
+ * keeps the values its `${NAME}`s expanded to out of the log.
  */
 export const Scrub = Context.Reference<((line: string) => string) | undefined>(
   "chad/Logger/Scrub",
@@ -143,7 +142,7 @@ export const Scrub = Context.Reference<((line: string) => string) | undefined>(
 )
 
 /**
- * The counts of the plugin chad runs something for, which every warning and error line it logs adds to (FAIL-117).
+ * The counts of the plugin chad runs something for, which every warning and error line it logs adds to.
  */
 export const PluginCounts = Context.Reference<
   { warnings: number; errors: number; latest: string | undefined } | undefined
@@ -203,7 +202,7 @@ const withIds = (
 ) => {
   if (Object.keys(ids).length === 0) return entry
   const own = entry.fiber.getRef(References.CurrentLogAnnotations)
-  // A plugin's own line carries `plugin.log` unless it set an event itself (FAIL-30).
+  // A plugin's own line carries `plugin.log` unless it set an event itself.
   const annotations = {
     ...("event" in own
       ? { event: own["event"] }
@@ -255,7 +254,7 @@ const scrubValue = (value: unknown, scrub: (text: string) => string) => {
 
 /**
  * The entry with the fiber's scrubber run over its message, its annotations' values and its cause, before a formatter
- * serializes it, so the line stays well formed and its keys stay as they are (FAIL-2, FAIL-3, MCP-148).
+ * serializes it, so the line stays well formed and its keys stay as they are.
  */
 const scrubbed = (entry: Entry): Entry => {
   const scrub = entry.fiber.getRef(Scrub)
@@ -276,10 +275,10 @@ const scrubbed = (entry: Entry): Entry => {
 }
 
 /**
- * chad's one logger, with its two sinks (FAIL-23). stdout gets effect's logfmt line and the file gets effect's JSON
+ * chad's one logger, with its two sinks. stdout gets effect's logfmt line and the file gets effect's JSON
  * line, and `level`, which is `CHAD_LOG_LEVEL`, filters both. A line logged on a fiber whose console is a script's is
  * printed into the script's output by effect's default logger, as plain clanka does, and only at Info and above
- * whatever the level is (FAIL-19, FAIL-21). Its copy goes to the sinks, capped at Info when clanka logged it (FAIL-29).
+ * whatever the level is. Its copy goes to the sinks, capped at Info when clanka logged it.
  */
 export const layer = (options: {
   readonly level: LogLevel.LogLevel

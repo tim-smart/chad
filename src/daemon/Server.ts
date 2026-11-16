@@ -57,22 +57,22 @@ export interface State {
   connections: ReadonlyArray<{ readonly name: string; readonly kind: string }>
   /** The connection and owner commands, which the boot hands over once it has loaded the connections. */
   readonly commands: Deferred.Deferred<Commands>
-  /** The fibers of the commands in flight, which a stop interrupts before it takes anything down (CLI-19). */
+  /** The fibers of the commands in flight, which a stop interrupts before it takes anything down. */
   readonly calls: Set<Fiber.Fiber<unknown, unknown>>
   /** When the daemon started, in milliseconds since the epoch. */
   readonly started: number
   /**
    * The standing conditions "Problems" lists that the daemon answers from memory or from files, each once. None reads
-   * the database, so `/status` shows them when it cannot be used (FAIL-112, FAIL-213, CLI-211).
+   * the database, so `/status` shows them when it cannot be used.
    */
   readonly problems: Array<() => ReadonlyArray<string>>
-  /** The lines "Problems" reads from the `notices` table for the table keys, once the database is open (FAIL-308). */
+  /** The lines "Problems" reads from the `notices` table for the table keys, once the database is open. */
   held: Effect.Effect<ReadonlyArray<string>, unknown> | undefined
-  /** What "Recent" reads from the `turns` table, once the database is open (FAIL-114). */
+  /** What "Recent" reads from the `turns` table, once the database is open. */
   recent: Effect.Effect<RecentTurns, unknown> | undefined
   /** The model and the login, which the boot hands over once it has loaded them. */
   readonly account: Deferred.Deferred<Account>
-  /** The loaded plugins' counts, which the boot hands over once it has loaded them (FAIL-117). */
+  /** The loaded plugins' counts, which the boot hands over once it has loaded them. */
   plugins: () => ReadonlyArray<{
     readonly name: string
     readonly counts: {
@@ -83,31 +83,31 @@ export interface State {
     readonly previous?: string
     readonly settings: ReadonlyArray<SettingItem>
   }>
-  /** The plugins the applied `chad.json` turns off, once the plugins load (SET-34). */
+  /** The plugins the applied `chad.json` turns off, once the plugins load. */
   off: () => ReadonlyArray<string>
   /** How many timers each plugin has, once the boot has the database. */
   timers: Effect.Effect<
     ReadonlyArray<{ readonly plugin: string; readonly count: number }>,
     unknown
   >
-  /** Safe mode, the applied commit and the draft as `chad status` shows them, once the repo is set up (CLI-125). */
+  /** Safe mode, the applied commit and the draft as `chad status` shows them, once the repo is set up. */
   repositoryState: Effect.Effect<Status.Repository | undefined>
   /** The commands that change what is loaded from the repo, which the boot hands over once the plugins load. */
   readonly repository: Deferred.Deferred<Apply.Commands>
-  /** The one queue for everything that changes what is loaded, which the boot hands over with the commands (CLI-37). */
+  /** The one queue for everything that changes what is loaded, which the boot hands over with the commands. */
   readonly queue: Deferred.Deferred<Queue.Queue>
-  /** Abandons a swap that runs, which a stop does before anything else (SWAP-101). */
+  /** Abandons a swap that runs, which a stop does before anything else. */
   abandon: Effect.Effect<void>
-  /** The plugins skipped at boot and why, which the boot hands over with the counts (CLI-125). */
+  /** The plugins skipped at boot and why, which the boot hands over with the counts. */
   skipped: () => ReadonlyArray<{
     readonly name: string
     readonly reason: string
   }>
-  /** The repo skills that hide a bundled one, once the repo is set up (MCP-12, SELF-121). */
+  /** The repo skills that hide a bundled one, once the repo is set up. */
   hiding: () => ReadonlyArray<string>
-  /** Each MCP server's state, once the boot has read `mcp.json` (CLI-125f). */
+  /** Each MCP server's state, once the boot has read `mcp.json`. */
   mcp: Effect.Effect<ReadonlyArray<Messages.McpServerState>>
-  /** The MCP servers whose close has not ended, which a stop cut by its deadline names (IMG-85b, MCP-97). */
+  /** The MCP servers whose close has not ended, which a stop cut by its deadline names. */
   open: () => ReadonlyArray<string>
 }
 
@@ -121,7 +121,7 @@ export interface Account {
   readonly stored: Effect.Effect<boolean>
 }
 
-/** The model and its login state, as `chad status` shows them (CLI-125). */
+/** The model and its login state, as `chad status` shows them. */
 export const modelState = (account: Account): Effect.Effect<ModelState> =>
   Effect.gen(function* () {
     const { spec, needsLogin } = account.model()
@@ -140,8 +140,8 @@ export interface LoginPrompt {
 }
 
 /**
- * `chad model` and `/model` in the daemon, which run the one call and print the same text (MOD-15, MOD-19). With no
- * change it shows the settings and the login state. A change logs `command.ran` with how it ended (MOD-122).
+ * `chad model` and `/model` in the daemon, which run the one call and print the same text. With no
+ * change it shows the settings and the login state. A change logs `command.ran` with how it ended.
  */
 export const modelCommand = (
   account: Account,
@@ -210,7 +210,7 @@ export const interruptCalls = (state: State) => Fiber.interruptAll(state.calls)
 
 /**
  * "Recent", or why it is missing. A database that cannot be read leaves the rest of the answer as it is, so `/status`
- * renders with no database and no model (FAIL-111, CLI-149).
+ * renders with no database and no model.
  */
 const recent = (state: State): Effect.Effect<Recent> =>
   state.recent === undefined
@@ -223,7 +223,7 @@ const recent = (state: State): Effect.Effect<Recent> =>
         ),
       )
 
-/** The table keys' lines. With no database to read, "Problems" has the live keys alone (FAIL-309). */
+/** The table keys' lines. With no database to read, "Problems" has the live keys alone. */
 const held = (state: State): Effect.Effect<ReadonlyArray<string>> =>
   state.held === undefined
     ? Effect.succeed([])
@@ -252,8 +252,7 @@ const report = (state: State): Effect.Effect<Report> =>
     ]),
     ([recent, held, model, repository, mcp, timers]) => {
       // A timer of a plugin that is not loaded is held. One of a plugin that is off or deleted from the repo shows on
-      // the plugin's line, and any other, a skipped plugin's or one safe mode keeps out, under "Problems" (FAIL-113,
-      // SET-84, SET-85).
+      // the plugin's line, and any other, a skipped plugin's or one safe mode keeps out, under "Problems".
       const loaded = new Set(state.plugins().map(({ name }) => name))
       const off = new Set(state.off())
       const skipped = new Set(state.skipped().map(({ name }) => name))
@@ -413,7 +412,7 @@ const handlers = (state: State) => {
       )
     })
   const account = Deferred.await(state.account)
-  /** A call that takes no place in the queue, which a stop still interrupts (CLI-159, CLI-19). */
+  /** A call that takes no place in the queue, which a stop still interrupts. */
   const tracked = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     Effect.withFiber<A, E, R>((fiber) => {
       state.calls.add(fiber)
@@ -423,7 +422,7 @@ const handlers = (state: State) => {
     })
   return Rpcs.toLayer({
     Ping: () => Effect.succeed("pong"),
-    // A killed CLI ends this stream and its wait with it, and the login runs on in the daemon (MOD-59, MOD-101).
+    // A killed CLI ends this stream and its wait with it, and the login runs on in the daemon.
     Login: (_, { headers }) =>
       Stream.callback<LoginEvent, LoginFailed>((queue) =>
         tracked(
@@ -479,7 +478,7 @@ const handlers = (state: State) => {
           }),
         ),
       ),
-    // The place in the queue is held until the CLI ends the call, or goes away, which interrupts it (STO-93).
+    // The place in the queue is held until the CLI ends the call, or goes away, which interrupts it.
     Backup: () =>
       Stream.callback<HoldEvent>((events) =>
         tracked(
@@ -511,7 +510,7 @@ const handlers = (state: State) => {
       tracked(
         Effect.gen(function* () {
           const { login, model } = yield* account
-          // A stored token is cleared whatever the model in force is (MOD-110).
+          // A stored token is cleared whatever the model in force is.
           yield* login.logout
           yield* Queue.ran(
             "logout",
@@ -522,7 +521,7 @@ const handlers = (state: State) => {
         }),
       ),
     // A killed CLI ends this stream, and a change that has not reached its store with it. A login it started runs on
-    // in the daemon (MOD-101).
+    // in the daemon.
     Model: ({ request }, { headers }) =>
       Stream.callback<ModelEvent, ModelUnchanged>((queue) =>
         tracked(

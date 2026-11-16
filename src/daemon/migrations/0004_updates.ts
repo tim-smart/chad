@@ -1,9 +1,8 @@
 import { Effect } from "effect"
 import { SqlClient } from "effect/sql"
 
-// The `failures` slice's schema: the lines that wait to tell a session's model what chad posted in its thread
-// (STO-131, STO-170, FAIL-131), and the notice keys (STO-128, STO-169). This file is never edited once its slice is
-// delivered.
+// The lines that wait to tell a session's model what chad posted in its thread, and the notice keys. This file is
+// never edited once it has shipped.
 export default Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
   yield* sql`

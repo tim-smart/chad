@@ -1,9 +1,9 @@
 import { Effect } from "effect"
 import { SqlClient } from "effect/sql"
 
-// The `timers-cron` slice's schema: one row per plugin timer, which decides whether a run is still wanted (STO-77,
-// STO-78, CRON-14). `cron` is null for a one-shot, and `next_run` is the one stored run in milliseconds since the
-// epoch. This file is never edited once its slice is delivered.
+// The timers schema: one row per plugin timer, which decides whether a run is still wanted. `cron` is null for a
+// one-shot, and `next_run` is the one stored run in milliseconds since the epoch. This file is never edited once it
+// has shipped.
 export default Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
   yield* sql`

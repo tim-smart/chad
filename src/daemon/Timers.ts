@@ -29,11 +29,10 @@ import type { Timer as PublicTimer } from "../Turns.ts"
 import * as Logger from "./Logger.ts"
 import { Outcome, Session } from "./SessionEntity.ts"
 
-// The timers of docs/spec/13-timers-and-cron.md. A timer is a `timers` row, which says whether a run is still wanted,
-// and one persisted wake-up at the timer's own address of the `Timer` entity, which says when to look (CRON-12 to
-// CRON-16, STO-78).
+// A timer is a `timers` row, which says whether a run is still wanted, and one persisted wake-up at the timer's own
+// address of the `Timer` entity, which says when to look.
 
-/** A `timers` row (STO-77). `cron` and `timezone` are null for a one-shot. */
+/** A `timers` row. `cron` and `timezone` are null for a one-shot. */
 export interface Row {
   readonly plugin: string
   readonly name: string
@@ -46,7 +45,7 @@ export interface Row {
   readonly next_run: number
 }
 
-/** The wake-up of one scheduled run. One scheduled time at one address is one request (CRON-97). */
+/** The wake-up of one scheduled run. One scheduled time at one address is one request. */
 export class Fire extends Schema.Class<Fire>("chad/Timer/Fire")({
   plugin: Schema.String,
   name: Schema.String,
@@ -60,14 +59,14 @@ export class Fire extends Schema.Class<Fire>("chad/Timer/Fire")({
   }
 }
 
-/** The `Timer` entity, next to `Session` and never sharing its addresses (CRON-12, CRON-13). */
+/** The `Timer` entity, next to `Session` and never sharing its addresses. */
 export const Timer = Entity.make("Timer", [
   Rpc.make("fire", { payload: Fire }).annotate(ClusterSchema.Persisted, true),
 ])
 
 /**
  * One run of a timer, as its `TimerRuns` entity takes it: a scheduled run, which has `scheduledAt`, or a run that
- * `Turns.queue` asked for with the timer's name. One key is one turn (API-137).
+ * `Turns.queue` asked for with the timer's name. One key is one turn.
  */
 export class Queued extends Schema.Class<Queued>("chad/TimerRuns/Run")({
   key: Schema.String,
@@ -87,7 +86,7 @@ export class Queued extends Schema.Class<Queued>("chad/TimerRuns/Run")({
 /**
  * The runs of one timer, at the timer's entity id. The entity takes one request at a time in the order they were saved,
  * so the timer's scheduled runs and the turns queued for it run one at a time, across threads and across a kill, and
- * a cancel or a replace of the timer, which clears the `Timer` address, leaves them (API-137, CRON-148).
+ * a cancel or a replace of the timer, which clears the `Timer` address, leaves them.
  */
 export const TimerRuns = Entity.make("TimerRuns", [
   Rpc.make("run", { payload: Queued, success: Outcome }).annotate(
@@ -96,16 +95,16 @@ export const TimerRuns = Entity.make("TimerRuns", [
   ),
 ])
 
-/** The entity id of a timer (CRON-96). */
+/** The entity id of a timer. */
 export const entityId = (plugin: string, name: string) => `${plugin}/${name}`
 
-/** The turn key of a scheduled run, which makes one scheduled time one turn (CRON-20, CRON-98, SES-16). */
+/** The turn key of a scheduled run, which makes one scheduled time one turn. */
 export const turnKey = (plugin: string, name: string, at: number) =>
   `timer/${plugin}/${name}/${at}`
 
 /**
  * The next run of a cron expression after a time, by Effect's `Cron` with its default daylight saving behaviour, and
- * no next-run code of chad's own (CRON-100 to CRON-103). A 6-field expression has seconds first (CRON-139).
+ * no next-run code of chad's own. A 6-field expression has seconds first.
  */
 export const next = (
   cron: string,
@@ -159,7 +158,7 @@ export const counts = Effect.fnUntraced(function* (now: number) {
   }))
 })
 
-/** A row as `Turns.scheduled()` gives it, without the plugin (CRON-92, API-122). */
+/** A row as `Turns.scheduled()` gives it, without the plugin. */
 export const toPublic = (row: Row): PublicTimer => ({
   name: row.name,
   schedule:
@@ -197,7 +196,7 @@ export const make = Effect.gen(function* () {
       new Fire({ plugin: row.plugin, name: row.name, at: row.next_run }),
       { discard: true },
     )
-  /** Deletes every wake-up stored at the timer's address, the way the workflow engine clears a clock (CRON-16). */
+  /** Deletes every wake-up stored at the timer's address, the way the workflow engine clears a clock. */
   const clear = (plugin: string, name: string) =>
     storage.clearAddress(address(plugin, name))
   return {
@@ -205,8 +204,8 @@ export const make = Effect.gen(function* () {
     clear,
     /**
      * Stores a timer and its one wake-up: the row is overwritten, the earlier wake-up cleared and the new one saved, so
-     * only the new time fires (CRON-6). The three are one transaction, so a change that cannot be saved leaves the
-     * earlier timer as it was (API-133).
+     * only the new time fires. The three are one transaction, so a change that cannot be saved leaves the earlier
+     * timer as it was.
      */
     save: (row: Row) =>
       storage.withTransaction(
@@ -216,7 +215,7 @@ export const make = Effect.gen(function* () {
           yield* arm(row)
         }),
       ),
-    /** Removes a timer's row and its wake-ups. A run that has started finishes and saves nothing (CRON-7, CRON-16). */
+    /** Removes a timer's row and its wake-ups. A run that has started finishes and saves nothing. */
     remove: (plugin: string, name: string) =>
       storage.withTransaction(
         Effect.gen(function* () {
@@ -224,7 +223,7 @@ export const make = Effect.gen(function* () {
           yield* clear(plugin, name)
         }),
       ),
-    /** Removes every timer of a plugin, for `chad plugin purge`, and gives how many there were (CRON-35). */
+    /** Removes every timer of a plugin, for `chad plugin purge`, and gives how many there were. */
     purge: (plugin: string) =>
       storage.withTransaction(
         Effect.gen(function* () {
@@ -249,7 +248,7 @@ export type Timers = Effect.Success<typeof make>
 
 /**
  * The ends of the scheduled runs of this process, by the run's turn key. The `TimerRuns` handler gives each run's end
- * here as well as in its reply, so a reply that cannot be saved does not stop the chain (CRON-84). Either side makes
+ * here as well as in its reply, so a reply that cannot be saved does not stop the chain. Either side makes
  * the entry: the wake-up's handler when it starts, or the run's handler when the run ends first, as a run replayed
  * after a restart can while its wake-up is held. The wake-up's handler removes it on every exit.
  */
@@ -270,7 +269,7 @@ const wantedAt =
   (row: Row | undefined): row is Row =>
     row !== undefined && row.next_run === at
 
-/** Holds a run while its plugin is not loaded, is off or is in a swap (CRON-30, CRON-40). */
+/** Holds a run while its plugin is not loaded, is off or is in a swap. */
 const hold = (
   support: Context.Service.Shape<typeof Support>,
   plugin: string,
@@ -288,7 +287,7 @@ const hold = (
 
 /**
  * The handler of a wake-up. It reads the row, waits while the plugin is not loaded, runs the turn and waits for its end,
- * reads the row again and only then stores the next run (CRON-15, CRON-19 to CRON-25, CRON-30 to CRON-32).
+ * reads the row again and only then stores the next run.
  */
 const timerLayer = (ends: Ends) =>
   Timer.toLayer(
@@ -309,7 +308,7 @@ const timerLayer = (ends: Ends) =>
             const wanted = wantedAt(at)
             const row = yield* read(plugin, name)
             if (!wanted(row)) return
-            // A plugin that is not loaded, is off or is in a swap holds the run inside this request (CRON-30, CRON-40).
+            // A plugin that is not loaded, is off or is in a swap holds the run inside this request.
             let current = row
             if (!support.active(plugin)) {
               yield* hold(support, plugin, name)
@@ -317,7 +316,7 @@ const timerLayer = (ends: Ends) =>
               if (!wanted(again)) return
               current = again
             }
-            // The run waits its place among the timer's runs (API-137). Its end comes from the reply or, when the reply
+            // The run waits its place among the timer's runs. Its end comes from the reply or, when the reply
             // cannot be saved, from the handler in this process. The call is left to finish, since interrupting it would
             // interrupt the request.
             yield* runs(entityId(plugin, name))
@@ -342,7 +341,7 @@ const timerLayer = (ends: Ends) =>
                 Effect.forkIn(scope),
               )
             // A run that dies is logged and not run again, and the chain goes on, so one bad run never ends a recurring
-            // timer (FAIL-71).
+            // timer.
             yield* Deferred.await(end).pipe(
               Effect.catchCause((cause) =>
                 Cause.hasInterruptsOnly(cause)
@@ -352,14 +351,14 @@ const timerLayer = (ends: Ends) =>
                     ),
               ),
             )
-            // A cancel or a replace during the run stays in force (CRON-23).
+            // A cancel or a replace during the run stays in force.
             const after = yield* read(plugin, name)
             if (!wanted(after)) return
             if (after.cron === null) {
               yield* sql`DELETE FROM timers WHERE plugin = ${plugin} AND name = ${name} AND next_run = ${at}`
               return
             }
-            // The next run is the first time after the turn ended, so missed times never fire in a burst (CRON-100).
+            // The next run is the first time after the turn ended, so missed times never fire in a burst.
             const following = next(
               after.cron,
               after.timezone ?? "UTC",
@@ -385,16 +384,15 @@ const timerLayer = (ends: Ends) =>
         },
       })
     }),
-    // A defect fails that one request, and the entity carries on (SES-20).
+    // A defect fails that one request, and the entity carries on.
     { disableFatalDefects: true },
   )
 
 /**
  * The handler of a timer's runs, which runs each as its turn and waits for its end before it takes the next. A scheduled
  * run is checked again here, where it is admitted to its session, because it may have waited behind other runs: a
- * run whose timer was cancelled or replaced since does not start, and one whose plugin is not loaded is held (CRON-6,
- * CRON-7, CRON-16, CRON-30). A run already admitted, which a restart delivers again, goes on. A queued run is never
- * dropped (API-137).
+ * run whose timer was cancelled or replaced since does not start, and one whose plugin is not loaded is held. A run
+ * already admitted, which a restart delivers again, goes on. A queued run is never dropped.
  */
 const runsLayer = (ends: Ends) =>
   TimerRuns.toLayer(
@@ -460,7 +458,7 @@ const runsLayer = (ends: Ends) =>
           ),
       })
     }),
-    // A defect fails that one request, and the entity carries on (SES-20).
+    // A defect fails that one request, and the entity carries on.
     { disableFatalDefects: true },
   )
 
@@ -475,6 +473,6 @@ export const layer = Layer.unwrap(
   }),
 )
 
-/** The defect a `Turns.schedule` or `Turns.cancel` dies with when its change cannot be saved (API-133). */
+/** The defect a `Turns.schedule` or `Turns.cancel` dies with when its change cannot be saved. */
 export const unsaved = (why: string) =>
   Effect.die(new Error(Messages.timerNotSaved(why)))

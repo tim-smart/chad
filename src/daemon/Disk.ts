@@ -3,12 +3,12 @@ import { Cause, Duration, Effect, Schedule } from "effect"
 import * as Logger from "./Logger.ts"
 import * as Notices from "./Notices.ts"
 
-/** Below 1 GB free the condition `disk-low` holds, and at 1 GB or more it clears (STO-115, FAIL-134). */
+/** Below 1 GB free the condition `disk-low` holds, and at 1 GB or more it clears. */
 export const threshold = 1024 ** 3
 
 /**
  * The bytes the daemon's user can use on the volume, `bavail * bsize` from `statfs`, which Effect's `FileSystem`
- * does not have (STO-116).
+ * does not have.
  */
 export const freeSpace = (path: string): Effect.Effect<number, unknown> =>
   Effect.tryPromise(() => statfs(path)).pipe(
@@ -44,7 +44,7 @@ export const check = (
   )
 
 /**
- * The free space check at boot and then at every interval, a plain timer kept off `ClusterCron` (STO-114, FAIL-133). It
+ * The free space check at boot and then at every interval, a plain timer kept off `ClusterCron`. It
  * runs until the scope it is forked in closes.
  */
 export const start = (
@@ -84,7 +84,7 @@ const fullIn = (value: unknown, depth: number): boolean => {
 
 /**
  * Whether a write of chad's failed because the volume is full: SQLite's full error, which `node:sqlite` gives by its
- * code and its text, or a file write's `ENOSPC` (FAIL-216). It looks through cluster's and `effect/sql`'s wrappers.
+ * code and its text, or a file write's `ENOSPC`. It looks through cluster's and `effect/sql`'s wrappers.
  */
 export const isFull = (cause: Cause.Cause<unknown>): boolean =>
   cause.reasons.some((reason) =>

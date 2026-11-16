@@ -1,8 +1,8 @@
 import { Context, Duration } from "effect"
 
 /**
- * Every duration chad sets, one value for each row of the durations table in docs/spec/17-testing.md. The defaults are
- * the spec's values, and nothing in the shipped daemon changes one. A test passes its own set to `runDaemon`.
+ * Every duration chad sets, each with its default. Nothing in the shipped daemon changes one. A test passes its own set
+ * to `runDaemon`.
  */
 export interface Timings {
   /** Plugin swap, drain of calls and hooks in flight. */
@@ -59,8 +59,8 @@ export interface Timings {
   readonly statusTokenWindow: Duration.Duration
   /**
    * clanka's `Agent.TurnTimeout`, a duration of the second table that chad does not set: it is unset, so clanka keeps
-   * its default (FAIL-79), and no scale factor changes it. A test of the silence bound gives it a length of its own,
-   * because three of them at the real length are 15 minutes (TST-215).
+   * its default, and no scale factor changes it. A test of the silence bound gives it a length of its own,
+   * because three of them at the real length are 15 minutes.
    */
   readonly turnTimeout: Duration.Duration | undefined
 }
@@ -98,7 +98,7 @@ export const defaults: Timings = {
 
 /**
  * Every length multiplied by one factor, so the orderings between them hold. The prune's time of day is left alone, and
- * so is clanka's turn timeout, which is not chad's (TST-215).
+ * so is clanka's turn timeout, which is not chad's.
  */
 export const scale = (timings: Timings, factor: number): Timings => {
   const { pruneAt, turnTimeout, ...lengths } = timings
