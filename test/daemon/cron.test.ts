@@ -1,7 +1,7 @@
 // The bundled cron plugin as the model reaches it through its five tools, and as its jobs run, fail and are reconciled
 // with the core's timers (docs/spec/13-timers-and-cron.md).
 import { Effect } from "effect"
-import { ChatError } from "effect/chat"
+import { ChatError, ChatThread } from "effect/chat"
 import { expect, test } from "vitest"
 import { bundled } from "../../dist/Bundled.js"
 import { scenario, type Scenario } from "../support/driver.ts"
@@ -205,6 +205,139 @@ test("CRON-77 CRON-126 CRON-147 a run that ends as UsageLimit is not a failure o
   expect(
     (await posted(running, thread)).filter((text) => text.startsWith("Paused")),
   ).toEqual([])
+})
+
+test("CRON-72 CRON-64 CRON-67 CRON-148 CRON-149 a job moved while its run is in progress runs once at a time, queuing its next run behind that one in the old thread and moving its timer once it ends, a one-shot moved on during a manual run keeps its new time, and a run of a removed job leaves a new job of its name alone", async () => {
+  const running = await scenario({ plugins })
+  const { fakes } = running
+  const a = await fakes.chat.makeThread("direct")
+  const b = await fakes.chat.makeThread("direct")
+  expect(b).not.toEqual(a)
+  const timerThread = (name: string) =>
+    rows(
+      running,
+      `SELECT thread FROM timers WHERE plugin = 'cron' AND name = '${name}'`,
+    ).map((row) => String(row["thread"]))
+  /** The start and end of each run of a job, in the order they started. */
+  const runsOf = (name: string) =>
+    rows(
+      running,
+      `SELECT started_at, ended_at FROM turns WHERE origin_plugin = 'cron' AND origin_label = '${name}' ORDER BY started_at`,
+    ).map((row) => ({
+      started: Number(row["started_at"]),
+      ended: Number(row["ended_at"]),
+    }))
+  /**
+   * Waits until cron's `afterTurn` hooks queued so far have run. They run one at a time in order, so a one-shot made
+   * and run now is deleted after them.
+   */
+  const settled = async (thread: ChatThread.ChatThread, name: string) => {
+    await fakes.model.script([
+      runs(
+        `await cronCreate({ name: "${name}", prompt: "Ping.", in: "1 hour" }); await cronRun({ name: "${name}" })`,
+      ),
+      { text: "Ok." },
+      { text: "pong" },
+    ])
+    await says(running, thread, "ping")
+    await eventually(
+      () => [runsOf(name), jobs(running)[name]] as const,
+      ([ran, job]) =>
+        ran.length === 1 && ran[0]!.ended > 0 && job === undefined,
+    )
+  }
+
+  // A run held in thread A, and the job moved to B and run again from there: the second run waits for the first.
+  await fakes.model.script([
+    runs(
+      'await cronCreate({ name: "daily", prompt: "Daily.", cron: "0 9 * * *" }); console.log(await cronRun({ name: "daily" }))',
+    ),
+    { text: "Queued." },
+    { text: "daily one", hold: true },
+    runs(
+      'await cronUpdate({ name: "daily" }); console.log(await cronRun({ name: "daily" }))',
+    ),
+    { text: "Moved." },
+    { text: "daily two" },
+  ])
+  await says(running, a, "make daily and run it")
+  await fakes.model.received(3)
+  await says(running, b, "move daily here and run it")
+  await fakes.chat.answers(b, 1)
+  expect(jobs(running)["daily"]).toMatchObject({
+    thread: ChatThread.toString(b),
+  })
+  expect(timerThread("daily")).toEqual([ChatThread.toString(a)])
+  await fakes.model.release(2)
+  const [first, second] = await eventually(
+    () => runsOf("daily"),
+    (both) => both.length === 2 && both.every((run) => run.ended > 0),
+  )
+  expect(second!.started).toBeGreaterThanOrEqual(first!.ended)
+  await fakes.chat.answers(a, 3)
+  expect(await posted(running, a)).toEqual([
+    "Queued.",
+    "daily one",
+    "daily two",
+  ])
+  await eventually(
+    () => timerThread("daily"),
+    (threads) => threads[0] === ChatThread.toString(b),
+  )
+  expect(jobs(running)["daily"]).not.toHaveProperty("runs")
+
+  // A one-shot run by hand and moved on an hour from B while the run is held: the run's end keeps the new time.
+  await fakes.model.script([
+    runs(
+      'await cronCreate({ name: "note", prompt: "Note it.", in: "1 hour" }); console.log(await cronRun({ name: "note" }))',
+    ),
+    { text: "Queued." },
+    { text: "note one", hold: true },
+    runs('console.log(await cronUpdate({ name: "note", in: "2 hours" }))'),
+    { text: "Moved on." },
+  ])
+  await says(running, a, "make note and run it")
+  await fakes.model.received(3)
+  const due = jobs(running)["note"]!["at"] as number
+  await says(running, b, "move note on an hour")
+  await fakes.chat.answers(b, 2)
+  await fakes.model.release(2)
+  await settled(a, "ping1")
+  expect(jobs(running)["note"]!["at"]).toBeGreaterThan(due)
+  expect(jobs(running)["note"]).not.toHaveProperty("runs")
+  expect(timerThread("note")).toEqual([ChatThread.toString(b)])
+
+  // A recurring run held in B, the job removed and made again from A, and the old run failing: the new job's count is
+  // untouched.
+  await fakes.model.script([
+    runs('console.log(await cronRun({ name: "daily" }))'),
+    { text: "Running." },
+    { status: 400, hold: true },
+    runs(
+      'await cronRemove({ name: "daily" }); console.log(await cronCreate({ name: "daily", prompt: "Other.", cron: "0 10 * * *" }))',
+    ),
+    { text: "Replaced." },
+  ])
+  await says(running, b, "run daily")
+  await fakes.model.received(3)
+  await says(running, a, "replace daily")
+  await fakes.chat.answers(a, 8)
+  await fakes.model.release(2)
+  await eventually(
+    () =>
+      rows(
+        running,
+        "SELECT 1 FROM turns WHERE origin_label = 'daily' AND outcome = 'failed'",
+      ),
+    (failed) => failed.length === 1,
+  )
+  await settled(a, "ping2")
+  expect(jobs(running)["daily"]).toMatchObject({
+    enabled: true,
+    failures: 0,
+    thread: ChatThread.toString(a),
+  })
+  expect(jobs(running)["daily"]!["prompt"]).toContain("Other.")
 })
 
 test("CRON-78 CRON-128 CRON-131 CRON-132 the reconcile at activation cancels a timer that has no job and schedules an enabled job that has none", async () => {

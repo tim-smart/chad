@@ -16,7 +16,12 @@ import { Tool, Toolkit } from "effect/ai"
 import { Chat, ChatThread } from "effect/chat"
 import { KeyValueStore } from "effect/persistence"
 import * as Plugin from "../../Plugin.ts"
-import { CurrentSession, type Turn, type TurnEnded } from "../../Session.ts"
+import {
+  CurrentSession,
+  type Outcome,
+  type Turn,
+  type TurnEnded,
+} from "../../Session.ts"
 import { Turns } from "../../Turns.ts"
 import * as Jobs from "./Jobs.ts"
 
@@ -223,11 +228,8 @@ const handlers = tools.toLayer(
               )
             }
             const zone = input.timezone ?? cron.zone
-            const schedule = Jobs.parseSchedule(
-              input,
-              zone,
-              yield* DateTime.now,
-            )
+            const now = yield* DateTime.now
+            const schedule = Jobs.parseSchedule(input, zone, now)
             if (Result.isFailure(schedule)) {
               return yield* Effect.fail(schedule.failure)
             }
@@ -244,6 +246,7 @@ const handlers = tools.toLayer(
               notify: input.notify ?? true,
               ...(owner === undefined ? {} : { owner }),
               failures: 0,
+              created: DateTime.toEpochMillis(now),
             }
             yield* cron.enable(job)
             return `Created "${job.name}". Next run: ${yield* next(job, schedule.success)}.`
@@ -354,12 +357,22 @@ const handlers = tools.toLayer(
           Effect.gen(function* () {
             const job = yield* cron.get(name)
             if (job === undefined) return yield* Effect.fail(unknown(name))
-            // The schedule is left alone, so a paused job runs too (CRON-66, CRON-120).
+            // The schedule is left alone, so a paused job runs too (CRON-66, CRON-120). The run queues behind the job's
+            // runs that are queued or in progress, in their thread (CRON-72, CRON-148).
+            const thread = Jobs.runsIn(job)
             yield* turns.queue({
-              thread: Jobs.threadOf(job),
+              thread: Jobs.parse(thread),
               prompt: job.prompt,
               label: job.name,
               mention: Jobs.mentionOf(job),
+            })
+            yield* cron.set({
+              ...job,
+              runs: {
+                ...job.runs,
+                thread,
+                queued: (job.runs?.queued ?? 0) + 1,
+              },
             })
             return "queued"
           }),
@@ -405,69 +418,111 @@ const due = (cron: Cron["Service"], turn: Turn) =>
     return `This run of "${origin.label}" was due at ${Jobs.show(origin.timer.scheduledAt, zone)} and started ${seconds === 0 ? "on time" : `${Duration.format(Duration.seconds(seconds))} late`}.`
   })
 
-/** Counts a run's outcome against its job, pausing or deleting it (CRON-52, CRON-73 to CRON-77, CRON-89, CRON-122 to CRON-127). */
-const settle = (cron: Cron["Service"], { turn, outcome }: TurnEnded) =>
+/** Whether a turn of cron's was started by `cronRun` rather than by the job's timer. */
+const manual = (turn: Turn) =>
+  turn.origin._tag !== "Plugin" || turn.origin.timer === undefined
+
+/** Records the run that started as the job's run in progress, in the thread it runs in (CRON-72, CRON-148). */
+const mark = (cron: Cron["Service"], turn: Turn) =>
   Effect.gen(function* () {
     const job = yield* jobOf(cron, turn)
-    if (job === undefined) return
-    const oneShot = job.cron === undefined
-    // A one-shot moved to a new time while this run was in progress keeps its new time (CRON-67).
-    const timer = turn.origin._tag === "Plugin" ? turn.origin.timer : undefined
-    if (
-      oneShot &&
-      timer !== undefined &&
-      DateTime.toEpochMillis(timer.scheduledAt) !== job.at
-    ) {
-      return
-    }
-    if (outcome._tag === "Failed") {
-      const reason = outcome.reason
-      switch (reason._tag) {
-        case "LoggedOut":
-        case "LoginFailed":
-        case "UsageLimit":
-          // Not the job's failure. A one-shot is kept, paused, so it is not lost (CRON-77, CRON-126).
-          if (oneShot) {
-            yield* cron.disable({
-              ...job,
-              enabled: false,
-              pausedBy: reason._tag,
-            })
-          }
-          return
-        case "ThreadGone":
-        case "GaveUp":
-          // Paused at once, and a one-shot is deleted (CRON-52, CRON-76, CRON-89).
-          if (oneShot) return yield* cron.delete(job.name)
-          return yield* cron.disable({
-            ...job,
-            enabled: false,
-            pausedBy: reason._tag,
-          })
-        default: {
-          if (oneShot) return yield* cron.delete(job.name)
-          const failures = job.failures + 1
-          if (failures < limit) return yield* cron.set({ ...job, failures })
-          const text = Jobs.reasonText(reason)
-          yield* cron.disable({
+    // A resumed turn keeps its id, and its start is recorded already.
+    if (job === undefined || job.runs?.turn === turn.id) return
+    yield* cron.set({
+      ...job,
+      runs: Jobs.started(
+        job,
+        ChatThread.toString(turn.session.thread),
+        turn.id,
+        manual(turn),
+      ),
+    })
+  })
+
+/**
+ * What a run's outcome makes of its job: the job to keep, or none when a one-shot is done, and the pause line to post
+ * (CRON-52, CRON-73 to CRON-77, CRON-89, CRON-122 to CRON-127).
+ */
+const afterRun = (
+  job: Jobs.Job,
+  outcome: Outcome,
+): { readonly job?: Jobs.Job; readonly line?: string } => {
+  const oneShot = job.cron === undefined
+  const pause = (pausedBy: string) => ({
+    job: { ...job, enabled: false, pausedBy },
+  })
+  if (outcome._tag === "Failed") {
+    const reason = outcome.reason
+    switch (reason._tag) {
+      case "LoggedOut":
+      case "LoginFailed":
+      case "UsageLimit":
+        // Not the job's failure. A one-shot is kept, paused, so it is not lost (CRON-77, CRON-126).
+        return oneShot ? pause(reason._tag) : { job }
+      case "ThreadGone":
+      case "GaveUp":
+        // Paused at once, and a one-shot is deleted (CRON-52, CRON-76, CRON-89).
+        return oneShot ? {} : pause(reason._tag)
+      default: {
+        if (oneShot) return {}
+        const failures = job.failures + 1
+        if (failures < limit) return { job: { ...job, failures } }
+        const text = Jobs.reasonText(reason)
+        return {
+          job: {
             ...job,
             failures,
             enabled: false,
             pausedBy: `${failures} failed runs in a row (${text})`,
-          })
-          const chat = yield* Chat.Chat
-          // The line reports an event, so every such pause posts it (CRON-74, FAIL-72).
-          yield* chat.post(Jobs.threadOf(job), {
-            markdown: `Paused \`${job.name}\` after ${failures} failed runs in a row (${text}). Resume it when the cause is fixed.`,
-          })
-          return
+          },
+          line: `Paused \`${job.name}\` after ${failures} failed runs in a row (${text}). Resume it when the cause is fixed.`,
         }
       }
     }
-    // An answer or a stop is a run that happened, so a one-shot is done (CRON-52). A stop leaves the count (CRON-124).
-    if (oneShot) return yield* cron.delete(job.name)
-    if (outcome._tag === "Answered" && job.failures !== 0) {
-      yield* cron.set({ ...job, failures: 0 })
+  }
+  // An answer or a stop is a run that happened, so a one-shot is done (CRON-52). A stop leaves the count (CRON-124).
+  if (oneShot) return {}
+  return { job: outcome._tag === "Answered" ? { ...job, failures: 0 } : job }
+}
+
+/** Counts a run's outcome against its job, pausing or deleting it, and moves the job's timer once its runs elsewhere end. */
+const settle = (cron: Cron["Service"], { turn, outcome }: TurnEnded) =>
+  Effect.gen(function* () {
+    const job = yield* jobOf(cron, turn)
+    if (job === undefined) return
+    const { runs: _runs, ...rest } = job
+    const runs = Jobs.ended(job.runs, turn.id, manual(turn))
+    const left: Jobs.Job = runs === undefined ? rest : { ...rest, runs }
+    // The job's last run in the thread it moved from has ended, so its timer moves to the job's thread (CRON-148).
+    const moved = Jobs.runsIn(left) !== Jobs.runsIn(job)
+    const save = (next: Jobs.Job) =>
+      !next.enabled
+        ? cron.disable(next)
+        : moved
+          ? cron.enable(next)
+          : cron.set(next)
+    // A run that started before the job was made is a run of an earlier job of the same name (CRON-149).
+    if (DateTime.toEpochMillis(turn.startedAt) < job.created) {
+      return yield* save(left)
+    }
+    // A one-shot moved to a new time while this run was in progress keeps its new time (CRON-67, CRON-149).
+    const timer = turn.origin._tag === "Plugin" ? turn.origin.timer : undefined
+    const at =
+      job.runs?.turn === turn.id
+        ? job.runs.at
+        : timer === undefined
+          ? undefined
+          : DateTime.toEpochMillis(timer.scheduledAt)
+    if (job.cron === undefined && at !== undefined && at !== job.at) {
+      return yield* save(left)
+    }
+    const after = afterRun(left, outcome)
+    if (after.job === undefined) return yield* cron.delete(job.name)
+    yield* save(after.job)
+    if (after.line !== undefined) {
+      const chat = yield* Chat.Chat
+      // The line reports an event, so every such pause posts it (CRON-74, FAIL-72).
+      yield* chat.post(Jobs.threadOf(job), { markdown: after.line })
     }
   })
 
@@ -501,7 +556,9 @@ export default Plugin.make(
     Plugin.toolkit(tools).pipe(Layer.provide(handlers)),
     Plugin.prompt(() => Effect.succeed(chunk)),
     Plugin.beforeTurn((turn) =>
-      Effect.flatMap(Cron, (cron) => due(cron, turn)),
+      Effect.flatMap(Cron, (cron) =>
+        Effect.andThen(cron.locked(mark(cron, turn)), due(cron, turn)),
+      ),
     ),
     Plugin.afterTurn((ended) =>
       Effect.flatMap(Cron, (cron) => cron.locked(settle(cron, ended))),

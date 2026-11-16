@@ -236,6 +236,8 @@ The prompt wrapper is the set of lines cron puts around the owner's prompt so th
 - **CRON-144** The due and late line is 'This run of "<name>" was due at <time> and started <lateness> late.', with the time in ISO 8601 in the job's timezone and the lateness in whole seconds as Effect's `Duration.format` writes it, such as "2m 5s". A run that started less than half a second late says "and started on time". A run that `cronRun` started has no timer and gets no line.
 - **CRON-71** A job's answer pings the owner in a server thread by default. `notify: false` on the job turns the ping off.
 - **CRON-72** One run of a job is in progress at a time.
+- **CRON-148** A job's runs that are queued by `cronRun` or in progress are all in one thread, whose session runs them one at a time. While a job has such a run, its timer and every `cronRun` of it go to that thread, even after `cronUpdate` moved the job to another one, and when the last of them ends cron moves the timer to the job's thread. The job's entry in the key-value store records that thread, the runs `cronRun` queued that have not started, and the turn of the run in progress, so this holds across a restart. A run that ends without starting, as one whose thread is gone does, is no longer counted.
+- **CRON-149** A run that started before its job was created is a run of an earlier job of the same name, and its outcome leaves the job alone. A one-shot whose time `cronUpdate` changed while a run of it was in progress keeps its new time when that run ends, whether the job's timer or `cronRun` started the run. Cron keeps the job's creation time and, for a one-shot, its time when the run in progress started, in the job's entry.
 
 ## Failures and pausing
 
@@ -427,3 +429,5 @@ The prompt wrapper is the set of lines cron puts around the owner's prompt so th
 | CRON-145 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |
 | CRON-146 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |
 | CRON-147 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |
+| CRON-148 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |
+| CRON-149 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |
