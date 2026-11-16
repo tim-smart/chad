@@ -181,7 +181,6 @@ The image's variables are not derived from `CHAD_DATA` because a `docker exec` s
   secrets/                      mode 0700, files 0600
     connections.json            chat connections
     secrets.json                named secrets
-    mcp-oauth.json              MCP server logins (see 12-skills-and-mcp.md)
     auth/                       model logins
   state/
     safe-mode

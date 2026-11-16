@@ -23,7 +23,7 @@ chad is a personal assistant that one person runs for themselves. It replaces He
 
 | Feature | Detail in |
 | --- | --- |
-| Skills and MCP servers, with OAuth login for HTTP MCP servers | 12-skills-and-mcp.md |
+| Skills and MCP servers | 12-skills-and-mcp.md |
 | Recovery from a bad self-edit, with safe mode and `chad revert` | 09-repo-and-recovery.md |
 | Plugin settings in `chad.json`, and turning a plugin off | 11-settings.md |
 | The model login completed from Discord or from `chad login` | 05-model-and-login.md |
@@ -36,7 +36,7 @@ chad is a personal assistant that one person runs for themselves. It replaces He
 
 - **OV-12** chad does not validate Slack, and v1 writes no new effect/chat adapters such as Telegram or WhatsApp.
 - **OV-13** v1 has no web dashboard, no chat CLI or TUI, no alternative terminal backends and no profiles. The `chad` CLI that manages chad and runs first setup is in scope.
-- **OV-14** clanka is used as it is. v1 depends on no change to clanka except one, an auth provider argument on `McpServers.layer` for HTTP MCP servers that sign in with OAuth, and the pinned release carries it as `McpServers.layer(config, authProvider?)` (see 12-skills-and-mcp.md). The cost of this rule is that answer text cannot be streamed token by token.
+- **OV-14** clanka is used as it is. v1 depends on no change to clanka. The cost of this rule is that answer text cannot be streamed token by token.
 - **OV-15** Moving from Hermes is not part of v1. Existing Hermes skills already use `SKILL.md` and are copied over as files, and chad imports no history.
 - **OV-49** v1 works out no cost for a turn, moves to no other model by itself when a login reaches its usage limit, gives a plugin no API of its own to notify the owner, and gives plugin authors no test helper (see 16-failures-logs-status.md and 17-testing.md).
 - **OV-57** Tim cut four things from v1 on 2026-11-16, and their rules are withdrawn in their parts. v1 has no OAuth for MCP servers, so an HTTP server signs in with a header (see 12-skills-and-mcp.md). v1 has no way to ask the owner for a secret from Discord, no Enter button or modal, no TOTP codes and no browser recipes, so a secret is saved with `chad secret set` (see 15-credentials.md). Safe mode never starts by itself, and the owner turns it on (see 09-repo-and-recovery.md). A running turn's call to a plugin tool is never routed to a version that an apply or a reload loaded, and the tool is back in the session's next turn (see 08-apply-and-swap.md). A rebuild of the MCP layer has no gate, no drain and no held calls (see 12-skills-and-mcp.md).
@@ -195,7 +195,7 @@ The parts use these terms with the meanings below. Paths are relative to the dat
 | 09-repo-and-recovery.md | The git repo, drafts, `chad revert`, boot, safe mode and unclean boots. |
 | 10-cli.md | Every `chad` command, the socket, the daemon lock, the queue, exit codes and the chat commands. |
 | 11-settings.md | `chad.json`, a plugin's settings and turning a plugin off. |
-| 12-skills-and-mcp.md | Skills, `mcp.json`, OAuth for HTTP MCP servers and the MCP layer's rebuild. |
+| 12-skills-and-mcp.md | Skills, `mcp.json` and the MCP layer's rebuild. |
 | 13-timers-and-cron.md | The timer machinery in the core and the bundled cron plugin. |
 | 14-self-edit-skill.md | The bundled `self-edit` skill, the core prompt's fixed sentences and the persona. |
 | 15-credentials.md | `chad secret`, one-off codes, asking the owner for a value and the `credentials` skill. |
@@ -247,7 +247,7 @@ Every part that states rules ends with a Provenance table that has one row per r
 | OV-11 | TIM-537; TIM-534; TIM-548; TIM-535; TIM-536 items 7 and 8; TIM-546 amended by TIM-554; TIM-549; TIM-557 items 1, 11, 14, 24, 36 and 43 | Tim (TIM-537, TIM-534, TIM-535, TIM-536, TIM-554 items 1 and 2); Architect (Tim has not read) for TIM-548, TIM-546, TIM-549 and TIM-557 | not run | TIM-557 | `definition` | - |
 | OV-12 | Map "Out of scope" | charting | not run |  | `definition` | - |
 | OV-13 | Map "Out of scope" | charting | not run |  | `definition` | - |
-| OV-14 | Map "Agreed at charting" and "Out of scope"; TIM-537 items 9 and 14; the pinned release carrying the argument TIM-559 ruling on OV-G1 | charting; Tim; Architect (Tim has not read) for the pinned release | read |  | `rule` | `repo` |
+| OV-14 | Map "Agreed at charting" and "Out of scope"; TIM-537 items 9 and 14; the pinned release carrying the argument TIM-559 ruling on OV-G1, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | charting; Tim; Architect (Tim has not read) for the pinned release | read |  | `rule` | `repo` |
 | OV-15 | Map "Out of scope" | charting | not run |  | `definition` | - |
 | OV-16 | TIM-538 item 1; Map "Facts found at charting"; TIM-541 item 1 | Tim; image base Architect (Tim has not read) | run |  | `rule` | `repo` |
 | OV-17 | TIM-559 ruling on OV-G1 | Architect (Tim has not read) | read |  | `rule` | `repo` |

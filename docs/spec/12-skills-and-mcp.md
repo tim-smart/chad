@@ -1,6 +1,6 @@
 # Skills and MCP servers
 
-This part covers the two kinds of extension that are plain files in the repo and are not plugins. A skill is a set of instructions the model reads on demand, and an MCP server is an external tool server. The part says where both live, how chad hands them to clanka, how a change reaches open sessions, what clanka's own walk of a session's working directory shows a session without an apply, how an HTTP MCP server signs in with OAuth, and what a tool call does while the MCP servers are being restarted. It leans on 09-repo-and-recovery.md for the repo, the apply and safe mode, on 07-plugin-loading.md for the exported tree and the `live` link, on 08-apply-and-swap.md for how a session rebuilds its Agent and for the plugin swap that the MCP restart is modelled on, on 10-cli.md for the commands, on 14-self-edit-skill.md for what the bundled skill tells the agent, on 15-credentials.md for the secret store, on 01-image-and-volume.md for the image's runtimes and the stop budget, on 16-failures-logs-status.md for the notices to the owner, and on 17-testing.md for the tests.
+This part covers the two kinds of extension that are plain files in the repo and are not plugins. A skill is a set of instructions the model reads on demand, and an MCP server is an external tool server. The part says where both live, how chad hands them to clanka, how a change reaches open sessions, what clanka's own walk of a session's working directory shows a session without an apply, how an HTTP MCP server signs in, and what a tool call does while the MCP servers are being restarted. It leans on 09-repo-and-recovery.md for the repo, the apply and safe mode, on 07-plugin-loading.md for the exported tree and the `live` link, on 08-apply-and-swap.md for how a session rebuilds its Agent and for the plugin swap that the MCP restart is modelled on, on 10-cli.md for the commands, on 14-self-edit-skill.md for what the bundled skill tells the agent, on 15-credentials.md for the secret store, on 01-image-and-volume.md for the image's runtimes and the stop budget, on 16-failures-logs-status.md for the notices to the owner, and on 17-testing.md for the tests.
 
 ## Terms used in this part
 
@@ -115,13 +115,12 @@ An entry is a stdio server when it has a `command` and an HTTP server when it ha
 | `connectTimeout` | both | Milliseconds. clanka's default is 30 seconds. |
 | `callTimeout` | both | Milliseconds. |
 
-An example with one stdio server, one HTTP server that signs in with OAuth and one HTTP server that carries a token in a header:
+An example with one stdio server and one HTTP server that carries a token in a header:
 
 ```json
 {
   "mcpServers": {
     "files": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data/home/notes"] },
-    "linear": { "url": "https://mcp.linear.app/mcp" },
     "github": { "url": "https://api.githubcopilot.com/mcp/", "headers": { "Authorization": "Bearer ${GITHUB_TOKEN}" } }
   }
 }
@@ -160,7 +159,7 @@ clanka builds the MCP layer without ever failing. A server that cannot start or 
 - **MCP-39** `chad mcp restart` rebuilds the MCP layer. It restarts every server and cannot restart one.
 - **MCP-40** With the daemon running, `chad secret set` and `chad secret rm` rebuild the MCP layer when `mcp.json` names the changed secret, and the command prints what it reloaded. A change to a secret that `mcp.json` does not name rebuilds nothing.
 - **MCP-41** Every rebuild restarts every server, whatever caused it, and a stdio server loses whatever it held in memory. This is accepted.
-- **MCP-42** `chad mcp restart`, `chad mcp login` and `chad mcp logout` need the daemon and exit 4 without it. `chad mcp restart` and `chad mcp logout` go through the daemon's one queue with applies, `chad mcp login` takes a place in it only as MCP-123 says, and the agent may run all three (see 10-cli.md).
+- **MCP-42** `chad mcp restart` needs the daemon and exits 4 without it. It goes through the daemon's one queue with applies, and the agent may run it (see 10-cli.md).
 - **MCP-43** The system prompt lists the MCP servers by name with each one's tool count, and for a failed server the first line of its error. A change to the MCP servers renders a session's system prompt again on its next turn (see 08-apply-and-swap.md).
 
 ## Runtimes for stdio servers
@@ -170,74 +169,54 @@ clanka builds the MCP layer without ever failing. A server that cannot start or 
 
 ## OAuth for HTTP servers
 
-Many hosted MCP servers answer 401 until the client has signed in with OAuth. The MCP SDK that clanka uses, version 1.32.2, does the authorization code flow with PKCE, dynamic client registration and token refresh through an object it calls an `OAuthClientProvider`. It has no device flow. Without a provider clanka builds its HTTP transport with static headers, so a 401 at connect marks the server failed.
+Many hosted MCP servers answer 401 until the client has signed in with OAuth. v1 does not sign in with OAuth. clanka builds its HTTP transport with the static headers of the server's entry, so a server that wants a token gets it from a header, and a 401 at connect marks the server failed.
 
-- **MCP-46** OAuth for HTTP MCP servers is in v1.
-- **MCP-47** The transport gets its provider through the optional second argument of clanka's `McpServers.layer(config, authProvider?)`. `authProvider` is a function `(name, config) => OAuthClientProvider | undefined`, and clanka hands the provider it returns to the SDK transport.
-- **MCP-115** chad's function returns `undefined` for an HTTP server whose entry has an `Authorization` header, which leaves that server without a provider.
-- **MCP-48** The argument gives clanka no new status and no way to reconnect one server, and clanka's own CLI does not use it. Tokens, the login flow and the "needs login" status all live in chad.
-- **MCP-49** This argument is the only change to clanka that chad v1 depends on. clanka 0.28.0, the version chad pins (see 00-overview.md), carries it, so chad hands every server to clanka's own `McpServers.layer` and builds no transport itself.
-- **MCP-50** `mcp.json` carries no OAuth marker. Every HTTP server whose entry has no `Authorization` header gets the provider. There is no `oauth.clientId` key in v1.
-- **MCP-51** v1 covers servers that offer dynamic client registration. A server without it, such as GitHub's remote server, goes in with a personal access token in a header.
-- **MCP-52** Tokens and the client registration are kept on the volume, outside the repo, keyed by server name and URL. They are in a file of their own next to the secret store, `secrets/mcp-oauth.json` with mode 0600 (see 02-storage.md).
-- **MCP-116** `secrets/mcp-oauth.json` has a top-level `version` field and one entry for each server. The key of an entry is the server's name in `mcp.json`. The entry stores the URL it was issued for and everything the SDK's provider saves, the client registration included, each object unchanged.
-- **MCP-136** chad uses an entry only when the URL it stores equals the server's resolved URL, which is the `url` of the server's entry in the applied `mcp.json` after `${NAME}` expansion. An entry stored for another URL does not count, which is how the tokens are keyed by server name and URL (MCP-52) and why a server whose URL changed needs a new login (MCP-53).
-- **MCP-137** When a login finishes for a server whose stored entry was issued for another URL, the save replaces the whole entry. The new entry holds the URL the login was for, its tokens and the client registration made for that URL, and it keeps nothing of the old entry, the old client registration included. The old URL's tokens are gone, so a server that is set back to the old URL afterwards needs a new login.
-- **MCP-138** A login for a new URL that does not finish, because it fails or expires, leaves the stored entry as it was, with the old URL, its tokens and its client registration. The client that such a login registered for the new URL is not in the entry afterwards. A server that is set back to the old URL before a login for the new URL has finished therefore has its old entry in use again (MCP-136) and needs no login.
-- **MCP-117** `chad secret list` does not show what `secrets/mcp-oauth.json` holds, and no `${NAME}` resolves to it.
-- **MCP-53** An apply or a revert never touches the stored tokens. A server whose URL changed needs a new login.
+- **MCP-139** v1 has no OAuth for MCP servers. An HTTP server signs in with the static `headers` of its entry in `mcp.json`, and a secret in a header is written as `${NAME}` (MCP-23). chad passes no `authProvider` to clanka's `McpServers.layer`, hands every server to that layer and builds no transport itself. A server that answers 401 is a failed server like any other. It is listed as unavailable with the first line of its error, in the apply output, in `chad status` and in the system prompt. There is no `chad mcp login` and no `chad mcp logout`, no `secrets/mcp-oauth.json`, no "needs login" status, and no notice, message or pending login for one. chad never consumes a pasted callback URL.
+- **MCP-46** Withdrawn.
+- **MCP-47** Withdrawn.
+- **MCP-115** Withdrawn.
+- **MCP-48** Withdrawn.
+- **MCP-49** Withdrawn.
+- **MCP-50** Withdrawn.
+- **MCP-51** Withdrawn.
+- **MCP-52** Withdrawn.
+- **MCP-116** Withdrawn.
+- **MCP-136** Withdrawn.
+- **MCP-137** Withdrawn.
+- **MCP-138** Withdrawn.
+- **MCP-117** Withdrawn.
+- **MCP-53** Withdrawn.
 - **MCP-101** Withdrawn.
-
-The signature, read from clanka 0.28.0. clanka calls `authProvider` once for each HTTP server, when the layer is built:
-
-```ts
-// clanka 0.28.0, src/McpServers.ts
-export type AuthProviderFor = (
-  name: string,
-  config: HttpServerConfig,
-) => OAuthClientProvider | undefined
-
-export const layer = (
-  config: Readonly<Record<string, ServerEntry>>,
-  authProvider?: AuthProviderFor | undefined,
-): Layer.Layer<McpServers>
-```
 
 ### The "needs login" status
 
-- **MCP-54** An HTTP server that answers 401 while chad holds no token for it has the status "needs login". The status is shown in the apply output and in the server list of the system prompt.
-- **MCP-55** chad keeps the "needs login" status itself. clanka only knows the server as failed.
-- **MCP-56** When a token refresh fails, the server drops to "needs login", the model's call gets an error that says so (the wording is in "Messages returned to the model" below), and the owner gets one notice. It is the notice whose key starts `mcp-needs-login:`, and the notice rule, the key and the wording are in 16-failures-logs-status.md.
-- **MCP-57** chad never posts a login link on its own. A login starts only with `chad mcp login`.
-
-The following was read from the SDK and clanka and not run. It shows that chad's provider can produce the status without clanka knowing it. With a provider and no stored token, a 401 at connect makes the SDK discover the authorization server, register a client if none is stored, save the PKCE verifier and call the provider's `redirectToAuthorization`. An error thrown there is not caught by the SDK, so it becomes the connect failure, and clanka puts the first line of a connect failure in the system prompt's server list. When a refresh fails during a tool call the SDK calls `redirectToAuthorization` again, and the call fails with whatever the provider throws. clanka marks a server dropped only on a close or a 404.
+- **MCP-54** Withdrawn.
+- **MCP-55** Withdrawn.
+- **MCP-56** Withdrawn.
+- **MCP-57** Withdrawn.
 
 ### Logging in
 
-A hosted server redirects the browser to a URL the client registered. chad runs in a container the owner's browser cannot reach, so the redirect goes to a loopback address where nothing listens, the browser shows an error page, and the owner hands chad the address the browser ended on.
-
-- **MCP-58** `chad mcp login <name>` starts the login for a server, and the daemon posts the login link in the thread that asked. The thread is found through `CHAD_SESSION`.
-- **MCP-118** `chad mcp login <name>` reads the applied `mcp.json`. It refuses a name that is not in it, a stdio server and an HTTP server whose entry has an `Authorization` header, each with a message that says why (see 10-cli.md for the exit code).
-- **MCP-119** For a server that already holds a token, `chad mcp login` starts a new login, which is how the owner changes account. The old token is kept until the new login finishes.
-- **MCP-120** With `CHAD_SESSION=daemon` the command is refused with a message, without testing for a terminal, because such a process has no thread to show the link in (see 10-cli.md for the exit code).
-- **MCP-121** With `CHAD_SESSION` unset the command takes the terminal path of MCP-62 when it has a terminal and is refused when it has none (see 10-cli.md for the exit code).
-- **MCP-122** `chad mcp login` holds no place in the daemon's queue while it starts the login, posts the link or waits for the paste. Nothing holds a queue place while chad waits on a person or on a remote server, so an apply never waits behind a link nobody has opened.
-- **MCP-123** The rebuild after a finished login is the only step of `chad mcp login` that takes a place in the queue.
-- **MCP-59** The redirect goes to `http://127.0.0.1:58213/callback`, one fixed port where nothing listens. The browser opens the address on the owner's own machine, so the port is one that desktop software rarely listens on, and the address is part of each stored client registration, so changing it means registering again with every server.
-- **MCP-60** The owner copies the URL from the browser's address bar and pastes it into a thread. chad finds the pending login by the URL's `state` value and accepts a matching paste in any thread, because the state identifies the login.
-- **MCP-124** chad consumes every owner message that is only a URL at the callback address of MCP-59, whether or not its `state` matches a pending login. The URL carries an authorization code, so such a message never starts a turn, never reaches the model and is never stored in the history.
-- **MCP-125** chad answers a pasted URL whose `state` matches no pending login, an expired login's included, with one line that says no login is waiting.
-- **MCP-61** A pending login expires after 10 minutes. The deadline is the daemon's.
-- **MCP-62** Run by the agent, `chad mcp login` returns as soon as the link is posted, so the turn does not wait for the paste. Run from a terminal, the CLI waits and prompts for the same pasted URL.
-- **MCP-63** A finished login rebuilds the MCP layer, which restarts every server. It does so only when the server is still in the applied `mcp.json` at the same URL.
-- **MCP-64** `chad mcp logout <name>` deletes the server's stored tokens.
-- **MCP-126** `chad mcp logout <name>` keeps the client registration for the next login and does not rebuild the MCP layer.
-- **MCP-127** After a logout chad marks the server "needs login" at once, and the next call to that server gets message 6.
-- **MCP-128** `chad mcp logout <name>` works for a name that is no longer in `mcp.json`.
-- **MCP-129** When the server rejects a login because it does not know the stored client, chad registers a new client and carries on with it. A dead registration would otherwise have no way out.
-- **MCP-98** When a pending login expires, chad posts one subtext line in the thread that asked. An expired login is an event and not a condition, so the line has no notice key and is posted every time it happens. The wording is in 16-failures-logs-status.md.
-
-Finishing a login needs nothing from clanka. The SDK's `auth(provider, { serverUrl, authorizationCode })` exchanges the code from the pasted URL with no transport open.
+- **MCP-58** Withdrawn.
+- **MCP-118** Withdrawn.
+- **MCP-119** Withdrawn.
+- **MCP-120** Withdrawn.
+- **MCP-121** Withdrawn.
+- **MCP-122** Withdrawn.
+- **MCP-123** Withdrawn.
+- **MCP-59** Withdrawn.
+- **MCP-60** Withdrawn.
+- **MCP-124** Withdrawn.
+- **MCP-125** Withdrawn.
+- **MCP-61** Withdrawn.
+- **MCP-62** Withdrawn.
+- **MCP-63** Withdrawn.
+- **MCP-64** Withdrawn.
+- **MCP-126** Withdrawn.
+- **MCP-127** Withdrawn.
+- **MCP-128** Withdrawn.
+- **MCP-129** Withdrawn.
+- **MCP-98** Withdrawn.
 
 ## Tool calls while the MCP layer rebuilds
 
@@ -255,7 +234,7 @@ Five facts about clanka 0.27.0 shape the rules. All five were seen in the runs.
 
 - **MCP-65** chad hands every Agent one wrapper around clanka's `McpServers` service, in place of a layer. Every turn and every sub-agent in every session takes its handlers from the wrapper.
 - **MCP-66** The wrapper routes each call by its key to the layer that is current when the call is made. A running turn's call after a rebuild is answered by the restarted server.
-- **MCP-67** Every rebuild takes the same path, whatever caused it. The causes are an apply that changed `mcp.json`, `chad mcp restart`, a finished `chad mcp login`, a change to a secret that `mcp.json` names, and a boot.
+- **MCP-67** Every rebuild takes the same path, whatever caused it. The causes are an apply that changed `mcp.json`, `chad mcp restart`, a change to a secret that `mcp.json` names, and a boot.
 - **MCP-68** When a new layer becomes current, each session whose Agent was built before it rebuilds its Agent at the start of its next turn. That turn takes its keys and its prompt section from the new layer.
 
 ### The rebuild path
@@ -269,7 +248,7 @@ Five facts about clanka 0.27.0 shape the rules. All five were seen in the runs.
 - **MCP-74** The close has no deadline in a rebuild. It takes 4 seconds for each stdio server that ignores both its standard input closing and SIGTERM, one after another.
 - **MCP-75** The new layer becomes current when clanka has finished connecting it, and the gate opens at that moment. clanka connects the servers in parallel, each under its `connectTimeout`, so one server that never answers holds the gate for that timeout.
 - **MCP-76** An interrupted MCP call is reported with message 1 only. The plugin swap's message for a call that "did not stop when an apply interrupted it and may still be running" has no MCP counterpart, because the interrupt drops the request on chad's side whatever the server does afterwards.
-- **MCP-100** The 30 second drain, the 1 second wait of MCP-130, the 250 ms pause, the 120 second backstop and the 10 minute life of a pending login are defaults of chad's one `Timings` service, and the shipped binary has no setting that changes them (see 17-testing.md).
+- **MCP-100** The 30 second drain, the 1 second wait of MCP-130, the 250 ms pause and the 120 second backstop are defaults of chad's one `Timings` service, and the shipped binary has no setting that changes them (see 17-testing.md).
 
 ### Calls held at the gate
 
@@ -285,7 +264,7 @@ A running turn keeps the keys it took. After a rebuild some of those keys name t
 - **MCP-81** A call to a server that is gone from `mcp.json` fails with message 3.
 - **MCP-82** A call to a tool that its server no longer lists fails with message 4, whatever caused the rebuild.
 - **MCP-83** A call to a server that is still in `mcp.json` and is not connected fails with message 5, which carries the first line of the server's status error.
-- **MCP-84** A call to a server that needs login fails with message 6.
+- **MCP-84** Withdrawn.
 - **MCP-85** A call to a tool that still exists with different parameters fails clanka's validation against the new schema, and the call is not sent. chad adds nothing for this case.
 - **MCP-86** A server that a rebuild added is callable from each session's next turn. A running turn has no name for it, so a call to it throws inside the script and never reaches chad.
 - **MCP-87** When `searchTools` runs in a turn or sub-agent that holds no key for a tool the current layer has, chad adds a line to the result that names those tools and says they are callable from the next turn (message 8).
@@ -316,7 +295,7 @@ The runs recorded three things that no rule changes. A turn that a graceful stop
 
 The texts are exact. `<server>.<tool>` is the key, and `<name>` is the server's name in `mcp.json`.
 
-- **MCP-99** The eight texts in the table below are templates in chad's one `Messages` module (see 17-testing.md). The constants in the code further down stand for those templates.
+- **MCP-99** The seven texts in the table below are templates in chad's one `Messages` module (see 17-testing.md). The constants in the code further down stand for those templates.
 
 | # | Text | When |
 | --- | --- | --- |
@@ -325,7 +304,7 @@ The texts are exact. `<server>.<tool>` is the key, and `<name>` is the server's 
 | 3 | `mcp.<server>.<tool>: MCP server "<name>" was removed from mcp.json.` | The server is gone from `mcp.json` (MCP-81). |
 | 4 | `mcp.<server>.<tool>: "<name>" no longer lists this tool.` | The server is connected and does not list the tool (MCP-82). |
 | 5 | `mcp.<server>.<tool>: MCP server "<name>" is not connected: <first line of the status error>` | The server is configured and not connected (MCP-83). |
-| 6 | `MCP server "<name>" needs login.` | The server needs login (MCP-56, MCP-84). |
+| 6 | Withdrawn. |  |
 | 7 | `MCP servers were still starting when this turn began. They are available from your next turn.` | In the prompt of a turn that started at boot without MCP (MCP-92). |
 | 8 | `mcp.<server>.<tool>, … are callable from your next turn.` | Added to a `searchTools` result (MCP-87). |
 
@@ -392,17 +371,12 @@ const everNames = new Map<string, string>()
 /** Sessions whose running turn started at boot with no layer at all. Their prompt says so. */
 const withoutMcp = new Set<string>()
 export const startedWithout = (session: string) => withoutMcp.has(session) // adjusted: TIM-555 item 2
-/** chad's own record of the servers that need login. Not in the prototype, which had no OAuth server. */
-declare const needsLogin: (name: string) => boolean // adjusted: TIM-537 item 13
-/** chad's function that gives an HTTP server its OAuth provider, or none (MCP-47, MCP-115). Not in the prototype. */
-declare const authProvider: McpServers.AuthProviderFor // adjusted: TIM-559 ruling on MCP-G1
 
 const CUT = (key: string) => "mcp." + key + " was interrupted by an MCP restart. It may have run in part or in full." // adjusted: TIM-555 item 5
 export const NOT_SENT = "MCP servers are restarting. This call was not sent."
 export const STILL_STARTING = "MCP servers were still starting when this turn began. They are available from your next turn."
 const REMOVED = (key: string) =>
   "mcp." + key + ": MCP server \"" + (everNames.get(key.slice(0, key.indexOf("."))) ?? key.slice(0, key.indexOf("."))) + "\" was removed from mcp.json." // adjusted: TIM-555 item 4
-const NEEDS_LOGIN = (name: string) => "MCP server \"" + name + "\" needs login." // adjusted: TIM-555 item 4
 const firstLine = (text: string) => text.split("\n")[0]
 
 /** Why the current layer has no handler for this key. */
@@ -417,7 +391,6 @@ const missing = (layer: Built, key: string): Effect.Effect<never, string> =>
     // Still in mcp.json. clanka makes no handler for a server that did not connect, so there is no
     // error of clanka's to keep: chad words this one itself, from the status.
     if (status !== undefined && status._tag === "Failed") {
-      if (needsLogin(name)) return yield* Effect.fail(NEEDS_LOGIN(name)) // adjusted: TIM-555 item 4
       return yield* Effect.fail("mcp." + key + ": MCP server \"" + name + "\" is not connected: " + firstLine(status.error))
     }
     // Connected, and it no longer lists the tool.
@@ -545,7 +518,7 @@ const connect = (why: string, raw: string) =>
   Effect.gen(function*() {
     const { entries } = resolve(raw)
     const scope = yield* Scope.make()
-    const context = yield* Layer.buildWithScope(McpServers.layer(entries, authProvider), scope).pipe( // adjusted: TIM-559 ruling on MCP-G1
+    const context = yield* Layer.buildWithScope(McpServers.layer(entries), scope).pipe(
       Effect.onInterrupt(() => Scope.close(scope, Exit.void))
     )
     const service = Context.get(context, McpServers.McpServers)
@@ -614,7 +587,7 @@ const rebuild = (label: string, raw: string, gate: Deferred.Deferred<void>) =>
     )
   )
 
-/** chad mcp restart, a finished chad mcp login, a changed secret: the config is what live holds. */
+/** chad mcp restart, a changed secret: the config is what live holds. */
 export const restart = (label: string) =>
   Plugins.queued(Effect.suspend(() => {
     const raw = readRaw(liveDir() ?? Plugins.WORK)
@@ -688,15 +661,14 @@ The rebuild rules ran on clanka 0.27.0 with its own MCP layer, MCP SDK client 1.
 - Abandoning a rebuild during its connect took a graceful stop 2.0 seconds, the time to kill the half-started server.
 - In the image, a stop with a running turn and three stubborn servers exited 0 at 27.1 seconds. With twelve it was cut at 60.0 seconds with exit 1.
 
-These were not run: a finished `chad mcp login` as a cause of a rebuild, message 6, a real model, the 120 second backstop at its real length (it ran at 3 seconds, for a held call and at boot), a real `npx -y` server, a secret in an HTTP header, and the `searchTools` line for a long list of tools. The Provenance table marks the rules they touch as run, because the path they share ran.
+These were not run: a real model, the 120 second backstop at its real length (it ran at 3 seconds, for a held call and at boot), a real `npx -y` server, a secret in an HTTP header, and the `searchTools` line for a long list of tools. The Provenance table marks the rules they touch as run, because the path they share ran.
 
 ## Log events
 
-The log events that this part's behaviour writes are `skill.skipped`, `skill.bundled-changed`, `mcp.config-unreadable`, `mcp.server-failed`, `mcp.rebuilt`, `mcp.needs-login` and `mcp.login-expired`. A rebuild that ends writes `mcp.rebuilt` with its duration and its counts, and a server that fails to connect writes `mcp.server-failed`. The table of every event, with its rule id, its level and what its line carries, is in 16-failures-logs-status.md, and this part adds no rule of its own for them.
+The log events that this part's behaviour writes are `skill.skipped`, `skill.bundled-changed`, `mcp.config-unreadable`, `mcp.server-failed` and `mcp.rebuilt`. A rebuild that ends writes `mcp.rebuilt` with its duration and its counts, and a server that fails to connect writes `mcp.server-failed`. The table of every event, with its rule id, its level and what its line carries, is in 16-failures-logs-status.md, and this part adds no rule of its own for them.
 
 ## Gaps
 
-- **MCP-G3** [builder] The wording of the login link message, of the terminal prompt for the paste, of what the thread or the terminal shows when a login finishes or fails, of what the terminal shows when a login expires, of the line of MCP-125 that says no login is waiting, and of the refusals of MCP-118, MCP-120 and MCP-121. TIM-537 items 10 and 11.
 - **MCP-G10** [builder] The wording of the apply's line for a repo skill that hides a bundled one, and of the per-server status lines. TIM-537 items 3 and 6.
 - **MCP-G13** [builder] How chad keeps clanka's `McpConfig.load` to the one file. As read, `load` also reads `$XDG_CONFIG_HOME/clanka/mcp.json` or `$HOME/.config/clanka/mcp.json`, and `.mcp.json` in the directory it is given, before the files it is passed. TIM-537 item 5 says "one `mcp.json`".
 - **MCP-G15** [builder] Where in the image the bundled skills directory is. TIM-537 item 3.
@@ -751,32 +723,32 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-39 | TIM-537 item 6, TIM-555 rule 1 | Tim | run |  | `rule` | `skills-mcp` |
 | MCP-40 | TIM-542 item 14, TIM-555 rule 1 | Tim | run |  | `rule` | `skills-mcp` |
 | MCP-41 | TIM-531 item 6, TIM-555 rule 1 | Tim | run |  | `rule` | `skills-mcp` |
-| MCP-42 | TIM-542 items 4, 24 and 30, amended by TIM-559 ruling on MCP-G6 | Tim; the queue places Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
+| MCP-42 | TIM-542 items 4, 24 and 30, amended by TIM-559 ruling on MCP-G6, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the queue places Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
 | MCP-43 | TIM-531 item 2, TIM-537 round 3 facts | Tim | read |  | `rule` | `skills-mcp` |
 | MCP-44 | TIM-537 item 8, TIM-541 item 2 | Tim; `npx` and no Python package Architect (Tim has not read) | run |  | `rule` | `harness` |
 | MCP-45 | TIM-537 item 8, TIM-541 item 12 | Tim; the cache paths Architect (Tim has not read) | run |  | `rule` | `harness` |
-| MCP-46 | TIM-537 item 9 | Tim | not run |  | `definition` | - |
-| MCP-47 | TIM-537 item 9 and round 3 item 1 (TIM-545), amended by TIM-559 ruling on MCP-G1 | Tim; the signature Architect (Tim has not read) | read | TIM-559 | `rule` | `skills-mcp` |
-| MCP-48 | TIM-537 item 9 and round 3 item 1, amended by TIM-559 ruling on MCP-G1 | Tim; the wording Architect (Tim has not read) | read |  | `definition` | - |
-| MCP-49 | TIM-537 items 9 and 14, amended by TIM-559 ruling on OV-G1 | Tim; the pin and no fallback Architect (Tim has not read) | read | TIM-559 | `fact` | `skills-mcp` |
-| MCP-50 | TIM-537 item 12 | Tim | not run |  | `rule` | `skills-mcp` |
-| MCP-51 | TIM-537 item 12 | Tim | read |  | `definition` | - |
-| MCP-52 | TIM-537 item 13, amended by TIM-559 ruling on MCP-G8 | Tim; the file Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
-| MCP-53 | TIM-537 item 13 | Tim | not run |  | `rule` | `skills-mcp` |
-| MCP-54 | TIM-537 item 11 | Tim | read |  | `rule` | `skills-mcp` |
-| MCP-55 | TIM-537 item 9 and round 3 facts | Tim | read |  | `rule` | `skills-mcp` |
-| MCP-56 | TIM-537 item 13, TIM-534 item 15, TIM-557 items 36 and 40 | Tim; the notice key Architect (Tim has not read) | read; the notice key not run | TIM-557 | `rule` | `skills-mcp` |
-| MCP-57 | TIM-537 item 13 | Tim | not run |  | `rule` | `skills-mcp` |
-| MCP-58 | TIM-537 item 11, TIM-542 item 29, amended by TIM-559 ruling on MCP-G5 | Tim; dropping the `daemon` clause Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| MCP-59 | TIM-537 item 10, amended by TIM-559 ruling on MCP-G2 | Tim; the port number Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| MCP-60 | TIM-537 item 10, amended by TIM-559 ruling on MCP-G4 | Tim; any thread Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
-| MCP-61 | TIM-537 item 10, TIM-542 item 6 | Tim | not run |  | `rule` | `skills-mcp` |
-| MCP-62 | TIM-542 item 13, TIM-537 item 10 | Tim | not run |  | `rule` | `skills-mcp` |
-| MCP-63 | TIM-537 item 11, amended by TIM-559 ruling on MCP-G6 | Tim; the condition Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
-| MCP-64 | TIM-537 item 11 | Tim | not run |  | `rule` | `skills-mcp` |
+| MCP-46 | TIM-537 item 9, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `definition` | - |
+| MCP-47 | TIM-537 item 9 and round 3 item 1 (TIM-545), amended by TIM-559 ruling on MCP-G1, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the signature Architect (Tim has not read) | read | TIM-559 | `rule` | - |
+| MCP-48 | TIM-537 item 9 and round 3 item 1, amended by TIM-559 ruling on MCP-G1, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the wording Architect (Tim has not read) | read |  | `definition` | - |
+| MCP-49 | TIM-537 items 9 and 14, amended by TIM-559 ruling on OV-G1, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the pin and no fallback Architect (Tim has not read) | read | TIM-559 | `fact` | - |
+| MCP-50 | TIM-537 item 12, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | - |
+| MCP-51 | TIM-537 item 12, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | read |  | `definition` | - |
+| MCP-52 | TIM-537 item 13, amended by TIM-559 ruling on MCP-G8, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the file Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
+| MCP-53 | TIM-537 item 13, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | - |
+| MCP-54 | TIM-537 item 11, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | read |  | `rule` | - |
+| MCP-55 | TIM-537 item 9 and round 3 facts, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | read |  | `rule` | - |
+| MCP-56 | TIM-537 item 13, TIM-534 item 15, TIM-557 items 36 and 40, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the notice key Architect (Tim has not read) | read; the notice key not run | TIM-557 | `rule` | - |
+| MCP-57 | TIM-537 item 13, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | - |
+| MCP-58 | TIM-537 item 11, TIM-542 item 29, amended by TIM-559 ruling on MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; dropping the `daemon` clause Architect (Tim has not read) | not run |  | `rule` | - |
+| MCP-59 | TIM-537 item 10, amended by TIM-559 ruling on MCP-G2, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the port number Architect (Tim has not read) | not run |  | `rule` | - |
+| MCP-60 | TIM-537 item 10, amended by TIM-559 ruling on MCP-G4, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; any thread Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
+| MCP-61 | TIM-537 item 10, TIM-542 item 6, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | - |
+| MCP-62 | TIM-542 item 13, TIM-537 item 10, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | - |
+| MCP-63 | TIM-537 item 11, amended by TIM-559 ruling on MCP-G6, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the condition Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
+| MCP-64 | TIM-537 item 11, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | - |
 | MCP-65 | TIM-531 item 6, TIM-537 follow-up rule 1, kept by TIM-555 | Architect (Tim has not read) | run | TIM-549, TIM-555 | `rule` | `skills-mcp` |
 | MCP-66 | TIM-537 follow-up rule 1, kept by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-67 | TIM-537 follow-up rule 1, TIM-555 item 2 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
+| MCP-67 | TIM-537 follow-up rule 1, TIM-555 item 2, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-68 | TIM-537 follow-up rule 7, TIM-555 prototype | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-69 | TIM-537 follow-up rule 2, amended by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-70 | TIM-537 follow-up rule 2, amended by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
@@ -793,7 +765,7 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-81 | TIM-537 follow-up rule 4, amended by TIM-555 item 4 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-82 | TIM-537 follow-up rule 4, amended by TIM-555 item 4 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-83 | TIM-537 follow-up rule 4, amended by TIM-555 item 4 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
-| MCP-84 | TIM-537 item 13, TIM-555 item 4 | Tim; the wording Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| MCP-84 | TIM-537 item 13, TIM-555 item 4, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the wording Architect (Tim has not read) | not run |  | `rule` | - |
 | MCP-85 | TIM-537 follow-up rule 4, kept by TIM-555 | Architect (Tim has not read) | run |  | `fact` | `skills-mcp` |
 | MCP-86 | TIM-537 follow-up rule 7, kept by TIM-555 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-87 | TIM-555 item 6 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
@@ -807,9 +779,9 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-95 | TIM-555 item 7 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-96 | TIM-555 item 7 | Architect (Tim has not read) | run |  | `rule` | `skills-mcp` |
 | MCP-97 | TIM-553 item 8, as recorded on TIM-555, TIM-557 item 41, TIM-559 round 2 R4 and R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | run; no notice not run |  | `rule` | `skills-mcp` |
-| MCP-98 | TIM-557 items 36 and 40 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| MCP-99 | TIM-558 item 33 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| MCP-100 | TIM-558 item 17, amended by TIM-559 ruling on MCP-G20 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| MCP-98 | TIM-557 items 36 and 40, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| MCP-99 | TIM-558 item 33, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| MCP-100 | TIM-558 item 17, amended by TIM-559 ruling on MCP-G20, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-101 | TIM-558 item 52, withdrawn by TIM-559 ruling on OV-G1 | Architect (Tim has not read) | not run |  | `rule` | - |
 | MCP-102 | TIM-559 ruling on MCP-G17 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-103 | TIM-559 ruling on MCP-G17 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
@@ -824,27 +796,28 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-112 | TIM-559 ruling on MCP-G11 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-113 | TIM-559 ruling on MCP-G12 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-114 | TIM-559 ruling on MCP-G12 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| MCP-115 | TIM-559 ruling on MCP-G1 | Architect (Tim has not read) | read |  | `rule` | `skills-mcp` |
-| MCP-116 | TIM-559 ruling on MCP-G8, TIM-559 round 3 L3 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
-| MCP-117 | TIM-559 ruling on MCP-G8 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
-| MCP-118 | TIM-559 ruling on MCP-G5 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| MCP-119 | TIM-559 ruling on MCP-G5 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| MCP-120 | TIM-559 ruling on MCP-G5 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| MCP-121 | TIM-559 ruling on MCP-G5 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
-| MCP-122 | TIM-559 ruling on MCP-G6 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
-| MCP-123 | TIM-559 ruling on MCP-G6 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
-| MCP-124 | TIM-559 ruling on MCP-G4 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
-| MCP-125 | TIM-559 ruling on MCP-G4 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
-| MCP-126 | TIM-559 ruling on MCP-G7 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| MCP-127 | TIM-559 ruling on MCP-G7 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| MCP-128 | TIM-559 ruling on MCP-G8 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| MCP-129 | TIM-559 ruling on MCP-G7 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| MCP-115 | TIM-559 ruling on MCP-G1, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | read |  | `rule` | - |
+| MCP-116 | TIM-559 ruling on MCP-G8, TIM-559 round 3 L3, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
+| MCP-117 | TIM-559 ruling on MCP-G8, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
+| MCP-118 | TIM-559 ruling on MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| MCP-119 | TIM-559 ruling on MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| MCP-120 | TIM-559 ruling on MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| MCP-121 | TIM-559 ruling on MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
+| MCP-122 | TIM-559 ruling on MCP-G6, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
+| MCP-123 | TIM-559 ruling on MCP-G6, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
+| MCP-124 | TIM-559 ruling on MCP-G4, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
+| MCP-125 | TIM-559 ruling on MCP-G4, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
+| MCP-126 | TIM-559 ruling on MCP-G7, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| MCP-127 | TIM-559 ruling on MCP-G7, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| MCP-128 | TIM-559 ruling on MCP-G8, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| MCP-129 | TIM-559 ruling on MCP-G7, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | MCP-130 | TIM-559 ruling on MCP-G20 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-131 | TIM-559 ruling on MCP-G23 | Architect (Tim has not read) | not run |  | `definition` | - |
 | MCP-132 | TIM-559 round 3 A1 | Architect (Tim has not read) | read |  | `fact` | `skills-mcp` |
 | MCP-133 | TIM-559 round 3 A1 | Architect (Tim has not read) | read |  | `fact` | `skills-mcp` |
 | MCP-134 | TIM-559 round 3 A1 | Architect (Tim has not read) | not run | TIM-559 | `definition` | - |
 | MCP-135 | TIM-559 round 3 A1, TIM-559 round 4 items 7 and 8 | Architect (Tim has not read) | not run |  | `definition` | - |
-| MCP-136 | TIM-559 round 3 L3 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
-| MCP-137 | TIM-559 round 4 item 10 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
-| MCP-138 | TIM-559 round 4 item 10 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+| MCP-136 | TIM-559 round 3 L3, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
+| MCP-137 | TIM-559 round 4 item 10, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
+| MCP-138 | TIM-559 round 4 item 10, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| MCP-139 | Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `skills-mcp` |

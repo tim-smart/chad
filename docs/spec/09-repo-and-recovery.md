@@ -204,7 +204,7 @@ chad revert <commit>    go back to an earlier applied commit
 - **REC-80** A revert is recorded as a new commit on the `applied` branch, so reverting a revert works.
 - **REC-81** A target that no longer loads fails like any apply and changes nothing.
 - **REC-82** A revert resets `work/` to the new commit. Before it does, it saves what was in `work/` to a git ref, and it names that ref in its output.
-- **REC-83** A revert never changes the chat connections, who the owner is, the secrets or the stored MCP tokens.
+- **REC-83** A revert never changes the chat connections, who the owner is or the secrets.
 - **REC-84** There is no `/revert` in chat. The route from a phone is `/safe on`, then asking chad to revert or fix the change.
 - **REC-85** A turn the owner did not start does not apply, revert, purge or change safe mode unless its prompt says to. This is a rule in the `self-edit` skill and not a check in the CLI (see 14-self-edit-skill.md).
 - **REC-136** A revert's commit message names the commit it went back to.
@@ -272,7 +272,7 @@ A notice is a short message chad posts on its own account, as opposed to the age
 
 - **REC-101** A notice outside a turn goes to the DM session in which the owner's latest message arrived. If the owner has no DM session, it goes to the session of any kind in which the owner's latest message arrived. A message counts whether it started a turn, steered one or was a chat command, and a turn that no owner's message started, such as a scheduled run, does not move the destination. A skipped plugin, an automatic safe mode and a failing hook are notices of this kind.
 - **REC-102** A notice outside a turn is always logged as well.
-- **REC-103** The same route carries a model login code when no session asked for it, the one notice that an MCP server dropped to "needs login", and the notice that a scheduled job's thread is gone (see 05-model-and-login.md, 12-skills-and-mcp.md and 13-timers-and-cron.md).
+- **REC-103** The same route carries a model login code when no session asked for it and the notice that a scheduled job's thread is gone (see 05-model-and-login.md and 13-timers-and-cron.md).
 - **REC-104** A notice is a Discord post and can hang. The line an apply posts in its session's thread (REC-108) is forked into the daemon's scope and is not waited for, so it cannot block the queue or a stop.
 - **REC-105** A notice outside a turn is a normal message and not subtext, because it is the content and not a footnote. In a server thread it carries the owner's mention. Subtext stays for lines inside a turn's flow, and no notice uses emoji (see 04-discord.md).
 - **REC-109** chad writes the destination of REC-101 to the file `state/notice-thread` whenever it changes, as one JSON line with the connection's name and the thread, by temp file and rename. The shape of the line is in 02-storage.md, and the thread is the thread string defined in 03-sessions-and-turns.md. A boot that cannot use the database reads the file to tell the owner (see 16-failures-logs-status.md).
@@ -376,7 +376,7 @@ A notice is a short message chad posts on its own account, as opposed to the age
 | REC-80 | TIM-534 item 9 | Tim | not run |  | `rule` | `apply` |
 | REC-81 | TIM-534 item 9 | Tim | not run |  | `rule` | `apply` |
 | REC-82 | TIM-534 item 9 | Tim | not run |  | `rule` | `apply` |
-| REC-83 | TIM-534 item 11, TIM-537 item 13 | Tim | not run |  | `rule` | `apply` |
+| REC-83 | TIM-534 item 11, TIM-537 item 13, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | `apply` |
 | REC-84 | TIM-534 item 9 | Tim | not run |  | `rule` | `apply` |
 | REC-85 | TIM-549 item 8 | Architect (Tim has not read) | not run | TIM-549 | `rule` | `bundled-skills` |
 | REC-86 | TIM-534 item 9, TIM-542 items 24 and 26 | Tim | not run |  | `rule` | `apply` |
@@ -396,7 +396,7 @@ A notice is a short message chad posts on its own account, as opposed to the age
 | REC-100 | TIM-534 "Where Tim overruled the recommendation" | Tim | not run |  | `definition` | - |
 | REC-101 | TIM-534 item 15, amended by TIM-559 ruling on REC-G15 | Tim; what counts as most recently active Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | REC-102 | TIM-534 item 15 | Tim | not run |  | `rule` | `failures` |
-| REC-103 | TIM-535 resolution, TIM-537 item 13, TIM-540 item 19 | Tim | not run |  | `rule` | `timers-cron` |
+| REC-103 | TIM-535 resolution, TIM-537 item 13, TIM-540 item 19, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | `timers-cron` |
 | REC-104 | TIM-550 item 11, amended by TIM-557 item 39 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | REC-105 | TIM-533 item 12, amended by TIM-557 item 37 | Architect (Tim has not read); no emoji Tim | not run | TIM-557 | `rule` | `failures` |
 | REC-106 | TIM-557 item 42 | Architect (Tim has not read) | not run |  | `rule` | `apply` |

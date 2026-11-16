@@ -241,7 +241,6 @@ The first table holds the durations chad sets, which are the ones `Timings` hold
 | MCP call held during a rebuild or before the first layer connects, backstop | 120 seconds | 12-skills-and-mcp.md (MCP-78, MCP-91) |
 | Model login timeout | 15 minutes | 05-model-and-login.md (MOD-44) |
 | Model trial request, deadline with no retry | 60 seconds | 05-model-and-login.md (MOD-88) |
-| MCP login, life of a pending login | 10 minutes | 12-skills-and-mcp.md (MCP-61) |
 | `chad secret request` wait | 5 minutes | 15-credentials.md (CRED-56) |
 | TOTP, time left in the window under which `code` and `run` wait for the next one | 5 seconds | 15-credentials.md (CRED-36) |
 | Session passivation after idle | 30 minutes | 03-sessions-and-turns.md (SES-92) |
@@ -346,7 +345,7 @@ The prototypes left a list of things that were decided and never run. Each is pl
 - **TST-100** Layer 2 tests cron expressions, which no prototype ran. Only one-shot times and fixed intervals were run.
 - **TST-179** The layer 2 tests of cron next-run times pin real dates in `Pacific/Auckland`, with a time inside the hour that a daylight saving change skips and a time inside the hour that it repeats (see 13-timers-and-cron.md for the expected times). The dates are real ones because the source of effect's `Cron` warns that `next` near a gap is not guaranteed to be the nearest match.
 - **TST-180** One layer 2 test checks that the reset time of a usage limit, which chad holds in milliseconds, is divided down to seconds in the Discord timestamp chad posts, because a Discord timestamp takes seconds (see 16-failures-logs-status.md).
-- **TST-101** Layer 3 tests the following, none of which a prototype ran: context-overflow compaction with a scripted context-length error, several sessions at once, the bundled plugins, plugin scopes closing before the MCP layer, the Enter modal on `ChatTest`, and `chad mcp login` with the "needs login" message against the MCP SDK's example OAuth server run locally.
+- **TST-101** Layer 3 tests the following, none of which a prototype ran: context-overflow compaction with a scripted context-length error, several sessions at once, the bundled plugins, plugin scopes closing before the MCP layer, and the Enter modal on `ChatTest`.
 - **TST-102** Layer 3 tests six of the seven credential runs that were asked for and not made: retiring a forgotten button on a click, the name limit at `request` and `/secret`, a save failing after the modal's reply, `${NAME}` in `mcp.json` naming a TOTP secret failing the apply, a dotenv value with a newline or with both `'` and ` #`, and where an MCP server's working directory is (see 15-credentials.md).
 - **TST-103** Withdrawn.
 - **TST-181** One test runs the predicate that tells clanka's turn timeout from another error against real clanka and a model that stays silent, so that a change to clanka's wording fails CI and cannot remove the silence bound unnoticed (see 16-failures-logs-status.md). Whether that test shortens clanka's turn timeout is part of TST-G2.
@@ -660,7 +659,7 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-98 | TIM-558 item 48, TIM-554 (Tim's ruling) | Tim | not run |  | `rule` | `bundled-skills` |
 | TST-99 | TIM-558 items 7, 8, 19, 52, 53 and 54, "What this changes in closed tickets"; TIM-541 items 3 and 21, TIM-548 items 6 and 10, TIM-549 items 4 and 21, TIM-553 decision 5, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-100 | TIM-558 item 51, TIM-543, TIM-540 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
-| TST-101 | TIM-558 item 52 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
+| TST-101 | TIM-558 item 52, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
 | TST-102 | TIM-558 item 52, TIM-554 "Not run" | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | TST-103 | TIM-558 item 52, withdrawn by TIM-559 ruling on OV-G1 and main session ruling on Q8 | Architect (Tim has not read) | read |  | `rule` | - |
 | TST-104 | TIM-558 item 53 | Architect (Tim has not read) | not run |  | `rule` | `backup` |

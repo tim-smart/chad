@@ -24,7 +24,6 @@ repo/                          the git repo and what chad builds from it, see 09
 secrets/                       mode 0700, files 0600
   connections.json             chat connections
   secrets.json                 named secrets
-  mcp-oauth.json               MCP OAuth tokens and client registrations
   auth/                        model login tokens and clanka's models.dev cache
 state/
   safe-mode                    the safe mode flag
@@ -87,8 +86,8 @@ Anything chad has to read before the database is open, or write with no daemon r
 - **STO-145** `state/version` holds one line of plain text, the chad version.
 - **STO-121** `state/notice-thread` holds the thread in which chad posts a notice outside a turn, as the one JSON line `{"connection": "<name>", "thread": "<thread>"}`. `connection` is the name of the chat connection that posts, and `thread` is the thread string of STO-153. The connection's name is stored and not the platform, because two connections can share a platform and the file is read when the database cannot be. chad rewrites the file by temporary file and rename whenever that destination changes. Which thread that is is in 09-repo-and-recovery.md, and how a notice is sent is in 16-failures-logs-status.md.
 - **STO-18** chad keeps a hash of each bundled skill in `state/bundled-skills.json`. What the hash covers and the file's shape are in 12-skills-and-mcp.md.
-- **STO-19** Tokens and client registrations for MCP servers that sign in with OAuth are kept in `secrets/mcp-oauth.json`, a file of its own apart from `secrets/secrets.json`, outside the repo. The file has one entry for each server, keyed by the server's name, and an entry records the URL it was issued for. See 12-skills-and-mcp.md.
-- **STO-146** `chad secret` and the `${NAME}` expansion never read or list what `secrets/mcp-oauth.json` holds.
+- **STO-19** Withdrawn.
+- **STO-146** Withdrawn.
 - **STO-20** A session works in `sessions/<session-id>/`, which is the startup directory of that session's clanka Agent.
 - **STO-194** A session id is a UUID from `crypto.randomUUID()`, in its lowercase text form. It is the name of the session's directory under `sessions/` and the `session` key of the session's log lines.
 - **STO-206** A turn id is `t_` followed by 12 lowercase hexadecimal digits.
@@ -535,7 +534,7 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-16 | TIM-542 item 16 | Tim | not run |  | `rule` | `settings` |
 | STO-17 | TIM-541 item 14 | Architect (Tim has not read) | run |  | `rule` | `harness` |
 | STO-18 | TIM-549 item 23, amended by TIM-559 ruling on MCP-G16 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| STO-19 | TIM-537 item 13, amended by TIM-559 rulings on STO-G19 and MCP-G8, TIM-559 round 3 L3 | Tim. Architect (Tim has not read) for the file and its key | not run | TIM-559 | `rule` | `skills-mcp` |
+| STO-19 | TIM-537 item 13, amended by TIM-559 rulings on STO-G19 and MCP-G8, TIM-559 round 3 L3, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim. Architect (Tim has not read) for the file and its key | not run | TIM-559 | `rule` | - |
 | STO-20 | TIM-536 item 10 | Tim | read |  | `rule` | `turns` |
 | STO-21 | TIM-536 item 10, TIM-532 item 15 | Tim | not run |  | `rule` | `turns` |
 | STO-22 | TIM-536 item 10, TIM-541 item 10 | Tim | run |  | `rule` | `turns` |
@@ -662,7 +661,7 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-143 | TIM-559 ruling on MOD-G2 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | STO-144 | TIM-559 ruling on STO-G18 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | STO-145 | TIM-559 ruling on STO-G18 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| STO-146 | TIM-559 ruling on STO-G19 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `skills-mcp` |
+| STO-146 | TIM-559 ruling on STO-G19, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
 | STO-147 | TIM-559 ruling on STO-G8, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | STO-148 | TIM-559 ruling on STO-G8 | Architect (Tim has not read) | not run |  | `rule` | `wire` |
 | STO-149 | TIM-559 ruling on STO-G8, amended by TIM-559 round 3 L4 | Architect (Tim has not read) | not run |  | `rule` | `cli` |

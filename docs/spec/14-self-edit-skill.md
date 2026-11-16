@@ -257,7 +257,7 @@ Settings, secrets and MCP servers:
 - **SELF-103** The skill teaches that `"enabled": false` holds a plugin's timers and keeps its data, and that turning the plugin back on fires each overdue timer once.
 - **SELF-104** The skill teaches that a secret is saved with `chad secret set` reading stdin, is named as `${NAME}` in `chad.json` and `mcp.json`, and is never written into a file in the repo.
 - **SELF-105** The skill teaches that an MCP server is added by editing `mcp.json` and applying, and that no command adds one.
-- **SELF-106** The skill names `chad mcp logout`, and it describes `chad mcp restart` as rebuilding every server and not as reconnecting one.
+- **SELF-106** The skill describes `chad mcp restart` as rebuilding every server and not as reconnecting one.
 
 The image:
 
@@ -389,7 +389,6 @@ Edit `mcp.json` and apply. There is no command that adds one.
 {
   "mcpServers": {
     "files": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem", "/data/home/notes"] },
-    "linear": { "url": "https://mcp.linear.app/mcp" },
     "github": { "url": "https://api.githubcopilot.com/mcp/", "headers": { "Authorization": "Bearer ${GITHUB_TOKEN}" } }
   }
 }
@@ -398,11 +397,10 @@ Edit `mcp.json` and apply. There is no command that adds one.
 - stdio servers run with `npx`, `uvx` or `node`. The image has no Python packages, no apt and no sudo. What you install with `npm install -g`, `uv tool install` or into `~/.local/bin` stays on the volume and sits last on PATH, so it cannot replace the image's own tools.
 - `chad check` reads `mcp.json`, checks that every `${NAME}` resolves and prints which servers an apply would add, remove or change. It connects nothing. A malformed `mcp.json` fails the apply.
 - A server that cannot connect does not fail the apply. The apply prints each server's status and tool count.
-- Any MCP restart pauses every session's MCP calls until the servers are back, and a stdio server loses what it held in memory. An apply that changes `mcp.json`, `chad mcp restart`, a finished login and a change to a secret that `mcp.json` names all restart every server.
+- Any MCP restart pauses every session's MCP calls until the servers are back, and a stdio server loses what it held in memory. An apply that changes `mcp.json`, `chad mcp restart` and a change to a secret that `mcp.json` names all restart every server.
 - A call made during a restart is held until the servers are back. If that takes more than 120 seconds it fails with "MCP servers are restarting. This call was not sent." Nothing ran, so call again. <!-- adjusted: TIM-555 -->
 - After a restart a tool's parameters may have changed. When a call fails validation, check it against the tool's current declaration.
-- "needs login" means an OAuth server with no token. Run `chad mcp login <name>`. chad posts a link in the thread. The owner opens it, signs in, and pastes the address the browser ends on back into the thread. You never see that message. The command returns as soon as the link is posted, so do not wait on it. A pending login expires after 10 minutes.
-- `chad mcp logout <name>` deletes a server's stored tokens.
+- An HTTP server signs in with a header. Write the token in `headers` as `${NAME}` and save it with `chad secret set`. chad has no OAuth login. A server that answers 401 is listed as unavailable with its error.
 - `chad mcp restart` restarts every MCP server. Run it when a server dropped. Nothing restarts one by itself.
 
 ## Settings and secrets
@@ -717,7 +715,7 @@ export default Plugin.make(NotesTools, Chunk)
 | SELF-103 | TIM-549 comment "From four tickets closed on 2026-11-14", from TIM-548 items 7 and 8 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SELF-104 | TIM-549 body, from TIM-542 items 14 and 15 | Tim | not run |  | `rule` | `bundled-skills` |
 | SELF-105 | TIM-549 body, from TIM-537 item 5 | Tim | not run |  | `rule` | `bundled-skills` |
-| SELF-106 | TIM-549 round 1 corrections, from TIM-537 item 6 and TIM-542 item 13 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
+| SELF-106 | TIM-549 round 1 corrections, from TIM-537 item 6 and TIM-542 item 13, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SELF-107 | TIM-549 comment "From four tickets closed on 2026-11-14" and round 1 corrections, from TIM-541 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SELF-108 | TIM-549 comment "From four tickets closed on 2026-11-14", from TIM-541 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SELF-109 | TIM-549 item 21 as changed by TIM-558, TIM-558 item 32, TIM-557 item 43 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |

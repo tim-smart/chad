@@ -41,7 +41,6 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 | CLI-35b   | `settings`       | The files `state/safe-mode`, `state/model`, `state/timezone`, `secrets/secrets.json` and `secrets/auth/` are written by commands of later slices, the last of them the `settings` slice. |
 | CLI-37b   | `backup`         | The other changes that go through the queue arrive with later slices, and the last of them, a backup while it copies, with the `backup` slice.                                           |
 | CLI-42b   | `loader`         | The deadline of a plugin's Layer is LOAD-14, which the `loader` slice delivers.                                                                                                          |
-| CLI-42d   | `skills-mcp`     | The deadline of an MCP login is MCP-61, which the `skills-mcp` slice delivers.                                                                                                           |
 | CLI-49b   | `settings`       | `chad secret run` and its own usage errors arrive with the `settings` slice.                                                                                                             |
 | CLI-51b   | `settings`       | `chad secret run`, which passes its child's exit code through, arrives with the `settings` slice.                                                                                        |
 | CLI-57b   | `settings`       | `chad setup` arrives with the `settings` slice.                                                                                                                                          |
@@ -65,7 +64,6 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 | STO-133c  | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                                                            |
 | FAIL-108c | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                                                            |
 | FAIL-114b | `apply`          | Whether the exit before the daemon's start was unclean comes from the boot counter (IMG-89 to IMG-92), which the `apply` slice delivers.                                                 |
-| FAIL-157b | `skills-mcp`     | The expired MCP login line of FAIL-170 arrives with the `skills-mcp` slice.                                                                                                              |
 | STO-110   | `backup`         | The prune job whose runs leave the request and reply arrives with the `backup` slice.                                                                                                    |
 
 ## Stopped rules

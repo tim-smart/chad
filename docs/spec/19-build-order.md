@@ -54,7 +54,7 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 | `loader` | 3 | The type layer with the six mistakes, check and bundle, loading plugins from an exported tree. |
 | `apply` | 3 | The repo, `chad apply`, the swap, revert, recovery, safe mode and the boot counter. |
 | `settings` | 4 | `chad.json`, settings, secrets, the timezone, the persona, `chad setup`, and the credential tools (`chad secret run`, `code`, `request`, the Enter button). |
-| `skills-mcp` | 4 | Skills, MCP servers, `chad mcp login`, and the stop's 60 second deadline, which only an MCP server can hold a stop open long enough to reach. |
+| `skills-mcp` | 4 | Skills, MCP servers, and the stop's 60 second deadline, which only an MCP server can hold a stop open long enough to reach. |
 | `timers-cron` | 4 | Timers and the cron plugin. |
 | `backup` | 5 | `chad backup` and `chad restore`, the prune job, the before-migration copy. |
 | `image` | 5 | The Kubernetes manifests and the script of their checks, the browser sidecar wiring. |
