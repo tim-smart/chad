@@ -85,9 +85,10 @@ export const parse = (dir: string, text: string): Skill | Bad => {
 
 /**
  * The skills of a `skills/` directory: each directory in it that holds a `SKILL.md`. Anything else is not a skill, and a
- * directory that is missing or cannot be read holds none. A `SKILL.md` that resolves outside the tree the directory is
- * in, through its own link or a linked directory, fails the checks, so a skill only ever holds what was applied
- * (MCP-1, MCP-2, REC-11).
+ * directory that is missing or cannot be read holds none. A skill with a file that resolves outside the tree the directory
+ * is in, or to nothing, through its own link or a linked directory, fails the checks. The model reads a skill's other
+ * files through `repo/live`, so this holds for every file of the skill and not only its `SKILL.md`: a skill only ever
+ * holds what was applied (MCP-1, MCP-2, REC-11, MCP-149).
  */
 export const scan = Effect.fnUntraced(function* (
   directory: string | undefined,
@@ -100,18 +101,36 @@ export const scan = Effect.fnUntraced(function* (
   const root = yield* fs
     .realPath(dirname(directory))
     .pipe(Effect.orElseSucceed(() => dirname(directory)))
+  const inside = (path: string) =>
+    fs.realPath(path).pipe(
+      Effect.map((real) => real.startsWith(root + sep)),
+      Effect.orElseSucceed(() => false),
+    )
   const skills: Array<Skill> = []
   const bad: Array<Bad> = []
   for (const entry of [...entries].sort()) {
     const file = join(directory, entry, fileName)
     const info = yield* Effect.option(fs.stat(file))
     if (info._tag === "None" || info.value.type !== "File") continue
-    const real = yield* fs.realPath(file).pipe(Effect.orElseSucceed(() => ""))
-    if (!real.startsWith(root + sep)) {
+    if (!(yield* inside(file))) {
       bad.push({ name: entry, problem: Messages.skillProblems.outside })
       continue
     }
-    const read = yield* Effect.result(fs.readFileString(real))
+    const others = yield* fs
+      .readDirectory(join(directory, entry), { recursive: true })
+      .pipe(Effect.orElseSucceed((): Array<string> => []))
+    const escaping: Array<string> = []
+    for (const path of [...others].sort()) {
+      if (!(yield* inside(join(directory, entry, path)))) escaping.push(path)
+    }
+    if (escaping.length > 0) {
+      bad.push({
+        name: entry,
+        problem: Messages.skillProblems.outsideFiles(escaping),
+      })
+      continue
+    }
+    const read = yield* Effect.result(fs.readFileString(file))
     const parsed =
       read._tag === "Failure"
         ? {

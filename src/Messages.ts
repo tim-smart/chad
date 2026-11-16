@@ -896,6 +896,9 @@ export const skillProblems = {
   /** A `SKILL.md` that resolves outside the applied tree (REC-11). */
   outside:
     "links to a file outside the repo. An applied skill holds only what the apply committed, so put the file itself in skills/",
+  /** Other files of the skill that resolve outside the applied tree or to nothing (MCP-149, REC-11). */
+  outsideFiles: (paths: ReadonlyArray<string>) =>
+    `has files that link outside the repo or to nothing: ${paths.join(", ")}. An applied skill holds only what the apply committed, so put the files themselves in its directory`,
   /** A file that cannot be read. */
   unreadable: (error: string) => `cannot be read: ${error}`,
 } as const

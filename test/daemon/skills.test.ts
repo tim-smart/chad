@@ -10,8 +10,13 @@ import {
   writeFileSync,
 } from "node:fs"
 import { join } from "node:path"
+import * as NodeServices from "@effect/platform-node/NodeServices"
+import { Effect, Exit, FileSystem, Layer } from "effect"
 import type { ChatThread } from "effect/chat"
+import { Command } from "effect/cli"
 import { expect, test } from "vitest"
+import { skill as skillCommand } from "../../dist/cli/commands/skill.js"
+import { Environment } from "../../dist/cli/Environment.js"
 import * as Messages from "../../dist/Messages.js"
 import * as Skills from "../../dist/Skills.js"
 import { applied, write } from "../support/applied.ts"
@@ -60,6 +65,41 @@ const events = (running: Scenario, event: string) =>
   running.log().filter((line) => line.annotations["event"] === event)
 
 /** The `notices` rows of the skills' keys. */
+/**
+ * Runs `chad skill new <name>` in this process over a filesystem whose `makeDirectory` lets another writer put its own
+ * `SKILL.md` in the new directory before the command writes, which places the race with no timing involved.
+ */
+const newSkillRacing = (data: string, name: string, theirs: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const racing = FileSystem.FileSystem.of({
+      ...fs,
+      makeDirectory: (path, options) =>
+        Effect.andThen(
+          fs.makeDirectory(path, options),
+          fs.writeFileString(join(path, "SKILL.md"), theirs),
+        ),
+    })
+    return yield* Command.runWith(skillCommand, { version: "test" })([
+      "new",
+      name,
+    ]).pipe(Effect.provideService(FileSystem.FileSystem, racing), Effect.exit)
+  }).pipe(
+    Effect.provide(
+      Layer.merge(
+        NodeServices.layer,
+        Layer.succeed(Environment, {
+          data,
+          socket: join(data, "run/chad.sock"),
+          lock: join(data, "run/chad.lock"),
+          session: undefined,
+          inherited: {},
+        }),
+      ),
+    ),
+    Effect.runPromise,
+  )
+
 const skillNotices = (running: Scenario) =>
   rows(
     running,
@@ -113,6 +153,15 @@ test("REC-11 MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-
   expect((await first.chad(["skill", "new", "Mine_1"])).code).toBe(2)
   // A name YAML would read as a number is written quoted, so it parses once a description is in.
   expect((await first.chad(["skill", "new", "123"])).code).toBe(0)
+  // Another writer's SKILL.md that lands between the command's check and its write is kept, and the name is taken.
+  const theirs = skill("raced", "Theirs.", "their body")
+  const raced = await newSkillRacing(first.data, "raced", theirs)
+  expect(Exit.isFailure(raced)).toBe(true)
+  expect(String(Exit.isFailure(raced) ? raced.cause : "")).toContain(
+    Messages.skillTaken("raced"),
+  )
+  expect(readFileSync(join(work, "skills/raced/SKILL.md"), "utf8")).toBe(theirs)
+  rmSync(join(work, "skills/raced"), { recursive: true })
 
   // A check and an apply refuse a malformed skill and name its file. The drafts reach no session.
   write(work, {
@@ -131,6 +180,13 @@ test("REC-11 MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-
   mkdirSync(join(work, "skills/linked"), { recursive: true })
   symlinkSync(join(outside, "SKILL.md"), join(work, "skills/linked/SKILL.md"))
   symlinkSync(outside, join(work, "skills/linkdir"))
+  // The model reads a skill's other files through repo/live, so a link among them is held to the same tree. One that
+  // stays inside the skill is kept (MCP-149).
+  writeFileSync(join(outside, "extra.md"), "unapplied extra")
+  write(work, { "skills/aux/SKILL.md": skill("aux", "Aux.", "aux body") })
+  mkdirSync(join(work, "skills/aux/refs"), { recursive: true })
+  symlinkSync(join(outside, "extra.md"), join(work, "skills/aux/refs/extra.md"))
+  symlinkSync(join(outside, "gone.md"), join(work, "skills/aux/gone.md"))
   const refusals = [
     Messages.skillRefused(
       "bad",
@@ -141,6 +197,10 @@ test("REC-11 MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-
     Messages.skillRefused("123", Messages.skillProblems.noDescription),
     Messages.skillRefused("linked", Messages.skillProblems.outside),
     Messages.skillRefused("linkdir", Messages.skillProblems.outside),
+    Messages.skillRefused(
+      "aux",
+      Messages.skillProblems.outsideFiles(["gone.md", "refs/extra.md"]),
+    ),
   ]
   for (const command of [["check"], ["apply", "-m", "Skills"]]) {
     const refused = await first.chad(command)
@@ -156,6 +216,7 @@ test("REC-11 MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-
   rmSync(join(work, "skills/raw"), { recursive: true })
   rmSync(join(work, "skills/linked"), { recursive: true })
   rmSync(join(work, "skills/linkdir"))
+  rmSync(join(work, "skills/aux"), { recursive: true })
   const numbered = join(work, "skills/123/SKILL.md")
   writeFileSync(
     numbered,
@@ -167,6 +228,7 @@ test("REC-11 MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-
   write(work, {
     "skills/mine/SKILL.md": skill("mine", "My skill.", "mine body"),
   })
+  symlinkSync("SKILL.md", join(work, "skills/mine/alias.md"))
   const apply = await first.chad(["apply", "-m", "Skills"])
   expect(apply.code).toBe(0)
   expect(apply.stdout).toContain(
