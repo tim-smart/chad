@@ -2,8 +2,10 @@
 # removes old ones.
 #
 # chad's backup mounts the data claim itself and needs no affinity to chad's pod, so it works while that pod is down.
-# With chad running, it takes its place in chad's queue through the socket on the volume. A ReadWriteOnce claim is
-# mounted by one node at a time, so the job runs on chad's node or, with chad down, wherever the claim can attach.
+# With chad running, it takes its place in chad's queue through the socket on the volume.
+#
+# This example is for a cluster of one node. ReadWriteOnce attaches a claim to one node at a time and does not schedule
+# the job beside chad's pod. On several nodes a job that lands away from chad waits on the attachment while chad runs.
 #
 # Run one now with:
 #

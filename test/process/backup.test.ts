@@ -400,6 +400,43 @@ const backedUp = async () => {
   return tar
 }
 
+it("STO-216 CLI-161 a restore - whose producer keeps standard input open ends with the restore, exit 0, and a SIGINT part way ends it with exit 130 without waiting for the input to close", async () => {
+  const whole = readFileSync(await backedUp())
+  /** `chad restore -` with standard input left open after `input`, and its exit code when it ends. */
+  const restore = (data: string, input: Buffer) => {
+    const child = spawn(
+      process.execPath,
+      [path("bin/chad.js"), "restore", "-"],
+      {
+        env: owner({ CHAD_DATA: data }),
+        stdio: ["pipe", "ignore", "ignore"],
+      },
+    )
+    onTestFinished(() => void child.kill("SIGKILL"))
+    const code = new Promise<number | null>((resolve) =>
+      child.on("close", (exit) => resolve(exit)),
+    )
+    // A restore that ends before it read all of the input closes the pipe under the rest.
+    child.stdin.on("error", () => {})
+    child.stdin.write(input)
+    return { child, code }
+  }
+
+  // The kubectl run of docs/running.md without stdinOnce leaves the pipe open after the whole tar.
+  const complete = directory("chad-target-")
+  expect(await restore(complete, whole).code).toBe(0)
+  expect(readFileSync(join(complete, "secrets/token"), "utf8")).toBe("secret")
+
+  const cut = directory("chad-target-")
+  const interrupted = restore(cut, whole.subarray(0, whole.length / 2))
+  await eventually(
+    () => existsSync(join(cut, "restore.partial")),
+    (there) => there,
+  )
+  interrupted.child.kill("SIGINT")
+  expect(await interrupted.code).toBe(130)
+})
+
 it("STO-99 STO-179 STO-216 STO-217 CLI-135 a restore holds the lock against chad serve, and one that a kill or a damaged tar cut while unpacking leaves the volume to the next restore's check, so a secret written since is never replaced", async () => {
   const tar = await backedUp()
   const whole = readFileSync(tar)

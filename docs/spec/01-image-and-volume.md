@@ -526,6 +526,7 @@ asphodel is the memory daemon that the asphodel plugin talks to over http (see 1
 - **IMG-108** The Kubernetes backup is a CronJob of the chad image that mounts the data claim and a destination and runs `chad backup /backup/chad-<date>.tar`. It has `concurrencyPolicy: Forbid` and no required pod affinity, so a backup works while chad's pod is down. Its image tag comes from the same variable as the Deployment's.
 - **IMG-109** asphodel's volume is not in `chad backup`, so both examples back it up next to chad's.
 - **IMG-110** The examples do not make the root filesystem read-only and set no resource requests or limits.
+- **IMG-145** The Kubernetes example is for a cluster of one node. It places no pod by node, and the docs say that on several nodes the owner places the backup job and a restore claim, because a ReadWriteOnce claim does not draw the pods that mount it to one node.
 
 The fragment below renders the decided fields. The names `chad`, `data` and `vault` are placeholders, and the asphodel sidecar, the claims and the CronJob are left out because their names, images, sizes and schedule are not decided.
 
@@ -722,6 +723,7 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-142 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | IMG-143 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `loader` |
 | IMG-144 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `loader` |
+| IMG-145 | Build, stage 5 | Builder (Tim has not read) | not run |  | `rule` | `image` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

@@ -74,20 +74,31 @@ is up to you.
 ### asphodel
 
 asphodel, the memory daemon the asphodel plugin talks to, is not in the chad image. It runs as its own container on a
-network it shares with chad, and its README says how to set it up:
+network it shares with chad. Its image runs as uid and gid 65532 and has no `/data`, so give it the volume first, as
+its README does. Then start it with a token that chad is given too:
 
 ```sh
+docker volume create asphodel-data
+docker run --rm --user 0:0 --entrypoint /bin/sh -v asphodel-data:/data \
+  ghcr.io/tim-smart/asphodel:latest -c 'chown 65532:65532 /data'
+
+token=$(openssl rand -hex 32)
 docker network create chad
 docker network connect chad chad
 docker run -d --name asphodel --restart unless-stopped --network chad \
+  -p 127.0.0.1:7720:7720 \
   -e ASPHODEL_TOKEN="$token" \
   -v asphodel-data:/data \
   ghcr.io/tim-smart/asphodel:latest \
   serve --listen 0.0.0.0:7720 --data-dir /data
+printf %s "$token" | docker exec -i chad chad secret set ASPHODEL_TOKEN
 ```
 
-The plugin's `url` is then `http://asphodel:7720`. Its `token` setting is `${ASPHODEL_TOKEN}`, which chad
-reads from its secret store (`chad secret set ASPHODEL_TOKEN`) or from its own environment.
+asphodel then waits for its first-run setup: open `http://127.0.0.1:7720/dashboard` on the host. Keep the port bound
+to `127.0.0.1`, because whoever reaches an unconfigured asphodel first can set it up.
+
+The plugin's `url` is `http://asphodel:7720`. Its `token` setting is `${ASPHODEL_TOKEN}`, which chad reads
+from its secret store or from its own environment.
 
 ### Backup
 
@@ -128,10 +139,22 @@ restores an older tar, and the first boot migrates it.
 `deploy/kubernetes/` is the example: a Deployment of chad with asphodel as a native sidecar, the claims, and two
 nightly backup CronJobs. The image tag is set once, in `kustomization.yaml`, for the Deployment and the backup alike.
 
+The example is for a cluster of one node, such as a k3s server. Its claims are ReadWriteOnce, and a ReadWriteOnce claim
+is attached to one node at a time but does not draw the pods that use it to the same node. On one node every pod that
+mounts a claim, chad's, the backup job's and the restore pod's, runs where the claim is. On a cluster of several nodes,
+the backup job and a restore claim can land on another node, and you have to place them yourself.
+
 ```sh
 kubectl create secret generic chad-asphodel --from-literal=token="$(openssl rand -hex 32)"
 kubectl apply -k deploy/kubernetes
 kubectl exec -it deploy/chad -- chad setup
+```
+
+asphodel waits for its first-run setup. Reach its dashboard through a port forward and open
+`http://127.0.0.1:7720/dashboard`:
+
+```sh
+kubectl port-forward deploy/chad 7720:7720
 ```
 
 Every other command runs as `kubectl exec -it deploy/chad -- chad <command>`.
@@ -158,14 +181,15 @@ old backups. Run one now with `kubectl create job --from=cronjob/chad-backup cha
 
 ### Restore on Kubernetes
 
-Stop chad, restore onto an empty claim from a one-off pod, and point the Deployment at that claim:
+Stop chad, restore onto an empty claim from a one-off pod, and point the Deployment at that claim. `stdinOnce` closes
+the pod's standard input once the tar has been sent, as `kubectl run -i` does when no override replaces the container:
 
 ```sh
 kubectl scale deploy/chad --replicas=0
 kubectl wait --for=delete pod -l app.kubernetes.io/name=chad --timeout=5m
 # Create an empty claim, chad-restored, then:
 kubectl run chad-restore --rm -i --restart=Never --image=ghcr.io/tim-smart/chad:0.0.0 \
-  --overrides='{"spec":{"securityContext":{"runAsUser":1000,"fsGroup":1000},"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"chad-restored"}}],"containers":[{"name":"chad-restore","image":"ghcr.io/tim-smart/chad:0.0.0","args":["restore","-"],"stdin":true,"volumeMounts":[{"name":"data","mountPath":"/data"}]}]}}' \
+  --overrides='{"spec":{"securityContext":{"runAsUser":1000,"fsGroup":1000},"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"chad-restored"}}],"containers":[{"name":"chad-restore","image":"ghcr.io/tim-smart/chad:0.0.0","args":["restore","-"],"stdin":true,"stdinOnce":true,"volumeMounts":[{"name":"data","mountPath":"/data"}]}]}}' \
   < chad-2026-11-16.tar
 # Set claimName: chad-restored for the data volume in deployment.yaml and backup.yaml, then:
 kubectl apply -k deploy/kubernetes
@@ -174,5 +198,6 @@ kubectl apply -k deploy/kubernetes
 ### Checking a cluster
 
 `node scripts/kubernetes.ts` runs the example in a namespace of its own on the cluster of kubectl's current context.
-It checks the probes, what `fsGroup` does on the cluster's volumes and the backup CronJob, with chad running and with
-it down, then deletes the namespace. `--image` runs another image in place of the pinned one.
+It checks the probes, what `fsGroup` does on the cluster's volumes, that a frozen chad is restarted, and the backup
+CronJob with chad running and with its pod gone, then deletes the namespace. `--image` runs another image in place of
+the pinned one. It does not run the restore above.

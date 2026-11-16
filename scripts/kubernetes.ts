@@ -75,6 +75,13 @@ export const rendered = (
   return out
 }
 
+/**
+ * Freezes the daemon: the node process of `chad serve`. tini, PID 1, has arguments that end in `chad serve` as well,
+ * and freezing it leaves chad answering, so the match is the node process's whole command line.
+ */
+export const freeze =
+  "kill -STOP $(pgrep -x -f 'node /usr/local/bin/chad serve')"
+
 interface Probe {
   readonly exec?: { readonly command: ReadonlyArray<string> }
   readonly periodSeconds?: number
@@ -289,11 +296,20 @@ const main = async () => {
       "--",
       "sh",
       "-c",
-      "kill -STOP $(pgrep -o -f 'chad serve$')",
+      freeze,
     ])
     const frozenAt = Date.now()
+    const answering = kubectl(
+      [...n, "exec", "deploy/chad", "-c", "chad", "--", "chad", "health"],
+      { allowed: true },
+    )
+    check(
+      "chad health fails once chad is frozen",
+      answering.status !== 0,
+      answering.stdout.trim(),
+    )
     let restarted = false
-    while (Date.now() - frozenAt < 5 * 60_000) {
+    while (answering.status !== 0 && Date.now() - frozenAt < 5 * 60_000) {
       if (restarts(pod()) > restarts(before)) {
         restarted = true
         break
@@ -314,7 +330,7 @@ const main = async () => {
     check("chad comes back after the restart", back.status === 0)
 
     kubectl([...n, "scale", "deployment/chad", "--replicas=0"])
-    kubectl(
+    const gone = kubectl(
       [
         ...n,
         "wait",
@@ -324,16 +340,18 @@ const main = async () => {
         "app.kubernetes.io/name=chad",
         "--timeout=3m",
       ],
-      {
-        allowed: true,
-      },
+      { allowed: true },
     )
-    const down = backup("check-down")
-    check(
-      "IMG-108 the backup CronJob writes a tar while chad's pod is down",
-      down.passed,
-      down.logs,
-    )
+    check("chad's pod is gone after the scale to 0", gone.status === 0)
+    // A backup while the pod is still there would pass through its queue and prove nothing about a pod that is down.
+    if (gone.status === 0) {
+      const down = backup("check-down")
+      check(
+        "IMG-108 the backup CronJob writes a tar while chad's pod is down",
+        down.passed,
+        down.logs,
+      )
+    }
   } finally {
     if (process.argv.includes("--keep")) {
       console.log(`kept namespace ${namespace}`)

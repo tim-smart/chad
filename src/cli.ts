@@ -9,3 +9,6 @@ process.exitCode = await runCli({
   httpClient: FetchHttpClient.layer,
   timings: defaults,
 })
+// The command has ended. A read of standard input it left, such as `chad restore -` done or ended by a signal before the
+// producer closed the pipe, would keep Node running until that EOF.
+process.stdin.destroy()

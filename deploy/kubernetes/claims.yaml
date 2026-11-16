@@ -3,6 +3,8 @@
 # chad's volume has to be a local filesystem: a host directory, local-path, a cloud block volume or Longhorn RWO. NFS,
 # CephFS and Longhorn RWX are not supported, because SQLite's lock and write-ahead log are not safe on them.
 #
+# The example is for a cluster of one node: every claim is ReadWriteOnce, and nothing places the pods that share one.
+#
 # Before the first apply, create the token that chad's asphodel plugin and asphodel itself share:
 #
 #   kubectl create secret generic chad-asphodel --from-literal=token="$(openssl rand -hex 32)"
