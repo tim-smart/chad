@@ -297,6 +297,7 @@ export const make = Effect.fnUntraced(function* (options: {
               ? yield* Effect.as(Repo.reset(repo, sha), undefined)
               : yield* Repo.restore(repo, {
                   saved: saved.commit,
+                  name: saved.ref.split("/").pop()!,
                   sha,
                 })
           const swapped =

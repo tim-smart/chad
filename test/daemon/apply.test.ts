@@ -365,7 +365,48 @@ test("SWAP-1 SWAP-2 SWAP-4 LOAD-14 LOAD-23 LOAD-53 LOAD-70 REC-82 REC-86 REC-116
     "applied notes",
   )
   expect(await log()).toHaveLength(commits + 1)
-}, 90_000)
+
+  // What a revert replaces or deletes goes to repo/reverted/<saved ref>/ as it was, and chad never deletes it, so a
+  // write through a descriptor opened before the revert lands there. An edit after the save that the path's clean
+  // filter hides from git stays at its path, since its bytes are not the save's.
+  write(work, { "memo.txt": "memo target\n", "note.txt": "note target\n" })
+  expect((await running.chad(["apply", "-m", "Memo target"])).code).toBe(0)
+  write(work, { "memo.txt": "memo current\n", "note.txt": "note current\n" })
+  expect((await running.chad(["apply", "-m", "Memo current"])).code).toBe(0)
+  git(work, ["config", "filter.strip.clean", "sed '/^#/d'"])
+  write(join(work, ".git", "info"), { attributes: "note.txt filter=strip\n" })
+  const descriptor = openSync(join(work, "memo.txt"), "a")
+  onTestFinished(() => {
+    try {
+      closeSync(descriptor)
+    } catch {
+      // Closed by the scenario.
+    }
+  })
+  const pause = holdCommit(work)
+  const moving = Cli.start(["revert"], { CHAD_DATA: running.data })
+  await pause.held()
+  write(work, { "note.txt": "note current\n# written after the save\n" })
+  pause.release()
+  const moved = await moving.done
+  expect(moved.code).toBe(0)
+  writeSync(descriptor, "written through a descriptor\n")
+  closeSync(descriptor)
+  expect(readFileSync(join(work, "memo.txt"), "utf8")).toBe("memo target\n")
+  expect(readFileSync(join(work, "note.txt"), "utf8")).toBe(
+    "note current\n# written after the save\n",
+  )
+  expect(moved.stdout).toContain(Messages.revertLeft(["note.txt"]))
+  const keptAt = join(
+    repo,
+    "reverted",
+    /refs\/chad\/saved\/(\S+)/.exec(moved.stdout)![1]!.replace(/\.$/, ""),
+  )
+  expect(moved.stdout).toContain(Messages.revertKept(keptAt))
+  expect(readFileSync(join(keptAt, "memo.txt"), "utf8")).toBe(
+    "memo current\nwritten through a descriptor\n",
+  )
+}, 120_000)
 
 const slowTools = Toolkit.make(
   Tool.make("hang", {

@@ -913,9 +913,9 @@ export const revertObstructed = (paths: ReadonlyArray<string>, saved: string) =>
 export const revertLeft = (paths: ReadonlyArray<string>) =>
   `These files in work/ changed or appeared after the save, so the revert left them as they are: ${paths.join(", ")}. git diff in work/ shows how the tracked ones differ from the revert.`
 
-/** Where a revert kept a file that it moved aside and could not put back (REC-139). */
+/** Where a revert keeps, as they were, the files it moved out of work/ (REC-139, REC-154). */
 export const revertKept = (directory: string) =>
-  `A file that changed after the save could not go back to its path, so it is kept under ${directory}.`
+  `The files the revert replaced or deleted in work/ are kept as they were under ${directory}. chad never deletes them, so remove that directory once nothing in it is needed.`
 
 /** The message of a revert's commit, which names the commit it went back to (REC-136). */
 export const revertMessage = (commit: string) => `Revert to ${commit}`
