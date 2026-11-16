@@ -136,17 +136,32 @@ restores an older tar, and the first boot migrates it.
 
 ## Kubernetes
 
-`deploy/kubernetes/` is the example: a Deployment of chad with asphodel as a native sidecar, the claims, and two
-nightly backup CronJobs. The image tag is set once, in `kustomization.yaml`, for the Deployment and the backup alike.
+chad ships no manifests for Kubernetes. A deployment of your own has to set the following.
 
-The example is for a cluster of one node, such as a k3s server. Its claims are ReadWriteOnce, and a ReadWriteOnce claim
-is attached to one node at a time but does not draw the pods that use it to the same node. On one node every pod that
-mounts a claim, chad's, the backup job's and the restore pod's, runs where the claim is. On a cluster of several nodes,
-the backup job and a restore claim can land on another node, and you have to place them yourself.
+- One replica with `strategy: Recreate`, so a rollout stops the old pod before the new one starts. A second chad on
+  the same volume is refused the lock.
+- One ReadWriteOnce claim mounted at `/data`, and `runAsUser: 1000` with `fsGroup: 1000`. On a local-path volume
+  `fsGroup` does nothing, because the provisioner makes the directory with mode 0777, and chad's own start-up check is
+  the guard: it refuses to boot on a volume another uid owns.
+- `chad health` as the liveness probe, every 30 seconds with a 5 second timeout and 3 failures, so a frozen chad is
+  restarted. A frozen chad is not a crash, and nothing else restarts it. A startup probe runs the same command every 2
+  seconds, up to 30 times. chad needs no readiness probe.
+- `terminationGracePeriodSeconds: 90`. A stop takes up to 60 seconds.
+- asphodel next to chad, as a native sidecar in chad's pod: an init container with `restartPolicy: Always`, on its
+  own volume. The plugin reaches it at `http://127.0.0.1:7720`. Give both containers the same `ASPHODEL_TOKEN` from
+  one Secret: a `${NAME}` that chad's secret store does not hold comes from chad's environment.
+- A backup job that runs the chad image with the data claim and a destination mounted, as `chad backup
+/backup/chad-<date>.tar`, with `concurrencyPolicy: Forbid`. It mounts the claim itself, so it works while chad's
+  pod is down. asphodel's store is not in that tar: back it up next to it with `asphodel backup`, as in the Docker
+  section.
+
+A ReadWriteOnce claim is attached to one node at a time but does not draw the pods that use it to the same node. On a
+cluster of one node, such as a k3s server, every pod that mounts the claim runs where it is. On several nodes, place the
+backup job and a restore pod yourself.
+
+Set chad up once its pod runs. Every other command runs the same way:
 
 ```sh
-kubectl create secret generic chad-asphodel --from-literal=token="$(openssl rand -hex 32)"
-kubectl apply -k deploy/kubernetes
 kubectl exec -it deploy/chad -- chad setup
 ```
 
@@ -157,28 +172,6 @@ asphodel waits for its first-run setup. Reach its dashboard through a port forwa
 kubectl port-forward deploy/chad 7720:7720
 ```
 
-Every other command runs as `kubectl exec -it deploy/chad -- chad <command>`.
-
-- The Deployment has one replica and the Recreate strategy, so a rollout stops the old pod before the new one starts. A
-  second chad on the same volume is refused the lock.
-- chad runs as uid 1000 with no privileges, all capabilities dropped and no service account token. `fsGroup: 1000`
-  gives it the claim. On a local-path volume `fsGroup` does nothing, because the provisioner makes the directory with
-  mode 0777, and chad's own start-up check is the guard.
-- The liveness probe runs `chad health` every 30 seconds, with a 5 second timeout and 3 failures, and restarts a frozen
-  chad. The startup probe runs it every 2 seconds, up to 30 times. There is no readiness probe.
-- The grace period is 90 seconds. A stop takes up to 60.
-- The vault claim is mounted at `/mnt/vault`.
-- asphodel listens on port 7720, and the plugin reaches it at `http://127.0.0.1:7720`. The `chad-asphodel` Secret
-  gives both containers the same `ASPHODEL_TOKEN`.
-- The examples set no resource requests or limits and do not make the root filesystem read-only.
-
-### Backup on Kubernetes
-
-The `chad-backup` CronJob runs `chad backup /backup/chad-<date>.tar` at 03:30 UTC with the chad image, onto the
-`chad-backup` claim. It mounts the data claim itself, so it works while chad's pod is down, and two runs never overlap.
-The `asphodel-backup` CronJob writes `asphodel-<date>.db` beside it at 03:45, and needs chad's pod up. Nothing removes
-old backups. Run one now with `kubectl create job --from=cronjob/chad-backup chad-backup-now`.
-
 ### Restore on Kubernetes
 
 Stop chad, restore onto an empty claim from a one-off pod, and point the Deployment at that claim. `stdinOnce` closes
@@ -187,10 +180,10 @@ the pod's standard input once the tar has been sent, as `kubectl run -i` does wh
 ```sh
 kubectl scale deploy/chad --replicas=0
 kubectl wait --for=delete pod -l app.kubernetes.io/name=chad --timeout=5m
-# Create an empty claim, chad-restored, then:
+# The label is whatever your Deployment gives chad's pod. Create an empty claim, chad-restored, then:
 kubectl run chad-restore --rm -i --restart=Never --image=ghcr.io/tim-smart/chad:0.0.0 \
   --overrides='{"spec":{"securityContext":{"runAsUser":1000,"fsGroup":1000},"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"chad-restored"}}],"containers":[{"name":"chad-restore","image":"ghcr.io/tim-smart/chad:0.0.0","args":["restore","-"],"stdin":true,"stdinOnce":true,"volumeMounts":[{"name":"data","mountPath":"/data"}]}]}}' \
   < chad-2026-11-16.tar
-# Set claimName: chad-restored for the data volume in deployment.yaml and backup.yaml, then:
-kubectl apply -k deploy/kubernetes
+# Point the Deployment's data volume and the backup job at chad-restored, then:
+kubectl scale deploy/chad --replicas=1
 ```

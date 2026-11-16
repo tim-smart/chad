@@ -70,7 +70,7 @@ The gaps, in part order. Each gap is gone from its part.
 
 One gap is still yours, because it is a measurement on your node and not a decision:
 
-1. **IMG-G16** (01-image-and-volume.md). Which filesystem sits under the local-path directory on your k3s node. `stat -f -c %T /var/local-path-provisioner` answers it. Nothing in the build waits for it.
+1. **IMG-G16** (01-image-and-volume.md). Which filesystem sits under the local-path directory on your k3s node. `stat -f -c %T /var/local-path-provisioner` answers it. Nothing in the build checks it any more, since you ruled on 2026-11-16 that chad has no Kubernetes tests, so your first deployment on that node is the check. Nothing in the build waits for it.
 
 ## What changed after you agreed it
 

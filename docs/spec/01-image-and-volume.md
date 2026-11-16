@@ -515,18 +515,16 @@ chad keeps no boot counter, and safe mode never starts by itself (see 09-repo-an
 
 asphodel is the memory daemon that the asphodel plugin talks to over http (see 18-asphodel-plugin.md). It runs as its own container next to chad.
 
-## The Kubernetes example
+## Kubernetes in the docs
 
-- **IMG-102** The Kubernetes example is a Deployment with one replica and `strategy: Recreate`. A rollout has to stop the old pod before the new one starts, because a second daemon on the same volume is refused the lock.
-- **IMG-103** The Deployment has one ReadWriteOnce (RWO) claim for `/data`, `runAsUser: 1000`, `runAsNonRoot: true`, `fsGroup: 1000` with `OnRootMismatch`, `allowPrivilegeEscalation: false`, all capabilities dropped, `seccompProfile: RuntimeDefault` and no service account token.
-- **IMG-104** `fsGroup` has no effect on a local-path volume, which is a host directory the provisioner creates with mode 0777. It stays in the example for other volume types, and on local-path the start-up check of IMG-58 is the guard.
-- **IMG-105** The Deployment carries the liveness probe of IMG-76, the startup probe of IMG-77 and a 90 second termination grace period.
-- **IMG-106** On Kubernetes asphodel is a native sidecar in chad's pod, which is an init container with `restartPolicy: Always`. The plugin's `url` setting is `http://127.0.0.1:7720`, and the token comes from one Secret in both containers. A `${NAME}` that the secret store does not have resolves from process env, which is how a Kubernetes Secret supplies a plugin's token.
-- **IMG-107** The Deployment mounts a vault claim at `/mnt/vault`.
-- **IMG-108** The Kubernetes backup is a CronJob of the chad image that mounts the data claim and a destination and runs `chad backup /backup/chad-<date>.tar`. It has `concurrencyPolicy: Forbid` and no required pod affinity, so a backup works while chad's pod is down. Its image tag comes from the same variable as the Deployment's.
-- **IMG-109** asphodel's volume is not in `chad backup`, so both examples back it up next to chad's.
-- **IMG-110** The examples do not make the root filesystem read-only and set no resource requests or limits.
-- **IMG-145** The Kubernetes example is for a cluster of one node. It places no pod by node, and the docs say that on several nodes the owner places the backup job and a restore claim, because a ReadWriteOnce claim does not draw the pods that mount it to one node.
+- **IMG-102** docs/running.md tells an owner on Kubernetes to run chad as a Deployment with one replica and `strategy: Recreate`. A rollout has to stop the old pod before the new one starts, because a second daemon on the same volume is refused the lock.
+- **IMG-103** The docs give chad's pod one ReadWriteOnce (RWO) claim for `/data`, `runAsUser: 1000` and `fsGroup: 1000`.
+- **IMG-104** The docs say that `fsGroup` has no effect on a local-path volume, which is a host directory the provisioner creates with mode 0777, and that on local-path the start-up check of IMG-58 is the guard.
+- **IMG-105** The docs give the liveness probe of IMG-76, the startup probe of IMG-77 and a 90 second termination grace period.
+- **IMG-106** The docs run asphodel on Kubernetes as a native sidecar in chad's pod, which is an init container with `restartPolicy: Always`. The plugin's `url` setting is `http://127.0.0.1:7720`, and the token comes from one Secret in both containers. A `${NAME}` that the secret store does not have resolves from process env, which is how a Kubernetes Secret supplies a plugin's token.
+- **IMG-108** The Kubernetes backup the docs describe is a job of the chad image that mounts the data claim and a destination and runs `chad backup /backup/chad-<date>.tar`. It has `concurrencyPolicy: Forbid` and needs no pod of chad's, so a backup works while chad's pod is down.
+- **IMG-109** asphodel's volume is not in `chad backup`, so the docs back it up next to chad's, with Docker and on Kubernetes.
+- **IMG-145** The docs' Kubernetes guidance is for a cluster of one node. They say that on several nodes the owner places the backup job and a restore pod, because a ReadWriteOnce claim does not draw the pods that mount it to one node.
 
 The fragment below renders the decided fields. The names `chad`, `data` and `vault` are placeholders, and the asphodel sidecar, the claims and the CronJob are left out because their names, images, sizes and schedule are not decided.
 
@@ -579,9 +577,8 @@ spec:
 - **IMG-G10** [builder] Which of Renovate and Dependabot the chad repo uses. Renovate needs Tim to install an app or supply a token, which is on no list of what Tim provides, and Dependabot needs nothing from him. Whether Dependabot follows a digest held in an `ARG`, as the Dockerfile above holds it, was not checked. Recommended: Dependabot, with the digest written on the `FROM` lines if the `ARG` hides it from the bump. TIM-541 item 1.
 - **IMG-G12** [builder] The format of the timestamp in `<name>.replaced-<timestamp>`. The stand-in wrote `YYYYMMDDTHHMMSS` in UTC. TIM-553 item 9.
 - **IMG-G13** [builder] The timeout of the Kubernetes startup probe. The liveness probe has 5 seconds and the startup probe has none stated. TIM-541 item 24.
-- **IMG-G14** [builder] The full text of the Kubernetes manifests and the CronJob, which needs resource names, the asphodel image, claim sizes, the Secret's name, and the backup schedule and destination. TIM-541 items 27 to 29 fix their contents and not their text.
-- **IMG-G15** [builder] Resource requests and limits. Nothing was measured, and IMG-110 leaves them out of the examples. TIM-541.
-- **IMG-G16** [tim] The filesystem under the local-path directory on Tim's node, which `stat -f -c %T /var/local-path-provisioner` answers. It is a measurement and not a decision, so nobody can answer it for him. The lock and the write-ahead log were run on ext4 and tmpfs only. Nothing in the build waits for it. TIM-541 and TIM-553.
+- **IMG-G15** [builder] Resource requests and limits. Nothing was measured, and the docs give none. TIM-541.
+- **IMG-G16** [tim] The filesystem under the local-path directory on Tim's node, which `stat -f -c %T /var/local-path-provisioner` answers. It is a measurement and not a decision, so nobody can answer it for him. The lock and the write-ahead log were run on ext4 and tmpfs only. Nothing in the build checks it, and his first deployment on that node is the check. Nothing in the build waits for it. TIM-541 and TIM-553.
 - **IMG-G18** [builder] The exact versions of uv, pnpm, TypeScript and esbuild. The prototype used uv 0.13.8, pnpm 12.18.0, TypeScript 7.0.2 and esbuild 0.28.2. TIM-541 item 2 and TIM-553.
 - **IMG-G20** [builder] Which steps of the boot list each phase name of IMG-128 covers. The daemon does not listen before step 5, so it can never answer `starting`, and 10-cli.md has the CLI say "starting or frozen" for a held lock with no socket. Recommended: the stand-in's use, which is `starting` until the socket listens and seen by no client, `listening` for steps 5 and 6, `database` for steps 7 and 8, `loading` for step 9, `ready` after it and `stopping` from SIGTERM. TIM-550 item 7, and TIM-559 cold read, cli reader.
 - **IMG-G21** [builder] Where in the boot list the daemon opens `logs/chad.log`. It cannot be before the lock (IMG-126), and the list gives it no step. The same question for the directories an empty volume lacks is a gap of 02-storage.md, which recommends `state/` when the lock is taken and the others once step 3 has passed. Recommended: the file is opened straight after the lock is taken, and `logs/` is made with it when missing, so that a boot refused at step 3 still leaves its lines in the file. TIM-541 item 13, and TIM-559 cold read, harness reader.
@@ -685,15 +682,13 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-95 | TIM-541 item 20 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-96 | TIM-541 item 20 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-97 | TIM-542 item 5, TIM-550 item 5 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
-| IMG-102 | TIM-541 item 27, TIM-536 item 18 | Architect (Tim has not read) | not run |  | `rule` | `image` |
-| IMG-103 | TIM-541 item 27 | Architect (Tim has not read) | not run |  | `rule` | `image` |
-| IMG-104 | TIM-541 item 27 | Architect (Tim has not read) | not run |  | `fact` | `image` |
-| IMG-105 | TIM-541 items 24, 25 and 27 | Architect (Tim has not read) | not run |  | `rule` | `image` |
-| IMG-106 | TIM-541 item 23, TIM-548 | Architect (Tim has not read) | not run |  | `rule` | `image` |
-| IMG-107 | TIM-541 item 27 | Architect (Tim has not read) | not run |  | `rule` | `image` |
-| IMG-108 | TIM-541 item 28, TIM-536 item 9 | Architect (Tim has not read) | not run |  | `rule` | `image` |
-| IMG-109 | TIM-541 item 23 | Architect (Tim has not read) | not run |  | `rule` | `image` |
-| IMG-110 | TIM-541 item 30 | Architect (Tim has not read) | not run |  | `rule` | `image` |
+| IMG-102 | TIM-541 item 27, TIM-536 item 18, amended by Tim's ruling that chad ships no Kubernetes manifests, scripts or tests, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `image` |
+| IMG-103 | TIM-541 item 27, amended by Tim's ruling that chad ships no Kubernetes manifests, scripts or tests, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `image` |
+| IMG-104 | TIM-541 item 27, amended by Tim's ruling that chad ships no Kubernetes manifests, scripts or tests, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `fact` | `image` |
+| IMG-105 | TIM-541 items 24, 25 and 27, amended by Tim's ruling that chad ships no Kubernetes manifests, scripts or tests, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `image` |
+| IMG-106 | TIM-541 item 23, TIM-548, amended by Tim's ruling that chad ships no Kubernetes manifests, scripts or tests, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `image` |
+| IMG-108 | TIM-541 item 28, TIM-536 item 9, amended by Tim's ruling that chad ships no Kubernetes manifests, scripts or tests, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `image` |
+| IMG-109 | TIM-541 item 23, amended by Tim's ruling that chad ships no Kubernetes manifests, scripts or tests, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-111 | TIM-557 item 43 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | IMG-112 | TIM-558 items 20 and 21 | Architect (Tim has not read) | not run | TIM-558 | `rule` | `harness` |
 | IMG-113 | TIM-558 items 7, 53, 54 and 55 | Architect (Tim has not read) | not run |  | `definition` | - |
@@ -723,8 +718,8 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-142 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | IMG-143 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `loader` |
 | IMG-144 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `loader` |
-| IMG-145 | Build, stage 5 | Builder (Tim has not read) | not run |  | `rule` | `image` |
+| IMG-145 | Build, stage 5, amended by Tim's ruling that chad ships no Kubernetes manifests, scripts or tests, chat 2026-11-16 | Builder (Tim has not read) | not run |  | `rule` | `image` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 
-IMG-73, IMG-89, IMG-90, IMG-91, IMG-92, IMG-98, IMG-99, IMG-100, IMG-101, IMG-130, IMG-132, IMG-135, IMG-136, IMG-137.
+IMG-73, IMG-89, IMG-90, IMG-91, IMG-92, IMG-98, IMG-99, IMG-100, IMG-101, IMG-107, IMG-110, IMG-130, IMG-132, IMG-135, IMG-136, IMG-137.

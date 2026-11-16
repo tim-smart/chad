@@ -405,7 +405,7 @@ chad db check
 
 ## Backup and restore
 
-A backup is one tar file made by the CLI. chad makes no backups by itself, so something outside chad has to run the command and move the tar off the volume. The Kubernetes example that does so is in 01-image-and-volume.md.
+A backup is one tar file made by the CLI. chad makes no backups by itself, so something outside chad has to run the command and move the tar off the volume. The Kubernetes backup that docs/running.md describes is in 01-image-and-volume.md.
 
 ```
 chad backup <path> [--no-home] [--sessions]

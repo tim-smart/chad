@@ -57,7 +57,7 @@ The plugin's name is `asphodel`, so its file is `plugins/asphodel.ts` and its en
 - **ASP-14** With `ingest` set to `false` the plugin sends no turn to the asphodel daemon. The system prompt block, the prefetch, the tools and the clear on a reset or a compaction still run.
 - **ASP-15** On Kubernetes the asphodel daemon is a sidecar in chad's pod, and the plugin's settings are `"url": "http://127.0.0.1:7720"` and `"token": "${ASPHODEL_TOKEN}"` (see 01-image-and-volume.md).
 
-The entry for the Kubernetes example:
+The entry on Kubernetes:
 
 ```json
 {

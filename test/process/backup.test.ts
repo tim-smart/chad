@@ -422,7 +422,7 @@ it("STO-216 CLI-161 a restore - whose producer keeps standard input open ends wi
     return { child, code }
   }
 
-  // The kubectl run of docs/running.md without stdinOnce leaves the pipe open after the whole tar.
+  // A pipe that stays open after the whole tar, as a one-off container whose standard input nobody closes leaves it.
   const complete = directory("chad-target-")
   expect(await restore(complete, whole).code).toBe(0)
   expect(readFileSync(join(complete, "secrets/token"), "utf8")).toBe("secret")

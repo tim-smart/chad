@@ -266,9 +266,9 @@ The second table holds durations the spec names that chad does not set. They bel
 | Handler time under `layerDispatchHook` before the shard reconnects | About 41 seconds | effect/chat and Discord | 03-sessions-and-turns.md |
 | Reconnect delay after a refused event | 1 second, doubling up to 2 minutes | dfx | 03-sessions-and-turns.md (SES-128) |
 | `HEALTHCHECK` | `--interval=30s --timeout=5s --retries=3 --start-period=60s --start-interval=2s` | The Dockerfile | 01-image-and-volume.md (IMG-79) |
-| Kubernetes liveness probe | Every 30 seconds, 5 second timeout, 3 failures | The example manifests | 01-image-and-volume.md (IMG-76) |
-| Kubernetes startup probe | Every 2 seconds, 30 failures | The example manifests | 01-image-and-volume.md (IMG-77) |
-| Stop grace period | 90 seconds | The Kubernetes example | 01-image-and-volume.md (IMG-87) |
+| Kubernetes liveness probe | Every 30 seconds, 5 second timeout, 3 failures | docs/running.md | 01-image-and-volume.md (IMG-76) |
+| Kubernetes startup probe | Every 2 seconds, 30 failures | docs/running.md | 01-image-and-volume.md (IMG-77) |
+| Stop grace period | 90 seconds | docs/running.md | 01-image-and-volume.md (IMG-87) |
 | Docker's default stop timeout | 10 seconds | Docker | 01-image-and-volume.md |
 
 ## Suite rules
