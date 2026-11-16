@@ -25,6 +25,8 @@ export interface Environment {
   readonly safeMode: boolean
   /** The whole environment as the daemon started, where a `${NAME}` in a plugin's settings is looked up after the secret store (SET-20). */
   readonly variables: Readonly<Record<string, string | undefined>>
+  /** `TZ`, the owner's timezone when none is stored (IMG-27). The daemon sets none on itself. */
+  readonly tz: string | undefined
 }
 
 export const read = (env: NodeJS.ProcessEnv): Environment => {
@@ -45,5 +47,6 @@ export const read = (env: NodeJS.ProcessEnv): Environment => {
     unknownLogLevel: level === undefined ? named : undefined,
     safeMode: SafeMode.forced(env),
     variables: { ...env },
+    tz: env["TZ"],
   }
 }

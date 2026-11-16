@@ -25,7 +25,7 @@ const failed = (reason: string) =>
  * The login through a running daemon, which runs it and owns its timeout. The CLI prints the code it hears and waits
  * with no deadline of its own, and a CLI that is killed ends only its own wait (MOD-56, MOD-59, MOD-107).
  */
-const throughDaemon = Effect.gen(function* () {
+export const throughDaemon = Effect.gen(function* () {
   const client = yield* Daemon.reach("login")
   yield* Daemon.call(
     "login",

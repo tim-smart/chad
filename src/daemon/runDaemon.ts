@@ -38,6 +38,7 @@ import * as Paths from "../Paths.ts"
 import * as Repo from "../Repo.ts"
 import * as SafeMode from "../SafeMode.ts"
 import * as Settings from "../Settings.ts"
+import * as Timezone from "../Timezone.ts"
 import * as TokenStore from "../TokenStore.ts"
 import { Timings } from "../Timings.ts"
 import { version } from "../Version.ts"
@@ -281,15 +282,16 @@ const boot = Effect.fnUntraced(function* (
       ),
     )
   yield* fs.writeFileString(volume.version, version + "\n")
-  // "Recent" reads the `turns` table from here on. "Today" is the day in the daemon's own timezone until the owner
-  // can set one (FAIL-334).
+  // The owner's timezone: `state/timezone`, else a valid `TZ`, else UTC. `chad timezone` changes it in the daemon's
+  // queue, and plugins, session processes and "today" read it from here (IMG-27, IMG-28, API-17).
+  let zone = (yield* Timezone.read(volume.data, environment.tz)).zone
+  const timezone = () => zone
+  // "Recent" reads the `turns` table from here on. "Today" is the day in the owner's timezone (FAIL-115).
   state.recent = Effect.suspend(() => {
     const now = Date.now()
-    const today = new Date(now)
-    today.setHours(0, 0, 0, 0)
     return Sessions.recent({
       since: now - Duration.toMillis(inputs.timings.statusFailedWindow),
-      today: today.getTime(),
+      today: Timezone.startOfDay(now, zone),
       week: now - Duration.toMillis(Duration.days(7)),
     })
   }).pipe(Effect.provideContext(base))
@@ -480,6 +482,7 @@ const boot = Effect.fnUntraced(function* (
               running.list().find(({ name }) => name === connection)?.owners ??
               [],
             ended: (key, outcome) => PluginTurns.ended(waiting, key, outcome),
+            timezone,
           }),
           Layer.succeed(SessionEntity.Safe, {
             on: () =>
@@ -542,6 +545,7 @@ const boot = Effect.fnUntraced(function* (
         .flatMap((connection) =>
           connection.owners.map((id) => `${connection.kind}:${id}`),
         ),
+    timezone,
     timings: inputs.timings,
     stopping: () => state.stopping,
     notices,
@@ -552,7 +556,7 @@ const boot = Effect.fnUntraced(function* (
         Effect.provide(tools.context),
         Effect.provide(
           AgentExecutor.layerLocal({ directory: volume.home }).pipe(
-            Layer.provide(Spawner.layer("trial", volume.home)),
+            Layer.provide(Spawner.layer("trial", volume.home, timezone)),
           ),
         ),
         Effect.scoped,
@@ -597,6 +601,9 @@ const boot = Effect.fnUntraced(function* (
     notices,
     queue,
     scope,
+    zoned: (next) => {
+      zone = next
+    },
     // A command's line goes to the thread of the session that ran it, as subtext (REC-108, FAIL-177).
     announce: (session, line) =>
       Effect.gen(function* () {

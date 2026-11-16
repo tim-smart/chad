@@ -582,7 +582,7 @@ What `chad status` prints about the daemon, the plugins, the MCP servers, the mo
 - **FAIL-118** A plugin's start-up warnings, such as the asphodel plugin finding its daemon unreachable, stay log lines that carry the plugin's name. They get no notice of their own, and there is no API through which a plugin notifies the owner. The failing-hook notice covers the case that lasts.
 - **FAIL-213** For a live key, "Problems" shows the condition from the daemon's own check, once each, and never reads the key's row. The row only decides whether a notice is sent. That is how `/status` shows these conditions with no database.
 - **FAIL-333** "Problems" and "Recent" come after the facts `chad status` already prints, each as a heading on its own line after a blank line, then one fact to a line. "Problems" says "none" when it has nothing. "Recent" has a line with the failed turns of the last 24 hours as a count for each reason, a line for each of the last five failed turns with its id, its reason and when it ended, a line with the tokens used today and in the last 7 days, and a line with when the daemon started. Times are in UTC. When the `turns` table cannot be read, "Recent" says so in one line and the rest of the answer is as it would be. `chad status --json` carries the same as `problems`, `recent` and `started`.
-- **FAIL-334** Until the owner can set a timezone (FAIL-115), "today" in "Recent" is the current day in the timezone of the daemon's own process.
+- **FAIL-334** Before a timezone is stored, "today" in "Recent" is the current day in the zone `TZ` names, or in UTC (IMG-27).
 
 | "Problems" lists | Source |
 | --- | --- |
@@ -741,6 +741,7 @@ A command that changes chad leaves a line in the thread of the session it ran fr
 - **FAIL-178** The same command run from the owner's shell posts nothing.
 - **FAIL-179** A command that failed and changed nothing posts nothing, because the agent has the error.
 - **FAIL-238** A reload that is not an apply, and that exits 1 because some plugins failed to build while the others swapped, still posts the line, and the line names the plugins that were kept on their previous version (see 08-apply-and-swap.md).
+- **FAIL-345** For `chad timezone` the line is "Timezone set to <zone>.", and when some plugins kept their previous version it goes on "Still on the previous timezone: <plugin names>."
 - **FAIL-180** The post is forked into the daemon's scope and the command does not wait for it (see 10-cli.md).
 
 ## What stays in the log only
@@ -792,7 +793,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 - **FAIL-G15** [builder] Whether the copy of a line logged from a sub-agent or from an MCP call carries the right session, turn and plugin name. The probes ran neither. TIM-557 item 8.
 - **FAIL-G16** [builder] The format of the human line `chad logs` prints. TIM-557 item 11.
 - **FAIL-G17** [builder] The wording of the update message in FAIL-125, and the wording of the session line in FAIL-176 for every command but `apply`. TIM-557 "Not settled here".
-- **FAIL-G18** [builder] The layout and text of the "Problems" and "Recent" blocks, and what "today" is before a timezone is set. TIM-557 item 27 and TIM-548 "Not settled here".
+- **FAIL-G18** [builder] The layout and text of the "Problems" and "Recent" blocks, and what "today" is before a timezone is set. TIM-557 item 27 and TIM-548 "Not settled here". FAIL-334 settles what "today" is.
 - **FAIL-G19** [builder] Small wordings. The notice for a repo plugin skipped because a bundled plugin took its name has no text (TIM-548 item 12). The logged-out notice's two sentences are joined here with a full stop that no ticket writes (TIM-535, TIM-557 item 40). The rounding of `<n> MB` is not given, and neither is whether cron's pause line is subtext (TIM-557 item 40).
 - **FAIL-G21** [builder] The text of the `diagnose` skill and its `chad db query` recipes. TIM-557 item 43 names what it teaches and nothing more.
 - **FAIL-G22** [builder] Whether the real Codex service sends an `error.message` with a usage limit, and what a new connection gets while the limit is in force. Only the two live captures in FAIL-98 can answer it. TIM-557 "Not settled here".
@@ -1122,7 +1123,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-331 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-332 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-333 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
-| FAIL-334 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
+| FAIL-334 | Build, stage 2, amended in stage 4 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-335 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-336 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-337 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
@@ -1133,6 +1134,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-342 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
 | FAIL-343 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `plugin-api` |
 | FAIL-344 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `loader` |
+| FAIL-345 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

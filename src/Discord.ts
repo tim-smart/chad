@@ -55,11 +55,31 @@ export class TokenCheckFailed extends Data.TaggedError("TokenCheckFailed")<{
   readonly detail: string
 }> {}
 
-const Application = Schema.Struct({ id: Schema.String })
+const Application = Schema.Struct({
+  id: Schema.String,
+  bot: Schema.optionalKey(Schema.Struct({ username: Schema.String })),
+  flags: Schema.optionalKey(Schema.Number),
+})
+
+/** A request to Discord's REST API as the bot whose token it carries. */
+const asBot = (request: HttpClientRequest.HttpClientRequest, token: string) =>
+  request.pipe(
+    HttpClientRequest.setHeaders({
+      authorization: `Bot ${token}`,
+      "user-agent": `DiscordBot (https://github.com/tim-smart/chad, ${version})`,
+    }),
+  )
+
+/**
+ * The application flags that say the message content intent is on: `GATEWAY_MESSAGE_CONTENT` for a verified app and
+ * `GATEWAY_MESSAGE_CONTENT_LIMITED`, the portal's switch, for one in fewer than 100 servers.
+ */
+const messageContentFlag = 1 << 18
+const messageContentLimitedFlag = 1 << 19
 
 /**
  * Checks a bot token against Discord by asking for the application the token belongs to. The answer carries the
- * application's id, which the invite URL needs. A 401 is a token Discord refuses.
+ * application's id, which the invite URL needs, and the bot's name. A 401 is a token Discord refuses.
  */
 export const checkToken = Effect.fn("Discord.checkToken")(function* (
   token: string,
@@ -67,16 +87,11 @@ export const checkToken = Effect.fn("Discord.checkToken")(function* (
   const client = yield* HttpClient.HttpClient
   const unchecked = (detail: string) =>
     new TokenCheckFailed({ reason: "unchecked", detail })
-  const response = yield* HttpClientRequest.get(
-    `${restRoot}/applications/@me`,
-  ).pipe(
-    HttpClientRequest.setHeaders({
-      authorization: `Bot ${token}`,
-      "user-agent": `DiscordBot (https://github.com/tim-smart/chad, ${version})`,
-    }),
-    client.execute,
-    Effect.mapError((error) => unchecked(error.message)),
-  )
+  const response = yield* client
+    .execute(
+      asBot(HttpClientRequest.get(`${restRoot}/applications/@me`), token),
+    )
+    .pipe(Effect.mapError((error) => unchecked(error.message)))
   if (response.status === 401) {
     return yield* new TokenCheckFailed({ reason: "refused", detail: "401" })
   }
@@ -88,5 +103,34 @@ export const checkToken = Effect.fn("Discord.checkToken")(function* (
     // An answer that names no application is no answer to the check.
     Effect.mapError(() => unchecked(String(response.status))),
   )
-  return { application: application.id }
+  return {
+    application: application.id,
+    flags: application.flags ?? 0,
+    ...(application.bot === undefined ? {} : { bot: application.bot.username }),
+  }
+})
+
+/**
+ * Turns the message content intent on for the bot of a checked token, through Discord's API, which allows it for an
+ * app in fewer than 100 servers. `on` is a switch this call made, `already` one that was on, and `portal` an answer
+ * that leaves the owner to click it (CLI-122).
+ */
+export const messageContent = Effect.fn("Discord.messageContent")(function* (
+  token: string,
+  flags: number,
+) {
+  if ((flags & (messageContentFlag | messageContentLimitedFlag)) !== 0)
+    return "already" as const
+  const client = yield* HttpClient.HttpClient
+  const request = yield* HttpClientRequest.patch(
+    `${restRoot}/applications/@me`,
+  ).pipe(
+    HttpClientRequest.bodyJson({ flags: flags | messageContentLimitedFlag }),
+  )
+  return yield* client.execute(asBot(request, token)).pipe(
+    Effect.map((response) =>
+      response.status === 200 ? ("on" as const) : ("portal" as const),
+    ),
+    Effect.orElseSucceed(() => "portal" as const),
+  )
 })

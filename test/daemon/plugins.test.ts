@@ -342,6 +342,7 @@ test("API-67 IMG-83 the hooks a stop drains have until stopHooksUntil after the 
     const host = yield* Plugins.make({
       entries: [{ name: "hung", plugin: hung }],
       owners: () => [],
+      timezone: () => "UTC",
       timings: { ...Timings.defaults, stopHooksUntil: Duration.hours(1) },
       // The stop began an hour ago, so its time for queued hooks is spent and the close does not wait an hour.
       stopping: () => Date.now() - Duration.toMillis(Duration.hours(1)),

@@ -393,6 +393,9 @@ A secret is a named value in `secrets/secrets.json`, mode 0600, outside the repo
 - **CLI-183** `chad timezone <zone>` stores the name that `Intl` resolves the given zone to.
 - **CLI-184** `chad timezone` with no argument prints the zone in force and whether it came from `state/timezone`, from `TZ` or from the UTC fallback.
 - **CLI-185** A `TZ` value that is not a valid zone falls through to UTC, and the no-argument form says so.
+- **CLI-239** `chad timezone <zone>` prints "Timezone set to <zone>." with the name it stored. A zone it refuses gets "chad timezone: "<zone>" is not a named timezone. Give an IANA name such as Europe/Berlin." on stderr. With the daemon running, each plugin that kept its previous version adds one line "<plugin>: <error>" on stderr.
+- **CLI-240** `chad timezone` with no argument prints one line: "<zone>, set with chad timezone.", "<zone>, from TZ. Nothing is set with chad timezone." or "UTC, the fallback. Nothing is set with chad timezone and TZ is not set.", where the last says "TZ=<value> is not a valid zone" in place of "TZ is not set" for a `TZ` that names no zone.
+- **CLI-241** A `state/timezone` that cannot be read, or that holds no zone `chad timezone` would take, counts as nothing stored, so the daemon still boots and the CLI answers with the zone from `TZ` or UTC.
 
 ### Connections and owners
 
@@ -449,6 +452,11 @@ A remove followed by an add under the same name, with no daemon running in betwe
 - **CLI-194** A run after the first only adds or replaces, and only after the check of CLI-118, so it cannot remove an owner or a token by accident.
 - **CLI-195** With no terminal, `chad setup` exits 0 when every answer is already stored.
 - **CLI-210** `chad setup` prints no invite URL of its own. The owner sees the URL and the privileged intents in the output of `chad connection add discord` (CLI-208), which setup runs for the token.
+- **CLI-242** With no terminal, `chad setup` checks its answers before it changes anything and exits 2 with one line, "chad setup: there is no terminal to ask on, so give <flags>", that names every missing flag: `--discord-token-file` when no Discord connection is stored, `--owner` when that connection has no owner, and `--skip-login` when the model needs the Codex login and no login is stored. The timezone is never missing, because a zone is always in force, so with no `--timezone` setup leaves it as it is.
+- **CLI-243** `chad setup` works on the first stored connection of kind `discord`, and adds one named `discord` when there is none. A token it is given for a stored connection replaces that connection's token as `chad connection token` does, and an owner it is given is added as `chad owner add` does.
+- **CLI-244** Setup turns the message content intent on by setting the `GATEWAY_MESSAGE_CONTENT_LIMITED` flag of the bot's application with `PATCH /applications/@me`, which Discord allows for an app in fewer than 100 servers. It prints "Message Content Intent turned on for the bot.", or "Message Content Intent is on for the bot." when the flag was set already. When Discord refuses, it prints the bot's page in the developer portal, `https://discord.com/developers/applications/<application>/bot`, as the place to click.
+- **CLI-245** A run of `chad setup` prints the invite URL only when it adds the connection, as `chad connection add discord` does. A run that keeps the stored token or replaces it prints none (CLI-G25).
+- **CLI-246** Setup's other lines are "A Discord bot token is stored for connection <name>, the bot <bot>." for a stored token, without the bot when the check fails, "The token is the bot <bot>'s." after a new token, "The owners of <name> stay <ids>." for kept owners, the line of CLI-240 for a kept timezone, and "The Codex login is skipped. Run chad login when you want it." for `--skip-login` or a declined offer.
 
 ### Status and health
 
@@ -535,7 +543,7 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 - **CLI-G1** [builder] The list of RPC calls and their payloads. The header names `chad-version` and `chad-session` and the newline-delimited JSON serialization come from the prototypes and were not put to anyone (TIM-542 and TIM-550, "Not settled here").
 - **CLI-G12** [builder] The exact wording of most CLI output, which covers the owner refusal, the apply's closing sentence, the line a waiting command prints, the health line, the settings listing and the layout of `chad status` (TIM-542 item 28, TIM-548 "Not settled here"). For these messages the spec has no wording. Recommended: the builder writes each message it words into this part as a new rule that gives its text, the way 19-build-order.md has a builder record a choice the owner can see.
 - **CLI-G24** [builder] Whether a command that runs with no daemon leaves a `command.ran` line. CLI-205 has the daemon write the event, and CLI-147 says that only the daemon writes the log, so a change made with no daemon leaves no line as the rules stand (TIM-559 round 2 R4, TIM-557 item 10). It is also not said whether `/new` and `/stop` are chat commands that change something. Recommended: `/new` writes the event and `/stop` does not (see 16-failures-logs-status.md).
-- **CLI-G25** [builder] Whether `chad connection token`, `chad connection check` and a later run of `chad setup` that keeps the stored token print the invite URL again, and the exact form of the URL's query string. The ruling has `chad connection add discord` print the URL and gives its scopes and the source of its permissions (TIM-559 round 3 A4).
+- **CLI-G25** [builder] Whether `chad connection token`, `chad connection check` and a later run of `chad setup` that keeps the stored token print the invite URL again, and the exact form of the URL's query string. The ruling has `chad connection add discord` print the URL and gives its scopes and the source of its permissions (TIM-559 round 3 A4). CLI-245 settles it for `chad setup`.
 - **CLI-G26** [builder] What `chad connection check [<name>]` does. It has a synopsis and a row in the command table, and no rule says what it checks, whether it asks a running daemon, what it prints or what it exits with. Recommended: it checks each stored token the way CLI-118 does and, for a `local` connection, whether `run/local.sock` accepts a connection, prints one line per connection and never a token, and exits 1 when one fails (TIM-542 item 17, TIM-559 cold read).
 - **CLI-G27** [builder] Which characters a connection's name may hold. The name prefixes the keys of the Discord shard state (see 02-storage.md), and with free names `discord` is a prefix of `discord2`, so the boot cleanup of CLI-207 could keep or delete the wrong rows. Recommended: the name rule of CLI-85, which is lower-case letters, digits and hyphens. The form of the prefix and its separator is a gap of 02-storage.md (TIM-559 cold read).
 - **CLI-G28** [builder] What a refused connection or owner command exits with, and what counts as refused. The cases are the last owner or the last connection removed without `--force` (CLI-119), a connection added under a name that is taken, a connection name that does not exist, an owner id that is already listed, and a second `local` connection, which would share the one `run/local.sock` (CLI-151). Recommended: exit 1 for each refusal, exit 0 and no change for an id that is already listed, and a second `local` connection refused (TIM-559 cold read).
@@ -775,6 +783,14 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-236 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-237 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-238 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+| CLI-239 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| CLI-240 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| CLI-241 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| CLI-242 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| CLI-243 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| CLI-244 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| CLI-245 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| CLI-246 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

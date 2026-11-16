@@ -1,6 +1,6 @@
 /**
  * The commands that change what is loaded from the repo: `chad apply`, `chad check`, `chad revert`, `chad safe` and
- * `chad plugin reload` (docs/spec/08-apply-and-swap.md, 09-repo-and-recovery.md, 10-cli.md). Each runs alone through
+ * `chad plugin reload`, and `chad timezone`, which reloads every plugin (docs/spec/08-apply-and-swap.md, 09-repo-and-recovery.md, 10-cli.md). Each runs alone through
  * the daemon's one queue (SWAP-40). An apply checks and builds everything before its commit, so a failure changes
  * nothing, and from its commit on it runs in a fiber of the daemon's scope that the client cannot interrupt (CLI-43,
  * CLI-44, REC-34).
@@ -12,6 +12,7 @@ import * as Messages from "../Messages.ts"
 import * as Repo from "../Repo.ts"
 import * as SafeMode from "../SafeMode.ts"
 import * as Settings from "../Settings.ts"
+import * as Timezone from "../Timezone.ts"
 import * as Loader from "./Loader.ts"
 import * as Logger from "./Logger.ts"
 import type * as Notices from "./Notices.ts"
@@ -54,6 +55,7 @@ export type Request =
   | { readonly _tag: "Revert"; readonly commit: string | undefined }
   | { readonly _tag: "Safe"; readonly to: "on" | "off" | undefined }
   | { readonly _tag: "Reload"; readonly name: string }
+  | { readonly _tag: "Timezone"; readonly zone: string }
 
 export interface Commands {
   /** Runs a command in the queue. `waiting` is told what it waits on when the queue is busy (CLI-40). */
@@ -110,6 +112,8 @@ export const make = Effect.fnUntraced(function* (options: {
   readonly queue: Queue.Queue
   /** The daemon's scope, which an apply's steps from the commit on and a session's line run in. */
   readonly scope: Scope.Scope
+  /** Takes the owner's timezone that `chad timezone` stored, before the plugins are built with it (API-17). */
+  readonly zoned: (zone: string) => void
   /** Posts one line of subtext in a session's thread (REC-108). */
   readonly announce: (
     session: string,
@@ -705,12 +709,56 @@ export const make = Effect.fnUntraced(function* (options: {
       return done(Messages.reloaded(name))
     })
 
+  /**
+   * `chad timezone <zone>` stores the zone, then builds every loaded plugin again with it and swaps them in one swap. A
+   * plugin whose build fails keeps its old version and the command exits 1 naming it, with the change kept (CLI-114,
+   * SWAP-96, SWAP-97). The line in the session's thread names the plugins that were kept (CLI-150, FAIL-238).
+   */
+  const timezone = (zone: string, caller: Caller) =>
+    Effect.gen(function* () {
+      const canonical = Timezone.canonical(zone)
+      if (canonical === undefined) return failed(Messages.timezoneInvalid(zone))
+      return yield* owned(
+        Effect.gen(function* () {
+          yield* Timezone.write(options.data, canonical)
+          options.zoned(canonical)
+          const prepared = yield* plugins.prepare({
+            build: plugins.versions().map(({ entry }) => entry),
+            remove: [],
+            reason: "removed",
+            failures: "keep",
+            kept: "timezone",
+            trial: false,
+          })
+          yield* prepared.swap
+          const kept = prepared.failed.map(({ name }) => name)
+          yield* Queue.ran(
+            "timezone",
+            Queue.caller(caller.session),
+            "changed",
+            { zone: canonical },
+          )
+          yield* announce(caller, Messages.timezoneLine(canonical, kept))
+          return prepared.failed.length === 0
+            ? done(Messages.timezoneSet(canonical))
+            : {
+                stdout: [Messages.timezoneSet(canonical)],
+                stderr: prepared.failed.map(({ name, error }) =>
+                  Messages.keptPrevious(name, error),
+                ),
+                code: 1 as const,
+              }
+        }),
+      )
+    })
+
   const labels: Record<Request["_tag"], string> = {
     Apply: "chad apply",
     Check: "chad check",
     Revert: "chad revert",
     Safe: "chad safe",
     Reload: "chad plugin reload",
+    Timezone: "chad timezone",
   }
 
   const perform = (
@@ -728,6 +776,8 @@ export const make = Effect.fnUntraced(function* (options: {
         return toggle(request.to, caller)
       case "Reload":
         return reload(request.name)
+      case "Timezone":
+        return timezone(request.zone, caller)
     }
   }
 

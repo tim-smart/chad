@@ -191,11 +191,14 @@ export const Support = Context.Reference<{
    * this process, whether or not cluster could save the reply (SES-125, API-100).
    */
   readonly ended: (key: string, outcome: Outcome) => void
+  /** The owner's timezone now, which every process a session starts gets as `TZ` (IMG-28, CLI-54). */
+  readonly timezone: () => string
 }>("chad/SessionEntity/Support", {
   defaultValue: () => ({
     loggedOut: Effect.succeed(false),
     owners: () => [],
     ended: () => {},
+    timezone: () => "UTC",
   }),
 })
 
@@ -613,7 +616,7 @@ export const layer = Layer.unwrap(
           const view = { lines: StatusMessage.none }
           const built = yield* Layer.buildWithScope(
             AgentExecutor.layerLocal({ directory }).pipe(
-              Layer.provide(Spawner.layer(id, volume.home)),
+              Layer.provide(Spawner.layer(id, volume.home, support.timezone)),
             ),
             own,
           ).pipe(Effect.provideService(Logger.CurrentLogIds, ids))
