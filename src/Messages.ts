@@ -1735,3 +1735,7 @@ export const restored = (data: string, made: string) =>
 /** A command, or `chad serve` as `serve`, on a volume that a cut `chad restore` left half replaced (STO-217). */
 export const restoreUnfinished = (command: string, data: string) =>
   `chad ${command}: refused: a chad restore into ${data} did not finish, so the volume is half replaced. Run chad restore again with the same tar.`
+
+/** The restore lock was held for longer than the lock's busy time (STO-219). */
+export const restoreBusy = (command: string, data: string) =>
+  `chad ${command}: refused: a chad restore or another command is writing ${data}. Try again when it is done.`

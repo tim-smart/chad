@@ -19,7 +19,9 @@ import {
 import { tmpdir } from "node:os"
 import { DatabaseSync } from "node:sqlite"
 import { join } from "node:path"
+import { Duration } from "effect"
 import { expect, it, onTestFinished } from "vitest"
+import * as Lock from "../../dist/Lock.js"
 import * as Messages from "../../dist/Messages.js"
 import { version } from "../../dist/Version.js"
 import { chad, owner, type Running, start } from "../support/cli.ts"
@@ -448,7 +450,7 @@ it("STO-99 STO-179 STO-216 STO-217 CLI-135 a restore holds the lock against chad
   expect(readFileSync(join(data, "secrets/later"), "utf8")).toBe("since")
 }, 60_000)
 
-it("STO-216 STO-217 CLI-133 MOD-90 a restore cut while it replaces the volume leaves it to the restore alone: chad serve, a command that writes and one that was already waiting on its model's trial are refused, and the restore run again finishes it into a volume that boots", async () => {
+it("STO-216 STO-217 STO-219 CLI-133 MOD-90 a restore cut while it replaces the volume leaves it to the restore alone: chad serve, a command that writes, one that was already waiting on its model's trial and the starter files of chad plugin new and chad skill new are refused, and the restore run again finishes it into a volume that boots", async () => {
   const tar = await backedUp()
   const data = directory("chad-target-")
   // A chad model with no daemon that passed its check of the volume before the restore, and waits on its trial.
@@ -483,6 +485,39 @@ it("STO-216 STO-217 CLI-133 MOD-90 a restore cut while it replaces the volume le
     stderr: `${Messages.restoreUnfinished("timezone", data)}\n`,
     code: 1,
   })
+  // The cut left repo/work, so the scaffold commands reach their write, and the restore lock's check refuses it.
+  expect(existsSync(join(data, "repo/work"))).toBe(true)
+  for (const command of [
+    ["plugin", "new", "after-cut"],
+    ["skill", "new", "after-cut"],
+  ]) {
+    expect(await chad(command, { CHAD_DATA: data })).toEqual({
+      stdout: "",
+      stderr: `${Messages.restoreUnfinished(command.slice(0, 2).join(" "), data)}\n`,
+      code: 1,
+    })
+  }
+  // While another holds the restore lock, a scaffold command and the restore each wait for it and are refused, so no
+  // restore begins between a scaffold's check and its write, with a daemon running or not.
+  let holder = Lock.take(join(data, "restore.lock"), Duration.zero)
+  onTestFinished(() => holder?.())
+  expect(
+    await chad(["plugin", "new", "while-held"], { CHAD_DATA: data }),
+  ).toEqual({
+    stdout: "",
+    stderr: `${Messages.restoreBusy("plugin new", data)}\n`,
+    code: 1,
+  })
+  expect(await chad(["restore", tar], { CHAD_DATA: data })).toMatchObject({
+    code: 1,
+    stderr: `${Messages.restoreBusy("restore", data)}\n`,
+  })
+  holder?.()
+  holder = undefined
+  expect(existsSync(join(data, "repo/work/plugins/after-cut.ts"))).toBe(false)
+  expect(existsSync(join(data, "repo/work/plugins/while-held.ts"))).toBe(false)
+  expect(existsSync(join(data, "repo/work/skills/after-cut"))).toBe(false)
+  expect(existsSync(join(data, "restore.installing"))).toBe(true)
   trial.release()
   expect(await inFlight.done).toMatchObject({
     code: 1,

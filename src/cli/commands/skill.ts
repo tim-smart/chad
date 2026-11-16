@@ -6,6 +6,7 @@ import * as Messages from "../../Messages.ts"
 import * as Skills from "../../Skills.ts"
 import { Environment } from "../Environment.ts"
 import { ExitCode, Failure } from "../Failure.ts"
+import * as Files from "../Files.ts"
 
 /**
  * `chad skill new <name>`: writes `skills/<name>/SKILL.md` into `work/` in the CLI's own process, with or without a
@@ -53,11 +54,14 @@ const create = Command.make(
       })
     }
     const path = join(directory, Skills.fileName)
-    yield* Effect.gen(function* () {
-      yield* fs.makeDirectory(directory, { recursive: true })
-      // "wx" refuses a file another writer made since the test above.
-      yield* fs.writeFileString(path, Skills.template(name), { flag: "wx" })
-    }).pipe(
+    yield* Files.scaffold(
+      "skill new",
+      Effect.gen(function* () {
+        yield* fs.makeDirectory(directory, { recursive: true })
+        // "wx" refuses a file another writer made since the test above.
+        yield* fs.writeFileString(path, Skills.template(name), { flag: "wx" })
+      }),
+    ).pipe(
       Effect.catchTag("PlatformError", (error) =>
         Effect.fail(
           new Failure({

@@ -77,6 +77,13 @@ export const restoring = (data: string): string => join(data, "restore.partial")
 export const restoreCut = (data: string): string =>
   join(data, "restore.installing")
 
+/**
+ * The restore lock, which `chad restore` holds from its first write to its end, and a command that writes `repo/work`
+ * whether or not a daemon runs holds around its check of `restore.installing` and its write (STO-219). It is a file
+ * of its own beside the daemon lock's, because a running daemon holds that one.
+ */
+export const restoreLock = (data: string): string => join(data, "restore.lock")
+
 /** The mark that a boot copied the database and has not written `state/version` yet (STO-157, STO-158). */
 export const migrating = (data: string): string => join(data, "state/migrating")
 

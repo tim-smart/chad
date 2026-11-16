@@ -6,6 +6,7 @@ import * as Errno from "../../Errno.ts"
 import * as Messages from "../../Messages.ts"
 import { Environment } from "../Environment.ts"
 import { ExitCode, Failure } from "../Failure.ts"
+import * as Files from "../Files.ts"
 import * as Flags from "../Flags.ts"
 import * as Repository from "../Repository.ts"
 import * as Starter from "../Starter.ts"
@@ -59,15 +60,18 @@ const create = Command.make(
     const path = dir
       ? join(plugins, name, "index.ts")
       : join(plugins, `${name}.ts`)
-    yield* Effect.gen(function* () {
-      yield* fs.makeDirectory(dir ? join(plugins, name) : plugins, {
-        recursive: true,
-      })
-      // "wx" refuses a file another writer made since the test above.
-      yield* fs.writeFileString(path, Starter.file({ name, repo, dir }), {
-        flag: "wx",
-      })
-    }).pipe(
+    yield* Files.scaffold(
+      "plugin new",
+      Effect.gen(function* () {
+        yield* fs.makeDirectory(dir ? join(plugins, name) : plugins, {
+          recursive: true,
+        })
+        // "wx" refuses a file another writer made since the test above.
+        yield* fs.writeFileString(path, Starter.file({ name, repo, dir }), {
+          flag: "wx",
+        })
+      }),
+    ).pipe(
       Effect.catchTag("PlatformError", (error) =>
         Effect.fail(
           Errno.code(error) === "EEXIST"

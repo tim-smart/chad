@@ -12,6 +12,7 @@ import { Argument, Command, Flag } from "effect/cli"
 import * as Lock from "../../Lock.ts"
 import * as Messages from "../../Messages.ts"
 import * as Paths from "../../Paths.ts"
+import { Timings } from "../../Timings.ts"
 import * as Archive from "../Archive.ts"
 import * as Daemon from "../Daemon.ts"
 import * as Database from "../Database.ts"
@@ -299,6 +300,19 @@ export const restore = Command.make(
               failed(Messages.restoreNewer(error.made, Archive.ownVersion)),
             ),
           ),
+        )
+        // From its first write on, the restore holds the restore lock too. A command that writes repo/work, with a daemon
+        // running or not, takes it around its check of restore.installing and its write (STO-219). The volume check above
+        // needs no lock: it reads no file a scaffold writes, and a resumed restore's marker is there before either starts.
+        const timings = yield* Timings
+        yield* Effect.acquireRelease(
+          Effect.suspend(() => {
+            const release = Lock.take(Paths.restoreLock(data), timings.lockBusy)
+            return release === undefined
+              ? Effect.fail(failed(Messages.restoreBusy(command, data)))
+              : Effect.succeed(release)
+          }),
+          (release) => Effect.sync(release),
         )
         yield* fs.remove(staging, { recursive: true, force: true })
         yield* fs.makeDirectory(staging, { recursive: true })

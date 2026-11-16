@@ -4,6 +4,7 @@ import * as Errno from "../Errno.ts"
 import * as Lock from "../Lock.ts"
 import * as Messages from "../Messages.ts"
 import * as Paths from "../Paths.ts"
+import { Timings } from "../Timings.ts"
 import { version } from "../Version.ts"
 import { Environment } from "./Environment.ts"
 import { ExitCode, Failure } from "./Failure.ts"
@@ -107,3 +108,39 @@ export const locked = <A, E, R>(
       return yield* Effect.ensuring(write, Effect.sync(release))
     }).pipe(Effect.uninterruptible)
   })
+
+/**
+ * Runs a write to `repo/work` that a command makes whether or not a daemon runs, such as a starter file. It holds the
+ * restore lock, so no `chad restore` begins to replace the volume between its check of `restore.installing` and its
+ * write, and a daemon that stops meanwhile changes nothing. A volume a cut restore left is refused (STO-217, STO-219).
+ */
+export const scaffold = <A, E, R>(
+  command: string,
+  write: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E | Failure, R | Environment | FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const environment = yield* Environment
+    const fs = yield* FileSystem.FileSystem
+    const timings = yield* Timings
+    const release = Lock.take(
+      Paths.restoreLock(environment.data),
+      timings.lockBusy,
+    )
+    if (release === undefined) {
+      return yield* new Failure({
+        code: ExitCode.failed,
+        message: Messages.restoreBusy(command, environment.data),
+      })
+    }
+    return yield* Effect.gen(function* () {
+      if (
+        yield* fs.exists(Paths.restoreCut(environment.data)).pipe(Effect.orDie)
+      ) {
+        return yield* new Failure({
+          code: ExitCode.failed,
+          message: Messages.restoreUnfinished(command, environment.data),
+        })
+      }
+      return yield* write
+    }).pipe(Effect.ensuring(Effect.sync(release)))
+  }).pipe(Effect.uninterruptible)
