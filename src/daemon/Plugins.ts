@@ -23,6 +23,7 @@ import { KeyValueStore } from "effect/persistence"
 import { SqlClient } from "effect/sql"
 import * as Messages from "../Messages.ts"
 import * as Plugin from "../Plugin.ts"
+import * as Settings from "../Settings.ts"
 import {
   CurrentSession,
   type Session,
@@ -47,7 +48,10 @@ import type * as Notices from "./Notices.ts"
 export interface Entry {
   readonly name: string
   readonly plugin: Plugin.Plugin
-  /** The plugin's `settings` object, which its `Config` reads (API-25). */
+  /**
+   * The plugin's `settings` object from `chad.json` as the file holds it, before `${NAME}` is expanded. Its `Config`
+   * reads it once expanded (API-25, SET-19), and an apply compares it with the running version's (SET-62).
+   */
   readonly settings?: unknown
   /** The bundle of a plugin from the repo, whose source map is kept while the plugin runs (LOAD-85). */
   readonly bundle?: Loader.Bundle
@@ -79,7 +83,8 @@ interface Loaded {
   readonly name: string
   readonly scope: Scope.Closeable
   readonly contributions: Contributions.Contributions
-  readonly provider: ConfigProvider.ConfigProvider
+  /** The version's provider, which records what the plugin asks for (SET-65). */
+  readonly recorder: Settings.Recorder
   readonly counts: Counts
   /** The hooks that failed in a row, by hook name. */
   readonly failures: Map<HookName, number>
@@ -151,6 +156,13 @@ export interface Swapped {
   }>
 }
 
+/** The settings a new version read while loading and the keys it did not read, for the listing (SET-66, SET-68). */
+export interface Listing {
+  readonly name: string
+  readonly items: ReadonlyArray<Settings.Item>
+  readonly unread: ReadonlyArray<string>
+}
+
 /** A plan whose builds have run. Exactly one of `swap` and `discard` runs next. */
 export interface Prepared {
   /** The plugins whose build failed, with the error. */
@@ -160,6 +172,8 @@ export interface Prepared {
   }>
   /** The builds that succeeded. */
   readonly built: ReadonlyArray<string>
+  /** The settings listing of each build that succeeded, in name order. */
+  readonly settings: ReadonlyArray<Listing>
   /** The tools of the new versions whose description starts with "Replace me", which an apply refuses (SELF-54). */
   readonly replaceMe: ReadonlyArray<string>
   readonly swap: Effect.Effect<Swapped>
@@ -231,6 +245,8 @@ export class Plugins extends Context.Service<
       readonly counts: Counts
       /** The mark of a plugin that kept its running version when a reload failed to build it (SWAP-141, SWAP-142). */
       readonly previous?: string
+      /** The keys it read at load and since, with no value (SET-70, SET-94). */
+      readonly settings: ReadonlyArray<Settings.Item>
     }>
     /** The plugins skipped at boot and why, in name order (CLI-125). */
     readonly skipped: () => ReadonlyArray<Skipped>
@@ -261,6 +277,7 @@ export const empty: Plugins["Service"] = {
     Effect.succeed({
       failed: [],
       built: [],
+      settings: [],
       replaceMe: [],
       swap: Effect.succeed({
         swapped: [],
@@ -308,6 +325,11 @@ export const make = Effect.fnUntraced(function* (options: {
   readonly notices: Notices.Notices["Service"]
   /** The `Turns` of one plugin. Each call waits for the plugin's activation before it reaches here. */
   readonly turns: (plugin: string) => Turns["Service"]
+  /**
+   * Where a `${NAME}` in a plugin's settings finds its value: the secret store, then process env (SET-20). With none,
+   * a name resolves nowhere.
+   */
+  readonly lookup?: Settings.Lookup<{ readonly message: string }, never>
   /** The trial `Agent.makeWith` with a set of plugin tools, which fails with clanka's error (SWAP-3). */
   readonly trial?: (
     tools: NonNullable<ReturnType<Plugins["Service"]["tools"]>>,
@@ -397,7 +419,10 @@ export const make = Effect.fnUntraced(function* (options: {
           (context: Context.Context<R>) =>
             Context.omit(SqlClient.SqlClient)(context) as Context.Context<R>,
         ),
-        Effect.provideService(ConfigProvider.ConfigProvider, plugin.provider),
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          plugin.recorder.provider,
+        ),
         Effect.provideService(Logger.PluginName, plugin.name),
         Effect.provideService(Logger.PluginCounts, plugin.counts),
       )
@@ -581,8 +606,20 @@ export const make = Effect.fnUntraced(function* (options: {
    * Builds one version of a plugin, which is not active until `activate` runs. A tool name that clanka or one of
    * `others` holds fails the build (API-33). A failure closes its scope and gives the error.
    */
+  const lookup: Settings.Lookup<{ readonly message: string }, never> =
+    options.lookup ?? (() => Effect.succeed(Option.none()))
+
   const build = (entry: Entry, others: () => Iterable<Loaded>) =>
     Effect.gen(function* () {
+      // `${NAME}` is expanded before the provider is built, and a name that resolves nowhere fails the load (SET-19,
+      // SET-22).
+      const expanded = yield* Effect.result(
+        Settings.expand(entry.settings, lookup),
+      )
+      if (expanded._tag === "Failure") {
+        const error = expanded.failure.message
+        return { _tag: "Failed", error, cause: Cause.fail(error) } as const
+      }
       const own = yield* Scope.fork(scope)
       // The build's fiber and the closing of its scope belong to the plugins' scope, so a stop waits for both, up to
       // the stop's deadline (IMG-82). The scope closes only once the build has ended, so nothing it acquired is
@@ -601,7 +638,7 @@ export const make = Effect.fnUntraced(function* (options: {
         name: entry.name,
         scope: own,
         contributions: Contributions.empty(),
-        provider: ConfigProvider.fromUnknown(entry.settings ?? {}),
+        recorder: Settings.recorder(expanded.success),
         counts: { warnings: 0, errors: 0, latest: undefined },
         failures: new Map(),
         active: Deferred.makeUnsafe(),
@@ -705,6 +742,8 @@ export const make = Effect.fnUntraced(function* (options: {
           cause: built.cause,
         } as const
       }
+      // A read from here on is a read at call time (SET-70).
+      plugin.recorder.loaded()
       return { _tag: "Built", plugin, dispose } as const
     })
 
@@ -920,6 +959,7 @@ export const make = Effect.fnUntraced(function* (options: {
         return {
           failed,
           built: [],
+          settings: [],
           replaceMe: [],
           swap: Effect.succeed(nothing),
           discard,
@@ -940,6 +980,9 @@ export const make = Effect.fnUntraced(function* (options: {
           ...plan.remove,
         ])
         skipped = skipped.filter(({ name }) => !forgotten.has(name))
+        // A plugin no longer in the applied repo, or turned off, is no longer skipped (FAIL-315).
+        for (const name of plan.remove)
+          yield* options.notices.clear(skippedKey(name))
         // A stop that came before the swap began abandons it too, and the new versions are closed unused (SWAP-101).
         if (abandoned) {
           yield* discard
@@ -1048,6 +1091,13 @@ export const make = Effect.fnUntraced(function* (options: {
       return {
         failed,
         built: built.map(({ plugin }) => plugin.name),
+        settings: [...built]
+          .sort((a, b) => byName(a.plugin, b.plugin))
+          .map(({ plugin }) => ({
+            name: plugin.name,
+            items: plugin.recorder.items(),
+            unread: plugin.recorder.unread(),
+          })),
         replaceMe: built.flatMap(({ plugin }) =>
           plugin.contributions.toolkits.flatMap(({ toolkit }) =>
             Object.values(toolkit.tools)
@@ -1281,6 +1331,7 @@ export const make = Effect.fnUntraced(function* (options: {
           name: plugin.name,
           counts: plugin.counts,
           ...(mark === undefined ? {} : { previous: mark }),
+          settings: plugin.recorder.items(),
         }
       }),
     skipped: () => skipped,

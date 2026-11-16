@@ -64,6 +64,25 @@ export const ModelState = Schema.Struct({
 })
 export type ModelState = typeof ModelState.Type
 
+/**
+ * One key of a plugin's settings listing: its path, where its value came from, and whether it was read at load or at
+ * call time. It never holds a value (SET-71, SET-72, SET-94).
+ */
+export const SettingItem = Schema.Struct({
+  key: Schema.String,
+  sources: Schema.Array(
+    Schema.Union([
+      Schema.Struct({ from: Schema.Literals(["file", "default"]) }),
+      Schema.Struct({
+        from: Schema.Literals(["store", "env", "inline"]),
+        name: Schema.String,
+      }),
+    ]),
+  ),
+  at: Schema.Literals(["load", "call"]),
+})
+export type SettingItem = typeof SettingItem.Type
+
 /** What the daemon knows about itself, which is what `chad status` prints when the daemon answers. */
 export const Report = Schema.Struct({
   /** The daemon's chad version. */
@@ -94,9 +113,13 @@ export const Report = Schema.Struct({
         latest: Schema.optionalKey(Schema.String),
         /** The mark of a plugin that kept its running version (SWAP-141, SWAP-142). */
         previous: Schema.optionalKey(Schema.String),
+        /** The keys it read at load and since, with no value (SET-70, SET-94). */
+        settings: Schema.optionalKey(Schema.Array(SettingItem)),
       }),
     ),
   ),
+  /** The plugins the applied `chad.json` turns off (SET-34). */
+  off: Schema.optionalKey(Schema.Array(Schema.String)),
   /** Safe mode and what turned it on, the applied commit and whether `work/` holds a draft (CLI-125b to CLI-125d). */
   repository: Schema.optionalKey(
     Schema.Struct({

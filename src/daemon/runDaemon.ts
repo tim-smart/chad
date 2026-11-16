@@ -37,6 +37,7 @@ import * as ModelSpec from "../ModelSpec.ts"
 import * as Paths from "../Paths.ts"
 import * as Repo from "../Repo.ts"
 import * as SafeMode from "../SafeMode.ts"
+import * as Settings from "../Settings.ts"
 import * as TokenStore from "../TokenStore.ts"
 import { Timings } from "../Timings.ts"
 import { version } from "../Version.ts"
@@ -54,6 +55,7 @@ import * as Model from "./Model.ts"
 import * as Notices from "./Notices.ts"
 import * as PluginTurns from "./PluginTurns.ts"
 import * as Plugins from "./Plugins.ts"
+import * as PluginSettings from "./PluginSettings.ts"
 import * as Disk from "./Disk.ts"
 import * as Unusable from "./Unusable.ts"
 import * as Queue from "./Queue.ts"
@@ -352,6 +354,20 @@ const boot = Effect.fnUntraced(function* (
     direct: Notices.directMessage(running.chats, running.list),
   }).pipe(Effect.provideContext(base))
   state.problems.push(notices.problems)
+  // The applied `chad.json`, which no file can make stop the boot. A plugin it turns off is not loaded and is not
+  // skipped (SET-34, SET-57, SET-58, LOAD-63, FAIL-315).
+  const appliedSettings = yield* PluginSettings.atBoot({
+    tree: Option.isSome(applied) ? applied.value.directory : undefined,
+    known: new Set([
+      ...bundledNames,
+      ...fromRepo.loaded.map(({ name }) => name),
+      ...fromRepo.skipped.map(({ name }) => name),
+    ]),
+    safe: safe !== "off",
+    notices,
+  })
+  const off = Settings.off(appliedSettings)
+  for (const name of off) yield* notices.clear(Plugins.skippedKey(name))
   // The one Codex login of the process. Its code goes to the thread of the turn that asked, or by the notice route,
   // and its wait is the daemon's, so a turn or a CLI that goes does not end it (MOD-36, MOD-41, MOD-101).
   const login = yield* Login.make({
@@ -512,8 +528,14 @@ const boot = Effect.fnUntraced(function* (
   yield* Connections.forget(stored.value).pipe(Effect.provide(sessions))
   yield* running.set(stored.value).pipe(Effect.provide(sessions))
   host = yield* Plugins.make({
-    entries: [...(inputs.plugins ?? []), ...fromRepo.loaded],
-    unloadable: fromRepo.skipped,
+    entries: PluginSettings.entries({
+      file: appliedSettings,
+      bundled: inputs.plugins ?? [],
+      repo: fromRepo.loaded,
+      safe: safe !== "off",
+    }),
+    unloadable: fromRepo.skipped.filter(({ name }) => !off.has(name)),
+    lookup: PluginSettings.lookup(volume.data, environment.variables, fs),
     owners: () =>
       running
         .list()
@@ -571,6 +593,8 @@ const boot = Effect.fnUntraced(function* (
     initial: safe,
     plugins,
     bundled: inputs.plugins ?? [],
+    settings: appliedSettings,
+    notices,
     queue,
     scope,
     // A command's line goes to the thread of the session that ran it, as subtext (REC-108, FAIL-177).
@@ -592,6 +616,7 @@ const boot = Effect.fnUntraced(function* (
     Effect.provideContext(world),
   )
   state.plugins = host.status
+  state.off = () => [...commands.off()].sort()
   state.skipped = host.skipped
   yield* Deferred.succeed(
     state.commands,

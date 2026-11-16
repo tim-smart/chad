@@ -139,6 +139,7 @@ describe("the durations", () => {
       "safeMode",
       "socket",
       "unknownLogLevel",
+      "variables",
     ])
     // Each side reads the environment in one place, and one module each holds the durations and the messages.
     const readers = sources("src").filter((file) =>

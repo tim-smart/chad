@@ -32,6 +32,7 @@ import {
   type Recent,
   type Report,
   Rpcs,
+  type SettingItem,
   layerVersionCheck,
   sessionHeader,
 } from "../Rpcs.ts"
@@ -79,7 +80,10 @@ export interface State {
       readonly latest: string | undefined
     }
     readonly previous?: string
+    readonly settings: ReadonlyArray<SettingItem>
   }>
+  /** The plugins the applied `chad.json` turns off, once the plugins load (SET-34). */
+  off: () => ReadonlyArray<string>
   /** Safe mode, the applied commit and the draft as `chad status` shows them, once the repo is set up (CLI-125). */
   repositoryState: Effect.Effect<Status.Repository | undefined>
   /** The commands that change what is loaded from the repo, which the boot hands over once the plugins load. */
@@ -174,6 +178,7 @@ export const makeState = (): State => ({
   held: undefined,
   recent: undefined,
   plugins: () => [],
+  off: () => [],
   skipped: () => [],
   repositoryState: Effect.succeed(undefined),
 })
@@ -230,13 +235,15 @@ const report = (state: State): Effect.Effect<Report> =>
       problems: [...state.problems.flatMap((check) => check()), ...held],
       recent,
       ...(model === undefined ? {} : { model }),
-      plugins: state.plugins().map(({ name, counts, previous }) => ({
+      plugins: state.plugins().map(({ name, counts, previous, settings }) => ({
         name,
         warnings: counts.warnings,
         errors: counts.errors,
         ...(counts.latest === undefined ? {} : { latest: counts.latest }),
         ...(previous === undefined ? {} : { previous }),
+        settings,
       })),
+      off: state.off(),
       skipped: state.skipped(),
       ...(repository === undefined ? {} : { repository }),
     }),

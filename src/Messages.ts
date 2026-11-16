@@ -989,6 +989,19 @@ export const appliedOutput = (options: {
         }>
       }
     | undefined
+  /** In safe mode, the bundled plugins whose `enabled` flip took effect at once (SET-47, CLI-72). */
+  readonly flipped?:
+    | {
+        readonly on: ReadonlyArray<string>
+        readonly off: ReadonlyArray<string>
+        readonly failed: ReadonlyArray<{
+          readonly name: string
+          readonly error: string
+        }>
+      }
+    | undefined
+  /** The settings listing of the plugins the apply built (SET-66 to SET-69). */
+  readonly settings?: ReadonlyArray<string>
 }) => [
   `${options.kind === "revert" ? "Reverted" : "Applied"} ${options.commit}.`,
   ...(options.saved === undefined
@@ -1002,9 +1015,27 @@ export const appliedOutput = (options: {
     : [revertKept(options.restored.kept)]),
   "Changed files:",
   ...options.files.map((file) => `  ${file}`),
+  ...(options.settings ?? []),
   ...(options.safe
     ? [
         "Safe mode is on, so nothing was loaded. The change loads when safe mode goes off.",
+        ...(options.flipped === undefined
+          ? []
+          : [
+              ...(options.flipped.on.length === 0
+                ? []
+                : [
+                    `Turned on now, on its defaults: ${options.flipped.on.join(", ")}.`,
+                  ]),
+              ...(options.flipped.off.length === 0
+                ? []
+                : [
+                    `Turned off now: ${options.flipped.off.join(", ")}. Their data and timers are kept.`,
+                  ]),
+              ...options.flipped.failed.map(({ name, error }) =>
+                couldNotLoad(name, firstLine(error)),
+              ),
+            ]),
       ]
     : options.swapped === undefined
       ? []
@@ -1030,6 +1061,133 @@ export const appliedOutput = (options: {
           "Sessions pick the change up on their next message. This turn keeps the tools it has.",
         ]),
 ]
+
+// chad.json (docs/spec/11-settings.md). The apply's errors name the file as `work/chad.json`, the file the agent
+// edits (SET-G4).
+
+/** `chad.json` that is not JSON (SET-49). */
+export const settingsNotJson = (error: string) =>
+  `work/chad.json is not JSON: ${error}`
+
+/** `chad.json` whose top level is not an object. */
+export const settingsNotObject = "work/chad.json is not a JSON object."
+
+/** A top-level key other than `plugins` (SET-50). */
+export const settingsTopKey = (key: string) =>
+  `work/chad.json has the key "${key}". "plugins" is the only top-level key.`
+
+/** A `plugins` that is not an object (SET-87). */
+export const settingsPluginsNotObject =
+  'work/chad.json: "plugins" is not a JSON object.'
+
+/** An entry that names no plugin (SET-53). */
+export const settingsUnknownPlugin = (name: string) =>
+  `work/chad.json: plugins.${name} names no plugin, bundled or in the repo.`
+
+/** An entry that is not an object (SET-88). */
+export const settingsEntryNotObject = (name: string) =>
+  `work/chad.json: plugins.${name} is not a JSON object.`
+
+/** A key in an entry other than `enabled` and `settings` (SET-51). */
+export const settingsEntryKey = (name: string, key: string) =>
+  `work/chad.json: plugins.${name} has the key "${key}". An entry has only "enabled" and "settings".`
+
+/** An `enabled` that is not a boolean (SET-52). */
+export const settingsEnabled = (name: string) =>
+  `work/chad.json: plugins.${name}.enabled is not true or false.`
+
+/** A `settings` that is not an object (SET-89). */
+export const settingsSettings = (name: string) =>
+  `work/chad.json: plugins.${name}.settings is not a JSON object.`
+
+/** A `${NAME}` with no default that resolves nowhere, which fails the plugin's load (SET-22, CLI-67). */
+export const settingUnresolved = (name: string) =>
+  `The settings name \${${name}}, which is in neither the secret store nor the daemon's environment. Save it with chad secret set ${name}.`
+
+/** The notice of a `chad.json` that cannot be parsed at a boot (SET-57, FAIL-164). */
+export const settingsUnparsable = (error: string) =>
+  `\`chad.json\` can't be parsed (${error}), so every plugin is on its defaults.`
+
+/** The notice of what a boot ignored in `chad.json` (SET-58, FAIL-164). */
+export const settingsIgnored = (paths: ReadonlyArray<string>) =>
+  `Ignored in \`chad.json\`: ${paths.join(", ")}.`
+
+/** `chad plugin reload` of a plugin that is off (SET-83, CLI-172). */
+export const reloadOff = (name: string) =>
+  `${name} is off in chad.json ("enabled": false), so it is not loaded. Turn it on in work/chad.json and run chad apply.`
+
+/** Where one setting's value came from, never the value (SET-71, SET-72, SET-93, SET-G1). */
+export const settingSource = (
+  sources: ReadonlyArray<
+    | { readonly from: "file" | "default" }
+    | { readonly from: "store" | "env" | "inline"; readonly name: string }
+  >,
+) =>
+  sources
+    .map((source) => {
+      switch (source.from) {
+        case "file":
+          return "chad.json"
+        case "default":
+          return "default"
+        case "store":
+          return `\${${source.name}} from the secret store`
+        case "env":
+          return `\${${source.name}} from process env`
+        case "inline":
+          return `the inline default of \${${source.name}}`
+      }
+    })
+    .join(", ")
+
+/**
+ * A plugin's settings in the output of `chad check` and `chad apply`: the keys it read while loading and where each
+ * value came from, a key on its default marked "(default)", and a warning for each key it did not read (SET-66 to
+ * SET-69, CLI-71, SET-G1).
+ */
+export const settingsListing = (
+  name: string,
+  items: ReadonlyArray<{
+    readonly key: string
+    readonly sources: Parameters<typeof settingSource>[0]
+  }>,
+  unread: ReadonlyArray<string>,
+) => [
+  ...(items.length === 0
+    ? []
+    : [
+        `Settings ${name} read while loading: ${settingsStatus(items.map((item) => ({ ...item, at: "load" })))}.`,
+      ]),
+  ...unread.map(
+    (key) =>
+      `Warning: plugins.${name}.settings.${key} was not read while loading. A key that only a handler reads is not known at load, so check the spelling.`,
+  ),
+]
+
+/** A loaded plugin's settings in `chad status`: the keys read at load, then those read at call time since (SET-70, SET-G1). */
+export const settingsStatus = (
+  items: ReadonlyArray<{
+    readonly key: string
+    readonly sources: Parameters<typeof settingSource>[0]
+    readonly at: "load" | "call"
+  }>,
+) => {
+  const list = (at: "load" | "call") =>
+    items
+      .filter((item) => item.at === at)
+      .map(({ key, sources }) =>
+        sources.length === 1 && sources[0]!.from === "default"
+          ? `${key} (default)`
+          : `${key} (${settingSource(sources)})`,
+      )
+      .join(", ")
+  const load = list("load")
+  const call = list("call")
+  return [
+    ...(load === "" ? [] : [load]),
+    ...(call === "" ? [] : [`read at call time: ${call}`]),
+  ].join("; ")
+}
 
 /** `chad log` when the repo has no applied commit to read. */
 export const logMissing =

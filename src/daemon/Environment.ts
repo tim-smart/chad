@@ -23,6 +23,8 @@ export interface Environment {
   readonly unknownLogLevel: string | undefined
   /** Whether `CHAD_SAFE_MODE=1` holds safe mode on (REC-129). */
   readonly safeMode: boolean
+  /** The whole environment as the daemon started, where a `${NAME}` in a plugin's settings is looked up after the secret store (SET-20). */
+  readonly variables: Readonly<Record<string, string | undefined>>
 }
 
 export const read = (env: NodeJS.ProcessEnv): Environment => {
@@ -42,5 +44,6 @@ export const read = (env: NodeJS.ProcessEnv): Environment => {
     logLevel: level ?? "Info",
     unknownLogLevel: level === undefined ? named : undefined,
     safeMode: SafeMode.forced(env),
+    variables: { ...env },
   }
 }

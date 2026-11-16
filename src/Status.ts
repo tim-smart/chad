@@ -1,3 +1,4 @@
+import * as Messages from "./Messages.ts"
 import type { ModelState, Report } from "./Rpcs.ts"
 
 /**
@@ -126,6 +127,7 @@ export const render = (view: View): string => {
     ...model(report.model),
     ...connections(report.connections),
     ...plugins(report.plugins),
+    ...(report.off ?? []).map((name) => `plugin: ${name}, off`),
     ...(report.skipped ?? []).map(
       ({ name, reason }) => `plugin: ${name}, skipped (${reason})`,
     ),
@@ -135,10 +137,17 @@ export const render = (view: View): string => {
 
 /** One line per loaded plugin, with its warnings and errors since it loaded and the latest of them (FAIL-117). */
 const plugins = (list: Report["plugins"]): ReadonlyArray<string> =>
-  (list ?? []).map(
-    ({ name, warnings, errors, latest, previous }) =>
-      `plugin: ${name}, ${previous === undefined ? "" : `${previous}, `}${warnings} warnings, ${errors} errors${latest === undefined ? "" : ` (latest: ${latest})`}`,
-  )
+  (list ?? [])
+    .map(
+      ({ name, warnings, errors, latest, previous }) =>
+        `plugin: ${name}, ${previous === undefined ? "" : `${previous}, `}${warnings} warnings, ${errors} errors${latest === undefined ? "" : ` (latest: ${latest})`}`,
+    )
+    .flatMap((line, index) => {
+      const settings = (list ?? [])[index]?.settings ?? []
+      return settings.length === 0
+        ? [line]
+        : [line, `  settings: ${Messages.settingsStatus(settings)}`]
+    })
 
 /** A time as the blocks print it: UTC, to the second. */
 const time = (at: number) => `${new Date(at).toISOString().slice(0, 19)}Z`

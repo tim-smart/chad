@@ -11,8 +11,11 @@ import type { ChildProcessSpawner } from "effect/process"
 import * as Messages from "../Messages.ts"
 import * as Repo from "../Repo.ts"
 import * as SafeMode from "../SafeMode.ts"
+import * as Settings from "../Settings.ts"
 import * as Loader from "./Loader.ts"
 import * as Logger from "./Logger.ts"
+import type * as Notices from "./Notices.ts"
+import * as PluginSettings from "./PluginSettings.ts"
 import type * as Plugins from "./Plugins.ts"
 import * as Queue from "./Queue.ts"
 
@@ -66,6 +69,25 @@ export interface Commands {
    * them. It runs inside the queue the owner change holds. With an owner removed, one that fails is unloaded (CLI-120b).
    */
   readonly owners: (removed: boolean) => Effect.Effect<void>
+  /** The plugins the applied `chad.json` turns off, which `chad status` and `chad plugin purge` read (SET-34). */
+  readonly off: () => ReadonlySet<string>
+  /** The plugins whose settings in the applied `chad.json` name a secret, less those that are off (SET-26, SET-79). */
+  readonly users: (secret: string) => ReadonlyArray<string>
+  /**
+   * Builds the named plugins again through the swap path and swaps those that built, a plugin a boot skipped included.
+   * One that fails keeps its running version, marked with `kept`. A name that is off or unknown is left out. It runs
+   * inside the queue the caller holds (SWAP-96, SET-79, SET-80).
+   */
+  readonly rebuild: (
+    names: ReadonlyArray<string>,
+    kept: NonNullable<Plugins.Plan["kept"]>,
+  ) => Effect.Effect<{
+    readonly swapped: ReadonlyArray<string>
+    readonly failed: ReadonlyArray<{
+      readonly name: string
+      readonly error: string
+    }>
+  }>
 }
 
 type Services =
@@ -81,6 +103,10 @@ export const make = Effect.fnUntraced(function* (options: {
   readonly plugins: Plugins.Plugins["Service"]
   /** The bundled plugins, by name, which a repo plugin may not share and which `chad plugin reload` builds again. */
   readonly bundled: ReadonlyArray<Plugins.Entry>
+  /** The applied `chad.json` as the boot read it. */
+  readonly settings: Settings.File
+  /** The notices, of which an apply clears the two about `chad.json` once the file it applied passed its checks. */
+  readonly notices: Notices.Notices["Service"]
   readonly queue: Queue.Queue
   /** The daemon's scope, which an apply's steps from the commit on and a session's line run in. */
   readonly scope: Scope.Scope
@@ -98,6 +124,8 @@ export const make = Effect.fnUntraced(function* (options: {
     options.bundled.map(({ name }) => name),
   )
   let safe = options.initial
+  /** The applied `chad.json`, which an apply or a revert replaces at its commit. */
+  let applied = options.settings
   const guide = Messages.effectGuide(
     join(repo, "node_modules/effect/AGENTS.md"),
   )
@@ -176,36 +204,86 @@ export const make = Effect.fnUntraced(function* (options: {
     })
 
   /**
-   * The plan of an apply: a repo plugin whose bundle hash differs from the running version's, or that has none
-   * running, is built, and a running repo plugin that the tree no longer has is removed. Every other plugin is left as
-   * it is and is not part of the swap (LOAD-50, LOAD-52, SWAP-41). In safe mode every repo plugin is built, as a
-   * check, and nothing swaps (SWAP-57).
+   * What to build and what to unload so that the running plugins are `desired`. A running plugin is built again when
+   * its bundle hash or its settings before expansion differ from the running version's, and `retry` says whether one
+   * that is not running is built. Every running or skipped plugin that is not desired is unloaded: a repo plugin that
+   * is gone and a plugin that is off (LOAD-50, LOAD-52, LOAD-88, SET-35, SET-62, SWAP-41).
    */
-  const planOf = (loaded: ReadonlyArray<Loader.Loaded>) => {
+  const planFor = (
+    desired: ReadonlyArray<Plugins.Entry>,
+    retry: (entry: Plugins.Entry) => boolean,
+  ) => {
     const running = new Map(
       plugins.versions().map((version) => [version.name, version]),
     )
-    const entries = loaded.map(({ name, plugin, bundle }): Plugins.Entry => ({
-      name,
-      plugin,
-      bundle,
-    }))
-    const build =
-      safe === "off"
-        ? entries.filter(
-            ({ name, bundle }) => running.get(name)?.hash !== bundle?.hash,
-          )
-        : entries
-    const names = new Set(entries.map(({ name }) => name))
+    const names = new Set(desired.map(({ name }) => name))
+    const build = desired.filter((entry) => {
+      const version = running.get(entry.name)
+      return version === undefined
+        ? retry(entry)
+        : version.hash !== entry.bundle?.hash ||
+            !Settings.same(version.entry.settings, entry.settings)
+    })
     const remove = [
-      ...plugins
-        .versions()
-        .filter(({ name, hash }) => hash !== undefined && !names.has(name)),
-      ...plugins
-        .skipped()
-        .filter(({ name, repo }) => repo === true && !names.has(name)),
-    ].map(({ name }) => name)
+      ...new Set(
+        [...plugins.versions(), ...plugins.skipped()].map(({ name }) => name),
+      ),
+    ].filter((name) => !names.has(name))
     return { build, remove }
+  }
+
+  /**
+   * The plan of an apply. Outside safe mode a repo plugin that is not running is built, and a bundled one only when the
+   * apply turns it on or changes its entry, so a bundled plugin a boot skipped does not block every apply. In safe mode
+   * every repo plugin that is on is built, as a check, and nothing of it swaps (SWAP-57).
+   */
+  const planOf = (
+    loaded: ReadonlyArray<Loader.Loaded>,
+    file: Settings.File,
+  ) => {
+    const desired = PluginSettings.entries({
+      file,
+      bundled: options.bundled,
+      repo: loaded,
+      safe: false,
+    })
+    if (safe !== "off")
+      return {
+        build: desired.filter(({ bundle }) => bundle !== undefined),
+        remove: [],
+      }
+    const off = Settings.off(applied)
+    return planFor(
+      desired,
+      ({ name, bundle }) =>
+        bundle !== undefined ||
+        off.has(name) ||
+        !Settings.same(
+          Settings.settingsOf(applied, name),
+          Settings.settingsOf(file, name),
+        ),
+    )
+  }
+
+  /**
+   * In safe mode, what an apply or a revert does at once: a bundled plugin it turns off is unloaded and one it turns on
+   * is loaded on its defaults, skipped when that fails (SET-47, REC-63, SWAP-58).
+   */
+  const flips = (file: Settings.File) => {
+    const before = Settings.off(applied)
+    const plan = planFor(
+      PluginSettings.entries({
+        file,
+        bundled: options.bundled,
+        repo: [],
+        safe: true,
+      }),
+      ({ name }) => before.has(name),
+    )
+    return {
+      build: plan.build,
+      remove: plan.remove.filter((name) => bundledNames.has(name)),
+    }
   }
 
   /**
@@ -234,10 +312,31 @@ export const make = Effect.fnUntraced(function* (options: {
         yield* cleanup
         return yield* refused(checked.stage, checked.errors)
       }
-      const { build, remove } = planOf(checked.loaded)
+      // `chad.json` is checked against every plugin's name, bundled or in the tree (SET-49 to SET-53, SET-87 to
+      // SET-89).
+      const text = yield* Settings.read(exported.directory)
+      const validated =
+        text._tag === "Text"
+          ? Settings.validate(
+              text.text,
+              new Set([
+                ...bundledNames,
+                ...checked.loaded.map(({ name }) => name),
+              ]),
+            )
+          : {
+              file: Settings.empty,
+              errors: [Messages.settingsNotJson(text.error)],
+            }
+      if (validated.errors.length > 0) {
+        yield* cleanup
+        return yield* refused("settings", validated.errors)
+      }
+      const file = validated.file
+      const { build, remove } = planOf(checked.loaded, file)
       const prepared = yield* plugins.prepare({
         build,
-        remove: safe === "off" ? remove : [],
+        remove,
         reason: "removed",
         failures: "refuse",
         trial: true,
@@ -253,10 +352,16 @@ export const make = Effect.fnUntraced(function* (options: {
           ),
         )
       }
+      // The keys each plugin built read while loading, and those it did not read, which never fail it (SET-55, SET-66,
+      // SET-68).
+      const listing = prepared.settings.flatMap(({ name, items, unread }) =>
+        Messages.settingsListing(name, items, unread),
+      )
       if (kind === "check") {
         yield* abandon
         // "Replace me" is the one finding a check passes with (CLI-163, CLI-164).
         return done(
+          ...listing,
           ...replaceMe.map(Messages.replaceMeCheck),
           Messages.checkPassed,
         )
@@ -304,6 +409,32 @@ export const make = Effect.fnUntraced(function* (options: {
             safe === "off"
               ? yield* prepared.swap
               : yield* Effect.as(prepared.discard, undefined)
+          // In safe mode a bundled plugin's `enabled` flipped by the change takes effect now (SET-47).
+          const flipped =
+            safe === "off"
+              ? undefined
+              : yield* Effect.gen(function* () {
+                  const plan = flips(file)
+                  if (plan.build.length === 0 && plan.remove.length === 0)
+                    return undefined
+                  const prepared = yield* plugins.prepare({
+                    ...plan,
+                    reason: "removed",
+                    failures: "skip",
+                    trial: false,
+                  })
+                  const done = yield* prepared.swap
+                  return {
+                    on: done.swapped,
+                    off: done.removed,
+                    failed: prepared.failed,
+                  }
+                })
+          applied = file
+          yield* PluginSettings.announce(options.notices, {
+            unparsable: undefined,
+            ignored: [],
+          })
           yield* Repo.prune(repo, tree)
           yield* Logger.event("apply.done", "An apply finished", {
             kind,
@@ -337,6 +468,8 @@ export const make = Effect.fnUntraced(function* (options: {
               saved: saved?.ref,
               restored,
               swapped,
+              flipped,
+              settings: listing,
             }),
           )
         }).pipe(
@@ -450,13 +583,18 @@ export const make = Effect.fnUntraced(function* (options: {
     Effect.gen(function* () {
       yield* SafeMode.write(options.data, to === "on")
       if (to === "on") {
-        const remove = [
-          ...plugins.versions().filter(({ hash }) => hash !== undefined),
-          ...plugins.skipped().filter(({ repo }) => repo === true),
-        ].map(({ name }) => name)
+        // Everything from the repo goes, and a bundled plugin with settings is built again on its defaults (SET-46).
+        const plan = planFor(
+          PluginSettings.entries({
+            file: applied,
+            bundled: options.bundled,
+            repo: [],
+            safe: true,
+          }),
+          () => false,
+        )
         const prepared = yield* plugins.prepare({
-          build: [],
-          remove,
+          ...plan,
           reason: "safe",
           failures: "keep",
           trial: false,
@@ -464,20 +602,40 @@ export const make = Effect.fnUntraced(function* (options: {
         safe = "toggle"
         yield* prepared.swap
       } else {
-        const found = (yield* fs.exists(live))
-          ? yield* Loader.load(yield* fs.realPath(live), bundledNames)
-          : { loaded: [], skipped: [] }
+        // `live` loads as a boot loads it, `chad.json` included (REC-60).
+        const tree = (yield* fs.exists(live))
+          ? yield* fs.realPath(live)
+          : undefined
+        const found =
+          tree === undefined
+            ? { loaded: [], skipped: [] }
+            : yield* Loader.load(tree, bundledNames)
+        applied = yield* PluginSettings.atBoot({
+          tree,
+          known: new Set([
+            ...bundledNames,
+            ...found.loaded.map(({ name }) => name),
+            ...found.skipped.map(({ name }) => name),
+          ]),
+          safe: false,
+          notices: options.notices,
+        })
+        const off = Settings.off(applied)
+        const plan = planFor(
+          PluginSettings.entries({
+            file: applied,
+            bundled: options.bundled,
+            repo: found.loaded,
+            safe: false,
+          }),
+          () => true,
+        )
         const prepared = yield* plugins.prepare({
-          build: found.loaded.map(({ name, plugin, bundle }) => ({
-            name,
-            plugin,
-            bundle,
-          })),
-          remove: [],
+          ...plan,
           reason: "removed",
           failures: "skip",
           trial: false,
-          unloadable: found.skipped,
+          unloadable: found.skipped.filter(({ name }) => !off.has(name)),
         })
         safe = "off"
         yield* prepared.swap
@@ -488,34 +646,49 @@ export const make = Effect.fnUntraced(function* (options: {
     })
 
   /**
+   * The entry a reload builds for one plugin: the running version's, or for one that is not running, the bundled one or
+   * the one in `live`, with its settings from the applied `chad.json`. A text says why there is none.
+   */
+  const entryOf = (name: string) =>
+    Effect.gen(function* () {
+      // A plugin that is off is not loaded, since the applied file says it is off (SET-83, SWAP-144).
+      if (Settings.off(applied).has(name)) return Messages.reloadOff(name)
+      const running = plugins
+        .versions()
+        .find((version) => version.name === name)
+      if (running !== undefined) return running.entry
+      const withSettings = (repo: ReadonlyArray<Loader.Loaded>) =>
+        PluginSettings.entries({
+          file: applied,
+          bundled: options.bundled,
+          repo,
+          safe: safe !== "off",
+        }).find((entry) => entry.name === name)
+      const bundled = withSettings([])
+      if (bundled !== undefined) return bundled
+      if (safe !== "off") return Messages.reloadSafe(name)
+      if (
+        !plugins.skipped().some((skipped) => skipped.name === name) ||
+        !(yield* fs.exists(live))
+      ) {
+        return Messages.reloadUnknown(name)
+      }
+      const found = yield* Loader.load(yield* fs.realPath(live), bundledNames)
+      const loaded = withSettings(found.loaded)
+      if (loaded !== undefined) return loaded
+      const problem = found.skipped.find((plugin) => plugin.name === name)
+      return problem === undefined
+        ? Messages.reloadUnknown(name)
+        : Messages.couldNotLoad(name, problem.message)
+    })
+
+  /**
    * `chad plugin reload <name>` builds one plugin again, a skipped one included, and swaps it when the build succeeds.
    * A failed build keeps the running version and exits 1 with the error (CLI-88, CLI-171, SWAP-95, REC-123).
    */
   const reload = (name: string) =>
     Effect.gen(function* () {
-      const running = plugins
-        .versions()
-        .find((version) => version.name === name)
-      const entry: Plugins.Entry | string = yield* Effect.gen(function* () {
-        if (running !== undefined) return running.entry
-        const bundled = options.bundled.find((entry) => entry.name === name)
-        if (bundled !== undefined) return bundled
-        if (safe !== "off") return Messages.reloadSafe(name)
-        if (
-          !plugins.skipped().some((skipped) => skipped.name === name) ||
-          !(yield* fs.exists(live))
-        ) {
-          return Messages.reloadUnknown(name)
-        }
-        const found = yield* Loader.load(yield* fs.realPath(live), bundledNames)
-        const loaded = found.loaded.find((plugin) => plugin.name === name)
-        if (loaded !== undefined)
-          return { name, plugin: loaded.plugin, bundle: loaded.bundle }
-        const problem = found.skipped.find((plugin) => plugin.name === name)
-        return problem === undefined
-          ? Messages.reloadUnknown(name)
-          : Messages.couldNotLoad(name, problem.message)
-      })
+      const entry = yield* entryOf(name)
       if (typeof entry === "string") return failed(entry)
       const prepared = yield* plugins.prepare({
         build: [entry],
@@ -599,6 +772,32 @@ export const make = Effect.fnUntraced(function* (options: {
           })
           yield* prepared.swap
         }),
+      ),
+    off: () => Settings.off(applied),
+    users: (secret) => PluginSettings.users(applied, secret),
+    rebuild: (names, kept) =>
+      owned(
+        Effect.gen(function* () {
+          const build: Array<Plugins.Entry> = []
+          const unreadable: Array<{ name: string; error: string }> = []
+          for (const name of new Set(names)) {
+            const entry = yield* Effect.result(entryOf(name))
+            if (entry._tag === "Failure")
+              unreadable.push({ name, error: String(entry.failure) })
+            else if (typeof entry.success !== "string")
+              build.push(entry.success)
+          }
+          const prepared = yield* plugins.prepare({
+            build,
+            remove: [],
+            reason: "removed",
+            failures: "keep",
+            kept,
+            trial: false,
+          })
+          const { swapped } = yield* prepared.swap
+          return { swapped, failed: [...unreadable, ...prepared.failed] }
+        }).pipe(Effect.provideContext(context)),
       ),
   }
   return commands
