@@ -55,7 +55,10 @@ const store = (data: string) =>
     { readonly value: string; readonly note?: string; readonly date: string }
   >
 
-/** A volume with KEY saved by the CLI with no daemon, and an applied chad.json in which two plugins name it. */
+/**
+ * A volume with KEY saved by the CLI with no daemon, and an applied chad.json in which two plugins name it, and in which a
+ * repo plugin whose module throws as it loads names OTHER.
+ */
 const volume = async () => {
   const directory = fresh()
   const data = join(directory, "data")
@@ -75,8 +78,15 @@ const volume = async () => {
       keyed: { settings: { token: "${KEY}" } },
       plain: { settings: { token: "inline" } },
       quiet: { enabled: false, settings: { token: "${KEY}" } },
+      flaky: { settings: { token: "${OTHER}" } },
     }),
     "persona.md": "",
+    "plugins/flaky.ts": `import { Layer } from "effect"
+import { Plugin } from "chad"
+
+throw new Error("flaky cannot start")
+export default Plugin.make(Layer.empty)
+`,
   })
   return directory
 }
@@ -229,6 +239,20 @@ test("CRED-16 CRED-17 CRED-23 CRED-24 CRED-25 CRED-26 CRED-81 CRED-106 CRED-111 
   })
   expect(again.keyed.state.token).toBe("third-9b4f")
   expect(again.quiet.state.builds).toBe(0)
+
+  // A repo plugin whose module cannot be loaded fails the save that retries it: the value is stored, it stays skipped, and
+  // the command exits 1 with the load error.
+  const other = await set(again.running, "OTHER", "fourth-2a7c")
+  expect(other).toMatchObject({
+    code: 1,
+    stdout: Messages.secretSaved("OTHER", false, []) + "\n",
+  })
+  expect(other.stderr).toContain("flaky: ")
+  expect(other.stderr).toContain("flaky cannot start")
+  expect(store(again.running.data)["OTHER"]?.value).toBe("fourth-2a7c")
+  expect((await again.running.chad(["status"])).stdout).toContain(
+    "plugin: flaky, skipped",
+  )
 }, 60_000)
 
 test("CRED-18 CRED-19 CRED-22 CRED-24 CRED-28 CRED-29 CRED-30 CRED-31 CRED-32 CRED-113 CRED-114 CRED-115 CRED-137 CLI-31b CLI-49b CLI-51b CLI-95 CLI-98 CLI-99 CLI-103 SET-33 with no daemon the CLI keeps the store itself in a 0600 file, refuses a name it cannot hold, and secret run hands a value to its child by environment or stdin with the exit codes of a shell", async () => {

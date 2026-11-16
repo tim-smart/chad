@@ -76,8 +76,18 @@ export const setup = Command.make(
       Flag.withDescription("Skip the model login"),
     ),
   },
-  Effect.fn("setup")(function* ({ tokenFile, owner, timezone, skipLogin }) {
+  Effect.fn("setup")(function* ({
+    tokenFile,
+    owner: flag,
+    timezone,
+    skipLogin,
+  }) {
     yield* Owner.only(command)
+    // A blank `--owner` is no answer, so it is missing like one not given (CLI-242).
+    const owner = flag.pipe(
+      Option.map((id) => id.trim()),
+      Option.filter((id) => id !== ""),
+    )
     const environment = yield* Environment
     const terminal = yield* (yield* Stdio.Stdio).stdinIsTerminal
     // A zone that is no zone stops setup before it changes anything (CLI-182).
@@ -163,7 +173,7 @@ export const setup = Command.make(
     // The owner: `--owner` is given once, and a stored owner stays (CLI-191, CLI-193, CLI-194).
     const owners = current?.owners ?? []
     const id = Option.isSome(owner)
-      ? owner.value.trim()
+      ? owner.value
       : !terminal
         ? ""
         : yield* ask(

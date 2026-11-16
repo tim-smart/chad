@@ -1,6 +1,12 @@
 // `chad setup` as the owner runs it with no terminal: every answer as a flag on an empty volume, a run after the first
 // that keeps what is stored, a new token that Discord refuses, and the same wizard with the daemon running.
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
 import { join } from "node:path"
 import { expect, onTestFinished, test } from "vitest"
 import * as Discord from "../../dist/Discord.js"
@@ -20,7 +26,7 @@ const tokenFile = (directory: string, token: string) => {
 const lines = (...printed: ReadonlyArray<string>) =>
   printed.map((line) => line + "\n").join("")
 
-test("CLI-121 CLI-122 CLI-123 CLI-124 CLI-191 CLI-192 CLI-193 CLI-194 CLI-195 CLI-210 CLI-118 MOD-65 IMG-94 with no terminal and no daemon, setup names every missing flag and changes nothing, then takes every answer as a flag on an empty volume and turns the message content intent on; a run after the first keeps what is stored and exits 0, a refused token keeps the old one, and the token is never printed", async () => {
+test("CLI-121 CLI-122 CLI-123 CLI-242 CLI-124 CLI-191 CLI-192 CLI-193 CLI-194 CLI-195 CLI-210 CLI-118 MOD-65 IMG-94 with no terminal and no daemon, setup names every missing flag and changes nothing, then takes every answer as a flag on an empty volume and turns the message content intent on; a run after the first keeps what is stored and exits 0, a refused token keeps the old one, and the token is never printed", async () => {
   const directory = fresh()
   const data = join(directory, "data")
   mkdirSync(data, { recursive: true })
@@ -48,6 +54,22 @@ test("CLI-121 CLI-122 CLI-123 CLI-124 CLI-191 CLI-192 CLI-193 CLI-194 CLI-195 CL
     ),
   })
   expect(rest.calls()).toEqual([])
+
+  // A blank owner is no owner: it is named as missing before the token is saved.
+  expect(
+    await setup([
+      "--discord-token-file",
+      tokenFile(directory, "first-token"),
+      "--owner",
+      "   ",
+      "--skip-login",
+    ]),
+  ).toMatchObject({
+    code: 2,
+    stderr: lines(Messages.setupMissing(["--owner"])),
+  })
+  expect(rest.calls()).toEqual([])
+  expect(existsSync(join(data, "secrets/connections.json"))).toBe(false)
 
   // Every answer as a flag.
   const first = await setup([
@@ -85,8 +107,11 @@ test("CLI-121 CLI-122 CLI-123 CLI-124 CLI-191 CLI-192 CLI-193 CLI-194 CLI-195 CL
     )
   expect(patched.map((call) => call.body)).toEqual([{ flags: 1 << 19 }])
 
-  // A run after the first with no flags asks nothing, keeps every answer and names the bot, never the token.
-  const again = await setup([], { CHAD_OPENAI_API_KEY: "sk-test" })
+  // A run after the first with no flags, or a blank owner, asks nothing, keeps every answer and names the bot, never the
+  // token.
+  const again = await setup(["--owner", " "], {
+    CHAD_OPENAI_API_KEY: "sk-test",
+  })
   expect(again).toMatchObject({
     code: 0,
     stderr: "",

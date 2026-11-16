@@ -91,7 +91,8 @@ export interface Commands {
   readonly users: (secret: string) => ReadonlyArray<string>
   /**
    * Builds the named plugins again through the swap path and swaps those that built, a plugin a boot skipped included.
-   * One that fails keeps its running version, marked with `kept`. A name that is off or unknown is left out. It runs
+   * One that fails keeps its running version, marked with `kept`, and a skipped one whose module cannot be loaded is a
+   * failure too. A name that is off, unknown or from the repo in safe mode is left out. It runs
    * inside the queue the caller holds (SWAP-96, SET-79, SET-80).
    */
   readonly rebuild: (
@@ -104,6 +105,12 @@ export interface Commands {
       readonly error: string
     }>
   }>
+}
+
+/** Why a reload has no entry for a plugin, and the load error of a module in `live` that could not be loaded. */
+interface NoEntry {
+  readonly refused: string
+  readonly unloadable?: string
 }
 
 type Services =
@@ -679,12 +686,16 @@ export const make = Effect.fnUntraced(function* (options: {
 
   /**
    * The entry a reload builds for one plugin: the running version's, or for one that is not running, the bundled one or
-   * the one in `live`, with its settings from the applied `chad.json`. A text says why there is none.
+   * the one in `live`, with its settings from the applied `chad.json`. Without one, `refused` says why. `unloadable` is
+   * set when the plugin is in `live` and its module could not be loaded, which is a failure of the reload and not a
+   * plugin it leaves out on purpose, as it leaves out one that is off, unknown or from the repo in safe mode.
    */
   const entryOf = (name: string) =>
     Effect.gen(function* () {
+      const refused = (text: string): NoEntry => ({ refused: text })
       // A plugin that is off is not loaded, since the applied file says it is off (SET-83, SWAP-144).
-      if (Settings.off(applied).has(name)) return Messages.reloadOff(name)
+      if (Settings.off(applied).has(name))
+        return refused(Messages.reloadOff(name))
       const running = plugins
         .versions()
         .find((version) => version.name === name)
@@ -698,20 +709,23 @@ export const make = Effect.fnUntraced(function* (options: {
         }).find((entry) => entry.name === name)
       const bundled = withSettings([])
       if (bundled !== undefined) return bundled
-      if (safe !== "off") return Messages.reloadSafe(name)
+      if (safe !== "off") return refused(Messages.reloadSafe(name))
       if (
         !plugins.skipped().some((skipped) => skipped.name === name) ||
         !(yield* fs.exists(live))
       ) {
-        return Messages.reloadUnknown(name)
+        return refused(Messages.reloadUnknown(name))
       }
       const found = yield* Loader.load(yield* fs.realPath(live), bundledNames)
       const loaded = withSettings(found.loaded)
       if (loaded !== undefined) return loaded
       const problem = found.skipped.find((plugin) => plugin.name === name)
       return problem === undefined
-        ? Messages.reloadUnknown(name)
-        : Messages.couldNotLoad(name, problem.message)
+        ? refused(Messages.reloadUnknown(name))
+        : ({
+            refused: Messages.couldNotLoad(name, problem.message),
+            unloadable: problem.message,
+          } satisfies NoEntry as NoEntry)
     })
 
   /**
@@ -721,7 +735,7 @@ export const make = Effect.fnUntraced(function* (options: {
   const reload = (name: string) =>
     Effect.gen(function* () {
       const entry = yield* entryOf(name)
-      if (typeof entry === "string") return failed(entry)
+      if ("refused" in entry) return failed(entry.refused)
       const prepared = yield* plugins.prepare({
         build: [entry],
         remove: [],
@@ -790,7 +804,10 @@ export const make = Effect.fnUntraced(function* (options: {
           const entry = yield* Effect.result(entryOf(name))
           if (entry._tag === "Failure")
             unreadable.push({ name, error: String(entry.failure) })
-          else if (typeof entry.success !== "string") build.push(entry.success)
+          else if (!("refused" in entry.success)) build.push(entry.success)
+          // A module in `live` that could not be loaded fails the reload like a build that failed (SET-80, CLI-102).
+          else if (entry.success.unloadable !== undefined)
+            unreadable.push({ name, error: entry.success.unloadable })
         }
         const prepared = yield* plugins.prepare({
           build,
