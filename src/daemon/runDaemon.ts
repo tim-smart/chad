@@ -565,7 +565,6 @@ const boot = Effect.fnUntraced(function* (
       SessionEntity.layer,
       retention,
       Timers.layer,
-      Timers.runsLayer,
       timerRetention,
       runsRetention,
     ).pipe(
