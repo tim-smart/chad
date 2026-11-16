@@ -134,8 +134,8 @@ export const PluginName = Context.Reference<string | undefined>(
 )
 
 /**
- * What a fiber's lines pass through before a sink writes them. The MCP layer's fibers carry one that keeps the values
- * its `${NAME}`s expanded to out of the log (CRED-80).
+ * What the text of a fiber's lines passes through before they are formatted. The MCP layer's fibers carry one that
+ * keeps the values its `${NAME}`s expanded to out of the log (CRED-80, MCP-148).
  */
 export const Scrub = Context.Reference<((line: string) => string) | undefined>(
   "chad/Logger/Scrub",
@@ -213,6 +213,14 @@ const withIds = (
     ...ids,
     ...own,
   }
+  return withAnnotations(entry, annotations)
+}
+
+/** The entry with its fiber's annotations replaced. effect's formatters read them from the fiber, so it is wrapped. */
+const withAnnotations = (
+  entry: Entry,
+  annotations: Readonly<Record<string, unknown>>,
+): Entry => {
   const fiber = new Proxy(entry.fiber, {
     get: (target, key) => {
       if (key === "getRef") {
@@ -226,6 +234,45 @@ const withIds = (
     },
   })
   return { ...entry, fiber }
+}
+
+/** A value of a line's message or annotations, scrubbed. A value that is not a string stays as it is unless its text held a value. */
+const scrubValue = (value: unknown, scrub: (text: string) => string) => {
+  if (typeof value === "string") return scrub(value)
+  if (value === null || value === undefined) return value
+  let text: string
+  try {
+    text =
+      typeof value === "object"
+        ? (JSON.stringify(value) ?? String(value))
+        : String(value)
+  } catch {
+    text = String(value)
+  }
+  const scrubbed = scrub(text)
+  return scrubbed === text ? value : scrubbed
+}
+
+/**
+ * The entry with the fiber's scrubber run over its message, its annotations' values and its cause, before a formatter
+ * serializes it, so the line stays well formed and its keys stay as they are (FAIL-2, FAIL-3, MCP-148).
+ */
+const scrubbed = (entry: Entry): Entry => {
+  const scrub = entry.fiber.getRef(Scrub)
+  if (scrub === undefined) return entry
+  const message = Array.isArray(entry.message)
+    ? entry.message.map((part: unknown) => scrubValue(part, scrub))
+    : scrubValue(entry.message, scrub)
+  const pretty =
+    entry.cause.reasons.length === 0 ? "" : Cause.pretty(entry.cause)
+  const cause =
+    scrub(pretty) === pretty ? entry.cause : Cause.fail(scrub(pretty))
+  const annotations = Object.fromEntries(
+    Object.entries(entry.fiber.getRef(References.CurrentLogAnnotations)).map(
+      ([key, value]) => [key, scrubValue(value, scrub)],
+    ),
+  )
+  return withAnnotations({ ...entry, message, cause }, annotations)
 }
 
 /**
@@ -243,11 +290,11 @@ export const layer = (options: {
     options.stdout ?? ((line: string) => void process.stdout.write(line + "\n"))
   const sinks = (entry: Entry) => {
     if (LogLevel.isLessThan(entry.logLevel, options.level)) return
-    const scrub = entry.fiber.getRef(Scrub) ?? ((line: string) => line)
-    stdout(scrub(Logger.formatLogFmt.log(entry)))
-    options.file.write(scrub(Logger.formatJson.log(entry)))
+    stdout(Logger.formatLogFmt.log(entry))
+    options.file.write(Logger.formatJson.log(entry))
   }
-  const logger = Logger.make<unknown, void>((entry) => {
+  const logger = Logger.make<unknown, void>((raw) => {
+    const entry = scrubbed(raw)
     const ids = idsOf(entry.fiber)
     if (ids["plugin"] !== undefined) count(entry)
     if (entry.fiber.getRef(Console.Console) !== daemonConsole) {

@@ -94,7 +94,7 @@ const gated = () => {
 const count = (running: Scenario, event: string) =>
   running.log().filter((line) => line.annotations["event"] === event).length
 
-test("CRED-80 MCP-38 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-32 MCP-33 MCP-34 MCP-35 MCP-36 MCP-40 MCP-43 MCP-109 MCP-110 MCP-111 MCP-112 MCP-113 MCP-114 CLI-67 CLI-70 CLI-74 CLI-102 CLI-125f CRED-25 CRED-27 REC-28 an applied mcp.json connects its servers with names from the secret store that never reach the environment or any output, a failed or unavailable server does not block the apply, a secret it names rebuilds it, and a malformed file or a relative cwd fails the check and the apply", async () => {
+test("CRED-80 MCP-38 MCP-148 FAIL-2 FAIL-3 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 MCP-26 MCP-27 MCP-30 MCP-31 MCP-32 MCP-33 MCP-34 MCP-35 MCP-36 MCP-40 MCP-43 MCP-109 MCP-110 MCP-111 MCP-112 MCP-113 MCP-114 CLI-67 CLI-70 CLI-74 CLI-102 CLI-125f CRED-25 CRED-27 REC-28 an applied mcp.json connects its servers with names from the secret store that never reach the environment or any output, a failed or unavailable server does not block the apply, a secret it names rebuilds it, and a malformed file or a relative cwd fails the check and the apply", async () => {
   const held = gated()
   const running = await scenario({
     plugins: [{ name: "held", plugin: held.plugin }],
@@ -103,6 +103,11 @@ test("CRED-80 MCP-38 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 M
   const canary = "canary-7f3e-not-in-env"
   expect(
     (await running.chad(["secret", "set", "TOKEN"], {}, canary + "\n")).code,
+  ).toBe(0)
+  // A value made of the log's own syntax, which a scrub of the serialized line would break it on (FAIL-2, MCP-148).
+  const punct = '":"'
+  expect(
+    (await running.chad(["secret", "set", "PUNCT"], {}, punct + "\n")).code,
   ).toBe(0)
 
   write(work, {
@@ -116,6 +121,7 @@ test("CRED-80 MCP-38 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 M
       legacy: { type: "sse", url: "http://127.0.0.1:1/sse" },
       // The spawn's error quotes the command, which here is the secret (CRED-80).
       typo: { command: "${TOKEN}" },
+      punct: { command: "${PUNCT}" },
       dropping: fixture("--tools", "quit"),
     }),
     "chad.json":
@@ -127,7 +133,15 @@ test("CRED-80 MCP-38 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 M
   const check = await running.chad(["check"])
   expect(check.code).toBe(0)
   for (const line of Messages.mcpCheckLines({
-    added: ["tools", "broken", "missing", "legacy", "typo", "dropping"],
+    added: [
+      "tools",
+      "broken",
+      "missing",
+      "legacy",
+      "typo",
+      "punct",
+      "dropping",
+    ],
     removed: [],
     changed: [],
   }))
@@ -251,6 +265,29 @@ test("CRED-80 MCP-38 CLI-102b CLI-43 MCP-20 MCP-21 MCP-22 MCP-23 MCP-24 MCP-25 M
   expect((await running.chad(["status"])).stdout).toContain(
     "mcp: tools, connected, 3 tools",
   )
+  // Every line of the log still parses, and clanka's line for the failed spawn says ${PUNCT} where its value was, with
+  // its keys as they were (FAIL-2, FAIL-3, MCP-148).
+  const entries = readFileSync(join(running.data, "logs/chad.log"), "utf8")
+    .split("\n")
+    .filter((line) => line !== "")
+    .map(
+      (line) =>
+        JSON.parse(line) as {
+          message: unknown
+          annotations: Record<string, unknown>
+        },
+    )
+  const spawned = entries.filter(
+    ({ annotations }) => annotations["server"] === "punct",
+  )
+  expect(
+    spawned.some(({ annotations }) =>
+      String(annotations["error"]).includes("spawn ${PUNCT} ENOENT"),
+    ),
+  ).toBe(true)
+  for (const { message, annotations } of spawned)
+    for (const value of [message, ...Object.values(annotations)])
+      expect(String(value)).not.toContain(punct)
   // No value reached the environment or the log, failed spawns and refusals included (CRED-80).
   for (const value of [canary, second, third]) {
     expect(Object.values(process.env)).not.toContain(value)

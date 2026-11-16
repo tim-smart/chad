@@ -101,11 +101,51 @@ export const scan = Effect.fnUntraced(function* (
   const root = yield* fs
     .realPath(dirname(directory))
     .pipe(Effect.orElseSucceed(() => dirname(directory)))
-  const inside = (path: string) =>
+  const realInside = (path: string) =>
     fs.realPath(path).pipe(
-      Effect.map((real) => real.startsWith(root + sep)),
-      Effect.orElseSucceed(() => false),
+      Effect.map((real) => (real.startsWith(root + sep) ? real : undefined)),
+      Effect.orElseSucceed(() => undefined),
     )
+  const inside = (path: string) =>
+    Effect.map(realInside(path), (real) => real !== undefined)
+  /**
+   * The paths under a skill's directory that resolve outside the tree or to nothing. Each entry is checked before the
+   * walk goes into it, and each real directory is walked once, so a link back to a directory already walked ends the
+   * walk there: what is under it was checked on the first visit, as a link resolves to the same file whatever path
+   * reaches it.
+   */
+  const escapingUnder = Effect.fnUntraced(function* (skill: string) {
+    const escaping: Array<string> = []
+    const start = yield* realInside(skill)
+    if (start === undefined) return escaping
+    const visited = new Set([start])
+    const walk: (relative: string) => Effect.Effect<void> = Effect.fnUntraced(
+      function* (relative: string) {
+        const names = yield* fs
+          .readDirectory(join(skill, relative))
+          .pipe(Effect.orElseSucceed((): Array<string> => []))
+        for (const name of [...names].sort()) {
+          const path = relative === "" ? name : join(relative, name)
+          const real = yield* realInside(join(skill, path))
+          if (real === undefined) {
+            escaping.push(path)
+            continue
+          }
+          const info = yield* Effect.option(fs.stat(real))
+          if (
+            info._tag === "Some" &&
+            info.value.type === "Directory" &&
+            !visited.has(real)
+          ) {
+            visited.add(real)
+            yield* walk(path)
+          }
+        }
+      },
+    )
+    yield* walk("")
+    return escaping
+  })
   const skills: Array<Skill> = []
   const bad: Array<Bad> = []
   for (const entry of [...entries].sort()) {
@@ -116,13 +156,7 @@ export const scan = Effect.fnUntraced(function* (
       bad.push({ name: entry, problem: Messages.skillProblems.outside })
       continue
     }
-    const others = yield* fs
-      .readDirectory(join(directory, entry), { recursive: true })
-      .pipe(Effect.orElseSucceed((): Array<string> => []))
-    const escaping: Array<string> = []
-    for (const path of [...others].sort()) {
-      if (!(yield* inside(join(directory, entry, path)))) escaping.push(path)
-    }
+    const escaping = yield* escapingUnder(join(directory, entry))
     if (escaping.length > 0) {
       bad.push({
         name: entry,

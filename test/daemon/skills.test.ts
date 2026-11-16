@@ -187,6 +187,8 @@ test("REC-11 MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-
   mkdirSync(join(work, "skills/aux/refs"), { recursive: true })
   symlinkSync(join(outside, "extra.md"), join(work, "skills/aux/refs/extra.md"))
   symlinkSync(join(outside, "gone.md"), join(work, "skills/aux/gone.md"))
+  // A link back up the skill is walked once, and what is under it is still checked.
+  symlinkSync(".", join(work, "skills/aux/loop"))
   const refusals = [
     Messages.skillRefused(
       "bad",
@@ -229,6 +231,9 @@ test("REC-11 MCP-1 MCP-2 MCP-3 MCP-4 MCP-5 MCP-7 MCP-8 MCP-10 MCP-11 MCP-12 MCP-
     "skills/mine/SKILL.md": skill("mine", "My skill.", "mine body"),
   })
   symlinkSync("SKILL.md", join(work, "skills/mine/alias.md"))
+  // Two links back to the skill's own directory form cycles the walk ends at once, and the skill applies.
+  symlinkSync(".", join(work, "skills/mine/one"))
+  symlinkSync(".", join(work, "skills/mine/two"))
   const apply = await first.chad(["apply", "-m", "Skills"])
   expect(apply.code).toBe(0)
   expect(apply.stdout).toContain(
