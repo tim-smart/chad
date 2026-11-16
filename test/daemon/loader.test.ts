@@ -185,18 +185,32 @@ test("LOAD-14 API-131 TST-202 a plugin whose Layer build waits on a Turns call i
   expect(status).toContain("plugin: stuck, skipped (")
 })
 
-test("LOAD-14 a Layer build that cannot be interrupted, and a failed build whose finalizer never ends, are skipped at the deadline and the boot goes on", async () => {
+test("LOAD-14 IMG-82 a Layer build that cannot be interrupted, and a failed build whose finalizer never ends, are skipped at the deadline, the boot goes on, and nothing the build acquired is released until it ends", async () => {
   const release = Deferred.makeUnsafe<void>()
+  const first = { released: false, releasedWhileHeld: false }
+  const second = Deferred.makeUnsafe<void>()
   const held = Plugin.make(
     Layer.effectDiscard(
-      Effect.acquireRelease(Deferred.await(release), () => Effect.void),
+      Effect.gen(function* () {
+        yield* Effect.acquireRelease(Effect.void, () =>
+          Effect.sync(() => {
+            first.released = true
+          }),
+        )
+        yield* Effect.acquireRelease(
+          Effect.sync(() => {
+            first.releasedWhileHeld = first.released
+          }).pipe(Effect.andThen(Deferred.await(release))),
+          () => Deferred.succeed(second, undefined),
+        )
+      }),
     ),
   )
   const cleanup = Plugin.make(
     Layer.effectDiscard(
       Effect.gen(function* () {
         yield* Effect.addFinalizer(() => Deferred.await(release))
-        return yield* Effect.never
+        return yield* Effect.fail(new Error("no build"))
       }),
     ),
   )
@@ -212,5 +226,32 @@ test("LOAD-14 a Layer build that cannot be interrupted, and a failed build whose
   expect(status).toContain("plugin: send-file, 0 warnings")
   expect(status).toContain("plugin: held, skipped (")
   expect(status).toContain("plugin: cleanup, skipped (")
+  expect(first.released).toBe(false)
   await Effect.runPromise(Deferred.succeed(release, undefined))
+  await Effect.runPromise(Deferred.await(second))
+  expect(first.releasedWhileHeld).toBe(false)
+})
+
+test("LOAD-14 IMG-82 a stop while a plugin's Layer builds interrupts the build", async () => {
+  const entered = Deferred.makeUnsafe<void>()
+  const gate = Deferred.makeUnsafe<void>()
+  let interrupted = false
+  const waiting = Plugin.make(
+    Layer.effectDiscard(
+      Deferred.succeed(entered, undefined).pipe(
+        Effect.andThen(Deferred.await(gate)),
+        Effect.onInterrupt(() =>
+          Effect.sync(() => {
+            interrupted = true
+          }),
+        ),
+      ),
+    ),
+  )
+  const running = await scenario({
+    plugins: [{ name: "waiting", plugin: waiting }],
+  })
+  await Effect.runPromise(Deferred.await(entered))
+  expect(await running.stop()).toBe(0)
+  expect(interrupted).toBe(true)
 })

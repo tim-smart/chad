@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readlinkSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -143,4 +144,62 @@ it("IMG-46 IMG-143 a move aside never replaces what an earlier one kept, in the 
       readFileSync(file, "utf8"),
     ),
   ).toEqual(["first", "second", "third"])
+})
+
+it("IMG-143 a move aside never replaces a link to nothing at its name", async () => {
+  const repo = mkdtempSync(join(tmpdir(), "chad-repolinks-"))
+  const path = join(repo, "node_modules")
+  const saved = `${path}.replaced-2026-11-16T06-28-57-056Z`
+  symlinkSync("./missing", saved)
+  writeFileSync(path, "owner")
+  vi.useFakeTimers({ toFake: ["Date"] })
+  vi.setSystemTime(new Date("2026-11-16T06:28:57.056Z"))
+  try {
+    await provided(RepoLinks.prepare(repo))
+  } finally {
+    vi.useRealTimers()
+  }
+  expect(readlinkSync(saved)).toBe("./missing")
+  expect(readFileSync(`${saved}-1`, "utf8")).toBe("owner")
+})
+
+it("REC-48 LOAD-99 LOAD-16 LOAD-17 a plugins that is a file loads nothing and fails nothing, and an import() of a package gets the host's instance where the tree has its own", async () => {
+  const file = await repoWith({ plugins: "not a directory" })
+  expect(await provided(Loader.load(file.tree))).toEqual({
+    loaded: [],
+    skipped: [],
+  })
+
+  const { tree } = await repoWith({
+    "node_modules/effect/package.json": JSON.stringify({
+      name: "effect",
+      type: "module",
+      exports: "./index.mjs",
+    }),
+    "node_modules/effect/index.mjs": "export const shadow = true\n",
+    "plugins/dynamic.ts": `import { Effect, Layer } from "effect"
+import { Plugin } from "chad"
+
+export default Plugin.make(
+  Layer.effectDiscard(
+    Effect.promise(async () => {
+      const dynamic = await import("effect")
+      ;(globalThis as Record<string, unknown>)["chadDynamic"] =
+        dynamic.Effect === Effect
+    }),
+  ),
+)
+`,
+  })
+  const { loaded, skipped } = await provided(Loader.load(tree))
+  expect(skipped).toEqual([])
+  await provided(
+    Effect.scoped(
+      Layer.build(
+        // The plugin asks for no service of the API, so it builds with none.
+        loaded[0]!.plugin as unknown as Layer.Layer<never>,
+      ),
+    ),
+  )
+  expect((globalThis as Record<string, unknown>)["chadDynamic"]).toBe(true)
 })

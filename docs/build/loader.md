@@ -2,7 +2,7 @@
 
 This is the builder's record of how the `loader` slice was delivered, kept in the repository so that review can read it. It is not spec. Where it and `docs/spec/` differ, the spec is right and this file is wrong. A test file is named where a test whose title names the id runs it.
 
-It accounts for every id that `node scripts/rule-ids.ts list loader` prints, which is 68 ids: the 64 of the spec as it stood and the four builder rules this slice added, IMG-143, IMG-144, LOAD-98 and FAIL-344.
+It accounts for every id that `node scripts/rule-ids.ts list loader` prints, which is 69 ids: the 64 of the spec as it stood and the five builder rules this slice added, IMG-143, IMG-144, LOAD-98, LOAD-99 and FAIL-344.
 
 ## Summary
 
@@ -41,8 +41,16 @@ Fixed in review of `5ecd8bd`, each with a regression test:
 - IMG-46, IMG-143: a move aside whose name is taken gets a counter, so it never replaces what an earlier move kept. `test/unit/loader.test.ts`.
 - REC-42: `Loader.load` is given the bundled plugins' names and skips those before the module runs, always with the shared-table notice. `test/unit/loader.test.ts`.
 - LOAD-25: a tree with no file under `plugins/` passes the check. `tsc` reports it as TS18003, which is dropped only when it is the whole output. `test/unit/loader.test.ts`.
-- LOAD-17: an `import()` of a package in a plugin goes to the host's loader (`importModuleDynamically`), so it runs and gets the host's instance. `test/unit/loader.test.ts`.
+- LOAD-17: an `import()` of a package in a plugin runs and gets the host's instance (see the second review for how). `test/unit/loader.test.ts`.
 - LOAD-9, LOAD-29: esbuild is given its tsconfig (`tsconfigRaw`) and reads none from the tree, so a tree's `paths` cannot send a package import to a file of the tree. `test/unit/loader.test.ts`.
+
+Fixed in review of `66e8199`, each with a regression test:
+
+- LOAD-14, IMG-82: the build's fiber and the closing of its scope are forked into the plugins' scope, not detached. A stop that comes while a plugin builds interrupts the build. A build past its deadline is interrupted and its scope closes only once it has ended, so nothing it acquired is released under it. A finalizer that never ends stays owned, so the stop waits on it until the stop's deadline exits 1. `test/daemon/loader.test.ts`, `test/process/stop.test.ts`.
+- `test/support/child.ts` sets `process.exitCode` as `chad serve` does, in place of `process.exit`, so a child that something still holds stays alive as the product would.
+- IMG-143: an entry at a moved-aside name is found without following links, so a link to nothing is not replaced. `test/unit/loader.test.ts`.
+- REC-48, LOAD-99: a `plugins` that is a file, or cannot be read, holds no plugin, where it used to fail the boot. `test/unit/loader.test.ts`.
+- LOAD-16, LOAD-17: esbuild turns `import()` into the host's `require` (`supported: { "dynamic-import": false }`), so a dynamic import resolves where a static one does and a `node_modules` of the tree cannot shadow a package. `importModuleDynamically` is gone. `test/unit/loader.test.ts`.
 
 ## Tests
 
@@ -99,7 +107,7 @@ Fixed in review of `5ecd8bd`, each with a regression test:
 | LOAD-13 | built                               | `src/daemon/Plugins.ts` `load` (earlier slice)                                                                                               | none                                                     |
 | LOAD-14 | built, part held (`apply`)          | `src/daemon/Plugins.ts` `load`, `src/Timings.ts` `pluginBuild`                                                                               | `test/daemon/loader.test.ts`                             |
 | LOAD-16 | built                               | `src/daemon/Loader.ts` `run`                                                                                                                 | `test/daemon/loader.test.ts`                             |
-| LOAD-17 | built                               | `src/daemon/Loader.ts` `run`                                                                                                                 | `test/daemon/loader.test.ts`                             |
+| LOAD-17 | built                               | `src/daemon/Loader.ts` `run`, `bundle`                                                                                                       | `test/daemon/loader.test.ts`, `test/unit/loader.test.ts` |
 | LOAD-20 | built, part held (`bundled-skills`) | `src/daemon/RepoLinks.ts` (the whole image `node_modules` is linked)                                                                         | none                                                     |
 | LOAD-22 | built                               | `src/daemon/Loader.ts` `typecheck` (`missingPackage`, TS2307 and TS2882)                                                                     | `test/unit/loader.test.ts`                               |
 | LOAD-23 | built, part held (`apply`)          | `src/daemon/Loader.ts` `bundleError`, `Messages.topLevelAwait`                                                                               | none                                                     |
@@ -129,6 +137,7 @@ Fixed in review of `5ecd8bd`, each with a regression test:
 | LOAD-86 | built                               | `src/daemon/Plugins.ts` `as` (`Loader.remap`)                                                                                                | `test/daemon/loader.test.ts`                             |
 | LOAD-92 | built, part held (`apply`)          | `src/daemon/Loader.ts` `discover`, `Messages.pluginName`                                                                                     | none                                                     |
 | LOAD-98 | built (new builder rule)            | `src/daemon/Loader.ts` `check`                                                                                                               | none                                                     |
+| LOAD-99 | built (new builder rule)            | `src/daemon/Loader.ts` `discover`                                                                                                            | `test/unit/loader.test.ts`                               |
 
 ## Repo and recovery (09)
 

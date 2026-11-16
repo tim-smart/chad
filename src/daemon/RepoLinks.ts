@@ -27,6 +27,15 @@ const manifest = `${JSON.stringify({ type: "module" }, null, 2)}\n`
  */
 export const prepare = Effect.fnUntraced(function* (repo: string) {
   const fs = yield* FileSystem.FileSystem
+  // A name is taken by any entry, a link to nothing included, which `exists` would follow and miss.
+  const taken = (path: string) =>
+    fs
+      .exists(path)
+      .pipe(
+        Effect.flatMap((found) =>
+          found ? Effect.succeed(true) : Effect.isSuccess(fs.readLink(path)),
+        ),
+      )
   yield* fs.makeDirectory(repo, { recursive: true })
   for (const [name, target] of [
     ["node_modules", modules],
@@ -49,7 +58,7 @@ export const prepare = Effect.fnUntraced(function* (repo: string) {
       // the move never replaces what an earlier one kept (IMG-143).
       const stamped = `${path}.replaced-${new Date().toISOString().replace(/[:.]/g, "-")}`
       let to = stamped
-      for (let n = 1; yield* fs.exists(to); n++) to = `${stamped}-${n}`
+      for (let n = 1; yield* taken(to); n++) to = `${stamped}-${n}`
       yield* fs.rename(path, to)
       yield* Logger.event("boot.moved-aside", Messages.movedAside(path, to), {
         path,

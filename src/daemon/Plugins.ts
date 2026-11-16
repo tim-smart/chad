@@ -338,6 +338,18 @@ export const make = Effect.fnUntraced(function* (options: {
   const load = (entry: Entry) =>
     Effect.gen(function* () {
       const own = yield* Scope.fork(scope)
+      // The build's fiber and the closing of its scope belong to the plugins' scope, so a stop waits for both, up to
+      // the stop's deadline (IMG-82). The scope closes only once the build has ended, so nothing it acquired is
+      // released while it still runs, and the closing cannot be interrupted.
+      let building: Fiber.Fiber<unknown, unknown> | undefined
+      const dispose = Effect.suspend(() =>
+        building === undefined ? Effect.void : Fiber.interrupt(building),
+      ).pipe(
+        Effect.andThen(Scope.close(own, Exit.void)),
+        Effect.uninterruptible,
+        Effect.forkIn(scope),
+      )
+      let timedOut = false
       if (entry.bundle !== undefined) yield* Loader.register(entry.bundle, own)
       const plugin: Loaded = {
         name: entry.name,
@@ -388,19 +400,20 @@ export const make = Effect.fnUntraced(function* (options: {
           )
           // The daemon owns the deadline of the build. A `Turns` call the build waits on never returns, and the deadline
           // ends it (LOAD-14, API-131). The build runs on a fiber of its own, so a part of it that cannot be interrupted,
-          // such as an `acquireRelease` acquisition, holds only that fiber: it is interrupted without a wait.
-          const building = yield* Layer.buildWithScope(entry.plugin, own).pipe(
+          // such as an `acquireRelease` acquisition, holds only that fiber and not the boot.
+          const fiber = yield* Layer.buildWithScope(entry.plugin, own).pipe(
             Effect.provideContext(services),
             as(plugin),
             Logger.ownConsole,
-            Effect.forkDetach,
+            Effect.forkIn(scope),
           )
-          const ended = yield* Effect.timeoutOption(
-            Fiber.await(building),
-            timings.pluginBuild,
+          building = fiber
+          const ended = yield* Fiber.await(fiber).pipe(
+            Effect.timeoutOption(timings.pluginBuild),
+            Effect.onInterrupt(() => dispose),
           )
           if (Option.isNone(ended)) {
-            yield* Effect.forkDetach(Fiber.interrupt(building))
+            timedOut = true
             return yield* Effect.fail(
               Messages.buildTimedOut(Duration.toSeconds(timings.pluginBuild)),
             )
@@ -428,11 +441,15 @@ export const make = Effect.fnUntraced(function* (options: {
         }),
       )
       if (Exit.isFailure(built)) {
-        // The finalizers of a failed build get the same deadline, and one that has not ended by then goes on alone.
-        yield* Effect.timeoutOption(
-          Fiber.await(yield* Effect.forkDetach(Scope.close(own, Exit.void))),
-          timings.pluginBuild,
-        )
+        // The finalizers of a failed build get the same deadline. A build past its deadline is not waited for again.
+        // Either goes on in the plugins' scope after that.
+        const disposing = yield* dispose
+        if (!timedOut) {
+          yield* Effect.timeoutOption(
+            Fiber.await(disposing),
+            timings.pluginBuild,
+          )
+        }
         yield* skip(entry.name, Cause.pretty(built.cause), built.cause)
         return
       }

@@ -85,4 +85,6 @@ const code = await start(
     ...("value" in retention ? { messageRetention: retention.value } : {}),
   },
 )
-process.exit(code)
+// The exit code is set as `chad serve` sets it, and the process ends when nothing holds it, so work the daemon lost
+// hold of keeps a test's child alive too (IMG-82).
+process.exitCode = code

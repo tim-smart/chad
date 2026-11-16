@@ -76,9 +76,13 @@ export const discover = Effect.fnUntraced(function* (tree: string) {
   const directory = join(tree, "plugins")
   const found: Array<Found> = []
   const problems: Array<Skipped> = []
-  if (!(yield* fs.exists(directory))) return { found, problems }
+  // A `plugins` that is missing, is not a directory or cannot be read holds no plugin, and the boot goes on (REC-48,
+  // LOAD-99).
+  const entries = yield* fs
+    .readDirectory(directory)
+    .pipe(Effect.orElseSucceed((): ReadonlyArray<string> => []))
   const files = new Map<string, Array<string>>()
-  for (const entry of (yield* fs.readDirectory(directory)).sort()) {
+  for (const entry of [...entries].sort()) {
     // An entry that cannot be read, such as a link to a missing file, is one plugin's problem: a `.ts` entry goes on
     // as a file and fails its own bundle, and the others load.
     const info = yield* Effect.option(fs.stat(join(directory, entry)))
@@ -247,6 +251,9 @@ const build = (tree: string, file: string) =>
         // A tsconfig of the tree's own is not read, so its `paths` cannot point a package at a file of the tree. The
         // type-check ignores it too, and the two resolve packages alike (LOAD-9, LOAD-29).
         tsconfigRaw: { compilerOptions: { verbatimModuleSyntax: true } },
+        // An `import()` becomes a `require` with the host's, so it resolves where a static import does and gets the
+        // host's instance (LOAD-16, LOAD-17).
+        supported: { "dynamic-import": false },
         logLevel: "silent",
       }),
     catch: (error) => error,
@@ -393,11 +400,7 @@ export const run = (bundle: Bundle) =>
       const compiled = vm.compileFunction(
         bundle.code,
         ["require", "module", "exports"],
-        {
-          filename: bundle.filename,
-          // An `import()` of a package goes to the host's own loader, so it gets the host's instance (LOAD-17).
-          importModuleDynamically: vm.constants.USE_MAIN_CONTEXT_DEFAULT_LOADER,
-        },
+        { filename: bundle.filename },
       )
       const module = { exports: {} as Record<string, unknown> }
       compiled(hostRequire, module, module.exports)

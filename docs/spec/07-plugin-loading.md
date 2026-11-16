@@ -19,6 +19,7 @@ chad runs on Node. The loader prototype also ran unchanged on Bun 1.3.13, so the
 - **LOAD-6** A plugin's entry file default-exports a value made with `Plugin.make` (see 06-plugin-api.md). The loader tests the default export with `Plugin.isPlugin` and refuses a file that exports a bare Layer, because a bare Layer passes the type-check.
 - **LOAD-72** When both `plugins/<name>.ts` and `plugins/<name>/index.ts` exist for one name, `chad check` and `chad apply` fail with an error that names both files.
 - **LOAD-73** Every `.ts` file directly in `plugins/` is a plugin's entry file, and a plugin keeps its helper files in a subdirectory. A helper file placed directly in `plugins/` fails the `Plugin.isPlugin` test of LOAD-6, and the error says what to do.
+- **LOAD-99** A `plugins` in the tree that is not a directory, or that cannot be read, holds no plugin. A boot loads none from it and goes on (REC-48), and `chad check` reports nothing about it.
 
 A plugin's name is written into the name of its key-value table (see 02-storage.md), so the name rule that `chad plugin new` applies to the name it is given (see 10-cli.md) holds for every plugin in the repo, whichever way its file got there.
 
@@ -507,3 +508,4 @@ No run checked a volume on a filesystem other than ext4, or a repo with many fil
 | LOAD-96 | TIM-559 round 4 item 7 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | LOAD-97 | TIM-559 round 4 item 8 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | LOAD-98 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `loader` |
+| LOAD-99 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `loader` |
