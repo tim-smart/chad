@@ -92,14 +92,11 @@ A line chad itself writes carries an `event` annotation from this list. The copy
 | **FAIL-270** | `settings.unparsable` | Warn | `chad.json` could not be parsed at boot. |
 | **FAIL-271** | `settings.ignored` | Warn | Entries in `chad.json` were ignored at boot. |
 | **FAIL-272** | `mcp.config-unreadable` | Warn | `mcp.json` could not be read at boot. |
-| **FAIL-273** | Withdrawn. |  |  |
-| **FAIL-274** | Withdrawn. |  |  |
 | **FAIL-275** | `mcp.server-failed` | Builder's | An MCP server failed to connect. |
 | **FAIL-276** | `mcp.rebuilt` | Builder's | An MCP rebuild ended. Carries the duration and the counts. |
 | **FAIL-277** | `skill.skipped` | Warn | A skill was skipped at boot. |
 | **FAIL-278** | `skill.bundled-changed` | Info | A bundled skill that a repo skill hides changed in this image. |
 | **FAIL-279** | `disk.low` | Warn | The free space check found less than 1 GB. |
-| **FAIL-280** | Withdrawn. |  |  |
 | **FAIL-281** | `disk.full` | Error | A write failed with SQLite's full error. |
 | **FAIL-282** | `database.unusable` | Error | The database could not be opened or migrated. |
 | **FAIL-283** | `database.migrated` | Builder's | A boot migrated the database. Carries both versions and the path of the copy (see 02-storage.md). |
@@ -111,7 +108,6 @@ A line chad itself writes carries an `event` annotation from this list. The copy
 | **FAIL-289** | `boot.moved-aside` | Warn | Something at `repo/examples` or `repo/node_modules` was moved aside. |
 | **FAIL-290** | `boot.filesystem` | Warn | The volume is on a filesystem chad warns about (see 01-image-and-volume.md). The read runs before the lock, so the line reaches the file once the lock is held (FAIL-322). |
 | **FAIL-291** | `boot.log-level-unknown` | Warn | `CHAD_LOG_LEVEL` held a value chad does not know. |
-| **FAIL-292** | Withdrawn. |  |  |
 | **FAIL-293** | `boot.refused` | Fatal | A boot was refused. Carries the reason, such as the two shard counts. A boot that is refused before it holds the lock writes the line to stdout only (FAIL-322). |
 | **FAIL-294** | `stop.started` | Builder's | The SIGTERM handler ran. |
 | **FAIL-295** | `stop.ended` | Builder's | A stop finished inside the deadline. Carries the duration. |
@@ -527,7 +523,6 @@ What v1 does not handle. Nobody has captured a usage-limit frame from the real C
 - **FAIL-95** effect's WebSocket decoder drops an error frame that has no `error.message`, and the call keeps waiting. That is the shape in the Codex CLI's own test. If the real service sends it, a usage limit shows as a turn that retries on the turn timeout and ends as `ModelError` after 15 minutes, by FAIL-84.
 - **FAIL-96** A WebSocket handshake that is refused with 429 reaches chad as a retryable `NetworkError` with the status and the body lost, so chad cannot recognise it. The socket idles out after 60 seconds, so most chat turns open a new connection.
 - **FAIL-97** On the WebSocket transport the owner's message never names a reset time.
-- **FAIL-98** Withdrawn.
 
 ## The turns table and usage
 
@@ -631,27 +626,13 @@ chad enters no special mode when the disk fills. Each event is tried, and the ru
 
 - **FAIL-133** The free space check runs at boot and then hourly. How it reads free space is in 02-storage.md.
 - **FAIL-134** The check has one threshold and one notice. Below 1 GB free the condition `disk-low` begins, and it clears when a check finds 1 GB or more.
-- **FAIL-314** Withdrawn.
 - **FAIL-135** chad enters no special mode on a full disk. A write that fails during a turn because the volume is full fails like any other write of chad's. The turn ends as `Failed` with `Internal` and gets the ordinary failed-turn message. If its end cannot be written, a restart treats the turn as one cut by a crash (see 03-sessions-and-turns.md).
 - **FAIL-136** When the disk is full as an owner's message arrives, saving the request fails with a typed error and no turn runs. chad answers in the thread, "The data volume is full, so I stopped. Free some space and send that again.", and accepts the chat event once the reply is posted, so the event is not replayed and the message does not run later by itself.
 - **FAIL-137** If that reply cannot be posted either, chad refuses the event. A refused event is not held for a restart. dfx reconnects and resumes in the same process after 1 second, doubling to 2 minutes, and holds back later events on the shard until the event is accepted.
-- **FAIL-138** Withdrawn.
-- **FAIL-139** Withdrawn.
 - **FAIL-140** A turn's own writes come before the reply to cluster. A reply that cannot be saved is silent in cluster, so chad's own failed write is the only signal.
 - **FAIL-141** Nothing in chad learns a turn's end from cluster's reply alone. The session's own in-memory end resolves anything waiting in the same process. That is the timer handler that saves a job's next run, and a plugin's `Turns.start`.
-- **FAIL-142** Withdrawn.
-- **FAIL-143** Withdrawn.
-- **FAIL-144** Withdrawn.
-- **FAIL-145** Withdrawn.
 - **FAIL-216** A write of chad's fails on a full disk when it fails with SQLite's full error, or when a file write of chad's fails with `ENOSPC`. On a truly full filesystem the writes under `state/` and to the inbox fail first.
-- **FAIL-217** Withdrawn.
-- **FAIL-218** Withdrawn.
 - **FAIL-219** The reply in FAIL-136 has no turn id line, because no turn exists.
-- **FAIL-220** Withdrawn.
-- **FAIL-221** Withdrawn.
-- **FAIL-222** Withdrawn.
-- **FAIL-223** Withdrawn.
-- **FAIL-224** Withdrawn.
 - **FAIL-340** The 1 GB of the free space check (FAIL-134) is 1024³ bytes, the binary unit in which the `disk-low` notice gives its megabytes.
 
 What cluster does there, from a run on `SingleRunner` over SQLite with a real "database or disk is full" error forced by a page cap.
@@ -735,24 +716,18 @@ The keys, with the class of each, what begins each condition and the check that 
 - **FAIL-321** The `usage-limit` line under "Problems" also prints the reset time when its row holds one. On the WebSocket transport, which v1 runs on, the error carries no reset time (FAIL-97), so there the line has the recorded time only.
 - **FAIL-342** The `usage-limit` row keeps a reset time in its text, which is the one renderer's (FAIL-310): after the text of FAIL-174 comes "It resets at <time>.", with `<time>` in UTC to the second as the recorded time is printed. A turn that hits the limit while the row already holds writes the text of its own error, with its reset time or none, and leaves the recorded time as it was (FAIL-320).
 - **FAIL-315** `plugin-skipped:<name>` clears when the plugin loads, when it is no longer in the applied repo, and when the plugin is turned off (see 11-settings.md).
-- **FAIL-316** Withdrawn.
-- **FAIL-317** Withdrawn.
 
 The wordings. Text in angle brackets is filled in. "First line" is the first line of an error.
 
 - **FAIL-161** Plugins skipped at boot get one notice with one line per plugin, "Skipped at start: `<name>` (<first line of the error>)", ending with the line "`chad status` has the rest."
 - **FAIL-318** When a plugin is skipped because its file or directory name breaks the plugin name rule, the line of FAIL-161 quotes the name as it is written and cuts it, because it is the one name that broke the rule (see 07-plugin-loading.md).
-- **FAIL-162** Withdrawn.
 - **FAIL-163** After 3 failures in a row of the same hook, chad tells the owner with "`<plugin>`'s `<hook>` hook has failed 3 times in a row (<first line>). It stays on." chad never turns a plugin off by itself.
 - **FAIL-164** A `chad.json` that cannot be parsed at boot is announced with "`chad.json` can't be parsed (<error>), so every plugin is on its defaults." Entries that were ignored are announced with "Ignored in `chad.json`: <list>." A `plugins` value that is not an object is listed there as the `plugins` key, and a plugin's entry whose `enabled` is not a boolean is listed as that entry (see 11-settings.md).
 - **FAIL-165** An `mcp.json` that cannot be read at boot is announced with "`mcp.json` can't be read (<error>), so no MCP servers are running."
 - **FAIL-166** A skill skipped at boot is announced with "Skipped skill `<name>`: <error>."
 - **FAIL-167** A bundled skill that changed in a new image while a repo skill hides it is announced with "The bundled skill `<name>` changed in this image. The repo's copy still hides it." (see 12-skills-and-mcp.md).
 - **FAIL-168** A model that fails its check at start is announced with "The model `<spec>` failed its check at start (<error>). If turns fail, set another with `/model`." The check can fail on an outage that passes, and chad still starts. Which models are checked is in 05-model-and-login.md.
-- **FAIL-169** Withdrawn.
-- **FAIL-170** Withdrawn.
 - **FAIL-171** The `disk-low` notice reads "The data volume has <n> MB free."
-- **FAIL-172** Withdrawn.
 - **FAIL-173** When a plugin-started turn fails with `ThreadGone`, the core posts "`<plugin>` could not run `<label>` because its thread is gone."
 - **FAIL-174** The `usage-limit` notice, sent when no owner was present, reads "This login has reached its usage limit. Scheduled runs are skipped until it resets."
 - **FAIL-175** The `logged-out` notice reads "chad is logged out. Send a message or run `chad login`. Scheduled runs are skipped until then." Until a login succeeds, turns with no owner present fail without calling clanka (see 05-model-and-login.md).
@@ -934,7 +909,6 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-95 | TIM-557 item 22 | Architect (Tim has not read) | not run; fact run: a frame with no `error.message` is dropped |  | `fact` | `models` |
 | FAIL-96 | TIM-557 round 2, F9 and R7 | Architect (Tim has not read) | not run; fact run: a refused handshake is a `NetworkError` with status and body lost |  | `fact` | `models` |
 | FAIL-97 | TIM-557 item 22 | Architect (Tim has not read) | not run; fact run: `resets_at` is dropped on the WebSocket |  | `rule` | `models` |
-| FAIL-98 | TIM-557 "What this changes in closed tickets", TIM-558, withdrawn by Tim's ruling that the Codex list is one login check, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-99 | TIM-536 item 11, TIM-557 item 23, amended by TIM-559 ruling on FAIL-G11 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `turns` |
 | FAIL-100 | TIM-557 item 23 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `turns` |
 | FAIL-101 | TIM-557 item 23 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
@@ -974,14 +948,8 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-135 | TIM-557 item 31, amended by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-136 | TIM-557 item 32, changing TIM-532 | Architect (Tim has not read) | not run; fact run: a full database at send time fails with a typed error; fact read: who accepts a gateway event | TIM-557 | `rule` | `failures` |
 | FAIL-137 | TIM-557 item 32 and "What this changes in closed tickets" | Architect (Tim has not read) | not run; fact read: dfx's reconnect on a refused event | TIM-557 | `rule` | `failures` |
-| FAIL-138 | TIM-557 item 33, amended by TIM-559 ruling on FAIL-G3, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| FAIL-139 | TIM-557 item 33, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-140 | TIM-557 item 33 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-141 | TIM-557 item 34, changing TIM-530 and TIM-540 item 8 | Architect (Tim has not read) | not run; fact read: the timer handler and `Turns.start` wait on the session's reply | TIM-557 | `rule` | `timers-cron` |
-| FAIL-142 | TIM-557 items 27 and 34, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run; fact run: the request stays stuck until a restart |  | `rule` | - |
-| FAIL-143 | TIM-557 item 34, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| FAIL-144 | TIM-557 item 34, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run; fact run: a restart delivers the request again |  | `rule` | - |
-| FAIL-145 | TIM-557 item 34, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | FAIL-146 | TIM-541 item 14, TIM-557 item 35, TIM-559 round 3 on IMG-G19 and STO-G28; TIM-559 cold read, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | FAIL-147 | TIM-536 item 14, TIM-557 item 35, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim | not run | TIM-541, TIM-557 | `rule` | `failures` |
 | FAIL-148 | TIM-536 item 14, wording from TIM-557 item 35, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
@@ -998,17 +966,13 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-159 | TIM-557 item 38, amended by TIM-559 rulings on FAIL-G9, STO-G18 and REC-G15, TIM-559 round 3 C4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-160 | TIM-557 item 38, TIM-559 round 3 C5 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-161 | TIM-534 item 5, wording from TIM-557 item 40 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| FAIL-162 | TIM-534 item 7, wording from TIM-557 item 40, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-557 | `rule` | - |
 | FAIL-163 | TIM-534 item 8, wording from TIM-557 item 40 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `plugin-api` |
 | FAIL-164 | TIM-548 item 12, wording from TIM-557 item 40, TIM-559 round 3 L2 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | FAIL-165 | TIM-534 item 5, TIM-537, wording from TIM-557 item 40 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-166 | TIM-549 item 19, wording from TIM-557 item 40 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-167 | TIM-549 item 23, wording from TIM-557 item 40 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-168 | TIM-535, wording from TIM-557 item 40, amended by TIM-559 ruling on MOD-G6 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `models` |
-| FAIL-169 | TIM-537 item 13, wording from TIM-557 item 40, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| FAIL-170 | TIM-537 item 10, wording from TIM-557 item 40, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-171 | TIM-536 item 16, wording from TIM-557 item 40 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
-| FAIL-172 | TIM-557 items 31 and 40, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run | TIM-557 | `rule` | - |
 | FAIL-173 | TIM-540 item 19, wording from TIM-557 item 40 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | FAIL-174 | TIM-557 items 21 and 40 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | FAIL-175 | TIM-535, amended by TIM-557 item 40, TIM-544 decision 5 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `plugin-api` |
@@ -1053,14 +1017,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-214 | TIM-559 ruling on FAIL-G1, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-215 | TIM-559 ruling on FAIL-G8 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-216 | TIM-559 ruling on FAIL-G3 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-217 | TIM-559 ruling on FAIL-G3, amending TIM-557 item 14, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| FAIL-218 | TIM-559 ruling on FAIL-G3, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-219 | TIM-559 ruling on FAIL-G3 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-220 | TIM-559 ruling on FAIL-G6, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| FAIL-221 | TIM-559 ruling on FAIL-G6, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| FAIL-222 | TIM-559 ruling on FAIL-G6, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| FAIL-223 | TIM-559 ruling on SES-G17, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| FAIL-224 | TIM-559 ruling on FAIL-G6, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | FAIL-225 | TIM-559 ruling on FAIL-G20, reading TIM-557 item 35 by item 36 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-226 | TIM-559 ruling on FAIL-G20, reading TIM-557 item 35 by item 36 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-227 | TIM-559 ruling on FAIL-G20, reading TIM-557 item 35 by item 36 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
@@ -1109,14 +1066,11 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-270 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | FAIL-271 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | FAIL-272 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| FAIL-273 | TIM-557 items 2 and 4, TIM-559 round 2 R4, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| FAIL-274 | TIM-557 items 2 and 4, TIM-559 round 2 R4, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-275 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-276 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-277 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-278 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | FAIL-279 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
-| FAIL-280 | TIM-557 items 2 and 4, TIM-559 round 2 R4, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-281 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-282 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-283 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
@@ -1128,7 +1082,6 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-289 | TIM-557 items 2 and 4, TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `loader` |
 | FAIL-290 | TIM-557 items 2 and 4, TIM-559 round 2 R4; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | FAIL-291 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| FAIL-292 | TIM-557 items 2 and 4, TIM-559 round 2 R4, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-293 | TIM-557 items 2 and 4, TIM-559 round 2 R4; TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | FAIL-294 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
 | FAIL-295 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
@@ -1150,10 +1103,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-311 | TIM-559 round 3 C5, TIM-559 ruling on FAIL-G20 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | FAIL-312 | TIM-559 round 3 C5 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | FAIL-313 | TIM-559 round 3 C5, TIM-557 item 38 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
-| FAIL-314 | TIM-559 round 3 on FAIL-G7, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run | TIM-557, TIM-559 | `rule` | - |
 | FAIL-315 | TIM-559 round 3 on FAIL-G7 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| FAIL-316 | TIM-559 round 3 on FAIL-G7, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| FAIL-317 | TIM-559 round 3 on FAIL-G7, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-318 | TIM-559 round 3 A2 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | FAIL-319 | TIM-559 round 4 item 9 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | FAIL-320 | TIM-559 round 4 item 9 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
@@ -1179,3 +1129,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-340 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-341 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
 | FAIL-342 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+FAIL-98, FAIL-138, FAIL-139, FAIL-142, FAIL-143, FAIL-144, FAIL-145, FAIL-162, FAIL-169, FAIL-170, FAIL-172, FAIL-217, FAIL-218, FAIL-220, FAIL-221, FAIL-222, FAIL-223, FAIL-224, FAIL-273, FAIL-274, FAIL-280, FAIL-292, FAIL-314, FAIL-316, FAIL-317.

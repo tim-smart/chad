@@ -44,7 +44,6 @@ A rebuild has three steps. chad builds a new Agent, sets the old history and the
 - **SWAP-15** chad wraps the `AgentExecutor` service so that the root agent's task owner id is the session id. A rebuilt Agent can then list and read the background tasks that an earlier Agent started.
 - **SWAP-16** The wrapper takes the first owner id an Agent executes under to be its root's. That holds in the pinned clanka, because a sub-agent only exists once a root script has started one. It is not a documented contract of clanka.
 - **SWAP-17** chad announces the completion of a background task that outlives a rebuild itself, in an update message, because the watcher that would have announced it closed with the old Agent.
-- **SWAP-18** Withdrawn.
 - **SWAP-132** chad keeps the task handles that pass through `onTask` in the owner id wrapper. Through them it sees a task end after the Agent that started it was discarded.
 - **SWAP-133** If the pinned clanka does not pass task handles through `onTask`, the builder does not pick another way to raise the notice. The builder pends SWAP-17 with that reason and raises it as a change to this spec.
 - **SWAP-134** The notice has the form clanka itself uses for a task that ends, which is the `<task id="..." kind="..." status="...">` element shown below, and chad sends it in an update message.
@@ -429,21 +428,11 @@ clanka resolves a tool's handler from the context when the Agent is built, and i
 - **SWAP-122** The wrapper sets the plugin's name around the plugin's handler, in a `Context.Reference` that chad's logger reads from the fiber, so the copy of a handler's log line in chad's log carries the plugin's name (see 16-failures-logs-status.md).
 - **SWAP-60** A running turn keeps its tool list across a swap. Each call it makes to a plugin tool is either answered by the version its Agent was built on or refused, and the turn carries on either way.
 - **SWAP-153** After a swap replaced a plugin's running version, a call that a running turn or one of its sub-agents makes to a tool of that plugin fails at once. The handler does not run and the turn carries on. This holds whatever caused the swap, which is an apply that changed the plugin's code or its settings, `chad plugin reload`, or a secret, owner or timezone change. It also holds for a call that arrives while the swap is in progress, or after a graceful stop abandoned the swap with the old version closed, so no call is held at the gate. The message says that the tool changed and that it is back in the session's next turn (SWAP-69). chad compares no bundle hash and no declaration and re-encodes nothing across schemas, and the wrapper only needs to know which version the turn's Agent was built on. A plugin that is not part of the swap is untouched, and its tools keep working in a running turn (SWAP-41). After a reload that is not an apply the exact wording of the message is the builder's choice.
-- **SWAP-61** Withdrawn.
-- **SWAP-62** Withdrawn.
-- **SWAP-63** Withdrawn.
-- **SWAP-64** Withdrawn.
-- **SWAP-65** Withdrawn.
-- **SWAP-66** Withdrawn.
-- **SWAP-67** Withdrawn.
-- **SWAP-68** Withdrawn.
 - **SWAP-69** A call that SWAP-153 fails gets message 1 in "The messages returned to the model", unless a rule below names another message. The rule is per plugin, so a tool whose own code did not change fails too when its plugin was swapped.
 - **SWAP-70** While the turn has a sub-agent running, the refusal is message 2, the longer form that says the next turn cannot start while a sub-agent is running. Turns without a sub-agent keep the plain message.
 - **SWAP-71** A call to a tool that the swap removed fails with message 3.
 - **SWAP-72** A call to a tool of a plugin that safe mode turned off fails with message 4.
 - **SWAP-140** A call to a tool of a plugin that an apply turned off with `"enabled": false` fails with message 3, the same message as for a tool that the swap removed.
-- **SWAP-73** Withdrawn.
-- **SWAP-74** Withdrawn.
 - **SWAP-75** Once a swap replaces a plugin's running version, a running turn in any session loses that plugin's tools until the turn ends. That includes sessions other than the one that ran the apply or the reload.
 - **SWAP-76** An agent that fixes a tool and applies cannot call the fixed tool in the same turn. The fixed tool is in its next turn.
 - **SWAP-77** Calls from sub-agents follow the same rules as calls from the turn's main agent.
@@ -512,8 +501,6 @@ In the run, a timezone reload with one plugin that failed to build swapped the o
 - **SWAP-104** Old versions that are not closed yet go through the ordinary graceful stop, with their queued hooks run inside their budgets.
 - **SWAP-105** A plugin that is between its close and its activation when the stop lands drops its queued hooks with a log line.
 - **SWAP-106** After a stop that landed after the commit, the next boot loads the new version, and a turn the stop cut resumes on it.
-- **SWAP-107** Withdrawn.
-- **SWAP-108** Withdrawn.
 - **SWAP-109** A graceful stop has no 10 second step of its own for closing the plugins. The plugins' scopes close in the stop's last step, before the MCP layer, and that step ends 60 seconds from SIGTERM. The stop's order and its 60 second deadline are in 01-image-and-volume.md.
 
 The abandon step, from the prototype that ran it at four points of a swap. It is the swap's interruption handler.
@@ -574,8 +561,6 @@ Each message below is the failure text of a plugin tool call, and the table name
 
 - **SWAP-115** The check that a removed plugin's queued hook is dropped and logged depends on an order, which the test states. It holds the first hook open until the removal (see 17-testing.md).
 - **SWAP-124** How the rules of this part are tested is in 17-testing.md, which holds the layer the swap scenarios run in.
-- **SWAP-145** Withdrawn.
-- **SWAP-146** Withdrawn.
 
 ## Gaps
 
@@ -606,7 +591,6 @@ Each message below is the failure text of a plugin tool call, and the table name
 | SWAP-15 | TIM-531 item 4 | Tim | run |  | `rule` | `plugin-api` |
 | SWAP-16 | TIM-531 item 4 and its support notes (run on clanka 0.27.0, read again in clanka 0.28.0 `src/Agent.ts:1056-1067` and `1517`) | Tim | run |  | `fact` | `plugin-api` |
 | SWAP-17 | TIM-531 item 4 | Tim | not run |  | `rule` | `plugin-api` |
-| SWAP-18 | TIM-531 item 4, withdrawn by the TIM-559 ruling on SWAP-G4 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
 | SWAP-19 | TIM-531 item 6, amended by the TIM-537 follow-up | Tim | read |  | `rule` | `skills-mcp` |
 | SWAP-20 | TIM-544 item 2, amending TIM-531 item 1 | Tim | run |  | `rule` | `plugin-api` |
 | SWAP-21 | TIM-531 item 7, replaced by TIM-544 item 1, TIM-559 cold read | Tim | run |  | `rule` | `models` |
@@ -649,20 +633,10 @@ Each message below is the failure text of a plugin tool call, and the table name
 | SWAP-58 | TIM-548 item 9 | Architect (Tim has not read) | not run | TIM-548 | `rule` | `settings` |
 | SWAP-59 | TIM-547 item 7, amended by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SWAP-60 | TIM-547 items 7 to 9 (comment on TIM-531), amended by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
-| SWAP-61 | TIM-547 item 7, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | - |
-| SWAP-62 | TIM-552 decision 1, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
-| SWAP-63 | TIM-552 decision 1, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
-| SWAP-64 | TIM-552 decision 2, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
-| SWAP-65 | TIM-552 decision 2, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
-| SWAP-66 | TIM-552 decision 2, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
-| SWAP-67 | TIM-547 item 7, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | - |
-| SWAP-68 | TIM-549 item 12, amended by TIM-552, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
 | SWAP-69 | TIM-547 item 8, amended by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SWAP-70 | TIM-552 decision 7, amending TIM-547 item 8 | Tim | run |  | `rule` | `apply` |
 | SWAP-71 | TIM-547 item 8 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SWAP-72 | TIM-547 item 8 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
-| SWAP-73 | TIM-547 item 3, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | - |
-| SWAP-74 | TIM-547 item 8, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | - |
 | SWAP-75 | TIM-547 item 9, amended by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SWAP-76 | TIM-547 items 7 to 9 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SWAP-77 | TIM-547 item 8 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
@@ -695,8 +669,6 @@ Each message below is the failure text of a plugin tool call, and the table name
 | SWAP-104 | TIM-547 item 15 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SWAP-105 | TIM-547 item 15 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SWAP-106 | TIM-547 item 15 | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
-| SWAP-107 | TIM-552 decision 4, amending TIM-547 item 15, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
-| SWAP-108 | TIM-552 decision 4, amending TIM-547 item 15, withdrawn by Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim | run |  | `rule` | - |
 | SWAP-109 | TIM-547 (passed to TIM-541), TIM-541 item 25, changed by TIM-553 question 1, provisional by TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `apply` |
 | SWAP-110 | TIM-552 question 1 | Tim | run |  | `fact` | `turns` |
 | SWAP-111 | TIM-552 decision 6 | Tim | run |  | `definition` | - |
@@ -733,8 +705,6 @@ Each message below is the failure text of a plugin tool call, and the table name
 | SWAP-142 | TIM-559 ruling on SWAP-G9 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `apply` |
 | SWAP-143 | TIM-559 ruling on REC-G19 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `settings` |
 | SWAP-144 | TIM-559 ruling on SET-G8 and SET-G9 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `settings` |
-| SWAP-145 | TIM-559 ruling on SWAP-G11, withdrawn by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| SWAP-146 | TIM-559 ruling on SWAP-G11, withdrawn by Jarvis's correction to Tim's ruling that chad has no release ceremony, TIM-560 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | SWAP-147 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | SWAP-148 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | SWAP-149 | TIM-559 round 3 A1 and MCP-G19 | Architect (Tim has not read) | read |  | `fact` | `skills-mcp` |
@@ -742,3 +712,7 @@ Each message below is the failure text of a plugin tool call, and the table name
 | SWAP-151 | TIM-559 round 3 API-G15 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `timers-cron` |
 | SWAP-152 | TIM-559 round 3 C2 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `apply` |
 | SWAP-153 | Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `apply` |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+SWAP-18, SWAP-61, SWAP-62, SWAP-63, SWAP-64, SWAP-65, SWAP-66, SWAP-67, SWAP-68, SWAP-73, SWAP-74, SWAP-107, SWAP-108, SWAP-145, SWAP-146.

@@ -150,7 +150,6 @@ effect/chat runs chad's handler inline, one event at a time for the whole bot. U
 - **SES-186** The reply of SES-148 is the subtext notice "There is no session in this channel. Mention me with a message and I'll open a thread for it.", posted in the channel.
 - **SES-188** `/stop` as the first message in a DM or a thread that has no `sessions` row posts "Nothing is running." and creates no row. `/new` there creates the thread's first row and posts its notice.
 - **SES-35** `/new` and `/stop` are specified in this part. `/status`, `/safe` and `/model` run the same daemon calls as the CLI, print the same text and do not go through the model (see 10-cli.md).
-- **SES-36** Withdrawn.
 - **SES-37** When dfx has to identify again instead of resuming, chad reads forward with `Chat.history` from the last message it saw in each session that was active in the past 7 days, and sends what it finds through the normal persisted path.
 - **SES-38** effect/chat does not say whether the gateway resumed or identified again. chad watches the gateway dispatch itself, where dfx's shard tells `READY` from `RESUMED`, to know when to catch up.
 - **SES-170** The last message chad saw in a session is a column on its `sessions` row, and the catch-up of SES-37 reads forward from it (see 02-storage.md).
@@ -195,7 +194,6 @@ Three clanka facts shape this. A second `send` during a turn is not rejected and
 - **SES-49** A tool handler queues a turn for its own thread with `Turns.queue`, which returns once the request is saved and does not wait for the outcome, because the queued turn runs only after the calling turn ends. `Turns.start` called from a tool handler for the thread of its own turn fails at once with a message that names `Turns.queue` (see 06-plugin-api.md and 13-timers-and-cron.md).
 - **SES-50** clanka runs with `ConversationMode` on, so a turn ends at a text reply with nothing waiting.
 - **SES-51** clanka keeps a turn open while a background sub-agent runs, even after the model has answered. An owner message sent in that time steers the open turn, and no new turn starts until the sub-agent finishes. What this means after an apply is in 08-apply-and-swap.md.
-- **SES-52** Withdrawn.
 - **SES-53** For a turn a plugin started, an answer that is exactly `[SILENT]` is not posted. In a server thread, the `mention` given to `Turns.start` or `Turns.schedule` goes at the start of the answer, and the core drops a mention whose id is not on the allowlist (see 13-timers-and-cron.md).
 
 ## What chad does when a turn starts
@@ -303,9 +301,6 @@ Passivation is cluster closing an idle entity's activation. Nothing is deleted. 
 
 A kill is the process ending with no warning, such as SIGKILL, a crash or a power cut. A graceful stop is a shutdown that chad's SIGTERM handler runs. In both cases a turn that was running leaves its request unprocessed, and cluster delivers it again on the next start. chad counts those deliveries itself, in the request's `turns` row.
 
-- **SES-136** Withdrawn.
-- **SES-174** Withdrawn.
-- **SES-175** Withdrawn.
 - **SES-99** When a delivery of a request takes the session, chad adds one to the number of starts in the request's `turns` row before it does anything else for the turn, and so before the hooks and before the model runs. The delivery on which chad gives up is counted too, so a turn that chad gave up on after two kills and no graceful cut has three starts. One delivery is not counted: one that is answered from the row under SES-90, which starts nothing.
 - **SES-100** The row keeps the first attempt's turn id and origin. Every later attempt reports them to hooks.
 - **SES-101** Every start after the first is a resumed turn, and `Turn.resumed` is `true`. Its prompt is the restart note in place of the original prompt, except in the case of SES-161.
@@ -452,7 +447,6 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-33 | TIM-532 item 2, TIM-543 finding 4 | Tim | run |  | `rule` | `harness` |
 | SES-34 | TIM-532 item 6 | Tim | read |  | `rule` | `turns` |
 | SES-35 | TIM-542 item 22 | Tim | read |  | `rule` | `apply` |
-| SES-36 | TIM-546 item 15, comment on TIM-532, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-546 | `rule` | - |
 | SES-37 | TIM-532 item 14 | Tim | read |  | `rule` | `kills` |
 | SES-38 | TIM-532 "How well each is supported" | Tim | read |  | `rule` | `wire` |
 | SES-39 | TIM-532 item 14 | Tim | read |  | `definition` | - |
@@ -468,7 +462,6 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-49 | TIM-540 item 13, TIM-543, amended by TIM-559 ruling on API-G6 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | SES-50 | TIM-532 item 4 | Tim | run |  | `rule` | `harness` |
 | SES-51 | TIM-552 comment on TIM-543, TIM-552 question 1 (Tim agreed on the ticket) | Tim | run |  | `rule` | `turns` |
-| SES-52 | TIM-546 item 12, comment on TIM-532, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-546 | `rule` | - |
 | SES-53 | TIM-540 items 14 and 15, amended by TIM-559 ruling on CRON-G11 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | SES-54 | TIM-547 item 12, TIM-552 decision 5 (Tim agreed the TIM-552 part) | Architect (Tim has not read) | run | TIM-547 | `rule` | `apply` |
 | SES-55 | TIM-531 item 1 | Tim | run |  | `rule` | `plugin-api` |
@@ -552,7 +545,6 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-133 | TIM-557 items 18 and 20 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `models` |
 | SES-134 | TIM-557 item 29 and its comment on TIM-532, TIM-559 cold read | Architect (Tim has not read) | not run | TIM-557 | `rule` | `turns` |
 | SES-135 | TIM-557 item 29 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `plugin-api` |
-| SES-136 | TIM-557 item 34 and its comment on TIM-532, withdrawn by Jarvis's correction to Tim's ruling on a full disk, TIM-560 2026-11-15 | Architect (Tim has not read) | not run | TIM-557 | `rule` | - |
 | SES-137 | TIM-557 item 33 | Architect (Tim has not read) | not run |  | `definition` | - |
 | SES-138 | TIM-559 ruling on SES-G1 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
 | SES-139 | TIM-559 ruling on SES-G1 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
@@ -590,8 +582,6 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-171 | TIM-559 ruling on SES-G15 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
 | SES-172 | TIM-559 ruling on SES-G15 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
 | SES-173 | TIM-559 ruling on SES-G16, IMG-G8 and STO-G25 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
-| SES-174 | TIM-559 ruling on SES-G17 and FAIL-G6, withdrawn by Jarvis's correction to Tim's ruling on a full disk, TIM-560 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| SES-175 | TIM-559 ruling on SES-G17 and FAIL-G6, withdrawn by Jarvis's correction to Tim's ruling on a full disk, TIM-560 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | SES-176 | TIM-559 round 2 R3, read at clanka 0.28.0 `src/Agent.ts:1144-1157` and `1529-1535` | Architect (Tim has not read) | read |  | `fact` | `turns` |
 | SES-177 | TIM-559 round 2 R3, read at clanka 0.28.0 `src/Agent.ts:1144-1157` and `1529-1535` | Architect (Tim has not read) | read |  | `fact` | `turns` |
 | SES-178 | TIM-559 round 2 R3 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
@@ -622,3 +612,7 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-203 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | SES-204 | Build, stage 2, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | SES-205 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `failures` |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+SES-36, SES-52, SES-136, SES-174, SES-175.

@@ -10,7 +10,7 @@ chad is built from the spec in `docs/spec/`. This file is the builder's contract
 
 ## Binding rules and defaults
 
-chad is one owner's assistant on one server. Build the simplest thing that keeps what the spec promises the owner, a plugin, the model and the CLI. The spec holds about 3,000 rules. Most of them are one reviewer's answer to an edge case, and Tim has not read them.
+chad is one owner's assistant on one server. Build the simplest thing that keeps what the spec promises the owner, a plugin, the model and the CLI. The spec holds about 2,700 rules. Most of them are one reviewer's answer to an edge case, and Tim has not read them.
 
 - A rule binds when it is one of these:
   - Tim agreed it. The Agreed by cell of its Provenance row names Tim without "Tim has not read". Where the cell gives Tim one clause and somebody else another, only Tim's clause binds.
@@ -22,7 +22,7 @@ chad is one owner's assistant on one server. Build the simplest thing that keeps
 - Add each default you did not build as written to the delivered file's list of simplified rules, with one sentence on what chad does instead. Do not reword the rule. Tim reads the list when he reviews the pull request.
 - If a binding rule is wrong or cannot be built, stop work on that rule. Say so on the parent build issue, add it to the delivered file's list of stopped rules with one sentence on what is wrong, build nothing else in its place, and carry on with the rest of the stage. A change to a binding rule waits for Tim.
 - A rule that reads `Withdrawn.` is not built. `docs/spec/00-overview.md` lists what Tim cut from v1 (OV-57). A rule that still names a withdrawn rule or one of those features holds as far as it makes sense without it. Do not stop over such a reference.
-- Where the spec is silent, pick the reading that fits the rest of it. If the choice is visible to the owner, a plugin, the model or the CLI, add it to the spec as a new rule in the same change, with the next number of its part's prefix and a Provenance row as `docs/spec/19-build-order.md` describes, and name it in your hand-off comment. A gap tagged `[builder]` is yours to settle the same way.
+- Where the spec is silent, pick the reading that fits the rest of it. If the choice is visible to the owner, a plugin, the model or the CLI, add it to the spec as a new rule in the same change, with the next number of its part's prefix, above every id in the part's Provenance table and on its list of retired ids, and a Provenance row as `docs/spec/19-build-order.md` describes, and name it in your hand-off comment. A gap tagged `[builder]` is yours to settle the same way.
 
 ## Stages, slices and the one branch
 

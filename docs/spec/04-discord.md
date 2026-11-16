@@ -38,7 +38,6 @@ These are properties of effect/chat's Discord adapter and of clanka, read from s
 - **DIS-15** Every write sends `allowed_mentions: { parse: [] }` and suppresses link embeds unless `withPostOptions` says otherwise, and a reply does not ping its author by default. chad keeps these defaults everywhere except in DIS-55, DIS-58, DIS-60, DIS-62 and DIS-74.
 - **DIS-16** An `edit` that passes no `actions` removes the buttons the message had.
 - **DIS-17** A click has to be answered inside Discord's 3 seconds, of which the handler gets 2.
-- **DIS-18** Withdrawn.
 
 ## The status message
 
@@ -105,17 +104,7 @@ yield* Effect.ignore(chat.delete(thread(threadId), status.id))
 - **DIS-38** v1 has one button, Stop, and no modal. It has no selects.
 - **DIS-39** The Stop button sits on the status message and does what `/stop` does. The click goes to the session's entity as a `stop` request that is not persisted, and chad acknowledges it inside the deadline in DIS-17 (see 03-sessions-and-turns.md). In the session prototype the acknowledgement took 2 to 38 ms.
 - **DIS-40** A click on the Stop button from anyone who is not an owner is ignored.
-- **DIS-41** Withdrawn.
 - **DIS-96** A click on the Stop button from anyone who is not an owner is answered with the plain acknowledgement, inside the deadline in DIS-17, and chad posts nothing. The acknowledgement ends the click and tells a stranger nothing.
-- **DIS-42** Withdrawn.
-- **DIS-43** Withdrawn.
-- **DIS-44** Withdrawn.
-- **DIS-45** Withdrawn.
-- **DIS-46** Withdrawn.
-- **DIS-47** Withdrawn.
-- **DIS-48** Withdrawn.
-- **DIS-49** Withdrawn.
-- **DIS-97** Withdrawn.
 
 The Stop button's click handler in the session prototype:
 
@@ -282,7 +271,6 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-15 | TIM-533 facts comment, TIM-557 items 15 and 37 | Tim, and Architect (Tim has not read) for the exceptions in DIS-60, DIS-62 and DIS-74 | read |  | `rule` | `wire` |
 | DIS-16 | TIM-533 facts comment | Tim | read |  | `fact` | `discord-ui` |
 | DIS-17 | TIM-533 facts comment, TIM-546 facts comment, read again under TIM-559 round 2 R8, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim, and Architect (Tim has not read) for the wording after the second read | read |  | `fact` | `discord-ui` |
-| DIS-18 | TIM-546 item 17, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | read |  | `fact` | - |
 | DIS-19 | TIM-533 item 1, amended by TIM-559 ruling on DIS-G8 and SES-G10 | Tim, and Architect (Tim has not read) for the order | not run |  | `rule` | `discord-ui` |
 | DIS-20 | TIM-533 item 1 | Tim | not run |  | `rule` | `discord-ui` |
 | DIS-21 | TIM-533 item 1 | Tim | not run |  | `rule` | `discord-ui` |
@@ -305,15 +293,6 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-38 | TIM-533 item 8, amended by TIM-546 item 16, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-546 | `rule` | `settings` |
 | DIS-39 | TIM-533 item 8, TIM-543 resolution | Tim | run |  | `rule` | `discord-ui` |
 | DIS-40 | TIM-533 item 8 | Tim | not run |  | `rule` | `discord-ui` |
-| DIS-41 | TIM-546 items 9 and 15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| DIS-42 | TIM-546 facts comment, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | read |  | `fact` | - |
-| DIS-43 | TIM-546 item 9, amended by TIM-554 decision 5, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| DIS-44 | TIM-554 decision 5, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| DIS-45 | TIM-546 items 9 and 11, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| DIS-46 | TIM-546 items 12 and 14, TIM-554 decision 8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| DIS-47 | TIM-546 items 9 and 14, TIM-554 decision 6, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| DIS-48 | TIM-554 decision 7, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| DIS-49 | TIM-546 items 10 and 13, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | DIS-50 | Map, agreed at charting, TIM-533 item 6 | Tim | not run |  | `rule` | `harness` |
 | DIS-51 | TIM-533 item 6 and facts comment | Tim | read |  | `rule` | `discord-ui` |
 | DIS-52 | TIM-533 item 6 | Tim | not run |  | `rule` | `discord-ui` |
@@ -361,7 +340,6 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-94 | TIM-559 ruling on DIS-G9 | Architect (Tim has not read) | not run |  | `rule` | `discord-ui` |
 | DIS-95 | TIM-559 ruling on SES-G17 | Architect (Tim has not read) | not run |  | `rule` | `discord-ui` |
 | DIS-96 | TIM-559 ruling on DIS-G18, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
-| DIS-97 | TIM-559 ruling on DIS-G20, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | DIS-98 | TIM-559 ruling on DIS-G12 | Architect (Tim has not read) | not run |  | `rule` | `discord-ui` |
 | DIS-99 | TIM-559 ruling on DIS-G12 | Architect (Tim has not read) | not run |  | `rule` | `discord-ui` |
 | DIS-100 | TIM-559 ruling on DIS-G12, widened by TIM-559 round 3 on DIS-G24 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `discord-ui` |
@@ -384,3 +362,7 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-117 | Build, stage 2, amended by Tim's ruling that a background sub-agent and every sub-agent under it show no scripts, TIM-560 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | `discord-ui` |
 | DIS-118 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `discord-ui` |
 | DIS-119 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `discord-ui` |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+DIS-18, DIS-41, DIS-42, DIS-43, DIS-44, DIS-45, DIS-46, DIS-47, DIS-48, DIS-49, DIS-97.

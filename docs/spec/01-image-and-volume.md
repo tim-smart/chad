@@ -426,7 +426,6 @@ The database runs in SQLite's write-ahead log mode and the daemon lock is a SQLi
 - **IMG-70** `chad serve` reads the type of the filesystem under the data directory and warns, at boot in the log and in `chad status`, when it is NFS, CephFS, SMB, FUSE, the container's own layer or tmpfs. It warns and does not refuse.
 - **IMG-71** The check follows `CHAD_DATA` to the mount that holds it.
 - **IMG-72** The check also runs on `HOME`, `NPM_CONFIG_PREFIX` and `XDG_CACHE_HOME`, and warns for each one that is on the container's own layer or on tmpfs.
-- **IMG-73** Withdrawn.
 
 The warnings of the stand-in daemon:
 
@@ -476,7 +475,6 @@ A graceful stop starts when the daemon gets SIGTERM, which `docker stop` and Kub
 - **IMG-86** The daemon logs what a stop dropped, as the event `stop.dropped`. Hooks dropped in a stop and a stop cut by the deadline are log lines only, and no notice is sent for them (see 16-failures-logs-status.md).
 - **IMG-87** The examples set a 90 second grace period.
 - **IMG-120** The log writer flushes on every exit path chad controls (see 16-failures-logs-status.md).
-- **IMG-130** Withdrawn.
 - **IMG-131** A stop gives a nightly prune that is in progress no wait of its own (see 02-storage.md for the prune and for how its next run finishes one that an exit cut).
 
 A stop also writes `stop.started` when the SIGTERM handler runs and `stop.ended`, with the duration, when it finishes inside the deadline. The rules for both, and the full table of event names, are in 16-failures-logs-status.md.
@@ -503,12 +501,6 @@ The exit codes of every other command are in 10-cli.md. A container killed by Do
 
 chad keeps no boot counter, and safe mode never starts by itself (see 09-repo-and-recovery.md).
 
-- **IMG-89** Withdrawn.
-- **IMG-90** Withdrawn.
-- **IMG-91** Withdrawn.
-- **IMG-92** Withdrawn.
-- **IMG-132** Withdrawn.
-
 ## Running chad and first setup
 
 - **IMG-93** The docs show one path to a running chad. The owner starts the container and then runs `docker exec -it chad chad setup`, or `kubectl exec -it deploy/chad -- chad setup` on Kubernetes.
@@ -520,14 +512,6 @@ chad keeps no boot counter, and safe mode never starts by itself (see 09-repo-an
 ## Containers next to chad
 
 asphodel is the memory daemon that the asphodel plugin talks to over http (see 18-asphodel-plugin.md). It runs as its own container next to chad.
-
-- **IMG-98** Withdrawn.
-- **IMG-99** Withdrawn.
-- **IMG-100** Withdrawn.
-- **IMG-101** Withdrawn.
-- **IMG-135** Withdrawn.
-- **IMG-136** Withdrawn.
-- **IMG-137** Withdrawn.
 
 ## The Kubernetes example
 
@@ -678,7 +662,6 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-70 | TIM-541 item 17, TIM-553 item 10 (support: NFS, the container's layer and tmpfs only) | Architect (Tim has not read) | run |  | `rule` | `cli` |
 | IMG-71 | TIM-553 item 10 | Architect (Tim has not read) | run |  | `rule` | `cli` |
 | IMG-72 | TIM-553 item 10 | Architect (Tim has not read) | run |  | `rule` | `cli` |
-| IMG-73 | TIM-553 item 14, withdrawn by Tim's ruling that the docs have no NFS paragraph, chat 2026-11-15 | Architect (Tim has not read) | run |  | `rule` | - |
 | IMG-74 | TIM-542 item 20 | Tim | run |  | `rule` | `cli` |
 | IMG-75 | TIM-553 item 6, TIM-550 item 7, TIM-542 item 27 | Architect (Tim has not read) | not run | TIM-550, TIM-553 | `rule` | `cli` |
 | IMG-76 | TIM-541 item 24 | Architect (Tim has not read) | not run |  | `rule` | `image` |
@@ -694,19 +677,11 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-86 | TIM-541 item 25, TIM-557 item 41, TIM-559 round 2 R4 for the event name | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | IMG-87 | TIM-541 item 25 | Architect (Tim has not read) | run |  | `rule` | `image` |
 | IMG-88 | TIM-553 item 7, TIM-550 item 8, TIM-541 items 8 and 14, amended by TIM-559 ruling on IMG-G7 (support: the stop, start-up check, lock and socket rows ran in the image, the newer state/version row did not run) | Architect (Tim has not read) | not run | TIM-541, TIM-557 | `rule` | `kills` |
-| IMG-89 | TIM-541 item 26, amended by TIM-559 ruling on IMG-G5 (support: the counter going up straight after the lock ran), withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-541, TIM-559 | `rule` | - |
-| IMG-90 | TIM-534 item 7, TIM-541 item 26, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-541 | `rule` | - |
-| IMG-91 | TIM-541 item 26, TIM-559 cold read, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-541 | `rule` | - |
-| IMG-92 | TIM-536 item 14, TIM-550 item 8, TIM-541 item 26, TIM-553 item 4, amended by TIM-559 rulings on IMG-G5 and IMG-G6, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-541, TIM-550, TIM-553, TIM-559 | `rule` | - |
 | IMG-93 | TIM-541 item 20, TIM-542 item 32 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-94 | TIM-542 item 32, TIM-541 item 20 | Tim | not run |  | `rule` | `settings` |
 | IMG-95 | TIM-541 item 20 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-96 | TIM-541 item 20 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-97 | TIM-542 item 5, TIM-550 item 5 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
-| IMG-98 | TIM-541 item 29, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| IMG-99 | TIM-541 item 23, TIM-539, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| IMG-100 | TIM-541 item 29, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| IMG-101 | TIM-554 item 4 (comment on TIM-541) (support: podman), amended by Tim's ruling that chad has no Compose example, chat 2026-11-15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | IMG-102 | TIM-541 item 27, TIM-536 item 18 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-103 | TIM-541 item 27 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-104 | TIM-541 item 27 | Architect (Tim has not read) | not run |  | `fact` | `image` |
@@ -735,16 +710,15 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-127 | TIM-559 ruling on IMG-G5 and STO-G5, TIM-559 cold read, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | IMG-128 | TIM-559 ruling on IMG-G4 (support: the stand-in daemon of TIM-553 used these names) | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | IMG-129 | TIM-559 ruling on IMG-G7 (support: the prototype run exited 1) | Architect (Tim has not read) | not run |  | `rule` | `harness` |
-| IMG-130 | TIM-559 ruling on IMG-G9, withdrawn by Tim's ruling on the last four stopped rules, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | IMG-131 | TIM-559 ruling on IMG-G8, STO-G25 and SES-G16 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
-| IMG-132 | TIM-559 rulings on IMG-G5 and IMG-G6, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
 | IMG-133 | TIM-559 main session ruling on Q8, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `repo` |
 | IMG-134 | TIM-559 main session ruling on Q8 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
-| IMG-135 | TIM-559 ruling on IMG-G17 (support: Architect read Compose's documentation), withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | read |  | `rule` | - |
-| IMG-136 | TIM-559 ruling on IMG-G17, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| IMG-137 | TIM-559 ruling on IMG-G17, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | IMG-138 | TIM-559 ruling on CLI-G3 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | IMG-139 | TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `skills-mcp` |
 | IMG-140 | TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `kills` |
 | IMG-141 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | IMG-142 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+IMG-73, IMG-89, IMG-90, IMG-91, IMG-92, IMG-98, IMG-99, IMG-100, IMG-101, IMG-130, IMG-132, IMG-135, IMG-136, IMG-137.

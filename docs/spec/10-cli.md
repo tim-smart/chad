@@ -32,7 +32,6 @@ A client talks to the daemon over a unix socket on the volume, using effect's RP
 - **CLI-15** The CLI does not retry a connection. When the lock is held and the socket is missing, refuses the connection, or accepts it and gives no answer inside 2 seconds, the CLI says the daemon is "starting or frozen", exits 4 and touches no files.
 - **CLI-16** The RPC server interrupts a client's running calls when that client disconnects. A CLI that is killed, by Ctrl-C or by `kill -9`, therefore cancels its call. In the prototype the handler was interrupted within about 15 ms.
 - **CLI-17** The daemon writes the log event `rpc.cancelled`, at debug level, each time it interrupts a call because the call's client went away. The server cannot tell a Ctrl-C from a `kill -9` or a dropped connection, so each of them writes the line (see 16-failures-logs-status.md).
-- **CLI-18** Withdrawn.
 - **CLI-19** The RPC client's ping stays at its default of 5 seconds. When the daemon stops answering during a call, or is stopped during one, the CLI exits 4 with a message to run `chad status` and `chad logs`.
 - **CLI-20** (a) The daemon logs no RPC request body, no RPC response body and no chat interaction payload. (b) No RPC call returns a stored secret value (see 15-credentials.md). (c) Withdrawn.
 - **CLI-205** (a) When a CLI command or (b) a chat command (a) that changes something finishes in the daemon, the daemon writes the log event `command.ran`. The line carries the command, the caller and the outcome, and never a secret's value. The caller is the owner, a session id or the daemon, as `CHAD_SESSION` gives it (see 15-credentials.md and 16-failures-logs-status.md). (c) Withdrawn.
@@ -157,8 +156,6 @@ First setup has to work before any daemon has run, and a repair has to work when
 Several things change what chad has loaded, and two of them running at once could swap plugins against each other. The daemon therefore runs them one at a time.
 
 - **CLI-37** (a) The daemon has one queue for everything that changes what is loaded. (b) That is `apply`, `check`, `revert`, `plugin reload`, `plugin purge`, `mcp restart`, a secret change, (a) a connection, owner (b) or timezone change, `safe on|off`, and a backup while it copies. (a) Two of them never run at once.
-- **CLI-38** Withdrawn.
-- **CLI-39** Withdrawn.
 - **CLI-40** A CLI whose command is waiting in the queue prints what it waits on. When the command ahead of it ends or is killed, the waiting one starts. In the prototype it started 14 ms after the first was killed.
 - **CLI-41** `chad status`, `chad health`, `chad db query` and `chad db check` never wait in the queue.
 - **CLI-159** `chad model`, `chad login` and `chad logout` take no place in the queue, because none of them changes what is loaded.
@@ -358,11 +355,6 @@ MCP (Model Context Protocol) servers are external tool servers listed in `mcp.js
 
 - **CLI-91** The one MCP command is `chad mcp restart`. A server is added, changed or removed by editing `mcp.json` and applying. There is no `chad mcp add`.
 - **CLI-92** `chad mcp restart` rebuilds the MCP layer, which restarts every server and not one. Nothing restarts a dropped server by itself.
-- **CLI-93** Withdrawn.
-- **CLI-94** Withdrawn.
-- **CLI-174** Withdrawn.
-- **CLI-175** Withdrawn.
-- **CLI-176** Withdrawn.
 
 ### Secrets
 
@@ -377,9 +369,6 @@ A secret is a named value in `secrets/secrets.json`, mode 0600, outside the repo
 - **CLI-101** `chad secret list` prints each secret's name, note and date, and takes `--json`. `chad secret rm <NAME>` deletes a secret.
 - **CLI-102** With the daemon running, `set` and `rm` reload the plugins whose settings name that secret and rebuild the MCP layer if `mcp.json` names it, and print what they reloaded. A plugin that fails to load with the new value keeps its old version, the command exits 1 and names the plugin and the error, and the secret stays stored.
 - **CLI-103** `chad secret run --env VAR=NAME [--stdin NAME] -- <command>` runs the command with the named secrets in its environment, or one secret on its stdin. The CLI reads `secrets/secrets.json` itself, with or without a daemon. A name that does not exist exits 125 with the message on stderr, and so does a usage error of `run` itself. A command that is not found exits 127, and one that is found and cannot be executed exits 126. Otherwise the child's own exit code passes through (see 15-credentials.md).
-- **CLI-104** Withdrawn.
-- **CLI-105** Withdrawn.
-- **CLI-177** Withdrawn.
 
 ### Model and login
 
@@ -514,7 +503,6 @@ A few commands can be typed in chat. They are plain text that chad matches after
 
 - **CLI-138** The chat commands are (a) `/new`, `/stop`, (b) `/safe [on|off]`, (c) `/model [<spec>]` and (a) `/status`. (d) Withdrawn. `/new` and `/stop` are in 03-sessions-and-turns.md.
 - **CLI-139** `/safe`, `/model` and `/status` run the same daemon calls as `chad safe`, `chad model` and `chad status` and print the same text.
-- **CLI-140** Withdrawn.
 - **CLI-149** `/status` renders with no database and no model. It answers when the database cannot be used and when the model is down, which is when the owner has little else to go on in chat (see 16-failures-logs-status.md).
 - **CLI-141** (a) No other CLI command has a chat form. There is no `/revert`, `/login`, `/logout` or `/logs`. (b) The route from a phone after a bad change is `/safe on`, then asking chad to revert or fix it.
 - **CLI-203** How chad matches a chat command, what trailing text does and what a command does in a plain channel with no session are in 03-sessions-and-turns.md.
@@ -578,7 +566,6 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-15 | TIM-542 item 3, TIM-550 item 7 | Tim; the no-retry rule Architect (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-16 | TIM-542 item 6, TIM-550 item 1 | Tim | run |  | `fact` | `cli` |
 | CLI-17 | TIM-550 item 13, TIM-559 round 2 R4 for the event name, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `cli` |
-| CLI-18 | TIM-550 comment "Changed by TIM-546", withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CLI-19 | TIM-550 item 10, amended by TIM-559 ruling on CLI-G21 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
 | CLI-20 | TIM-546 item 21, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | CLI-21 | TIM-550 item 5 | Architect (Tim has not read) | run | TIM-550 | `rule` | `cli` |
@@ -598,8 +585,6 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-35 | TIM-536 items 1 and 2 | Tim | not run |  | `rule` | `cli` |
 | CLI-36 | TIM-535 CLI section, TIM-544 "What ran" | Tim | run |  | `rule` | `cli` |
 | CLI-37 | TIM-542 item 4, TIM-547 item 1, TIM-559 ruling on CLI-G6 | Tim; `safe on`, `safe off` and `plugin purge` in the queue Architect (Tim has not read) | run |  | `rule` | `cli` |
-| CLI-38 | TIM-537 comment "From TIM-542", amended by TIM-559 ruling on CLI-G7 and MCP-G6, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the place taken only for the rebuild Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
-| CLI-39 | TIM-546 item 9, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CLI-40 | TIM-542 item 4, TIM-550 item 1 | Tim | run |  | `rule` | `apply` |
 | CLI-41 | TIM-542 items 20 and 21 | Tim | not run |  | `rule` | `apply` |
 | CLI-42 | TIM-542 item 6, TIM-559 cold read, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | `cli` |
@@ -653,8 +638,6 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-90 | TIM-542 item 12, TIM-548 item 7, TIM-559 round 3 C7 | Tim; the off plugin and the pointer to the bundled plugin's rule Architect (Tim has not read) | not run | TIM-548 | `rule` | `settings` |
 | CLI-91 | TIM-542 item 13, TIM-537 item 5, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | `skills-mcp` |
 | CLI-92 | TIM-537 item 6, TIM-549 round 1 corrections, TIM-555 rule 1 | Tim | run |  | `rule` | `skills-mcp` |
-| CLI-93 | TIM-542 item 13, TIM-537 items 10 and 11, TIM-559 ruling on MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the new login for a server that holds a token Architect (Tim has not read) | not run |  | `rule` | - |
-| CLI-94 | TIM-537 item 11, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | - |
 | CLI-95 | TIM-542 item 14 | Tim | not run |  | `rule` | `settings` |
 | CLI-96 | TIM-542 item 15, amended by TIM-548 | Tim; the file name `chad.json` Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | CLI-97 | TIM-542 item 14, TIM-546 item 2, TIM-554 items 1 and 2, TIM-558 item 48, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim; the check Architect (Tim has not read) | run; the check not run | TIM-546 | `rule` | `settings` |
@@ -664,8 +647,6 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-101 | TIM-542 item 14, TIM-546 item 5, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim; kind, note and date Architect (Tim has not read) | not run | TIM-546 | `rule` | `settings` |
 | CLI-102 | TIM-542 item 14, TIM-547 item 14, TIM-555 rule 1 | Tim; the kept old version and `chad status` mark Architect (Tim has not read) | run |  | `rule` | `settings` |
 | CLI-103 | TIM-546 item 7, amended by TIM-559 ruling on CRED-G11 | Architect (Tim has not read) | run |  | `rule` | `settings` |
-| CLI-104 | TIM-546 item 8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
-| CLI-105 | TIM-546 items 9, 11, 12 and 13, TIM-554 item 8, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | - |
 | CLI-106 | TIM-535 "The model setting", TIM-536 item 2, TIM-559 cold read | Tim | not run |  | `rule` | `models` |
 | CLI-107 | TIM-535 "The model setting" | Tim | not run |  | `rule` | `models` |
 | CLI-108 | TIM-535 "The model setting", TIM-544 comment "From TIM-542" | Tim | not run |  | `rule` | `models` |
@@ -700,7 +681,6 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-137 | TIM-542 items 15 and 23 as changed by TIM-557 item 11, TIM-540 item 18 as changed, TIM-549 item 23, TIM-557 items 26 and 43 | Tim; no `chad turns` and the `diagnose` skill Architect (Tim has not read) | not run | TIM-557 | `rule` | `cli` |
 | CLI-138 | TIM-532 item 6, TIM-542 item 22, TIM-546 item 15, TIM-559 ruling on REC-G11, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim; `/secret` and `/safe` with no argument Architect (Tim has not read) | not run | TIM-546 | `rule` | `turns` |
 | CLI-139 | TIM-542 item 22 | Tim | not run |  | `rule` | `apply` |
-| CLI-140 | TIM-546 item 15, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CLI-141 | TIM-542 item 22, TIM-534 item 9, TIM-535 Login section, TIM-557 item 11 | Tim; no `/logs` Architect (Tim has not read) | not run |  | `rule` | `turns` |
 | CLI-142 | TIM-550 item 12 | Architect (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-143 | TIM-550 item 12, TIM-553 "What ran" | Architect (Tim has not read) | run |  | `rule` | `cli` |
@@ -734,10 +714,6 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-171 | TIM-559 ruling on REC-G19 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `apply` |
 | CLI-172 | TIM-559 ruling on SET-G9 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | CLI-173 | TIM-559 ruling on CRON-G19, TIM-559 round 3 C7 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `timers-cron` |
-| CLI-174 | TIM-559 ruling on CLI-G13 and MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CLI-175 | TIM-559 ruling on CLI-G13 and MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CLI-176 | TIM-559 ruling on CLI-G13 and MCP-G5, withdrawn by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CLI-177 | TIM-559 ruling on CLI-G14, withdrawn by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | CLI-178 | TIM-559 ruling on CLI-G8 and MOD-G7 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | CLI-179 | TIM-559 ruling on CLI-G8 | Architect (Tim has not read) | not run |  | `rule` | `models` |
 | CLI-180 | TIM-559 ruling on MOD-G13 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `models` |
@@ -799,3 +775,7 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-236 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-237 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-238 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+CLI-18, CLI-38, CLI-39, CLI-93, CLI-94, CLI-104, CLI-105, CLI-140, CLI-174, CLI-175, CLI-176, CLI-177.
