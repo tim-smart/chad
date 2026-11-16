@@ -5,6 +5,7 @@ import {
   DateTime,
   Deferred,
   Effect,
+  Exit,
   Layer,
   Option,
   PrimaryKey,
@@ -247,11 +248,21 @@ export const make = Effect.gen(function* () {
 export type Timers = Effect.Success<typeof make>
 
 /**
- * The ends of the scheduled runs a `Timer` handler of this process waits for, by the run's turn key. The `TimerRuns`
- * handler gives each run's end here as well as in its reply, so a reply that cannot be saved does not stop the chain
- * (CRON-84).
+ * The ends of the scheduled runs of this process, by the run's turn key. The `TimerRuns` handler gives each run's end
+ * here as well as in its reply, so a reply that cannot be saved does not stop the chain (CRON-84). Either side makes
+ * the entry: the wake-up's handler when it starts, or the run's handler when the run ends first, as a run replayed
+ * after a restart can while its wake-up is held. The wake-up's handler removes it on every exit.
  */
 type Ends = Map<string, Deferred.Deferred<Outcome>>
+
+/** The end of a run, made when neither side has asked for it yet. */
+const endOf = (ends: Ends, key: string) => {
+  const found = ends.get(key)
+  if (found !== undefined) return found
+  const end = Deferred.makeUnsafe<Outcome>()
+  ends.set(key, end)
+  return end
+}
 
 /** Whether a wake-up's run is still wanted: the row is there and names that run. */
 const wantedAt =
@@ -289,9 +300,12 @@ const timerLayer = (ends: Ends) =>
       const runs = yield* TimerRuns.client
       const scope = yield* Effect.scope
       return Timer.of({
-        fire: ({ payload }) =>
-          Effect.gen(function* () {
-            const { plugin, name, at } = payload
+        fire: ({ payload }) => {
+          const { plugin, name, at } = payload
+          const key = turnKey(plugin, name, at)
+          return Effect.gen(function* () {
+            // The end is asked for before any wait, so a run that ends during the hold is not missed.
+            const end = endOf(ends, key)
             const wanted = wantedAt(at)
             const row = yield* read(plugin, name)
             if (!wanted(row)) return
@@ -306,9 +320,6 @@ const timerLayer = (ends: Ends) =>
             // The run waits its place among the timer's runs (API-137). Its end comes from the reply or, when the reply
             // cannot be saved, from the handler in this process. The call is left to finish, since interrupting it would
             // interrupt the request.
-            const key = turnKey(plugin, name, at)
-            const end = Deferred.makeUnsafe<Outcome>()
-            ends.set(key, end)
             yield* runs(entityId(plugin, name))
               .run(
                 new Queued({
@@ -333,7 +344,6 @@ const timerLayer = (ends: Ends) =>
             // A run that dies is logged and not run again, and the chain goes on, so one bad run never ends a recurring
             // timer (FAIL-71).
             yield* Deferred.await(end).pipe(
-              Effect.ensuring(Effect.sync(() => ends.delete(key))),
               Effect.catchCause((cause) =>
                 Cause.hasInterruptsOnly(cause)
                   ? Effect.failCause(cause)
@@ -368,7 +378,11 @@ const timerLayer = (ends: Ends) =>
                 )
               }),
             )
-          }).pipe(Effect.orDie),
+          }).pipe(
+            Effect.ensuring(Effect.sync(() => ends.delete(key))),
+            Effect.orDie,
+          )
+        },
       })
     }),
     // A defect fails that one request, and the entity carries on (SES-20).
@@ -425,12 +439,24 @@ const runsLayer = (ends: Ends) =>
         run: ({ payload }) =>
           admit(payload).pipe(
             Effect.orDie,
-            Effect.onExit((exit) =>
-              Effect.sync(() => {
-                const end = ends.get(payload.key)
-                if (end !== undefined) Deferred.doneUnsafe(end, exit)
-              }),
-            ),
+            Effect.onExit((exit) => {
+              const at = payload.scheduledAt
+              if (at === undefined) return Effect.void
+              const waiting = ends.get(payload.key)
+              if (waiting !== undefined) return Deferred.done(waiting, exit)
+              // An interrupted run is delivered again, so it has no end to keep.
+              if (Exit.hasInterrupts(exit)) return Effect.void
+              // No wake-up waits yet. While the row still names this run its wake-up is not processed and will come,
+              // so the end is kept for it; otherwise nothing will ask and nothing is kept.
+              return read(payload.plugin, payload.name).pipe(
+                Effect.flatMap((row) =>
+                  wantedAt(at)(row)
+                    ? Deferred.done(endOf(ends, payload.key), exit)
+                    : Effect.void,
+                ),
+                Effect.ignore,
+              )
+            }),
           ),
       })
     }),

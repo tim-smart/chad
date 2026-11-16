@@ -5,7 +5,8 @@ import { join } from "node:path"
 import { ChatThread } from "effect/chat"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
-import { applied } from "../support/applied.ts"
+import { applied, write } from "../support/applied.ts"
+import { execute } from "../support/database.ts"
 import { runs } from "../support/model.ts"
 import { eventually, posted, prompted, rows, says } from "../support/owner.ts"
 import { daemon } from "../support/process.ts"
@@ -73,7 +74,7 @@ export default Plugin.make(
 )
 `
 
-test("CRON-27 CRON-28 CRON-29 a recurring timer killed in the middle of its turn resumes that scheduled run as the same turn after the restart, and the chain then goes on with one turn per later time", async () => {
+test("CRON-27 CRON-28 CRON-29 CRON-30 CRON-84 a recurring timer killed in the middle of its turn while its plugin goes off resumes that scheduled run as the same turn after the restart, holds the next run until the plugin is on, and the chain then goes on with one turn per later time when none of its runs' replies can be saved", async () => {
   const running = await daemon()
   const { fakes } = running
   const thread = await fakes.chat.makeThread("direct")
@@ -87,18 +88,46 @@ test("CRON-27 CRON-28 CRON-29 a recurring timer killed in the middle of its turn
       running,
       "SELECT request_key, turn_id, starts, outcome FROM turns WHERE request_key LIKE 'timer/chain/tick/%' ORDER BY started_at",
     )
+  const apply = async (plugins: object, message: string) => {
+    write(join(running.data, "repo/work"), {
+      "chad.json": JSON.stringify({ plugins }),
+    })
+    expect((await running.chad(["apply", "-m", message])).code).toBe(0)
+  }
   const first = await running.start()
   await fakes.model.received(1)
   const [cut] = ticks()
   expect(cut).toMatchObject({ starts: 1, outcome: null })
+  // The plugin goes off during the turn, and no reply of the timer's runs can be saved from here on.
+  await apply({ chain: { enabled: false } }, "Turn chain off")
+  const replies =
+    "SELECT id FROM cluster_messages WHERE entity_type = 'TimerRuns' AND entity_id = 'chain/tick'"
+  execute(
+    running.data,
+    `CREATE TRIGGER noreply BEFORE INSERT ON cluster_replies WHEN NEW.request_id IN (${replies}) BEGIN SELECT RAISE(ABORT, 'database or disk is full'); END`,
+  )
   expect((await first.kill()).signal).toBe("SIGKILL")
 
+  // The cut turn was admitted to its session, so it resumes with the plugin off, while the next run is held.
   const second = await running.start()
+  await eventually(
+    () => ticks(),
+    ([resumed]) => resumed?.["outcome"] === "answered",
+  )
+  await running.logged("timer.held")
+  expect(ticks()).toHaveLength(1)
+  await apply({}, "Turn chain on")
   await eventually(
     () => ticks().filter((row) => row["outcome"] === "answered"),
     (answered) => answered.length >= 3,
   )
   await second.stop()
+  expect(
+    rows(
+      running,
+      `SELECT 1 FROM cluster_replies WHERE request_id IN (${replies})`,
+    ),
+  ).toEqual([])
   const calls = await fakes.model.calls()
   // The first call after the restart resumes the cut turn (CRON-28).
   expect(prompted(calls[1])).toBe(Messages.restartNote())
