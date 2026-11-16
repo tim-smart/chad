@@ -196,6 +196,7 @@ A boot checks less than an apply. A new image can drop or rename a bundled plugi
 - **SET-97** At a boot outside safe mode, a plugin's entry whose `enabled` value is not a boolean is ignored as a whole, with its `settings` key, in the same way as the entry of SET-91. The plugin gets what a plugin with no entry gets (SET-4), and the rest of the file is used. The entry is listed in the notice of SET-58. SET-86 covers the same entry in safe mode.
 - **SET-60** At a boot, a plugin whose settings fail its load, through a missing key or a name that resolves nowhere, is skipped. The other plugins load, and one notice lists every plugin skipped at that boot, each with the first line of its error (see 16-failures-logs-status.md).
 - **SET-61** When a new image ships a bundled plugin whose name a repo plugin already uses, the bundled one loads and the repo one is skipped. The notice says the two share one key-value table and that renaming the repo plugin does not move its data.
+- **SET-98** At a boot, a `chad.json` that parses as JSON but whose top level is not an object counts as a file that cannot be parsed (SET-57). Its notice says the file is not a JSON object.
 - **SET-77** While the applied `chad.json` cannot be parsed, `chad status` lists it under "Problems" (see 16-failures-logs-status.md).
 
 ## When a settings change reloads a plugin
@@ -219,6 +220,8 @@ The CLI cannot list a plugin's settings without loading it, because a plugin dec
 - **SET-71** The listing shows key names and where each value came from, which is one of the file, a default, a `${NAME}` from the secret store, a `${NAME}` from process env, or the inline default of a `${NAME:-default}`.
 - **SET-93** For a string that mixes literal text with one or more names, the listing shows each name with its own source.
 - **SET-72** The listing never shows a value.
+- **SET-99** `chad check` and `chad apply` print one line per plugin that read a key while loading, as `Settings asphodel read while loading: url (chad.json, ${HOST} from process env), token (${TOKEN} from the secret store), verbose (default).`, and one warning line per key that was not read, which names the key as `plugins.<name>.settings.<path>`. `chad status` prints the same keys on a `settings:` line under the plugin's line, followed by `read at call time:` and the keys read since the load. An array is one key, named by its path.
+- **SET-100** `chad status` lists a plugin that the applied `chad.json` turns off as `plugin: <name>, off`, and `chad status --json` carries the names of those plugins in `off`.
 - **SET-73** `chad status` is the one place a bundled plugin's settings can be seen, and the bundled `self-edit` skill points the agent there.
 - **SET-74** The file `chad plugin new` writes carries a comment block that lists the plugin's settings. The block is a convention. The starter has one setting with a default.
 - **SET-75** The bundled `self-edit` skill teaches the file's shape, the empty string rule, `CHAD_DOLLAR`, the effect of `"enabled": false` on timers and data, and where a bundled plugin's settings can be seen (see 14-self-edit-skill.md).
@@ -335,6 +338,9 @@ const greeting = yield* Config.String("greeting").pipe(Config.withDefault("Hello
 | SET-95 | TIM-559 ruling on CRON-G19; TIM-559 round 3 C7 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `settings` |
 | SET-96 | TIM-559 round 3 C7 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `timers-cron` |
 | SET-97 | TIM-559 round 3 L2; TIM-559 round 4 item 6 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
+| SET-98 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| SET-99 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| SET-100 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 
