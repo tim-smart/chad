@@ -126,9 +126,9 @@ export class Turns extends Context.Service<
      * the turn ends, so two runs of one timer never overlap.
      *
      * A cron expression follows the daylight saving behaviour of Effect's
-     * `Cron`. A time inside a skipped hour runs once, at the first instant
-     * after the gap. A time inside a repeated hour runs once, on the first
-     * occurrence.
+     * `Cron`. A time inside a skipped hour runs once, moved on by the length
+     * of the gap, so 02:30 on a night that skips 02:00 to 03:00 runs at 03:30.
+     * A time inside a repeated hour runs once, on the first occurrence.
      *
      * The prompt has to say what started the turn and that nobody is there to
      * answer questions, as for `start`.

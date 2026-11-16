@@ -1206,7 +1206,9 @@ export const purgeNothing = (name: string) => `Nothing is stored for ${name}.`
 
 /** What `chad plugin purge` prints once it dropped the plugin's table (CLI-247). */
 export const purged = (name: string, keys: number, timers = 0) =>
-  `Purged ${name}: its key-value table and its ${keys} ${keys === 1 ? "key" : "keys"} are deleted${timers === 0 ? "" : `, and its ${timersCount(timers)}`}.`
+  timers === 0
+    ? `Purged ${name}: its key-value table and its ${keys} ${keys === 1 ? "key" : "keys"} are deleted.`
+    : `Purged ${name}: its key-value table, its ${keys} ${keys === 1 ? "key" : "keys"} and its ${timersCount(timers)} are deleted.`
 
 /** A purge of a plugin that had timers and no table (CRON-35). */
 export const purgedTimers = (name: string, timers: number) =>

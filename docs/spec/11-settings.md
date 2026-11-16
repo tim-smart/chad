@@ -150,6 +150,7 @@ v1 has no command that turns a plugin off, so the switch is a setting in the fil
 - **SET-41** `chad status` lists an off plugin as "off" with its count of held timers.
 - **SET-42** Turning a plugin back on fires each overdue held timer once, however many runs were missed.
 - **SET-43** The output of the apply that turns a plugin back on says how many held timers will fire.
+- **SET-101** The held-timer lines read as follows. In `chad status`, an off plugin's line is "plugin: <name>, off, <n> timers held", a plugin deleted from the repo that still has timers is "plugin: <name>, deleted from the repo, <n> timers held (chad plugin purge <name> deletes them)", and the "Problems" line of any other plugin that is not loaded is "<n> timers held for plugin <name>, which is not loaded". In `chad apply`, a plugin the apply loads with overdue held timers gets "<name>: <n> overdue held timers fire once now.", and one the apply unloads with timers gets "<name>: its <n> timers are kept and held until it loads again. chad plugin purge <name> deletes them." This settles the held-timer part of SET-G1.
 - **SET-82** A running turn's call to a tool of a plugin that an apply turned off with `"enabled": false` is answered like a call to a tool that an apply removed. The rule and the exact text of the message are in 08-apply-and-swap.md.
 - **SET-83** `chad plugin reload <name>` refuses a plugin that is off. It exits 1 and says the plugin is off in `chad.json`, because loading it would run something the applied file says is off.
 - **SET-84** The timers held for a plugin that is off are not listed under "Problems" in `chad status`. They show only on the plugin's "off" line, because the owner turned the plugin off on purpose and "Problems" is the list of what is wrong (see 16-failures-logs-status.md).
@@ -341,6 +342,7 @@ const greeting = yield* Config.String("greeting").pipe(Config.withDefault("Hello
 | SET-98 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 | SET-99 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 | SET-100 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| SET-101 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

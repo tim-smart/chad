@@ -257,6 +257,9 @@ const report = (state: State): Effect.Effect<Report> =>
       const unloaded = timers.filter(({ plugin }) => !loaded.has(plugin))
       const problem = ({ plugin }: { readonly plugin: string }) =>
         !off.has(plugin) && (skipped.has(plugin) || safe)
+      const shown = unloaded
+        .filter((entry) => !problem(entry))
+        .map(({ plugin, count }) => ({ plugin, count }))
       return {
         version: Version.version,
         effect: Version.effect() ?? "unknown",
@@ -286,9 +289,7 @@ const report = (state: State): Effect.Effect<Report> =>
             settings,
           })),
         off: state.off(),
-        held: unloaded
-          .filter((entry) => !problem(entry))
-          .map(({ plugin, count }) => ({ plugin, count })),
+        ...(shown.length === 0 ? {} : { held: shown }),
         skipped: state.skipped(),
         hiding: state.hiding(),
         ...(mcp.length === 0 ? {} : { mcp }),

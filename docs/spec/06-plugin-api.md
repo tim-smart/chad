@@ -257,7 +257,7 @@ A timer is a scheduled run that chad's core holds for a plugin. The table and th
 - **API-84** `Turns.schedule` takes a timer `name`, either `at` with one time or `cron` with a 5-field cron expression and a `timezone`, and the same `thread`, `prompt`, `label` and optional `mention` as `Turns.start`.
 - **API-121** Every time in the `Turns` API is a `DateTime.Utc`, which covers `at` in `Turns.schedule`, `Timer.nextRun` and `Origin.timer.scheduledAt`. `timezone` is an IANA timezone name, as a string.
 - **API-122** `Timer` has the fields `name`, `schedule`, `thread`, `prompt`, `label`, the optional `mention` and `nextRun`. They mirror the timer's row in the `timers` table, which is in 13-timers-and-cron.md, without the plugin's name.
-- **API-123** A cron expression passed to `Turns.schedule` follows the daylight saving behaviour of Effect's `Cron`, and chad adds no policy of its own. A time inside a skipped hour runs once, at the first instant after the gap. A time inside a repeated hour runs once, on the first occurrence, so an hourly timer misses one real hour each autumn.
+- **API-123** A cron expression passed to `Turns.schedule` follows the daylight saving behaviour of Effect's `Cron`, and chad adds no policy of its own. A time inside a skipped hour runs once, moved on by the length of the gap, so 02:30 on a night that skips 02:00 to 03:00 runs at 03:30. A time inside a repeated hour runs once, on the first occurrence, so an hourly timer misses one real hour each autumn.
 - **API-124** The doc comment of `Turns.schedule` states the daylight saving behaviour of API-123.
 - **API-85** Timer names are scoped to the plugin. Scheduling under a name that already has a run replaces it.
 - **API-86** The core holds the schedule and starts the turn. For a scheduled run the core derives the turn's key from the plugin, the timer name and the scheduled time, so one scheduled time starts one turn. The plugin passes no key.
@@ -769,9 +769,9 @@ declare const Turns_base: Context.ServiceClass<
      * the turn ends, so two runs of one timer never overlap.
      *
      * A cron expression follows the daylight saving behaviour of Effect's
-     * `Cron`. A time inside a skipped hour runs once, at the first instant
-     * after the gap. A time inside a repeated hour runs once, on the first
-     * occurrence.
+     * `Cron`. A time inside a skipped hour runs once, moved on by the length
+     * of the gap, so 02:30 on a night that skips 02:00 to 03:00 runs at 03:30.
+     * A time inside a repeated hour runs once, on the first occurrence.
      *
      * The prompt has to say what started the turn and that nobody is there to
      * answer questions, as for `start`.

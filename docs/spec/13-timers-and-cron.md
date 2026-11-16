@@ -45,6 +45,7 @@ Outcome: Answered { text } | Failed { reason: ThreadGone | ModelError | UsageLim
 - **CRON-93** `Turns.queue({ thread, prompt, label, mention? })` saves the request for a turn in the session of that thread and returns once the request is saved, without waiting for the outcome. A tool that starts a turn from its handler uses it. See 06-plugin-api.md.
 - **CRON-135** `Turns.queue`, `Turns.schedule`, `Turns.cancel` and `Turns.scheduled`, called by a version of a plugin that is not active yet, wait for the activation, as `Turns.start` does. A call made while the plugin's Layer builds waits on an activation that itself waits on the build, so the build's deadline ends the call with an error that names `Plugin.background`. Cron makes its `Turns` calls from a `Plugin.background` fiber and from its tools, and never in its build (see CRON-131). The rule is in 06-plugin-api.md.
 - **CRON-136** `Turns.schedule` and `Turns.cancel` are declared with no error type, like `Turns.start` and `Turns.queue`. A call that fails, as when the timer cannot be saved on a full disk, fails with a defect whose message is a text written for the model. When that happens inside one of cron's tools, clanka returns the text to the script that called the tool. The texts are rules, and they are in 06-plugin-api.md.
+- **CRON-139** `Turns.schedule` takes any cron expression that Effect's `Cron` parses, a 6-field one with seconds first included. A cron expression or a timezone that `Cron` cannot parse fails the call with a defect that reads "Nothing was changed, because the schedule is not valid: <reason>", and nothing is stored. A change that cannot be saved reads "Nothing was changed, because chad could not save the timer: <reason>".
 
 ## The timer entity and the timers table
 
@@ -111,7 +112,7 @@ The handler is the core code that runs when a wake-up is delivered. It checks th
 - **CRON-24** For a recurring timer, the handler saves the next run itself once the turn has ended, the way `ClusterCron` does. It updates the row's next run and saves the next wake-up. Only the next run is ever stored.
 - **CRON-100** The next run of a recurring timer is the first time of its cron expression after the moment the turn ended. Scheduled times that passed during a long run or while chad was down are skipped and never fire in a burst, which matches the rule that an overdue timer fires once.
 - **CRON-101** The next run of a cron expression is computed by Effect's `Cron` with its default daylight saving behaviour. chad has no next-run code of its own.
-- **CRON-102** A scheduled time that falls inside an hour that a daylight saving change skips runs once, at the first instant after the gap.
+- **CRON-102** A scheduled time that falls inside an hour that a daylight saving change skips runs once, moved on by the length of the gap. On the night Pacific/Auckland goes from 02:00 to 03:00, a job for 02:30 runs at 03:30.
 - **CRON-103** A scheduled time that falls inside an hour that a daylight saving change repeats runs once, on the first occurrence. An hourly job therefore misses one real hour each autumn.
 - **CRON-104** The unit tests of next-run times pin real Pacific/Auckland dates around both daylight saving changes, because the source of Effect's `Cron` warns that `next` near a gap is not guaranteed to be the nearest match.
 - **CRON-25** A one-shot timer is gone once its turn has ended. It no longer appears in `Turns.scheduled()`.
@@ -412,3 +413,4 @@ The prompt wrapper is the set of lines cron puts around the owner's prompt so th
 | CRON-136 | TIM-559 round 3 API-G13 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
 | CRON-137 | TIM-559 round 3 on CRON-G21 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `timers-cron` |
 | CRON-138 | TIM-559 round 3 on CRON-G21 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `timers-cron` |
+| CRON-139 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `timers-cron` |
