@@ -1,94 +1,851 @@
 {
-  "source": "Hand-made from the Responses event schema clanka decodes, standing in until the first recording is made on Tim's Codex login (TST-43). Replace it with: node scripts/strip-recording.ts <recording.json>",
-  "opening": {
-    "headers": {
-      "authorization": "<stripped>",
-      "chatgpt-account-id": "<stripped>",
-      "session-id": "00000000-0000-4000-8000-000000000000"
-    }
-  },
-  "answer": [
-    {
-      "type": "response.created",
-      "response": {
-        "id": "resp_0",
-        "object": "response",
-        "model": "gpt-6-astra",
-        "created_at": 0,
-        "output": []
-      }
-    },
-    {
-      "type": "response.output_item.added",
-      "output_index": 0,
-      "item": {
-        "type": "message",
-        "id": "msg_0",
-        "role": "assistant",
-        "content": [],
-        "status": "in_progress"
-      }
-    },
-    {
-      "type": "response.output_text.delta",
-      "item_id": "msg_0",
-      "output_index": 0,
-      "content_index": 0,
-      "delta": "Hello"
-    },
-    {
-      "type": "response.output_item.done",
-      "output_index": 0,
-      "item": {
-        "type": "message",
-        "id": "msg_0",
-        "role": "assistant",
-        "content": [
-          {
-            "type": "output_text",
-            "text": "Hello",
-            "annotations": []
-          }
-        ],
-        "status": "completed"
-      }
-    },
-    {
-      "type": "response.completed",
-      "response": {
-        "id": "resp_0",
-        "object": "response",
-        "model": "gpt-6-astra",
-        "created_at": 0,
-        "output": [
-          {
-            "type": "message",
-            "id": "msg_0",
-            "role": "assistant",
-            "content": [
-              {
-                "type": "output_text",
-                "text": "Hello",
-                "annotations": []
-              }
-            ],
-            "status": "completed"
-          }
-        ],
-        "usage": {
-          "input_tokens": 1,
-          "output_tokens": 1,
-          "total_tokens": 2,
-          "input_tokens_details": {
-            "cached_tokens": 0
+  "source": "The two answers are recorded, once, by scripts/record-codex.ts through an OpenAI endpoint that relays the Responses API (TST-43): `answer.http` is one call over server-sent events and `answer.socket` one call over WebSocket, as a `response.create` message to /v1/responses. They are what the proxy relays, which is not shown to be what chatgpt.com/backend-api/codex sends. The usage-limit frame under `refusal` is hand-made from the error schema clanka decodes (TST-41), and so is what a new connection gets while the limit is in force, which in the fake is a socket that opens and answers `response.create` with that frame.",
+  "answer": {
+    "http": [
+      {
+        "type": "response.created",
+        "response": {
+          "id": "resp_0",
+          "object": "response",
+          "created_at": 1794796696,
+          "status": "in_progress",
+          "access_programs": {},
+          "background": false,
+          "completed_at": null,
+          "error": null,
+          "frequency_penalty": 0,
+          "image": {
+            "context_compression": "disabled"
           },
-          "output_tokens_details": {
-            "reasoning_tokens": 0
-          }
-        }
+          "incomplete_details": null,
+          "input_transformations": [],
+          "instructions": "<stripped>",
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-6-astra",
+          "moderation": null,
+          "output": [],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0,
+          "previous_response_id": null,
+          "prompt_cache_key": "<stripped>",
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "all_turns",
+            "effort": "medium",
+            "mode": "standard",
+            "summary": null
+          },
+          "safety_identifier": "<stripped>",
+          "service_tier": "auto",
+          "store": false,
+          "temperature": 1,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [
+            {
+              "type": "image_generation",
+              "background": "auto",
+              "model": "gpt-image-2-codex",
+              "moderation": "auto",
+              "n": 1,
+              "output_compression": 100,
+              "output_format": "png",
+              "quality": "auto",
+              "size": "auto"
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": null,
+          "user": null,
+          "metadata": {}
+        },
+        "sequence_number": 0
+      },
+      {
+        "type": "response.in_progress",
+        "response": {
+          "id": "resp_0",
+          "object": "response",
+          "created_at": 1794796696,
+          "status": "in_progress",
+          "access_programs": {},
+          "background": false,
+          "completed_at": null,
+          "error": null,
+          "frequency_penalty": 0,
+          "image": {
+            "context_compression": "disabled"
+          },
+          "incomplete_details": null,
+          "input_transformations": [],
+          "instructions": "<stripped>",
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-6-astra",
+          "moderation": null,
+          "output": [],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0,
+          "previous_response_id": null,
+          "prompt_cache_key": "<stripped>",
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "all_turns",
+            "effort": "medium",
+            "mode": "standard",
+            "summary": null
+          },
+          "safety_identifier": "<stripped>",
+          "service_tier": "auto",
+          "store": false,
+          "temperature": 1,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [
+            {
+              "type": "image_generation",
+              "background": "auto",
+              "model": "gpt-image-2-codex",
+              "moderation": "auto",
+              "n": 1,
+              "output_compression": 100,
+              "output_format": "png",
+              "quality": "auto",
+              "size": "auto"
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": null,
+          "user": null,
+          "metadata": {}
+        },
+        "sequence_number": 1
+      },
+      {
+        "type": "response.output_item.added",
+        "item": {
+          "id": "msg_0",
+          "type": "message",
+          "status": "in_progress",
+          "content": [],
+          "phase": "final_answer",
+          "role": "assistant"
+        },
+        "output_index": 0,
+        "sequence_number": 2
+      },
+      {
+        "type": "response.content_part.added",
+        "content_index": 0,
+        "item_id": "msg_0",
+        "output_index": 0,
+        "part": {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": ""
+        },
+        "sequence_number": 3
+      },
+      {
+        "type": "response.output_text.delta",
+        "content_index": 0,
+        "delta": "Hello",
+        "item_id": "msg_0",
+        "logprobs": [],
+        "obfuscation": "QAo5F0VLkxS",
+        "output_index": 0,
+        "sequence_number": 4
+      },
+      {
+        "type": "response.output_text.delta",
+        "content_index": 0,
+        "delta": "!",
+        "item_id": "msg_0",
+        "logprobs": [],
+        "obfuscation": "s3vZBE1Xru87XHn",
+        "output_index": 0,
+        "sequence_number": 5
+      },
+      {
+        "type": "response.output_text.done",
+        "content_index": 0,
+        "item_id": "msg_0",
+        "logprobs": [],
+        "output_index": 0,
+        "sequence_number": 7,
+        "text": "Hello!"
+      },
+      {
+        "type": "response.content_part.done",
+        "content_index": 0,
+        "item_id": "msg_0",
+        "output_index": 0,
+        "part": {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "Hello!"
+        },
+        "sequence_number": 8
+      },
+      {
+        "type": "response.output_item.done",
+        "item": {
+          "id": "msg_0",
+          "type": "message",
+          "status": "completed",
+          "content": [
+            {
+              "type": "output_text",
+              "annotations": [],
+              "logprobs": [],
+              "text": "Hello!"
+            }
+          ],
+          "phase": "final_answer",
+          "role": "assistant"
+        },
+        "output_index": 0,
+        "sequence_number": 9
+      },
+      {
+        "type": "response.completed",
+        "response": {
+          "id": "resp_0",
+          "object": "response",
+          "created_at": 1794796696,
+          "status": "completed",
+          "access_programs": {},
+          "background": false,
+          "completed_at": 1794796697,
+          "error": null,
+          "frequency_penalty": 0,
+          "image": {
+            "context_compression": "disabled"
+          },
+          "incomplete_details": null,
+          "input_transformations": [],
+          "instructions": "<stripped>",
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-6-astra",
+          "moderation": null,
+          "output": [
+            {
+              "id": "msg_0",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "Hello!"
+                }
+              ],
+              "phase": "final_answer",
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0,
+          "previous_response_id": null,
+          "prompt_cache_key": "<stripped>",
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "all_turns",
+            "effort": "medium",
+            "mode": "standard",
+            "summary": null
+          },
+          "safety_identifier": "<stripped>",
+          "service_tier": "default",
+          "store": false,
+          "temperature": 1,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [
+            {
+              "type": "image_generation",
+              "background": "auto",
+              "model": "gpt-image-2-codex",
+              "moderation": "auto",
+              "n": 1,
+              "output_compression": 100,
+              "output_format": "png",
+              "quality": "auto",
+              "size": "auto"
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": {
+            "attribution": {
+              "items": {
+                "msg_1": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "input_tokens": 7,
+                      "output_tokens": 0
+                    }
+                  ],
+                  "input_tokens": 7,
+                  "output_tokens": 0
+                },
+                "msg_0": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "input_tokens": 2,
+                      "output_tokens": 6
+                    }
+                  ],
+                  "input_tokens": 2,
+                  "output_tokens": 6
+                }
+              },
+              "request_fields": {
+                "tools": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "input_tokens": 296,
+                  "output_tokens": 0
+                },
+                "instructions": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "input_tokens": 10,
+                  "output_tokens": 0
+                }
+              }
+            },
+            "input_tokens": 315,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cache_write_tokens_details": {
+                "ttl_12h_tokens": 0,
+                "ttl_30m_tokens": 0
+              },
+              "cached_tokens": 0
+            },
+            "output_tokens": 6,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 321
+          },
+          "user": null,
+          "metadata": {}
+        },
+        "sequence_number": 10
       }
-    }
-  ],
+    ],
+    "socket": [
+      {
+        "type": "response.created",
+        "response": {
+          "id": "resp_0",
+          "object": "response",
+          "created_at": 1794796698,
+          "status": "in_progress",
+          "access_programs": {},
+          "background": false,
+          "completed_at": null,
+          "error": null,
+          "frequency_penalty": 0,
+          "image": {
+            "context_compression": "disabled"
+          },
+          "incomplete_details": null,
+          "input_transformations": [],
+          "instructions": "<stripped>",
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-6-astra",
+          "moderation": null,
+          "output": [],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0,
+          "previous_response_id": null,
+          "prompt_cache_key": "<stripped>",
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "all_turns",
+            "effort": "medium",
+            "mode": "standard",
+            "summary": null
+          },
+          "safety_identifier": "<stripped>",
+          "service_tier": "auto",
+          "store": false,
+          "temperature": 1,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [
+            {
+              "type": "image_generation",
+              "background": "auto",
+              "model": "gpt-image-2-codex",
+              "moderation": "auto",
+              "n": 1,
+              "output_compression": 100,
+              "output_format": "png",
+              "quality": "auto",
+              "size": "auto"
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": null,
+          "user": null,
+          "metadata": {}
+        },
+        "sequence_number": 0
+      },
+      {
+        "type": "response.in_progress",
+        "response": {
+          "id": "resp_0",
+          "object": "response",
+          "created_at": 1794796698,
+          "status": "in_progress",
+          "access_programs": {},
+          "background": false,
+          "completed_at": null,
+          "error": null,
+          "frequency_penalty": 0,
+          "image": {
+            "context_compression": "disabled"
+          },
+          "incomplete_details": null,
+          "input_transformations": [],
+          "instructions": "<stripped>",
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-6-astra",
+          "moderation": null,
+          "output": [],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0,
+          "previous_response_id": null,
+          "prompt_cache_key": "<stripped>",
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "all_turns",
+            "effort": "medium",
+            "mode": "standard",
+            "summary": null
+          },
+          "safety_identifier": "<stripped>",
+          "service_tier": "auto",
+          "store": false,
+          "temperature": 1,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [
+            {
+              "type": "image_generation",
+              "background": "auto",
+              "model": "gpt-image-2-codex",
+              "moderation": "auto",
+              "n": 1,
+              "output_compression": 100,
+              "output_format": "png",
+              "quality": "auto",
+              "size": "auto"
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": null,
+          "user": null,
+          "metadata": {}
+        },
+        "sequence_number": 1
+      },
+      {
+        "type": "response.output_item.added",
+        "item": {
+          "id": "msg_0",
+          "type": "message",
+          "status": "in_progress",
+          "content": [],
+          "phase": "final_answer",
+          "role": "assistant"
+        },
+        "output_index": 0,
+        "sequence_number": 2
+      },
+      {
+        "type": "response.content_part.added",
+        "content_index": 0,
+        "item_id": "msg_0",
+        "output_index": 0,
+        "part": {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": ""
+        },
+        "sequence_number": 3
+      },
+      {
+        "type": "response.output_text.delta",
+        "content_index": 0,
+        "delta": "Hello",
+        "item_id": "msg_0",
+        "logprobs": [],
+        "obfuscation": "ETzGcw9CRhX",
+        "output_index": 0,
+        "sequence_number": 4
+      },
+      {
+        "type": "response.output_text.delta",
+        "content_index": 0,
+        "delta": "!",
+        "item_id": "msg_0",
+        "logprobs": [],
+        "obfuscation": "aDPd7EXbqtNUUZN",
+        "output_index": 0,
+        "sequence_number": 5
+      },
+      {
+        "type": "response.output_text.done",
+        "content_index": 0,
+        "item_id": "msg_0",
+        "logprobs": [],
+        "output_index": 0,
+        "sequence_number": 7,
+        "text": "Hello!"
+      },
+      {
+        "type": "response.content_part.done",
+        "content_index": 0,
+        "item_id": "msg_0",
+        "output_index": 0,
+        "part": {
+          "type": "output_text",
+          "annotations": [],
+          "logprobs": [],
+          "text": "Hello!"
+        },
+        "sequence_number": 8
+      },
+      {
+        "type": "response.output_item.done",
+        "item": {
+          "id": "msg_0",
+          "type": "message",
+          "status": "completed",
+          "content": [
+            {
+              "type": "output_text",
+              "annotations": [],
+              "logprobs": [],
+              "text": "Hello!"
+            }
+          ],
+          "phase": "final_answer",
+          "role": "assistant"
+        },
+        "output_index": 0,
+        "sequence_number": 9
+      },
+      {
+        "type": "response.completed",
+        "response": {
+          "id": "resp_0",
+          "object": "response",
+          "created_at": 1794796698,
+          "status": "completed",
+          "access_programs": {},
+          "background": false,
+          "completed_at": 1794796699,
+          "error": null,
+          "frequency_penalty": 0,
+          "image": {
+            "context_compression": "disabled"
+          },
+          "incomplete_details": null,
+          "input_transformations": [],
+          "instructions": "<stripped>",
+          "max_output_tokens": null,
+          "max_tool_calls": null,
+          "model": "gpt-6-astra",
+          "moderation": null,
+          "output": [
+            {
+              "id": "msg_0",
+              "type": "message",
+              "status": "completed",
+              "content": [
+                {
+                  "type": "output_text",
+                  "annotations": [],
+                  "logprobs": [],
+                  "text": "Hello!"
+                }
+              ],
+              "phase": "final_answer",
+              "role": "assistant"
+            }
+          ],
+          "parallel_tool_calls": true,
+          "presence_penalty": 0,
+          "previous_response_id": null,
+          "prompt_cache_key": "<stripped>",
+          "prompt_cache_retention": "24h",
+          "reasoning": {
+            "context": "all_turns",
+            "effort": "medium",
+            "mode": "standard",
+            "summary": null
+          },
+          "safety_identifier": "<stripped>",
+          "service_tier": "default",
+          "store": false,
+          "temperature": 1,
+          "text": {
+            "format": {
+              "type": "text"
+            },
+            "verbosity": "medium"
+          },
+          "tool_choice": "auto",
+          "tool_usage": {
+            "image_gen": {
+              "input_tokens": 0,
+              "input_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "output_tokens": 0,
+              "output_tokens_details": {
+                "image_tokens": 0,
+                "text_tokens": 0
+              },
+              "total_tokens": 0
+            },
+            "web_search": {
+              "num_requests": 0
+            }
+          },
+          "tools": [
+            {
+              "type": "image_generation",
+              "background": "auto",
+              "model": "gpt-image-2-codex",
+              "moderation": "auto",
+              "n": 1,
+              "output_compression": 100,
+              "output_format": "png",
+              "quality": "auto",
+              "size": "auto"
+            }
+          ],
+          "top_logprobs": 0,
+          "top_p": 0.98,
+          "truncation": "disabled",
+          "usage": {
+            "attribution": {
+              "items": {
+                "msg_1": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "input_tokens": 7,
+                      "output_tokens": 0
+                    }
+                  ],
+                  "input_tokens": 7,
+                  "output_tokens": 0
+                },
+                "msg_0": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "content": [
+                    {
+                      "cache_write_tokens": 0,
+                      "cached_tokens": 0,
+                      "input_tokens": 2,
+                      "output_tokens": 6
+                    }
+                  ],
+                  "input_tokens": 2,
+                  "output_tokens": 6
+                }
+              },
+              "request_fields": {
+                "tools": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "input_tokens": 296,
+                  "output_tokens": 0
+                },
+                "instructions": {
+                  "cache_write_tokens": 0,
+                  "cached_tokens": 0,
+                  "input_tokens": 10,
+                  "output_tokens": 0
+                }
+              }
+            },
+            "input_tokens": 315,
+            "input_tokens_details": {
+              "cache_write_tokens": 0,
+              "cache_write_tokens_details": {
+                "ttl_12h_tokens": 0,
+                "ttl_30m_tokens": 0
+              },
+              "cached_tokens": 0
+            },
+            "output_tokens": 6,
+            "output_tokens_details": {
+              "reasoning_tokens": 0
+            },
+            "total_tokens": 321
+          },
+          "user": null,
+          "metadata": {}
+        },
+        "sequence_number": 10
+      }
+    ]
+  },
   "refusal": {
     "type": "error",
     "status": 429,

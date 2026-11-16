@@ -143,17 +143,17 @@ The product carries no test code. Three seams make that possible. The daemon is 
 | Compaction | Codex rejects `max_output_tokens`, so the summarizer runs with no output cap there |
 
 - **TST-40** The fake's Codex side refuses what Codex is known to refuse, which is `max_output_tokens`, an expired token and a model that is not accepted. A fake that accepted everything would pass requests the real service rejects.
-- **TST-41** The frames of the fake's Codex side come from a recording kept in the repository, with tokens and the account id stripped.
-- **TST-42** Each live Codex run records again and compares the shapes of the two recordings, which means event types and keys and not values. A difference fails that live item.
-- **TST-43** If the archive of the Codex login prototype does not hold the server's frames, the first recording is made on Tim's login, in the `models` slice, when the fake's Codex side is written.
-- **TST-216** The recording of TST-43 is made with `scripts/record-codex.ts`, which Tim runs once on his own Codex login (TST-165) and which no test or job runs on a real login. It logs in by the device flow into a token store held in memory, drives the Codex model as chad builds it through the flows of TST-39 that reach the Codex side and the refusals of TST-40, and records each HTTP exchange and each socket frame. The flows are the login and a refresh, an answer over the socket and over HTTP, a tool call and the call that carries its result, a stop during a streaming response, and the socket idling out and reconnecting. It writes the recording only through the stripper of TST-41, and writes nothing when a token, the account id or a code of the login that it saw is still in the result. A usage limit cannot be provoked on demand, so the recording lists it as missing until a second run, made while the login is at its limit, adds its frame. A test runs the recorder on the fake's Codex side with the fake's credentials. The builder then replaces the hand-made frames with the recording and runs the comparison, and the slice does not wait for that. This settles TST-G22.
+- **TST-41** The frames of the fake's Codex side come from a recording kept in the repository, with tokens and the account id stripped. The usage-limit frame is the exception. Nobody has recorded one, so the fake's is written by hand from the error schema clanka decodes.
+- **TST-42** Withdrawn.
+- **TST-43** If the archive of the Codex login prototype does not hold the server's frames, the builder makes the first recording in the `models` slice, when the fake's Codex side is written, through the OpenAI endpoint and key of the builder's own environment. The recording is made once, by hand, and no test and no job on the gate reads that key.
+- **TST-216** Withdrawn.
 - **TST-44** The image layer stays on `openai-compat`. The shipped binary cannot be pointed at a fake Codex host, and chad gets no test certificate authority and no host entries to make that possible.
 - **TST-45** A kill point is made by holding something outside the core, which is a model response, a fixture plugin's hook or an MCP server. The daemon gets no pause points.
 - **TST-213** Withdrawn.
 - **TST-46** Layers 3 and 4 import the built package from `dist`, not chad's source through vite. A plugin's imports are answered by the host's `require`, so source loaded through vite could give a plugin a second copy of `chad/Plugin`.
 - **TST-47** One layer 3 scenario asserts that the running daemon holds one copy of `chad` and one copy of `effect`.
 
-The extracted archive of the Codex login prototype holds turn logs and token counts. No server event name appears in any of its logs, so TST-43 applies as far as the archive shows. The fake's Codex side can drift from the real service because it is written from a recording, and TST-42 is what catches the drift.
+The extracted archive of the Codex login prototype holds turn logs and token counts. No server event name appears in any of its logs, so TST-43 applies as far as the archive shows. The recording is what the proxy behind that endpoint relays, which is not shown to be what `chatgpt.com/backend-api/codex` sends to chad directly. Nothing compares the fake with the real service after the first recording. A difference shows up as a failed turn on Tim's server, and `chad logs` holds the frame.
 
 ## The local adapter and the local platform
 
@@ -404,7 +404,7 @@ The image prototype measured `chad health` at 117 ms, the socket listening 0.8 s
 
 ## The live layer
 
-The live layer has two lists, the hand checks and the Codex list. Tim runs each once, in the `live` slice of stage 5, and nothing is run before a release. No job talks to a real Discord, and no job reads a secret.
+The live layer is the hand checks and the Codex check. Tim does the hand checks once, in the `live` slice of stage 5, and the Codex check once on his own server, at any time from the first usable build on. Nothing is run before a release. No job talks to a real Discord, and no job reads a secret.
 
 - **TST-139** Withdrawn.
 - **TST-140** Withdrawn.
@@ -423,19 +423,12 @@ The live layer has two lists, the hand checks and the Codex list. Tim runs each 
 
 ### The Codex list
 
-- **TST-145** The Codex list runs by hand on Tim's login, on a scratch volume that holds the login, once, at the end of the build. Tim's part is approving one device code per run, and a script does the rest. No Codex token is kept in CI secrets, because a refresh token stored there goes stale when it rotates.
-- **TST-146** Each item on the Codex list has a mechanical pass mark where one exists. An example is cached tokens above zero on a session's second turn after 60 seconds idle.
-- **TST-147** After the two captures of TST-168, the Codex list holds at least the four items in the table below, which are the ones left to run on the built daemon, and the recording comparison of TST-42.
-- **TST-168** The Codex list starts with two captures. The first is a real usage-limit frame. The second is what a new connection gets while the limit is in force.
+- **TST-145** The Codex check is done by hand on Tim's login, once, on the image he runs on his own server, at any time from the first usable build on (ORD-22). No Codex token is kept in CI secrets, because a refresh token stored there goes stale when it rotates.
+- **TST-146** Withdrawn.
+- **TST-147** The Codex check is one turn. An owner's message that needs a login gets the device code in its thread, Tim approves the code, and the turn carries on. It passes when the answer arrives in that thread.
+- **TST-168** Withdrawn.
 
-| Item | Why it needs a real login |
-| --- | --- |
-| A turn that resumes after a login in the middle of it | It needs a second login, and the prototype had one |
-| One client per session carrying the `session-id` header | The prototype sent the header from a process with one session |
-| The summarizer on a Codex login | No prototype run was long enough to compact |
-| A token refresh | The token is valid for about ten days, and `logout` stood in for an expiry |
-
-Nobody has captured a real usage-limit frame, so it is not known whether the real service sends an `error.message` with it, and effect's decoder drops an error frame that has none (see 16-failures-logs-status.md). The second capture exists because the Codex socket idles out after 60 seconds, so most chat turns open a new connection, and a refused handshake loses its status and body.
+Nobody has captured a real usage-limit frame, so it is not known whether the real service sends an `error.message` with it, and effect's decoder drops an error frame that has none (see 16-failures-logs-status.md). The Codex socket idles out after 60 seconds, so most chat turns open a new connection, and a refused handshake loses its status and body. v1 ships without a capture of either, and the first real limit on Tim's login is what shows them.
 
 ### The results of the two lists
 
@@ -443,7 +436,7 @@ Nobody has captured a real usage-limit frame, so it is not known whether the rea
 - **TST-149** Withdrawn.
 - **TST-150** Withdrawn.
 - **TST-187** Withdrawn.
-- **TST-151** The results of the hand checks and of the Codex list are recorded in the stage 5 hand-off comment.
+- **TST-151** The results of the hand checks and of the Codex check are recorded in the stage 5 hand-off comment.
 
 ## What carries over from the prototypes
 
@@ -516,12 +509,11 @@ For the gate:
 
 At the end of the build:
 
-- Approve one device code per run for the Codex list.
 - Do the hand checks, on his own bot and his own server. They need a person who is an owner.
 
 Once:
 
-- Make the first Codex recording, if TST-43 needs it.
+- Do the Codex check on his own server, at any time from the first usable build on (TST-145, TST-147).
 - Run the Kubernetes checks on his k3s node.
 - Read the change to the charting line on the local dev adapter. He agreed that line himself, and it now means that `ChatTest` runs outside the daemon and the image carries only the client.
 - Read that for this build tests are chosen by what chad does and not by rule id, and that only three kinds of rule need a test of their own (TST-173). The Coding squad's instructions, which are his, say to write only the bare minimum of tests.
@@ -530,7 +522,6 @@ Once:
 
 - **TST-G1** [builder] The inputs of `runDaemon` are in TST-33, TST-201, TST-202 and TST-203. What is left to the builder is the TypeScript names and types of the input fields, what `runDaemon` returns, the names of the `Timings` values, the size of the scale factor, and whether a scenario may set one length apart from the factor. Also left are how the daemon in layer 3 keeps its signal handlers and its exit from acting on the test runner, what a SIGTERM does before the `kills` slice delivers the stop, what the test's `HttpClient` does with a request to a host that is not a fake, and whether `chad serve` hands the bundled plugins in through the plugins input. Recommended: `runDaemon` returns the exit code and the two entry files exit the process with it, the forced exit of the stop's timer being the one exit it makes itself. It removes its signal handlers and puts the environment back when it ends. Until `kills` a SIGTERM or SIGINT closes the daemon's scope and the exit code is 0. The test's client fails any request to a host that is not a fake, a scenario may set one length when no ordering it tests rests on that length, and `chad serve` passes the bundled plugins through the plugins input, so that the input has one meaning. TIM-558 items 13 and 17, TIM-559 cold read.
 - **TST-G2** [builder] No ticket says whether a duration that chad does not set belongs in `Timings`. The decision says "every duration the spec names" and names only clanka's two timeouts as staying real, and the split in the two durations tables follows who owns each value. The silence bound is the case that needs the answer, because it is three of clanka's turn timeouts in a row, which is 15 minutes at real length, so its test shortens that timeout. TIM-558 items 17 and 29, TIM-557 items 17 and 18.
-- **TST-G4** [builder] The items of the live Codex list beyond the two captures and the four named are not written, and neither is the pass mark of each. How the two captures are made is not said either, given that both need a login that is at its usage limit. TIM-558 "Not settled here" and item 38, TIM-557 item 22.
 - **TST-G5** [builder] The usage-limit frame that the fake's Codex side serves before the first capture exists is not given. The fake's frames come from a recording, no recording of a usage limit exists, and a frame with an `error.message` and a frame without one end the turn differently. TIM-558 items 15 and 16, TIM-557 items 20 and 22.
 - **TST-G9** [builder] The list of adapter operations and the RPC schema between the adapter client and the local platform are not given. Whether the adapter has an operation that fetches the bytes of an inbound attachment is part of this (see 03-sessions-and-turns.md). TIM-558 items 20 and 21.
 - **TST-G10** [builder] How a script for the fake model server is written, how a hold is released, and the shape of the one interface to the fakes are not given. Whether the call index counts a request the daemon makes for itself, such as the model check at start, is not given either. Recommended: the fake tells that check apart by its fixed prompt (see 05-model-and-login.md) and does not count it. TIM-558 items 14 and 24.
@@ -539,7 +530,7 @@ Once:
 - **TST-G16** [builder] These things were recorded as not run and no decision places any of them in a layer by name. Each falls under TST-173 like any other rule. From TIM-558 and the tickets before it they are the lock and the volume on filesystems other than ext4, tmpfs, NFS and sshfs; a real `npx -y` MCP server; the setup wizard; a hook that ignores interruption, a secret change during a swap, and the next boot with a setting value that still fails; a secret in an MCP HTTP header and the hint for a long server list; a background task that outlives an Agent rebuild; on Codex, the `session-id` header without `prompt_cache_key`, turns with no owner present failing without a call until a login succeeds, background sub-agents, efforts above `medium` on the three smaller models and anything longer than five minutes; and for credentials `--note ""`. From TIM-557 they are the plugin name, the Info cap and the ids on a copied log line together, with the lines of sub-agents, MCP calls and a background task; the history reconcile, a lost `HistoryReplaced` and the window with real SQLite; the update message, also after passivation; the retry count per agent and the silence bound; what a real Codex backend reports as usage; the notice table and its 24 hour rule; `/status` with no database; `state/notice-thread`; the cron counting rules; and `chad logs`. TIM-558 items 51 to 55, TIM-557 "How well each is supported".
 - **TST-G17** [builder] Three details of the rule-id script are not given. They are what a test that names a bare id does once the rule carries letters (TST-190), what `show <id>` prints for a rule that points at a table or a code block (TST-194), and how an id is told from text in a test title that only looks like one, such as `UTF-8` (TST-10). Recommended: a bare id names the rule and no letter, and does not fail. `show` prints the rule's text, its file and line, its section heading and its Provenance row, and a flag prints the whole section. A word in a title counts as an id only when its prefix is one of the spec's prefixes. TIM-559 cold read, repo reader.
 - **TST-G20** [builder] Where the script of IMG-119 gets the tarballs of a newer effect commit is not said, and neither is what enforces TST-185. Recommended: the script takes a commit, downloads the snapshot's packages for that commit from pkg.pr.new, rewrites `vendor/` and the manifest, runs the first harness scenario, and puts the old set back when the scenario fails. TIM-559 cold read, harness reader.
-- **TST-G22** [builder] Who makes the first Codex recording of TST-43, with which script and over which flows, is not said, and neither is whether the `models` slice waits for it. A builder has no Codex login and may not use one outside the live lists. Recommended: the builder writes the fake's Codex side from the source of clanka and effect, and commits a recorder script that covers the flows of TST-39 and the refusals of TST-40. Tim runs it once (TST-165) and the builder replaces the hand-written frames with the recording. The slice does not wait for that. TST-41 and TST-43 need no test of their own, because the recording comparison of TST-42 is what catches a difference. TIM-559 cold read, models reader.
+- **TST-G22** [builder] Who makes the first Codex recording of TST-43, with which script and over which flows, is not said, and neither is whether the `models` slice waits for it. A builder has no Codex login and may not use one outside the live lists. Recommended: the builder writes the fake's Codex side from the source of clanka and effect, and commits a recorder script that records one answered call over server-sent events and one over WebSocket through the OpenAI endpoint and key of the builder's own environment, and writes only through the stripper of TST-41 (TST-43). The builder runs it once, by hand, replaces the hand-written frames with the stripped recording and brings the fake's frames up to its shape. The usage-limit frame stays hand-written (TST-41). A test compares the shape of the fake's frames with the recording's, and runs the recorder on the fake with the fake's values. Tim, chat 2026-11-15. TIM-559 cold read, models reader.
 - **TST-G23** [builder] The inputs of a `runCli` are not given. With no daemon the CLI makes its own network calls and reads its own durations, and 10-cli.md recommends one function `runCli(inputs)` that the bin calls with the real values. Recommended: its inputs are an `HttpClient` and the values of `Timings`, which a test passes as it passes `runDaemon`'s. A scenario calls it in the test's process from `dist` for the commands that reach the network, and starts the real bin for the rest. TIM-558 item 17, TIM-559 cold read, cli reader.
 - **TST-G24** [builder] How the image layer of the `harness` slice knows that the daemon is up. The Dockerfile's `HEALTHCHECK` line arrives in `harness`, and the `chad health` command that it calls arrives in `cli` with the lock, the socket and the ping (see 19-build-order.md and 10-cli.md). Until `cli` the container therefore reports unhealthy, and the layer cannot wait for a healthy container. Recommended: in `harness` the layer waits for the `boot.ready` line on the container's standard output (see 16-failures-logs-status.md), and from `cli` on it waits for a healthy container. TIM-559 cold read, harness reader and cli reader.
 
@@ -589,9 +580,9 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-38 | TIM-558 item 14 | Architect (Tim has not read) | read |  | `rule` | `models` |
 | TST-39 | TIM-558 item 15 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | TST-40 | TIM-558 item 16 | Architect (Tim has not read) | not run |  | `rule` | `models` |
-| TST-41 | TIM-558 item 16 | Architect (Tim has not read) | not run |  | `rule` | `models` |
-| TST-42 | TIM-558 item 16 | Architect (Tim has not read) | not run |  | `rule` | `live` |
-| TST-43 | TIM-558 item 16, amended by Tim, chat 2026-11-15 | Architect (Tim has not read). Tim for the slice in place of a build issue | not run |  | `rule` | `models` |
+| TST-41 | TIM-558 item 16, amended by Tim's ruling that the Codex list is one login check, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `models` |
+| TST-42 | TIM-558 item 16, withdrawn by Tim's ruling that the Codex list is one login check, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| TST-43 | TIM-558 item 16, amended by Tim, chat 2026-11-15, amended by Tim's ruling that the builder records the Codex frames through its own endpoint and key, chat 2026-11-15 | Architect (Tim has not read). Tim for the slice in place of a build issue | not run |  | `rule` | `models` |
 | TST-44 | TIM-558 item 16, round 2 R3 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | TST-45 | TIM-558 item 18 | Architect (Tim has not read) | not run |  | `rule` | `kills` |
 | TST-46 | TIM-558 item 19 | Architect (Tim has not read) | not run |  | `rule` | `harness` |
@@ -693,13 +684,13 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-142 | TIM-558 item 36, round 2 F, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-143 | TIM-558 item 36, amended by TIM-559 main session ruling on Q9 point 10 and round 2 R6 point 2; TIM-559 cold read, withdrawn by Tim's ruling that chad has no scheduled job, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-144 | TIM-558 item 37, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15, amended by Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Architect (Tim has not read) | not run, from memory |  | `rule` | `live` |
-| TST-145 | TIM-558 item 38, "What Tim has to do", TIM-559 round 2 R10 point 5, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `live` |
-| TST-146 | TIM-558 item 38 | Architect (Tim has not read) | not run |  | `rule` | `live` |
-| TST-147 | TIM-558 body and facts comment, TIM-544 "Not run", TIM-558 item 16, TIM-557 comment on TIM-558 | Architect (Tim has not read) | not run |  | `rule` | `live` |
+| TST-145 | TIM-558 item 38, "What Tim has to do", TIM-559 round 2 R10 point 5, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15, amended by Tim's ruling that the Codex list is one login check, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `live` |
+| TST-146 | TIM-558 item 38, withdrawn by Tim's ruling that the Codex list is one login check, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
+| TST-147 | TIM-558 body and facts comment, TIM-544 "Not run", TIM-558 item 16, TIM-557 comment on TIM-558, amended by Tim's ruling that the Codex list is one login check, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `live` |
 | TST-148 | TIM-558 item 39, round 1 Q8, withdrawn by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-149 | TIM-558 item 39, withdrawn by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-150 | TIM-558 item 39, withdrawn by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| TST-151 | TIM-558 item 39, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `live` |
+| TST-151 | TIM-558 item 39, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15, amended by Tim's ruling that the Codex list is one login check, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | `live` |
 | TST-152 | TIM-558 item 46 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-153 | TIM-558 item 47 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-154 | TIM-558 item 47, withdrawn by Tim's ruling that the bookkeeping checks go, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
@@ -716,7 +707,7 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-165 | TIM-558 "What Tim has to do", round 2 R10, amended by TIM-559 ruling on OV-G1 and main session rulings on Q4 and Q7, and by Tim, chat 2026-11-15; TIM-559 cold read, amended by Tim's ruling that chad has no scheduled job, chat 2026-11-15, amended by Tim's ruling that chad has no release list and no budget, chat 2026-11-15, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read). Tim for the repo being public | not run |  | `definition` | - |
 | TST-166 | TIM-557 item 6 and round 2 R3, its comment on TIM-558 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | TST-167 | TIM-557 items 32 to 34 and "How well each is supported", its comment on TIM-558, withdrawn by Tim's ruling on a full disk, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| TST-168 | TIM-557 item 22 and round 2 R7, its comment on TIM-558 | Architect (Tim has not read) | not run |  | `rule` | `live` |
+| TST-168 | TIM-557 item 22 and round 2 R7, its comment on TIM-558, withdrawn by Tim's ruling that the Codex list is one login check, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | TST-169 | TIM-557 item 43 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | TST-170 | TIM-559 ruling on TST-G12, main session ruling on Q1, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-171 | TIM-559 main session ruling on Q2, round 2 R7 and R10 point 3; TIM-559 cold read, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
@@ -764,4 +755,4 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-213 | Build, stage 2, withdrawn by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | - |
 | TST-214 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
 | TST-215 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
-| TST-216 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `models` |
+| TST-216 | Build, stage 2, withdrawn by Tim's ruling that the builder records the Codex frames through its own endpoint and key, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | - |

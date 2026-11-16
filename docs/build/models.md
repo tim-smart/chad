@@ -2,21 +2,22 @@
 
 This is the builder's record of how the `models` slice was delivered, kept in the repository so that review can read it. It is not spec. Where it and `docs/spec/` differ, the spec is right and this file is wrong. Each place below was checked by searching the code at the commit that adds this file. A test file is named where a test that names the id runs it.
 
-It accounts for every id that `node scripts/rule-ids.ts list models` prints, which is 188 ids with TST-216, and for the nine held clauses of earlier slices that this slice built.
+It accounts for every id that `node scripts/rule-ids.ts list models` prints, which is 187 ids now that TST-216 is withdrawn, and for the nine held clauses of earlier slices that this slice built.
 
 ## Summary
 
 - Held: none. No id of the slice is held, and no held row in `docs/spec/delivered.md` names `models`.
 - Stopped: none.
-- New builder rules: MOD-118 to MOD-127, FAIL-342, TST-214, TST-215 and TST-216.
-- Not fully built: TST-41 and TST-43. The frames of the fake's Codex side are still hand-made.
+- New builder rules: MOD-118 to MOD-127, FAIL-342, TST-214 and TST-215. TST-216, the recorder for Tim's login, was withdrawn when Tim ruled in chat on 2026-11-15 that the builder records the Codex frames through its own endpoint and key.
+- TST-41 and TST-43: built. The fake's Codex frames have the recorded shape, and its usage-limit frame is hand-made, as TST-41 now says.
+- Tim's one Codex check (TST-147): `docs/build/stage-2-login-check.md` gives his steps.
 - The nine held clauses built here: SES-96b, MOD-11b, MOD-14b, SES-116b, CLI-31c, CLI-42c, CLI-57c, CLI-125g and CLI-138c. Their rows are gone from the held table.
 
-## Not fully built: TST-41 and TST-43
+## TST-41 and TST-43: the recorded frames
 
-- **TST-41**: not fully built. `test/unit/fixtures/codex-frames.json` is hand-made from the Responses event schema that clanka decodes. The archive on `prototypes` holds no server frames. Until the recording exists, three things stand in for it. `test/support/recording.ts` strips a recording, `scripts/strip-recording.ts` writes one over the fixture, and `test/unit/recording.test.ts` checks that the fixture has nothing to strip and that the fake's answer and usage-limit frames have its shape. Still to do: Tim's recording, and the builder's replacement of the fixture and of the fake's frames where they differ. Both steps are in `docs/build/codex-capture.md`.
-- **TST-43**: not fully built. The first recording has to be made on Tim's login. The recorder of TST-216 is how it gets made, and `docs/build/codex-capture.md` is the procedure. Until Tim runs it, the hand-made frames above stand in for it, and the same steps are left.
-- **TST-216** (settles TST-G22): built. `scripts/record-codex.ts` is the recorder and `test/support/recording.ts` (`strip`, `leftover`, `load`) is the stripper and the check. `test/unit/record-codex.test.ts` runs both on the fake's Codex side with the fake's credentials.
+- **TST-41**: built. `test/unit/fixtures/codex-frames.json` holds one answer recorded over server-sent events and one over WebSocket, stripped and renumbered by `keep` in `test/support/recording.ts`. Its usage-limit frame is hand-made from the error schema clanka decodes, which is the exception TST-41 names. `responses` in `test/support/model.ts` sends the recorded shape: the nine event types, `sequence_number`, the delta's `logprobs` and `obfuscation`, the completed response's keys and the recorded `usage`. `test/unit/recording.test.ts` checks that the fixture has nothing left to strip, and that the fake's frames have the recording's shape on each transport and the hand-made usage-limit frame's. With the fake's `sequence_number` taken out, that test fails.
+- **TST-43**: built. The builder made the recording once, by hand, with `scripts/record-codex.ts` through the OpenAI endpoint and key of its own environment. `docs/build/codex-capture.md` is the record of the run and says how to make it again. `test/unit/record-codex.test.ts` runs the recorder on the fake with one of the fake's tokens as the key. No test and no job reads the real key, and the suite passes with `CLANKA_OPENAI_API_URL` and `CLANKA_OPENAI_API_KEY` unset.
+- What the recording shows is what the proxy relays on the `openai` path. It is no evidence for the Codex login, the token store or the WebSocket at chatgpt.com. Tim's one Codex check covers those (TST-145, TST-147), and `docs/build/stage-2-login-check.md` gives his steps.
 
 ## The nine held clauses built here
 
@@ -53,7 +54,6 @@ ORD-25 gives the rule that a changed model reaches an open session at its next t
 | FAIL-342 | FAIL-G29 (the reset time in the row's text)            | `src/Messages.ts` `usageLimitNotice`, `src/daemon/Notices.ts` `record`                | `test/daemon/retries.test.ts`       |
 | TST-214  | a scenario's own `modelLogin`                          | `test/support/entry.ts`                                                               | `test/daemon/login.test.ts`         |
 | TST-215  | TST-G2 (a scenario's own `Agent.TurnTimeout`)          | `src/Timings.ts`, `src/daemon/runDaemon.ts`                                           | `test/daemon/retries.test.ts`       |
-| TST-216  | TST-G22 (the recorder)                                 | `scripts/record-codex.ts`, `test/support/recording.ts`                                | `test/unit/record-codex.test.ts`    |
 
 ## Built, by id
 
@@ -230,6 +230,6 @@ The ids of the slice not listed above, each with where it is built and the test 
 | FAIL-321 | `src/Messages.ts`                                                                                                                             | `test/daemon/retries.test.ts`                                    |
 | TST-37   | `test/support/model.ts` (HTTP, socket, device flow, token endpoint)                                                                           | `test/daemon/models.test.ts`                                     |
 | TST-38   | `src/ModelSpec.ts`                                                                                                                            | `test/daemon/models.test.ts`                                     |
-| TST-40   | `test/support/model.ts` `refused`                                                                                                             | `test/unit/record-codex.test.ts` (the refusals recorded)         |
+| TST-40   | `test/support/model.ts` `refused`                                                                                                             | none                                                             |
 | TST-180  | `src/daemon/Format.ts` `relativeTime`                                                                                                         | `test/unit/usage.test.ts`                                        |
 | TST-181  | `src/daemon/Failed.ts`                                                                                                                        | `test/daemon/retries.test.ts`                                    |

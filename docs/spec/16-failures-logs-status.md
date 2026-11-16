@@ -527,7 +527,7 @@ What v1 does not handle. Nobody has captured a usage-limit frame from the real C
 - **FAIL-95** effect's WebSocket decoder drops an error frame that has no `error.message`, and the call keeps waiting. That is the shape in the Codex CLI's own test. If the real service sends it, a usage limit shows as a turn that retries on the turn timeout and ends as `ModelError` after 15 minutes, by FAIL-84.
 - **FAIL-96** A WebSocket handshake that is refused with 429 reaches chad as a retryable `NetworkError` with the status and the body lost, so chad cannot recognise it. The socket idles out after 60 seconds, so most chat turns open a new connection.
 - **FAIL-97** On the WebSocket transport the owner's message never names a reset time.
-- **FAIL-98** The first two items on the list of checks against a real Codex login are captures of a real usage-limit frame and of what a new connection gets while the limit is in force (see 17-testing.md).
+- **FAIL-98** Withdrawn.
 
 ## The turns table and usage
 
@@ -934,7 +934,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-95 | TIM-557 item 22 | Architect (Tim has not read) | not run; fact run: a frame with no `error.message` is dropped |  | `fact` | `models` |
 | FAIL-96 | TIM-557 round 2, F9 and R7 | Architect (Tim has not read) | not run; fact run: a refused handshake is a `NetworkError` with status and body lost |  | `fact` | `models` |
 | FAIL-97 | TIM-557 item 22 | Architect (Tim has not read) | not run; fact run: `resets_at` is dropped on the WebSocket |  | `rule` | `models` |
-| FAIL-98 | TIM-557 "What this changes in closed tickets", TIM-558 | Architect (Tim has not read) | not run |  | `rule` | `live` |
+| FAIL-98 | TIM-557 "What this changes in closed tickets", TIM-558, withdrawn by Tim's ruling that the Codex list is one login check, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | FAIL-99 | TIM-536 item 11, TIM-557 item 23, amended by TIM-559 ruling on FAIL-G11 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `turns` |
 | FAIL-100 | TIM-557 item 23 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `turns` |
 | FAIL-101 | TIM-557 item 23 | Architect (Tim has not read) | not run |  | `rule` | `turns` |

@@ -1,92 +1,69 @@
-# Recording the Codex side
+# Recording the Codex frames
 
-This is the procedure for the first Codex recording of TST-43, made with the recorder of TST-216. It is the builder's note, not spec. Tim runs it once, on his own machine, with his own Codex login. No test and no CI job runs the recorder on a real login. The gate runs it against the fake model server only (`test/unit/record-codex.test.ts`).
+This is the builder's record of how the one recording of TST-43 was made, and of how to make it again. It is not spec. The builder made it on 2026-11-16, in the follow-up to the `models` slice, under Tim's ruling in chat of 2026-11-15. It used the OpenAI endpoint and key of the builder's own environment. No test and no job on the gate reads that key. The gate runs the recorder against the fake model server only (`test/unit/record-codex.test.ts`), with one of the fake's own tokens as the key, and the suite passes with both variables unset.
 
-## What it does
+## What was recorded
 
-The recorder logs in with the device flow, the way `chad login` does. It holds the token in memory and never writes it to disk, and it neither reads nor touches chad's `secrets/auth/`. Then it drives clanka's Codex model the way chad builds it (`src/ModelSpec.ts`), through these flows:
+`scripts/record-codex.ts` reads the endpoint from `CLANKA_OPENAI_API_URL` and the key from `CLANKA_OPENAI_API_KEY`. The endpoint is a proxy that serves the Responses API. The script makes two calls, each on `gpt-6-astra` with the prompt "Say hello." and one line of instructions:
 
-| Flow                                          | What it records                                                                                 | Why                                                                                         |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `login`                                       | The device code, its poll and the token exchange                                                | TST-39: the login flow, and a login in the middle of a turn, which makes the same exchanges |
-| `answer`, `answer-http`                       | One call that answers with text, over the socket and over HTTP                                  | TST-39. The socket's opening headers show the `session-id` header                           |
-| `tool-call`                                   | A call that calls clanka's `execute` tool, then the call that carries its result, on one socket | TST-39: one sub-agent, and a resumed turn, which send the same calls                        |
-| `stop`                                        | A call stopped at its first text, then the next call on the same model                          | TST-39: Stop during a streaming response                                                    |
-| `reconnect`                                   | A call, a 65 second wait while the socket idles out, then a call on a new socket                | TST-39: the socket idling out and reconnecting                                              |
-| `refresh`                                     | A call after the stored access token is marked expired, so the login refreshes it first         | TST-39: the order of the token check                                                        |
-| `refused-model`, `refused-model-http`         | A model a ChatGPT login does not accept (`gpt-4.1` unless you pass another)                     | TST-40                                                                                      |
-| `max-output-tokens`, `max-output-tokens-http` | A call with `max_output_tokens`                                                                 | TST-40, and the reason compaction runs with no output cap                                   |
-| `expired-token`, `expired-token-http`         | A call with an access token the service did not issue                                           | TST-40 (see below)                                                                          |
+| Transport          | The call                                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Server-sent events | `POST <url>/responses` with `stream: true`                                                                                           |
+| WebSocket          | A socket opened on `<url>/responses` with the key in the opening request's `authorization` header, and one `response.create` message |
 
-Every HTTP exchange and every socket frame goes into the recording. The whole thing is passed through the stripper in `test/support/recording.ts` before anything is written. If a token, the account id or a code of the login is still in the result, the recorder writes nothing. It prints where the secret was left (a path in the JSON, never the value) and exits with 1.
+Each call answered. Both transports gave the same nine event types with the same keys: `response.created`, `response.in_progress`, `response.output_item.added`, `response.content_part.added`, `response.output_text.delta` (twice), `response.output_text.done`, `response.content_part.done`, `response.output_item.done` and `response.completed`.
 
-## Running it
+What the hand-made frames lacked, and the fake now sends:
 
-You need the repo at the branch the builder names, and a Codex login that is not at its usage limit. The run takes about two minutes after you approve the code, most of it the 65 second wait.
+- `sequence_number` on every event. The recording skips one number. The fake counts from 0 without a gap.
+- `logprobs` and `obfuscation` on the delta, and `logprobs` on each text part and on `response.output_text.done`.
+- `phase` on the message item.
+- The response's other keys, about thirty of them. They are the same on `response.created`, `response.in_progress` and `response.completed`, where `usage` and `completed_at` are `null` until the last. Among them are a `tools` list and a `tool_usage` object for an image tool that the proxy adds to a call that sent no tools.
+- `usage`: `cache_write_tokens` and its `ttl_12h_tokens` and `ttl_30m_tokens` under `input_tokens_details`, and an `attribution` object. `attribution.items` is keyed by item id, one entry for the input message and one for the answer, and `attribution.request_fields` counts the tokens of the tools and the instructions.
 
-```sh
-nix develop -c pnpm install
-nix develop -c pnpm build
-nix develop -c node scripts/record-codex.ts
-```
+clanka decodes the reshaped frames. Every Codex scenario of the suite passes on them.
 
-It prints a link and a code. Open the link, sign in to the ChatGPT account chad will use, and enter the code. It then prints one line per flow and `Wrote <file>`.
+## What it does not show
 
-The output goes to `test/unit/fixtures/codex-recording.json`. The options are:
+- The recording is what the proxy relays over the `openai` path. It is not shown to be what `chatgpt.com/backend-api/codex` sends to chad directly.
+- A run through the proxy goes through chad's `openai` path, which is `Codex.model` over HTTP with a key (`src/ModelSpec.ts`). It never touches the Codex login, the token store, the `session-id` header or the WebSocket transport at chatgpt.com. Nothing here is evidence for a rule about that path. Tim's one Codex check is what covers it (TST-147, `docs/build/stage-2-login-check.md`).
+- The opening request's headers are chad's own. They come from chad's Codex path against the fake, not from this recording.
 
-- `--out <file>` writes somewhere else.
-- `--model <setting>` records on another model. The default is chad's own, `openai/gpt-6-astra/medium`.
-- `--refused-model <model>` picks the model the `refused-model` flow sends. Use it if `gpt-4.1` ever becomes accepted.
+## What stays hand-made
 
-## Before you commit it
+- The usage-limit frame under `refusal` in `test/unit/fixtures/codex-frames.json`. Nobody has recorded one, so it is written from the error schema clanka decodes (TST-41). The proxy cannot produce a usage limit on demand, and an error that passes through it may not be the frame chatgpt.com sends.
+- What a new connection gets while a limit is in force. In the fake it is a socket that opens and answers `response.create` with that frame.
+- A tool call. The recorder made no call with tools. The fake's `function_call` events follow the pattern of the recorded answer.
 
-1. The run ended with `Wrote …` and exit code 0. If it printed `Not written: a secret is left after stripping, at …`, nothing was written. Send the builder the paths it printed, and don't edit the stripper or the file by hand to get past it.
-2. Read the flow lines. An answer flow should say `answered` and a refusal flow `refused: …`. Two other outcomes matter:
-   - A refusal flow that says `answered, which the fake refuses` means the real service accepted something the fake refuses (TST-40). The file is still worth committing. Tell the builder which flow it was.
-   - An answer flow that says `failed: …`. Run the recorder once more. If it fails again, commit what you have and tell the builder which flow failed.
-3. Search the file for anything personal. The repo is public. Each of these must print nothing:
+The fixture's `source` line says the same. No later capture or comparison is planned. The first real limit on Tim's login is what shows the real frame, and `chad logs` holds a frame that fails a turn.
 
-   ```sh
-   rg -n 'eyJ' test/unit/fixtures/codex-recording.json
-   rg -n -i '<your email>' test/unit/fixtures/codex-recording.json
-   rg -n '<your ChatGPT account id>' test/unit/fixtures/codex-recording.json
-   ```
+## What is stripped
 
-   Every `authorization`, `chatgpt-account-id`, `cookie`, `set-cookie`, `access_token`, `refresh_token`, `id_token`, `user_code`, `device_auth_id`, `authorization_code` and `code_verifier` value should read `<stripped>`. Skim the response headers of one exchange too. If a header holds something you would rather not publish, tell the builder and don't commit.
+The recorder writes the fixture only through `keep` in `test/support/recording.ts`, which runs `strip` and then `renumber`:
 
-4. Commit that one file and nothing else:
+- `strip` replaces every JWT, and the value of each field the stripper names, wherever it is. The fields are the login's tokens and codes, the account and user ids, `email`, cookies, `safety_identifier`, `user`, `prompt_cache_key`, `metadata`, `access_programs` and `instructions` where it is text. A string becomes `<stripped>`, an object `{}`, a list `[]` and a number 0, so the frame keeps its shape. `null` stays `null`. The `instructions` entry of `usage.attribution.request_fields` holds token counts and is kept.
+- `renumber` gives each id the service made, such as `resp_…` and `msg_…`, the next number of its prefix (`resp_0`, `msg_0`, `msg_1`), as the fake numbers its own. An id names one call in the service's logs.
+- No response header is recorded.
+
+Before it writes, the recorder looks for the key, the endpoint and each part of its host or path longer than four characters, and for anything `strip` should have replaced. If one is left it writes nothing and prints only the path in the JSON where it was found.
+
+## Making it again
+
+1. Use a runtime whose `CLANKA_OPENAI_API_URL` and `CLANKA_OPENAI_API_KEY` are set. Never print either, and keep both out of the repository, the logs and any comment.
+2. Run it, with the raw copy outside the repository:
 
    ```sh
-   git add test/unit/fixtures/codex-recording.json
-   git commit -m "Record the Codex side on Tim's login"
+   nix develop -c pnpm build
+   nix develop -c node scripts/record-codex.ts --raw ../raw-capture/raw.json > ../raw-capture/run.txt 2>&1
    ```
 
-## What it can't provoke
+   It prints how each call ended and where a secret was left, never a value. `--model <model>` records on another model. `--raw` refuses a path inside the repository.
 
-- The usage limit. The service sends it only when the login is at its limit, so the first run lists `usage-limit` under `missing` in the file and prints `Not provoked: usage-limit`. That is expected. When your login next hits its limit, run:
-
-  ```sh
-  nix develop -c node scripts/record-codex.ts --usage-limit
-  ```
-
-  It logs in again, sends one call over the socket and one over HTTP, adds the limit's frame to the same file as `refusal`, and drops it from `missing`. Check and commit it the same way. If the limit never comes, the builder keeps the hand-made usage-limit frame and says so. If your login is at its limit during the first run, the answer flows fail but the frame is kept. Run the first run again once the limit resets.
-
-- An expired token. The service reads a token's expiry from the token itself, and clanka refreshes a token it knows has expired before it sends it. So the recorder sends your real token with its signature replaced, along with your real account id. If the service answers a forged token differently from an expired one, the recording has the forged token's answer. The builder notes that against TST-40.
-- The server closing an idle socket. The `reconnect` flow records the client's own idle-out after 60 seconds, which is what a chat meets between turns. A close by the server after a longer time is not recorded.
-- A retry after a transient error. It can't be caused on demand. The frames a retry sees are an error and then a normal answer.
-- A kill and resume, an Agent rebuild, compaction. These differ only on chad's side. Their calls have the shapes of `answer` and `tool-call`, and compaction's refusal is `max-output-tokens`.
-
-## What the builder does afterwards
-
-1. Replace the hand-made frames with the recording: `git mv -f test/unit/fixtures/codex-recording.json test/unit/fixtures/codex-frames.json`. If the recording has no `refusal` yet, copy the hand-made one across and say so in `source`.
-2. Run the comparison:
+3. Check the fixture in code, so that no value is printed: it must not contain the key, the endpoint, the host or any part of the host longer than a common word. It must hold no JWT, and every field listed above must be blank. If another field names the account or the proxy, add it to `strip`. Then re-strip the raw copy without a second call:
 
    ```sh
-   TZ=Pacific/Auckland nix develop -c pnpm exec vitest run test/unit/recording.test.ts
+   nix develop -c node scripts/strip-recording.ts ../raw-capture/raw.json
    ```
 
-   It checks that the kept recording has nothing left to strip, and that the fake's answer and usage-limit frames have the recording's shape (TST-41).
-
-3. Where a shape differs, change the fake's Codex side in `test/support/model.ts` (`responses`, `refusalFrame`, `refused`, the login endpoints, the socket) to match the recording. Never change the recording to match the fake.
-4. Go through the flows the comparison does not cover by hand: `login`, `refresh`, `tool-call`, `stop`, `reconnect` and the refusals. Anything the fake plays differently gets fixed in the fake, with a test where TST-173 asks for one.
-5. Run the full `pnpm test`, because every Codex scenario runs on the fake's frames. Then mark TST-41 and TST-43 built in `docs/build/models.md`.
+4. Read the stripped file. Then delete `../raw-capture/`.
+5. Run `test/unit/recording.test.ts`. It compares the fake's frames with the recording's on each transport (TST-41). Where the shapes differ, change `responses` in `test/support/model.ts` to match. Never change the recording to match the fake. Then run the full `pnpm test` with both variables unset.

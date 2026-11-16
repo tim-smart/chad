@@ -60,7 +60,7 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 | `image` | 5 | The Kubernetes manifests and the script of their checks. |
 | `bundled-skills` | 5 | The `self-edit`, `credentials` and `diagnose` skills, the skill text and its checks. |
 | `asphodel` | 5 | The check that all twelve asphodel scenarios are green. Each scenario's own rules go in the earliest slice that can run it. |
-| `live` | 5 | The rest of the live layer: the Codex list, and one checklist for it and for the hand checks. |
+| `live` | 5 | The rest of the live layer: the hand checks, and the result of the Codex check, which Tim does on his own server at any time from the first usable build on. |
 
 - **ORD-15** A slice's rules are the rules whose Provenance row names the slice. The table above says what each slice is for and is not a list of its rules. Where the table and a rule's row disagree, the row holds.
 ## Why the slices come in this order

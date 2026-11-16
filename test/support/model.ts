@@ -242,9 +242,18 @@ export const refusalFrame = (refusal: Refusal) => ({
   error: refusal.error,
 })
 
+/** The token counts of one entry of a recorded `usage.attribution`. */
+const counts = (input: number, output: number, cached = 0) => ({
+  cache_write_tokens: 0,
+  cached_tokens: cached,
+  input_tokens: input,
+  output_tokens: output,
+})
+
 /**
  * The events of a Responses stream, which Codex sends as server-sent events and as WebSocket frames alike. Their shape
- * is the kept recording's (TST-41).
+ * is the kept recording's (TST-41), which has every field the proxy relayed, the image tool it adds among them. An
+ * answer is the nine event types of the recording, and a tool call, which was not recorded, follows the same pattern.
  */
 export const responses = (
   index: number,
@@ -254,71 +263,180 @@ export const responses = (
   const response = {
     id: `resp_${index}`,
     object: "response",
-    model,
     created_at: 0,
+    status: "in_progress",
+    access_programs: {},
+    background: false,
+    completed_at: null,
+    error: null,
+    frequency_penalty: 0,
+    image: { context_compression: "disabled" },
+    incomplete_details: null,
+    input_transformations: [],
+    instructions: "",
+    max_output_tokens: null,
+    max_tool_calls: null,
+    model,
+    moderation: null,
     output: [],
+    parallel_tool_calls: true,
+    presence_penalty: 0,
+    previous_response_id: null,
+    prompt_cache_key: "",
+    prompt_cache_retention: "24h",
+    reasoning: {
+      context: "all_turns",
+      effort: "medium",
+      mode: "standard",
+      summary: null,
+    },
+    safety_identifier: "",
+    service_tier: "auto",
+    store: false,
+    temperature: 1,
+    text: { format: { type: "text" }, verbosity: "medium" },
+    tool_choice: "auto",
+    tool_usage: {
+      image_gen: {
+        input_tokens: 0,
+        input_tokens_details: { image_tokens: 0, text_tokens: 0 },
+        output_tokens: 0,
+        output_tokens_details: { image_tokens: 0, text_tokens: 0 },
+        total_tokens: 0,
+      },
+      web_search: { num_requests: 0 },
+    },
+    tools: [
+      {
+        type: "image_generation",
+        background: "auto",
+        model: "gpt-image-2-codex",
+        moderation: "auto",
+        n: 1,
+        output_compression: 100,
+        output_format: "png",
+        quality: "auto",
+        size: "auto",
+      },
+    ],
+    top_logprobs: 0,
+    top_p: 0.98,
+    truncation: "disabled",
+    usage: null,
+    user: null,
+    metadata: {},
   }
   const { tool } = reply
+  const text = reply.text ?? ""
+  const part = { type: "output_text", annotations: [], logprobs: [], text }
   const done =
     tool === undefined
       ? {
-          type: "message",
           id: `msg_${index}`,
-          role: "assistant",
-          content: [
-            { type: "output_text", text: reply.text ?? "", annotations: [] },
-          ],
+          type: "message",
           status: "completed",
+          content: [part],
+          phase: "final_answer",
+          role: "assistant",
         }
       : {
-          type: "function_call",
           id: `fc_${index}`,
+          type: "function_call",
+          status: "completed",
+          arguments: JSON.stringify(tool.arguments),
           call_id: `call_${index}`,
           name: tool.name,
-          arguments: JSON.stringify(tool.arguments),
-          status: "completed",
         }
+  const input = reply.usage?.input ?? 1
+  const output = reply.usage?.output ?? 1
+  const cached = reply.usage?.cached ?? 0
   const usage = {
-    input_tokens: reply.usage?.input ?? 1,
-    output_tokens: reply.usage?.output ?? 1,
-    total_tokens: (reply.usage?.input ?? 1) + (reply.usage?.output ?? 1),
-    input_tokens_details: { cached_tokens: reply.usage?.cached ?? 0 },
+    attribution: {
+      items: {
+        [`msg_in${index}`]: {
+          ...counts(input, 0, cached),
+          content: [counts(input, 0, cached)],
+        },
+        [done.id]: { ...counts(0, output), content: [counts(0, output)] },
+      },
+      request_fields: { tools: counts(0, 0), instructions: counts(0, 0) },
+    },
+    input_tokens: input,
+    input_tokens_details: {
+      cache_write_tokens: 0,
+      cache_write_tokens_details: { ttl_12h_tokens: 0, ttl_30m_tokens: 0 },
+      cached_tokens: cached,
+    },
+    output_tokens: output,
     output_tokens_details: { reasoning_tokens: reply.usage?.reasoning ?? 0 },
+    total_tokens: input + output,
   }
-  return [
+  const at = { item_id: done.id, output_index: 0 }
+  const events: Array<object> = [
     { type: "response.created", response },
+    { type: "response.in_progress", response },
     {
       type: "response.output_item.added",
-      output_index: 0,
       item:
         tool === undefined
-          ? { ...done, content: [], status: "in_progress" }
-          : { ...done, arguments: "", status: "in_progress" },
+          ? { ...done, status: "in_progress", content: [] }
+          : { ...done, status: "in_progress", arguments: "" },
+      output_index: 0,
     },
-    tool === undefined
-      ? {
-          type: "response.output_text.delta",
-          item_id: done.id,
-          output_index: 0,
-          content_index: 0,
-          delta: reply.text ?? "",
-        }
-      : {
-          type: "response.function_call_arguments.delta",
-          item_id: done.id,
-          output_index: 0,
-          delta: (done as { arguments: string }).arguments,
-        },
-    { type: "response.output_item.done", output_index: 0, item: done },
+    ...(tool === undefined
+      ? [
+          {
+            type: "response.content_part.added",
+            content_index: 0,
+            ...at,
+            part: { ...part, text: "" },
+          },
+          {
+            type: "response.output_text.delta",
+            content_index: 0,
+            delta: text,
+            ...at,
+            logprobs: [],
+            obfuscation: "",
+          },
+          {
+            type: "response.output_text.done",
+            content_index: 0,
+            ...at,
+            logprobs: [],
+            text,
+          },
+          { type: "response.content_part.done", content_index: 0, ...at, part },
+        ]
+      : [
+          {
+            type: "response.function_call_arguments.delta",
+            ...at,
+            delta: (done as { arguments: string }).arguments,
+            obfuscation: "",
+          },
+          {
+            type: "response.function_call_arguments.done",
+            ...at,
+            arguments: (done as { arguments: string }).arguments,
+          },
+        ]),
+    { type: "response.output_item.done", item: done, output_index: 0 },
     {
       type: "response.completed",
       response: {
         ...response,
+        status: "completed",
+        completed_at: 0,
         output: [done],
         ...(reply.unmetered === true ? {} : { usage }),
       },
     },
   ]
+  return events.map((event, sequence_number) => ({
+    ...event,
+    sequence_number,
+  }))
 }
 
 /** A refusal: its HTTP status and the error object Codex sends. */
