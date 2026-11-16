@@ -12,6 +12,7 @@ import { owner } from "./commands/owner.ts"
 import { plugin } from "./commands/plugin.ts"
 import { revert } from "./commands/revert.ts"
 import { safe } from "./commands/safe.ts"
+import { secret } from "./commands/secret.ts"
 import { setup } from "./commands/setup.ts"
 import { status } from "./commands/status.ts"
 import { timezone } from "./commands/timezone.ts"
@@ -38,4 +39,5 @@ export const commands = [
   safe,
   plugin,
   timezone,
+  secret,
 ] as const

@@ -74,6 +74,7 @@ The exit codes 0, 1, 2 and 4 mean what 10-cli.md says they mean for every comman
 - **CRED-22** `chad secret set <NAME>` takes the value from stdin or from a hidden prompt, and never as an argument.
 - **CRED-23** `set` on a name that already exists replaces the value and says so by printing `Replaced NAME` in place of `Saved NAME`.
 - **CRED-24** `set` on an existing name keeps the note unless `--note` is given. `--note ""` clears it.
+- **CRED-137** `chad secret set` drops one line ending, `\n` or `\r\n`, from the end of the value it reads, which is the one `echo` adds, and changes nothing else in it. A value that is empty after that is refused with exit 2.
 - **CRED-25** With the daemon running, `set` sends the value to the daemon, which saves it through its queue, reloads the plugins whose settings name the secret, rebuilds the MCP layer if `mcp.json` names it, and prints what was reloaded. With no daemon the CLI writes the file itself. The detail is in 10-cli.md and 08-apply-and-swap.md.
 - **CRED-26** `chad secret list` prints the name, note and date of each secret, and no value. It takes `--json` (see 10-cli.md).
 - **CRED-27** `chad secret rm <NAME>` deletes the secret and reloads what names it, as `set` does.
@@ -98,7 +99,7 @@ The exit codes 0, 1, 2 and 4 mean what 10-cli.md says they mean for every comman
 
 v1 has no command that asks the owner for a value and no form in chat that takes one. The owner saves a secret in a shell.
 
-- **CRED-136** The owner saves a secret with `chad secret set NAME` in a shell on the server, and that command is the only way a value gets into the store. When the agent needs a secret that is not stored, it asks the owner in chat to run that command. It never asks for the value itself.
+- **CRED-136** (a) The owner saves a secret with `chad secret set NAME` in a shell on the server, and that command is the only way a value gets into the store. (b) When the agent needs a secret that is not stored, it asks the owner in chat to run that command. It never asks for the value itself.
 
 ## The Enter button and the modal
 
@@ -120,6 +121,7 @@ v1 has no command that asks the owner for a value and no form in chat that takes
 - **CRED-81** `chad secret set` sends a value to the daemon as the payload of its call. Nothing comes back but flags and the names of what was reloaded.
 - **CRED-82** The daemon logs no RPC request body, no RPC response body and no interaction payload.
 - **CRED-130** When the daemon finishes a `chad secret set` or a `chad secret rm`, it writes the log event `command.ran` (see 16-failures-logs-status.md). The line carries the command, the caller, which is the owner, a session id or the daemon, and the outcome. It never carries a secret's value.
+- **CRED-138** A `chad secret set` or `chad secret rm` that runs with no daemon writes no `command.ran` line, because only the daemon writes the log (CLI-147).
 
 The two calls as the prototype defined them, without what v1 does not have. The RPC group, the socket and the session header belong to 10-cli.md.
 
@@ -155,6 +157,8 @@ The wordings below are the prototype's. The ones a rule above quotes are decided
 | `run` | Command found but not executable | A line on stderr. Its wording is not decided (see Gaps) | 126 |
 
 - **CRED-109** The texts in this part that chad posts in chat or prints as a CLI error are templates in chad's one `Messages` module, and a unit test checks each template against the wording here (see 17-testing.md).
+- **CRED-139** `set` and `rm` add `, restarted <names>` to `Saved NAME`, `Replaced NAME` or `Removed NAME` when plugins reloaded. A name `set` refuses gets `chad secret set: the name must match [A-Z_][A-Z0-9_]* and be 64 characters at most`, and `CHAD_DOLLAR` gets `chad secret set: the name CHAD_DOLLAR is reserved for writing a literal ${ in configuration`. A command `run` found and could not execute gets `chad secret run: <command>: cannot execute (<error code>)`. `list` prints one line per secret, sorted by name, as `NAME  <date>  <note>` with the date in ISO 8601 UTC, and `No secrets are stored.` for an empty store. `list --json` prints one array of `{ name, note, date }`, with no `note` for a secret that has none. A usage error of `run` prints the usage and the error as every other command does, and exits 125.
+- **CRED-140** A `secrets/secrets.json` that cannot be read, or that holds no secret store, makes `list`, `set` and `rm` exit 1 and `run` exit 125, with `chad secret <command>: secrets/secrets.json cannot be read (<error code>)` or `chad secret <command>: secrets/secrets.json is not a secret store`. The line quotes nothing the file holds, and `set` and `rm` leave the file as it is.
 
 ## The bundled credentials skill
 
@@ -175,10 +179,10 @@ These were never run. A real model following the skill, any of it on Docker (the
 
 ## Gaps
 
-- **CRED-G10** [builder] The wordings in "Command messages" that no rule quotes. They are the prototype's and no ticket decides them. Closest is TIM-554.
+- **CRED-G10** [builder] The wordings in "Command messages" that no rule quotes. They are the prototype's and no ticket decides them. Closest is TIM-554. CRED-139 settles the ones `chad secret` prints.
 - **CRED-G16** [builder] The text of the `credentials` skill. No draft exists. Closest is TIM-546 items 22 and 23.
-- **CRED-G21** [builder] The wording of the message `chad secret run` prints with exit 126 (CRED-115). It has no wording from the prototype. Closest is the TIM-559 ruling on CRED-G11.
-- **CRED-G23** [builder] Whether `chad secret set` and `chad secret rm` write `command.ran` when they run with no daemon. CRED-130 has the daemon write the event, and no ticket says whether a CLI with no daemon writes to the log. 10-cli.md holds the same gap for every command that works with no daemon. Closest is TIM-559 round 2 R4.
+- **CRED-G21** [builder] The wording of the message `chad secret run` prints with exit 126 (CRED-115). It has no wording from the prototype. Closest is the TIM-559 ruling on CRED-G11. CRED-139 settles it.
+- **CRED-G23** [builder] Whether `chad secret set` and `chad secret rm` write `command.ran` when they run with no daemon. CRED-130 has the daemon write the event, and no ticket says whether a CLI with no daemon writes to the log. 10-cli.md holds the same gap for every command that works with no daemon. Closest is TIM-559 round 2 R4. CRED-138 settles it.
 
 ## Provenance
 
@@ -240,6 +244,10 @@ These were never run. A real model following the skill, any of it on Docker (the
 | CRED-115 | TIM-559 ruling on CRED-G11 | Architect (Tim has not read) | not run | TIM-546, TIM-559 | `rule` | `settings` |
 | CRED-130 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | CRED-136 | Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `settings` |
+| CRED-137 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| CRED-138 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| CRED-139 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| CRED-140 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

@@ -137,7 +137,7 @@ export interface Plan {
    * With `keep`, the word for what changed. A plugin that keeps its running version is marked "running with the previous
    * <word>: <error>" in `chad status` until a later build of it swaps (SWAP-141, SWAP-142).
    */
-  readonly kept?: "owners" | "instance" | "timezone"
+  readonly kept?: "owners" | "instance" | "timezone" | "secret"
 }
 
 /** What a swap did, for the command's output (CLI-71, SWAP-78). */

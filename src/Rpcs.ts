@@ -219,7 +219,7 @@ export class ModelUnchanged extends Schema.TaggedError<ModelUnchanged>(
   "chad/Rpcs/ModelUnchanged",
 )("ModelUnchanged", { text: Schema.String }) {}
 
-/** What `chad apply`, `check`, `revert`, `safe` and `plugin reload` ask the daemon for. */
+/** What `chad apply`, `check`, `revert`, `safe`, `plugin reload`, `timezone` and `secret set` and `rm` ask the daemon for. */
 export const RepoRequest = Schema.Union([
   Schema.TaggedStruct("Apply", { message: Schema.String }),
   Schema.TaggedStruct("Check", {}),
@@ -229,6 +229,16 @@ export const RepoRequest = Schema.Union([
   }),
   Schema.TaggedStruct("Reload", { name: Schema.String }),
   Schema.TaggedStruct("Timezone", { zone: Schema.String }),
+  /**
+   * `chad secret set`, the one request that carries a value to the daemon. What comes back is the printed lines, which
+   * hold names and flags and never the value (CRED-25, CRED-81). A missing note keeps the stored one and `""` clears it.
+   */
+  Schema.TaggedStruct("SecretSet", {
+    name: Schema.String,
+    value: Schema.String,
+    note: Schema.UndefinedOr(Schema.String),
+  }),
+  Schema.TaggedStruct("SecretRm", { name: Schema.String }),
 ])
 export type RepoRequest = typeof RepoRequest.Type
 

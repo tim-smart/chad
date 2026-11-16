@@ -23,6 +23,7 @@ export type ExitCode = (typeof ExitCode)[keyof typeof ExitCode]
  * printed what there is to say.
  */
 export class Failure extends Data.TaggedError("Failure")<{
-  readonly code: ExitCode
+  /** One of the table's codes, or, for `chad secret run`, any code its child exits with (CLI-51b). */
+  readonly code: ExitCode | number
   readonly message?: string
 }> {}

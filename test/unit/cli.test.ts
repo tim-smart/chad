@@ -280,6 +280,7 @@ it("CLI-42a a command waits for the daemon's first answer no longer than the CLI
     socket: join(data, "run/chad.sock"),
     lock: join(data, "state/daemon.lock"),
     session: undefined,
+    inherited: {},
   }
   const release = Lock.take(environment.lock, Duration.zero)
   const wait = Duration.millis(100)

@@ -43,6 +43,7 @@ it("CLI-33 an interrupted offline write keeps the daemon lock until its pending 
         lock,
         socket: Paths.socket({ CHAD_DATA: data }),
         session: undefined,
+        inherited: {},
       }),
     ),
   )
@@ -107,6 +108,7 @@ it("CLI-33 cancellation before lock ownership does not wait for setup or write c
         lock,
         socket: Paths.socket({ CHAD_DATA: data }),
         session: undefined,
+        inherited: {},
       }),
     ),
   )

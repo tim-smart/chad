@@ -943,6 +943,73 @@ export const timezoneLine = (zone: string, kept: ReadonlyArray<string>) =>
 /** What `chad timezone <zone>` prints once the zone is stored (CLI-239). */
 export const timezoneSet = (zone: string) => `Timezone set to ${zone}.`
 
+/** What `chad secret set` prints once the value is stored, with the plugins that reloaded (CRED-23, CLI-102, CRED-139). */
+export const secretSaved = (
+  name: string,
+  replaced: boolean,
+  restarted: ReadonlyArray<string>,
+) => `${replaced ? "Replaced" : "Saved"} ${name}${restartedSuffix(restarted)}`
+
+/** What `chad secret rm` prints once the secret is gone, with the plugins that reloaded (CLI-102, CRED-139). */
+export const secretRemoved = (name: string, restarted: ReadonlyArray<string>) =>
+  `Removed ${name}${restartedSuffix(restarted)}`
+
+const restartedSuffix = (restarted: ReadonlyArray<string>) =>
+  restarted.length === 0 ? "" : `, restarted ${restarted.join(", ")}`
+
+/** `chad secret set` with a name the store cannot hold, which exits 2 (CRED-18, CRED-139). */
+export const secretNameInvalid = () =>
+  "chad secret set: the name must match [A-Z_][A-Z0-9_]* and be 64 characters at most"
+
+/** `chad secret set CHAD_DOLLAR`, which exits 2 (CRED-19, SET-33, CRED-139). */
+export const secretNameReserved = () =>
+  "chad secret set: the name CHAD_DOLLAR is reserved for writing a literal ${ in configuration"
+
+/** `chad secret set` with an empty value, which exits 2 (CRED-137). */
+export const secretNoValue = () => "chad secret set: no value on stdin"
+
+/** The prompt of a value typed at a terminal, which echoes nothing (CRED-22). */
+export const secretPrompt = (name: string) => `Value of ${name}`
+
+/** A name the store does not hold: `rm` exits 1 and `run` 125 (CRED-31). */
+export const secretMissing = (command: "rm" | "run", name: string) =>
+  `chad secret ${command}: no secret named ${name}`
+
+/**
+ * A store that cannot be read or holds no store. It never carries what the file holds, which may be a value
+ * (CRED-10, CRED-140).
+ */
+export const secretStoreBroken = (command: string, problem: string) =>
+  `chad secret ${command}: ${problem}`
+
+/** An `--env` that is no `VAR=NAME` pair, which exits 125 (CRED-113). */
+export const secretEnvPair = (pair: string) =>
+  `chad secret run: --env takes VAR=NAME, got ${pair}`
+
+/** A command `chad secret run` did not find, which exits 127 (CRED-114). */
+export const secretNotFound = (command: string) =>
+  `chad secret run: ${command}: command not found`
+
+/** A command `chad secret run` found and could not execute, with the error code, which exits 126 (CRED-115, CRED-139). */
+export const secretNotExecutable = (command: string, code: string) =>
+  `chad secret run: ${command}: cannot execute (${code})`
+
+/** One line of `chad secret list`: the name, the time of the save and the note, never the value (CRED-26, CRED-139). */
+export const secretListed = (name: string, date: string, note?: string) =>
+  note === undefined ? `${name}  ${date}` : `${name}  ${date}  ${note}`
+
+/** What `chad secret list` prints for an empty store (CRED-139). */
+export const secretsNone = () => "No secrets are stored."
+
+/**
+ * The session line of `chad secret rm`, which names the plugins kept on their previous version (CRED-106, FAIL-238,
+ * FAIL-346).
+ */
+export const secretLine = (name: string, kept: ReadonlyArray<string>) =>
+  kept.length === 0
+    ? `Secret ${name} removed.`
+    : `Secret ${name} removed. Still on the previous secret: ${kept.join(", ")}.`
+
 /** A plugin that failed to build in a reload and kept its running version, with the error (CLI-114, SWAP-96, CLI-239). */
 export const keptPrevious = (name: string, error: string) =>
   `${name}: ${firstLine(error)}`
@@ -1228,7 +1295,7 @@ export const logMissing =
 
 /** The mark `chad status` gives a plugin that kept its running version when a reload failed to build it (SWAP-141, SWAP-142). */
 export const runningPrevious = (
-  what: "owners" | "instance" | "timezone",
+  what: "owners" | "instance" | "timezone" | "secret",
   error: string,
 ) => `running with the previous ${what}: ${firstLine(error)}`
 

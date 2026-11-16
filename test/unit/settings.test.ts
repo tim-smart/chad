@@ -254,3 +254,15 @@ it("SET-65 SET-67 SET-68 SET-70 SET-71 SET-72 SET-93 SET-13 the provider records
   expect(printed).not.toContain("asphodel")
   expect(printed).not.toContain("7720")
 })
+
+it("CRED-109 CRED-23 CRED-31 the lines chad secret prints are templates of the Messages module, in the spec's wording", () => {
+  expect([
+    Messages.secretSaved("NAME", false, []),
+    Messages.secretSaved("NAME", true, []),
+    Messages.secretMissing("run", "NAME"),
+  ]).toEqual([
+    "Saved NAME",
+    "Replaced NAME",
+    "chad secret run: no secret named NAME",
+  ])
+})

@@ -8,9 +8,11 @@
 import { join } from "node:path"
 import { Cause, Effect, Fiber, FileSystem, Path, Scope } from "effect"
 import type { ChildProcessSpawner } from "effect/process"
+import * as Errno from "../Errno.ts"
 import * as Messages from "../Messages.ts"
 import * as Repo from "../Repo.ts"
 import * as SafeMode from "../SafeMode.ts"
+import * as Secrets from "../Secrets.ts"
 import * as Settings from "../Settings.ts"
 import * as Timezone from "../Timezone.ts"
 import * as Loader from "./Loader.ts"
@@ -56,6 +58,13 @@ export type Request =
   | { readonly _tag: "Safe"; readonly to: "on" | "off" | undefined }
   | { readonly _tag: "Reload"; readonly name: string }
   | { readonly _tag: "Timezone"; readonly zone: string }
+  | {
+      readonly _tag: "SecretSet"
+      readonly name: string
+      readonly value: string
+      readonly note: string | undefined
+    }
+  | { readonly _tag: "SecretRm"; readonly name: string }
 
 export interface Commands {
   /** Runs a command in the queue. `waiting` is told what it waits on when the queue is busy (CLI-40). */
@@ -752,6 +761,114 @@ export const make = Effect.fnUntraced(function* (options: {
       )
     })
 
+  /** See `Commands.rebuild`. */
+  const rebuild: Commands["rebuild"] = (names, kept) =>
+    owned(
+      Effect.gen(function* () {
+        const build: Array<Plugins.Entry> = []
+        const unreadable: Array<{ name: string; error: string }> = []
+        for (const name of new Set(names)) {
+          const entry = yield* Effect.result(entryOf(name))
+          if (entry._tag === "Failure")
+            unreadable.push({ name, error: String(entry.failure) })
+          else if (typeof entry.success !== "string") build.push(entry.success)
+        }
+        const prepared = yield* plugins.prepare({
+          build,
+          remove: [],
+          reason: "removed",
+          failures: "keep",
+          kept,
+          trial: false,
+        })
+        const { swapped } = yield* prepared.swap
+        return { swapped, failed: [...unreadable, ...prepared.failed] }
+      }).pipe(Effect.provideContext(context)),
+    )
+
+  /**
+   * `chad secret set` and `chad secret rm`. The store changes first, by temporary file and rename, then the plugins whose
+   * settings in the applied `chad.json` name the secret are built again, one a boot skipped included and one that is off
+   * left out. A plugin whose build fails keeps its old version, marked in status, and the command exits 1 naming it,
+   * with the change kept. Once the store is written the reload finishes whether or not the CLI stays (CRED-25, CLI-102,
+   * SET-26, SET-79, SET-80, SWAP-96, SWAP-97, SWAP-143). A removal run from a session posts its line there (CRED-106,
+   * FAIL-238). What comes back holds names and never the value (CRED-81), and so does the `command.ran` line (CRED-130).
+   */
+  const secret = (
+    request: Extract<Request, { readonly _tag: "SecretSet" | "SecretRm" }>,
+    caller: Caller,
+  ) =>
+    Effect.gen(function* () {
+      const set = request._tag === "SecretSet"
+      const command = set ? "secret set" : "secret rm"
+      const who = Queue.caller(caller.session)
+      const { name } = request
+      if (set && !Secrets.valid(name))
+        return failed(
+          name === Secrets.RESERVED
+            ? Messages.secretNameReserved()
+            : Messages.secretNameInvalid(),
+        )
+      if (set && request.value === "") return failed(Messages.secretNoValue())
+      return yield* owned(
+        Effect.gen(function* () {
+          const changed = yield* Secrets.change(options.data, (store) =>
+            set
+              ? Secrets.save(
+                  store,
+                  name,
+                  request.value,
+                  request.note,
+                  new Date(),
+                )
+              : Secrets.remove(store, name),
+          ).pipe(
+            Effect.mapError((error) =>
+              Messages.secretStoreBroken(
+                set ? "set" : "rm",
+                error._tag === "SecretsError"
+                  ? error.message
+                  : `secrets/secrets.json cannot be written (${Errno.code(error)})`,
+              ),
+            ),
+            Effect.result,
+          )
+          if (changed._tag === "Failure") {
+            yield* Queue.ran(command, who, "refused", { name })
+            return failed(changed.failure)
+          }
+          if (changed.success._tag === "Missing") {
+            yield* Queue.ran(command, who, "unchanged", { name })
+            return failed(Messages.secretMissing("rm", name))
+          }
+          const { swapped, failed: kept } = yield* rebuild(
+            PluginSettings.users(applied, name),
+            "secret",
+          )
+          yield* Queue.ran(command, who, "changed", { name })
+          const line =
+            changed.success._tag === "Saved"
+              ? Messages.secretSaved(name, changed.success.replaced, swapped)
+              : Messages.secretRemoved(name, swapped)
+          if (!set)
+            yield* announce(
+              caller,
+              Messages.secretLine(
+                name,
+                kept.map(({ name }) => name),
+              ),
+            )
+          return {
+            stdout: [line],
+            stderr: kept.map(({ name, error }) =>
+              Messages.keptPrevious(name, error),
+            ),
+            code: kept.length === 0 ? (0 as const) : (1 as const),
+          }
+        }),
+      )
+    })
+
   const labels: Record<Request["_tag"], string> = {
     Apply: "chad apply",
     Check: "chad check",
@@ -759,6 +876,8 @@ export const make = Effect.fnUntraced(function* (options: {
     Safe: "chad safe",
     Reload: "chad plugin reload",
     Timezone: "chad timezone",
+    SecretSet: "chad secret set",
+    SecretRm: "chad secret rm",
   }
 
   const perform = (
@@ -778,6 +897,9 @@ export const make = Effect.fnUntraced(function* (options: {
         return reload(request.name)
       case "Timezone":
         return timezone(request.zone, caller)
+      case "SecretSet":
+      case "SecretRm":
+        return secret(request, caller)
     }
   }
 
@@ -825,30 +947,7 @@ export const make = Effect.fnUntraced(function* (options: {
       ),
     off: () => Settings.off(applied),
     users: (secret) => PluginSettings.users(applied, secret),
-    rebuild: (names, kept) =>
-      owned(
-        Effect.gen(function* () {
-          const build: Array<Plugins.Entry> = []
-          const unreadable: Array<{ name: string; error: string }> = []
-          for (const name of new Set(names)) {
-            const entry = yield* Effect.result(entryOf(name))
-            if (entry._tag === "Failure")
-              unreadable.push({ name, error: String(entry.failure) })
-            else if (typeof entry.success !== "string")
-              build.push(entry.success)
-          }
-          const prepared = yield* plugins.prepare({
-            build,
-            remove: [],
-            reason: "removed",
-            failures: "keep",
-            kept,
-            trial: false,
-          })
-          const { swapped } = yield* prepared.swap
-          return { swapped, failed: [...unreadable, ...prepared.failed] }
-        }).pipe(Effect.provideContext(context)),
-      ),
+    rebuild,
   }
   return commands
 })

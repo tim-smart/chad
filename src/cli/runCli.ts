@@ -26,6 +26,9 @@ const root = Command.make("chad").pipe(
   Command.withSubcommands(commands),
 )
 
+/** The usage error of `chad secret run` (CRED-113). */
+const secretRunUsage = 125
+
 /** Resolves on the first SIGINT or SIGTERM, and takes its handlers off the process when it is done with. */
 const signalled = Effect.callback<void>((resume) => {
   const off = () => {
@@ -41,8 +44,14 @@ const signalled = Effect.callback<void>((resume) => {
   return Effect.sync(off)
 })
 
-/** The exit code of a command that did not end well. effect's CLI module has printed a usage error by now. */
-const ended = (error: unknown): Effect.Effect<ExitCode> => {
+/**
+ * The exit code of a command that did not end well. effect's CLI module has printed a usage error by now. A usage
+ * error of `chad secret run` exits 125, since its child's code passes through (CLI-49b, CRED-113).
+ */
+const ended = (
+  args: ReadonlyArray<string>,
+  error: unknown,
+): Effect.Effect<number> => {
   if (error instanceof Failure) {
     return error.message === ""
       ? Effect.succeed(error.code)
@@ -51,7 +60,10 @@ const ended = (error: unknown): Effect.Effect<ExitCode> => {
   if (CliError.isCliError(error)) {
     // Help that was asked for by running a group with no command is no error.
     const help = error._tag === "ShowHelp" && error.errors.length === 0
-    return Effect.succeed(help ? ExitCode.done : ExitCode.usage)
+    const run = args[0] === "secret" && args[1] === "run"
+    return Effect.succeed(
+      help ? ExitCode.done : run ? secretRunUsage : ExitCode.usage,
+    )
   }
   return Effect.as(Console.error(String(error)), ExitCode.failed)
 }
@@ -60,7 +72,7 @@ const ended = (error: unknown): Effect.Effect<ExitCode> => {
  * Runs one client command and gives its exit code. It owns the signals, so a command that a signal ends gives 130,
  * and it never exits the process itself.
  */
-export const runCli = (inputs: CliInputs): Promise<ExitCode> => {
+export const runCli = (inputs: CliInputs): Promise<number> => {
   const environment = Environment.read(process.env)
   const services = Layer.mergeAll(
     NodeServices.layer,
@@ -80,8 +92,8 @@ export const runCli = (inputs: CliInputs): Promise<ExitCode> => {
   const program = Command.runWith(root, { version })(inputs.args).pipe(
     RpcClient.withHeaders(Daemon.headers(environment.session)),
     Effect.scoped,
-    Effect.as<ExitCode>(ExitCode.done),
-    Effect.catch(ended),
+    Effect.as<number>(ExitCode.done),
+    Effect.catch((error) => ended(inputs.args, error)),
     Effect.catchCause((cause) =>
       Effect.as(Console.error(Cause.pretty(cause)), ExitCode.failed),
     ),

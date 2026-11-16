@@ -24,6 +24,8 @@ export interface Environment {
   readonly safeMode?: boolean
   /** `TZ`, the owner's timezone when none is stored (IMG-27). */
   readonly tz?: string | undefined
+  /** The whole environment the CLI started with, which a child of `chad secret run` inherits (CRED-28). */
+  readonly inherited: Readonly<Record<string, string | undefined>>
 }
 
 export const Environment = Context.Service<Environment>("chad/cli/Environment")
@@ -35,6 +37,7 @@ export const read = (env: NodeJS.ProcessEnv): Environment => {
     socket: Paths.socket(env),
     lock: Paths.lock(data),
     session: env["CHAD_SESSION"],
+    inherited: env,
     model: env["CHAD_MODEL"],
     openaiApiKey: env["CHAD_OPENAI_API_KEY"],
     openaiApiUrl: env["CHAD_OPENAI_API_URL"],

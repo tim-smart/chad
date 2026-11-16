@@ -742,6 +742,7 @@ A command that changes chad leaves a line in the thread of the session it ran fr
 - **FAIL-179** A command that failed and changed nothing posts nothing, because the agent has the error.
 - **FAIL-238** A reload that is not an apply, and that exits 1 because some plugins failed to build while the others swapped, still posts the line, and the line names the plugins that were kept on their previous version (see 08-apply-and-swap.md).
 - **FAIL-345** For `chad timezone` the line is "Timezone set to <zone>.", and when some plugins kept their previous version it goes on "Still on the previous timezone: <plugin names>."
+- **FAIL-346** For `chad secret rm` the line is "Secret <NAME> removed.", and when some plugins kept their previous version it goes on "Still on the previous secret: <plugin names>."
 - **FAIL-180** The post is forked into the daemon's scope and the command does not wait for it (see 10-cli.md).
 
 ## What stays in the log only
@@ -792,7 +793,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 - **FAIL-G14** [builder] What the `mcp` and `command` annotation keys hold, and the names of the other annotation fields each event carries, such as the duration and the usage on a turn's end. TIM-557 item 2 lists the six keys without defining them. The closest reading is the MCP server's name and the CLI command's name.
 - **FAIL-G15** [builder] Whether the copy of a line logged from a sub-agent or from an MCP call carries the right session, turn and plugin name. The probes ran neither. TIM-557 item 8.
 - **FAIL-G16** [builder] The format of the human line `chad logs` prints. TIM-557 item 11.
-- **FAIL-G17** [builder] The wording of the update message in FAIL-125, and the wording of the session line in FAIL-176 for every command but `apply`. TIM-557 "Not settled here".
+- **FAIL-G17** [builder] The wording of the update message in FAIL-125, and the wording of the session line in FAIL-176 for every command but `apply`. TIM-557 "Not settled here". FAIL-345 and FAIL-346 settle the lines of `chad timezone` and `chad secret rm`.
 - **FAIL-G18** [builder] The layout and text of the "Problems" and "Recent" blocks, and what "today" is before a timezone is set. TIM-557 item 27 and TIM-548 "Not settled here". FAIL-334 settles what "today" is.
 - **FAIL-G19** [builder] Small wordings. The notice for a repo plugin skipped because a bundled plugin took its name has no text (TIM-548 item 12). The logged-out notice's two sentences are joined here with a full stop that no ticket writes (TIM-535, TIM-557 item 40). The rounding of `<n> MB` is not given, and neither is whether cron's pause line is subtext (TIM-557 item 40).
 - **FAIL-G21** [builder] The text of the `diagnose` skill and its `chad db query` recipes. TIM-557 item 43 names what it teaches and nothing more.
@@ -1135,6 +1136,7 @@ Tim has not read the decisions in this part. Eleven of them change something he 
 | FAIL-343 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `plugin-api` |
 | FAIL-344 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `loader` |
 | FAIL-345 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
+| FAIL-346 | Build, stage 4 | Builder (Tim has not read) | run |  | `rule` | `settings` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 
