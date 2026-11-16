@@ -101,8 +101,14 @@ export interface FakeModel {
   readonly refreshed: () => ReadonlyArray<string>
   /** How many device codes the login asked for. */
   readonly deviceCodes: () => number
-  /** Lets the pending device flow's poll succeed. */
+  /** Lets the pending device flow's poll succeed, and answers the polls that `holdPolls` holds. */
   readonly approve: () => void
+  /**
+   * From now on, a poll of a device code that is not approved yet waits for `approve` in place of Codex's
+   * `authorization_pending`. The login then ends as soon as the test approves, and not at clanka's next poll, which
+   * is 8 seconds later: clanka reads the fake's interval of 0 as its default of 5 seconds and adds 3.
+   */
+  readonly holdPolls: () => void
   /** Sets the replies, by call index from 0, and forgets the calls received so far. */
   readonly script: (replies: ReadonlyArray<Reply>) => void
   /** Lets the held response of a call go. */
@@ -357,6 +363,9 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
   let issued = 0
   let deviceCodes = 0
   let approved = false
+  let holdingPolls = false
+  // The answers of the polls that wait for `approve`. A poll whose client went away leaves the set.
+  const polls = new Set<() => void>()
 
   const issue = (expired: boolean): StoredToken => {
     const n = ++issued
@@ -494,12 +503,18 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
       })
     }
     if (path === "/auth/api/accounts/deviceauth/token") {
-      return approved
-        ? json(response, 200, {
-            authorization_code: `code-${deviceCodes}`,
-            code_verifier: "verifier",
-          })
-        : json(response, 403, { error: "authorization_pending" })
+      const approval = () =>
+        json(response, 200, {
+          authorization_code: `code-${deviceCodes}`,
+          code_verifier: "verifier",
+        })
+      if (approved) return approval()
+      if (!holdingPolls) {
+        return json(response, 403, { error: "authorization_pending" })
+      }
+      polls.add(approval)
+      response.on("close", () => polls.delete(approval))
+      return
     }
     if (path === "/auth/oauth/token") {
       const form = new URLSearchParams(text)
@@ -640,8 +655,14 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
     token: (options) => issue(options?.expired === true),
     refreshed: () => refreshed,
     deviceCodes: () => deviceCodes,
+    holdPolls: () => {
+      holdingPolls = true
+    },
     approve: () => {
       approved = true
+      const waiting = [...polls]
+      polls.clear()
+      waiting.forEach((approval) => approval())
     },
     script: (next) => {
       replies = next

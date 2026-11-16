@@ -69,6 +69,7 @@ test("MOD-102 MOD-103 FAIL-212 turn timeouts while a login is pending for the se
     timings: { turnTimeout: Duration.millis(800) },
   })
   const { fakes, model } = running
+  model.holdPolls()
   // The first call says nothing, and its retry needs a new socket and so the token the logout takes. After the login
   // two more calls say nothing: with the timeout before the login they would be three in a row.
   await fakes.model.script([
@@ -85,10 +86,17 @@ test("MOD-102 MOD-103 FAIL-212 turn timeouts while a login is pending for the se
   expect(
     running.log().filter((line) => line.annotations["event"] === "turn.retry"),
   ).toHaveLength(0)
-  // clanka polls the device code at once and then every four seconds, so a login approved after the first timeout of
-  // the wait stays pending for more timeouts.
+  // The fake holds the poll until the approval, so the login stays pending for as many timeouts as the test waits for.
+  // Two of them, with the one before the login, would have ended the turn if they counted.
   await lines(running, "turn.login-wait", 1)
-  await lines(running, "turn.retry", 2)
+  await eventually(
+    () => running.log().map((line) => line.annotations["event"]),
+    (events) =>
+      events.includes("turn.failed") ||
+      events
+        .slice(events.indexOf("turn.login-wait"))
+        .filter((event) => event === "turn.retry").length >= 2,
+  )
   model.approve()
 
   const [turn] = await eventually(

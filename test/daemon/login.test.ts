@@ -49,6 +49,7 @@ const tokenFile = (data: string) => join(data, "secrets", "auth", tokenFileName)
 test("MOD-33 MOD-35 MOD-38 MOD-39 MOD-41 MOD-42 MOD-43 MOD-56 MOD-59 MOD-100 MOD-101 MOD-107 MOD-112 DIS-70 DIS-72 CLI-110 CLI-159 FAIL-251 FAIL-259 a turn with no login posts one code in its own thread, another thread's turn and chad login join that login, a killed chad login leaves it running, and every waiter runs once it completes, with no code or token in the log", async () => {
   const running = await scenario(codex)
   const { fakes, model, data } = running
+  model.holdPolls()
   await fakes.model.script([{ text: "answered" }, { text: "answered" }])
   const first = await fakes.chat.makeThread("direct")
   const second = await fakes.chat.makeThread("direct")
@@ -146,6 +147,7 @@ test("MOD-44 MOD-45 MOD-74 MOD-75 DIS-71 TST-214 a login whose time runs out end
 test("MOD-47 MOD-48 MOD-60 MOD-61 CLI-111 a chad logout during a turn does not stop it, and a turn that then loses its login waits where it is with a code in its thread and carries on once the login completes", async () => {
   const running = await scenario({ ...codex, codex: "token" })
   const { fakes, model } = running
+  model.holdPolls()
   // The first call is held while the owner logs out, then fails, so clanka opens a new socket, which needs a token.
   await fakes.model.script([
     { hold: true, status: 500 },
@@ -183,6 +185,7 @@ test("MOD-47 MOD-48 MOD-60 MOD-61 CLI-111 a chad logout during a turn does not s
 test("MOD-36 MOD-60 MOD-118 MOD-119 a chad login through the daemon with no turn waiting posts its code by the notice route as well as printing it, a turn then waits on it, and a second chad login with the token good says so", async () => {
   const running = await scenario({ ...codex, codex: "token" })
   const { fakes, model } = running
+  model.holdPolls()
   await fakes.model.script([{ text: "first" }, { text: "second" }])
   const thread = await fakes.chat.makeThread("direct")
   await says(running, thread, "hello")
@@ -219,6 +222,7 @@ test("MOD-36 MOD-60 MOD-118 MOD-119 a chad login through the daemon with no turn
 test("MOD-57 MOD-58 MOD-62 MOD-64 MOD-109 MOD-110 CLI-34 CLI-57c with no daemon chad login runs the device flow itself and stores a private token, fails when a daemon took the lock before it stored, logout clears the token, and both are refused to the agent", async () => {
   const running = await scenario(codex)
   const { model, data } = running
+  model.holdPolls()
   await running.stop()
 
   for (const command of ["login", "logout"]) {
@@ -285,6 +289,7 @@ test("MOD-55 MOD-118 MOD-36 a chad login through the daemon prints its code and 
   })
   expect(await running.fakes.chat.makeThread("direct")).toEqual(direct)
   const held = running.holdThreads()
+  running.model.holdPolls()
   const login = Cli.start(["login"], { CHAD_DATA: running.data })
   await login.printed(prompt(1))
   running.model.approve()
