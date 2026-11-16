@@ -168,7 +168,7 @@ export const strip = (value: unknown): unknown => {
 /**
  * Where a stripped recording still holds a secret: a JWT, a secret field that was not stripped, or one of the values
  * the recorder saw as a token, an id or a code of the login. It gives each place as a path, never the value, so that
- * the recorder can refuse to write and say where (TST-216).
+ * the recorder can refuse to write and say where (TST-41).
  */
 export const leftover = (
   value: unknown,
