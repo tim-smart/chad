@@ -932,6 +932,39 @@ export const revertedLine = (commit: string, from: string) =>
 export const safeLine = (on: boolean) =>
   on ? "Safe mode is on." : "Safe mode is off."
 
+/**
+ * The session line of `chad timezone`, which names the plugins kept on their previous version (FAIL-238, FAIL-345).
+ */
+export const timezoneLine = (zone: string, kept: ReadonlyArray<string>) =>
+  kept.length === 0
+    ? `Timezone set to ${zone}.`
+    : `Timezone set to ${zone}. Still on the previous timezone: ${kept.join(", ")}.`
+
+/** What `chad timezone <zone>` prints once the zone is stored (CLI-239). */
+export const timezoneSet = (zone: string) => `Timezone set to ${zone}.`
+
+/** A plugin that failed to build in a reload and kept its running version, with the error (CLI-114, SWAP-96, CLI-239). */
+export const keptPrevious = (name: string, error: string) =>
+  `${name}: ${firstLine(error)}`
+
+/** `chad timezone <zone>` with no named zone, which exits 2 (CLI-182, CLI-239). */
+export const timezoneInvalid = (zone: string) =>
+  `chad timezone: ${JSON.stringify(zone)} is not a named timezone. Give an IANA name such as Europe/Berlin.`
+
+/** What `chad timezone` with no argument prints: the zone in force and where it came from (CLI-184, CLI-185, CLI-240). */
+export const timezoneInForce = (
+  zone: string,
+  source: "stored" | "variable" | "fallback",
+  ignored: string | undefined,
+) =>
+  source === "stored"
+    ? `${zone}, set with chad timezone.`
+    : source === "variable"
+      ? `${zone}, from TZ. Nothing is set with chad timezone.`
+      : ignored === undefined
+        ? `${zone}, the fallback. Nothing is set with chad timezone and TZ is not set.`
+        : `${zone}, the fallback. Nothing is set with chad timezone and TZ=${ignored} is not a valid zone.`
+
 /** What `chad safe` prints: whether safe mode is on and what turned it on (REC-129, REC-G10). */
 export const safeState = (state: "off" | "variable" | "toggle") =>
   state === "off"
@@ -1036,9 +1069,64 @@ export const logMissing =
   "There is no applied commit yet. The repo is made when chad first starts."
 
 /** The mark `chad status` gives a plugin that kept its running version when a reload failed to build it (SWAP-141, SWAP-142). */
-export const runningPrevious = (what: "owners" | "instance", error: string) =>
-  `running with the previous ${what}: ${firstLine(error)}`
+export const runningPrevious = (
+  what: "owners" | "instance" | "timezone",
+  error: string,
+) => `running with the previous ${what}: ${firstLine(error)}`
 
 /** The line of `boot.setup-needed`, written when `chad serve` starts with no chat connection (IMG-33, FAIL-288). */
+/** `chad setup` with no terminal and an answer that is neither given nor stored, which exits 2 (CLI-123, CLI-242). */
+export const setupMissing = (flags: ReadonlyArray<string>) =>
+  `chad setup: there is no terminal to ask on, so give ${flags.join(", ")}`
+
+/** The token question of a run after the first, which never prints the token and names the bot (CLI-192, CLI-246). */
+export const setupTokenStored = (
+  connection: string,
+  bot: string | undefined,
+) =>
+  bot === undefined
+    ? `A Discord bot token is stored for connection ${connection}.`
+    : `A Discord bot token is stored for connection ${connection}, the bot ${bot}.`
+
+export const setupTokenPrompt =
+  "Discord bot token (press Enter to keep the stored one)"
+
+/** The bot a token that setup stored belongs to (CLI-192). */
+export const setupBot = (bot: string) => `The token is the bot ${bot}'s.`
+
+/** Whether setup turned the message content intent on, or where the owner clicks (CLI-122, CLI-244). */
+export const setupIntent = (
+  outcome: "on" | "already" | "portal",
+  application: string | undefined,
+) =>
+  outcome === "on"
+    ? "Message Content Intent turned on for the bot."
+    : outcome === "already"
+      ? "Message Content Intent is on for the bot."
+      : `Turn on Message Content Intent under Privileged Gateway Intents at ${application === undefined ? "https://discord.com/developers/applications" : `https://discord.com/developers/applications/${application}/bot`}, because Discord did not let chad do it.`
+
+export const setupOwnerPrompt = (owners: ReadonlyArray<string>) =>
+  owners.length === 0
+    ? "Your Discord user id"
+    : `Your Discord user id (press Enter to keep ${owners.join(", ")})`
+
+export const setupOwnerNeeded = "An owner id is needed."
+
+/** The owner question kept the stored owners (CLI-191, CLI-246). */
+export const setupOwnersKept = (
+  owners: ReadonlyArray<string>,
+  connection: string,
+) => `The owners of ${connection} stay ${owners.join(", ")}.`
+
+export const setupTimezonePrompt = (zone: string) =>
+  `Your timezone (press Enter to keep ${zone})`
+
+export const setupLoginOffer = "Log chad in to Codex now?"
+
+export const setupLoginSkipped =
+  "The Codex login is skipped. Run chad login when you want it."
+
+export const setupLoggedIn = "chad is logged in to Codex."
+
 export const setupNeeded =
   "chad has no chat connection. Add one with chad connection add."

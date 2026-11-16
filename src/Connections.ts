@@ -136,6 +136,8 @@ export const Checked = Schema.Struct({
   ]),
   /** What the platform or the socket answered, when the check failed. */
   detail: Schema.String,
+  /** The name of the bot a Discord token that passed belongs to, which `chad setup` shows (CLI-192). */
+  bot: Schema.optionalKey(Schema.String),
 })
 export type Checked = typeof Checked.Type
 
@@ -367,7 +369,10 @@ export const check = Effect.fn("Connections.check")(function* (
           : line("no-platform", `${socket}: ${code}`)
       }
       return yield* Discord.checkToken(connection.token ?? "").pipe(
-        Effect.as(line()),
+        Effect.map(({ bot }): Checked => ({
+          ...line(),
+          ...(bot === undefined ? {} : { bot }),
+        })),
         Effect.catch((error) =>
           Effect.succeed(line(`token-${error.reason}`, error.detail)),
         ),

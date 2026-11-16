@@ -132,7 +132,7 @@ export interface Plan {
    * With `keep`, the word for what changed. A plugin that keeps its running version is marked "running with the previous
    * <word>: <error>" in `chad status` until a later build of it swaps (SWAP-141, SWAP-142).
    */
-  readonly kept?: "owners" | "instance"
+  readonly kept?: "owners" | "instance" | "timezone"
 }
 
 /** What a swap did, for the command's output (CLI-71, SWAP-78). */
@@ -302,6 +302,8 @@ export const make = Effect.fnUntraced(function* (options: {
   /** The plugins from the repo that could not be bundled or run, which are skipped as one whose Layer fails is. */
   readonly unloadable?: ReadonlyArray<Loader.Skipped>
   readonly owners: () => ReadonlyArray<string>
+  /** The owner's timezone, which a plugin reads as `DateTime.CurrentTimeZone` and gets at load (API-17, LOAD-15). */
+  readonly timezone: () => string
   readonly timings: Timings
   /** When the stop began, in milliseconds since the epoch, or nothing before a stop. */
   readonly stopping: () => number | undefined
@@ -645,7 +647,10 @@ export const make = Effect.fnUntraced(function* (options: {
                 scheduled: () => waiting(turns.scheduled()),
               }),
             ),
-            Context.make(DateTime.CurrentTimeZone, DateTime.zoneMakeLocal()),
+            Context.make(
+              DateTime.CurrentTimeZone,
+              DateTime.zoneMakeNamedUnsafe(options.timezone()),
+            ),
           )
           // The daemon owns the deadline of the build. A `Turns` call the build waits on never returns, and the deadline
           // ends it (LOAD-14, API-131). The build runs on a fiber of its own, so a part of it that cannot be interrupted,

@@ -12,13 +12,16 @@ import { owner } from "./commands/owner.ts"
 import { plugin } from "./commands/plugin.ts"
 import { revert } from "./commands/revert.ts"
 import { safe } from "./commands/safe.ts"
+import { setup } from "./commands/setup.ts"
 import { status } from "./commands/status.ts"
+import { timezone } from "./commands/timezone.ts"
 
 /**
  * The client commands, which is every command but `serve`. A command is declared in its own file under
  * `commands/` and listed here, and a command that is not listed is an unknown command.
  */
 export const commands = [
+  setup,
   health,
   status,
   connection,
@@ -34,4 +37,5 @@ export const commands = [
   log,
   safe,
   plugin,
+  timezone,
 ] as const

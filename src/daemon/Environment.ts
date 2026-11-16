@@ -23,6 +23,8 @@ export interface Environment {
   readonly unknownLogLevel: string | undefined
   /** Whether `CHAD_SAFE_MODE=1` holds safe mode on (REC-129). */
   readonly safeMode: boolean
+  /** `TZ`, the owner's timezone when none is stored (IMG-27). The daemon sets none on itself. */
+  readonly tz: string | undefined
 }
 
 export const read = (env: NodeJS.ProcessEnv): Environment => {
@@ -42,5 +44,6 @@ export const read = (env: NodeJS.ProcessEnv): Environment => {
     logLevel: level ?? "Info",
     unknownLogLevel: level === undefined ? named : undefined,
     safeMode: SafeMode.forced(env),
+    tz: env["TZ"],
   }
 }

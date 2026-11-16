@@ -139,6 +139,14 @@ test("TST-161 ASP-26 ASP-30 ASP-11 ASP-12 ASP-31 API-25 the plugin loads: the he
   })
 })
 
+test("ASP-12 ASP-13 API-17 a timezone change reloads the plugin, which sends the bank again with the new zone", async () => {
+  const { running, daemon } = await boot()
+  expect((await running.chad(["timezone", "Europe/Berlin"])).code).toBe(0)
+  const reload = await sent(daemon, 2)
+  expect(reload.map(route)).toEqual(["GET /health", "PUT "])
+  expect(reload[1]?.body).toMatchObject({ timezone: "Europe/Berlin" })
+})
+
 test("ASP-87 ASP-16 ASP-38 ASP-39 ASP-48 ASP-49 ASP-50 ASP-55 ASP-57 ASP-58 ASP-100 API-38 API-41 API-49 API-53 two owner turns in a direct message: one block fetch, a prefetch and an ingest each, and the second prefetch carries the first query and reply", async () => {
   const { running, daemon } = await boot()
   const { fakes } = running

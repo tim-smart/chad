@@ -363,6 +363,8 @@ export const rest = async (): Promise<Rest> => {
     String(call.headers["authorization"]).replace("Bot ", "")
   let next = BigInt("1000000000000000000")
   const user = { id: bot, username: "chad", discriminator: "0", bot: true }
+  // The application's flags, which `chad setup` reads and sets to turn the message content intent on (CLI-122).
+  let flags = 0
 
   const answer = (call: RestCall): readonly [number, unknown] => {
     const path = call.path.replace(/\?.*$/, "")
@@ -371,7 +373,12 @@ export const rest = async (): Promise<Rest> => {
     if (status !== undefined) {
       return [status, { code: 0, message: `${status}: refused` }]
     }
-    if (route === "GET /applications/@me") return [200, { id: application }]
+    if (route === "GET /applications/@me")
+      return [200, { id: application, bot: user, flags }]
+    if (route === "PATCH /applications/@me") {
+      flags = Number(call.body?.["flags"] ?? flags)
+      return [200, { id: application, bot: user, flags }]
+    }
     if (route === "GET /gateway/bot") {
       return [
         200,

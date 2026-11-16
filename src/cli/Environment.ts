@@ -22,6 +22,8 @@ export interface Environment {
   readonly openaiApiUrl?: string | undefined
   /** Whether `CHAD_SAFE_MODE=1` is set, which holds safe mode on (REC-57). */
   readonly safeMode?: boolean
+  /** `TZ`, the owner's timezone when none is stored (IMG-27). */
+  readonly tz?: string | undefined
 }
 
 export const Environment = Context.Service<Environment>("chad/cli/Environment")
@@ -37,5 +39,6 @@ export const read = (env: NodeJS.ProcessEnv): Environment => {
     openaiApiKey: env["CHAD_OPENAI_API_KEY"],
     openaiApiUrl: env["CHAD_OPENAI_API_URL"],
     safeMode: env["CHAD_SAFE_MODE"] === "1",
+    tz: env["TZ"],
   }
 }

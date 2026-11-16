@@ -205,6 +205,7 @@ export const RepoRequest = Schema.Union([
     to: Schema.UndefinedOr(Schema.Literals(["on", "off"])),
   }),
   Schema.TaggedStruct("Reload", { name: Schema.String }),
+  Schema.TaggedStruct("Timezone", { zone: Schema.String }),
 ])
 export type RepoRequest = typeof RepoRequest.Type
 
