@@ -1,7 +1,7 @@
 /**
- * The recorder of the Codex frames (TST-43, TST-41). The builder runs it once, by hand, through the OpenAI endpoint and
- * key of its own environment, and no test and no job on the gate reads that key. docs/build/codex-capture.md is the
- * record of the run and says how to make it again:
+ * The recorder of the Codex frames. Someone runs it once, by hand, through the OpenAI endpoint and key of their own
+ * environment, and no test and no job on the gate reads that key. docs/codex-capture.md is the record of the run and
+ * says how to make it again:
  *
  *   nix develop -c node scripts/record-codex.ts [--model <model>] [--raw <file outside the repository>]
  *
@@ -222,7 +222,7 @@ const overSocket = (options: Options) => {
 
 /** The fixture's `source` line. */
 export const source =
-  "The two answers are recorded, once, by scripts/record-codex.ts through an OpenAI endpoint that relays the Responses API (TST-43): `answer.http` is one call over server-sent events and `answer.socket` one call over WebSocket, as a `response.create` message to /v1/responses. They are what the proxy relays, which is not shown to be what chatgpt.com/backend-api/codex sends. The usage-limit frame under `refusal` is hand-made from the error schema clanka decodes (TST-41), and so is what a new connection gets while the limit is in force, which in the fake is a socket that opens and answers `response.create` with that frame."
+  "The two answers are recorded, once, by scripts/record-codex.ts through an OpenAI endpoint that relays the Responses API: `answer.http` is one call over server-sent events and `answer.socket` one call over WebSocket, as a `response.create` message to /v1/responses. They are what the proxy relays, which is not shown to be what chatgpt.com/backend-api/codex sends. The usage-limit frame under `refusal` is hand-made from the error schema clanka decodes, and so is what a new connection gets while the limit is in force, which in the fake is a socket that opens and answers `response.create` with that frame."
 
 /** The raw frames of the two calls, as `--raw` keeps them. */
 export interface Raw {

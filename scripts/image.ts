@@ -1,4 +1,4 @@
-// The second local command of docs/spec/17-testing.md. It runs the image layer on Docker, or on podman when Docker
+// The second local test command, `pnpm test:image`. It runs the image layer on Docker, or on podman when Docker
 // is not installed. `CHAD_ENGINE` names the engine when both are.
 import { spawnSync } from "node:child_process"
 import { dirname, join, resolve } from "node:path"

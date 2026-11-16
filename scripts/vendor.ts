@@ -5,7 +5,7 @@
 //   node scripts/vendor.ts --newest --clanka newest   and the newest clanka from npm
 //
 // The download is no install. The tarballs are written under vendor/, and the install that follows reads them from
-// there. A newer snapshot stays only when the harness slice's scenario of a message in and a scripted answer out
+// there. A newer snapshot stays only when the scenario of a message in and a scripted answer out
 // passes on it. When it does not, the old set is put back and the script exits 1.
 import { spawnSync } from "node:child_process"
 import { readFileSync, writeFileSync } from "node:fs"

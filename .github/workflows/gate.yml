@@ -1,4 +1,4 @@
-# The pull request gate of docs/spec/17-testing.md: layers 1 to 4, the image layer on amd64,
+# The pull request gate: layers 1 to 4, the image layer on amd64,
 # the type-check, the linter, the formatter and the rule-id script. Nothing here reads a secret.
 name: gate
 

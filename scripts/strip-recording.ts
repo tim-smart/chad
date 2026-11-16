@@ -1,6 +1,6 @@
 /**
- * Strips a raw recording of the Codex side, as `scripts/record-codex.ts --raw` keeps it, into the fake's recording
- * (TST-41, TST-43): `node scripts/strip-recording.ts <raw.json>` writes test/unit/fixtures/codex-frames.json. When
+ * Strips a raw recording of the Codex side, as `scripts/record-codex.ts --raw` keeps it, into the fake's recording:
+ * `node scripts/strip-recording.ts <raw.json>` writes test/unit/fixtures/codex-frames.json. When
  * CLANKA_OPENAI_API_URL and CLANKA_OPENAI_API_KEY are set it also refuses to write while either, or a part of the host,
  * is left, and prints only where.
  */

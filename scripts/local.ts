@@ -1,4 +1,4 @@
-// The local command of docs/spec/17-testing.md. It checks for the tools the scenarios call,
+// The local test command, `pnpm test`. It checks for the tools the scenarios call,
 // names the ones that are missing, checks Node against the Dockerfile, and then runs layers 1 to 4.
 import { spawnSync } from "node:child_process"
 import { readFileSync } from "node:fs"
