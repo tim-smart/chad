@@ -499,7 +499,7 @@ it("STO-216 STO-217 STO-219 CLI-133 MOD-90 a restore cut while it replaces the v
   }
   // While another holds the restore lock, a scaffold command and the restore each wait for it and are refused, so no
   // restore begins between a scaffold's check and its write, with a daemon running or not.
-  let holder = Lock.take(join(data, "restore.lock"), Duration.zero)
+  let holder = Lock.take(join(data, "run/restore.lock"), Duration.zero)
   onTestFinished(() => holder?.())
   expect(
     await chad(["plugin", "new", "while-held"], { CHAD_DATA: data }),

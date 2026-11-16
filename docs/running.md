@@ -1,0 +1,178 @@
+# Running chad
+
+chad ships as one image, `ghcr.io/tim-smart/chad`, built for amd64. Each image is tagged with chad's version and no
+prefix, such as `ghcr.io/tim-smart/chad:0.0.0`, and that is the same string `chad status` prints and the volume's
+`state/version` holds, so a tag always matches a running chad. The examples pin a version tag. Use the version you
+want in place of `0.0.0`.
+
+Everything chad keeps lives on one volume mounted at `/data`. The volume has to be a local filesystem: a host
+directory, a named Docker volume, a Kubernetes local-path volume, a cloud block volume or Longhorn RWO. NFS, CephFS,
+SMB and Longhorn RWX are not supported, because SQLite's lock and write-ahead log are not safe on them.
+
+## The image
+
+Building and publishing the image is done by hand, from the root of the repository:
+
+```sh
+version=$(node -p 'require("./package.json").version')
+docker build --platform linux/amd64 -t "ghcr.io/tim-smart/chad:$version" .
+docker push "ghcr.io/tim-smart/chad:$version"
+```
+
+The image runs as the `node` user, uid 1000, and has no sudo and no apt. A tool the agent needs is installed with npm
+or uv, which keep what they install on the volume, or is a single binary in `/data/home/.local/bin`.
+
+## Docker
+
+There is one way to a running chad. Start the container, then run the setup wizard inside it:
+
+```sh
+docker volume create chad-data
+docker run -d --name chad --restart unless-stopped --stop-timeout 90 \
+  -v chad-data:/data \
+  ghcr.io/tim-smart/chad:0.0.0
+docker exec -it chad chad setup
+```
+
+`--stop-timeout 90` gives chad the time a stop needs. Docker's default of 10 seconds kills a stop that is still
+waiting for a turn to finish.
+
+Every other command runs the same way, as `docker exec -it chad chad <command>`. Before the first start you can also
+run a command in a one-off container against the volume, such as `docker run --rm -it -v chad-data:/data
+ghcr.io/tim-smart/chad:0.0.0 setup`.
+
+For a shell in a one-off container, replace the entrypoint:
+
+```sh
+docker run --rm -it -v chad-data:/data --entrypoint bash ghcr.io/tim-smart/chad:0.0.0
+```
+
+A host directory works in place of the named volume when it belongs to uid 1000 (`sudo chown 1000:1000 <dir>`).
+chad refuses to boot on a volume another uid owns, and writes nothing to it.
+
+### When chad freezes
+
+chad's health check is `chad health`, and Docker marks a frozen chad unhealthy. Under plain Docker nothing restarts an
+unhealthy container: `--restart unless-stopped` restarts chad when it exits, and a freeze is not an exit. Restart it
+yourself with `docker restart chad`. On Kubernetes the liveness probe does it.
+
+### Other mounts
+
+You can give chad other directories, such as an Obsidian vault. Mount each one under `/mnt`, as `/mnt/vault` here,
+and add `:ro` when chad should only read it:
+
+```sh
+docker run -d --name chad --restart unless-stopped --stop-timeout 90 \
+  -v chad-data:/data \
+  -v /srv/vault:/mnt/vault:ro \
+  ghcr.io/tim-smart/chad:0.0.0
+```
+
+A mount like this is outside chad's repo, so chad never commits it and `chad revert` never touches it. Backing it up
+is up to you.
+
+### asphodel
+
+asphodel, the memory daemon the asphodel plugin talks to, is not in the chad image. It runs as its own container on a
+network it shares with chad, and its README says how to set it up:
+
+```sh
+docker network create chad
+docker network connect chad chad
+docker run -d --name asphodel --restart unless-stopped --network chad \
+  -e ASPHODEL_TOKEN="$token" \
+  -v asphodel-data:/data \
+  ghcr.io/tim-smart/asphodel:latest \
+  serve --listen 0.0.0.0:7720 --data-dir /data
+```
+
+The plugin's `url` is then `http://asphodel:7720`. Its `token` setting is `${ASPHODEL_TOKEN}`, which chad
+reads from its secret store (`chad secret set ASPHODEL_TOKEN`) or from its own environment.
+
+### Backup
+
+`chad backup` writes one tar that holds the database, the repo, the secrets and the home directory. The tar holds
+tokens, so keep it as you keep a password. With chad running:
+
+```sh
+docker exec chad chad backup - > "chad-$(date +%F).tar"
+```
+
+asphodel's store is not in that tar. Back it up next to it:
+
+```sh
+docker exec asphodel asphodel backup --out=/data/backup.db
+docker cp asphodel:/data/backup.db "asphodel-$(date +%F).db"
+```
+
+### Restore
+
+A restore goes onto an empty volume, with chad stopped:
+
+```sh
+docker stop chad
+docker volume create chad-restored
+docker run --rm -i -v chad-restored:/data ghcr.io/tim-smart/chad:0.0.0 restore - < chad-2026-11-16.tar
+docker rm chad
+docker run -d --name chad --restart unless-stopped --stop-timeout 90 \
+  -v chad-restored:/data \
+  ghcr.io/tim-smart/chad:0.0.0
+```
+
+`chad restore` refuses a volume that holds secrets or sessions, and a volume a running chad holds. A restore that was
+cut part way leaves the volume to `chad restore` alone: run the same restore again and it finishes. A newer chad
+restores an older tar, and the first boot migrates it.
+
+## Kubernetes
+
+`deploy/kubernetes/` is the example: a Deployment of chad with asphodel as a native sidecar, the claims, and two
+nightly backup CronJobs. The image tag is set once, in `kustomization.yaml`, for the Deployment and the backup alike.
+
+```sh
+kubectl create secret generic chad-asphodel --from-literal=token="$(openssl rand -hex 32)"
+kubectl apply -k deploy/kubernetes
+kubectl exec -it deploy/chad -- chad setup
+```
+
+Every other command runs as `kubectl exec -it deploy/chad -- chad <command>`.
+
+- The Deployment has one replica and the Recreate strategy, so a rollout stops the old pod before the new one starts. A
+  second chad on the same volume is refused the lock.
+- chad runs as uid 1000 with no privileges, all capabilities dropped and no service account token. `fsGroup: 1000`
+  gives it the claim. On a local-path volume `fsGroup` does nothing, because the provisioner makes the directory with
+  mode 0777, and chad's own start-up check is the guard.
+- The liveness probe runs `chad health` every 30 seconds, with a 5 second timeout and 3 failures, and restarts a frozen
+  chad. The startup probe runs it every 2 seconds, up to 30 times. There is no readiness probe.
+- The grace period is 90 seconds. A stop takes up to 60.
+- The vault claim is mounted at `/mnt/vault`.
+- asphodel listens on port 7720, and the plugin reaches it at `http://127.0.0.1:7720`. The `chad-asphodel` Secret
+  gives both containers the same `ASPHODEL_TOKEN`.
+- The examples set no resource requests or limits and do not make the root filesystem read-only.
+
+### Backup on Kubernetes
+
+The `chad-backup` CronJob runs `chad backup /backup/chad-<date>.tar` at 03:30 UTC with the chad image, onto the
+`chad-backup` claim. It mounts the data claim itself, so it works while chad's pod is down, and two runs never overlap.
+The `asphodel-backup` CronJob writes `asphodel-<date>.db` beside it at 03:45, and needs chad's pod up. Nothing removes
+old backups. Run one now with `kubectl create job --from=cronjob/chad-backup chad-backup-now`.
+
+### Restore on Kubernetes
+
+Stop chad, restore onto an empty claim from a one-off pod, and point the Deployment at that claim:
+
+```sh
+kubectl scale deploy/chad --replicas=0
+kubectl wait --for=delete pod -l app.kubernetes.io/name=chad --timeout=5m
+# Create an empty claim, chad-restored, then:
+kubectl run chad-restore --rm -i --restart=Never --image=ghcr.io/tim-smart/chad:0.0.0 \
+  --overrides='{"spec":{"securityContext":{"runAsUser":1000,"fsGroup":1000},"volumes":[{"name":"data","persistentVolumeClaim":{"claimName":"chad-restored"}}],"containers":[{"name":"chad-restore","image":"ghcr.io/tim-smart/chad:0.0.0","args":["restore","-"],"stdin":true,"volumeMounts":[{"name":"data","mountPath":"/data"}]}]}}' \
+  < chad-2026-11-16.tar
+# Set claimName: chad-restored for the data volume in deployment.yaml and backup.yaml, then:
+kubectl apply -k deploy/kubernetes
+```
+
+### Checking a cluster
+
+`node scripts/kubernetes.ts` runs the example in a namespace of its own on the cluster of kubectl's current context.
+It checks the probes, what `fsGroup` does on the cluster's volumes and the backup CronJob, with chad running and with
+it down, then deletes the namespace. `--image` runs another image in place of the pinned one.

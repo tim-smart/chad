@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process"
 import { existsSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
@@ -10,6 +11,8 @@ import {
   cleanup,
   command,
   type Config,
+  engine,
+  image,
   type Container,
   container,
   exec,
@@ -791,6 +794,131 @@ describe("an owner's message to the image, with the local platform and the fake 
     for (const file of ["logs/chad.log", "db/chad.db"]) {
       expect(existsSync(join(kept, "data", file))).toBe(true)
     }
+  })
+})
+
+describe("a backup and a restore in containers, as docs/running.md gives them", () => {
+  /** An engine command whose standard output is bytes, such as a tar, with bytes for its standard input. */
+  const bytes = (args: ReadonlyArray<string>, input?: Buffer) => {
+    const { status, stdout, stderr } = spawnSync(engine, args, {
+      input,
+      maxBuffer: 256 * 1024 * 1024,
+    })
+    return { status, stdout, stderr: stderr.toString() }
+  }
+  const volumeTop = [
+    "cache",
+    "db",
+    "home",
+    "logs",
+    "repo",
+    "run",
+    "secrets",
+    "sessions",
+    "state",
+  ]
+
+  it("STO-85 STO-93 STO-99 STO-179 STO-1 CLI-29 IMG-96 IMG-108 a running chad is backed up through docker exec and by a one-off container on its volume as the CronJob runs it, a second chad serve on that volume is refused the lock, and each tar restores with chad stopped onto an empty volume that boots with the secret", async () => {
+    const first = volume()
+    const daemon = start("--volume", `${first}:/data`)
+    await ready(daemon)
+    exec(daemon, "printf kept | chad secret set PROBE_TOKEN")
+
+    // CLI-29: the lock holds across two containers that share one volume.
+    const second = command(["--volume", `${first}:/data`], "serve")
+    expect(second.status).toBe(1)
+    expect(second.stdout).toContain("event=boot.refused")
+    expect(second.stdout).toContain("reason=lock")
+
+    // The docs' backup, to a file on the host.
+    const piped = bytes(["exec", daemon, "chad", "backup", "-"])
+    expect(piped.status, piped.stderr).toBe(0)
+    expect(piped.stdout.subarray(0, 13).toString()).toBe("manifest.json")
+
+    // The CronJob's backup: the image with a shell, the data volume and a destination, while chad runs.
+    const backups = volume()
+    output("chown 1000:1000 /backup", {
+      flags: ["--user", "0", "--volume", `${backups}:/backup`],
+    })
+    const scheduled = run(
+      "run",
+      "--rm",
+      "--volume",
+      `${first}:/data`,
+      "--volume",
+      `${backups}:/backup`,
+      "--entrypoint",
+      "/bin/sh",
+      image,
+      "-c",
+      'exec chad backup "/backup/chad-$(date -u +%Y-%m-%d).tar"',
+    )
+    expect(scheduled.status, scheduled.stderr).toBe(0)
+    expect(scheduled.stdout).toMatch(
+      /^Backup written to \/backup\/chad-\d{4}-\d\d-\d\d\.tar\.$/m,
+    )
+    expect(stop(daemon)).toBe(0)
+
+    // The docs' restore: chad stopped, a one-off container, the tar on standard input. The used volume is refused.
+    const refused = bytes(
+      [
+        "run",
+        "--rm",
+        "-i",
+        "--volume",
+        `${first}:/data`,
+        image,
+        "restore",
+        "-",
+      ],
+      piped.stdout,
+    )
+    expect(refused.status).toBe(1)
+    expect(refused.stderr).toContain(
+      "chad restore: refused: /data is not empty",
+    )
+    const restored = volume()
+    const restore = bytes(
+      [
+        "run",
+        "--rm",
+        "-i",
+        "--volume",
+        `${restored}:/data`,
+        image,
+        "restore",
+        "-",
+      ],
+      piped.stdout,
+    )
+    expect(restore.status, restore.stderr).toBe(0)
+
+    // The scheduled tar restores the same way.
+    const other = volume()
+    const fromSchedule = run(
+      "run",
+      "--rm",
+      "--volume",
+      `${other}:/data`,
+      "--volume",
+      `${backups}:/backup:ro`,
+      "--entrypoint",
+      "/bin/sh",
+      image,
+      "-c",
+      "exec chad restore /backup/chad-*.tar",
+    )
+    expect(fromSchedule.status, fromSchedule.stderr).toBe(0)
+    expect(
+      command(["--volume", `${other}:/data`], "secret", "list").stdout,
+    ).toContain("PROBE_TOKEN")
+
+    const back = start("--volume", `${restored}:/data`)
+    await ready(back)
+    await healthy(back)
+    expect(exec(back, "chad secret list")).toContain("PROBE_TOKEN")
+    expect(exec(back, "ls -A /data").split("\n")).toEqual(volumeTop)
+    expect(stop(back)).toBe(0)
   })
 })
 

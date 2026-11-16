@@ -17,6 +17,8 @@
           pnpm_12
           # `script`, which gives a scenario's command a terminal.
           util-linux
+          # The Kubernetes checks of scripts/kubernetes.ts, run by hand against a cluster.
+          kubectl
         ];
       };
     });

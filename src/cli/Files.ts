@@ -122,25 +122,30 @@ export const scaffold = <A, E, R>(
     const environment = yield* Environment
     const fs = yield* FileSystem.FileSystem
     const timings = yield* Timings
-    const release = Lock.take(
-      Paths.restoreLock(environment.data),
-      timings.lockBusy,
+    const lock = Paths.restoreLock(environment.data)
+    yield* Effect.orDie(
+      fs.makeDirectory(dirname(lock), { recursive: true, mode: 0o700 }),
     )
-    if (release === undefined) {
-      return yield* new Failure({
-        code: ExitCode.failed,
-        message: Messages.restoreBusy(command, environment.data),
-      })
-    }
     return yield* Effect.gen(function* () {
-      if (
-        yield* fs.exists(Paths.restoreCut(environment.data)).pipe(Effect.orDie)
-      ) {
+      const release = Lock.take(lock, timings.lockBusy)
+      if (release === undefined) {
         return yield* new Failure({
           code: ExitCode.failed,
-          message: Messages.restoreUnfinished(command, environment.data),
+          message: Messages.restoreBusy(command, environment.data),
         })
       }
-      return yield* write
-    }).pipe(Effect.ensuring(Effect.sync(release)))
-  }).pipe(Effect.uninterruptible)
+      return yield* Effect.gen(function* () {
+        if (
+          yield* fs
+            .exists(Paths.restoreCut(environment.data))
+            .pipe(Effect.orDie)
+        ) {
+          return yield* new Failure({
+            code: ExitCode.failed,
+            message: Messages.restoreUnfinished(command, environment.data),
+          })
+        }
+        return yield* write
+      }).pipe(Effect.ensuring(Effect.sync(release)))
+    }).pipe(Effect.uninterruptible)
+  })

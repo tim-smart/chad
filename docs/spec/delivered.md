@@ -22,6 +22,7 @@ The slices that are delivered, in build order. The builder who finishes a slice 
 - `skills-mcp`
 - `timers-cron`
 - `backup`
+- `image`
 
 ## Held rules
 
@@ -36,6 +37,7 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 | STO-133c  | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                          |
 | FAIL-108c | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                          |
 | LOAD-20   | `bundled-skills` | Every package of the image resolves for a plugin, and the `self-edit` skill that says which ones are promised arrives with the `bundled-skills` slice. |
+| IMG-42c   | `bundled-skills` | The agent records a mount in `persona.md` as the `self-edit` skill teaches (SELF-76), and that skill arrives with the `bundled-skills` slice.          |
 | MCP-145   | `bundled-skills` | The image copies `skills/` to `/opt/chad/skills` once the `bundled-skills` slice adds the first bundled skill, and until then no bundled skill exists. |
 | ASP-7     | `asphodel`       | The asphodel plugin arrives with the `asphodel` slice. A plugin's settings under `plugins.<name>.settings` in `chad.json` are built.                   |
 | ASP-9     | `asphodel`       | The asphodel plugin and its bearer token arrive with the `asphodel` slice. The expansion of `${NAME}` from the secret store or process env is built.   |
@@ -57,6 +59,7 @@ A default (ORD-48) that was not built as written, with one sentence on what chad
 | FAIL-81  | chad counts the turn's `ErrorRetry` parts from the first one, with no count per agent and no reset on `Usage`, because a held-back `Usage` and `ErrorRetry` come labelled as the releasing agent's.                                                                                                                                                             |
 | FAIL-82  | The line carries no 20, because the turn's count is not the count of one model call that `MaxRetries` bounds.                                                                                                                                                                                                                                                   |
 | FAIL-250 | The `turn.retry` line's count, `retry`, is the turn's count of retries so far, and the line carries no `of`.                                                                                                                                                                                                                                                    |
+| TST-93   | There is no check that every event name is emitted somewhere in layers 3 to 5. Tests are chosen by what chad does (TST-173), and a scenario that passes removes its saved directory, so the check would demand scenarios whose only purpose is to emit a log line.                                                                                              |
 | FAIL-328 | A `turn.retry` line carries no `subagent`, a sub-agent's retry's included, because the agent clanka names on a held-back part may not be the one that retried.                                                                                                                                                                                                  |
 | SWAP-11  | The sessions row keeps no generation: a live session compares the model settings' generation in memory, and a restart builds the Agent from storage anyway.                                                                                                                                                                                                     |
 | SES-84   | The sessions row has no generation column, for the reason given under SWAP-11.                                                                                                                                                                                                                                                                                  |

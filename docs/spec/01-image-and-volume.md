@@ -226,7 +226,7 @@ The image's variables are not derived from `CHAD_DATA` because a `docker exec` s
 - **IMG-40** The first boot of a new image copies the database to `db/chad.db.before-migration` before anything migrates. Only the latest copy is kept, under that one name. Its use is rolling back on the volume it sits on. It is made with `node:sqlite`'s stepped online backup, so the daemon keeps answering pings while it runs.
 - **IMG-124** How chad tells that a boot is the first on a new image, how the copy is written, and the file `state/migrating` that keeps a boot from replacing the copy while an upgrade is unfinished, are in 02-storage.md.
 - **IMG-41** `chad backup` skips `cache/`, `logs/` and the copy of the database from IMG-40 (see 02-storage.md for what it takes).
-- **IMG-42** An extra mount sits at `/mnt/<name>`, which is `/mnt/vault` in the examples, and is mounted read-only when the owner wants it protected. Extra mounts are outside the repo, so they get no commits and no revert, and backing them up is the owner's job. The agent learns that a mount exists from the persona (see 14-self-edit-skill.md).
+- **IMG-42** (a) An extra mount sits at `/mnt/<name>`, which is `/mnt/vault` in the examples, and is mounted read-only when the owner wants it protected. (b) Extra mounts are outside the repo, so they get no commits and no revert, and backing them up is the owner's job. (c) The agent learns that a mount exists from the persona (see 14-self-edit-skill.md).
 
 ## The links under repo/ and what a plugin can import
 

@@ -305,6 +305,10 @@ export const restore = Command.make(
         // running or not, takes it around its check of restore.installing and its write (STO-219). The volume check above
         // needs no lock: it reads no file a scaffold writes, and a resumed restore's marker is there before either starts.
         const timings = yield* Timings
+        yield* fs.makeDirectory(dirname(Paths.restoreLock(data)), {
+          recursive: true,
+          mode: 0o700,
+        })
         yield* Effect.acquireRelease(
           Effect.suspend(() => {
             const release = Lock.take(Paths.restoreLock(data), timings.lockBusy)

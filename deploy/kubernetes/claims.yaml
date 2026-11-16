@@ -1,0 +1,51 @@
+# The volumes. Sizes are a start; grow a claim when it fills.
+#
+# chad's volume has to be a local filesystem: a host directory, local-path, a cloud block volume or Longhorn RWO. NFS,
+# CephFS and Longhorn RWX are not supported, because SQLite's lock and write-ahead log are not safe on them.
+#
+# Before the first apply, create the token that chad's asphodel plugin and asphodel itself share:
+#
+#   kubectl create secret generic chad-asphodel --from-literal=token="$(openssl rand -hex 32)"
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chad-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+---
+# asphodel's own store. `chad backup` does not hold it, so backup.yaml backs it up next to chad's.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chad-asphodel
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+# An extra mount, such as an Obsidian vault, at /mnt/vault. It is outside chad's repo, so nothing commits or reverts
+# it, and backing it up is yours to do. Point this at the claim that holds your vault.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chad-vault
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+# Where the backups land. Nothing removes old ones: keep as many as you want and copy them off the node.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: chad-backup
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi
