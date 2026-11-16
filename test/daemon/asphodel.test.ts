@@ -25,7 +25,10 @@ const settings = { url: "http://asphodel:7720", ownerName: "Tim" }
  * fixture's Layer as its HttpClient and its Clock before `Plugin.make` brands it again, so the plugin's requests never
  * reach the world's client, and its breaker and its fiber's schedule read the time the scenario sets.
  */
-const boot = async (extra: ReadonlyArray<Entry> = []) => {
+const boot = async (
+  extra: ReadonlyArray<Entry> = [],
+  options: Record<string, unknown> = settings,
+) => {
   const daemon = Daemon.make()
   const clock = AdjustableClock.make()
   const plugin = Plugin.make(
@@ -39,7 +42,7 @@ const boot = async (extra: ReadonlyArray<Entry> = []) => {
     ),
   )
   const running = await scenario({
-    plugins: [{ name: "asphodel", plugin, settings }, ...extra],
+    plugins: [{ name: "asphodel", plugin, settings: options }, ...extra],
   })
   // The load's health probe and bank PUT.
   const load = await sent(daemon, 2)
@@ -199,6 +202,24 @@ test("ASP-87 ASP-16 ASP-38 ASP-39 ASP-48 ASP-49 ASP-50 ASP-55 ASP-57 ASP-58 ASP-
   expect(two[1]?.body).toMatchObject({ recall_id: "recall-2" })
   // The recall ids went with their turns, and the block stays.
   expect(keys(running)).toEqual([`block/${session}`])
+})
+
+test("ASP-14 with ingest set to false two turns each get the block and a prefetch, and no turn reaches the asphodel daemon", async () => {
+  const { running, daemon } = await boot([], { ...settings, ingest: false })
+  const { fakes } = running
+  await fakes.model.script([{ text: "Booked." }, { text: "Friday works." }])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "book a table for two")
+  await fakes.chat.answers(thread, 1)
+  await says(running, thread, "and for Friday?")
+  await fakes.chat.answers(thread, 2)
+  // An ingest of the first turn would come before the second prefetch.
+  const all = await sent(daemon, 3)
+  expect(all.map(route)).toEqual([
+    "GET /system-prompt",
+    "POST /prefetch",
+    "POST /prefetch",
+  ])
 })
 
 test("ASP-51 ASP-59 API-53 a message that steers the turn gets no prefetch and joins the ingest's user_text after a blank line", async () => {

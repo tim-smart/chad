@@ -83,7 +83,6 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 | SWAP-121  | `settings`       | The line for apply, revert, safe on or off and `chad timezone` is built. `chad secret rm` arrives with `settings`.                                                                              |
 | ASP-7     | `asphodel`       | The asphodel plugin arrives with the `asphodel` slice. A plugin's settings under `plugins.<name>.settings` in `chad.json` are built.                                                            |
 | ASP-9     | `asphodel`       | The asphodel plugin and its bearer token arrive with the `asphodel` slice. The expansion of `${NAME}` from the secret store or process env is built.                                            |
-| ASP-14    | `asphodel`       | The asphodel plugin and its `ingest` setting arrive with the `asphodel` slice.                                                                                                                  |
 
 ## Stopped rules
 
