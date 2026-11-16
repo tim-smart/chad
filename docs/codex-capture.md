@@ -1,6 +1,6 @@
 # Recording the Codex frames
 
-This is the builder's record of how the one recording of TST-43 was made, and of how to make it again. It is not spec. The builder made it on 2026-11-16, in the follow-up to the `models` slice, under Tim's ruling in chat of 2026-11-15. It used the OpenAI endpoint and key of the builder's own environment. No test and no job on the gate reads that key. The gate runs the recorder against the fake model server only (`test/unit/record-codex.test.ts`), with one of the fake's own tokens as the key, and the suite passes with both variables unset.
+This is the record of how the one recording of the Codex frames in `test/unit/fixtures/codex-frames.json` was made, and of how to make it again. It was made on 2026-11-16, with the OpenAI endpoint and key of the recorder's own environment. No test and no job on the gate reads that key. The gate runs the recorder against the fake model server only (`test/unit/record-codex.test.ts`), with one of the fake's own tokens as the key, and the suite passes with both variables unset.
 
 ## What was recorded
 
@@ -26,12 +26,12 @@ clanka decodes the reshaped frames. Every Codex scenario of the suite passes on 
 ## What it does not show
 
 - The recording is what the proxy relays over the `openai` path. It is not shown to be what `chatgpt.com/backend-api/codex` sends to chad directly.
-- A run through the proxy goes through chad's `openai` path, which is `Codex.model` over HTTP with a key (`src/ModelSpec.ts`). It never touches the Codex login, the token store or the WebSocket transport at chatgpt.com. It does send the `session-id` header and `prompt_cache_key`, as chad does on `openai` with a key (MOD-96, `src/ModelSpec.ts`), so the header is not what tells the two paths apart. Nothing here is evidence for a rule about that path. Tim's one Codex check is what covers it (TST-147, `docs/build/stage-2-login-check.md`).
+- A run through the proxy goes through chad's `openai` path, which is `Codex.model` over HTTP with a key (`src/ModelSpec.ts`). It never touches the Codex login, the token store or the WebSocket transport at chatgpt.com. It does send the `session-id` header and `prompt_cache_key`, as chad does on `openai` with a key (`src/ModelSpec.ts`), so the header is not what tells the two paths apart. Nothing here is evidence about that path. Check 2 of `docs/live-checks.md`, the Codex login in a thread, is what covers it.
 - The opening request's headers are chad's own. They come from chad's Codex path against the fake, not from this recording.
 
 ## What stays hand-made
 
-- The usage-limit frame under `refusal` in `test/unit/fixtures/codex-frames.json`. Nobody has recorded one, so it is written from the error schema clanka decodes (TST-41). The proxy cannot produce a usage limit on demand, and an error that passes through it may not be the frame chatgpt.com sends.
+- The usage-limit frame under `refusal` in `test/unit/fixtures/codex-frames.json`. Nobody has recorded one, so it is written from the error schema clanka decodes. The proxy cannot produce a usage limit on demand, and an error that passes through it may not be the frame chatgpt.com sends.
 - What a new connection gets while a limit is in force. In the fake it is a socket that opens and answers `response.create` with that frame.
 - A tool call. The recorder made no call with tools. The fake's `function_call` events follow the pattern of the recorded answer.
 - A failed response. The fake's `failed` reply sends `response.created`, `response.in_progress` and `response.failed` with the response's `error`, following the pattern of the recorded answer.
@@ -69,4 +69,4 @@ Before it writes, the recorder looks for the key, the endpoint and each part of 
    ```
 
 4. Read the stripped file. Then delete `../raw-capture/`.
-5. Run `test/unit/recording.test.ts`. It compares the fake's frames with the recording's on each transport (TST-41). Where the shapes differ, change `responses` in `test/support/model.ts` to match. Never change the recording to match the fake. Then run the full `pnpm test` with both variables unset.
+5. Run `test/unit/recording.test.ts`. It compares the fake's frames with the recording's on each transport. Where the shapes differ, change `responses` in `test/support/model.ts` to match. Never change the recording to match the fake. Then run the full `pnpm test` with both variables unset.

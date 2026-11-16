@@ -5,7 +5,7 @@ any of them, because no job holds a Discord token, a Codex login or access to yo
 on the image you run, in the order given. Each step says what you should see. You need nothing outside this file and
 `docs/running.md`.
 
-Record what you saw in the stage 5 hand-off comment on the build issue, or in a comment on the pull request after it.
+Record what you saw in the Result column below, or in a comment on the pull request that ships the image you ran.
 A check with no recorded result has not run.
 
 ## Status
@@ -24,7 +24,7 @@ A check with no recorded result has not run.
 | D4. Backup and restore                                       | chad's tar and asphodel's backup restore onto two fresh volumes, and the restored pair recalls a memory saved before the backup. | not run |
 
 Checks 1 to 6 are the hand checks and the Codex check. D1 to D4 are deployment checks. None of them has been run
-by the builder, and the automated suite only runs fakes of Discord, Codex and asphodel.
+yet, and the automated suite only runs fakes of Discord, Codex and asphodel.
 
 ## Before you start
 
@@ -78,6 +78,24 @@ prints `chad is already logged in to Codex. ...`.
 If no code arrives and chad answers straight away, chad was already logged in or has an API key: run `chad logout`,
 check the environment, and send another message. If you ever hit a usage limit on your login, keep the turn's
 `chad logs` lines. Nobody has seen a real usage-limit frame yet, and that log shows what the service sends.
+
+If the login or its turn fails, these show where it stopped. `--since 30m` keeps the log short, and `--json` prints the
+stored lines in full.
+
+```sh
+chad logs --since 30m --level warn
+chad logs --since 30m --event turn
+chad status
+```
+
+| What you see                                                    | Where to look                                                                                                                                                                                                      |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| No reply and no code at all                                     | `--event message` for `message.ignored`. Its reason `not-owner` means the author id is not on the owner list. `--event chat` for `chat.connected`, or for `chat.refused`, which names a missing privileged intent. |
+| `chad is not logged in to Codex.` in the DM                     | chad could not post a code there. Check the status line and `--event turn`.                                                                                                                                        |
+| The code, then "Login timed out. Send a message to try again."  | The code was not entered within 15 minutes. Send another message.                                                                                                                                                  |
+| The code, then "Login failed (…). Send a message to try again." | `--event turn` for the `turn.failed` line and its reason.                                                                                                                                                          |
+| You approved the code, but the turn fails or never answers      | `--event turn` for `turn.login-wait`, `turn.retry` and `turn.failed`. `chad logs --turn <id> --json` gives the whole turn, and the `turn.failed` line carries the cause the call ended with.                       |
+| A model warning at start                                        | `--event model` for `model.check-failed`.                                                                                                                                                                          |
 
 ## 3. A direct message
 
