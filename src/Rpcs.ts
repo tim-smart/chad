@@ -92,8 +92,20 @@ export const Report = Schema.Struct({
         warnings: Schema.Number,
         errors: Schema.Number,
         latest: Schema.optionalKey(Schema.String),
+        /** The mark of a plugin that kept its running version (SWAP-141, SWAP-142). */
+        previous: Schema.optionalKey(Schema.String),
       }),
     ),
+  ),
+  /** Safe mode and what turned it on, the applied commit and whether `work/` holds a draft (CLI-125b to CLI-125d). */
+  repository: Schema.optionalKey(
+    Schema.Struct({
+      safe: Schema.Literals(["off", "variable", "toggle"]),
+      applied: Schema.optional(
+        Schema.Struct({ commit: Schema.String, message: Schema.String }),
+      ),
+      draft: Schema.optional(Schema.Boolean),
+    }),
   ),
   /** Each plugin skipped at boot, with the first line of why (CLI-125). */
   skipped: Schema.optionalKey(
@@ -184,6 +196,29 @@ export class ModelUnchanged extends Schema.TaggedError<ModelUnchanged>(
   "chad/Rpcs/ModelUnchanged",
 )("ModelUnchanged", { text: Schema.String }) {}
 
+/** What `chad apply`, `check`, `revert`, `safe` and `plugin reload` ask the daemon for. */
+export const RepoRequest = Schema.Union([
+  Schema.TaggedStruct("Apply", { message: Schema.String }),
+  Schema.TaggedStruct("Check", {}),
+  Schema.TaggedStruct("Revert", { commit: Schema.UndefinedOr(Schema.String) }),
+  Schema.TaggedStruct("Safe", {
+    to: Schema.UndefinedOr(Schema.Literals(["on", "off"])),
+  }),
+  Schema.TaggedStruct("Reload", { name: Schema.String }),
+])
+export type RepoRequest = typeof RepoRequest.Type
+
+/** What such a command hears: that it waits behind another command, then what it prints and its exit code (CLI-40). */
+export const RepoEvent = Schema.Union([
+  Schema.TaggedStruct("Waiting", { text: Schema.String }),
+  Schema.TaggedStruct("Ended", {
+    stdout: Schema.Array(Schema.String),
+    stderr: Schema.Array(Schema.String),
+    code: Schema.Literals([0, 1]),
+  }),
+])
+export type RepoEvent = typeof RepoEvent.Type
+
 /**
  * Every other call. A call is declared here, and is then refused to a CLI of another version. No call returns a
  * stored secret: a connection comes back without its token.
@@ -212,6 +247,15 @@ const checked = RpcGroup.make(
     payload: { request: ModelRequest },
     success: ModelEvent,
     error: ModelUnchanged,
+    stream: true,
+  }),
+  /**
+   * The commands that change what is loaded from the repo, which run one at a time in the queue (SWAP-40). From an
+   * apply's commit on, a CLI that goes away no longer stops it (CLI-43).
+   */
+  Rpc.make("Repository", {
+    payload: { request: RepoRequest },
+    success: RepoEvent,
     stream: true,
   }),
 ).middleware(VersionCheck)

@@ -468,18 +468,76 @@ export const load = Effect.fnUntraced(function* (
 
 /**
  * The checks of a tree that come before any Layer is built, in the order of LOAD-98 and LOAD-53: the plugins' names
- * first, then `tsc`, then each plugin bundled, run and tested with `Plugin.isPlugin`. The result is the errors, and
- * none when the tree passed.
+ * first, a repo plugin with a bundled plugin's name among them (SET-54), then `tsc`, then each plugin bundled, run and
+ * tested with `Plugin.isPlugin`. The result is the errors, none when the tree passed, and the plugins that loaded.
  */
-export const check = Effect.fnUntraced(function* (repo: string, tree: string) {
+export const check = Effect.fnUntraced(function* (
+  repo: string,
+  tree: string,
+  bundled: ReadonlySet<string> = new Set(),
+) {
   const { found, problems } = yield* discover(tree)
-  if (problems.length > 0) return problems.map(({ message }) => message)
+  const named = [
+    ...problems.map(({ message }) => message),
+    ...found
+      .filter(({ name }) => bundled.has(name))
+      .map(({ name }) => Messages.bundledNameRefused(name)),
+  ]
+  const loaded: Array<Loaded> = []
+  if (named.length > 0) return { errors: named, loaded }
   const typed = yield* typecheck(repo, tree)
-  if (typed !== undefined) return [typed]
+  if (typed !== undefined) return { errors: [typed], loaded }
   const errors: Array<string> = []
   for (const plugin of found) {
-    const exit = yield* Effect.exit(Effect.flatMap(bundle(tree, plugin), run))
+    const exit = yield* Effect.exit(
+      Effect.flatMap(bundle(tree, plugin), (bundle) =>
+        Effect.map(run(bundle), (value) => ({
+          name: plugin.name,
+          plugin: value,
+          bundle,
+        })),
+      ),
+    )
     if (exit._tag === "Failure") errors.push(messageOf(exit.cause))
+    else loaded.push(exit.value)
   }
-  return errors
+  return { errors, loaded }
+})
+
+/** The names that clanka's walk would read as instructions, which a check refuses in the repo (LOAD-94). */
+const instructionNames: ReadonlySet<string> = new Set([
+  "AGENTS.md",
+  ".agents",
+  ".kiro",
+])
+
+/**
+ * Every `AGENTS.md`, `.agents` and `.kiro` under a directory, at any depth, as paths relative to it. The walk goes
+ * into no `.git` and no `node_modules`, and follows no link (LOAD-94, LOAD-96).
+ */
+export const instructions = Effect.fnUntraced(function* (root: string) {
+  const fs = yield* FileSystem.FileSystem
+  const found: Array<string> = []
+  const walk = (relativeDirectory: string): Effect.Effect<void> =>
+    Effect.gen(function* () {
+      const entries = yield* fs
+        .readDirectory(join(root, relativeDirectory))
+        .pipe(Effect.orElseSucceed((): ReadonlyArray<string> => []))
+      for (const entry of [...entries].sort()) {
+        const path =
+          relativeDirectory === "" ? entry : `${relativeDirectory}/${entry}`
+        if (instructionNames.has(entry)) {
+          found.push(path)
+          continue
+        }
+        if (entry === ".git" || entry === "node_modules") continue
+        if (yield* Effect.isSuccess(fs.readLink(join(root, path)))) continue
+        const info = yield* Effect.option(fs.stat(join(root, path)))
+        if (Option.isSome(info) && info.value.type === "Directory") {
+          yield* walk(path)
+        }
+      }
+    })
+  yield* walk("")
+  return found
 })

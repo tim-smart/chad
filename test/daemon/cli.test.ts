@@ -18,6 +18,7 @@ import { expect, onTestFinished, test, vi } from "vitest"
 import * as Messages from "../../dist/Messages.js"
 import { Rpcs } from "../../dist/Rpcs.js"
 import { version } from "../../dist/Version.js"
+import { git } from "../support/applied.ts"
 import { fresh, scenario } from "../support/driver.ts"
 import { json, read } from "../support/repo.ts"
 
@@ -67,9 +68,13 @@ test("OV-19 CLI-8 IMG-74 CLI-125a CLI-125g CLI-125h CLI-125i SELF-8 IMG-17 CLI-5
   const status = await running.chad(["status"])
   expect(status.code).toBe(0)
   expect(status.stderr).toBe("")
-  expect(facts(status.stdout).slice(0, 5)).toEqual([
+  const first = git(join(running.data, "repo/work"), ["rev-parse", "HEAD"])
+  expect(facts(status.stdout).slice(0, 8)).toEqual([
     "daemon: up (ready)",
     `version: chad ${json("package.json").version}, effect ${json("node_modules/effect/package.json").version}`,
+    "safe mode: off",
+    `applied: ${first.slice(0, 7)} First commit`,
+    "work: no changes since the applied commit",
     "model: openai-compat/fake (needs no login)",
     "connection: local (local)",
     "",
@@ -311,6 +316,9 @@ test("CLI-23a CLI-125g CLI-125i CLI-125j CLI-128 CLI-230 IMG-75 with the daemon 
     stdout: [
       `daemon: not running (lock ${lock} is free)`,
       `version: chad ${version}, volume written by chad ${version}`,
+      "safe mode: off",
+      `applied: ${git(join(data, "repo/work"), ["rev-parse", "HEAD"]).slice(0, 7)} First commit`,
+      "work: no changes since the applied commit",
       "model: openai/gpt-6-astra/medium (not logged in)",
       "connection: local (local)",
       "",

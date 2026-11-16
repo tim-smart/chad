@@ -20,6 +20,8 @@ export interface Environment {
   readonly openaiApiKey?: string | undefined
   /** `CHAD_OPENAI_API_URL`, the endpoint of a trial request `chad model` makes with no daemon (MOD-90). */
   readonly openaiApiUrl?: string | undefined
+  /** Whether `CHAD_SAFE_MODE=1` is set, which holds safe mode on (REC-57). */
+  readonly safeMode?: boolean
 }
 
 export const Environment = Context.Service<Environment>("chad/cli/Environment")
@@ -34,5 +36,6 @@ export const read = (env: NodeJS.ProcessEnv): Environment => {
     model: env["CHAD_MODEL"],
     openaiApiKey: env["CHAD_OPENAI_API_KEY"],
     openaiApiUrl: env["CHAD_OPENAI_API_URL"],
+    safeMode: env["CHAD_SAFE_MODE"] === "1",
   }
 }

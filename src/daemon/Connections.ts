@@ -63,6 +63,11 @@ export const make = Effect.fnUntraced(function* <R>(
   },
   running: Chats.Running<R>,
   queue: Queue.Queue,
+  /**
+   * Rebuilds the plugins after the owners changed, already inside the queue. With an owner removed, a plugin that fails
+   * to rebuild is unloaded, so it cannot keep answering the removed person (CLI-120b).
+   */
+  owners: (removed: boolean) => Effect.Effect<void> = () => Effect.void,
 ) {
   const context = yield* Effect.context<
     R | HttpClient.HttpClient | SqlClient.SqlClient | FileSystem.FileSystem
@@ -84,6 +89,9 @@ export const make = Effect.fnUntraced(function* <R>(
             yield* deleteShardState((name) => name === change.name)
           }
         }).pipe(Effect.uninterruptible)
+        if (change._tag !== "Add" && change._tag !== "Token") {
+          yield* owners(change._tag !== "OwnerAdd")
+        }
       }
       return application === undefined
         ? { changed: next.changed }

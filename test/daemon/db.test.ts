@@ -3,6 +3,7 @@ import { join } from "node:path"
 import { expect, test } from "vitest"
 import { version } from "../../dist/Version.js"
 import { execute, query } from "../support/database.ts"
+import { git } from "../support/applied.ts"
 import { fresh, owner, scenario } from "../support/driver.ts"
 import { printed, runs } from "../support/model.ts"
 import { json, path } from "../support/repo.ts"
@@ -92,6 +93,14 @@ test("CLI-46a CLI-237 chad status --json prints the facts as one JSON object on 
   expect(up.code).toBe(0)
   expect(up.stdout.split("\n")).toHaveLength(2)
   const answered = JSON.parse(up.stdout)
+  const repository = {
+    safe: "off",
+    applied: {
+      commit: git(join(data, "repo/work"), ["rev-parse", "HEAD"]).slice(0, 7),
+      message: "First commit",
+    },
+    draft: false,
+  }
   expect(answered).toEqual({
     daemon: "up",
     version,
@@ -105,6 +114,7 @@ test("CLI-46a CLI-237 chad status --json prints the facts as one JSON object on 
     model: { spec: "openai-compat/fake", login: "not-needed" },
     plugins: [],
     skipped: [],
+    repository,
   })
   expect(Array.isArray(answered.filesystem)).toBe(true)
 
@@ -120,5 +130,6 @@ test("CLI-46a CLI-237 chad status --json prints the facts as one JSON object on 
     volume: version,
     connections: [{ name: "local", kind: "local" }],
     model: { spec: "openai/gpt-6-astra/medium", login: "logged-out" },
+    repository,
   })
 })

@@ -48,12 +48,26 @@ export class ModelCommand extends Context.Service<
   }
 >()("chad/Handler/ModelCommand") {}
 
+/**
+ * `/safe [on|off]`, which runs `chad safe` in the daemon and posts what it prints where it was typed (CLI-138b,
+ * CLI-141b, REC-118).
+ */
+export const SafeCommand = Context.Reference<{
+  readonly run: (
+    to: "on" | "off" | undefined,
+    post: (markdown: string) => Effect.Effect<void>,
+  ) => Effect.Effect<void>
+}>("chad/Handler/SafeCommand", {
+  defaultValue: () => ({ run: () => Effect.void }),
+})
+
 /** The chat commands, by their first word. They are plain text, and none of them reaches the model. */
 const commands = {
   "/new": "new",
   "/stop": "stop",
   "/status": "status",
   "/model": "model",
+  "/safe": "safe",
 } as const
 
 /** The words of a message, with the mention of chad stripped first. */
@@ -146,6 +160,19 @@ export const layer = (connection: Live) =>
             }),
           )
 
+        // `/safe` is answered where it was typed, as `/model` is, and its words after the first are `on` or `off`.
+        const safe = (where: ChatThread.ChatThread) =>
+          Effect.flatMap(SafeCommand, (service) => {
+            const to = words(message)[1]?.toLowerCase()
+            return service.run(
+              to === "on" || to === "off" ? to : undefined,
+              (markdown) =>
+                say(where, markdown).pipe(
+                  Effect.provideService(Chat.Chat, chat),
+                ),
+            )
+          })
+
         let thread = event.thread
         if (event.kind === "channel") {
           if (!mentioned) return yield* ignored("not-mentioned")
@@ -158,6 +185,7 @@ export const layer = (connection: Live) =>
             return yield* say(thread, Messages.status(yield* status))
           }
           if (word === "model") return yield* model(thread)
+          if (word === "safe") return yield* safe(thread)
           if (word !== undefined)
             return yield* say(thread, Messages.noSession(connection.format))
           // The thread is opened before the save, so an event that is delivered again lands on the same thread.
@@ -217,6 +245,10 @@ export const layer = (connection: Live) =>
         }
         if (word === "model") {
           yield* model(thread)
+          return yield* Sessions.mark(key, mark)
+        }
+        if (word === "safe") {
+          yield* safe(thread)
           return yield* Sessions.mark(key, mark)
         }
         if (word === "stop") {

@@ -167,6 +167,12 @@ export const Session = Entity.make("Session", [
  * Whether the daemon is stopping. A request that would start a turn in the wait of a graceful stop starts none, and is
  * left for the next start (SES-201).
  */
+/** Whether safe mode is on now, which adds its line to the system prompt (SELF-38). */
+export const Safe = Context.Reference<{ readonly on: () => boolean }>(
+  "chad/SessionEntity/Safe",
+  { defaultValue: () => ({ on: () => false }) },
+)
+
 export const Stopping = Context.Reference<{ readonly stopping: () => boolean }>(
   "chad/SessionEntity/Stopping",
   { defaultValue: () => ({ stopping: () => false }) },
@@ -234,11 +240,14 @@ export const publicOutcome = (outcome: Outcome): PublicSession.Outcome =>
       : { _tag: "Stopped" }
 
 /** The system prompt as chad renders it, which is what a session freezes and what its fingerprint is taken of. */
-export const system = (options: {
-  readonly toolInstructions: string
-  readonly agentsMd: string
-}) => `You are a world-class software engineer: precise and efficient.
-
+export const system = (
+  options: {
+    readonly toolInstructions: string
+    readonly agentsMd: string
+  },
+  safe = false,
+) => `You are a world-class software engineer: precise and efficient.
+${safe ? `\n${Messages.safePrompt}\n` : ""}
 ${options.toolInstructions}
 
 ${options.agentsMd}
@@ -263,7 +272,12 @@ interface Live {
   /** The session as a plugin sees it. */
   readonly session: PublicSession.Session
   /** The turn a tool call of the session reads through `CurrentSession.turn` (API-32, API-105). */
-  readonly current: { turn: PublicSession.Turn | undefined }
+  readonly current: {
+    turn: PublicSession.Turn | undefined
+    steps: TurnLog.Steps | undefined
+  }
+  /** The plugin generation the Agent was built on, which a turn's start compares with the plugins' (SWAP-1, SWAP-4). */
+  plugins: number
   /** The chunk texts the session last saw, by plugin name (SWAP-30). */
   chunks: ReadonlyMap<string, string>
   /** The system prompt the session last sent, with the fingerprint of what chad rendered for it. */
@@ -391,6 +405,7 @@ export const layer = Layer.unwrap(
           hooks: undefined,
         }
         const stopping = yield* Stopping
+        const safe = yield* Safe
         // The request of a turn that a restart cut takes the session before any other request of the thread, so
         // that the messages that waited to steer it steer it again (SES-200).
         const unfinished = yield* Sessions.unfinished(key).pipe(Effect.orDie)
@@ -581,16 +596,20 @@ export const layer = Layer.unwrap(
             kind: row.kind ?? "thread",
             directory,
           }
-          const current: { turn: PublicSession.Turn | undefined } = {
+          const current: {
+            turn: PublicSession.Turn | undefined
+            steps: TurnLog.Steps | undefined
+          } = {
             turn: undefined,
+            steps: undefined,
           }
-          // Every plugin's tools, whose handlers see this session and the turn that runs (API-30 to API-32).
-          const tools = plugins.tools(
-            PublicSession.CurrentSession.of({
-              session,
-              turn: Effect.sync(() => Option.fromUndefinedOr(current.turn)),
-            }),
-          )
+          // Every plugin's tools, whose handlers see this session and the turn that runs (API-30 to API-32). They are
+          // taken again for each Agent, so a swap reaches a session at its next turn (SWAP-1, SWAP-6).
+          const currentSession = PublicSession.CurrentSession.of({
+            session,
+            turn: Effect.sync(() => Option.fromUndefinedOr(current.turn)),
+          })
+          const subagents = () => current.steps?.subagents.size ?? 0
           const view = { lines: StatusMessage.none }
           const built = yield* Layer.buildWithScope(
             AgentExecutor.layerLocal({ directory }).pipe(
@@ -741,6 +760,12 @@ export const layer = Layer.unwrap(
                 })
               },
             })
+            const generation = plugins.generation()
+            const tools = plugins.tools(
+              currentSession,
+              subagents,
+              () => tasks.size,
+            )
             const agent = yield* (
               tools === undefined
                 ? Agent.make
@@ -756,9 +781,9 @@ export const layer = Layer.unwrap(
               Effect.provideService(Scope.Scope, agentScope),
               Effect.provideService(Logger.CurrentLogIds, ids),
             )
-            return { agent, scope: agentScope }
+            return { agent, scope: agentScope, generation }
           })
-          let { agent, scope: agentScope } = yield* build()
+          let { agent, scope: agentScope, generation } = yield* build()
           const messages = yield* Sessions.history(id)
           if (messages.length > 0) {
             MutableRef.set(agent.history, Prompt.fromMessages(messages))
@@ -789,6 +814,7 @@ export const layer = Layer.unwrap(
               yield* Scope.close(agentScope, Exit.void)
               agent = live.agent = next.agent
               agentScope = next.scope
+              live.plugins = next.generation
             }),
             // Each task is announced once: only one an earlier Agent started, and only if nothing reported it yet
             // (SWAP-134 to SWAP-137).
@@ -821,6 +847,7 @@ export const layer = Layer.unwrap(
             unsaved: false,
             view,
             model: undefined,
+            plugins: generation,
           }
           return live
         })
@@ -835,7 +862,9 @@ export const layer = Layer.unwrap(
             readonly toolInstructions: string
             readonly agentsMd: string
           }) => {
-            const rendered = system(options)
+            // Safe mode is one line of the prompt, which is part of the fingerprint, so turning it on or off renders
+            // the prompt again (SELF-38, SELF-39).
+            const rendered = system(options, safe.on())
             // The fingerprint leaves the chunks out, so a chunk change keeps the prompt frozen (SWAP-129).
             const fingerprint = createHash("sha256")
               .update(rendered)
@@ -951,6 +980,7 @@ export const layer = Layer.unwrap(
           }
           turn.public = publicTurn
           live.current.turn = publicTurn
+          live.current.steps = turn.steps
 
           // Every chunk is rendered and compared with what the session last saw. A render that failed keeps that text,
           // and a plugin with no chunk now has its section removed (SWAP-30, SWAP-33, SWAP-35).
@@ -1216,6 +1246,15 @@ export const layer = Layer.unwrap(
           format: Format,
         ) {
           const prepared = yield* models.prepare(live.id, turn.settings)
+          // A session behind the plugins' generation rebuilds its Agent at the turn's start, with the tools the
+          // plugins have now (SWAP-1, SWAP-4, SWAP-6).
+          if (
+            live.model !== undefined &&
+            live.model.generation === prepared.generation &&
+            live.plugins !== plugins.generation()
+          ) {
+            yield* live.rebuild
+          }
           if (live.model?.generation !== prepared.generation) {
             // A session behind the generation rebuilds its Agent here, at a turn's start, through the same bump a
             // model change makes (SWAP-4, SWAP-8, MOD-18).
@@ -1296,6 +1335,7 @@ export const layer = Layer.unwrap(
             if (own.live?.ids.turn === turn.id) own.live.ids.turn = undefined
             if (own.live?.current.turn?.id === turn.id) {
               own.live.current.turn = undefined
+              own.live.current.steps = undefined
             }
             if (own.live !== undefined && own.live.view.lines === turn.status) {
               own.live.view.lines = StatusMessage.none

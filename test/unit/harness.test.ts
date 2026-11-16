@@ -136,6 +136,7 @@ describe("the durations", () => {
       "model",
       "openaiApiKey",
       "openaiApiUrl",
+      "safeMode",
       "socket",
       "unknownLogLevel",
     ])

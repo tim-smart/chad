@@ -1,9 +1,9 @@
 // The graceful stop in layer 4: SIGTERM to the daemon as a child process, its 15 second wait for the turns in flight,
 // the cut at the end of it, and the next start on the same volume (docs/spec/03-sessions-and-turns.md).
-import { mkdirSync, symlinkSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { expect, test } from "vitest"
 import { lines, posted, rows, says } from "../support/owner.ts"
+import { applied } from "../support/applied.ts"
 import { daemon } from "../support/process.ts"
 
 test("SES-110 SES-112 SES-105 FAIL-122 FAIL-327 FAIL-294 FAIL-295 IMG-85a a graceful stop waits for the turn in flight, cuts it at the end of the wait with its finished steps stored, records the cut before it exits 0, and the cuts never count toward the give-up", async () => {
@@ -104,10 +104,8 @@ test("SES-111 SES-201 FAIL-295 IMG-85a a turn that ends inside the wait of a gra
 test("IMG-82 LOAD-14 a failed plugin build whose finalizer never ends and holds the event loop is still owned at the stop, and the deadline exits 1", async () => {
   const running = await daemon()
   const repo = join(running.data, "repo")
-  mkdirSync(join(repo, "versions", "t1", "plugins"), { recursive: true })
-  writeFileSync(
-    join(repo, "versions", "t1", "plugins", "stuck.ts"),
-    `import { Effect, Layer } from "effect"
+  applied(repo, {
+    "plugins/stuck.ts": `import { Effect, Layer } from "effect"
 import { Plugin } from "chad"
 
 export default Plugin.make(
@@ -123,8 +121,7 @@ export default Plugin.make(
   ),
 )
 `,
-  )
-  symlinkSync(join("versions", "t1"), join(repo, "live"))
+  })
   const current = await running.start()
   await running.logged("plugin.skipped")
   expect(await current.stop()).toEqual({ code: 1, signal: null })

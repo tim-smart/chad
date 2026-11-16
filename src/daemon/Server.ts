@@ -23,6 +23,7 @@ import * as ModelSpec from "../ModelSpec.ts"
 import * as Paths from "../Paths.ts"
 import {
   type LoginEvent,
+  type RepoEvent,
   LoginFailed,
   type ModelEvent,
   type ModelState,
@@ -36,6 +37,7 @@ import {
 } from "../Rpcs.ts"
 import * as Status from "../Status.ts"
 import * as Version from "../Version.ts"
+import type * as Apply from "./Apply.ts"
 import type { Commands } from "./Connections.ts"
 import * as Filesystem from "./Filesystem.ts"
 import * as Logger from "./Logger.ts"
@@ -76,7 +78,14 @@ export interface State {
       readonly errors: number
       readonly latest: string | undefined
     }
+    readonly previous?: string
   }>
+  /** Safe mode, the applied commit and the draft as `chad status` shows them, once the repo is set up (CLI-125). */
+  repositoryState: Effect.Effect<Status.Repository | undefined>
+  /** The commands that change what is loaded from the repo, which the boot hands over once the plugins load. */
+  readonly repository: Deferred.Deferred<Apply.Commands>
+  /** Abandons a swap that runs, which a stop does before anything else (SWAP-101). */
+  abandon: Effect.Effect<void>
   /** The plugins skipped at boot and why, which the boot hands over with the counts (CLI-125). */
   skipped: () => ReadonlyArray<{
     readonly name: string
@@ -156,6 +165,8 @@ export const makeState = (): State => ({
   filesystem: [],
   connections: [],
   commands: Deferred.makeUnsafe(),
+  repository: Deferred.makeUnsafe(),
+  abandon: Effect.void,
   account: Deferred.makeUnsafe(),
   calls: new Set(),
   started: Date.now(),
@@ -164,6 +175,7 @@ export const makeState = (): State => ({
   recent: undefined,
   plugins: () => [],
   skipped: () => [],
+  repositoryState: Effect.succeed(undefined),
 })
 
 /**
@@ -201,8 +213,14 @@ const model = (state: State): Effect.Effect<ModelState | undefined> =>
 
 const report = (state: State): Effect.Effect<Report> =>
   Effect.map(
-    Effect.all([recent(state), held(state), model(state)]),
-    ([recent, held, model]) => ({
+    Effect.all([
+      recent(state),
+      held(state),
+      model(state),
+      // `/status` holds its effect from before the boot sets the repo up, so the field is read when the report is.
+      Effect.suspend(() => state.repositoryState),
+    ]),
+    ([recent, held, model, repository]) => ({
       version: Version.version,
       effect: Version.effect() ?? "unknown",
       phase: state.phase,
@@ -212,13 +230,15 @@ const report = (state: State): Effect.Effect<Report> =>
       problems: [...state.problems.flatMap((check) => check()), ...held],
       recent,
       ...(model === undefined ? {} : { model }),
-      plugins: state.plugins().map(({ name, counts }) => ({
+      plugins: state.plugins().map(({ name, counts, previous }) => ({
         name,
         warnings: counts.warnings,
         errors: counts.errors,
         ...(counts.latest === undefined ? {} : { latest: counts.latest }),
+        ...(previous === undefined ? {} : { previous }),
       })),
       skipped: state.skipped(),
+      ...(repository === undefined ? {} : { repository }),
     }),
   )
 
@@ -375,6 +395,24 @@ const handlers = (state: State) => {
               ),
             ),
           ),
+        ),
+      ),
+    Repository: ({ request }, { headers }) =>
+      Stream.callback<RepoEvent>((queue) =>
+        tracked(
+          Effect.gen(function* () {
+            const repository = yield* Deferred.await(state.repository)
+            const output = yield* repository.run(
+              request,
+              { session: headers[sessionHeader] },
+              (text) =>
+                Mailbox.offer(queue, { _tag: "Waiting", text }).pipe(
+                  Effect.asVoid,
+                ),
+            )
+            yield* Mailbox.offer(queue, { _tag: "Ended", ...output })
+            yield* Mailbox.end(queue)
+          }),
         ),
       ),
     Logout: (_, { headers }) =>

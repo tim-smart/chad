@@ -749,3 +749,12 @@ export const recent = Effect.fnUntraced(function* (times: {
     week: tokens[0]?.week ?? 0,
   } satisfies Recent
 })
+
+/** The thread of a session by its id, or nothing when there is no such session. */
+export const threadOf = Effect.fnUntraced(function* (id: string) {
+  const sql = yield* SqlClient.SqlClient
+  const rows = yield* sql<{
+    thread: string
+  }>`SELECT thread FROM sessions WHERE id = ${id}`
+  return rows[0]?.thread
+})

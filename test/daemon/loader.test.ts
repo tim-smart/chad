@@ -9,7 +9,7 @@ import {
   symlinkSync,
   writeFileSync,
 } from "node:fs"
-import { dirname, join } from "node:path"
+import { join } from "node:path"
 import { Deferred, Effect, Layer } from "effect"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
@@ -19,15 +19,8 @@ import sendFile from "../../dist/plugins/send-file.js"
 import { fresh, scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
 import { path } from "../support/repo.ts"
+import { applied } from "../support/applied.ts"
 import { rows, says } from "../support/owner.ts"
-
-/** Writes the files of an exported tree. */
-const tree = (root: string, files: Record<string, string>) => {
-  for (const [file, text] of Object.entries(files)) {
-    mkdirSync(dirname(join(root, file)), { recursive: true })
-    writeFileSync(join(root, file), text)
-  }
-}
 
 const dice = `import { Effect, Layer, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
@@ -62,7 +55,7 @@ export default Plugin.make(
 test("API-1 LOAD-5 LOAD-7 LOAD-9 LOAD-10 LOAD-12 LOAD-16 LOAD-17 LOAD-41 LOAD-61 LOAD-73 LOAD-86 REC-42 REC-101 CLI-125 IMG-44 IMG-45 IMG-46 IMG-143 FAIL-289 FAIL-344 a boot loads the applied tree's plugins with the host's packages, gives work/ paths in a load error and a tool error, skips what cannot load, and keeps what it found at repo/node_modules", async () => {
   const directory = fresh()
   const repo = join(directory, "data", "repo")
-  tree(join(repo, "versions", "t1"), {
+  applied(repo, {
     "plugins/dice.ts": dice,
     "plugins/lib/faces.ts": "export const faces = [1, 2, 3, 4, 5, 6]\n",
     "plugins/lib/explode.ts":
@@ -89,7 +82,6 @@ import { Plugin } from "chad"
 export default Plugin.make(Layer.empty)
 `,
   })
-  symlinkSync(join("versions", "t1"), join(repo, "live"))
   // What the owner left at the two links' paths: a directory is moved aside whole, and a link is replaced.
   mkdirSync(join(repo, "node_modules"))
   writeFileSync(join(repo, "node_modules", "keep.txt"), "kept")

@@ -219,6 +219,7 @@ Every change to which plugin versions are running goes through one path with fiv
 - **SWAP-46** At the drain deadline chad interrupts what is still running and waits up to 1 second for it to stop. Only then is the caller answered, and the answer says which of the two happened (see SWAP-113 and SWAP-114).
 - **SWAP-47** Closing the old versions' scopes has its own deadline of 10 seconds. Past it chad logs, abandons the finalizers and activates the new versions.
 - **SWAP-48** The wait of up to 1 second for an interrupted call or hook comes out of the 10 second close deadline, so a swap takes at most 40 seconds from the gate closing to the activation.
+- **SWAP-154** A close that SWAP-47 abandoned goes on by itself. Neither the swap nor a later graceful stop waits for it. A stop that lands while a close is still inside its deadline waits for that close at most until the deadline.
 - **SWAP-118** The 30 second drain deadline, the 10 second close deadline and the 1 second wait are defaults of the `Timings` service, which the constants in the code below stand for. The shipped binary has no setting that changes them (see 17-testing.md).
 - **SWAP-49** The old version's `Plugin.background` fibers are interrupted when the old version closes, and the drain does not wait for them.
 - **SWAP-50** A background fiber of the old version that is waiting on `Turns.start` loses the outcome at the swap while the turn carries on. A plugin that needs the outcome reads it in `afterTurn` or from its store.
@@ -712,6 +713,7 @@ Each message below is the failure text of a plugin tool call, and the table name
 | SWAP-151 | TIM-559 round 3 API-G15 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `timers-cron` |
 | SWAP-152 | TIM-559 round 3 C2 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `apply` |
 | SWAP-153 | Tim's ruling that a running turn's tool call is never routed to another plugin version, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `apply` |
+| SWAP-154 | Build, stage 3 | Builder (Tim has not read) | run |  | `rule` | `apply` |
 
 Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
 

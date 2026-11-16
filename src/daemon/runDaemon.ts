@@ -1,7 +1,8 @@
-import { dirname, join } from "node:path"
+import { dirname } from "node:path"
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Agent from "clanka/Agent"
+import * as AgentExecutor from "clanka/AgentExecutor"
 import { CodexAuth } from "clanka/CodexAuth"
 import { DeviceCodeHandler } from "clanka/DeviceCodeHandler"
 import {
@@ -22,6 +23,7 @@ import {
   type ChatAdapter,
   type ChatHandler,
   type ChatInteraction,
+  ChatMarkdown,
   ChatThread,
 } from "effect/chat"
 import { MessageRetention, SingleRunner } from "effect/cluster"
@@ -33,6 +35,8 @@ import * as Lock from "../Lock.ts"
 import * as Messages from "../Messages.ts"
 import * as ModelSpec from "../ModelSpec.ts"
 import * as Paths from "../Paths.ts"
+import * as Repo from "../Repo.ts"
+import * as SafeMode from "../SafeMode.ts"
 import * as TokenStore from "../TokenStore.ts"
 import { Timings } from "../Timings.ts"
 import { version } from "../Version.ts"
@@ -41,6 +45,7 @@ import * as Connections from "./Connections.ts"
 import * as Environment from "./Environment.ts"
 import * as Chats from "./Chats.ts"
 import * as Filesystem from "./Filesystem.ts"
+import * as Apply from "./Apply.ts"
 import * as Loader from "./Loader.ts"
 import * as Handler from "./Handler.ts"
 import * as Logger from "./Logger.ts"
@@ -56,6 +61,7 @@ import * as RepoLinks from "./RepoLinks.ts"
 import * as Server from "./Server.ts"
 import * as SessionEntity from "./SessionEntity.ts"
 import * as Sessions from "./Sessions.ts"
+import * as Spawner from "./Spawner.ts"
 import * as Storage from "./Storage.ts"
 import * as Volume from "./Volume.ts"
 
@@ -156,6 +162,8 @@ const boot = Effect.fnUntraced(function* (
     version,
     node: process.version,
     data: volume.data,
+    // Whether safe mode is on and why (FAIL-286b).
+    safe: yield* SafeMode.read(volume.data, environment.safeMode),
   })
 
   // Step 3, the check for a newer state/version, belongs here.
@@ -172,6 +180,10 @@ const boot = Effect.fnUntraced(function* (
   )
   if (Option.isNone(stored)) return 1
   state.connections = StoredConnections.listed(stored.value)
+  // A volume with no chat connection runs, and says that setup is needed (IMG-33, CLI-6, FAIL-288).
+  if (stored.value.length === 0) {
+    yield* Logger.event("boot.setup-needed", Messages.setupNeeded, {})
+  }
 
   // Step 5. The socket listens before the database is opened, so status and health answer during the rest.
   const scope = yield* Effect.scope
@@ -286,15 +298,28 @@ const boot = Effect.fnUntraced(function* (
   // (LOAD-61). They are bundled before any session or connection starts, and their Layers build once the sessions
   // can take turns. `repo/`'s links come first, so the agent finds the packages and the examples (IMG-44 to IMG-46).
   yield* RepoLinks.prepare(volume.repo)
-  const live = join(volume.repo, "live")
-  const fromRepo = (yield* fs.exists(live))
-    ? // A repo plugin with a bundled plugin's name is skipped before it runs, since the two would share one table
-      // (REC-42).
-      yield* Loader.load(
-        yield* fs.realPath(live),
-        new Set((inputs.plugins ?? []).map(({ name }) => name)),
-      )
-    : { loaded: [], skipped: [] }
+  // Safe mode is read from its file and the variable, never from the database (STO-15, REC-56, REC-57).
+  const safe = yield* SafeMode.read(volume.data, environment.safeMode)
+  // The repo with its first commit when there is none, and `live` on the head of `applied`, which wins over what
+  // `live` named. No file in the repo stops a boot, so a repo that cannot be readied loads nothing (IMG-43, LOAD-89,
+  // REC-48, REC-121).
+  const applied = yield* Repo.prepare(volume.repo).pipe(
+    Effect.tapCause((cause) =>
+      Effect.logWarning(
+        "The repo could not be readied, so nothing loads from it",
+        cause,
+      ),
+    ),
+    Effect.option,
+  )
+  const bundledNames = new Set((inputs.plugins ?? []).map(({ name }) => name))
+  const fromRepo =
+    // Safe mode loads nothing from the repo and never starts esbuild (LOAD-63, LOAD-90, REC-50).
+    safe !== "off" || Option.isNone(applied)
+      ? { loaded: [], skipped: [] }
+      : // A repo plugin with a bundled plugin's name is skipped before it runs, since the two would share one table
+        // (REC-42).
+        yield* Loader.load(applied.value.directory, bundledNames)
   // The token store and the one Codex login of the process, which every session's model layer is built over. clanka's
   // login reads the stored token once, as it is built (MOD-26, MOD-66).
   const tokens = yield* Layer.buildWithScope(
@@ -398,6 +423,7 @@ const boot = Effect.fnUntraced(function* (
   // forked here, so it closes after the sessions' and a graceful stop runs their queued hooks after the turns end
   // (API-67).
   const pluginScope = yield* Scope.fork(scope)
+  let repository: Apply.Commands | undefined
   const waiting: PluginTurns.Waiting = new Map()
   let host: Plugins.Plugins["Service"] | undefined
   const loaded = yield* Deferred.make<Plugins.Plugins["Service"]>()
@@ -414,7 +440,13 @@ const boot = Effect.fnUntraced(function* (
       Effect.flatMap(Deferred.await(loaded), (host) => host.onSession(event)),
     status: () => host?.status() ?? [],
     skipped: () => host?.skipped() ?? [],
+    generation: () => host?.generation() ?? 0,
+    versions: () => host?.versions() ?? [],
+    prepare: (plan) =>
+      Effect.flatMap(Deferred.await(loaded), (host) => host.prepare(plan)),
+    abandon: Effect.suspend(() => host?.abandon ?? Effect.void),
   }
+  state.abandon = plugins.abandon
   const sessions = yield* Layer.buildWithScope(
     Layer.merge(SessionEntity.layer, retention).pipe(
       Layer.provideMerge(cluster),
@@ -433,11 +465,30 @@ const boot = Effect.fnUntraced(function* (
               [],
             ended: (key, outcome) => PluginTurns.ended(waiting, key, outcome),
           }),
+          Layer.succeed(SessionEntity.Safe, {
+            on: () =>
+              (repository === undefined ? safe : repository.safe()) !== "off",
+          }),
           Layer.succeed(SessionEntity.Stopping, {
             stopping: () => state.phase === "stopping",
           }),
           Layer.succeed(Handler.Status, {
             text: Server.statusText(state),
+          }),
+          Layer.succeed(Handler.SafeCommand, {
+            run: (to, post) =>
+              Deferred.await(state.repository).pipe(
+                Effect.flatMap((repository) =>
+                  repository.run(
+                    { _tag: "Safe", to },
+                    { session: undefined, chat: true },
+                    post,
+                  ),
+                ),
+                Effect.flatMap((output) =>
+                  post([...output.stdout, ...output.stderr].join("\n")),
+                ),
+              ),
           }),
           Layer.succeed(Handler.ModelCommand, {
             run: (words, where) => modelCommand(account, scope, words, where),
@@ -472,6 +523,25 @@ const boot = Effect.fnUntraced(function* (
     timings: inputs.timings,
     stopping: () => state.stopping,
     notices,
+    // The trial `Agent.makeWith` of an apply, on an executor of its own, since clanka dies when two tools share a name
+    // (SWAP-3).
+    trial: (tools) =>
+      Agent.makeWith({ loopTools: tools.toolkit }).pipe(
+        Effect.provide(tools.context),
+        Effect.provide(
+          AgentExecutor.layerLocal({ directory: volume.home }).pipe(
+            Layer.provide(Spawner.layer("trial", volume.home)),
+          ),
+        ),
+        Effect.scoped,
+        Effect.provideContext(world),
+        Effect.asVoid,
+        Effect.catchCause((cause) =>
+          Effect.fail(
+            Messages.firstLine(Cause.pretty(Cause.squash(cause) as never)),
+          ),
+        ),
+      ) as Effect.Effect<void, string>,
     turns: PluginTurns.make({
       waiting,
       scope: pluginScope,
@@ -492,13 +562,46 @@ const boot = Effect.fnUntraced(function* (
     Scope.provide(pluginScope),
   )
   yield* Deferred.succeed(loaded, host)
+  const queue = Queue.make()
+  const announce = PluginTurns.chat(running.chats, running.list)
+  repository = yield* Apply.make({
+    repo: volume.repo,
+    data: volume.data,
+    forced: environment.safeMode,
+    initial: safe,
+    plugins,
+    bundled: inputs.plugins ?? [],
+    queue,
+    scope,
+    // A command's line goes to the thread of the session that ran it, as subtext (REC-108, FAIL-177).
+    announce: (session, line) =>
+      Effect.gen(function* () {
+        const thread = yield* Sessions.threadOf(session)
+        if (thread === undefined) return
+        const parsed = ChatThread.fromString(thread)
+        if (Option.isNone(parsed)) return
+        yield* ChatMarkdown.post(parsed.value, `-# ${line}`).pipe(
+          Effect.provideService(Chat.Chat, announce),
+        )
+      }).pipe(Effect.provideContext(base)),
+  }).pipe(Effect.provideContext(world))
+  yield* Deferred.succeed(state.repository, repository)
+  const commands = repository
+  state.repositoryState = Repo.state(volume.repo).pipe(
+    Effect.map((facts) => ({ safe: commands.safe(), ...facts })),
+    Effect.provideContext(world),
+  )
   state.plugins = host.status
   state.skipped = host.skipped
   yield* Deferred.succeed(
     state.commands,
-    yield* Connections.make(volume, state, running, Queue.make()).pipe(
-      Effect.provide(sessions),
-    ),
+    yield* Connections.make(
+      volume,
+      state,
+      running,
+      queue,
+      repository.owners,
+    ).pipe(Effect.provide(sessions)),
   )
   state.phase = "ready"
   yield* Logger.event("boot.ready", "chad is ready", {
@@ -601,6 +704,8 @@ export const runDaemon = (inputs: DaemonInputs): Promise<number> => {
       () => process.exit(1),
       Duration.toMillis(inputs.timings.stopDeadline),
     )
+    // A swap that runs is abandoned first, before anything waits on requests in flight (SWAP-101).
+    yield* state.abandon
     yield* Server.interruptCalls(state)
     yield* Scope.close(scope, Exit.void)
     clearTimeout(deadline)

@@ -219,7 +219,7 @@ it("CLI-45 CLI-49a CLI-162 CLI-204 CLI-216 a usage error prints the usage and ex
   // Colour is asked for, and the output is a pipe.
   const env = { CHAD_DATA: data, FORCE_COLOR: "1", TERM: "xterm-256color" }
   const usage = [
-    ["apply"],
+    ["frob"],
     ["health", "extra"],
     ["health", "--wizard"],
     ["health", "--completions", "bash"],
@@ -231,8 +231,8 @@ it("CLI-45 CLI-49a CLI-162 CLI-204 CLI-216 a usage error prints the usage and ex
     expect(ran.stdout + ran.stderr).toMatch(/USAGE\n {2}chad /)
     expect(ran.stdout + ran.stderr).not.toContain("\u001b")
   }
-  expect((await chad(["apply"], env)).stderr).toContain(
-    'Unknown subcommand "apply"',
+  expect((await chad(["frob"], env)).stderr).toContain(
+    'Unknown subcommand "frob"',
   )
 
   for (const args of [[], ["--help"], ["health", "--help"]]) {
@@ -365,6 +365,7 @@ it("CLI-59 CLI-218 the CLI sends its CHAD_SESSION with every request, and a daem
             Login: () => Stream.empty,
             Logout: () => Effect.succeed({ spec: "openai-compat/fake" }),
             Model: () => Stream.empty,
+            Repository: () => Stream.empty,
           }),
           layerVersionCheck(version),
         ),

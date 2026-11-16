@@ -4,7 +4,10 @@ import * as Connections from "../../Connections.ts"
 import * as Account from "../Account.ts"
 import * as Messages from "../../Messages.ts"
 import * as Paths from "../../Paths.ts"
+import * as Repo from "../../Repo.ts"
+import * as SafeMode from "../../SafeMode.ts"
 import * as Status from "../../Status.ts"
+import * as Repository from "../Repository.ts"
 import { Timings } from "../../Timings.ts"
 import { version } from "../../Version.ts"
 import * as Daemon from "../Daemon.ts"
@@ -37,6 +40,13 @@ export const status = Command.make(
         stored._tag === "Success" ? Connections.listed(stored.success) : [],
       model: yield* Account.fromFiles,
     }
+    const repository = {
+      safe: yield* SafeMode.read(
+        environment.data,
+        environment.safeMode === true,
+      ),
+      ...(yield* Repo.state(Repository.repoOf(environment.data))),
+    }
     const unread =
       stored._tag === "Failure"
         ? Console.error(Messages.connectionRejected("status", stored.failure))
@@ -47,6 +57,7 @@ export const status = Command.make(
           daemon: "none",
           lock: environment.lock,
           ...fromFiles,
+          repository,
         }),
       )
       yield* unread
@@ -68,6 +79,7 @@ export const status = Command.make(
           socket: environment.socket,
           seconds: Duration.toSeconds(timings.cliAnswer),
           ...fromFiles,
+          repository,
         }),
       )
       yield* unread

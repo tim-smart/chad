@@ -1,6 +1,7 @@
 import type { LogLevel } from "effect"
 import { logLevelNamed } from "../Events.ts"
 import * as Paths from "../Paths.ts"
+import * as SafeMode from "../SafeMode.ts"
 
 /**
  * What the daemon takes from the environment table of docs/spec/01-image-and-volume.md. It is read when `runDaemon`
@@ -20,6 +21,8 @@ export interface Environment {
   readonly logLevel: LogLevel.LogLevel
   /** The value of `CHAD_LOG_LEVEL` when it names no level. */
   readonly unknownLogLevel: string | undefined
+  /** Whether `CHAD_SAFE_MODE=1` holds safe mode on (REC-129). */
+  readonly safeMode: boolean
 }
 
 export const read = (env: NodeJS.ProcessEnv): Environment => {
@@ -38,5 +41,6 @@ export const read = (env: NodeJS.ProcessEnv): Environment => {
     openaiApiKey: env["CHAD_OPENAI_API_KEY"],
     logLevel: level ?? "Info",
     unknownLogLevel: level === undefined ? named : undefined,
+    safeMode: SafeMode.forced(env),
   }
 }

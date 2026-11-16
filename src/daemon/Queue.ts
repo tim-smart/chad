@@ -8,12 +8,31 @@ import * as Logger from "./Logger.ts"
 export interface Queue {
   readonly run: <A, E, R>(
     effect: Effect.Effect<A, E, R>,
+    label?: string,
   ) => Effect.Effect<A, E, R>
+  /** What runs now, by the label it was queued with, or nothing when the queue is free (CLI-40). */
+  readonly busy: () => string | undefined
 }
 
 export const make = (): Queue => {
   const semaphore = Semaphore.makeUnsafe(1)
-  return { run: semaphore.withPermit }
+  let running: string | undefined
+  return {
+    run: (effect, label = "a command") =>
+      semaphore.withPermit(
+        Effect.suspend(() => {
+          running = label
+          return effect
+        }).pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              running = undefined
+            }),
+          ),
+        ),
+      ),
+    busy: () => running,
+  }
 }
 
 /** The caller of a command, from the `CHAD_SESSION` its CLI sent: the owner when it sent none. */

@@ -815,3 +815,210 @@ export const movedAside = (path: string, to: string) =>
 /** A repo plugin that has a bundled plugin's name, which is skipped at boot (REC-42). */
 export const bundledName = (name: string) =>
   `${name}: a bundled plugin has this name, so the bundled one loads and this one is skipped. The two share one key-value table, and renaming this plugin does not move its data.`
+
+/** The refusal of a call to a tool whose version a swap took out of service (SWAP-69 to SWAP-72, REC-59). */
+export const toolRefused = (
+  why: "changed" | "removed" | "safe",
+  tool: string,
+  subagents: boolean,
+) =>
+  why === "safe"
+    ? toolSafeMode(tool)
+    : why === "removed"
+      ? toolRemoved(tool)
+      : subagents
+        ? toolChangedSubagent(tool)
+        : toolChanged(tool)
+
+/** Message 1 (SWAP-69). */
+export const toolChanged = (tool: string) =>
+  `${tool} was changed by an apply. The new version is in your next turn.`
+
+/** Message 2 (SWAP-70). */
+export const toolChangedSubagent = (tool: string) =>
+  `${tool} was changed by an apply. The new version is in your next turn, which cannot start while this turn has a sub-agent running.`
+
+/** Message 3 (SWAP-71, SWAP-140). */
+export const toolRemoved = (tool: string) =>
+  `${tool} was removed by an apply and is gone from your next turn.`
+
+/** Message 4 (SWAP-72, REC-59). */
+export const toolSafeMode = (tool: string) => `${tool} is off in safe mode.`
+
+/** Message 5 and message 6: a call the drain interrupted, which stopped within the wait or did not (SWAP-113, SWAP-114). */
+export const toolCut = (tool: string, stopped: boolean) =>
+  stopped
+    ? `${tool} was interrupted by an apply, it may have partly run.`
+    : `${tool} did not stop when an apply interrupted it and may still be running.`
+
+/** The line of `swap.overrun` for a tool call (SWAP-53). */
+export const overrunTool = (plugin: string, tool: string) =>
+  `${tool} of ${plugin} did not stop when the swap interrupted it, so two versions of ${plugin} now overlap`
+
+/** The line of `swap.overrun` for a hook (SWAP-53). */
+export const overrunHook = (plugin: string, hook: string) =>
+  `The ${hook} hook of ${plugin} did not stop when the swap interrupted it, and the plugin's hook queue has moved on to the new version`
+
+/** The line of `swap.overrun-ended`. */
+export const overrunEnded = (plugin: string, name: string) =>
+  `${name} of ${plugin} ended after the swap moved on`
+
+/** The line of `swap.close-abandoned` (FAIL-265). */
+export const closeAbandoned = (plugin: string) =>
+  `The close of the old version of ${plugin} ran past its deadline, and its finalizers were abandoned`
+
+/** An apply's refusal of a repo plugin with a bundled plugin's name (SET-54, CLI-67). */
+export const bundledNameRefused = (name: string) =>
+  `The plugin "${name}" has the name of a bundled plugin. Rename it: the two would share one key-value table.`
+
+/** The refusal of `AGENTS.md`, `.agents` and `.kiro` in the repo, which names where their content goes (LOAD-94, LOAD-95). */
+export const instructionsRefused = (paths: ReadonlyArray<string>) =>
+  `The repo holds ${paths.map((path) => `work/${path}`).join(", ")}. chad refuses AGENTS.md, .agents and .kiro in the repo, because clanka would read them without an apply. Put a skill under skills/<name>/SKILL.md and standing instructions in persona.md, then delete these.`
+
+/** The count of the errors a failed check does not print (CLI-47). */
+export const moreErrors = (count: number) => `... and ${count} more errors.`
+
+/** A plugin whose Layer did not build, in a failed apply (REC-G13). */
+export const couldNotLoad = (name: string, error: string) =>
+  `${name} could not be loaded: ${error}`
+
+/** `chad check` on a tool that `chad apply` refuses (CLI-163, CLI-164). */
+export const replaceMeCheck = (tool: string) =>
+  `The tool ${tool} has a description that starts with "Replace me". chad apply will refuse it: describe the tool or delete it.`
+
+/** `chad apply` refusing that tool (SELF-54, CLI-68). */
+export const replaceMeRefused = (tool: string) =>
+  `The tool ${tool} has a description that starts with "Replace me". Describe the tool or delete it.`
+
+/** A check that passed. */
+export const checkPassed = "The check passed. Nothing was applied."
+
+/** An apply or a revert with nothing changed (CLI-64, REC-142). */
+export const nothingChanged = "Nothing changed. No commit was made."
+
+/** A revert with no applied commit before the current one (REC-140). */
+export const revertNoEarlier =
+  "There is no applied commit before the current one to revert to."
+
+/** A revert to a commit that is not on the `applied` branch (REC-141). */
+export const revertNotApplied = (commit: string) =>
+  `${commit} is not an applied commit. \`chad log\` lists them.`
+
+/** The message of a revert's commit, which names the commit it went back to (REC-136). */
+export const revertMessage = (commit: string) => `Revert to ${commit}`
+
+/** The session line of an apply (FAIL-177). */
+export const appliedLine = (commit: string, message: string) =>
+  `Applied \`${commit}\`: ${message}`
+
+/** The session line of a revert (REC-G17). */
+export const revertedLine = (commit: string, from: string) =>
+  `Reverted \`${from}\` as \`${commit}\`.`
+
+/** The session line of `chad safe on|off` (REC-G17). */
+export const safeLine = (on: boolean) =>
+  on ? "Safe mode is on." : "Safe mode is off."
+
+/** What `chad safe` prints: whether safe mode is on and what turned it on (REC-129, REC-G10). */
+export const safeState = (state: "off" | "variable" | "toggle") =>
+  state === "off"
+    ? "Safe mode is off."
+    : state === "variable"
+      ? "Safe mode is on, held by CHAD_SAFE_MODE=1. Nothing from the repo is loaded."
+      : "Safe mode is on, turned on by chad safe on. Nothing from the repo is loaded."
+
+/** `chad safe off` while `CHAD_SAFE_MODE=1` is set, which changes nothing (REC-128, CLI-169). */
+export const safeForced =
+  "CHAD_SAFE_MODE=1 is set and holds safe mode on. Nothing was changed. Unset it on the container and restart chad to turn safe mode off."
+
+/** The line the system prompt has while safe mode is on (SELF-38, REC-58, SWAP-G10). */
+export const safePrompt =
+  "Safe mode is on. Nothing from the repo is loaded: no repo plugins, skills, MCP servers or persona."
+
+/** A command that waits behind another in the queue (CLI-40). */
+export const queueWaiting = (command: string) =>
+  `Waiting for ${command} to finish.`
+
+/** `chad plugin reload` of a plugin that is neither loaded nor skipped. */
+export const reloadUnknown = (name: string) =>
+  `No plugin named ${name} is loaded or skipped.`
+
+/** `chad plugin reload` of a repo plugin in safe mode, which loads nothing from the repo. */
+export const reloadSafe = (name: string) =>
+  `Safe mode is on, so ${name} from the repo is not loaded. Turn safe mode off first.`
+
+/** `chad plugin reload` that swapped. */
+export const reloaded = (name: string) =>
+  `Reloaded ${name}. Sessions pick it up on their next message.`
+
+/** An apply that failed from its commit on (CLI-66, REC-120). */
+export const failedAfterCommit = (commit: string, error: string) =>
+  `The commit ${commit} was made, but the apply failed after it: ${error}. It loads at the next start.`
+
+/** What a successful apply or revert prints (CLI-70, CLI-71, REC-62, REC-82, SWAP-78, SWAP-112). */
+export const appliedOutput = (options: {
+  readonly kind: "apply" | "revert" | "check"
+  readonly commit: string
+  readonly files: ReadonlyArray<string>
+  readonly safe: boolean
+  readonly saved: string | undefined
+  readonly swapped:
+    | {
+        readonly swapped: ReadonlyArray<string>
+        readonly removed: ReadonlyArray<string>
+        readonly waited: number
+        readonly interrupted: ReadonlyArray<string>
+        readonly affected: ReadonlyArray<{
+          readonly session: string
+          readonly subagents: number
+          readonly tasks: number
+        }>
+      }
+    | undefined
+}) => [
+  `${options.kind === "revert" ? "Reverted" : "Applied"} ${options.commit}.`,
+  ...(options.saved === undefined
+    ? []
+    : [`What work/ held is saved at ${options.saved}.`]),
+  "Changed files:",
+  ...options.files.map((file) => `  ${file}`),
+  ...(options.safe
+    ? [
+        "Safe mode is on, so nothing was loaded. The change loads when safe mode goes off.",
+      ]
+    : options.swapped === undefined
+      ? []
+      : [
+          ...(options.swapped.swapped.length === 0
+            ? []
+            : [`Rebuilt: ${options.swapped.swapped.join(", ")}.`]),
+          ...(options.swapped.removed.length === 0
+            ? []
+            : [
+                `Unloaded: ${options.swapped.removed.join(", ")}. Their data and timers are kept.`,
+              ]),
+          ...(options.swapped.swapped.length +
+            options.swapped.removed.length ===
+          0
+            ? []
+            : [`Waited ${options.swapped.waited} ms for work in flight.`]),
+          ...options.swapped.interrupted.map((call) => `Interrupted: ${call}.`),
+          ...options.swapped.affected.map(
+            ({ session, subagents, tasks }) =>
+              `${session} loses the changed tools until its turn ends (${subagents} sub-agents and ${tasks} background tasks running).`,
+          ),
+          "Sessions pick the change up on their next message. This turn keeps the tools it has.",
+        ]),
+]
+
+/** `chad log` when the repo has no applied commit to read. */
+export const logMissing =
+  "There is no applied commit yet. The repo is made when chad first starts."
+
+/** The mark `chad status` gives a plugin that kept its running version when a reload failed to build it (SWAP-141, SWAP-142). */
+export const runningPrevious = (what: "owners" | "instance", error: string) =>
+  `running with the previous ${what}: ${firstLine(error)}`
+
+/** The line of `boot.setup-needed`, written when `chad serve` starts with no chat connection (IMG-33, FAIL-288). */
+export const setupNeeded =
+  "chad has no chat connection. Add one with chad connection add."

@@ -1,11 +1,17 @@
+import { apply } from "./commands/apply.ts"
+import { check } from "./commands/check.ts"
 import { connection } from "./commands/connection.ts"
 import { db } from "./commands/db.ts"
 import { health } from "./commands/health.ts"
 import { login } from "./commands/login.ts"
 import { logout } from "./commands/logout.ts"
+import { log } from "./commands/log.ts"
 import { logs } from "./commands/logs.ts"
 import { model } from "./commands/model.ts"
 import { owner } from "./commands/owner.ts"
+import { plugin } from "./commands/plugin.ts"
+import { revert } from "./commands/revert.ts"
+import { safe } from "./commands/safe.ts"
 import { status } from "./commands/status.ts"
 
 /**
@@ -22,4 +28,10 @@ export const commands = [
   model,
   db,
   logs,
+  check,
+  apply,
+  revert,
+  log,
+  safe,
+  plugin,
 ] as const

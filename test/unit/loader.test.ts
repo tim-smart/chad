@@ -37,7 +37,7 @@ const provided = <A, E>(
 
 const check = async (files: Record<string, string>) => {
   const { repo, tree } = await repoWith(files)
-  return { repo, errors: await provided(Loader.check(repo, tree)) }
+  return { repo, errors: (await provided(Loader.check(repo, tree))).errors }
 }
 
 const empty = `import { Layer } from "effect"
@@ -120,7 +120,9 @@ export default Plugin.make(
   )
 
   const none = await repoWith({ "skills/tool/run.ts": "export {}\n" })
-  expect(await provided(Loader.check(none.repo, none.tree))).toEqual([])
+  expect((await provided(Loader.check(none.repo, none.tree))).errors).toEqual(
+    [],
+  )
   expect(repo).not.toBe(none.repo)
 })
 
