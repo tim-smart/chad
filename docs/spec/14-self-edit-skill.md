@@ -192,7 +192,7 @@ Nothing in chad's code enforces the rules in this section. The agent follows the
 - **SELF-68** That line is written against the wording cron stores with every job's prompt, which says the turn is a scheduled run and that nobody is there to answer questions (see 13-timers-and-cron.md).
 - **SELF-69** `plugin.md` and the doc comments of `Turns.start`, `Turns.queue` and `Turns.schedule` tell a plugin author that the prompt has to say what started the turn and that nobody is there to answer questions. A turn is unattended by its origin, whichever of the three calls started it. The doc comments are in 06-plugin-api.md.
 - **SELF-70** v1 has no check in the CLI against the turn's origin. A plugin whose author leaves that line out starts turns the agent treats as attended, and this is accepted.
-- **SELF-71** The agent turns safe mode off only when the owner asked it to fix the problem and the fix is applied. If safe mode started by itself, the agent asks the owner first.
+- **SELF-71** The agent turns safe mode off only when the owner asked it to fix the problem and the fix is applied.
 - **SELF-72** The agent never turns safe mode on unless the owner asks.
 - **SELF-73** `chad safe` is not an owner command, so the CLI lets the agent run it. The two safe mode rules above are rules in the skill and not checks in the CLI.
 - **SELF-74** The agent does not copy the `self-edit` skill into the repo to change it. The owner's conventions go in a separate skill.
@@ -434,7 +434,7 @@ Edit `mcp.json` and apply. There is no command that adds one.
 ## Safe mode
 
 - In safe mode nothing from the repo is loaded. An apply still runs every check and commits, and its change loads when safe mode goes off (`chad safe off` or `/safe off`). Turning a bundled plugin on or off in `chad.json` takes effect at once.
-- Turn safe mode off only when the owner asked you to fix the problem and your fix is applied. If safe mode started by itself, ask first.
+- Turn safe mode off only when the owner asked you to fix the problem and your fix is applied.
 - Never turn safe mode on unless the owner asks.
 
 ## When a check or an apply fails
@@ -680,7 +680,7 @@ export default Plugin.make(NotesTools, Chunk)
 | SELF-68 | TIM-549 item 8 and round 2 point 2, TIM-540 item 16 | Architect (Tim has not read) | read |  | `rule` | `bundled-skills` |
 | SELF-69 | TIM-549 item 8, TIM-530 as changed by TIM-549, TIM-559 round 3 SELF-G16 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
 | SELF-70 | TIM-549 "Not settled here", round 2 point 2 | Architect (Tim has not read) | not run |  | `definition` | - |
-| SELF-71 | TIM-549 item 9, TIM-534 and TIM-542 as changed by TIM-549 | Architect (Tim has not read) | not run | TIM-549 | `rule` | `bundled-skills` |
+| SELF-71 | TIM-549 item 9, TIM-534 and TIM-542 as changed by TIM-549, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-549 | `rule` | `bundled-skills` |
 | SELF-72 | TIM-549 item 9, TIM-534 as changed by TIM-549 | Architect (Tim has not read) | not run | TIM-549 | `rule` | `bundled-skills` |
 | SELF-73 | TIM-542 as changed by TIM-549, TIM-549 round 1 corrections | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | SELF-74 | TIM-549 item 10 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |

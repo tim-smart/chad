@@ -28,7 +28,7 @@ A client talks to the daemon over a unix socket on the volume, using effect's RP
 - **CLI-213** A `listen` that fails with `EADDRINUSE` or `EACCES` is not a filesystem that cannot hold a socket. It ends the start with the line `chad serve: cannot create the socket <path> (<error code>).` and nothing after it. Every other `listen` error gets the unsupported-filesystem message of 01-image-and-volume.md, with the type of the mount that holds the socket's directory. That message is tested by a unit test of the function that maps the error, because no unprivileged test can mount such a filesystem.
 - **CLI-12** When a connect fails with `EINVAL`, the CLI prints the same path-length message as `chad serve`.
 - **CLI-13** The daemon removes a socket file left by a killed daemon after it has taken the lock, and never before. A daemon that was refused the lock touches no socket file, so it cannot delete a live one.
-- **CLI-14** (a) The daemon listens straight after it has taken the lock, checked `state/version` and raised the boot counter (the boot order is in 02-storage.md). That is before it checks the shard count, before it opens, copies or migrates the database and before it loads plugins, MCP servers and chat connections. `chad status` therefore answers during boot and names the boot phase, `chad health` passes during boot, and (b) an apply sent during boot waits in the queue behind the boot.
+- **CLI-14** (a) The daemon listens straight after it has taken the lock and checked `state/version` (the boot order is in 02-storage.md). That is before it checks the shard count, before it opens, copies or migrates the database and before it loads plugins, MCP servers and chat connections. `chad status` therefore answers during boot and names the boot phase, `chad health` passes during boot, and (b) an apply sent during boot waits in the queue behind the boot.
 - **CLI-15** The CLI does not retry a connection. When the lock is held and the socket is missing, refuses the connection, or accepts it and gives no answer inside 2 seconds, the CLI says the daemon is "starting or frozen", exits 4 and touches no files.
 - **CLI-16** The RPC server interrupts a client's running calls when that client disconnects. A CLI that is killed, by Ctrl-C or by `kill -9`, therefore cancels its call. In the prototype the handler was interrupted within about 15 ms.
 - **CLI-17** The daemon writes the log event `rpc.cancelled`, at debug level, each time it interrupts a call because the call's client went away. The server cannot tell a Ctrl-C from a `kill -9` or a dropped connection, so each of them writes the line (see 16-failures-logs-status.md).
@@ -102,7 +102,7 @@ const guard = (tag: string, headers: Record<string, string | undefined>) =>
 The lock answers one question for both sides, which is whether a daemon is running on this volume. It is a SQLite write transaction held open on an otherwise empty database file, taken through Node's built-in `node:sqlite`. The operating system drops it when the holder dies, however it dies.
 
 - **CLI-24** The daemon holds a SQLite lock on `state/daemon.lock` for its whole life. After the holder is killed with `kill -9` the lock is free at once.
-- **CLI-25** A second `chad serve` on the same volume fails to take the lock and exits 1 before it touches anything else, the socket file included. That boot does not count as an unclean boot (see 09-repo-and-recovery.md).
+- **CLI-25** A second `chad serve` on the same volume fails to take the lock and exits 1 before it touches anything else, the socket file included.
 - **CLI-26** The lock file is opened with `journal_mode=MEMORY`, so no journal file is ever written next to it. The daemon takes the lock with a 3 second busy timeout, so a CLI that holds the lock for a moment does not make a starting daemon exit. The CLI's test uses no timeout.
 - **CLI-27** The daemon keeps the lock's handle referenced for the life of the process and closes it only at exit. Without the reference a garbage collection closed the handle and a second daemon ran on the same volume. The test for this is in 17-testing.md.
 - **CLI-28** The CLI tests the same lock by trying to begin a write transaction and rolling it back. A free lock means no daemon. The test takes under 4 ms, still reads "held" when the holder is stopped with SIGSTOP, and creates nothing when the lock file does not exist.
@@ -577,7 +577,7 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-11 | TIM-550 item 6, TIM-553 item 11, TIM-559 round 2 R5 | Architect (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-12 | TIM-550 item 6 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | CLI-13 | TIM-550 items 6 and 8 | Architect (Tim has not read) | run |  | `rule` | `cli` |
-| CLI-14 | TIM-550 item 7, amended by TIM-559 ruling on IMG-G5 and STO-G5 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
+| CLI-14 | TIM-550 item 7, amended by TIM-559 ruling on IMG-G5 and STO-G5, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | CLI-15 | TIM-542 item 3, TIM-550 item 7 | Tim; the no-retry rule Architect (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-16 | TIM-542 item 6, TIM-550 item 1 | Tim | run |  | `fact` | `cli` |
 | CLI-17 | TIM-550 item 13, TIM-559 round 2 R4 for the event name, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `cli` |
@@ -588,7 +588,7 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-22 | TIM-542 item 5 | Tim | run |  | `rule` | `cli` |
 | CLI-23 | TIM-542 item 5, TIM-541 item 14 | Tim; the file `state/version` Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | CLI-24 | TIM-542 item 3, TIM-536 item 18 | Tim | run |  | `rule` | `cli` |
-| CLI-25 | TIM-542 item 3, TIM-550 item 8 | Tim; exit 1 and the order Architect (Tim has not read) | run |  | `rule` | `cli` |
+| CLI-25 | TIM-542 item 3, TIM-550 item 8, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim; exit 1 and the order Architect (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-26 | TIM-550 item 8 | Architect (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-27 | TIM-553 item 5 | Architect (Tim has not read) | run |  | `rule` | `kills` |
 | CLI-28 | TIM-542 item 3, TIM-550 item 1 | Tim | run |  | `rule` | `cli` |

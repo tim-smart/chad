@@ -52,7 +52,7 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 | `models` | 2 | The providers, the Codex login on the fake's Codex side, `/model`, the model check, the usage limit, the retry line and the silence bound. |
 | `plugin-api` | 3 | The plugin API with plugins handed to `runDaemon` through its plugins input (see 17-testing.md): the four modules, hooks and their ordering, prompt chunks, the key-value store, `Turns` and plugin-started turns, `sendFile`, tools, the Agent rebuild by generation. No loading from the repo. |
 | `loader` | 3 | The type layer with the six mistakes, check and bundle, loading plugins from an exported tree. |
-| `apply` | 3 | The repo, `chad apply`, the swap, revert, recovery, safe mode and the boot counter. |
+| `apply` | 3 | The repo, `chad apply`, the swap, revert, recovery and safe mode. |
 | `settings` | 4 | `chad.json`, settings, secrets, the timezone, the persona, `chad setup`, and the credential tools (`chad secret run`, `code`, `request`, the Enter button). |
 | `skills-mcp` | 4 | Skills, MCP servers, and the stop's 60 second deadline, which only an MCP server can hold a stop open long enough to reach. |
 | `timers-cron` | 4 | Timers and the cron plugin. |

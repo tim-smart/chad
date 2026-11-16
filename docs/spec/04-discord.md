@@ -231,7 +231,7 @@ The login itself, its single shared wait and its timeout are in 05-model-and-log
 - **DIS-103** When `/new` arrives during a running turn, chad posts both notices, the "Stopped after" notice of DIS-59 first and the "New session started" notice of DIS-75 second.
 - **DIS-76** After `/stop` with nothing running chad posts the notice "Nothing is running."
 - **DIS-77** When chad cannot open a thread on a mention, it posts in the channel "I couldn't open a thread on that message (<Discord's reason>). I need Create Public Threads here, or you can DM me." and drops the event. This one is a normal message and not subtext, because it is the only thing the owner gets back for that message and it asks the owner to fix a permission.
-- **DIS-78** A notice that belongs to no turn, such as a skipped plugin or an automatic safe mode, follows the notice rule in 16-failures-logs-status.md, which gives its wording, where it goes and when it may be sent again.
+- **DIS-78** A notice that belongs to no turn, such as a skipped plugin, follows the notice rule in 16-failures-logs-status.md, which gives its wording, where it goes and when it may be sent again.
 - **DIS-83** A command run from a session that changes what is loaded or deletes stored data posts one subtext line in that session's thread (see 16-failures-logs-status.md).
 - **DIS-84** Every text chad posts in chat is a template in one `Messages` module, and tests refer to a message by its name there (see 17-testing.md).
 - **DIS-79** The local dev adapter is a connection kind whose chat platform is effect/chat's `ChatTest`, running outside the daemon. The platform lives in the repo's test support and is not in the image (see 17-testing.md, and 10-cli.md for the `connection` commands). `ChatTest` shows subtext and relative timestamps as their raw text. It can press the Stop button through `click` and `interact`, and it supports modals.
@@ -352,7 +352,7 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-75 | TIM-533 item 12 | Tim | not run |  | `rule` | `turns` |
 | DIS-76 | TIM-533 item 12 | Tim | run |  | `rule` | `turns` |
 | DIS-77 | TIM-532 item 1, TIM-533 item 12, amended by TIM-559 ruling on DIS-G22 | Tim, and Architect (Tim has not read) for the normal message | not run | TIM-559 | `rule` | `turns` |
-| DIS-78 | TIM-534 item 15, amended by TIM-557 items 36, 38 and 40 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
+| DIS-78 | TIM-534 item 15, amended by TIM-557 items 36, 38 and 40, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | DIS-79 | TIM-533 resolution, support section, TIM-546 facts comment, amended by TIM-558 items 20 to 22 | Tim, and Architect (Tim has not read) for the connection kind and `ChatTest` running outside the daemon | read |  | `rule` | `harness` |
 | DIS-80 | TIM-558 item 40 | Architect (Tim has not read) | not run | TIM-558 | `rule` | `harness` |
 | DIS-81 | TIM-557 item 4 | Architect (Tim has not read) | not run |  | `rule` | `discord-ui` |

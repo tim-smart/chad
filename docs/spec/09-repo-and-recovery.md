@@ -127,7 +127,7 @@ An apply is strict and a boot is lenient. An apply can refuse because the last g
 - **REC-123** `chad plugin reload <name>` builds a skipped plugin and loads it when the build succeeds, so a skipped plugin can come back without an apply or a restart (see 10-cli.md).
 - **REC-124** The reload that `chad secret set` triggers also tries a skipped plugin whose settings name that secret (see 10-cli.md and 11-settings.md).
 - **REC-125** A skipped plugin that loads clears the notice key `plugin-skipped:<name>` (see 16-failures-logs-status.md for every check that clears the key).
-- **REC-126** A boot that cannot write `state/boot-count` or `state/safe-mode` logs the failure and does not stop.
+- **REC-126** Withdrawn.
 
 ## Safe mode
 
@@ -147,10 +147,10 @@ Safe mode is the owner's way back to a chad that works when something in the rep
 - **REC-61** `/safe on|off` in chat runs the same daemon call as `chad safe on|off`, prints the same text and does not go through the model.
 - **REC-62** An apply in safe mode runs every check, commits and moves `live`, and loads nothing. Its output says that the change loads when safe mode goes off. A revert in safe mode does the same and still resets `work/`.
 - **REC-63** An apply or a revert in safe mode that flips `enabled` for a bundled plugin takes effect at once, in both directions.
-- **REC-64** `chad safe` is not an owner command, so the agent may run it. When it does is a rule in the bundled `self-edit` skill and not a check in the CLI. The agent turns safe mode off only when the owner asked it to fix the problem and the fix is applied. If safe mode started by itself, the agent asks first. It never turns safe mode on unless the owner asks (see 14-self-edit-skill.md).
-- **REC-127** `state/safe-mode` holds one word, which is `on` for a toggle by hand or `auto` for safe mode that chad started itself. The file is absent when safe mode is off (see 02-storage.md).
+- **REC-64** `chad safe` is not an owner command, so the agent may run it. When it does is a rule in the bundled `self-edit` skill and not a check in the CLI. The agent turns safe mode off only when the owner asked it to fix the problem and the fix is applied. It never turns safe mode on unless the owner asks (see 14-self-edit-skill.md).
+- **REC-127** `state/safe-mode` holds one word, which is `on`. The file is absent when safe mode is off (see 02-storage.md).
 - **REC-128** While `CHAD_SAFE_MODE=1` is set, `chad safe off` and `/safe off` change nothing. Safe mode stays on and `state/safe-mode` keeps the value it had. Each prints the same line, which names the variable and says that it holds safe mode on, and `chad safe off` exits 1 (see 10-cli.md for the exit codes). A command that exits 1 after it changed something would mislead an agent that reads the exit code, so the stored value is left alone as well.
-- **REC-129** `/safe` and `chad safe` with no argument print whether safe mode is on and what turned it on, and they change nothing.
+- **REC-129** `/safe` and `chad safe` with no argument print whether safe mode is on and what turned it on, which is `CHAD_SAFE_MODE=1` or a toggle by hand, and they change nothing.
 
 The message a running turn's call gets from REC-59:
 
@@ -160,25 +160,24 @@ The message a running turn's call gets from REC-59:
 
 ## Automatic safe mode after unclean boots
 
-An unclean boot is a boot whose daemon died without stopping on purpose. A plugin that crashes the daemon while it loads would otherwise crash it again on every restart, with nobody able to reach the agent.
+Safe mode never starts by itself. A plugin that crashes the daemon while it loads crashes it again on every restart, and nobody can reach the agent until the owner turns safe mode on by hand.
 
-- **REC-65** Three unclean boots in a row start chad in safe mode, and chad tells the owner. The notice names the last apply by its commit, its message and when it was made, and it tells the owner to fix or revert that apply and then turn safe mode off (see 16-failures-logs-status.md for the wording).
-- **REC-66** The count is kept in the file `state/boot-count`, written by temp file and rename and read before SQLite is opened.
-- **REC-67** The boot counter goes up by one after the daemon has taken its lock and the check of `state/version` has passed, and before the socket, the shard count guard and the database (see 01-image-and-volume.md for the boot order). The counter comes after the version check so that a boot refused for a newer `state/version` has nothing to put back.
-- **REC-68** The boot counter clears 60 seconds after the boot finished loading, and it clears when the SIGTERM handler runs.
-- **REC-69** A crash, an out-of-memory kill, a power cut and the kill of a frozen daemon count as unclean. A restart by the owner does not, even when Docker's default 10 second timeout ends it with SIGKILL.
-- **REC-70** A boot does not count as unclean when it was refused the lock, found a newer `state/version`, could not open its socket, was refused by the shard count guard or could not open or migrate the database. Safe mode cannot fix any of those. The first two end before the counter goes up. For the other three the boot puts the counter back to the value it had before and does not clear it (see 01-image-and-volume.md).
+- **REC-153** Safe mode never starts by itself. chad keeps no boot counter, writes no `state/boot-count`, and `state/safe-mode` only ever holds `on`. When a change makes the daemon crash on every start, the owner sets `CHAD_SAFE_MODE=1` on the container and restarts it, or runs `chad safe on` in a one-off container on the volume, and then fixes or reverts the change.
+- **REC-65** Withdrawn.
+- **REC-66** Withdrawn.
+- **REC-67** Withdrawn.
+- **REC-68** Withdrawn.
+- **REC-69** Withdrawn.
+- **REC-70** Withdrawn.
 - **REC-71** chad never reverts on its own, because it cannot know which commit was good.
 - **REC-72** A freeze is not a crash, so nothing restarts a frozen daemon by itself. It needs a liveness probe that restarts the container, and that probe is `chad health` (see 01-image-and-volume.md).
-- **REC-106** A crash of chad with no turn running posts nothing in chat. The crash is in stdout and in the log, and `chad status` shows that the exit before the current boot was unclean (see 16-failures-logs-status.md). The third unclean boot in a row brings the notice of REC-65.
-- **REC-107** The 30 seconds of REC-40 and the 60 seconds of REC-68 are values of the one `Timings` service, and the shipped chad has no setting that changes them (see 17-testing.md).
-- **REC-130** The boot that starts in safe mode is the one that finds three unclean boots before it. This matches the notice, which says that chad crashed on its last three starts.
-- **REC-131** Automatic safe mode writes `auto` to `state/safe-mode`, so it lasts across restarts until `chad safe off` or `/safe off`.
-- **REC-132** Starting safe mode does not reset the boot counter. The counter clears by REC-68 as it does on any other boot.
-- **REC-133** `state/boot-count` holds one decimal number (see 02-storage.md).
-- **REC-148** A stop that chad's own 60 second deadline cuts exits with code 1 and is not an unclean boot, because the SIGTERM handler cleared the counter (REC-68) before it started the deadline's timer. A blocked event loop stops that timer, and Docker's kill at 90 seconds is then the backstop. Whether that boot counts as unclean follows from REC-68 alone. It does not count when the handler ran before the loop blocked, and it counts when the handler never ran, as the kill of any frozen daemon does (REC-69). The deadline itself is in 01-image-and-volume.md.
-
-In the image run, three restarts under Docker's default 10 second timeout each left the counter at 1, three `docker kill` runs counted 1, 2 and 3, and stopping a daemon frozen with SIGSTOP left the counter at 1. The start of safe mode from the counter was not run.
+- **REC-106** A crash of chad with no turn running posts nothing in chat. The crash is in stdout and in the log (see 16-failures-logs-status.md).
+- **REC-107** The 30 seconds of REC-40 is a value of the one `Timings` service, and the shipped chad has no setting that changes it (see 17-testing.md).
+- **REC-130** Withdrawn.
+- **REC-131** Withdrawn.
+- **REC-132** Withdrawn.
+- **REC-133** Withdrawn.
+- **REC-148** A stop that chad's own 60 second deadline cuts exits with code 1. A blocked event loop stops the deadline's timer, and Docker's kill at 90 seconds is then the backstop. The deadline itself is in 01-image-and-volume.md.
 
 ## Plugins that break at runtime
 
@@ -270,14 +269,14 @@ A chat connection is one chat platform's token together with the ids of the owne
 
 A notice is a short message chad posts on its own account, as opposed to the agent's answer. Most notices belong to a turn and go to that turn's thread. The rules here are for a notice that has no turn.
 
-- **REC-101** A notice outside a turn goes to the DM session in which the owner's latest message arrived. If the owner has no DM session, it goes to the session of any kind in which the owner's latest message arrived. A message counts whether it started a turn, steered one or was a chat command, and a turn that no owner's message started, such as a scheduled run, does not move the destination. A skipped plugin, an automatic safe mode and a failing hook are notices of this kind.
+- **REC-101** A notice outside a turn goes to the DM session in which the owner's latest message arrived. If the owner has no DM session, it goes to the session of any kind in which the owner's latest message arrived. A message counts whether it started a turn, steered one or was a chat command, and a turn that no owner's message started, such as a scheduled run, does not move the destination. A skipped plugin and a failing hook are notices of this kind.
 - **REC-102** A notice outside a turn is always logged as well.
 - **REC-103** The same route carries a model login code when no session asked for it and the notice that a scheduled job's thread is gone (see 05-model-and-login.md and 13-timers-and-cron.md).
 - **REC-104** A notice is a Discord post and can hang. The line an apply posts in its session's thread (REC-108) is forked into the daemon's scope and is not waited for, so it cannot block the queue or a stop.
 - **REC-105** A notice outside a turn is a normal message and not subtext, because it is the content and not a footnote. In a server thread it carries the owner's mention. Subtext stays for lines inside a turn's flow, and no notice uses emoji (see 04-discord.md).
 - **REC-109** chad writes the destination of REC-101 to the file `state/notice-thread` whenever it changes, as one JSON line with the connection's name and the thread, by temp file and rename. The shape of the line is in 02-storage.md, and the thread is the thread string defined in 03-sessions-and-turns.md. A boot that cannot use the database reads the file to tell the owner (see 16-failures-logs-status.md).
 - **REC-110** When no session is known, or when the post fails twice, the notice is logged and listed under "Problems" in `chad status`. If its condition still holds when a session first exists, it is posted then (see 16-failures-logs-status.md for the "Problems" block).
-- **REC-111** A notice about a condition that lasts has a key, and it is sent when the condition begins and not again while the condition holds. In this part the keys are `plugin-skipped:<name>`, `hook-failing:<plugin>:<hook>` and `safe-mode-auto`. The full rule, the check that clears each key and the wording of every notice are in 16-failures-logs-status.md.
+- **REC-111** A notice about a condition that lasts has a key, and it is sent when the condition begins and not again while the condition holds. In this part the keys are `plugin-skipped:<name>` and `hook-failing:<plugin>:<hook>`. The full rule, the check that clears each key and the wording of every notice are in 16-failures-logs-status.md.
 - **REC-145** chad works out the destination of REC-101 when an owner's message arrives and updates `state/notice-thread` then, so it runs no database query to find it.
 
 ## Gaps
@@ -357,13 +356,13 @@ A notice is a short message chad posts on its own account, as opposed to the age
 | REC-61 | TIM-542 item 22 | Tim | not run |  | `rule` | `apply` |
 | REC-62 | TIM-542 item 25 and follow-up point 4 | Tim; the revert Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | REC-63 | TIM-548 item 9 | Architect (Tim has not read) | not run | TIM-548 | `rule` | `settings` |
-| REC-64 | TIM-542 item 30, TIM-549 item 9 | Tim; the skill rule Architect (Tim has not read) | not run | TIM-549 | `rule` | `bundled-skills` |
-| REC-65 | TIM-534 item 7, amended by TIM-557 item 40 | Tim; what the notice names Architect (Tim has not read) | not run | TIM-557 | `rule` | `apply` |
-| REC-66 | TIM-536 item 2 | Tim | not run |  | `rule` | `apply` |
-| REC-67 | TIM-541 item 26, amended by TIM-559 ruling on IMG-G5 and STO-G5 | Architect (Tim has not read) | not run | TIM-541, TIM-559 | `rule` | `apply` |
-| REC-68 | TIM-534 item 7, TIM-541 item 26 | Tim; the two clearing points Architect (Tim has not read) | run | TIM-541 | `rule` | `apply` |
-| REC-69 | TIM-541 item 26 | Architect (Tim has not read) | run | TIM-541 | `rule` | `apply` |
-| REC-70 | TIM-536 item 14, TIM-550 item 8, TIM-541 items 14 and 26, TIM-553 item 4, amended by TIM-559 ruling on IMG-G5 and STO-G5 | Tim for the database; the rest Architect (Tim has not read) | not run | TIM-541, TIM-550, TIM-553, TIM-559 | `rule` | `apply` |
+| REC-64 | TIM-542 item 30, TIM-549 item 9, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim; the skill rule Architect (Tim has not read) | not run | TIM-549 | `rule` | `bundled-skills` |
+| REC-65 | TIM-534 item 7, amended by TIM-557 item 40, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim; what the notice names Architect (Tim has not read) | not run | TIM-557 | `rule` | - |
+| REC-66 | TIM-536 item 2, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim | not run |  | `rule` | - |
+| REC-67 | TIM-541 item 26, amended by TIM-559 ruling on IMG-G5 and STO-G5, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-541, TIM-559 | `rule` | - |
+| REC-68 | TIM-534 item 7, TIM-541 item 26, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim; the two clearing points Architect (Tim has not read) | run | TIM-541 | `rule` | - |
+| REC-69 | TIM-541 item 26, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-541 | `rule` | - |
+| REC-70 | TIM-536 item 14, TIM-550 item 8, TIM-541 items 14 and 26, TIM-553 item 4, amended by TIM-559 ruling on IMG-G5 and STO-G5, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim for the database; the rest Architect (Tim has not read) | not run | TIM-541, TIM-550, TIM-553, TIM-559 | `rule` | - |
 | REC-71 | TIM-534 item 7 | Tim | not run |  | `rule` | `apply` |
 | REC-72 | TIM-534 item 7, TIM-541 item 24 | Tim; the probe Architect (Tim has not read) | run |  | `rule` | `image` |
 | REC-73 | TIM-534 "How well each is supported" | Tim | read |  | `fact` | `plugin-api` |
@@ -394,17 +393,17 @@ A notice is a short message chad posts on its own account, as opposed to the age
 | REC-98 | TIM-534 item 13, TIM-542 item 17, TIM-559 cold read | Tim | not run |  | `rule` | `cli` |
 | REC-99 | TIM-534 item 13, TIM-559 cold read | Tim | not run |  | `rule` | `cli` |
 | REC-100 | TIM-534 "Where Tim overruled the recommendation" | Tim | not run |  | `definition` | - |
-| REC-101 | TIM-534 item 15, amended by TIM-559 ruling on REC-G15 | Tim; what counts as most recently active Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
+| REC-101 | TIM-534 item 15, amended by TIM-559 ruling on REC-G15, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim; what counts as most recently active Architect (Tim has not read) | not run | TIM-559 | `rule` | `plugin-api` |
 | REC-102 | TIM-534 item 15 | Tim | not run |  | `rule` | `failures` |
 | REC-103 | TIM-535 resolution, TIM-537 item 13, TIM-540 item 19, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim | not run |  | `rule` | `timers-cron` |
 | REC-104 | TIM-550 item 11, amended by TIM-557 item 39 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | REC-105 | TIM-533 item 12, amended by TIM-557 item 37 | Architect (Tim has not read); no emoji Tim | not run | TIM-557 | `rule` | `failures` |
-| REC-106 | TIM-557 item 42 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| REC-107 | TIM-558 item 17 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
+| REC-106 | TIM-557 item 42, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
+| REC-107 | TIM-558 item 17, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | REC-108 | TIM-557 item 39, TIM-550 comment "Changed by TIM-557", amended by TIM-559 ruling on SWAP-G13 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `apply` |
 | REC-109 | TIM-557 items 35 and 38, TIM-534 comment "Changed by TIM-557", amended by TIM-559 rulings on STO-G18 and REC-G15 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | REC-110 | TIM-557 item 38 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
-| REC-111 | TIM-557 items 36 and 40, TIM-534 comment "Changed by TIM-557" | Architect (Tim has not read) | not run | TIM-557 | `rule` | `apply` |
+| REC-111 | TIM-557 items 36 and 40, TIM-534 comment "Changed by TIM-557", amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `apply` |
 | REC-112 | TIM-559 ruling on REC-G5 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | REC-113 | TIM-559 ruling on REC-G5 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | REC-114 | TIM-559 ruling on REC-G5 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
@@ -419,14 +418,14 @@ A notice is a short message chad posts on its own account, as opposed to the age
 | REC-123 | TIM-559 ruling on REC-G19 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `apply` |
 | REC-124 | TIM-559 ruling on REC-G19 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `settings` |
 | REC-125 | TIM-559 ruling on REC-G19 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| REC-126 | TIM-559 ruling on REC-G20 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| REC-127 | TIM-559 ruling on REC-G9 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
+| REC-126 | TIM-559 ruling on REC-G20, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| REC-127 | TIM-559 ruling on REC-G9, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | REC-128 | TIM-559 round 3 C2 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `apply` |
-| REC-129 | TIM-559 ruling on REC-G11 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| REC-130 | TIM-559 ruling on REC-G7 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| REC-131 | TIM-559 ruling on REC-G7 and REC-G9 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| REC-132 | TIM-559 ruling on REC-G7 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| REC-133 | TIM-559 ruling on REC-G9 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
+| REC-129 | TIM-559 ruling on REC-G11, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
+| REC-130 | TIM-559 ruling on REC-G7, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| REC-131 | TIM-559 ruling on REC-G7 and REC-G9, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| REC-132 | TIM-559 ruling on REC-G7, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
+| REC-133 | TIM-559 ruling on REC-G9, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | - |
 | REC-134 | TIM-559 ruling on REC-G14, amended by TIM-559 round 3 C3 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | REC-135 | TIM-559 ruling on REC-G14, TIM-559 round 3 C3 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | REC-136 | TIM-559 ruling on REC-G2 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
@@ -441,8 +440,9 @@ A notice is a short message chad posts on its own account, as opposed to the age
 | REC-145 | TIM-559 ruling on REC-G15 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | REC-146 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | REC-147 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| REC-148 | TIM-559 round 2 R5, TIM-553 question 1 and its stand-in answer; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `skills-mcp` |
+| REC-148 | TIM-559 round 2 R5, TIM-553 question 1 and its stand-in answer; answered for Tim by Jarvis, chat 2026-11-15, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `skills-mcp` |
 | REC-149 | TIM-559 round 2 R5, TIM-553 question 2 and its stand-in answer; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `apply` |
 | REC-150 | TIM-559 round 3 A2 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | REC-151 | TIM-559 round 3 L2, TIM-559 round 4 item 6 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | REC-152 | TIM-559 round 3 A1, TIM-559 round 4 items 7 and 8 | Architect (Tim has not read) | read for clanka's walk; the refusal and the boot not run |  | `rule` | `apply` |
+| REC-153 | Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `apply` |

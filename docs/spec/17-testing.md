@@ -96,7 +96,7 @@ In the plugin API prototype the first four failed with `Type 'Own' is not assign
 - **TST-177** Once the `plugin-api` slice is delivered, layer 1 type-checks the signature code blocks of the spec against the `chad` package.
 - **TST-25** Layer 2 tests pure code under `it.effect` with the test clock. It holds at least the following: the `${NAME}` expander against clanka's, cron next-run times with timezones and daylight saving changes, `chad.json` and `mcp.json` validation, the splitting of an answer into Discord messages, the status message's text, TOTP against the RFC vectors, secret names, log rotation, and each message template against the spec's wording.
 - **TST-26** Layer 3 runs the real daemon in one process, which is the test's own (TST-203), on live time, built from its own composition root, with the chat platform, the network and the durations supplied by the test. Sessions, turns, hooks, the plugin swap, the MCP rebuild, timers, cron, credentials and the CLI are tested here.
-- **TST-27** Layer 4 runs the same daemon as a child process that the driver kills or stops at a chosen event and restarts on the same volume. A resumed turn, the give-up, the boot counter and safe mode, the lock, the stop, backup and restore, migrations and an unusable database are tested here.
+- **TST-27** Layer 4 runs the same daemon as a child process that the driver kills or stops at a chosen event and restarts on the same volume. A resumed turn, the give-up, safe mode, the lock, the stop, backup and restore, migrations and an unusable database are tested here.
 - **TST-28** In layer 4 the chat state and the model script live in the driver, because the process being killed cannot hold them.
 - **TST-29** Layer 5 runs the built image on a real Docker engine, with the real `chad serve`.
 - **TST-30** Layer 6 holds the checks that need a Discord bot or a Codex login. None of it gates a pull request.
@@ -247,7 +247,6 @@ The first table holds the durations chad sets, which are the ones `Timings` hold
 | `chad health`, time the daemon has to answer the ping | 2 seconds | 01-image-and-volume.md (IMG-74), 10-cli.md (CLI-127) |
 | CLI, time the daemon has to answer before the CLI says "starting or frozen" | 2 seconds | 10-cli.md (CLI-15) |
 | Daemon lock, busy timeout | 3 seconds | 10-cli.md (CLI-26) |
-| Boot counter, time after the boot finished loading at which it clears | 60 seconds | 01-image-and-volume.md (IMG-90), 09-repo-and-recovery.md (REC-68) |
 | Free space check, interval after the check at boot | 1 hour | 02-storage.md (STO-114), 01-image-and-volume.md (IMG-67) |
 | Prune, time of day | 04:00 in the owner's timezone | 02-storage.md (STO-104) |
 | Prune, age of a reset session's history | 30 days | 02-storage.md (STO-105) |
@@ -279,7 +278,7 @@ The second table holds durations the spec names that chad does not set. They bel
 | Kubernetes liveness probe | Every 30 seconds, 5 second timeout, 3 failures | The example manifests | 01-image-and-volume.md (IMG-76) |
 | Kubernetes startup probe | Every 2 seconds, 30 failures | The example manifests | 01-image-and-volume.md (IMG-77) |
 | Stop grace period | 90 seconds | The Kubernetes example | 01-image-and-volume.md (IMG-87) |
-| Docker's default stop timeout | 10 seconds | Docker | 01-image-and-volume.md (IMG-91) |
+| Docker's default stop timeout | 10 seconds | Docker | 01-image-and-volume.md |
 
 ## Suite rules
 
@@ -581,7 +580,7 @@ Every decision from TIM-558 and from TIM-557 was agreed with Architect standing 
 | TST-24 | TIM-558 items 7 and 31, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-25 | TIM-558 item 8, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-26 | TIM-558 item 9; TIM-559 cold read, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
-| TST-27 | TIM-558 item 10, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| TST-27 | TIM-558 item 10, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-28 | TIM-558 item 10, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-29 | TIM-558 item 11, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | TST-30 | TIM-558 item 12, amended by Tim's ruling that the suite's own rules need no test, chat 2026-11-15, amended by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |

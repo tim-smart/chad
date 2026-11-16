@@ -184,7 +184,6 @@ The image's variables are not derived from `CHAD_DATA` because a `docker exec` s
     auth/                       model logins
   state/
     safe-mode
-    boot-count
     model
     timezone
     version
@@ -366,13 +365,12 @@ The dependencies of the package that was built, which are the stand-in's and not
 1. The start-up check of IMG-58 and the filesystem read of IMG-70 run. No lock is held and nothing is written to the volume, the log file included, so a boot refused here writes nothing.
 2. The daemon takes the lock. A daemon that is refused exits before it touches anything else, the log file included.
 3. The daemon reads `state/version` and exits when it is newer than this chad (see IMG-39).
-4. The boot counter goes up by one (see IMG-89).
+4. Withdrawn. The later steps keep their numbers.
 5. The daemon checks the socket path, removes a stale socket file and listens.
 6. The shard count guard of IMG-64 runs.
 7. On the first boot of a new image the database is copied (see IMG-40). Then the migrations run.
 8. `state/version` is written.
 9. Plugins, MCP servers and chat connections load.
-10. The boot counter clears 60 seconds after the boot finished loading.
 
 The log events of a boot are `boot.started` once `chad serve` holds the lock, `boot.ready` when the boot has finished, `boot.refused` for a boot that was refused, `boot.setup-needed` for IMG-33, `boot.moved-aside` for IMG-46, `boot.filesystem` for IMG-70 and IMG-72, `boot.log-level-unknown` for IMG-115, `database.migrated` when step 7 migrated the database and `database.unusable` for IMG-66. The rule for each, and the full table of event names, are in 16-failures-logs-status.md.
 
@@ -380,12 +378,12 @@ In the image run the socket listened 0.8 to 1.3 s after the container started, a
 
 - **IMG-125** `chad serve` runs the steps of a boot in the order of the numbered list above.
 - **IMG-126** The filesystem read of IMG-70 runs with the start-up check of IMG-58, before the lock is taken, and neither writes anything to the volume. A boot that is refused before it holds the lock writes its `boot.refused` line, and any warning from these two checks, to stdout only. A boot that goes on writes the warning of IMG-70 to stdout at once and to `logs/chad.log` only once it holds the lock (see 16-failures-logs-status.md for the two sinks and this exception).
-- **IMG-127** The check for a newer `state/version` runs after the lock is taken and before the boot counter goes up, the socket is touched or the database is opened. It runs under the lock so that a `chad restore` that finishes between an unlocked read and the lock cannot slip a newer volume past it. Taking the lock writes no data (see 10-cli.md), so a boot refused here has written nothing on the volume but its lines in `logs/chad.log`, which it writes because it holds the lock.
+- **IMG-127** The check for a newer `state/version` runs after the lock is taken and before the socket is touched or the database is opened. It runs under the lock so that a `chad restore` that finishes between an unlocked read and the lock cannot slip a newer volume past it. Taking the lock writes no data (see 10-cli.md), so a boot refused here has written nothing on the volume but its lines in `logs/chad.log`, which it writes because it holds the lock.
 - **IMG-58** `chad serve` checks at start that it can write the volume and that `repo/`, when it exists, is owned by its own uid. An empty volume has no `repo/` and passes (see IMG-33). When either fails it exits 1 with a message that names its uid and the owner. The check covers `repo/` because git refuses a repository owned by another uid.
 - **IMG-59** The daemon takes a SQLite lock on `state/daemon.lock` at boot and holds it for its whole life. A second `chad serve` on the same volume fails to take it and exits (see 10-cli.md for the mechanism and the CLI's use of the same lock).
 - **IMG-60** A daemon that is refused the lock exits 1 before it touches anything else, including a socket file and the log file. Its `boot.refused` line goes to stdout only (see IMG-126).
 - **IMG-61** The daemon keeps the lock's handle until the process exits and closes it only then. The test suite has a check that forces garbage collections and then tries the lock.
-- **IMG-62** The daemon listens on the socket once it holds the lock, has passed the check for a newer `state/version` and has raised the boot counter. That is before it opens, copies or migrates the database and before it loads plugins, MCP servers and connections. `chad status` answers during boot and says which phase the boot is in, and `chad health` passes during boot.
+- **IMG-62** The daemon listens on the socket once it holds the lock and has passed the check for a newer `state/version`. That is before it opens, copies or migrates the database and before it loads plugins, MCP servers and connections. `chad status` answers during boot and says which phase the boot is in, and `chad health` passes during boot.
 - **IMG-128** `chad status` names the phase of the boot as one of `starting`, `listening`, `database`, `loading`, `ready` and `stopping`.
 - **IMG-141** The phases of IMG-128 cover the boot list above as the stand-in daemon used them. The phase is `starting` until the socket listens, which no client sees, `listening` for steps 5 and 6, `database` for steps 7 and 8, `loading` for step 9, `ready` once step 9 is done, and `stopping` from the signal that stops the daemon.
 - **IMG-142** The daemon opens `logs/chad.log` straight after it has taken the lock, and makes `logs/` then when it is missing. A boot that is refused at a later step therefore leaves its lines in the file.
@@ -406,7 +404,7 @@ The messages of the stand-in daemon for IMG-58, with `/data` as the data directo
 chad serve: /data does not exist. Mount the data volume there or set CHAD_DATA.
 chad serve: cannot write /data. chad runs as uid 1000, gid 1000 and /data is owned by uid <uid>, gid <gid>, mode <mode>. Give the volume to uid 1000, for example: chown -R 1000:1000 <volume>
 chad serve: /data/repo is owned by uid <uid>, gid <gid>, mode <mode> and chad runs as uid 1000. git refuses a repository owned by another user. Give it to uid 1000: chown -R 1000:1000 /data/repo
-chad serve: another chad serve holds the lock on /data. This boot is not counted.
+chad serve: another chad serve holds the lock on /data.
 ```
 
 The messages for IMG-63 and IMG-64. The stand-in daemon ran on Linux only and printed 107 where the first message has `<limit>`:
@@ -461,8 +459,8 @@ In the image run Docker reported a daemon stopped with SIGSTOP as unhealthy 97 s
 
 A graceful stop starts when the daemon gets SIGTERM, which `docker stop` and Kubernetes both send. Docker's default stop timeout is 10 seconds and Kubernetes's default grace period is 30, after which the container is killed. An image cannot set the timeout, so the examples set it.
 
-- **IMG-81** On SIGTERM the handler clears the boot counter before anything else, and the daemon stops taking new turns.
-- **IMG-82** The SIGTERM handler starts a timer. At 60 seconds from SIGTERM the timer exits the process with code 1 and logs what was still open, as the event `stop.cut`. The 60 seconds is a duration of the `Timings` service (see IMG-116). A forced exit is not an unclean boot, because the handler has already cleared the counter. The timer runs on the daemon's event loop, so a blocked event loop stops it, and the 90 second grace period of IMG-87 stays the backstop.
+- **IMG-81** On SIGTERM the daemon stops taking new turns.
+- **IMG-82** The SIGTERM handler starts a timer. At 60 seconds from SIGTERM the timer exits the process with code 1 and logs what was still open, as the event `stop.cut`. The 60 seconds is a duration of the `Timings` service (see IMG-116). The timer runs on the daemon's event loop, so a blocked event loop stops it, and the 90 second grace period of IMG-87 stays the backstop.
 - **IMG-139** chad writes the `stop.cut` line synchronously to both sinks, stdout and `logs/chad.log`, before the timer of IMG-82 exits the process. It is the one line that explains a forced exit, and a write left pending would be lost with the process.
 - **IMG-83** The stop runs in the order of the table below. Only the 15 seconds for requests in flight is a duration. The other limits are points in time measured from SIGTERM.
 
@@ -503,15 +501,13 @@ The exit codes of every other command are in 10-cli.md. A container killed by Do
 
 ## Unclean boots and the boot counter
 
-The boot counter is the file `state/boot-count`. Three unclean boots in a row start chad in safe mode, which loads nothing from the repo (see 09-repo-and-recovery.md).
+chad keeps no boot counter, and safe mode never starts by itself (see 09-repo-and-recovery.md).
 
-- **IMG-89** The boot counter goes up by one when the daemon has taken the lock and passed the check for a newer `state/version`. The check comes first so that a boot refused for a newer version needs no put-back.
-- **IMG-90** The boot counter clears 60 seconds after the boot finished loading, and it clears when the SIGTERM handler runs.
-- **IMG-91** A crash, an out-of-memory kill, a power cut and the kill of a frozen daemon count as unclean. A restart by the owner does not, even when Docker's default 10 second timeout ends it with SIGKILL. This rule is about the boot counter only. Whether a turn that such a kill cuts counts toward the two kills after which chad gives up on it is in 03-sessions-and-turns.md.
-- **IMG-92** A boot does not count as unclean when it was refused by the start-up check of IMG-58, was refused the lock, found a newer `state/version`, could not create the socket, could not open or migrate the database or was refused by the shard count guard. A socket error does not count because safe mode cannot fix a path or a filesystem, and three such boots would hide the real error behind safe mode.
-- **IMG-132** When the socket cannot be created, the database cannot be opened or migrated, or the shard count guard refuses, chad puts the boot counter back to the value it had before this boot. It does not clear the counter.
-
-In the image run three restarts under Docker's default 10 second timeout each counted 1, three `docker kill` runs counted 1, 2 and 3, and stopping a daemon frozen with SIGSTOP left the counter at 1.
+- **IMG-89** Withdrawn.
+- **IMG-90** Withdrawn.
+- **IMG-91** Withdrawn.
+- **IMG-92** Withdrawn.
+- **IMG-132** Withdrawn.
 
 ## Running chad and first setup
 
@@ -671,7 +667,7 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-59 | TIM-536 item 18, TIM-542 item 3 | Tim | run |  | `rule` | `cli` |
 | IMG-60 | TIM-550 item 8, TIM-559 cold read | Architect (Tim has not read) | run |  | `rule` | `cli` |
 | IMG-61 | TIM-553 item 5 | Architect (Tim has not read) | run |  | `rule` | `kills` |
-| IMG-62 | TIM-550 item 7, TIM-541 round 1 answer 13, amended by TIM-559 ruling on IMG-G5 (support: listening before the database ran, with the counter and no version check before it) | Architect (Tim has not read) | not run | TIM-550, TIM-559 | `rule` | `cli` |
+| IMG-62 | TIM-550 item 7, TIM-541 round 1 answer 13, amended by TIM-559 ruling on IMG-G5 (support: listening before the database ran, with the counter and no version check before it), amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-550, TIM-559 | `rule` | `cli` |
 | IMG-63 | TIM-550 item 6, TIM-553 item 11, TIM-559 round 2 R5 (support: the 107 byte limit ran on Linux, the macOS limit did not run); answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `cli` |
 | IMG-64 | TIM-553 item 4 (support: TIM-543 prototype, not in the image) | Architect (Tim has not read) | run | TIM-553 | `rule` | `harness` |
 | IMG-65 | TIM-553 item 4, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `harness` |
@@ -690,18 +686,18 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-78 | TIM-541 item 24 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-79 | TIM-541 item 24, TIM-559 cold read | Architect (Tim has not read) | run |  | `rule` | `harness` |
 | IMG-80 | TIM-541 item 24, amended by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | run |  | `rule` | `image` |
-| IMG-81 | TIM-541 items 25 and 26 | Architect (Tim has not read) | run | TIM-541 | `rule` | `apply` |
-| IMG-82 | TIM-541 item 25, TIM-553 question 1, TIM-559 main session ruling on Q4, TIM-559 round 2 R5 (support: the timer and the exit at 60.0 s ran in the image, the blocked event loop did not run); answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | run |  | `rule` | `skills-mcp` |
+| IMG-81 | TIM-541 items 25 and 26, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-541 | `rule` | `apply` |
+| IMG-82 | TIM-541 item 25, TIM-553 question 1, TIM-559 main session ruling on Q4, TIM-559 round 2 R5 (support: the timer and the exit at 60.0 s ran in the image, the blocked event loop did not run); answered for Tim by Jarvis, chat 2026-11-15, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | run |  | `rule` | `skills-mcp` |
 | IMG-83 | TIM-541 item 25, TIM-543, TIM-547 item 15, TIM-553 question 1, TIM-559 round 2 R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | not run |  | `rule` | `skills-mcp` |
 | IMG-84 | TIM-553 item 8 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | IMG-85 | TIM-553 item 7, TIM-559 round 2 R4 for the event name | Architect (Tim has not read) | run |  | `rule` | `kills` |
 | IMG-86 | TIM-541 item 25, TIM-557 item 41, TIM-559 round 2 R4 for the event name | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | IMG-87 | TIM-541 item 25 | Architect (Tim has not read) | run |  | `rule` | `image` |
 | IMG-88 | TIM-553 item 7, TIM-550 item 8, TIM-541 items 8 and 14, amended by TIM-559 ruling on IMG-G7 (support: the stop, start-up check, lock and socket rows ran in the image, the newer state/version row did not run) | Architect (Tim has not read) | not run | TIM-541, TIM-557 | `rule` | `kills` |
-| IMG-89 | TIM-541 item 26, amended by TIM-559 ruling on IMG-G5 (support: the counter going up straight after the lock ran) | Architect (Tim has not read) | not run | TIM-541, TIM-559 | `rule` | `apply` |
-| IMG-90 | TIM-534 item 7, TIM-541 item 26 | Architect (Tim has not read) | run | TIM-541 | `rule` | `apply` |
-| IMG-91 | TIM-541 item 26, TIM-559 cold read | Architect (Tim has not read) | run | TIM-541 | `rule` | `apply` |
-| IMG-92 | TIM-536 item 14, TIM-550 item 8, TIM-541 item 26, TIM-553 item 4, amended by TIM-559 rulings on IMG-G5 and IMG-G6 | Architect (Tim has not read) | not run | TIM-541, TIM-550, TIM-553, TIM-559 | `rule` | `apply` |
+| IMG-89 | TIM-541 item 26, amended by TIM-559 ruling on IMG-G5 (support: the counter going up straight after the lock ran), withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-541, TIM-559 | `rule` | - |
+| IMG-90 | TIM-534 item 7, TIM-541 item 26, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-541 | `rule` | - |
+| IMG-91 | TIM-541 item 26, TIM-559 cold read, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | run | TIM-541 | `rule` | - |
+| IMG-92 | TIM-536 item 14, TIM-550 item 8, TIM-541 item 26, TIM-553 item 4, amended by TIM-559 rulings on IMG-G5 and IMG-G6, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-541, TIM-550, TIM-553, TIM-559 | `rule` | - |
 | IMG-93 | TIM-541 item 20, TIM-542 item 32 | Architect (Tim has not read) | not run |  | `rule` | `image` |
 | IMG-94 | TIM-542 item 32, TIM-541 item 20 | Tim | not run |  | `rule` | `settings` |
 | IMG-95 | TIM-541 item 20 | Architect (Tim has not read) | not run |  | `rule` | `image` |
@@ -736,12 +732,12 @@ Where a row's support is "run", it ran in the image on Docker CE 29.9.3 unless t
 | IMG-124 | TIM-559 ruling on IMG-G3, STO-G2 and STO-G3 | Architect (Tim has not read) | not run | TIM-559 | `definition` | - |
 | IMG-125 | TIM-559 ruling on IMG-G5 and STO-G5 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | IMG-126 | TIM-559 ruling on IMG-G5 and STO-G5, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `cli` |
-| IMG-127 | TIM-559 ruling on IMG-G5 and STO-G5, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `backup` |
+| IMG-127 | TIM-559 ruling on IMG-G5 and STO-G5, TIM-559 cold read, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
 | IMG-128 | TIM-559 ruling on IMG-G4 (support: the stand-in daemon of TIM-553 used these names) | Architect (Tim has not read) | not run |  | `rule` | `cli` |
 | IMG-129 | TIM-559 ruling on IMG-G7 (support: the prototype run exited 1) | Architect (Tim has not read) | not run |  | `rule` | `harness` |
 | IMG-130 | TIM-559 ruling on IMG-G9 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | IMG-131 | TIM-559 ruling on IMG-G8, STO-G25 and SES-G16 | Architect (Tim has not read) | not run |  | `rule` | `backup` |
-| IMG-132 | TIM-559 rulings on IMG-G5 and IMG-G6 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `apply` |
+| IMG-132 | TIM-559 rulings on IMG-G5 and IMG-G6, withdrawn by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-559 | `rule` | - |
 | IMG-133 | TIM-559 main session ruling on Q8, TIM-559 cold read | Architect (Tim has not read) | not run |  | `rule` | `repo` |
 | IMG-134 | TIM-559 main session ruling on Q8 | Architect (Tim has not read) | not run |  | `rule` | `repo` |
 | IMG-135 | TIM-559 ruling on IMG-G17 (support: Architect read Compose's documentation), withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | read |  | `rule` | - |

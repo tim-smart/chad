@@ -51,7 +51,7 @@ chad runs sessions on effect cluster. An entity is an addressable actor that han
 - **SES-24** `entityMessagePollInterval` is 1 second. Only a request that carries a delivery time waits for this poll, which is how a timer fires under a second late (see 13-timers-and-cron.md).
 - **SES-25** `SingleRunner` runs with `shardsPerGroup: 1`, from the first release.
 - **SES-26** The shard count the database was made with is kept in a database row (see 02-storage.md). A daemon configured with another count refuses to start and names both numbers, because a changed count silently strands stored requests.
-- **SES-27** Where the shard check sits in the boot and what a boot that it refuses writes are in 01-image-and-volume.md and 16-failures-logs-status.md. Whether that boot counts as unclean is in 02-storage.md.
+- **SES-27** Where the shard check sits in the boot and what a boot that it refuses writes are in 01-image-and-volume.md and 16-failures-logs-status.md.
 - **SES-28** Cluster's shard lock is keyed by runner address and does not stop a second daemon on the same file. The daemon lock in 10-cli.md does that.
 - **SES-29** When the database cannot be opened or migrated, for any reason other than a `state/version` newer than the image, chad stays up without sessions and answers any owner message with the error. `/status` still answers in that state (see 02-storage.md and 16-failures-logs-status.md).
 - **SES-126** Every duration that chad sets in this part is a default of the `Timings` service, and the shipped daemon has no setting that changes one (see 17-testing.md).
@@ -443,7 +443,7 @@ These come from the prototype runs and are sizes to test against, not limits cha
 | SES-24 | TIM-543 decision 2 | Tim | run |  | `rule` | `timers-cron` |
 | SES-25 | TIM-553 decision 4, comment on TIM-543 | Architect (Tim has not read) | run | TIM-553 | `rule` | `harness` |
 | SES-26 | TIM-553 decision 4 | Architect (Tim has not read) | run | TIM-553 | `rule` | `harness` |
-| SES-27 | TIM-553 decision 4, TIM-559 cold read | Architect (Tim has not read) | not run | TIM-553 | `definition` | - |
+| SES-27 | TIM-553 decision 4, TIM-559 cold read, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-553 | `definition` | - |
 | SES-28 | TIM-536 "How well each is supported", TIM-543 body | Tim | read |  | `fact` | `cli` |
 | SES-29 | TIM-536 item 14, amended by TIM-557 items 27 and 35 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `failures` |
 | SES-30 | TIM-532 item 3, map "Facts found at charting" | Tim | read |  | `rule` | `wire` |

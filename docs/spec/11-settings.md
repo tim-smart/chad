@@ -159,7 +159,7 @@ v1 has no command that turns a plugin off, so the switch is a setting in the fil
 
 ## Safe mode and bundled plugins
 
-Safe mode loads nothing from the repo and keeps bundled plugins on (see 09-repo-and-recovery.md). It can start by itself after three unclean boots with nobody watching. If it ignored the file altogether it would bring back a cron the owner stopped on purpose and fire its overdue jobs, and a bundled plugin left off cannot block a recovery. So safe mode reads one thing from the file.
+Safe mode loads nothing from the repo and keeps bundled plugins on (see 09-repo-and-recovery.md). If it ignored the file altogether it would bring back a cron the owner stopped on purpose and fire its overdue jobs, and a bundled plugin left off cannot block a recovery. So safe mode reads one thing from the file.
 
 - **SET-44** Safe mode reads `"enabled": false` on bundled plugins from the applied `chad.json` and reads nothing else from that file.
 - **SET-45** If the applied `chad.json` cannot be read or cannot be parsed, every bundled plugin is on.

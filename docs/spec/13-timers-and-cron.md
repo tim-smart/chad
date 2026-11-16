@@ -263,7 +263,7 @@ The prompt wrapper is the set of lines cron puts around the owner's prompt so th
 
 - **CRON-80** Bundled plugins stay on in safe mode, so cron's jobs keep firing while the owner's plugins are off.
 - **CRON-81** The owner turns cron off with `"enabled": false` under `plugins.cron` in `chad.json`. Its tools are then gone from each session's next turn, its timers are held and its jobs are kept.
-- **CRON-82** Safe mode reads the `"enabled": false` flags of bundled plugins from the applied `chad.json`, so a cron the owner turned off stays off when safe mode starts by itself and its overdue jobs do not fire. If that read fails, every bundled plugin is on.
+- **CRON-82** Safe mode reads the `"enabled": false` flags of bundled plugins from the applied `chad.json`, so a cron the owner turned off stays off in safe mode and its overdue jobs do not fire. If that read fails, every bundled plugin is on.
 
 ## Gaps
 
@@ -357,7 +357,7 @@ The prompt wrapper is the set of lines cron puts around the owner's prompt so th
 | CRON-79 | TIM-540 item 17, changed by TIM-559 round 3 on CRON-G21 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `timers-cron` |
 | CRON-80 | TIM-534 item 6, TIM-540 item 18 | Tim | not run |  | `rule` | `timers-cron` |
 | CRON-81 | TIM-548 items 2 and 7 | Architect (Tim has not read) | not run |  | `rule` | `timers-cron` |
-| CRON-82 | TIM-548 item 9 | Architect (Tim has not read) | not run | TIM-548 | `rule` | `timers-cron` |
+| CRON-82 | TIM-548 item 9, amended by Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Architect (Tim has not read) | not run | TIM-548 | `rule` | `timers-cron` |
 | CRON-83 | TIM-557 item 34 and "What this changes in closed tickets" | Architect (Tim has not read) | not run | TIM-557 | `rule` | `plugin-api` |
 | CRON-84 | TIM-557 item 34, amending TIM-540 item 8 | Architect (Tim has not read) | not run | TIM-557 | `rule` | `timers-cron` |
 | CRON-85 | TIM-557 item 27, changed by TIM-559 ruling on SET-G11 | Architect (Tim has not read) | not run | TIM-557, TIM-559 | `rule` | `timers-cron` |

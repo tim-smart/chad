@@ -63,7 +63,6 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 | STO-83b   | `bundled-skills` | The `self-edit` skill arrives with the `bundled-skills` slice.                                                                                                                           |
 | STO-133c  | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                                                            |
 | FAIL-108c | `bundled-skills` | The `diagnose` skill arrives with the `bundled-skills` slice.                                                                                                                            |
-| FAIL-114b | `apply`          | Whether the exit before the daemon's start was unclean comes from the boot counter (IMG-89 to IMG-92), which the `apply` slice delivers.                                                 |
 | STO-110   | `backup`         | The prune job whose runs leave the request and reply arrives with the `backup` slice.                                                                                                    |
 
 ## Stopped rules
