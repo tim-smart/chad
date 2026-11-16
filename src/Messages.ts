@@ -876,6 +876,96 @@ export const bundledNameRefused = (name: string) =>
 export const instructionsRefused = (paths: ReadonlyArray<string>) =>
   `The repo holds ${paths.map((path) => `work/${path}`).join(", ")}. chad refuses AGENTS.md, .agents and .kiro in the repo, because clanka would read them without an apply. Put a skill under skills/<name>/SKILL.md and standing instructions in persona.md, then delete these.`
 
+// Skills (docs/spec/12-skills-and-mcp.md). A check names the file as `work/skills/<dir>/SKILL.md`, the file the agent
+// edits, and a boot's notice names the skill by its directory (MCP-17, FAIL-166).
+
+/** What is wrong with a `SKILL.md`, as a phrase that follows the file's name. */
+export const skillProblems = {
+  /** No front matter, or front matter that is not YAML (MCP-16, SELF-55). */
+  noFrontMatter: (dir: string) =>
+    `has no front matter. Start it with a line "---", then "name: ${dir}", "description: <when to read the skill>" and "---"`,
+  /** A missing or empty `name` (SELF-56). */
+  noName: (dir: string) =>
+    `has no name in its front matter. Set "name: ${dir}"`,
+  /** A missing or empty `description` (SELF-56). */
+  noDescription:
+    "has no description in its front matter. Say when a session should read the skill",
+  /** A name that differs from the directory (SELF-57, CLI-68). */
+  otherName: (name: string, dir: string) =>
+    `has the name "${name}", which differs from its directory. Set "name: ${dir}"`,
+  /** A file that cannot be read. */
+  unreadable: (error: string) => `cannot be read: ${error}`,
+} as const
+
+/** A malformed skill in a check or an apply, which names the file (MCP-16, MCP-17, SELF-59, CLI-67, CLI-75). */
+export const skillRefused = (dir: string, problem: string) =>
+  `work/skills/${dir}/SKILL.md ${problem}.`
+
+/** The notice of a skill a boot skipped (FAIL-166, MCP-18, REC-47). */
+export const skillSkipped = (name: string, problem: string) =>
+  `Skipped skill \`${name}\`: SKILL.md ${problem}.`
+
+/** The one-off notice of a bundled skill that changed while a repo skill hides it (FAIL-167, MCP-14). */
+export const bundledSkillChanged = (name: string) =>
+  `The bundled skill \`${name}\` changed in this image. The repo's copy still hides it.`
+
+/** The sentence chad appends to a repo skill's content (MCP-4, MCP-102, MCP-104, MCP-146). */
+export const repoSkillWhere = (live: string, work: string) =>
+  `This skill's files are in ${live}. To change the skill, edit its copy in ${work} and run chad apply. An edit under ${live} is lost at the next apply.`
+
+/** The sentence chad appends to a bundled skill's content (MCP-4, MCP-103, MCP-104, MCP-146). */
+export const bundledSkillWhere = (image: string, work: string) =>
+  `This skill is bundled with chad and its files are in ${image}, which is read-only. To change the skill, copy its directory to ${work}, edit it there and run chad apply. The repo's copy then hides the bundled one.`
+
+/** An apply's lines for the repo skills it added, changed and removed (CLI-70). */
+export const skillChanges = (changes: {
+  readonly added: ReadonlyArray<string>
+  readonly changed: ReadonlyArray<string>
+  readonly removed: ReadonlyArray<string>
+}) => [
+  ...(changes.added.length === 0
+    ? []
+    : [`Skills added: ${changes.added.join(", ")}.`]),
+  ...(changes.changed.length === 0
+    ? []
+    : [`Skills changed: ${changes.changed.join(", ")}.`]),
+  ...(changes.removed.length === 0
+    ? []
+    : [`Skills removed: ${changes.removed.join(", ")}.`]),
+]
+
+/** An apply's line for a repo skill that hides a bundled one (CLI-70, MCP-11, SELF-117, MCP-147). */
+export const skillHides = (name: string) =>
+  `The repo skill ${name} hides the bundled skill of the same name.`
+
+/** `chad status`'s mark on a repo skill that hides a bundled one (MCP-12, MCP-147). */
+export const skillHidesMark = (name: string) =>
+  `skill: ${name}, from the repo, hides the bundled one`
+
+/** `chad skill new` wrote its file (CLI-84). */
+export const skillWritten = (name: string) =>
+  `Wrote work/skills/${name}/SKILL.md. Fill in its description and instructions. It is a draft until chad apply.`
+
+/** The body of the `SKILL.md` that `chad skill new` writes (SELF-139). */
+export const skillBody =
+  "Write the instructions here: what the task is, the steps, and the commands to run."
+
+/** `chad skill new` with a name that breaks the name rule (CLI-85). */
+export const skillNameRule = (name: string) =>
+  `"${name}" is not a skill name. Use lower-case letters, digits and hyphens.`
+
+/** `chad skill new` with a name the repo already has (CLI-85, MCP-8). */
+export const skillTaken = (name: string) =>
+  `work/skills/${name} exists already. Pick another name, or edit the skill that is there.`
+
+/** `chad skill new` with a bundled skill's name (CLI-85, MCP-8). */
+export const skillBundledName = (name: string) =>
+  `${name} is the name of a bundled skill. Pick another name. To change the bundled one, copy its directory into work/skills/${name}.`
+
+/** `chad skill new` with no `repo/work`, which only `chad serve` creates (CLI-157). */
+export const skillNoRepo = (work: string) =>
+  `${work} does not exist yet. Start chad serve once, which creates the repo.`
+
 /** The count of the errors a failed check does not print (CLI-47). */
 export const moreErrors = (count: number) => `... and ${count} more errors.`
 
@@ -1060,6 +1150,35 @@ export const reloadUnknown = (name: string) =>
 export const reloadSafe = (name: string) =>
   `Safe mode is on, so ${name} from the repo is not loaded. Turn safe mode off first.`
 
+/** A name `chad plugin new` refuses as bad usage, which exits 2 (CLI-85, SELF-48). */
+export const pluginNameInvalid = (name: string) =>
+  `"${name}" is not a plugin name. Use lower-case letters, digits and hyphens.`
+
+/** A name `chad plugin new` refuses because a bundled plugin holds it, which exits 1 (CLI-85, SET-54). */
+export const pluginNameBundled = (name: string) =>
+  `"${name}" is the name of a bundled plugin. Pick another name.`
+
+/** A name `chad plugin new` refuses because a plugin in work/ has it, which exits 1 (CLI-85, SELF-48). */
+export const pluginNameTaken = (name: string) =>
+  `work/plugins/ already holds a plugin named "${name}". Edit it, or pick another name.`
+
+/** `chad plugin new` and `chad skill new` before `chad serve` made the repo, which exits 4 (CLI-157). */
+export const workMissing = (work: string) =>
+  `${work} does not exist yet. chad serve creates the repo the first time it starts.`
+
+/** `chad plugin new` that could not write its file (CLI-84). */
+export const notWritten = (command: string, path: string, detail: string) =>
+  `chad ${command}: cannot write ${path} (${detail})`
+
+/** What `chad plugin new` prints once the file is written (CLI-87, SELF-33, SELF-138). */
+export const pluginWritten = (path: string, agents: string, examples: string) =>
+  [
+    `Wrote ${path}.`,
+    `Before you change it, read the self-edit skill and ${agents}.`,
+    `Working plugins to read: ${examples}`,
+    `Its tool's description starts with "Replace me", which chad apply refuses. Describe the tool, then run chad check and chad apply -m "<why>".`,
+  ].join("\n")
+
 /** `chad plugin purge` of a plugin still in the applied repo, which exits 1 (CLI-90, SET-40, CLI-247). */
 export const purgeInRepo = (name: string) =>
   `${name} is still in the applied repo, so its data stays. Delete its file in work/, run chad apply, then purge it.`
@@ -1087,6 +1206,10 @@ export const failedAfterCommit = (commit: string, error: string) =>
   `The commit ${commit} was made, but the apply failed after it: ${error}. It loads at the next start.`
 
 /** What a successful apply or revert prints (CLI-70, CLI-71, REC-62, REC-82, SWAP-78, SWAP-112). */
+/** The line an apply ends with, after the MCP servers' lines when `mcp.json` changed (CLI-70). */
+export const appliedClosing =
+  "Sessions pick the change up on their next message. This turn keeps the tools it has."
+
 export const appliedOutput = (options: {
   readonly kind: "apply" | "revert" | "check"
   readonly commit: string
@@ -1120,6 +1243,8 @@ export const appliedOutput = (options: {
     | undefined
   /** The settings listing of the plugins the apply built (SET-66 to SET-69). */
   readonly settings?: ReadonlyArray<string>
+  /** The lines of the skills the apply added, changed or removed, and of the repo skills that hide a bundled one (CLI-70, MCP-11). */
+  readonly skills?: ReadonlyArray<string>
 }) => [
   `${options.kind === "revert" ? "Reverted" : "Applied"} ${options.commit}.`,
   ...(options.saved === undefined
@@ -1134,6 +1259,7 @@ export const appliedOutput = (options: {
   "Changed files:",
   ...options.files.map((file) => `  ${file}`),
   ...(options.settings ?? []),
+  ...(options.skills ?? []),
   ...(options.safe
     ? [
         "Safe mode is on, so nothing was loaded. The change loads when safe mode goes off.",
@@ -1176,7 +1302,7 @@ export const appliedOutput = (options: {
             ({ session, subagents, tasks }) =>
               `${session} loses the changed tools until its turn ends (${subagents} sub-agents and ${tasks} background tasks running).`,
           ),
-          "Sessions pick the change up on their next message. This turn keeps the tools it has.",
+          appliedClosing,
         ]),
 ]
 
@@ -1373,3 +1499,121 @@ export const setupLoggedIn = "chad is logged in to Codex."
 
 export const setupNeeded =
   "chad has no chat connection. Add one with chad connection add."
+
+// mcp.json and the MCP layer (docs/spec/12-skills-and-mcp.md). The seven texts the model reads are exact (MCP-99).
+
+/** Message 1: a call in flight when a rebuild started (MCP-71). */
+export const mcpInterrupted = (key: string) =>
+  `mcp.${key} was interrupted by an MCP restart. It may have run in part or in full.`
+
+/** Message 2: a call made during a rebuild, before the new layer is current (MCP-140). */
+export const mcpRestarting =
+  "MCP servers are restarting. This call was not sent."
+
+/** Message 3: a server that is gone from `mcp.json` (MCP-81). */
+export const mcpRemoved = (key: string, name: string) =>
+  `mcp.${key}: MCP server "${name}" was removed from mcp.json.`
+
+/** Message 4: a tool its connected server no longer lists (MCP-82). */
+export const mcpToolGone = (key: string, name: string) =>
+  `mcp.${key}: "${name}" no longer lists this tool.`
+
+/** Message 5: a server that is configured and not connected (MCP-83). */
+export const mcpNotConnected = (key: string, name: string, error: string) =>
+  `mcp.${key}: MCP server "${name}" is not connected: ${firstLine(error)}`
+
+/** Message 7: the prompt of a turn that started at boot before the first layer connected (MCP-92). */
+export const mcpStarting =
+  "MCP servers were still starting when this turn began. They are available from your next turn."
+
+/** The most tools message 8 names before it counts the rest (MCP-142). */
+export const mcpNextTurnShown = 10
+
+/** Message 8, added to a `searchTools` result after a blank line (MCP-87, MCP-142). */
+export const mcpNextTurn = (keys: ReadonlyArray<string>) => {
+  const shown = keys.slice(0, mcpNextTurnShown).map((key) => `mcp.${key}`)
+  const rest = keys.length - shown.length
+  return `${shown.join(", ")}${rest > 0 ? `, and ${rest} more` : ""} ${keys.length === 1 ? "is" : "are"} callable from your next turn.`
+}
+
+/** A `searchTools` call when no server of the current layer is connected (MCP-143). */
+export const mcpNoServerConnected = "searchTools: no MCP server is connected."
+
+/** A call made when no layer exists and none is being built (MCP-143). */
+export const mcpNotRunning = "MCP servers are not running."
+
+/** The status error of an entry with `"type": "sse"` (MCP-22). */
+export const mcpSse = "SSE transport is not supported"
+
+/** `mcp.json` that is not JSON (MCP-33). */
+export const mcpNotJson = (error: string) => `it is not JSON: ${error}`
+
+/** `mcp.json` whose top level is not an object. */
+export const mcpNotObject = "its top level is not a JSON object"
+
+/** An `mcpServers` that is not an object. */
+export const mcpServersNotObject = '"mcpServers" is not a JSON object'
+
+/** An entry that clanka's loader would refuse. */
+export const mcpEntry = (name: string, error: string) =>
+  `MCP server "${name}": ${firstLine(error)}`
+
+/** A file that cannot be read at all. */
+export const mcpFileUnreadable = (code: string) => `it cannot be read (${code})`
+
+/** A malformed `mcp.json`, which fails an apply and a check (MCP-33, REC-28). */
+export const mcpRefused = (error: string) => `work/mcp.json: ${error}.`
+
+/** A stdio entry whose `cwd` is relative (MCP-110). */
+export const mcpRelativeCwdRefused = (name: string, cwd: string) =>
+  `work/mcp.json: MCP server "${name}" has the relative cwd "${cwd}". Give an absolute path.`
+
+/** The status error of a server whose `cwd` expanded to a relative path. */
+export const mcpRelativeCwd = (cwd: string) =>
+  `its cwd "${cwd}" is not an absolute path`
+
+/** The status error of a server with a `${NAME}` that resolves nowhere (MCP-27, MCP-114). */
+export const mcpUnresolved = (name: string) =>
+  `\${${name}} is in neither the secret store nor the daemon's environment`
+
+/** `chad check`'s warning for such a name, which leaves the check passing (MCP-113, CLI-74). */
+export const mcpCheckUnresolved = (server: string, name: string) =>
+  `Warning: MCP server "${server}" names \${${name}}, which is in neither the secret store nor the daemon's environment. An apply lists it as unavailable.`
+
+/** What `chad check` says of `mcp.json` when it changed: the servers an apply would add, remove or change (MCP-36). */
+export const mcpCheckLines = (diff: {
+  readonly added: ReadonlyArray<string>
+  readonly removed: ReadonlyArray<string>
+  readonly changed: ReadonlyArray<string>
+}) => [
+  ...diff.added.map((name) => `MCP server ${name}: an apply adds it.`),
+  ...diff.removed.map((name) => `MCP server ${name}: an apply removes it.`),
+  ...diff.changed.map((name) => `MCP server ${name}: an apply changes it.`),
+  "The check connected no MCP server.",
+]
+
+/** The notice of an `mcp.json` that cannot be read at boot (FAIL-165). */
+export const mcpUnreadable = (error: string) =>
+  `\`mcp.json\` can't be read (${firstLine(error)}), so no MCP servers are running.`
+
+/** One MCP server as status and an apply show it (MCP-35, CLI-125f, MCP-144). */
+export interface McpServerState {
+  readonly name: string
+  readonly state: "connected" | "failed" | "starting"
+  readonly tools?: number
+  readonly error?: string
+}
+
+/** One MCP server's line in what an apply, a secret change or `chad mcp restart` prints (MCP-35, MCP-144). */
+export const mcpServerLine = (server: McpServerState) =>
+  server.state === "connected"
+    ? `MCP server ${server.name}: connected, ${server.tools ?? 0} tools.`
+    : server.state === "failed"
+      ? `MCP server ${server.name}: unavailable: ${firstLine(server.error ?? "")}`
+      : `MCP server ${server.name}: starting.`
+
+/** What a rebuild prints: each server's line, or that none is configured. */
+export const mcpRebuilt = (servers: ReadonlyArray<McpServerState>) =>
+  servers.length === 0
+    ? ["No MCP servers are configured."]
+    : servers.map(mcpServerLine)

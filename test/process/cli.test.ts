@@ -398,7 +398,7 @@ it("CLI-59 CLI-218 the CLI sends its CHAD_SESSION with every request, and a daem
   })
 })
 
-it("CLI-219 CLI-222 CLI-223 with no daemon a connection command creates no data directory, ends with exit 1 on a file it cannot read or that holds no connections, and with exit 2 when the token it is given is empty", async () => {
+it("CLI-219 CLI-222 CLI-223 CLI-157 with no daemon a connection command creates no data directory, ends with exit 1 on a file it cannot read or that holds no connections, and with exit 2 when the token it is given is empty, and chad plugin new exits 4 before chad serve made the repo", async () => {
   const data = volume()
   const absent = join(data, "absent")
   const failed = (code: number, message: string) => ({
@@ -425,6 +425,10 @@ it("CLI-219 CLI-222 CLI-223 with no daemon a connection command creates no data 
     failed(2, Messages.noToken("connection add")),
   )
   expect(existsSync(join(data, "secrets"))).toBe(false)
+  expect(await chad(["plugin", "new", "sample"], env)).toEqual(
+    failed(4, Messages.workMissing(join(data, "repo/work"))),
+  )
+  expect(existsSync(join(data, "repo"))).toBe(false)
 
   const file = join(data, "secrets/connections.json")
   mkdirSync(join(data, "secrets"))

@@ -19,6 +19,7 @@ The slices that are delivered, in build order. The builder who finishes a slice 
 - `loader`
 - `apply`
 - `settings`
+- `skills-mcp`
 
 ## Held rules
 
@@ -26,18 +27,13 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 
 | Rule      | Slice            | Reason                                                                                                                                                                                          |
 | --------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| IMG-85b   | `skills-mcp`     | The cut is made by the stop's 60 second deadline (IMG-82) and its line by the synchronous `stop.cut` write (IMG-139), which the `skills-mcp` slice delivers.                                    |
-| IMG-88    | `backup`         | Two of the table's rows rest on later slices: the stop cut by its deadline on `skills-mcp`, and the `state/version` check (IMG-39) on `backup`.                                                 |
+| IMG-88    | `backup`         | The `state/version` row (IMG-39) arrives with the `backup` slice.                                                                                                                               |
 | STO-28b   | `backup`         | `chad backup` and `chad restore`, which hold the lock for the whole copy, arrive with the `backup` slice.                                                                                       |
 | REC-96b   | `backup`         | The other owner commands arrive with later slices, and the last of them, `restore` and `backup` to stdout, with the `backup` slice.                                                             |
-| CLI-30b   | `skills-mcp`     | `chad plugin new` and `chad skill new`, which write into `work/` whatever the lock's state, arrive by the `skills-mcp` slice (CLI-156).                                                         |
 | CLI-31e   | `backup`         | `chad backup` and `chad restore` arrive with the `backup` slice.                                                                                                                                |
-| CLI-31g   | `skills-mcp`     | `chad plugin new` and `chad skill new` arrive by the `skills-mcp` slice (CLI-156).                                                                                                              |
 | CLI-37b   | `backup`         | The other changes that go through the queue arrive with later slices, and the last of them, a backup while it copies, with the `backup` slice.                                                  |
 | CLI-57d   | `backup`         | `chad restore` and `chad backup` to stdout arrive with the `backup` slice.                                                                                                                      |
 | CLI-58b   | `backup`         | The commands the list names arrive with later slices, and the last of them, `chad backup <path>`, with the `backup` slice.                                                                      |
-| CLI-125f  | `skills-mcp`     | MCP servers arrive with the `skills-mcp` slice.                                                                                                                                                 |
-| CLI-102b  | `skills-mcp`     | The MCP layer that a secret change rebuilds arrives with the `skills-mcp` slice.                                                                                                                |
 | CLI-97b   | `bundled-skills` | The `credentials` skill arrives with the `bundled-skills` slice.                                                                                                                                |
 | CRED-136b | `bundled-skills` | What the agent asks the owner is taught by the `credentials` skill, which arrives with the `bundled-skills` slice (CRED-96).                                                                    |
 | CLI-137c  | `timers-cron`    | The cron plugin and its tools arrive with the `timers-cron` slice.                                                                                                                              |
@@ -49,29 +45,11 @@ A rule, or one letter of a rule, whose slice is delivered and which cannot be bu
 | SES-15    | `timers-cron`    | Plugin turns run through the persisted `plugin` request, and the turns a timer starts arrive with timers, which the `timers-cron` slice delivers.                                               |
 | SES-53    | `timers-cron`    | `[SILENT]` and the owner mention are built, and the turns `Turns.schedule` starts arrive with the `timers-cron` slice.                                                                          |
 | CRON-43   | `timers-cron`    | The mention is built for every plugin turn, and the turns `Turns.schedule` starts arrive with the `timers-cron` slice.                                                                          |
-| LOAD-64   | `skills-mcp`     | Plugins stop after the sessions at the stop, the swap's part of the order arrives with the `apply` slice, and the MCP servers' part with the `skills-mcp` slice.                                |
 | LOAD-20   | `bundled-skills` | Every package of the image resolves for a plugin, and the `self-edit` skill that says which ones are promised arrives with the `bundled-skills` slice.                                          |
-| CLI-32    | `skills-mcp`     | `apply`, `check`, `revert`, `plugin reload` and `plugin purge` exit 4 with no daemon now. `mcp restart` arrives with `skills-mcp`.                                                              |
-| CLI-67    | `skills-mcp`     | Every check that rests on no later slice is built, the `chad.json` rules and a `${NAME}` that resolves nowhere included. A malformed `mcp.json` and a malformed skill arrive with `skills-mcp`. |
-| CLI-68    | `skills-mcp`     | The error for a skill whose name differs from its directory arrives with skills. The other rewrites are built.                                                                                  |
-| CLI-70    | `skills-mcp`     | What changed per skill and per MCP server arrives with skills and MCP servers. The commit, the plugin lines and the closing line are built.                                                     |
 | CLI-71    | `timers-cron`    | The count of overdue held timers arrives with `timers-cron`. The settings keys, the wait, the interrupted calls and the affected sessions with their sub-agents and background tasks are built. |
-| CLI-86    | `skills-mcp`     | `chad plugin new` arrives with the `skills-mcp` slice (CLI-84).                                                                                                                                 |
-| CLI-87    | `skills-mcp`     | `chad plugin new` arrives with the `skills-mcp` slice (CLI-84).                                                                                                                                 |
 | LOAD-52   | `timers-cron`    | A new plugin loads, and a deleted one or one turned off with `"enabled": false` unloads with its data kept. The plugin's timers arrive with `timers-cron`.                                      |
-| REC-11    | `skills-mcp`     | Plugins, `chad.json` and the persona load only from an exported tree. Skills and `mcp.json` arrive with `skills-mcp`.                                                                           |
 | REC-59    | `timers-cron`    | `chad safe on` is a swap to nothing that drops queued hooks and refuses calls. Holding the plugins' timers arrives with `timers-cron`.                                                          |
-| SELF-32   | `skills-mcp`     | `chad plugin new` arrives with the `skills-mcp` slice (CLI-84).                                                                                                                                 |
-| SELF-33   | `skills-mcp`     | `chad plugin new` arrives with the `skills-mcp` slice (CLI-84).                                                                                                                                 |
-| SELF-47   | `skills-mcp`     | `chad plugin new` arrives with the `skills-mcp` slice (CLI-84).                                                                                                                                 |
-| SELF-48   | `skills-mcp`     | `chad plugin new` arrives with the `skills-mcp` slice (CLI-84).                                                                                                                                 |
-| SELF-49   | `skills-mcp`     | `chad plugin new` arrives with the `skills-mcp` slice (CLI-84).                                                                                                                                 |
-| SELF-50   | `skills-mcp`     | `chad plugin new` arrives with the `skills-mcp` slice (CLI-84).                                                                                                                                 |
-| SELF-51   | `skills-mcp`     | `chad plugin new` arrives with the `skills-mcp` slice (CLI-84).                                                                                                                                 |
-| SELF-52   | `skills-mcp`     | `chad plugin new` arrives with the `skills-mcp` slice (CLI-84).                                                                                                                                 |
-| SELF-110  | `skills-mcp`     | The CI job runs `chad plugin new`, which arrives with the `skills-mcp` slice (CLI-84).                                                                                                          |
-| SET-54    | `skills-mcp`     | The apply's refusal is built. `chad plugin new` arrives with the `skills-mcp` slice.                                                                                                            |
-| SWAP-109  | `skills-mcp`     | The plugins' scopes close in the stop's last step now. The MCP layer and the stop's 60 second deadline arrive with `skills-mcp`.                                                                |
+| MCP-145   | `bundled-skills` | The image copies `skills/` to `/opt/chad/skills` once the `bundled-skills` slice adds the first bundled skill, and until then no bundled skill exists.                                          |
 | ASP-7     | `asphodel`       | The asphodel plugin arrives with the `asphodel` slice. A plugin's settings under `plugins.<name>.settings` in `chad.json` are built.                                                            |
 | ASP-9     | `asphodel`       | The asphodel plugin and its bearer token arrive with the `asphodel` slice. The expansion of `${NAME}` from the secret store or process env is built.                                            |
 
@@ -114,3 +92,9 @@ A default (ORD-48) that was not built as written, with one sentence on what chad
 | SWAP-123 | The six messages are functions in `Messages`, and a test refers by name to the ones a scenario reaches (messages 1 and 5). Messages 2, 3, 4 and 6 have no test, since a message's wording gets none.                                                                            |
 | CLI-122  | Setup turns the intent on only in a run that is given a token, because with the daemon running the CLI never holds the stored one, so a run that keeps the token leaves the intent as it is.                                                                                    |
 | CLI-184  | With nothing stored, the no-argument form reports the `TZ` of the CLI's own environment, which is the daemon's in the one container chad runs in.                                                                                                                               |
+| TST-33   | `runDaemon` also takes the bundled skills directory of TST-217.                                                                                                                                                                                                                 |
+| TST-203  | `runDaemon` also takes the bundled skills directory of TST-217.                                                                                                                                                                                                                 |
+| LOAD-46  | The daemon reads skills from the exported tree that `live` points at, by its own path, and hands out a skill's path through `repo/live` (LOAD-87).                                                                                                                              |
+| MCP-36   | chad decodes the snapshot's `mcp.json` itself, as MCP-141 says, in place of calling clanka's `McpConfig.load`.                                                                                                                                                                  |
+| CLI-74   | As MCP-36.                                                                                                                                                                                                                                                                      |
+| REC-45   | chad catches the error of its own decoder of `mcp.json` (MCP-141), in place of `McpConfig.load`'s.                                                                                                                                                                              |

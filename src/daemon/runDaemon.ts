@@ -1,8 +1,9 @@
-import { dirname } from "node:path"
+import { dirname, join } from "node:path"
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto"
 import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Agent from "clanka/Agent"
 import * as AgentExecutor from "clanka/AgentExecutor"
+import * as McpServers from "clanka/McpServers"
 import { CodexAuth } from "clanka/CodexAuth"
 import { DeviceCodeHandler } from "clanka/DeviceCodeHandler"
 import {
@@ -52,9 +53,11 @@ import * as Loader from "./Loader.ts"
 import * as Handler from "./Handler.ts"
 import * as Logger from "./Logger.ts"
 import * as Login from "./Login.ts"
+import * as Mcp from "./Mcp.ts"
 import * as Model from "./Model.ts"
 import * as Notices from "./Notices.ts"
 import * as Persona from "./Persona.ts"
+import * as Skills from "../Skills.ts"
 import * as PluginTurns from "./PluginTurns.ts"
 import * as Plugins from "./Plugins.ts"
 import * as PluginSettings from "./PluginSettings.ts"
@@ -96,6 +99,8 @@ export interface DaemonInputs {
   readonly timings: Timings
   /** The plugins the daemon loads at boot, which `chad serve` gives as the bundled ones (LOAD-74). */
   readonly plugins?: ReadonlyArray<Plugins.Entry> | undefined
+  /** The directory of the bundled skills, which `chad serve` gives as the image's (MCP-9, MCP-145). None by default. */
+  readonly skills?: string | undefined
 }
 
 /** Resolves on the first SIGTERM or SIGINT, and takes its handlers off the process when it is done with. */
@@ -371,10 +376,67 @@ const boot = Effect.fnUntraced(function* (
   })
   const off = Settings.off(appliedSettings)
   for (const name of off) yield* notices.clear(Plugins.skippedKey(name))
+  // The MCP layer, in a scope forked before the plugins' so a stop closes it after them, and the deadline only ever
+  // cuts MCP servers (IMG-84, LOAD-64, SWAP-109). A boot is a rebuild, in the background, so turns start before the
+  // servers connect. Safe mode loads no MCP server (MCP-7, MCP-90, REC-11, LOAD-46).
+  const mcp = yield* Mcp.make({
+    scope: yield* Scope.fork(scope),
+    lookup: PluginSettings.lookup(volume.data, environment.variables, fs),
+    home: environment.installs["HOME"] ?? volume.home,
+  })
+  if (safe === "off" && Option.isSome(applied)) {
+    mcp.set(yield* Mcp.atBoot(applied.value.directory, notices))
+    if ((mcp.file()?.size ?? 0) > 0) yield* mcp.start
+  }
+  state.mcp = mcp.report
+  state.open = mcp.open
   // The persona of the tree `live` points at, which safe mode leaves out of the prompt (REC-11, SELF-45).
   const persona = yield* Persona.read(
     Option.isSome(applied) ? applied.value.directory : undefined,
   )
+  // The bundled skills and the applied tree's. A malformed one is skipped with a notice and the rest load, and safe mode
+  // loads none from the repo (MCP-7, MCP-18, REC-47). The repo's are still read in safe mode for what they hide, so a
+  // bundled skill that changed is announced once whatever mode the boot is in (MCP-14).
+  const bundledSkills = yield* Skills.scan(inputs.skills)
+  const repoSkills = yield* Skills.scan(
+    Option.isSome(applied)
+      ? join(applied.value.directory, "skills")
+      : undefined,
+  )
+  yield* Apply.skipSkills(notices, bundledSkills)
+  if (safe === "off") yield* Apply.skipSkills(notices, repoSkills)
+  if (inputs.skills !== undefined) {
+    yield* Skills.bundledChanged({
+      data: volume.data,
+      bundled: bundledSkills,
+      bundledDirectory: inputs.skills,
+      hiding: Skills.hiding(repoSkills, bundledSkills),
+    }).pipe(
+      Effect.flatMap((names) =>
+        Effect.forEach(names, (name) =>
+          Logger.event(
+            "skill.bundled-changed",
+            "A bundled skill that a repo skill hides changed",
+            { skill: name },
+          ).pipe(
+            // A one-off notice, which waits for its connection on a fiber of its own (FAIL-155, FAIL-167).
+            Effect.andThen(
+              Effect.forkIn(
+                notices.announce(Messages.bundledSkillChanged(name)),
+                scope,
+              ),
+            ),
+          ),
+        ),
+      ),
+      Effect.catchCause((cause) =>
+        Effect.logWarning(
+          "The bundled skills' hashes could not be kept",
+          cause,
+        ),
+      ),
+    )
+  }
   // The one Codex login of the process. Its code goes to the thread of the turn that asked, or by the notice route,
   // and its wait is the daemon's, so a turn or a CLI that goes does not end it (MOD-36, MOD-41, MOD-101).
   const login = yield* Login.make({
@@ -463,13 +525,16 @@ const boot = Effect.fnUntraced(function* (
       Effect.flatMap(Deferred.await(loaded), (host) => host.onSession(event)),
     status: () => host?.status() ?? [],
     skipped: () => host?.skipped() ?? [],
-    generation: () => host?.generation() ?? 0,
+    // An MCP rebuild moves the generation as a plugin swap does, so a session rebuilds its Agent on its next turn
+    // (MCP-68, SWAP-127).
+    generation: () => (host?.generation() ?? 0) + mcp.generation(),
     versions: () => host?.versions() ?? [],
     prepare: (plan) =>
       Effect.flatMap(Deferred.await(loaded), (host) => host.prepare(plan)),
     abandon: Effect.suspend(() => host?.abandon ?? Effect.void),
   }
-  state.abandon = plugins.abandon
+  // A stop abandons a swap and an MCP rebuild in progress (SWAP-101, MCP-94).
+  state.abandon = Effect.andThen(plugins.abandon, mcp.abandon)
   const sessions = yield* Layer.buildWithScope(
     Layer.merge(SessionEntity.layer, retention).pipe(
       Layer.provideMerge(cluster),
@@ -497,6 +562,17 @@ const boot = Effect.fnUntraced(function* (
             text: () =>
               repository === undefined ? persona : repository.persona(),
           }),
+          Layer.succeed(SessionEntity.SkillList, {
+            list: () =>
+              repository === undefined
+                ? Skills.provided({
+                    repo: safe === "off" ? repoSkills : undefined,
+                    bundled: bundledSkills,
+                    bundledDirectory: inputs.skills ?? "",
+                    repoDirectory: volume.repo,
+                  })
+                : repository.skills(),
+          }),
           Layer.succeed(SessionEntity.Stopping, {
             stopping: () => state.phase === "stopping",
           }),
@@ -522,6 +598,7 @@ const boot = Effect.fnUntraced(function* (
             run: (words, where) => modelCommand(account, scope, words, where),
           }),
           Layer.succeed(Chats.Chats, running.chats),
+          Layer.succeed(McpServers.McpServers, mcp.servers),
           Layer.succeed(Notices.Notices, notices),
           Layer.succeed(Volume.Volume, volume),
           Layer.succeed(Timings, inputs.timings),
@@ -605,9 +682,15 @@ const boot = Effect.fnUntraced(function* (
     forced: environment.safeMode,
     initial: safe,
     plugins,
+    mcp,
     bundled: inputs.plugins ?? [],
     settings: appliedSettings,
     persona,
+    skills: {
+      repo: repoSkills,
+      bundled: bundledSkills,
+      bundledDirectory: inputs.skills ?? "",
+    },
     drop: (name) =>
       Storage.dropPluginTable(name).pipe(
         Effect.provideContext(base),
@@ -638,6 +721,7 @@ const boot = Effect.fnUntraced(function* (
     Effect.provideContext(world),
   )
   state.plugins = host.status
+  state.hiding = commands.hiding
   state.off = () => [...commands.off()].sort()
   state.skipped = host.skipped
   yield* Deferred.succeed(
@@ -724,6 +808,7 @@ export const runDaemon = (inputs: DaemonInputs): Promise<number> => {
   const session = process.env["CHAD_SESSION"]
   process.env["CHAD_SESSION"] = "daemon"
   const file = Logger.makeFileSink()
+  const logging = Logger.layer({ level: environment.logLevel, file })
   const state = Server.makeState()
 
   const program = Effect.gen(function* () {
@@ -746,11 +831,18 @@ export const runDaemon = (inputs: DaemonInputs): Promise<number> => {
     if (code === "signal") {
       yield* Logger.event("stop.started", "chad is stopping", {})
     }
-    // From here the stop has until the deadline, and then the process exits whatever is still open.
-    const deadline = setTimeout(
-      () => process.exit(1),
-      Duration.toMillis(inputs.timings.stopDeadline),
-    )
+    // From here the stop has until the deadline. Then the `stop.cut` line, naming what is still open, is written to both
+    // sinks before the process exits with 1, since both write synchronously (IMG-82, IMG-85b, IMG-139, FAIL-243,
+    // REC-148).
+    const deadline = setTimeout(() => {
+      Effect.runSync(
+        Logger.event("stop.cut", "The stop's deadline cut it", {
+          open: state.open().join(","),
+          duration_ms: Date.now() - at,
+        }).pipe(Effect.provide(logging)),
+      )
+      process.exit(1)
+    }, Duration.toMillis(inputs.timings.stopDeadline))
     // A swap that runs is abandoned first, before anything waits on requests in flight (SWAP-101).
     yield* state.abandon
     yield* Server.interruptCalls(state)
@@ -763,12 +855,10 @@ export const runDaemon = (inputs: DaemonInputs): Promise<number> => {
     return 0
   })
 
-  return Effect.runPromise(
-    program.pipe(
-      Effect.provide(Logger.layer({ level: environment.logLevel, file })),
-    ),
-  ).finally(() => {
-    if (session === undefined) delete process.env["CHAD_SESSION"]
-    else process.env["CHAD_SESSION"] = session
-  })
+  return Effect.runPromise(program.pipe(Effect.provide(logging))).finally(
+    () => {
+      if (session === undefined) delete process.env["CHAD_SESSION"]
+      else process.env["CHAD_SESSION"] = session
+    },
+  )
 }

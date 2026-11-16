@@ -10,14 +10,17 @@ import { join } from "node:path"
 import { Cause, Effect, Fiber, FileSystem, Path, Scope } from "effect"
 import type { ChildProcessSpawner } from "effect/process"
 import * as Errno from "../Errno.ts"
+import * as McpFile from "../McpFile.ts"
 import * as Messages from "../Messages.ts"
 import * as Repo from "../Repo.ts"
 import * as SafeMode from "../SafeMode.ts"
 import * as Secrets from "../Secrets.ts"
 import * as Settings from "../Settings.ts"
+import * as Skills from "../Skills.ts"
 import * as Timezone from "../Timezone.ts"
 import * as Loader from "./Loader.ts"
 import * as Logger from "./Logger.ts"
+import * as Mcp from "./Mcp.ts"
 import type * as Notices from "./Notices.ts"
 import * as Persona from "./Persona.ts"
 import * as PluginSettings from "./PluginSettings.ts"
@@ -30,6 +33,12 @@ export interface Output {
   readonly stderr: ReadonlyArray<string>
   readonly code: 0 | 1
 }
+
+/**
+ * What a command gives the queue. `mcp` asks for an MCP rebuild once the queue is released, whose lines follow what
+ * the command printed (MCP-40, MCP-111, MCP-112, CLI-160).
+ */
+type Performed = Output & { readonly mcp?: boolean }
 
 const done = (...stdout: ReadonlyArray<string>): Output => ({
   stdout,
@@ -68,13 +77,18 @@ export type Request =
     }
   | { readonly _tag: "SecretRm"; readonly name: string }
   | { readonly _tag: "Purge"; readonly name: string }
+  | { readonly _tag: "McpRestart" }
 
 export interface Commands {
-  /** Runs a command in the queue. `waiting` is told what it waits on when the queue is busy (CLI-40). */
+  /**
+   * Runs a command in the queue. `waiting` is told what it waits on when the queue is busy (CLI-40), and `print` gets
+   * what a command prints before it ends, which is otherwise put before the rest of what it prints.
+   */
   readonly run: (
     request: Request,
     caller: Caller,
     waiting: (line: string) => Effect.Effect<void>,
+    print?: (lines: ReadonlyArray<string>) => Effect.Effect<void>,
   ) => Effect.Effect<Output>
   /** Whether safe mode is on now, and what turned it on (REC-129). */
   readonly safe: () => SafeMode.State
@@ -85,6 +99,10 @@ export interface Commands {
   readonly owners: (removed: boolean) => Effect.Effect<void>
   /** The persona of the applied tree, which a session takes when its Agent is built (SELF-43, SWAP-128). */
   readonly persona: () => string
+  /** The skills a session's Agent is built with: the applied tree's and the bundled ones, these alone in safe mode (MCP-3). */
+  readonly skills: () => ReadonlyArray<Skills.Provided>
+  /** The applied tree's skills that hide a bundled one, none in safe mode, which `chad status` marks (MCP-12). */
+  readonly hiding: () => ReadonlyArray<string>
   /** The plugins the applied `chad.json` turns off, which `chad status` and `chad plugin purge` read (SET-34). */
   readonly off: () => ReadonlySet<string>
   /** The plugins whose settings in the applied `chad.json` name a secret, less those that are off (SET-26, SET-79). */
@@ -124,12 +142,20 @@ export const make = Effect.fnUntraced(function* (options: {
   /** The safe mode the boot found. */
   readonly initial: SafeMode.State
   readonly plugins: Plugins.Plugins["Service"]
+  /** The MCP layer, which an apply that changed `mcp.json`, a secret it names, `chad safe` and `chad mcp restart` rebuild. */
+  readonly mcp: Mcp.Mcp
   /** The bundled plugins, by name, which a repo plugin may not share and which `chad plugin reload` builds again. */
   readonly bundled: ReadonlyArray<Plugins.Entry>
   /** The applied `chad.json` as the boot read it. */
   readonly settings: Settings.File
   /** The applied tree's persona as the boot read it. */
   readonly persona: string
+  /** The applied tree's skills as the boot found them, and the bundled ones with their directory. */
+  readonly skills: {
+    readonly repo: Skills.Found
+    readonly bundled: Skills.Found
+    readonly bundledDirectory: string
+  }
   /**
    * Drops a plugin's key-value table, and gives the number of keys it held, or nothing when there was no table
    * (STO-61, CLI-90).
@@ -160,6 +186,10 @@ export const make = Effect.fnUntraced(function* (options: {
   let applied = options.settings
   /** The applied tree's persona, which an apply or a revert replaces before its swap bumps the generation (SWAP-128). */
   let persona = options.persona
+  /** The applied tree's skills, which an apply or a revert replaces before its swap bumps the generation (MCP-5). */
+  let skills = options.skills.repo
+  /** The repo skills whose skipped notice holds, which the next apply clears, as its tree has none (FAIL-234). */
+  let skipped = new Set(skills.bad.map(({ name }) => name))
   const guide = Messages.effectGuide(
     join(repo, "node_modules/effect/AGENTS.md"),
   )
@@ -227,6 +257,7 @@ export const make = Effect.fnUntraced(function* (options: {
           stage: "names",
           errors: [Messages.instructionsRefused([...new Set(found)])],
           loaded: [],
+          skills: Skills.none,
         }
       }
       const { errors, loaded } = yield* Loader.check(
@@ -234,7 +265,14 @@ export const make = Effect.fnUntraced(function* (options: {
         directory,
         bundledNames,
       )
-      return { stage: "check", errors, loaded }
+      // A malformed skill fails the check as a plugin does (MCP-16, CLI-75).
+      const checked = yield* Skills.check(directory)
+      return {
+        stage: "check",
+        errors: [...errors, ...checked.errors],
+        loaded,
+        skills: checked.found,
+      }
     })
 
   /**
@@ -367,6 +405,28 @@ export const make = Effect.fnUntraced(function* (options: {
         return yield* refused("settings", validated.errors)
       }
       const file = validated.file
+      // `mcp.json` is read from the tree the change exported. A malformed file and a relative `cwd` fail the change,
+      // and a name that resolves nowhere leaves that server unavailable (REC-11, MCP-33, MCP-110, MCP-113, MCP-114).
+      const mcpRead = yield* McpFile.read(exported.directory)
+      if (mcpRead._tag === "Malformed") {
+        yield* cleanup
+        return yield* refused("mcp", [Messages.mcpRefused(mcpRead.error)])
+      }
+      const mcpResolved = [...(yield* options.mcp.resolve(mcpRead.file))]
+      const relative = mcpResolved.flatMap(([name, { relative }]) =>
+        relative === undefined
+          ? []
+          : [Messages.mcpRelativeCwdRefused(name, relative)],
+      )
+      if (relative.length > 0) {
+        yield* cleanup
+        return yield* refused("mcp", relative)
+      }
+      const mcpWarnings = mcpResolved.flatMap(([name, { missing }]) =>
+        missing === undefined
+          ? []
+          : [Messages.mcpCheckUnresolved(name, missing)],
+      )
       // The persona is read from the tree the change exported, never from work/ (REC-11).
       const nextPersona = yield* Persona.read(exported.directory)
       const { build, remove } = planOf(checked.loaded, file)
@@ -395,10 +455,22 @@ export const make = Effect.fnUntraced(function* (options: {
       )
       if (kind === "check") {
         yield* abandon
+        // The servers an apply would add, remove or change, against the applied tree. Nothing connects (MCP-36, CLI-74).
+        const before = yield* McpFile.read(
+          (yield* fs.exists(live)) ? yield* fs.realPath(live) : undefined,
+        )
+        const diff = McpFile.diff(
+          before._tag === "File" ? before.file : McpFile.empty,
+          mcpRead.file,
+        )
+        const mcpChanged =
+          diff.added.length + diff.removed.length + diff.changed.length > 0
         // "Replace me" is the one finding a check passes with (CLI-163, CLI-164).
         return done(
           ...listing,
           ...replaceMe.map(Messages.replaceMeCheck),
+          ...(mcpChanged ? Messages.mcpCheckLines(diff) : []),
+          ...mcpWarnings,
           Messages.checkPassed,
         )
       }
@@ -443,6 +515,16 @@ export const make = Effect.fnUntraced(function* (options: {
                 })
           // The persona is in place before the swap's generation bump, which is its one path to a session (SWAP-128).
           persona = nextPersona
+          const skillChanges = Skills.changes(
+            skills,
+            checked.skills,
+            changes.map(({ path }) => path),
+          )
+          skills = checked.skills
+          for (const name of skipped) {
+            yield* options.notices.clear(Skills.skippedKey(name))
+          }
+          skipped = new Set()
           const swapped =
             safe === "off"
               ? yield* prepared.swap
@@ -473,6 +555,15 @@ export const make = Effect.fnUntraced(function* (options: {
             unparsable: undefined,
             ignored: [],
           })
+          // A changed `mcp.json` rebuilds the MCP layer once the queue is released, and the plugins do not wait for it.
+          // In safe mode it loads when safe mode goes off (MCP-7, MCP-32, MCP-93, SWAP-54, API-94).
+          const mcpChanged =
+            safe === "off" &&
+            changes.some(({ path }) => path === McpFile.fileName)
+          if (mcpChanged) {
+            options.mcp.set(mcpRead.file)
+            yield* options.notices.clear(Mcp.unreadableKey)
+          }
           yield* Repo.prune(repo, tree)
           yield* Logger.event("apply.done", "An apply finished", {
             kind,
@@ -497,19 +588,28 @@ export const make = Effect.fnUntraced(function* (options: {
                   Messages.firstLine(options_.message),
                 ),
           )
-          return done(
-            ...Messages.appliedOutput({
-              kind,
-              commit: sha.slice(0, 7),
-              files: changes.map(({ status, path }) => `${status} ${path}`),
-              safe: safe !== "off",
-              saved: saved?.ref,
-              restored,
-              swapped,
-              flipped,
-              settings: listing,
-            }),
-          )
+          return {
+            mcp: mcpChanged,
+            ...done(
+              ...Messages.appliedOutput({
+                kind,
+                commit: sha.slice(0, 7),
+                files: changes.map(({ status, path }) => `${status} ${path}`),
+                safe: safe !== "off",
+                saved: saved?.ref,
+                restored,
+                swapped,
+                flipped,
+                settings: listing,
+                skills: [
+                  ...Messages.skillChanges(skillChanges),
+                  ...Skills.hiding(skills, options.skills.bundled).map(
+                    Messages.skillHides,
+                  ),
+                ],
+              }),
+            ),
+          } satisfies Performed as Performed
         }).pipe(
           Effect.catchCause((cause) =>
             Cause.hasInterruptsOnly(cause)
@@ -619,6 +719,7 @@ export const make = Effect.fnUntraced(function* (options: {
 
   const switched = (to: "on" | "off", caller: Caller) =>
     Effect.gen(function* () {
+      const servers = options.mcp.file()?.size ?? 0
       yield* SafeMode.write(options.data, to === "on")
       if (to === "on") {
         // Everything from the repo goes, and a bundled plugin with settings is built again on its defaults (SET-46).
@@ -639,6 +740,8 @@ export const make = Effect.fnUntraced(function* (options: {
         })
         safe = "toggle"
         yield* prepared.swap
+        // Safe mode loads no MCP servers (MCP-7).
+        options.mcp.set(undefined)
       } else {
         // `live` loads as a boot loads it, `chad.json` included (REC-60).
         const tree = (yield* fs.exists(live))
@@ -659,6 +762,12 @@ export const make = Effect.fnUntraced(function* (options: {
           notices: options.notices,
         })
         persona = yield* Persona.read(tree)
+        skills = yield* Skills.scan(
+          tree === undefined ? undefined : join(tree, "skills"),
+        )
+        yield* skipSkills(options.notices, skills)
+        skipped = new Set(skills.bad.map(({ name }) => name))
+        options.mcp.set(yield* Mcp.atBoot(tree, options.notices))
         const off = Settings.off(applied)
         const plan = planFor(
           PluginSettings.entries({
@@ -681,7 +790,11 @@ export const make = Effect.fnUntraced(function* (options: {
       }
       yield* Queue.ran(`safe ${to}`, Queue.caller(caller.session), "changed")
       yield* announce(caller, Messages.safeLine(to === "on"))
-      return done(Messages.safeState(safe))
+      // The MCP layer follows when there were servers before or are now.
+      return {
+        ...done(Messages.safeState(safe)),
+        mcp: servers + (options.mcp.file()?.size ?? 0) > 0,
+      } satisfies Performed as Performed
     })
 
   /**
@@ -882,6 +995,8 @@ export const make = Effect.fnUntraced(function* (options: {
             "secret",
           )
           yield* Queue.ran(command, who, "changed", { name })
+          // The MCP layer is rebuilt when `mcp.json` names the secret, and only then (MCP-40, CRED-25, CRED-27).
+          const mcp = McpFile.names(options.mcp.file()).has(name)
           const line =
             changed.success._tag === "Saved"
               ? Messages.secretSaved(name, changed.success.replaced, swapped)
@@ -900,7 +1015,8 @@ export const make = Effect.fnUntraced(function* (options: {
               Messages.keptPrevious(name, error),
             ),
             code: kept.length === 0 ? (0 as const) : (1 as const),
-          }
+            mcp,
+          } satisfies Performed as Performed
         }),
       )
     })
@@ -951,12 +1067,13 @@ export const make = Effect.fnUntraced(function* (options: {
     SecretSet: "chad secret set",
     SecretRm: "chad secret rm",
     Purge: "chad plugin purge",
+    McpRestart: "chad mcp restart",
   }
 
   const perform = (
     request: Request,
     caller: Caller,
-  ): Effect.Effect<Output, unknown, Services> => {
+  ): Effect.Effect<Performed, unknown, Services> => {
     switch (request._tag) {
       case "Apply":
         return apply(request.message, caller)
@@ -975,18 +1092,23 @@ export const make = Effect.fnUntraced(function* (options: {
         return secret(request, caller)
       case "Purge":
         return purge(request.name, caller)
+      case "McpRestart":
+        return Effect.as(
+          Queue.ran("mcp restart", Queue.caller(caller.session), "changed"),
+          { ...done(), mcp: true },
+        )
     }
   }
 
   const commands: Commands = {
-    run: (request, caller, waiting) =>
+    run: (request, caller, waiting, print) =>
       Effect.gen(function* () {
         // `chad safe` with no argument only reads (REC-129).
         if (request._tag === "Safe" && request.to === undefined)
           return done(Messages.safeState(safe))
         const busy = options.queue.busy()
         if (busy !== undefined) yield* waiting(Messages.queueWaiting(busy))
-        return yield* options.queue.run(
+        const { mcp, ...output }: Performed = yield* options.queue.run(
           perform(request, caller).pipe(
             Effect.catchCause((cause) =>
               Cause.hasInterruptsOnly(cause)
@@ -1002,9 +1124,37 @@ export const make = Effect.fnUntraced(function* (options: {
           ),
           labels[request._tag],
         )
+        if (mcp !== true) return output
+        // What the command printed comes first, the commit line of an apply included, and the rebuild runs once the
+        // queue is released, in a fiber a CLI that goes away does not stop. An apply's closing line stays last
+        // (MCP-111, MCP-112, CLI-70, CLI-160).
+        const closing = output.stdout.at(-1) === Messages.appliedClosing
+        const head = closing ? output.stdout.slice(0, -1) : output.stdout
+        const before =
+          print === undefined || head.length === 0
+            ? head
+            : yield* Effect.as(print(head), [])
+        const servers = yield* options.mcp.rebuild
+        return {
+          ...output,
+          stdout: [
+            ...before,
+            ...Messages.mcpRebuilt(servers),
+            ...(closing ? [Messages.appliedClosing] : []),
+          ],
+        }
       }),
     safe: () => safe,
     persona: () => persona,
+    skills: () =>
+      Skills.provided({
+        repo: safe === "off" ? skills : undefined,
+        bundled: options.skills.bundled,
+        bundledDirectory: options.skills.bundledDirectory,
+        repoDirectory: repo,
+      }),
+    hiding: () =>
+      safe === "off" ? Skills.hiding(skills, options.skills.bundled) : [],
     // Once the owners are stored the plugins follow them, so a client that goes away does not leave a removed owner in
     // a running plugin (CLI-120b, SWAP-99).
     owners: (removed) =>
@@ -1027,3 +1177,27 @@ export const make = Effect.fnUntraced(function* (options: {
   }
   return commands
 })
+
+/**
+ * Skips the malformed skills of a tree that a boot or `chad safe off` loads, each with a notice, and clears the notice
+ * of each skill that loads (MCP-18, REC-47, FAIL-166, FAIL-234).
+ */
+export const skipSkills = (
+  notices: Notices.Notices["Service"],
+  found: Skills.Found,
+) =>
+  Effect.gen(function* () {
+    for (const { name, problem } of found.bad) {
+      yield* Logger.event("skill.skipped", "A skill was skipped", {
+        skill: name,
+        error: problem,
+      })
+      yield* notices.raise({
+        key: Skills.skippedKey(name),
+        text: Messages.skillSkipped(name, problem),
+      })
+    }
+    for (const { name } of found.skills) {
+      yield* notices.clear(Skills.skippedKey(name))
+    }
+  })

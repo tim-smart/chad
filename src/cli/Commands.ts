@@ -7,6 +7,7 @@ import { login } from "./commands/login.ts"
 import { logout } from "./commands/logout.ts"
 import { log } from "./commands/log.ts"
 import { logs } from "./commands/logs.ts"
+import { mcp } from "./commands/mcp.ts"
 import { model } from "./commands/model.ts"
 import { owner } from "./commands/owner.ts"
 import { plugin } from "./commands/plugin.ts"
@@ -14,6 +15,7 @@ import { revert } from "./commands/revert.ts"
 import { safe } from "./commands/safe.ts"
 import { secret } from "./commands/secret.ts"
 import { setup } from "./commands/setup.ts"
+import { skill } from "./commands/skill.ts"
 import { status } from "./commands/status.ts"
 import { timezone } from "./commands/timezone.ts"
 
@@ -38,6 +40,8 @@ export const commands = [
   log,
   safe,
   plugin,
+  skill,
+  mcp,
   timezone,
   secret,
 ] as const

@@ -34,7 +34,7 @@ it("CLI-137a STO-133a FAIL-108a v1 has no plugin list, enable, disable or remove
     expect(ran.code, args.join(" ")).toBe(2)
     expect(ran.stdout).toMatch(/USAGE\n {2}chad /)
     expect(ran.stderr).toContain(
-      `Unknown subcommand "${args.at(0) === "db" || args.at(0) === "plugin" ? args[1] : args[0]}"`,
+      `Unknown subcommand "${["db", "plugin", "skill", "mcp"].includes(args[0]!) ? args[1] : args[0]}"`,
     )
   }
   expect(readdirSync(data)).toEqual([])

@@ -4,6 +4,7 @@ import * as NodeSocket from "@effect/platform-node/NodeSocket"
 import * as Chat from "./daemon/Chat.ts"
 import { runDaemon } from "./daemon/runDaemon.ts"
 import { bundled } from "./Bundled.ts"
+import { bundledDirectory } from "./Skills.ts"
 import { defaults } from "./Timings.ts"
 
 process.exitCode = await runDaemon({
@@ -12,4 +13,5 @@ process.exitCode = await runDaemon({
   webSocketConstructor: NodeSocket.layerWebSocketConstructor,
   timings: defaults,
   plugins: bundled,
+  skills: bundledDirectory,
 })

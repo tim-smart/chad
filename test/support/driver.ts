@@ -80,6 +80,8 @@ export interface Options {
   readonly codex?: "token" | "expired"
   /** The plugins handed to `runDaemon` (TST-202), none by default. */
   readonly plugins?: DaemonInputs["plugins"]
+  /** The bundled skills directory handed to `runDaemon` (TST-217), none by default. */
+  readonly skills?: string
   /** A finalizer for the chat layer of a connection, by its name, which runs when the daemon tears the connection down. */
   readonly closing?: Readonly<Record<string, Effect.Effect<void>>>
 }
@@ -326,6 +328,7 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
         discord.gateway.layer,
       ),
       ...(options.plugins === undefined ? {} : { plugins: options.plugins }),
+      ...(options.skills === undefined ? {} : { skills: options.skills }),
     },
     options.timings,
   )
