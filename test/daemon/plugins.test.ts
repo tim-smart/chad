@@ -1,13 +1,32 @@
 // Plugins handed to `runDaemon` (TST-202): what a plugin reaches, the turns it starts, and its hooks' budgets.
-import { Deferred, Effect, Layer, Option, Schema } from "effect"
+import { mkdtempSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import * as NodeServices from "@effect/platform-node/NodeServices"
+import * as SqliteClient from "@effect/sql-sqlite-node/SqliteClient"
+import {
+  Deferred,
+  Duration,
+  Effect,
+  Exit,
+  Layer,
+  Option,
+  Schema,
+  Scope,
+} from "effect"
 import { Tool, Toolkit } from "effect/ai"
-import type { ChatThread } from "effect/chat"
+import { Chat, ChatThread } from "effect/chat"
+import { HttpClient } from "effect/http"
 import { SqlClient } from "effect/sql"
 import { expect, test } from "vitest"
 import * as Plugin from "../../dist/Plugin.js"
 import * as Session from "../../dist/Session.js"
+import * as Timings from "../../dist/Timings.js"
 import { Turns } from "../../dist/Turns.js"
+import * as Plugins from "../../dist/daemon/Plugins.js"
 import sendFile from "../../dist/plugins/send-file.js"
+import { execute } from "../support/database.ts"
+import * as Discord from "../support/discord.ts"
 import { scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
 import { posted, prompted, rows, says } from "../support/owner.ts"
@@ -249,4 +268,153 @@ test("DIS-65 DIS-66 DIS-68 DIS-69 DIS-105 the bundled sendFile posts a file the 
   expect(results((await fakes.model.calls())[1]).join("\n")).toContain(
     "sent report.txt",
   )
+})
+
+test("API-43 a hook past its budget that cannot be interrupted holds up nothing, and the turn carries on without it", async () => {
+  const release = Deferred.makeUnsafe<void>()
+  const stuck = Plugin.make(
+    Plugin.beforeTurn(
+      () => Effect.uninterruptible(Effect.as(Deferred.await(release), "late")),
+      { timeout: "50 millis" },
+    ),
+  )
+  const running = await scenario({
+    plugins: [{ name: "stuck", plugin: stuck }],
+  })
+  const { fakes } = running
+  await fakes.model.script([{ text: "carried on" }])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+  // The hook is still running when the answer is posted.
+  await fakes.chat.answers(thread, 1)
+  expect(await posted(running, thread)).toEqual(["carried on"])
+  expect(prompted((await fakes.model.calls())[0])).not.toContain("late")
+  await Effect.runPromise(Deferred.succeed(release, undefined))
+})
+
+test("API-67 a graceful stop lets a running afterTurn hook finish before it closes the plugin's resources", async () => {
+  const started = Deferred.makeUnsafe<void>()
+  const release = Deferred.makeUnsafe<void>()
+  const events: Array<string> = []
+  const plugin = Plugin.make(
+    Layer.effectDiscard(
+      Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          events.push("plugin-closed")
+        }),
+      ),
+    ),
+    Plugin.afterTurn(() =>
+      Effect.gen(function* () {
+        events.push("hook-started")
+        yield* Deferred.succeed(started, undefined)
+        yield* Deferred.await(release)
+        events.push("hook-finished")
+      }),
+    ),
+  )
+  const running = await scenario({ plugins: [{ name: "probe", plugin }] })
+  await running.fakes.model.script([{ text: "answer" }])
+  const thread = await running.fakes.chat.makeThread("direct")
+  await says(running, thread, "hello")
+  await running.fakes.chat.answers(thread, 1)
+  await Effect.runPromise(Deferred.await(started))
+  const stop = running.stop()
+  await running.logged("stop.started")
+  await Effect.runPromise(Deferred.succeed(release, undefined))
+  expect(await stop).toBe(0)
+  expect(events).toEqual(["hook-started", "hook-finished", "plugin-closed"])
+})
+
+test("API-67 IMG-83 the hooks a stop drains have until stopHooksUntil after the stop began, and not that long again from when the drain begins", async () => {
+  const hung = Plugin.make(Plugin.afterTurn(() => Effect.never))
+  const services = Layer.mergeAll(
+    NodeServices.layer,
+    SqliteClient.layer({
+      filename: join(mkdtempSync(join(tmpdir(), "chad-host-")), "db"),
+    }),
+    Layer.succeed(Chat.Chat, {} as never),
+    Layer.succeed(HttpClient.HttpClient, {} as never),
+  )
+  await Effect.gen(function* () {
+    const scope = yield* Scope.make()
+    const host = yield* Plugins.make({
+      entries: [{ name: "hung", plugin: hung }],
+      owners: () => [],
+      timings: { ...Timings.defaults, stopHooksUntil: Duration.hours(1) },
+      // The stop began an hour ago, so its time for queued hooks is spent and the close does not wait an hour.
+      stopping: () => Date.now() - Duration.toMillis(Duration.hours(1)),
+      notices: { raise: () => Effect.void, clear: () => Effect.void } as never,
+      turns: () => ({}) as never,
+    }).pipe(Scope.provide(scope))
+    yield* host.afterTurn({} as never)
+    yield* Scope.close(scope, Exit.void)
+  }).pipe(Effect.provide(services), Effect.runPromise)
+})
+
+test("SES-125 API-100 Turns.start returns the turn's outcome when cluster cannot save the reply", async () => {
+  let turns: Turns["Service"] | undefined
+  const plugin = Plugin.make(
+    Layer.effectDiscard(
+      Effect.gen(function* () {
+        turns = yield* Turns
+      }),
+    ),
+  )
+  const running = await scenario({ plugins: [{ name: "probe", plugin }] })
+  const { fakes } = running
+  await running.logged("boot.ready")
+  await fakes.model.script([{ text: "done anyway" }])
+  const thread = await fakes.chat.makeThread("direct")
+  execute(
+    running.data,
+    "CREATE TRIGGER full BEFORE INSERT ON cluster_replies BEGIN SELECT RAISE(ABORT, 'database or disk is full'); END",
+  )
+  const outcome = await Effect.runPromise(
+    turns!.start({ thread, prompt: "plugin says hello", label: "probe" }),
+  )
+  expect(outcome).toMatchObject({ _tag: "Answered", text: "done anyway" })
+  execute(running.data, "DROP TRIGGER full")
+})
+
+test("API-76 an owner removed while a plugin's turn runs is not mentioned in its answer", async () => {
+  let turns: Turns["Service"] | undefined
+  const owner = "700000000000000001"
+  const channel = "810000000000000002"
+  const plugin = Plugin.make(
+    Layer.effectDiscard(
+      Effect.gen(function* () {
+        turns = yield* Turns
+      }),
+    ),
+  )
+  const running = await scenario({
+    connections: [
+      { name: "home", kind: "discord", token: "home-token", owners: [owner] },
+    ],
+    plugins: [{ name: "probe", plugin }],
+  })
+  running.discord.rest.channel(channel, 11)
+  const socket = await running.discord.gateway.socket(0)
+  socket.receive(Discord.hello)
+  await socket.sent(Discord.Op.identify, 1)
+  socket.receive(Discord.ready(1, "session-1"))
+  await running.fakes.model.script([{ text: "plugin answer", hold: true }])
+  const outcome = Effect.runPromise(
+    turns!.start({
+      thread: ChatThread.make("discord", channel),
+      prompt: "plugin says hello",
+      label: "probe",
+      mention: owner,
+    }),
+  )
+  await running.fakes.model.received(1)
+  expect(
+    (await running.chad(["owner", "remove", "home", owner, "--force"])).code,
+  ).toBe(0)
+  await running.fakes.model.release(0)
+  await outcome
+  const [answer] = await running.discord.rest.answers(channel, 1)
+  expect(answer?.body?.content).toBe("plugin answer")
+  expect(answer?.body?.allowed_mentions).toMatchObject({ users: [] })
 })

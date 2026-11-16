@@ -180,10 +180,16 @@ export const Stopping = Context.Reference<{ readonly stopping: () => boolean }>(
 export const Support = Context.Reference<{
   readonly loggedOut: Effect.Effect<boolean>
   readonly owners: (connection: string) => ReadonlyArray<string>
+  /**
+   * The session's own record of a plugin turn's end, by its request's key. It resolves a `Turns.start` that waits in
+   * this process, whether or not cluster could save the reply (SES-125, API-100).
+   */
+  readonly ended: (key: string, outcome: Outcome) => void
 }>("chad/SessionEntity/Support", {
   defaultValue: () => ({
     loggedOut: Effect.succeed(false),
     owners: () => [],
+    ended: () => {},
   }),
 })
 
@@ -436,7 +442,8 @@ export const layer = Layer.unwrap(
 
         /**
          * The mention a plugin-started turn's posts start with: only in a server thread or channel, and only of an
-         * owner, so a plugin can ping no one else (API-76). Discord is the one platform with mentions.
+         * owner, so a plugin can ping no one else (API-76). Discord is the one platform with mentions. It is read when
+         * the post is made, so an owner removed while the turn ran is not pinged.
          */
         const mentionOf = (request: Request) =>
           Effect.gen(function* () {
@@ -1391,7 +1398,10 @@ export const layer = Layer.unwrap(
               reason._tag,
               cause,
             )
-            return written ? ({ _tag: "Failed", reason } as const) : unrecorded
+            if (written) return { _tag: "Failed", reason } as const
+            // The request stays unanswered for the next start, and a `Turns.start` waiting here has its outcome now.
+            support.ended(turn.key, { _tag: "Failed", reason })
+            return unrecorded
           })
 
         /** One turn, from the request that takes the session to the reply. */
@@ -1403,7 +1413,6 @@ export const layer = Layer.unwrap(
           const chat = yield* chats.get(request.connection)
           const format = yield* chats.format(request.connection)
           const reply = yield* replyTo(request)
-          const mention = yield* mentionOf(request)
           if (own.ready !== undefined) yield* Deferred.await(own.ready)
           // The plugins are loaded before a turn starts, and the hooks a compaction queued have run (SWAP-38).
           yield* plugins.ready
@@ -1489,7 +1498,7 @@ export const layer = Layer.unwrap(
             yield* mentioned(
               chat,
               format,
-              mention,
+              yield* mentionOf(request),
               Messages.gaveUp(format, turn.id),
               {
                 replyTo: reply,
@@ -1676,7 +1685,7 @@ export const layer = Layer.unwrap(
               yield* mentioned(
                 chat,
                 format,
-                mention,
+                yield* mentionOf(request),
                 Messages.failedTurn(
                   format,
                   at - turn.at,
@@ -1706,10 +1715,16 @@ export const layer = Layer.unwrap(
           const delivered = yield* outcome._tag === "Answered"
             ? request.plugin !== undefined && outcome.text.trim() === silent
               ? Effect.succeed("posted" as const)
-              : mentioned(chat, format, mention, outcome.text, {
-                  replyTo: reply,
-                  answer: ids,
-                })
+              : mentioned(
+                  chat,
+                  format,
+                  yield* mentionOf(request),
+                  outcome.text,
+                  {
+                    replyTo: reply,
+                    answer: ids,
+                  },
+                )
             : post(chat, format, Messages.stopped(format, at - turn.at))
           // An answer for a thread that no longer exists ends the turn `ThreadGone`, which posts nothing (FAIL-44,
           // FAIL-64).
@@ -2133,6 +2148,8 @@ export const layer = Layer.unwrap(
                 if (stopping.stopping()) return yield* Effect.never
                 const outcome = yield* runTurn(own, request)
                 if (outcome === unrecorded) return yield* Effect.never
+                // The caller learns the end from here and not from cluster's reply alone, which may never be saved.
+                support.ended(payload.key, outcome)
                 return outcome
               }
             }).pipe(Effect.ensuring(take(payload.key)), Effect.orDie),

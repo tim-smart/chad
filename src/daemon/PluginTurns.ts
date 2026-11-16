@@ -1,12 +1,26 @@
 import { randomUUID } from "node:crypto"
-import { Cause, Effect, Option, Stream } from "effect"
+import { Cause, Deferred, Effect, Fiber, Option, Scope, Stream } from "effect"
 import { ChatThread } from "effect/chat"
 import * as Messages from "../Messages.ts"
 import { CurrentSession } from "../Session.ts"
 import { Turns } from "../Turns.ts"
 import type { Chats, ChatService } from "./Chats.ts"
 import type { Connection } from "./Connection.ts"
-import { PluginTurn, publicOutcome, Session } from "./SessionEntity.ts"
+import {
+  type Outcome,
+  PluginTurn,
+  publicOutcome,
+  Session,
+} from "./SessionEntity.ts"
+
+/** The `Turns.start` calls that wait in this process, by their request's key. The session resolves them (SES-125). */
+export type Waiting = Map<string, Deferred.Deferred<Outcome>>
+
+/** Resolves the call that waits on a request, if one does. */
+export const ended = (waiting: Waiting, key: string, outcome: Outcome) => {
+  const waiter = waiting.get(key)
+  if (waiter !== undefined) Deferred.doneUnsafe(waiter, Effect.succeed(outcome))
+}
 
 /**
  * The connection whose platform has a thread: the first running connection whose `Chat` has an adapter for the
@@ -39,6 +53,9 @@ export const make =
     readonly client: Client
     readonly chats: Chats["Service"]
     readonly connections: () => ReadonlyArray<Connection>
+    readonly waiting: Waiting
+    /** Where a call's request runs while its caller waits, which outlives the caller once the turn has ended. */
+    readonly scope: Scope.Scope
   }) =>
   (plugin: string): Turns["Service"] => {
     const request = (
@@ -105,9 +122,23 @@ export const make =
             return yield* Effect.die(new Error(Messages.startInOwnThread))
           }
           const { entity, payload } = yield* request("started", turn)
-          const outcome = yield* entity
-            .plugin(payload)
-            .pipe(Effect.catchCause(unsaved("started")))
+          // The outcome comes from whichever is first: the session's own record of the end, or cluster's reply. A
+          // reply that cannot be saved never comes, and the call returns all the same (SES-125, API-100). The request's
+          // fiber is left to finish, because interrupting it would interrupt the request.
+          const waiter = Deferred.makeUnsafe<Outcome>()
+          options.waiting.set(payload.key, waiter)
+          const call = yield* entity.plugin(payload).pipe(
+            Effect.catchCause(unsaved("started")),
+            Effect.exit,
+            Effect.flatMap((exit) => Deferred.done(waiter, exit)),
+            Effect.forkIn(options.scope),
+          )
+          const outcome = yield* Deferred.await(waiter).pipe(
+            Effect.onInterrupt(() => Fiber.interrupt(call)),
+            Effect.ensuring(
+              Effect.sync(() => options.waiting.delete(payload.key)),
+            ),
+          )
           return publicOutcome(outcome)
         }),
       queue: (turn) =>

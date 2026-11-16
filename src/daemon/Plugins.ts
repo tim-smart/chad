@@ -8,6 +8,7 @@ import {
   Duration,
   Effect,
   Exit,
+  Fiber,
   FileSystem,
   Layer,
   Option,
@@ -148,18 +149,23 @@ const clankaTools: ReadonlySet<string> = new Set([
 
 /**
  * Loads the plugins and runs them until the scope it is made in closes. A plugin whose load fails is skipped and
- * logged, and the others carry on. A graceful stop runs the hooks still queued, up to `stopHooksUntil`, before it
- * closes the plugins' scopes (API-67).
+ * logged, and the others carry on. A graceful stop runs the hooks still queued, up to `stopHooksUntil` after the stop
+ * began, before it closes the plugins' scopes and their queues (API-67, IMG-83).
  */
 export const make = Effect.fnUntraced(function* (options: {
   readonly entries: ReadonlyArray<Entry>
   readonly owners: () => ReadonlyArray<string>
   readonly timings: Timings
+  /** When the stop began, in milliseconds since the epoch, or nothing before a stop. */
+  readonly stopping: () => number | undefined
   readonly notices: Notices.Notices["Service"]
   /** The `Turns` of one plugin. Each call waits for the plugin's activation before it reaches here. */
   readonly turns: (plugin: string) => Turns["Service"]
 }) {
-  const scope = yield* Effect.scope
+  const outer = yield* Effect.scope
+  // The plugins' scopes and their queues' workers live in a scope of their own. It is forked before the drain's
+  // finalizer is added, so a stop runs the drain first and closes them only after it (API-67).
+  const scope = yield* Scope.fork(outer)
   const supplied = yield* Effect.context<Supplied>()
   const timings = options.timings
   const loaded: Array<Loaded> = []
@@ -233,14 +239,24 @@ export const make = Effect.fnUntraced(function* (options: {
   ): Effect.Effect<Option.Option<B>> =>
     Effect.gen(function* () {
       const key = `hook-failing:${plugin.name}:${hook}`
-      const exit = yield* registered
+      // The hook runs on a fiber of its plugin's scope, and the caller waits on it only up to the budget. A hook past
+      // its budget is interrupted without waiting, so one that cannot be interrupted holds up nothing but itself and
+      // its plugin's scope (API-43).
+      const fiber = yield* registered
         .run(input)
-        .pipe(
-          Effect.timeoutOption(registered.timeout ?? budget),
-          as(plugin),
-          Logger.ownConsole,
-          Effect.exit,
-        )
+        .pipe(as(plugin), Logger.ownConsole, Effect.forkIn(plugin.scope))
+      const abandon = Effect.sync(() => fiber.interruptUnsafe())
+      const exit = yield* Fiber.await(fiber).pipe(
+        Effect.timeoutOption(registered.timeout ?? budget),
+        Effect.onInterrupt(() => abandon),
+        Effect.flatMap(
+          Option.match({
+            onNone: () => Effect.as(abandon, Exit.succeed(Option.none<B>())),
+            onSome: (exit) =>
+              Effect.succeed(Exit.map(exit, (value) => Option.some(value))),
+          }),
+        ),
+      )
       if (Exit.isSuccess(exit) && Option.isSome(exit.value)) {
         if ((plugin.failures.get(hook) ?? 0) > 0) {
           plugin.failures.set(hook, 0)
@@ -394,15 +410,20 @@ export const make = Effect.fnUntraced(function* (options: {
       yield* Deferred.succeed(plugin.active, undefined)
     })
 
-  // A graceful stop runs the queued hooks up to their deadline, and only then closes the plugins' scopes, which
-  // were forked from this one and close after this finalizer (API-67).
+  // A graceful stop runs the queued hooks up to their deadline, a point in time from the stop's start, and only then
+  // closes the plugins' scopes and their queues (API-67, IMG-83).
   yield* Effect.addFinalizer(() =>
     Effect.gen(function* () {
       if (pending === 0) return
       const done = Deferred.makeUnsafe<void>()
       idle.waiters.push(done)
+      const began = options.stopping() ?? Date.now()
+      const left = Math.max(
+        0,
+        began + Duration.toMillis(timings.stopHooksUntil) - Date.now(),
+      )
       const drained = yield* Deferred.await(done).pipe(
-        Effect.timeoutOption(timings.stopHooksUntil),
+        Effect.timeoutOption(Duration.millis(left)),
       )
       if (Option.isNone(drained)) {
         yield* Logger.event(

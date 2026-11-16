@@ -8,9 +8,9 @@ It accounts for every id that `node scripts/rule-ids.ts list plugin-api` prints,
 
 Counts by status:
 
-- built: 267 (8 of them new builder rules)
-- built, part held: 13
-- simplified: 20
+- built: 269 (8 of them new builder rules)
+- built, part held: 14
+- simplified: 17
 - fact: 17
 - definition: 1
 - not chad's (fixture-only): 69
@@ -20,14 +20,16 @@ No row is NOT BUILT. "built, part held" rows are built except for the clause the
 Held, as `docs/spec/delivered.md` lists them:
 
 - `timers-cron`: SES-15, SES-53 and CRON-43. Plugin turns, `[SILENT]` and the owner mention are built. The turns a timer or `Turns.schedule` starts arrive with timers. `Turns.schedule`, `Turns.cancel` and `Turns.scheduled` (`src/daemon/PluginTurns.ts`) die with "Timers arrive with chad's timers-cron slice."
-- `apply`: API-3 (unloading and loading a plugin again in a running daemon), API-68 (a previous version's scope), SWAP-34 (the reload case) and FAIL-262 (the swap, removal, turning off and safe mode cases). Each needs the swap.
+- `apply`: API-3 (unloading and loading a plugin again in a running daemon), API-68 (a previous version's scope), SWAP-34 (the reload case), FAIL-262 (the swap, removal, turning off and safe mode cases) and TST-39 (the Codex subset's Agent rebuild that keeps the session's model layer). Each needs the swap: the only rebuild this slice has is the model change's, which builds a new model layer (SWAP-20).
 - `settings`: API-14, LOAD-15 and ASP-12. `DateTime.CurrentTimeZone` is the host's zone (`DateTime.zoneMakeLocal()` in `src/daemon/Plugins.ts` `load`) until the owner's timezone arrives.
 - `skills-mcp`: LOAD-64. Plugins stop after the sessions. The swap's part of the order comes with `apply`, and the MCP servers' part comes with `skills-mcp`.
 - `loader`: REC-101 (the notice for a plugin skipped at load) and TST-202 (the deadline on a plugin's Layer build, LOAD-14). Both need loading from the repo.
 
 CLI-120b is held for `apply` as well. It belongs to an earlier slice: `PluginContext.owners` is read once at load, and rebuilding plugins on an owner change goes through the swap.
 
-Simplified, as `docs/spec/delivered.md` lists them: SWAP-11, SES-84, SES-125, API-100, CRON-83, SES-168, SES-182, SES-183, API-118, DIS-112, DIS-113, DIS-114, MOD-115, MOD-116, FAIL-313, SELF-17, SELF-116, TST-88, API-12 and TST-95. Each row names what chad does instead.
+Simplified, as `docs/spec/delivered.md` lists them: SWAP-11, SES-84, SES-168, SES-182, SES-183, API-118, DIS-112, DIS-113, DIS-114, MOD-115, MOD-116, FAIL-313, SELF-17, SELF-116, TST-88, API-12 and TST-95. Each row names what chad does instead.
+
+TST-177 is not a `plugin-api` rule, but it applies once this slice is delivered. It is on the simplified list too: no step type-checks the spec's signature code blocks.
 
 New builder rules:
 
@@ -110,7 +112,7 @@ Ahead of its slice: API-25 (a plugin's `Config` reads its `settings`) is `settin
 | SES-119 | built                              | `src/daemon/SessionEntity.ts` `ended` (`own.hooks`), `run` (waits on it)                                                                                                                              | none                           |
 | SES-120 | built                              | `src/daemon/SessionEntity.ts` `run` (the request waits in the entity)                                                                                                                                 | none                           |
 | SES-121 | built                              | `src/daemon/SessionEntity.ts` `ended`: after a compacted turn `live.frozen = undefined` and `Sessions.thaw` (`src/daemon/Sessions.ts`), so the next turn renders the prompt with the chunks folded in | `test/daemon/asphodel.test.ts` |
-| SES-125 | simplified                         | `src/daemon/PluginTurns.ts` `start`; delivered.md: the outcome comes from Effect Cluster's reply                                                                                                      | none                           |
+| SES-125 | built                              | `src/daemon/SessionEntity.ts` `Support.ended`, `src/daemon/PluginTurns.ts` `start` (`Waiting`)                                                                                                        | `test/daemon/plugins.test.ts`  |
 | SES-130 | built                              | `src/daemon/SessionEntity.ts` `converse` (`Sessions.updates`)                                                                                                                                         | none                           |
 | SES-132 | built                              | `src/daemon/SessionEntity.ts` `run` (`[SILENT]` is `Answered`, row `answered`)                                                                                                                        | none                           |
 | SES-135 | built                              | `src/daemon/SessionEntity.ts` `reconcile`: a replace that is not a prefix sets `turn.compacted`                                                                                                       | `test/daemon/asphodel.test.ts` |
@@ -200,7 +202,7 @@ Ahead of its slice: API-25 (a plugin's `Config` reads its `settings`) is `settin
 | API-39  | built                                       | `src/daemon/SessionEntity.ts` `converse`                                                                                                     | none                                                          |
 | API-40  | built                                       | `src/daemon/Plugins.ts` `chunks`, `src/daemon/SessionEntity.ts` `converse`                                                                   | `test/daemon/plugins.test.ts`                                 |
 | API-42  | built                                       | `src/Timings.ts`, `src/Plugin.ts` `budget`                                                                                                   | none                                                          |
-| API-43  | built                                       | `src/daemon/Plugins.ts` `run`                                                                                                                | `test/daemon/asphodel.test.ts`                                |
+| API-43  | built                                       | `src/daemon/Plugins.ts` `run` (the hook on a fiber of its plugin's scope, abandoned at its budget)                                           | `test/daemon/plugins.test.ts`, `test/daemon/asphodel.test.ts` |
 | API-44  | built                                       | `src/daemon/Plugins.ts` `run` (`failures` in memory), `src/daemon/Notices.ts`                                                                | none                                                          |
 | API-45  | built                                       | `src/Plugin.ts` `hook` (types)                                                                                                               | none                                                          |
 | API-46  | fact                                        | nothing to build                                                                                                                             | none                                                          |
@@ -216,14 +218,14 @@ Ahead of its slice: API-25 (a plugin's `Config` reads its `settings`) is `settin
 | API-59  | built                                       | `src/daemon/SessionEntity.ts` `reset`                                                                                                        | `test/daemon/asphodel.test.ts`                                |
 | API-60  | built                                       | `src/daemon/SessionEntity.ts` `converse` (`HistoryReplaced`), `reconcile` (a non-prefix replace sets `turn.compacted`), `ended`              | `test/daemon/asphodel.test.ts`                                |
 | API-61  | built                                       | `src/daemon/SessionEntity.ts` `ended`, `run` (`own.hooks`)                                                                                   | `test/daemon/asphodel.test.ts`                                |
-| API-67  | built                                       | `src/daemon/Plugins.ts` finalizer, `src/daemon/runDaemon.ts` (`pluginScope`)                                                                 | none                                                          |
+| API-67  | built                                       | `src/daemon/Plugins.ts` finalizer (the plugins' scopes and queues in a scope forked before it), `src/daemon/runDaemon.ts` (`state.stopping`) | `test/daemon/plugins.test.ts`                                 |
 | API-68  | built, the previous-version part held:apply | `src/Plugin.ts` `background`, `src/daemon/Plugins.ts` `activate`                                                                             | `test/daemon/asphodel.test.ts`                                |
 | API-71  | built                                       | `src/daemon/PluginTurns.ts` `start`                                                                                                          | none                                                          |
 | API-72  | built                                       | `src/daemon/SessionEntity.ts` `PluginTurn`, `plugin` handler                                                                                 | `test/daemon/plugins.test.ts`                                 |
 | API-73  | built                                       | `src/daemon/PluginTurns.ts` `request` (`start/<uuid>`)                                                                                       | `test/daemon/plugins.test.ts`                                 |
 | API-74  | built                                       | `src/daemon/SessionEntity.ts` `run` (`origin`)                                                                                               | none                                                          |
 | API-75  | built                                       | `src/daemon/SessionEntity.ts` `run`, `replyTo`                                                                                               | none                                                          |
-| API-76  | built                                       | `src/daemon/SessionEntity.ts` `mentionOf`, `mentioned`                                                                                       | none                                                          |
+| API-76  | built                                       | `src/daemon/SessionEntity.ts` `mentionOf`, read at each post, `mentioned`                                                                    | `test/daemon/plugins.test.ts`                                 |
 | API-77  | built                                       | `src/daemon/SessionEntity.ts` `run`                                                                                                          | `test/daemon/plugins.test.ts`                                 |
 | API-78  | built                                       | `src/Session.ts` `Outcome`, `FailedReason`; `src/daemon/SessionEntity.ts` `publicOutcome`                                                    | none                                                          |
 | API-79  | built                                       | `src/daemon/PluginTurns.ts` `start`, `src/Messages.ts` `startInOwnThread`                                                                    | `test/daemon/plugins.test.ts`                                 |
@@ -233,7 +235,7 @@ Ahead of its slice: API-25 (a plugin's `Config` reads its `settings`) is `settin
 | API-95  | built                                       | `src/index.ts`                                                                                                                               | none                                                          |
 | API-97  | built                                       | `src/daemon/Plugins.ts` `tools` (no `ownConsole`), `src/daemon/Logger.ts` `layer`                                                            | none                                                          |
 | API-98  | built                                       | `src/Timings.ts`                                                                                                                             | none                                                          |
-| API-100 | simplified                                  | `src/daemon/PluginTurns.ts` `start`; delivered.md: as SES-125                                                                                | none                                                          |
+| API-100 | built                                       | `src/daemon/SessionEntity.ts` `Support.ended`, `src/daemon/PluginTurns.ts` `start` (`Waiting`)                                               | `test/daemon/plugins.test.ts`                                 |
 | API-101 | built                                       | no notice call in `src/Plugin.ts`; counts in `src/daemon/Logger.ts` `count`                                                                  | none                                                          |
 | API-102 | built                                       | `src/Plugin.ts` `make`                                                                                                                       | none                                                          |
 | API-103 | built                                       | `src/Plugin.ts` `isPlugin`                                                                                                                   | none                                                          |
@@ -341,7 +343,7 @@ Ahead of its slice: API-25 (a plugin's `Config` reads its `settings`) is `settin
 | CRON-44  | built                              | `src/daemon/SessionEntity.ts` `run`                                                                                               | none                          |
 | CRON-46  | built                              | `src/daemon/SessionEntity.ts` `threadGone`, `src/daemon/Notices.ts` `announce`                                                    | none                          |
 | CRON-47  | built                              | `src/daemon/SessionEntity.ts` `run` (logged-out check before `StatusMessage.open`, via `endsEarly`), `ask`                        | none                          |
-| CRON-83  | simplified                         | `src/daemon/PluginTurns.ts` `start`; delivered.md: as SES-125                                                                     | none                          |
+| CRON-83  | built                              | as SES-125                                                                                                                        | none                          |
 | CRON-86  | built                              | `src/daemon/SessionEntity.ts` `run`, `plugin` handler (row reply `Answered` with `""`)                                            | none                          |
 | CRON-87  | built                              | `src/daemon/SessionEntity.ts` `run` failed branch: `UsageLimit` and `LoginFailed` of a plugin turn raise their notices (FAIL-210) | none                          |
 | CRON-88  | built                              | `src/daemon/SessionEntity.ts` `run` failed branch: a plugin turn's `UsageLimit` raises the usage-limit notice (FAIL-174)          | none                          |
@@ -395,16 +397,16 @@ Ahead of its slice: API-25 (a plugin's `Config` reads its `settings`) is `settin
 
 ## Testing (17)
 
-| Id      | Status                      | Where built                                                                              | Test                        |
-| ------- | --------------------------- | ---------------------------------------------------------------------------------------- | --------------------------- |
-| TST-39  | built                       | `test/support/driver.ts` (`openai-compat/fake`)                                          | none                        |
-| TST-88  | simplified                  | no doc-comment script; delivered.md: review checks the doc comments                      | none                        |
-| TST-95  | simplified                  | no scenario per `Failed.reason` tag; delivered.md: a `LoggedOut` turn has none           | none                        |
-| TST-158 | built                       | `test/fixtures/asphodel/asphodel.ts`, `test/fixtures/asphodel/daemon.ts`                 | none                        |
-| TST-160 | built                       | `tsconfig.json` includes `test/`, and `chad` resolves to `dist/*.d.ts` through `exports` | none                        |
-| TST-162 | built                       | `package.json` `files` has no `test/`                                                    | none                        |
-| TST-163 | built                       | `src/index.ts`, `package.json` `exports`                                                 | none                        |
-| TST-202 | built, deadline held:loader | `src/daemon/runDaemon.ts` `DaemonInputs.plugins`, `test/support/driver.ts`               | `test/unit/harness.test.ts` |
+| Id      | Status                      | Where built                                                                                                                                                                 | Test                        |
+| ------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| TST-39  | built, part held            | `test/support/driver.ts` (`openai-compat/fake`); the Codex subset in `test/daemon/models.test.ts` and `test/daemon/retries.test.ts`; the Agent-rebuild row held for `apply` | none                        |
+| TST-88  | simplified                  | no doc-comment script; delivered.md: review checks the doc comments                                                                                                         | none                        |
+| TST-95  | simplified                  | no scenario per `Failed.reason` tag; delivered.md: a `LoggedOut` turn has none                                                                                              | none                        |
+| TST-158 | built                       | `test/fixtures/asphodel/asphodel.ts`, `test/fixtures/asphodel/daemon.ts`                                                                                                    | none                        |
+| TST-160 | built                       | `tsconfig.json` includes `test/`, and `chad` resolves to `dist/*.d.ts` through `exports`                                                                                    | none                        |
+| TST-162 | built                       | `package.json` `files` has no `test/`                                                                                                                                       | none                        |
+| TST-163 | built                       | `src/index.ts`, `package.json` `exports`                                                                                                                                    | none                        |
+| TST-202 | built, deadline held:loader | `src/daemon/runDaemon.ts` `DaemonInputs.plugins`, `test/support/driver.ts`                                                                                                  | `test/unit/harness.test.ts` |
 
 ## The asphodel plugin (18)
 

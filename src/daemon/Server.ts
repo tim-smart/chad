@@ -47,6 +47,8 @@ import type { Volume } from "./Volume.ts"
 /** What the daemon knows about itself as it boots and runs. The boot writes it and the `Status` call reads it. */
 export interface State {
   phase: Phase
+  /** When the stop began, in milliseconds since the epoch, or nothing before a stop. */
+  stopping: number | undefined
   filesystem: ReadonlyArray<string>
   connections: ReadonlyArray<{ readonly name: string; readonly kind: string }>
   /** The connection and owner commands, which the boot hands over once it has loaded the connections. */
@@ -145,6 +147,7 @@ export type RecentTurns = Exclude<Recent, { readonly unavailable: string }>
 
 export const makeState = (): State => ({
   phase: "starting",
+  stopping: undefined,
   filesystem: [],
   connections: [],
   commands: Deferred.makeUnsafe(),

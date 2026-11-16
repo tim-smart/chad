@@ -383,6 +383,7 @@ const boot = Effect.fnUntraced(function* (
   // forked here, so it closes after the sessions' and a graceful stop runs their queued hooks after the turns end
   // (API-67).
   const pluginScope = yield* Scope.fork(scope)
+  const waiting: PluginTurns.Waiting = new Map()
   let host: Plugins.Plugins["Service"] | undefined
   const loaded = yield* Deferred.make<Plugins.Plugins["Service"]>()
   const plugins: Plugins.Plugins["Service"] = {
@@ -414,6 +415,7 @@ const boot = Effect.fnUntraced(function* (
             owners: (connection) =>
               running.list().find(({ name }) => name === connection)?.owners ??
               [],
+            ended: (key, outcome) => PluginTurns.ended(waiting, key, outcome),
           }),
           Layer.succeed(SessionEntity.Stopping, {
             stopping: () => state.phase === "stopping",
@@ -451,8 +453,11 @@ const boot = Effect.fnUntraced(function* (
           connection.owners.map((id) => `${connection.kind}:${id}`),
         ),
     timings: inputs.timings,
+    stopping: () => state.stopping,
     notices,
     turns: PluginTurns.make({
+      waiting,
+      scope: pluginScope,
       client: yield* SessionEntity.Session.client.pipe(
         Effect.provide(sessions),
       ),
@@ -569,6 +574,7 @@ export const runDaemon = (inputs: DaemonInputs): Promise<number> => {
     )
     const at = Date.now()
     state.phase = "stopping"
+    state.stopping = at
     if (code === "signal") {
       yield* Logger.event("stop.started", "chad is stopping", {})
     }
