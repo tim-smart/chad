@@ -24,15 +24,14 @@ The slices that are delivered, in build order. The builder who finishes a slice 
 - `backup`
 - `image`
 - `bundled-skills`
+- `asphodel`
 
 ## Held rules
 
 A rule, or one letter of a rule, whose slice is delivered and which cannot be built yet because it rests on a later slice. The entry goes when that slice is delivered.
 
-| Rule  | Slice      | Reason                                                                                                                                               |
-| ----- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ASP-7 | `asphodel` | The asphodel plugin arrives with the `asphodel` slice. A plugin's settings under `plugins.<name>.settings` in `chad.json` are built.                 |
-| ASP-9 | `asphodel` | The asphodel plugin and its bearer token arrive with the `asphodel` slice. The expansion of `${NAME}` from the secret store or process env is built. |
+| Rule | Slice | Reason |
+| ---- | ----- | ------ |
 
 ## Stopped rules
 
@@ -85,3 +84,4 @@ A default (ORD-48) that was not built as written, with one sentence on what chad
 | TST-94   | No check records which `Messages` names the scenarios expect; a scenario refers by name to the messages it reaches, and the rest have no test, since a message's wording gets none.                                                                                                                                                                             |
 | TST-106  | No migration fixture is saved, because no release has shipped. The seeded scenario makes its tar in the test, from a volume with a session, its history and a pending cron job, and no held timer.                                                                                                                                                              |
 | TST-107  | With no released fixture, the seeded tar is restored and booted as a volume an older chad left, which takes the copy, then resumes the old session and fires the timer. Its schema is not rolled back, because the newest migration is the timers table the timer lives in; a separate scenario rolls that migration back and kills the copy and the migration. |
+| ASP-102  | Each scenario is mapped to its test, or to the reason it has none, in the header of `test/daemon/asphodel.test.ts`, since 17-testing.md has no such table (TST-153).                                                                                                                                                                                            |

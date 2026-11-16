@@ -13,6 +13,8 @@ export interface Request {
   readonly path: string
   readonly query: Record<string, string>
   readonly body: any
+  /** The request's Authorization header, when it has one. */ // adjusted: ASP-9
+  readonly authorization?: string | undefined
 }
 
 export const make = () => {
@@ -73,6 +75,7 @@ export const make = () => {
       path: url.pathname,
       query: Object.fromEntries(url.searchParams),
       body,
+      authorization: request.headers["authorization"], // adjusted: ASP-9
     }
     if (!state.up) {
       state.refused++

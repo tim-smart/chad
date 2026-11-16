@@ -1,11 +1,28 @@
 // The asphodel fixture through the real daemon in layer 3 (docs/spec/18-asphodel-plugin.md, "The twelve scenarios",
 // and docs/spec/17-testing.md, TST-161). The fixture is handed to `runDaemon` through the plugins input (TST-202), with
 // the fake asphodel daemon provided as its HttpClient and an adjustable clock as its Clock, so a scenario moves past the
-// breaker's 30 seconds and the replay's minute instead of waiting them out (ASP-G6). Scenario 6 has no test, as the
-// delivered file says, and scenario 10 is in layer 4 (test/process/asphodel.test.ts).
+// breaker's 30 seconds and the replay's minute instead of waiting them out (ASP-G6).
+//
+// Each scenario of the prototype's final pass and its test (ASP-102):
+//   1  the plugin loads                        "the plugin loads", and the token and timezone tests after it
+//   2  two owner turns in a direct message     "two owner turns in a direct message"
+//   3  a message steers the turn               "a message that steers the turn"
+//   4  a cron turn                             "a turn a plugin started"
+//   5  the owner asks to forget                "the owner's memory_forget"
+//   6  a tool call after its turn ended        none: the daemon makes no tool call with no turn (ASP-118), and the
+//                                              type layer holds the fixture's None branch (test/types/plugins.test.ts)
+//   7  the daemon down for a turn              "with the asphodel daemon down a turn runs without memories"
+//   7b the spool replayed by the fiber         "when the owner says nothing more after an outage"
+//   8  a compaction                            "after a compaction"; the variant with no wait has no counterpart
+//   9  /new                                    "/new clears the old session"
+//   10 a restart in the middle of a turn       layer 4, test/process/asphodel.test.ts (ASP-119)
+//   11 a session starts while the daemon is down  "a session that starts while the asphodel daemon is down"
+//   12 the plugin unloads                      "the plugin unloads at the stop"
 import { Clock, DateTime, Effect, Layer } from "effect"
 import type { ChatThread } from "effect/chat"
 import { HttpClient } from "effect/http"
+import { mkdirSync } from "node:fs"
+import { join } from "node:path"
 import { expect, test } from "vitest"
 import type { Entry } from "../../dist/daemon/Plugins.js"
 import * as Plugin from "../../dist/Plugin.js"
@@ -13,7 +30,8 @@ import { Turns } from "../../dist/Turns.js"
 import asphodel from "../fixtures/asphodel/asphodel.ts"
 import * as Daemon from "../fixtures/asphodel/daemon.ts"
 import * as AdjustableClock from "../support/clock.ts"
-import { scenario, type Scenario } from "../support/driver.ts"
+import * as Cli from "../support/cli.ts"
+import { fresh, scenario, type Scenario } from "../support/driver.ts"
 import { type Call, results, runs } from "../support/model.ts"
 import { eventually, posted, rows, says, sessions } from "../support/owner.ts"
 
@@ -28,6 +46,7 @@ const settings = { url: "http://asphodel:7720", ownerName: "Tim" }
 const boot = async (
   extra: ReadonlyArray<Entry> = [],
   options: Record<string, unknown> = settings,
+  directory?: string,
 ) => {
   const daemon = Daemon.make()
   const clock = AdjustableClock.make()
@@ -42,6 +61,7 @@ const boot = async (
     ),
   )
   const running = await scenario({
+    ...(directory === undefined ? {} : { directory }),
     plugins: [{ name: "asphodel", plugin, settings: options }, ...extra],
   })
   // The load's health probe and bank PUT.
@@ -140,6 +160,39 @@ test("TST-161 ASP-26 ASP-30 ASP-11 ASP-12 ASP-31 API-25 the plugin loads: the he
     assistant_name: "chad",
     timezone: "Pacific/Auckland",
   })
+  // With no token set, no request carries an Authorization header.
+  expect(load.map((request) => request.authorization)).toEqual([
+    undefined,
+    undefined,
+  ])
+})
+
+test("ASP-9 API-25 a token written ${ASPHODEL_TOKEN} reaches the asphodel daemon as a bearer token on every request, from the secret store and with the value in no log line", async () => {
+  const token = "asphodel-token-5f2a9c"
+  const directory = fresh()
+  const data = join(directory, "data")
+  mkdirSync(data, { recursive: true })
+  expect(
+    (
+      await Cli.chad(
+        ["secret", "set", "ASPHODEL_TOKEN"],
+        { CHAD_DATA: data },
+        token + "\n",
+      )
+    ).code,
+  ).toBe(0)
+  const { running, daemon, load } = await boot(
+    [],
+    { ...settings, token: "${ASPHODEL_TOKEN}" },
+    directory,
+  )
+  const thread = await running.fakes.chat.makeThread("direct")
+  await running.fakes.model.script([{ text: "Booked." }])
+  const turn = await firstTurn(running, daemon, thread)
+  expect([...load, ...turn].map((request) => request.authorization)).toEqual(
+    Array(5).fill(`Bearer ${token}`),
+  )
+  expect(JSON.stringify(running.log())).not.toContain(token)
 })
 
 test("ASP-12 ASP-13 API-17 a timezone change reloads the plugin, which sends the bank again with the new zone", async () => {
