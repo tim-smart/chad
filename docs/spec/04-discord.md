@@ -362,3 +362,7 @@ Every wording this part fixes, in one place. Text in angle brackets is filled in
 | DIS-117 | Build, stage 2, amended by Tim's ruling that a background sub-agent and every sub-agent under it show no scripts, TIM-560 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | `discord-ui` |
 | DIS-118 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `discord-ui` |
 | DIS-119 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `discord-ui` |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+DIS-18, DIS-41, DIS-42, DIS-43, DIS-44, DIS-45, DIS-46, DIS-47, DIS-48, DIS-49, DIS-97.

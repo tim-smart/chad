@@ -67,7 +67,6 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 
 - **ORD-16** `harness` comes before every slice that has behaviour to test, so that each later slice starts with a driver, a fake model and a local platform. It delivers the owner allowlist and the drop of chad's own messages, so that both hold before anything that can run `bash` answers a real gateway (see 17-testing.md).
 - **ORD-17** `wire` comes straight after `harness`. The gateway parts of the Discord adapter have never been run, and the slice finds out whether they hold before the slices that build on them (see 17-testing.md).
-- **ORD-18** Withdrawn.
 - **ORD-46** There is no scheduled workflow and no release list.
 - **ORD-19** `plugin-api` comes after `models`, so that stage 2 ends at a build an owner can use. Every rule that needs a plugin-started turn, a hook, a prompt chunk, `sendFile`, a plugin's log line or the Agent rebuild by generation is tagged `plugin-api` or a later slice.
 - **ORD-20** `plugin-api` comes before `loader`. The API is built and tested with plugins handed to `runDaemon` through its plugins input, each one a name and a `Plugin.make` value (see 17-testing.md), and loading a plugin from the repo is added on top of an API that already works.
@@ -88,7 +87,7 @@ Every slice lands on one branch, so the rule-id script cannot tell from a merge 
 - **ORD-49** The delivered file holds a fourth list, the simplified rules. Each entry gives the id of a default that was not built as written and one sentence on what chad does instead. The rule is not reworded. The rule-id script does not read the list, a simplified rule counts as built, and Tim reads the list when he reviews the pull request.
 - **ORD-50** A withdrawn rule is not built. A rule that still names a withdrawn rule, or a feature that 00-overview.md lists as cut from v1 (OV-57), holds as far as it makes sense without it, and a builder does not stop over the reference.
 - **ORD-51** A stopped entry on a rule that is a default under ORD-47 no longer waits for Tim. The stage that is open settles it as ORD-48 says and moves the entry to the simplified rules, or removes the entry when the rule is built as written.
-- **ORD-29** Where the spec is silent, the builder picks the reading that fits the rest of it. If the choice is visible to the owner, a plugin, the model or the CLI, the builder adds it to the spec as a new rule in the same change, and names it in the hand-off comment. The new rule takes the next number after the highest id of its part's prefix. Its Provenance row has the Source "Build, stage" with the stage's number, the Agreed by "Builder (Tim has not read)", the Support "run", and the slice that is being built. A gap tagged for the builder is settled the same way and does not wait for Tim.
+- **ORD-29** Where the spec is silent, the builder picks the reading that fits the rest of it. If the choice is visible to the owner, a plugin, the model or the CLI, the builder adds it to the spec as a new rule in the same change, and names it in the hand-off comment. The new rule takes the next number after the highest id of its part's prefix, counting the ids on the part's list of retired ids. Its Provenance row has the Source "Build, stage" with the stage's number, the Agreed by "Builder (Tim has not read)", the Support "run", and the slice that is being built. A gap tagged for the builder is settled the same way and does not wait for Tim.
 - **ORD-30** If effect/chat ships in a release of effect before stage 1 starts, chad installs the released packages and the repo has no `vendor/` directory (see 00-overview.md).
 - **ORD-31** The prototype archives are on a branch of the chad repo named `prototypes`, which is never merged. Each stage issue names the archives that ran the rules of its slices (see 17-testing.md).
 ## The builder's contract
@@ -128,7 +127,6 @@ A builder reads `AGENTS.md` at the root of the repo on every run and may not rea
 | ORD-15 | TIM-559 round 2 R6 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-16 | TIM-558 items 13 and 50; TIM-559 round 2 R6 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-17 | TIM-558 items 26 and 27 | Architect (Tim has not read) | not run |  | `definition` | - |
-| ORD-18 | TIM-559 round 2 R6 item 5, withdrawn by Tim's ruling that chad has no release list and no budget, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-19 | Tim, chat 2026-11-15; TIM-559 round 2 R10 item 4 | Tim for the order. Architect (Tim has not read) for the first usable mark | not run |  | `definition` | - |
 | ORD-20 | TIM-559 round 2 R6; TIM-559 cold read | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-21 | TIM-559 round 2 R6 | Architect (Tim has not read) | not run |  | `definition` | - |
@@ -139,7 +137,7 @@ A builder reads `AGENTS.md` at the root of the repo on every run and may not rea
 | ORD-26 | TIM-559 round 2 R1; Tim, chat 2026-11-15 | Architect (Tim has not read). Tim created the repo himself and made it public | not run |  | `definition` | - |
 | ORD-27 | TIM-559 round 2 R1 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-28 | TIM-559 round 2 R7 and R10 item 1, amended by Tim's ruling that most rules are defaults, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `definition` | - |
-| ORD-29 | TIM-559 round 2 R7, amended by Tim's ruling that tests are chosen by behaviour, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `definition` | - |
+| ORD-29 | TIM-559 round 2 R7, amended by Tim's ruling that tests are chosen by behaviour, chat 2026-11-15, amended by Tim's instruction to remove the withdrawn rules and keep their ids, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-30 | TIM-559 ruling on OV-G2 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-31 | TIM-559 round 2 R10 item 6 | Architect (Tim has not read) | not run |  | `definition` | - |
 | ORD-32 | TIM-559 round 2 R10 item 1 | Architect (Tim has not read) | not run |  | `definition` | - |
@@ -161,3 +159,7 @@ A builder reads `AGENTS.md` at the root of the repo on every run and may not rea
 | ORD-49 | Tim's ruling that most rules are defaults, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `definition` | - |
 | ORD-50 | Tim's ruling that most rules are defaults, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `definition` | - |
 | ORD-51 | Tim's ruling that most rules are defaults, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `definition` | - |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+ORD-18.

@@ -335,3 +335,7 @@ const greeting = yield* Config.String("greeting").pipe(Config.withDefault("Hello
 | SET-95 | TIM-559 ruling on CRON-G19; TIM-559 round 3 C7 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `settings` |
 | SET-96 | TIM-559 round 3 C7 | Architect (Tim has not read) | not run | TIM-559 | `rule` | `timers-cron` |
 | SET-97 | TIM-559 round 3 L2; TIM-559 round 4 item 6 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+SET-24, SET-64, SET-78.

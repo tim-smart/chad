@@ -80,7 +80,6 @@ Nothing can force the agent to read a file. chad shows the path of effect's `AGE
 - **SELF-34** A failed `chad check` or `chad apply` ends with one line that names the path when a type error is in a file under `plugins/`.
 - **SELF-35** That line prints once for a failed run, however many errors there are. It does not print when no failing file is under `plugins/`.
 - **SELF-36** v1 does nothing beyond these five moments to make the agent read the file.
-- **SELF-125** Withdrawn.
 
 ## The core prompt
 
@@ -732,7 +731,6 @@ export default Plugin.make(NotesTools, Chunk)
 | SELF-122 | TIM-549 item 23 | Architect (Tim has not read) | not run |  | `definition` | - |
 | SELF-123 | TIM-549 items 24 to 30, TIM-537 follow-up as changed by TIM-555, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | run |  | `rule` | `bundled-skills` |
 | SELF-124 | TIM-557 item 43, TIM-549 and TIM-541 as changed by TIM-557 | Architect (Tim has not read) | not run |  | `rule` | `bundled-skills` |
-| SELF-125 | TIM-558 item 39, withdrawn by Tim's ruling that chad has no release ceremony, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | SELF-126 | TIM-557 item 39, TIM-534 and TIM-550 as changed by TIM-557 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
 | SELF-127 | TIM-558 item 50 | Architect (Tim has not read) | not run |  | `definition` | - |
 | SELF-128 | TIM-559 ruling on SELF-G2 | Architect (Tim has not read) | not run | TIM-549, TIM-559 | `definition` | - |
@@ -743,3 +741,7 @@ export default Plugin.make(NotesTools, Chunk)
 | SELF-133 | TIM-559 round 3 A1, TIM-559 round 4 item 7 | Architect (Tim has not read) | not run | TIM-559 | `definition` | - |
 | SELF-134 | TIM-559 round 3 A2 | Architect (Tim has not read) | not run | TIM-559 | `definition` | - |
 | SELF-135 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `harness` |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+SELF-79, SELF-125.

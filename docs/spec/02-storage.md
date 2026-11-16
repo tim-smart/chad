@@ -246,7 +246,6 @@ A turn is one run of the agent in a session, started by an owner message or by a
 - **STO-126** `turns` has no cost column. A row keeps the token counts and the model value. What the usage columns count and when chad writes them is in 16-failures-logs-status.md.
 - **STO-164** `starts`, `graceful_cuts` and the five token columns are `INTEGER NOT NULL DEFAULT 0`, so sums need no null handling.
 - **STO-165** `model` holds the model value that the turn's Agent was built with, in the full `<provider>/<model>[/<effort>]` form of 05-model-and-login.md. The effort is part of the stored value when one was set, because the column records what ran.
-- **STO-127** Withdrawn.
 
 | Column | Holds |
 | --- | --- |
@@ -312,9 +311,6 @@ CREATE TABLE steers (
 
 - **STO-207** chad records each turn whose prompt the stored history took as one row of the table `prompts`, keyed by the turn's request key, in the same transaction as the batch that stores the prompt. A compaction that takes the prompt out of the history leaves the row, and the row is what tells a resume after a kill before the prompt was stored (SES-161) from one after it. `prompts` rows are never deleted.
 - **STO-208** chad records each chat command it runs as one row of the table `commands`, keyed by the dedupe key of the chat event that carried it, and writes the row before the command runs. `commands` rows are never deleted.
-- **STO-209** Withdrawn.
-- **STO-210** Withdrawn.
-- **STO-211** Withdrawn.
 
 ```sql
 CREATE TABLE prompts (
@@ -629,7 +625,6 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-124 | TIM-557 item 23 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
 | STO-125 | TIM-557 item 23 | Architect (Tim has not read) | not run |  | `rule` | `turns` |
 | STO-126 | TIM-557 items 23 to 25, TIM-559 round 3 L1 for the model value | Architect (Tim has not read) | not run |  | `rule` | `turns` |
-| STO-127 | TIM-557 item 34, withdrawn by Jarvis's correction to Tim's ruling on a full disk, TIM-560 2026-11-15 | Architect (Tim has not read) | not run | TIM-557 | `rule` | - |
 | STO-128 | TIM-557 item 36, amended by TIM-559 ruling on STO-G13 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | STO-129 | TIM-557 item 36 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
 | STO-130 | TIM-557 item 36 | Architect (Tim has not read) | not run |  | `rule` | `failures` |
@@ -709,6 +704,7 @@ chad's database can't be used: <error>. Sessions are off until it is fixed. `cha
 | STO-206 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
 | STO-207 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `kills` |
 | STO-208 | Build, stage 2, amended by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | `kills` |
-| STO-209 | Build, stage 2, withdrawn by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | - |
-| STO-210 | Build, stage 2, withdrawn by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | - |
-| STO-211 | Build, stage 2, withdrawn by Tim's ruling on the five stage 2 decisions, chat 2026-11-15 | Builder (Tim has not read) | run |  | `rule` | - |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+STO-19, STO-55, STO-120, STO-127, STO-140, STO-146, STO-209, STO-210, STO-211.

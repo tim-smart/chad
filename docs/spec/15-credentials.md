@@ -168,11 +168,6 @@ The rules an agent has to follow cannot be enforced by a command, so they live i
 - **CRED-92** The skill treats the state of a browser tool the owner added as a secret. Cookies, saved state files and a tool's own vault are never printed, never sent with `sendFile` and never put in the repo. chad itself does nothing with browser state.
 - **CRED-96** The skill carries the rules for a password typed into the chat (CRED-77, CRED-78 and CRED-79) and the rule for a secret that is not stored (CRED-136).
 - **CRED-108** The CI checks on a bundled skill, which 14-self-edit-skill.md lists, run on the `credentials` skill too (see 17-testing.md).
-- **CRED-127** Withdrawn.
-
-## The browser sidecar
-
-- **CRED-128** Withdrawn.
 
 ## Runs owed to the test plan
 
@@ -243,7 +238,9 @@ These were never run. A real model following the skill, any of it on Docker (the
 | CRED-113 | TIM-559 ruling on CRED-G11 | Architect (Tim has not read) | not run | TIM-546, TIM-559 | `rule` | `settings` |
 | CRED-114 | TIM-559 ruling on CRED-G11 | Architect (Tim has not read) | not run | TIM-546, TIM-559 | `rule` | `settings` |
 | CRED-115 | TIM-559 ruling on CRED-G11 | Architect (Tim has not read) | not run | TIM-546, TIM-559 | `rule` | `settings` |
-| CRED-127 | TIM-559 ruling on IMG-G17, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
-| CRED-128 | TIM-559 ruling on IMG-G17, withdrawn by Tim's ruling that chad has no Compose example, chat 2026-11-15 | Architect (Tim has not read) | read |  | `rule` | - |
 | CRED-130 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | CRED-136 | Tim's ruling that v1 has no secret request, no Enter modal, no TOTP codes and no browser recipes, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `settings` |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+CRED-15, CRED-21, CRED-33, CRED-34, CRED-35, CRED-36, CRED-37, CRED-38, CRED-39, CRED-40, CRED-41, CRED-42, CRED-43, CRED-44, CRED-45, CRED-47, CRED-48, CRED-49, CRED-50, CRED-51, CRED-52, CRED-53, CRED-54, CRED-55, CRED-56, CRED-57, CRED-58, CRED-59, CRED-60, CRED-61, CRED-63, CRED-64, CRED-65, CRED-66, CRED-67, CRED-68, CRED-69, CRED-70, CRED-71, CRED-72, CRED-73, CRED-74, CRED-75, CRED-76, CRED-87, CRED-88, CRED-89, CRED-90, CRED-93, CRED-94, CRED-95, CRED-97, CRED-98, CRED-99, CRED-100, CRED-101, CRED-102, CRED-103, CRED-104, CRED-107, CRED-110, CRED-116, CRED-117, CRED-118, CRED-119, CRED-120, CRED-121, CRED-122, CRED-123, CRED-124, CRED-125, CRED-126, CRED-127, CRED-128, CRED-129, CRED-131, CRED-132, CRED-133, CRED-134, CRED-135.

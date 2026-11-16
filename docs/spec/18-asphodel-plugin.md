@@ -12,7 +12,6 @@ chad has no built-in memory (see 00-overview.md). asphodel's Hermes plugin is th
 - **ASP-2** The asphodel plugin is a test fixture in chad's repository, together with the fake asphodel daemon printed below. The fixture starts from what this part prints. The fixture file is the source, and nothing keeps the printed copy in step (see 17-testing.md).
 - **ASP-3** The fixture is type-checked against the built declaration files of the `chad` package and run through the real chad daemon with the twelve scenarios listed below (see 17-testing.md).
 - **ASP-4** The fixture is not in the image, and nothing from asphodel's repository enters chad's CI.
-- **ASP-109** Withdrawn.
 - **ASP-5** The plugin imports `Plugin` and `Session` from `chad` and nothing else from chad. Every other import is a module of `effect`.
 - **ASP-6** The plugin builds one service of its own per load, and that one service serves every session. State that belongs to a session or a turn is keyed by the session id or the turn id.
 
@@ -998,7 +997,6 @@ These notes are for whoever ports the plugin. They are not rules for chad.
 | ASP-106 | TIM-539 prototype comment (where each part lands) | Tim | not run |  | `definition` | - |
 | ASP-107 | TIM-557 item 13, TIM-539 prototype | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | ASP-108 | TIM-557 item 41 | Architect (Tim has not read) | not run |  | `rule` | `apply` |
-| ASP-109 | TIM-559 ruling on ASP-G9, withdrawn by Tim's ruling that the bookkeeping checks go, chat 2026-11-15 | Architect (Tim has not read) | not run |  | `rule` | - |
 | ASP-110 | TIM-559 ruling on ASP-G12 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | ASP-111 | TIM-559 ruling on ASP-G12 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | ASP-112 | TIM-559 ruling on ASP-G2, TIM-538 as changed by TIM-552 for the exception | Architect (Tim has not read) for the rule, Tim for the exception | not run | TIM-559 | `rule` | `apply` |
@@ -1007,3 +1005,7 @@ These notes are for whoever ports the plugin. They are not rules for chad.
 | ASP-115 | TIM-559 round 2 R4 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | ASP-116 | TIM-559 round 3 C1 | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
 | ASP-117 | TIM-559 round 3 C1, TIM-559 ruling on SES-G2 for the two bounds | Architect (Tim has not read) | not run |  | `rule` | `plugin-api` |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+ASP-109.

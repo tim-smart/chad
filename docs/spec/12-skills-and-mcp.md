@@ -171,7 +171,6 @@ clanka builds the MCP layer without ever failing. A server that cannot start or 
 Many hosted MCP servers answer 401 until the client has signed in with OAuth. v1 does not sign in with OAuth. clanka builds its HTTP transport with the static headers of the server's entry, so a server that wants a token gets it from a header, and a 401 at connect marks the server failed.
 
 - **MCP-139** v1 has no OAuth for MCP servers. An HTTP server signs in with the static `headers` of its entry in `mcp.json`, and a secret in a header is written as `${NAME}` (MCP-23). chad passes no `authProvider` to clanka's `McpServers.layer`, hands every server to that layer and builds no transport itself. A server that answers 401 is a failed server like any other. It is listed as unavailable with the first line of its error, in the apply output, in `chad status` and in the system prompt. There is no `chad mcp login` and no `chad mcp logout`, no `secrets/mcp-oauth.json`, no "needs login" status, and no notice, message or pending login for one. chad never consumes a pasted callback URL.
-- **MCP-101** Withdrawn.
 
 ## Tool calls while the MCP layer rebuilds
 
@@ -351,7 +350,6 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-97 | TIM-553 item 8, as recorded on TIM-555, TIM-557 item 41, TIM-559 round 2 R4 and R5; answered for Tim by Jarvis, chat 2026-11-15 | Architect (Tim has not read); confirmed by Jarvis, delegated by Tim on 2026-11-15 | run; no notice not run |  | `rule` | `skills-mcp` |
 | MCP-99 | TIM-558 item 33, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-100 | TIM-558 item 17, amended by TIM-559 ruling on MCP-G20, amended by Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16, amended by Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
-| MCP-101 | TIM-558 item 52, withdrawn by TIM-559 ruling on OV-G1 | Architect (Tim has not read) | not run |  | `rule` | - |
 | MCP-102 | TIM-559 ruling on MCP-G17 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-103 | TIM-559 ruling on MCP-G17 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-104 | TIM-559 ruling on MCP-G17 | Architect (Tim has not read) | not run |  | `rule` | `skills-mcp` |
@@ -372,3 +370,7 @@ The follow-up rules on TIM-537 are the seven rules agreed in TIM-549 (items 24 t
 | MCP-135 | TIM-559 round 3 A1, TIM-559 round 4 items 7 and 8 | Architect (Tim has not read) | not run |  | `definition` | - |
 | MCP-139 | Tim's ruling that v1 has no OAuth for MCP servers, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `skills-mcp` |
 | MCP-140 | Tim's ruling that an MCP rebuild has no gate, no drain and no held calls, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `skills-mcp` |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+MCP-29, MCP-46, MCP-47, MCP-48, MCP-49, MCP-50, MCP-51, MCP-52, MCP-53, MCP-54, MCP-55, MCP-56, MCP-57, MCP-58, MCP-59, MCP-60, MCP-61, MCP-62, MCP-63, MCP-64, MCP-69, MCP-70, MCP-72, MCP-76, MCP-77, MCP-78, MCP-79, MCP-80, MCP-84, MCP-95, MCP-96, MCP-98, MCP-101, MCP-115, MCP-116, MCP-117, MCP-118, MCP-119, MCP-120, MCP-121, MCP-122, MCP-123, MCP-124, MCP-125, MCP-126, MCP-127, MCP-128, MCP-129, MCP-130, MCP-136, MCP-137, MCP-138.

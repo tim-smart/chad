@@ -775,3 +775,7 @@ esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfi
 | CLI-236 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-237 | Build, stage 1 | Builder (Tim has not read) | run |  | `rule` | `cli` |
 | CLI-238 | Build, stage 2 | Builder (Tim has not read) | run |  | `rule` | `turns` |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+CLI-18, CLI-38, CLI-39, CLI-93, CLI-94, CLI-104, CLI-105, CLI-140, CLI-174, CLI-175, CLI-176, CLI-177.

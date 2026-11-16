@@ -424,3 +424,7 @@ A notice is a short message chad posts on its own account, as opposed to the age
 | REC-151 | TIM-559 round 3 L2, TIM-559 round 4 item 6 | Architect (Tim has not read) | not run |  | `rule` | `settings` |
 | REC-152 | TIM-559 round 3 A1, TIM-559 round 4 items 7 and 8 | Architect (Tim has not read) | read for clanka's walk; the refusal and the boot not run |  | `rule` | `apply` |
 | REC-153 | Tim's ruling that safe mode never starts by itself, chat 2026-11-16 | Tim; the wording Jarvis (Tim has not read) | not run |  | `rule` | `apply` |
+
+Retired ids. These rules were withdrawn and removed from this part with their Provenance rows, and the git history of this file holds their text. An id on this list is never used again, and a new rule takes a number above every id in the table and on this list.
+
+REC-65, REC-66, REC-67, REC-68, REC-69, REC-70, REC-126, REC-130, REC-131, REC-132, REC-133.
