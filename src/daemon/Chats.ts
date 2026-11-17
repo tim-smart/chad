@@ -61,12 +61,13 @@ const connectsAtRegister = (connection: Connection) =>
   connection.kind !== "discord"
 
 /**
- * A connection as its handler sees it while it runs: the name, the owner ids as they stand at each message, and its
- * platform's formatter.
+ * A connection as its handler sees it while it runs: the name, the owner ids and the ids of the channels that need no
+ * mention as they stand at each message, and its platform's formatter.
  */
 export interface Live {
   readonly name: string
   readonly owners: () => ReadonlyArray<string>
+  readonly channels: () => ReadonlyArray<string>
   readonly format: Format.Format
   /** How the platform renames a thread, or nothing for a platform that has not set how or is being taken down. */
   readonly rename: () => Rename | undefined
@@ -82,8 +83,8 @@ export interface Running<R> {
   readonly list: () => ReadonlyArray<Connection>
   /**
    * Makes the running connections those of the list. A connection that is new is started, one that is gone is taken
-   * down, one whose token changed is taken down and started with the new one, and an owner list is replaced where it
-   * stands.
+   * down, one whose token changed is taken down and started with the new one, and an owner or channel list is replaced
+   * where it stands.
    */
   readonly set: (
     connections: ReadonlyArray<Connection>,
@@ -156,6 +157,7 @@ export const make = <R>(
       const live: Live = {
         name: entry.connection.name,
         owners: () => entry.connection.owners,
+        channels: () => entry.connection.channels ?? [],
         format: Format.of(entry.connection.kind),
         rename: () => entry.rename,
       }

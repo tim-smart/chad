@@ -213,7 +213,7 @@ export const connectionsRefused = (rejected: {
   readonly detail: string
 }) => connectionRejected("serve", rejected)
 
-/** What a `connection` or `owner` command prints when it has made its change. */
+/** What a `connection`, `owner` or `channel` command prints when it has made its change. */
 export const connectionAdded = (name: string, kind: string) =>
   `connection ${name} added (${kind})`
 
@@ -244,13 +244,33 @@ export const ownerRemoved = (id: string, connection: string) =>
 export const ownerUnlisted = (id: string, connection: string) =>
   `owner ${id} is not an owner of ${connection}`
 
-/** One line of `chad connection list`. */
+/** What `chad channel add` prints when it has made its change. */
+export const channelAdded = (id: string, connection: string) =>
+  `channel ${id} on ${connection} needs no mention now`
+
+/** A channel change that found nothing to change. */
+export const channelListed = (id: string, connection: string) =>
+  `channel ${id} on ${connection} already needs no mention`
+
+/** What `chad channel remove` prints when it has made its change. */
+export const channelRemoved = (id: string, connection: string) =>
+  `channel ${id} on ${connection} needs a mention again`
+
+/** A channel change that found nothing to change. */
+export const channelUnlisted = (id: string, connection: string) =>
+  `channel ${id} on ${connection} is not on the list of channels that need no mention`
+
+/** One line of `chad connection list`. A connection with channels that need no mention names them too. */
 export const connectionLine = (
   name: string,
   kind: string,
   owners: ReadonlyArray<string>,
+  channels: ReadonlyArray<string> = [],
 ) =>
-  `${name} (${kind}) owners: ${owners.length === 0 ? "none" : owners.join(", ")}`
+  `${name} (${kind}) owners: ${owners.length === 0 ? "none" : owners.join(", ")}` +
+  (channels.length === 0
+    ? ""
+    : `, channels without a mention: ${channels.join(", ")}`)
 
 /** What `chad connection list` and `chad connection check` print when nothing is stored. */
 export const noConnections = () => "no connections"

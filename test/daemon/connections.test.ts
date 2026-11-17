@@ -1,4 +1,5 @@
-// The stored chat connections and their owners, through the `chad connection` and `chad owner` commands: with no
+// The stored chat connections, their owners and their channels that need no mention, through the `chad connection`,
+// `chad owner` and `chad channel` commands: with no
 // daemon, where the CLI writes the file itself, and with the daemon running, where the change applies at once.
 import {
   existsSync,
@@ -27,6 +28,7 @@ import {
   type Scenario,
   scenario,
 } from "../support/driver.ts"
+import { lines, posted, says } from "../support/owner.ts"
 
 const owner = "700000000000000001"
 const home = {
@@ -300,6 +302,8 @@ test("with CHAD_SESSION set, whatever its value, the CLI refuses every connectio
     ["connection remove", "connection", "remove", "local", "--force"],
     ["owner add", "owner", "add", "local", "ada"],
     ["owner remove", "owner", "remove", "local", "ada", "--force"],
+    ["channel add", "channel", "add", "local", "general"],
+    ["channel remove", "channel", "remove", "local", "general"],
   ]
   for (const session of ["daemon", "0b4b1c9e-55d0-4d0c-9f0a-3e8f0f7f2a11"]) {
     const refused = await Promise.all(
@@ -505,6 +509,59 @@ test("an owner added to a local connection with chad owner add is answered at on
     done([Messages.noConnections()]),
   )
   expect((await running.chad(["status"])).stdout).not.toContain("connection:")
+})
+
+test("a channel added with chad channel add takes an owner's message without a mention at once, a stranger's is still ignored there, other channels still need one, and chad channel remove makes it need one again", async () => {
+  const running = await scenario({ env: { CHAD_LOG_LEVEL: "debug" } })
+  const { fakes } = running
+  await fakes.model.script([{ text: "one" }])
+  const open = await fakes.chat.makeThread("channel")
+  const other = await fakes.chat.makeThread("channel")
+  const reasons = () =>
+    running
+      .log()
+      .filter((line) => line.annotations["event"] === "message.ignored")
+      .map((line) => line.annotations["reason"])
+
+  expect(await running.chad(["channel", "add", "local", open.id])).toEqual(
+    done([Messages.channelAdded(open.id, "local")]),
+  )
+  expect(await running.chad(["channel", "add", "local", open.id])).toEqual(
+    done([Messages.channelListed(open.id, "local")]),
+  )
+  expect(await running.chad(["connection", "list"])).toEqual(
+    done([Messages.connectionLine("local", "local", ["owner"], [open.id])]),
+  )
+
+  // The owner list still decides who is answered.
+  expect(
+    await fakes.chat.deliver(
+      await fakes.chat.userPosts(open, { text: "hi", authorId: "stranger" }),
+    ),
+  ).toBe(true)
+  await says(running, other, "hello")
+  await lines(running, "message.ignored", 2)
+  expect(reasons()).toEqual(["not-owner", "not-mentioned"])
+
+  // The owner's message opens a thread on it, as a mention does.
+  await says(running, open, "hello")
+  await running.logged("turn.ended")
+  const opened = (await Effect.runPromise(running.chat.calls)).filter(
+    (call) => call.op === "startThread",
+  )
+  expect(opened.map((call) => call.thread)).toEqual([open])
+
+  expect(await running.chad(["channel", "remove", "local", open.id])).toEqual(
+    done([Messages.channelRemoved(open.id, "local")]),
+  )
+  expect(await running.chad(["channel", "remove", "local", open.id])).toEqual(
+    done([Messages.channelUnlisted(open.id, "local")]),
+  )
+  await says(running, open, "again")
+  await lines(running, "message.ignored", 3)
+  expect(reasons()).toEqual(["not-owner", "not-mentioned", "not-mentioned"])
+  expect(await posted(running, open)).toEqual([])
+  expect(await fakes.model.calls()).toHaveLength(1)
 })
 
 /** Calls the daemon of a scenario as a client of another process does, with the headers given. */

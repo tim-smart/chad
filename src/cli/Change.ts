@@ -7,7 +7,7 @@ import { ExitCode, Failure } from "./Failure.ts"
 import * as Files from "./Files.ts"
 import * as Owner from "./Owner.ts"
 
-/** How the `connection` and `owner` commands end when the store or the daemon turns one down. */
+/** How the `connection`, `owner` and `channel` commands end when the store or the daemon turns one down. */
 export const rejected =
   (command: string) =>
   (error: Connections.Rejected | Failure): Failure =>
@@ -19,7 +19,7 @@ export const rejected =
         })
 
 /**
- * Makes the change of a `connection` or `owner` command. A running daemon is asked to make it, because it would not
+ * Makes the change of a `connection`, `owner` or `channel` command. A running daemon is asked to make it, because it would not
  * see what another process wrote. With no daemon the CLI checks the token itself and writes the file while it holds
  * the lock.
  *

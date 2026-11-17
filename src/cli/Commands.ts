@@ -1,5 +1,6 @@
 import { apply } from "./commands/apply.ts"
 import { backup, restore } from "./commands/backup.ts"
+import { channel } from "./commands/channel.ts"
 import { check } from "./commands/check.ts"
 import { connection } from "./commands/connection.ts"
 import { db } from "./commands/db.ts"
@@ -29,6 +30,7 @@ export const commands = [
   status,
   connection,
   owner,
+  channel,
   setup,
   login,
   logout,

@@ -16,7 +16,7 @@ A check with no recorded result has not run.
 | 2. Codex login in a thread                                   | The first direct message posts a login code, and its turn finishes once you approve the code.                                    | not run |
 | 3. A direct message                                          | chad answers a direct message on the login from check 2.                                                                         | not run |
 | 4. Stop                                                      | The Stop button on the status message stops a turn.                                                                              | not run |
-| 5. A mention in a server channel, then a message without one | A mention opens a thread that the model titles, and chad reads a message in that thread that does not mention it.                | not run |
+| 5. A mention in a server channel, then a message without one | A mention opens a thread that the model titles, chad reads a reply there with no mention, and a listed channel needs none.       | not run |
 | 6. The other Codex models (optional)                         | The sub-agent runs on `gpt-6.1-sol`, `gpt-6.1-terra` or `gpt-6-luna` on your login.                                              | not run |
 | 7. Fast mode (optional)                                      | The Codex login accepts the `priority` service tier, and a turn answers on it.                                                   | not run |
 | 8. Slash commands                                            | Discord lists chad's slash commands, and each does what the typed command does.                                                  | not run |
@@ -120,11 +120,15 @@ Passes when the turn ends with a `Stopped after <time>.` line, and chad answers 
 2. chad opens a thread on that message and answers in it. Within a few seconds the thread's name changes from the
    message's text to a short title the model wrote.
 3. In that thread, send a message with no mention, such as "and times 3?".
+4. Copy the text channel's id, run `chad channel add discord <channel-id>`, and send a message with no mention in the
+   text channel. chad opens a thread on it and answers there.
+5. Run `chad channel remove discord <channel-id>` and send another message with no mention in the text channel.
 
-Passes when chad answers the second message in the thread. If the thread keeps the message's text as its name,
-`chad logs` has a `thread.untitled` line with the reason. If it answers the first and ignores the second, the message
-content intent is off. If no thread opens, the bot lacks Create Public Threads in that channel. The invite asks for
-View Channel, Send Messages, Send Messages in Threads, Create Public Threads, Read Message History and Attach Files.
+Passes when chad answers the second message in the thread and the message of step 4, and ignores the message of step 5.
+If the thread keeps the message's text as its name, `chad logs` has a `thread.untitled` line with the reason. If it
+answers the first and ignores the second, the message content intent is off. If no thread opens, the bot lacks Create
+Public Threads in that channel. The invite asks for View Channel, Send Messages, Send Messages in Threads, Create
+Public Threads, Read Message History and Attach Files.
 
 ## 6. The other Codex models (optional)
 

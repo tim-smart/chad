@@ -11,3 +11,23 @@ The list is by id and nothing else. An id on it is an owner whether it belongs t
 the list makes everyone who holds the webhook URL an owner.
 
 chad never answers its own messages, even when its own id is on the list.
+
+## Channels that need no mention
+
+In a server channel an owner's message needs a mention of chad, and chad opens a thread on it. A direct message and a
+thread that already has a session need none. A connection can also list channels where an owner's message needs no
+mention either:
+
+```sh
+chad channel add <connection> <channel-id>
+chad channel remove <connection> <channel-id>
+```
+
+The id is the one the platform sends with a message. For Discord it is the channel id, which you copy with Developer
+Mode on. A thread id works too. In a listed channel an owner's message is read as if it mentioned chad, so each one
+opens a thread of its own, as a mention does. Every other channel keeps needing a mention.
+
+The list is off by default, and it changes nothing about who chad answers: a message from someone who is not an owner
+is still ignored with the reason `not-owner`, in a listed channel too. The change applies at the next message, with no
+restart. `chad connection list` shows each connection's channels after its owners, and the list is kept with the
+connection in `secrets/connections.json`.
