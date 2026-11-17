@@ -5,8 +5,8 @@
 //   node scripts/vendor.ts --newest --clanka newest   and the newest clanka from npm
 //
 // The download is no install. The tarballs are written under vendor/, and the install that follows reads them from
-// there. A newer snapshot stays only when the scenario of a message in and a scripted answer out
-// passes on it. When it does not, the old set is put back and the script exits 1.
+// there. A newer snapshot stays only when the scenario of a message in and an answer out,
+// test/daemon/answer.test.ts, passes on it. When it does not, the old set is put back and the script exits 1.
 import { spawnSync } from "node:child_process"
 import { readFileSync, writeFileSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
@@ -176,9 +176,7 @@ const main = async (argv: ReadonlyArray<string>) => {
         "run",
         "--project",
         "daemon",
-        "test/daemon/turn.test.ts",
-        "-t",
-        "a message in and a scripted answer out",
+        "test/daemon/answer.test.ts",
       ),
   }
   if (commit === manifest.commit) {

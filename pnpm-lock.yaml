@@ -274,33 +274,33 @@ packages:
     engines: {node: '>=6.9.0'}
 
   '@effect/ai-openai-compat@file:vendor/effect-ai-openai-compat.tgz':
-    resolution: {integrity: sha512-vMaHoWyXqkfSI1F5Ulhe5r1Fp329cAOdL0nYxocQH+CGuWAR3CVRbjjKfdJHl7NmZEUnJRcAkh7P2EuG2LHjgg==, tarball: file:vendor/effect-ai-openai-compat.tgz}
+    resolution: {integrity: sha512-19qjeH/M1lleQJC7YexaJMeBbKmQA94x7WeDVCZ2caUgt3F/qtjD/6wJZD0jLAy5k6nwmXqD3spCB2NWYhgLvg==, tarball: file:vendor/effect-ai-openai-compat.tgz}
     version: 4.1.4
     peerDependencies:
       effect: ^4.1.4
 
   '@effect/ai-openai@file:vendor/effect-ai-openai.tgz':
-    resolution: {integrity: sha512-uF1r2kzfYv0l1KvKMhKQVQfJ4ae1ZqtKabVWlyGYFI0fdaTXKmCxD+0gLcYiUv2HOR/MyuEGKnURKpoth0xlJQ==, tarball: file:vendor/effect-ai-openai.tgz}
+    resolution: {integrity: sha512-TlAD//irdOwWwuXTWiKpmGCpIR28E5c15AQ3Ee9dx02bb6z4QH6rfnKazVsyMdJS+xLQa0Kn8b2rCPqjOfW5Uw==, tarball: file:vendor/effect-ai-openai.tgz}
     version: 4.1.4
     peerDependencies:
       effect: ^4.1.4
 
   '@effect/chat-discord@file:vendor/effect-chat-discord.tgz':
-    resolution: {integrity: sha512-HSpNisV1SFxYOrvsIZ13TsVzYQ9K2Rse/2ERxRQnlxzADkUVHTJgG0a/ysVL7DKW2D6llb8nNBHpkeTbjxtwIA==, tarball: file:vendor/effect-chat-discord.tgz}
+    resolution: {integrity: sha512-jA3H1IAsZ7mWG00ByLKuoEDgH9va4tBvUe/i3YYxjeHQ/GVa38209WcJJ3oKZH0SBQxozmTTMmcfV5f2RZjZ5g==, tarball: file:vendor/effect-chat-discord.tgz}
     version: 4.1.4
     peerDependencies:
       dfx: ^1.1.1
       effect: ^4.1.4
 
   '@effect/platform-node-shared@file:vendor/effect-platform-node-shared.tgz':
-    resolution: {integrity: sha512-Y3vn22Qrz3dABw4278LzKr87zBOjzOdCOawfTNU8QvqdUt8gMpH8u4yx332AB7rSbGldQjOUIOmkFJ0xalA1BQ==, tarball: file:vendor/effect-platform-node-shared.tgz}
+    resolution: {integrity: sha512-koJ/J/Hk4RoY2AfDR5rxsfcQs1G28SVqKjSdSRr8d/wuA4GF8b+AibBBO/klsY3agHGnV/P1t3XxwbvIv6XNow==, tarball: file:vendor/effect-platform-node-shared.tgz}
     version: 4.1.4
     engines: {node: '>=22.19.0'}
     peerDependencies:
       effect: ^4.1.4
 
   '@effect/platform-node@file:vendor/effect-platform-node.tgz':
-    resolution: {integrity: sha512-JOKSd3Of2JLpYSwXZcmueFyu3Q1dA3JkVvmowlvC1WFqSy+NU3MEr/jeo+4kV2t6z5M3FHjlODftfW33svOGow==, tarball: file:vendor/effect-platform-node.tgz}
+    resolution: {integrity: sha512-2NKWeTIroMsJnoO2QLFqnc65S+O8V/jCnF1P7Px6IP90R1OvSeNrNapi8mK4vG+eMzfDfyRWQEQ2t6hcJR0TAQ==, tarball: file:vendor/effect-platform-node.tgz}
     version: 4.1.4
     engines: {node: '>=22.19.0'}
     peerDependencies:
@@ -308,13 +308,13 @@ packages:
       redis: '>=5.1.0 <7.0.0'
 
   '@effect/sql-sqlite-node@file:vendor/effect-sql-sqlite-node.tgz':
-    resolution: {integrity: sha512-iZaebZUtkZan4fz7wK6rUIpj5G0lBS0CfYBHegb8A8LcTGfCYA2UxpaIsWLfBueAE1NObET4N4Hz78I4TYz9ng==, tarball: file:vendor/effect-sql-sqlite-node.tgz}
+    resolution: {integrity: sha512-RDNM/MPI4eFWGfoN5AGHLDe8Mwy7pEitVmmaJKGcMotvvr79Ld9cVhtoqHWNzbm993FGLGmnuDQ9IA/3Tg3p6A==, tarball: file:vendor/effect-sql-sqlite-node.tgz}
     version: 4.1.4
     peerDependencies:
       effect: ^4.1.4
 
   '@effect/vitest@file:vendor/effect-vitest.tgz':
-    resolution: {integrity: sha512-N4fWItZsmPST5/cEx/J3iEOfhNkLX25dFYp+5PfpDJnLcBZvnQ9e3YFNdLczOvwpzCUF+mWrso8Jsp35S2CpnQ==, tarball: file:vendor/effect-vitest.tgz}
+    resolution: {integrity: sha512-379OMr6nrQgmXmwKxBPqOW9kiG2qJ5p7QPscsjpdNfs00AvOD00HlY2rH8h4LFzPwq3Arb4txCgM5+dCoEJH4g==, tarball: file:vendor/effect-vitest.tgz}
     version: 4.1.4
     peerDependencies:
       effect: ^4.1.4
@@ -1314,7 +1314,7 @@ packages:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
 
   effect@file:vendor/effect.tgz:
-    resolution: {integrity: sha512-9iIn6J/y5ps7YrLyWal/bLNl/9FB6uT/u3cmvSHyOSossb7natpyulR1N2GvbuHXtzaIhz4NI3fLrevLr3ydsQ==, tarball: file:vendor/effect.tgz}
+    resolution: {integrity: sha512-iuAGFhu41Lp2LW9xBZBoCQ6LjV6m+JYt7RMyneP09gmfjKHZvY8RtUVrvaznpMHNopVq5h45DYWZInGbwOV+tw==, tarball: file:vendor/effect.tgz}
     version: 4.1.4
 
   empathic@2.1.0:
