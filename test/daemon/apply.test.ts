@@ -704,3 +704,52 @@ test("a check refuses AGENTS.md in work/ and a plugin with a bundled plugin's na
   expect(named.stderr).toContain(Messages.bundledNameRefused("guard"))
   expect(git(work, ["log", "--format=%s", "-1", "applied"])).toBe(subject)
 }, 30_000)
+
+test("a check formats plugins with a JavaScript Prettier config read fresh each time, reports a config that fails to load, and never follows a link at work/plugins", async () => {
+  const directory = fresh()
+  applied(join(directory, "data", "repo"), { "plugins/dice.ts": dice("one") })
+  const running = await scenario({ directory })
+  await running.logged("boot.ready")
+  const work = join(running.data, "repo", "work")
+  const messy = dice("two").replace(
+    "const Dice = Toolkit.make(Roll)",
+    "const Dice   =   Toolkit.make( Roll )",
+  )
+  const dicePath = join(work, "plugins/dice.ts")
+
+  // The config is loaded on each check, not kept from the first.
+  write(work, {
+    "plugins/dice.ts": messy,
+    ".prettierrc.mjs": "export default { semi: true }\n",
+  })
+  expect((await running.chad(["check"])).code).toBe(0)
+  expect(readFileSync(dicePath, "utf8")).toContain(
+    "const Dice = Toolkit.make(Roll);\n",
+  )
+  write(work, { ".prettierrc.mjs": "export default { semi: false }\n" })
+  const fresher = await running.chad(["check"])
+  expect(fresher.stdout).toContain(
+    Messages.prettierFormatted(["work/plugins/dice.ts"]),
+  )
+  expect(readFileSync(dicePath, "utf8")).toBe(dice("two"))
+
+  // A config that does not load is reported, and the plugin is left as it is.
+  write(work, {
+    "plugins/dice.ts": messy,
+    ".prettierrc.mjs": "export default { semi: false; }\n",
+  })
+  const broken = await running.chad(["check"])
+  expect(broken.stdout).toContain(
+    "Prettier could not format work/plugins/dice.ts, so it is left as it is: work/.prettierrc.mjs:",
+  )
+  expect(readFileSync(dicePath, "utf8")).toBe(messy)
+
+  // A link at work/plugins is not followed, so nothing outside work/ is written.
+  rmSync(join(work, ".prettierrc.mjs"))
+  const outside = join(directory, "outside")
+  write(outside, { "dice.ts": messy })
+  rmSync(join(work, "plugins"), { recursive: true })
+  symlinkSync(outside, join(work, "plugins"))
+  await running.chad(["check"])
+  expect(readFileSync(join(outside, "dice.ts"), "utf8")).toBe(messy)
+}, 30_000)

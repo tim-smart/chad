@@ -3,8 +3,8 @@
  * snapshot, so what an apply commits is formatted.
  */
 import { join } from "node:path"
-import { Effect, FileSystem } from "effect"
-import * as prettier from "prettier"
+import { Effect, FileSystem, Schema, Stream } from "effect"
+import { ChildProcess, ChildProcessSpawner } from "effect/process"
 import * as Messages from "../Messages.ts"
 
 /** What a format did: the files it rewrote and those it could not format, as `work/` paths. */
@@ -17,19 +17,72 @@ export interface Formatted {
 }
 
 /** chad's own style, which the bundled plugins under `examples/` are written in, for a tree with no Prettier config. */
-const style: prettier.Options = { semi: false }
+const style = { semi: false }
 
-/** The `.ts` files under `plugins/`, as paths from `work`. A link is not followed, and `node_modules` is left out. */
+/**
+ * The script of the child process that formats. It reads `{ prettier, style, files }` on stdin and writes one result
+ * for each file on stdout. A config is resolved apart from the format, so a config that fails is reported and is never
+ * taken for a plugin that does not parse. A plugin that does not parse is Prettier's `SyntaxError`, the one with a
+ * `loc`.
+ */
+const script = `
+let input = ""
+for await (const chunk of process.stdin) input += chunk
+const { prettier, style, files } = JSON.parse(input)
+const { format, resolveConfig, resolveConfigFile } = await import(prettier)
+const message = (error) => (error instanceof Error ? error.message : String(error))
+const results = []
+for (const { path, text } of files) {
+  let options
+  try {
+    options = (await resolveConfig(path)) ?? style
+  } catch (error) {
+    const config = await resolveConfigFile(path).catch(() => null)
+    results.push({ _tag: "Failed", error: (config === null ? "" : config + ": ") + message(error) })
+    continue
+  }
+  try {
+    results.push({ _tag: "Formatted", text: await format(text, { ...options, filepath: path }) })
+  } catch (error) {
+    results.push(
+      error instanceof SyntaxError && "loc" in error ? { _tag: "Unparsed" } : { _tag: "Failed", error: message(error) },
+    )
+  }
+}
+process.stdout.write(JSON.stringify(results))
+`
+
+const Results = Schema.fromJsonString(
+  Schema.Array(
+    Schema.Union([
+      Schema.TaggedStruct("Formatted", { text: Schema.String }),
+      Schema.TaggedStruct("Unparsed", {}),
+      Schema.TaggedStruct("Failed", { error: Schema.String }),
+    ]),
+  ),
+)
+
+/**
+ * The `.ts` files under `plugins/`, as paths from `work`. No link is followed, `plugins` itself included, so a format
+ * never writes outside `work/`. `node_modules` is left out.
+ */
 const sources = Effect.fnUntraced(function* (work: string) {
   const fs = yield* FileSystem.FileSystem
   const found: Array<string> = []
+  // A missing entry or one that cannot be read holds nothing to format, and the check reports what it lacks.
+  const entries = (relative: string) =>
+    fs
+      .readDirectoryEntries(join(work, relative))
+      .pipe(
+        Effect.orElseSucceed(
+          (): ReadonlyArray<FileSystem.DirectoryEntry> => [],
+        ),
+      )
   const walk = (relative: string): Effect.Effect<void> =>
-    fs.readDirectoryEntries(join(work, relative)).pipe(
-      // A `plugins` that is missing or cannot be read holds nothing to format, and the check reports what it lacks.
-      Effect.orElseSucceed((): ReadonlyArray<FileSystem.DirectoryEntry> => []),
-      Effect.flatMap((entries) =>
+    entries(relative).pipe(
+      Effect.flatMap((listed) =>
         Effect.forEach(
-          [...entries].sort((a, b) => (a.name < b.name ? -1 : 1)),
+          [...listed].sort((a, b) => (a.name < b.name ? -1 : 1)),
           ({ name, type }) => {
             const path = `${relative}/${name}`
             if (type === "Directory" && name !== "node_modules")
@@ -41,51 +94,103 @@ const sources = Effect.fnUntraced(function* (work: string) {
         ),
       ),
     )
-  yield* walk("plugins")
+  const root = (yield* entries(".")).find(({ name }) => name === "plugins")
+  if (root?.type === "Directory") yield* walk("plugins")
   return found
 })
 
 /**
  * Formats every `.ts` file under `work/plugins/` with Prettier and the config it finds from the file, or chad's style
- * when there is none, and writes back
- * only a file that changed. A file that does not parse is left as it is for the type-check to report, and any other
- * failure leaves that file as it is and is given back.
+ * when there is none, and writes back only a file that changed. A file that does not parse is left as it is for the
+ * type-check to report, and any other failure, a config that cannot be loaded included, leaves that file as it is and
+ * is given back.
+ *
+ * Prettier runs in a child process of its own each time, so a config that is JavaScript is loaded fresh, as Node's
+ * cache of modules would otherwise keep the first version the daemon loaded, and its code runs outside the daemon.
  */
 export const plugins = Effect.fnUntraced(function* (work: string) {
   const fs = yield* FileSystem.FileSystem
-  // The daemon lives long and an edit to a config in `work/` has to reach the next format.
-  yield* Effect.promise(() => prettier.clearConfigCache())
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
+  const relatives = yield* sources(work)
   const formatted: Array<string> = []
   const failed: Array<{ readonly file: string; readonly error: string }> = []
-  for (const relative of yield* sources(work)) {
+  const toWork = (text: string) =>
+    Messages.firstLine(text).replaceAll(`${work}/`, "work/")
+  const files: Array<{
+    readonly relative: string
+    readonly path: string
+    readonly text: string
+  }> = []
+  for (const relative of relatives) {
     const path = join(work, relative)
-    const file = `work/${relative}`
-    const result = yield* Effect.gen(function* () {
-      const text = yield* fs.readFileString(path)
-      const pretty = yield* Effect.tryPromise({
-        try: async () =>
-          prettier.format(text, {
-            ...((await prettier.resolveConfig(path)) ?? style),
-            filepath: path,
-          }),
-        catch: (cause) => cause,
+    const read = yield* Effect.result(fs.readFileString(path))
+    if (read._tag === "Failure")
+      failed.push({
+        file: `work/${relative}`,
+        error: toWork(read.failure.message),
       })
-      if (pretty === text) return false
-      yield* fs.writeFileString(path, pretty)
-      return true
-    }).pipe(Effect.result)
-    if (result._tag === "Success") {
-      if (result.success) formatted.push(file)
+    else files.push({ relative, path, text: read.success })
+  }
+  if (files.length === 0)
+    return { formatted: [], failed } satisfies Formatted as Formatted
+  const input = JSON.stringify({
+    prettier: import.meta.resolve("prettier"),
+    style,
+    files: files.map(({ path, text }) => ({ path, text })),
+  })
+  const ran = yield* Effect.scoped(
+    Effect.gen(function* () {
+      const handle = yield* spawner.spawn(
+        ChildProcess.make(
+          process.execPath,
+          ["--input-type=module", "--eval", script],
+          {
+            cwd: work,
+            stdin: {
+              stream: Stream.make(new TextEncoder().encode(input)),
+            },
+          },
+        ),
+      )
+      return yield* Effect.all(
+        [
+          Stream.mkString(Stream.decodeText(handle.stdout)),
+          Stream.mkString(Stream.decodeText(handle.stderr)),
+          handle.exitCode,
+        ],
+        { concurrency: 3 },
+      )
+    }),
+  ).pipe(
+    Effect.flatMap(([stdout, stderr, code]) =>
+      code === 0
+        ? Schema.decodeUnknownEffect(Results)(stdout).pipe(
+            Effect.mapError(() => stderr.trim() || "no results"),
+          )
+        : Effect.fail(stderr.trim() || `exit code ${code}`),
+    ),
+    Effect.mapError((error) =>
+      toWork(typeof error === "string" ? error : error.message),
+    ),
+    Effect.result,
+  )
+  for (const [index, { relative, path, text }] of files.entries()) {
+    const file = `work/${relative}`
+    if (ran._tag === "Failure") {
+      failed.push({ file, error: ran.failure })
       continue
     }
-    const error = result.failure
-    if (error instanceof SyntaxError) continue
-    failed.push({
-      file,
-      error: Messages.firstLine(
-        error instanceof Error ? error.message : String(error),
-      ),
-    })
+    const result = ran.success[index]
+    if (result?._tag === "Failed") {
+      failed.push({ file, error: toWork(result.error) })
+    } else if (result?._tag === "Formatted" && result.text !== text) {
+      const written = yield* Effect.result(
+        fs.writeFileString(path, result.text),
+      )
+      if (written._tag === "Failure")
+        failed.push({ file, error: toWork(written.failure.message) })
+      else formatted.push(file)
+    }
   }
   return { formatted, failed } satisfies Formatted as Formatted
 })
