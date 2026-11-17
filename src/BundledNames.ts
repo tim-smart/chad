@@ -4,6 +4,7 @@
  */
 export const plugins = [
   "send-file",
+  "send-message",
   "cron",
   "asphodel",
   "request-secret",
