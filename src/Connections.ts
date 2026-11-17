@@ -34,6 +34,11 @@ export const Connection = Schema.Struct({
   token: Schema.optionalKey(Schema.String),
   /** The ids of the users who may talk to chad on this connection. */
   owners: Schema.Array(Schema.String),
+  /**
+   * The ids of the channels in which an owner's message needs no mention, as if it mentioned chad. A connection that
+   * has none needs no key, so a file that an older chad wrote reads the same.
+   */
+  channels: Schema.optionalKey(Schema.Array(Schema.String)),
 })
 export type Connection = typeof Connection.Type
 
@@ -47,13 +52,18 @@ export const Listed = Schema.Struct({
   name: Schema.String,
   kind: Kind,
   owners: Schema.Array(Schema.String),
+  channels: Schema.optionalKey(Schema.Array(Schema.String)),
 })
 export type Listed = typeof Listed.Type
 
 export const listed = (
   connections: ReadonlyArray<Connection>,
 ): ReadonlyArray<Listed> =>
-  connections.map(({ name, kind, owners }) => ({ name, kind, owners }))
+  connections.map(({ name, kind, owners, channels }) =>
+    channels === undefined
+      ? { name, kind, owners }
+      : { name, kind, owners, channels },
+  )
 
 /** Why a command was refused or failed. Each reason has one message in the `Messages` module. */
 export const Reason = Schema.Literals([
@@ -86,7 +96,7 @@ export class Rejected extends Schema.TaggedError<Rejected>(
 const rejected = (reason: Reason, name: string, detail = "") =>
   new Rejected({ reason, name, detail })
 
-/** What a `connection` or `owner` command changes. */
+/** What a `connection`, `owner` or `channel` command changes. */
 export const Change = Schema.Union([
   Schema.TaggedStruct("Add", {
     name: Schema.String,
@@ -101,6 +111,11 @@ export const Change = Schema.Union([
     id: Schema.String,
     force: Schema.Boolean,
   }),
+  Schema.TaggedStruct("ChannelAdd", { name: Schema.String, id: Schema.String }),
+  Schema.TaggedStruct("ChannelRemove", {
+    name: Schema.String,
+    id: Schema.String,
+  }),
 ])
 export type Change = typeof Change.Type
 
@@ -112,11 +127,13 @@ export const commandOf = (change: Change): string =>
     Remove: "connection remove",
     OwnerAdd: "owner add",
     OwnerRemove: "owner remove",
+    ChannelAdd: "channel add",
+    ChannelRemove: "channel remove",
   })[change._tag]
 
 /** What a change that was made gives back. */
 export const Changed = Schema.Struct({
-  /** False for an owner id that was already on the list, or already off it. */
+  /** False for an owner or channel id that was already on the list, or already off it. */
   changed: Schema.Boolean,
   /** The id of the Discord application a checked token belongs to, which the invite URL is made from. */
   application: Schema.optionalKey(Schema.String),
@@ -281,6 +298,21 @@ export const apply = (
         return owners.length === 0 && !change.force
           ? yield* rejected("last-owner", change.name, change.id)
           : replaced({ ...current, owners })
+      }
+      case "ChannelAdd": {
+        const channels = current.channels ?? []
+        return channels.includes(change.id)
+          ? { connections, changed: false }
+          : replaced({ ...current, channels: [...channels, change.id] })
+      }
+      case "ChannelRemove": {
+        const channels = current.channels ?? []
+        if (!channels.includes(change.id)) {
+          return { connections, changed: false }
+        }
+        const { channels: _, ...rest } = current
+        const left = channels.filter((id) => id !== change.id)
+        return replaced(left.length === 0 ? rest : { ...rest, channels: left })
       }
     }
   })

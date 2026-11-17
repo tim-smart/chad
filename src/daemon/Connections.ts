@@ -8,7 +8,7 @@ import * as Queue from "./Queue.ts"
 import type { Volume } from "./Volume.ts"
 
 /**
- * The `connection` and `owner` commands as the running daemon makes them. The daemon holds the lock, so it is the
+ * The `connection`, `owner` and `channel` commands as the running daemon makes them. The daemon holds the lock, so it is the
  * one writer of `secrets/connections.json`, and what it writes there it loads at once.
  */
 export interface Commands {
@@ -90,7 +90,12 @@ export const make = Effect.fnUntraced(function* <R>(
           if (change._tag === "Remove") {
             yield* deleteShardState((name) => name === change.name)
           }
-          if (change._tag !== "Add" && change._tag !== "Token") {
+          // A channel list changes no one's access, so only a change to who the owners are rebuilds the plugins.
+          if (
+            change._tag === "Remove" ||
+            change._tag === "OwnerAdd" ||
+            change._tag === "OwnerRemove"
+          ) {
             yield* owners(change._tag !== "OwnerAdd")
           }
         }).pipe(Effect.uninterruptible)

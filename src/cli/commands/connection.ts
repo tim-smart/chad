@@ -85,8 +85,10 @@ const list = Command.make(
       if (connections.length === 0) {
         return yield* Console.log(Messages.noConnections())
       }
-      for (const { name, kind, owners } of connections) {
-        yield* Console.log(Messages.connectionLine(name, kind, owners))
+      for (const { name, kind, owners, channels } of connections) {
+        yield* Console.log(
+          Messages.connectionLine(name, kind, owners, channels),
+        )
       }
     },
     Effect.mapError(Change.rejected("connection list")),

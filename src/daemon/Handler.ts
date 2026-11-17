@@ -89,6 +89,17 @@ export const SecretSave = Context.Reference<{
   defaultValue: () => ({ run: () => Effect.void }),
 })
 
+/**
+ * Whether a message counts as mentioning chad: it mentions chad, or it was posted in a channel or thread whose id is
+ * on the connection's list of channels that need no mention. A direct message needs none anyway.
+ */
+const addressed = (
+  connection: Live,
+  event: Pick<ChatEvent.MessageCreated, "kind" | "thread" | "message">,
+) =>
+  ChatMessage.mentionsSelf(event.message) ||
+  (event.kind !== "direct" && connection.channels().includes(event.thread.id))
+
 /** The chat commands, by their first word. They are plain text, and none of them reaches the model. */
 const commands = {
   "/new": "new",
@@ -131,10 +142,10 @@ export const command = (
  * message whose author is not on the connection's owner list. The allowlist is by user id and nothing else, and it is
  * read at each message, so an owner change holds from the next one on.
  *
- * An owner's message needs no mention in a direct message or in a thread that has a session. In a plain channel it
- * needs one, and chad opens a thread on it, which is the session. A chat command goes to the session as a request
- * that is not persisted, and every other message is saved as a request to the session of its thread. The handler
- * never waits for a turn.
+ * An owner's message needs no mention in a direct message, in a thread that has a session, or in a channel or thread
+ * whose id is on the connection's channel list. Anywhere else it needs one. In a plain channel chad opens a thread on
+ * it, which is the session. A chat command goes to the session as a request that is not persisted, and every other
+ * message is saved as a request to the session of its thread. The handler never waits for a turn.
  */
 export const layer = (connection: Live) =>
   ChatHandler.layer(
@@ -173,7 +184,7 @@ export const layer = (connection: Live) =>
         // it.
         const claim = (where: ChatThread.ChatThread) =>
           Sessions.claim(ChatEvent.dedupeKey(event), ChatThread.toString(where))
-        const mentioned = ChatMessage.mentionsSelf(message)
+        const mentioned = addressed(connection, event)
         const word = command(message)
         const status = Effect.flatMap(Status, (service) => service.text)
         // `/model` is answered where it was typed, in a plain channel too, which gets no thread for it.
@@ -357,9 +368,9 @@ export const layer = (connection: Live) =>
 
 /**
  * The handler while the database cannot be opened or migrated. An owner's message in a direct message, or one that
- * mentions chad, gets the error where it was posted, and a plain channel opens no thread for it. `/status` gets the
- * status, which renders with no database. A message that does not mention chad, in a thread or a plain channel, is
- * ignored, because which threads are sessions is in the database. Nothing is saved, so a post that fails is logged and
+ * mentions chad or is in a channel that needs no mention, gets the error where it was posted, and a plain channel opens
+ * no thread for it. `/status` gets the status, which renders with no database. Any other message in a thread or a plain
+ * channel is ignored, because which threads are sessions is in the database. Nothing is saved, so a post that fails is logged and
  * the event is not refused.
  */
 export const unusable = (
@@ -381,7 +392,7 @@ export const unusable = (
       if (!connection.owners().includes(message.author.id)) {
         return yield* ignored("not-owner")
       }
-      if (event.kind !== "direct" && !ChatMessage.mentionsSelf(message)) {
+      if (event.kind !== "direct" && !addressed(connection, event)) {
         return yield* ignored("not-mentioned")
       }
       const answer =
