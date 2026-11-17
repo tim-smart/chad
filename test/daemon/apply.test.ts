@@ -172,16 +172,26 @@ test("an apply commits work/ and loads it at the session's next turn, a failed a
     "work: no changes since the applied commit",
   )
 
-  // A check commits nothing.
-  write(work, { "plugins/dice.ts": dice("one") })
+  // A check commits nothing, and formats the plugin code in work/ with Prettier.
+  write(work, {
+    "plugins/dice.ts": dice("one").replace(
+      "const Dice = Toolkit.make(Roll)",
+      "const Dice   =   Toolkit.make( Roll );",
+    ),
+  })
   expect((await running.chad(["status"])).stdout).toContain(
     "work: holds changes that are not applied",
   )
   const checked = await running.chad(["check"])
   expect(checked).toMatchObject({
     code: 0,
-    stdout: Messages.checkPassed + "\n",
+    stdout:
+      Messages.prettierFormatted(["work/plugins/dice.ts"]) +
+      "\n" +
+      Messages.checkPassed +
+      "\n",
   })
+  expect(readFileSync(join(work, "plugins/dice.ts"), "utf8")).toBe(dice("one"))
   expect(await log()).toHaveLength(1)
 
   expect((await running.chad(["apply", "-m", "Add dice"])).code).toBe(0)
