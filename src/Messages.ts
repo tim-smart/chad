@@ -632,7 +632,15 @@ export const modelOverrideProvider = (text: string, provider: string) =>
 
 export { modelTrial } from "./Trial.ts"
 
-/** A check or a trial request that had no answer by its deadline. */
+export { titlePrompt } from "./Title.ts"
+
+/** A title request whose answer holds no title. */
+export const titleEmpty = "the answer holds no title"
+
+/** A title for a thread whose connection no longer renames threads, because it is being taken down. */
+export const titleNoRename = "the connection renames no thread now"
+
+/** A check, a trial or a thread's title that had no answer by its deadline. */
 export const modelTrialTimedOut = "no answer within the deadline"
 
 /** One model's sentence of the `model-check-failed` notice. */

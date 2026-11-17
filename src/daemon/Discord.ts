@@ -215,8 +215,8 @@ export const adapter = (connection: Connection) =>
   )
 
 /**
- * The chat platform of a Discord connection: the adapter, and dfx's gateway with the at-least-once dispatch hook and
- * its shard state in the database, under the connection's name.
+ * The chat platform of a Discord connection: the adapter, dfx's gateway with the at-least-once dispatch hook and
+ * its shard state in the database, under the connection's name, and the rename of a thread.
  *
  * When Discord closes the gateway for good the gateway is taken down and stays down, and the rest of the daemon
  * carries on.
@@ -254,6 +254,12 @@ export const layer = (connection: Connection) => {
     )
   const built = Layer.effectDiscard(
     Effect.gen(function* () {
+      // A Discord thread is a channel, and its name is the channel's. The rename goes as the connection's gateway
+      // and REST client are taken down.
+      const rest = yield* DiscordREST
+      yield* (yield* Chats.Renames)((thread, name) =>
+        rest.updateChannel(thread.id, { name }),
+      )
       const refused = yield* Deferred.make<number>()
       const scope = yield* Scope.make()
       yield* Effect.addFinalizer(() => Scope.close(scope, Exit.void))

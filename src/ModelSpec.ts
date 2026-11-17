@@ -34,6 +34,7 @@ import { fallback, flagValue, readLine } from "./ModelText.ts"
 
 export { clear, flagValue } from "./ModelText.ts"
 import * as Paths from "./Paths.ts"
+import { titleOf } from "./Title.ts"
 
 /**
  * The model setting, the model layer and a change of the setting, with nothing of
@@ -385,6 +386,30 @@ export const trial = (
     if (Cause.hasInterruptsOnly(ran.cause)) return yield* Effect.interrupt
     return yield* Effect.fail(failure(ran.cause))
   })
+
+/**
+ * The title of a thread from the message that opened it: one request on a model with a client of its own, with no
+ * retry and no fast mode, since nobody waits on it. An answer that holds no title has failed. The caller sets the
+ * deadline, which covers the layer's build as well.
+ */
+export const title = (
+  spec: Spec,
+  endpoint: Endpoint,
+  message: string,
+): Effect.Effect<string, unknown, Requirements> =>
+  LanguageModel.streamText({ prompt: Messages.titlePrompt(message) }).pipe(
+    Stream.runFold(
+      () => "",
+      (text, part) => (part.type === "text-delta" ? text + part.delta : text),
+    ),
+    Effect.provide(languageModel(spec, undefined, endpoint, false)),
+    Effect.flatMap((answer) => {
+      const title = titleOf(answer)
+      return title === undefined
+        ? Effect.fail(new Error(Messages.titleEmpty))
+        : Effect.succeed(title)
+    }),
+  )
 
 /**
  * A change that `chad model` and `/model` ask for. A missing field is left as it is,

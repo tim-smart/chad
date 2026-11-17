@@ -32,6 +32,7 @@ import {
   type Settings,
   type Spec,
   store,
+  title,
   trial,
   Unchanged,
 } from "../ModelSpec.ts"
@@ -122,6 +123,12 @@ export class Models extends Context.Service<
       request: Request,
       login: Effect.Effect<void, Unchanged>,
     ) => Effect.Effect<string, Unchanged>
+    /**
+     * The title of a thread from the message that opened it, on the sub-agent model when one is set and the main model
+     * otherwise. A model on the Codex login asks for its token as the check at start does, so it never starts a login.
+     * It has no deadline of its own: the caller's covers the token, the model's layer and its answer.
+     */
+    readonly title: (message: string) => Effect.Effect<string, unknown>
   }
 >()("chad/Model/Models") {}
 
@@ -157,6 +164,19 @@ export const make = (options: {
           ),
         }
       }),
+    title: (message) =>
+      Effect.gen(function* () {
+        const { main, subagent } = current
+        if (Result.isFailure(main)) {
+          return yield* Effect.fail(new Error(main.failure.error))
+        }
+        const spec = subagent ?? main.success
+        if (needsLogin(spec)) yield* auth.get
+        return yield* title(spec, inputs, message)
+      }).pipe(
+        Effect.provideService(Login.Unattended, true),
+        Effect.provideContext(requirements),
+      ),
     change: (request, login) =>
       changes.withPermit(
         Effect.gen(function* () {
