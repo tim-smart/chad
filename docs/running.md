@@ -55,6 +55,19 @@ docker push "ghcr.io/tim-smart/chad:$version"
 The image runs as the `node` user, uid 1000, and has no sudo and no apt. A tool the agent needs is installed with npm
 or uv, which keep what they install on the volume, or is a single binary in `/data/home/.local/bin`.
 
+What needs root to install is in the image already:
+
+- For development: git, `gh`, curl, wget, jq, `rg`, `fd`, make, patch, rsync, `file`, tree, less, sqlite3, zip, unzip,
+  bzip2, xz and zstd. `python3` is there with no packages and no pip, and uv uses it in place of downloading its own.
+- For documents: `pandoc` converts between Markdown, HTML, docx, odt, epub and the other formats it reads and writes,
+  and makes a PDF with `--pdf-engine=typst`. poppler's commands read a PDF, `pdftotext`, `pdftoppm`, `pdfimages` and
+  `pdfinfo` among them, and `qpdf` merges, splits, rotates, encrypts and decrypts one.
+- For images: ImageMagick's `magick`, which also reads HEIC and AVIF, `rsvg-convert` for SVG, and `pngquant`,
+  `jpegoptim` and `gifsicle`, which make a PNG, a JPEG and a GIF smaller.
+
+The image has no OCR, no Ghostscript, no LibreOffice, no LaTeX and no ffmpeg. A Python library, such as pypdf or
+Pillow, comes with `uv run --with`.
+
 A tool you want kept goes in `work/package.json` in the repo, as a plugin's package does. The commands of those packages
 are on PATH, from `/data/repo/live/node_modules/.bin`, which follows the applied tree: an apply puts a command there and
 a revert takes it away, with no restart. That directory comes last on PATH, after the volume's other bin directories,
