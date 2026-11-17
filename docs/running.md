@@ -57,8 +57,9 @@ or uv, which keep what they install on the volume, or is a single binary in `/da
 
 What needs root to install is in the image already:
 
-- For development: git, `gh`, curl, wget, jq, `rg`, `fd`, make, patch, rsync, `file`, tree, less, sqlite3, zip, unzip,
-  bzip2, xz and zstd. `python3` is there with no packages and no pip, and uv uses it in place of downloading its own.
+- For development: git, `gh`, curl, wget, jq, `rg`, `fd`, `nvim`, make, patch, rsync, `file`, tree, less, sqlite3, zip,
+  unzip, bzip2, xz and zstd. `python3` is there with no packages and no pip, and uv uses it in place of downloading its
+  own.
 - For documents: `pandoc` converts between Markdown, HTML, docx, odt, epub and the other formats it reads and writes,
   and makes a PDF with `--pdf-engine=typst`. poppler's commands read a PDF, `pdftotext`, `pdftoppm`, `pdfimages` and
   `pdfinfo` among them, and `qpdf` merges, splits, rotates, encrypts and decrypts one.

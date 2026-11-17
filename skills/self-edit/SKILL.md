@@ -82,7 +82,7 @@ A skill is `skills/<name>/SKILL.md` with `name` and `description` in its front m
 
 ## Command line tools
 
-- The image has the usual development tools. For documents and images it has `pandoc`, `typst`, poppler's commands such as `pdftotext` and `pdftoppm`, `qpdf`, ImageMagick's `magick`, `rsvg-convert`, `pngquant`, `jpegoptim` and `gifsicle`. pandoc makes a PDF with `--pdf-engine=typst`. Run `command -v` on a tool before you install it.
+- The image has the usual development tools, `nvim` among them. For documents and images it has `pandoc`, `typst`, poppler's commands such as `pdftotext` and `pdftoppm`, `qpdf`, ImageMagick's `magick`, `rsvg-convert`, `pngquant`, `jpegoptim` and `gifsicle`. pandoc makes a PDF with `--pdf-engine=typst`. Run `command -v` on a tool before you install it.
 - A package in `work/package.json` can be a command line tool. Once the change is applied, its commands are on PATH and run by name in every session's next command. A revert that takes the package out takes its commands off PATH. Neither needs a restart.
 - This is the way to add a tool the owner wants kept: it is committed, checked and reverted with the rest of the repo. Add it as any package, `npm install --package-lock-only --ignore-scripts --save-exact <name>@<version>` in `work/`, then `chad check` and `chad apply`.
 - Install scripts never run, so a tool that needs its install script does not work. A tool that ships its binary as an optional dependency for each platform does.
