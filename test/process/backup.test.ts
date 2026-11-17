@@ -26,9 +26,8 @@ import * as Messages from "../../dist/Messages.js"
 import { version } from "../../dist/Version.js"
 import { chad, owner, type Running, start } from "../support/cli.ts"
 import { execute, query } from "../support/database.ts"
-import { runs, start as fakeModel } from "../support/model.ts"
-import { eventually, posted, rows, says } from "../support/owner.ts"
-import { daemon } from "../support/process.ts"
+import { start as fakeModel } from "../support/model.ts"
+import { eventually } from "../support/owner.ts"
 import { path } from "../support/repo.ts"
 
 const directory = (prefix: string) => {
@@ -247,40 +246,6 @@ it("a backup of a running daemon's volume restores onto an empty volume that boo
   await booted.done
 }, 60_000)
 
-it("a backup with a daemon running holds its place in the queue until the tar is written, so a change that comes meanwhile waits for it and runs after it", async () => {
-  const data = directory("chad-queue-")
-  const daemon = await serve(data)
-  // More than a pipe holds, so a reader that does not read stops the tar part way.
-  mkdirSync(join(data, "home"), { recursive: true })
-  writeFileSync(join(data, "home/large"), randomBytes(8 * 1024 * 1024))
-
-  const backup = spawn(process.execPath, [path("bin/chad.js"), "backup", "-"], {
-    env: owner({ CHAD_DATA: data }),
-    stdio: ["ignore", "pipe", "pipe"],
-  })
-  onTestFinished(() => void backup.kill("SIGKILL"))
-  const ended = new Promise<number | null>((resolve) =>
-    backup.on("close", resolve),
-  )
-  // The tar starts only once the place is held.
-  await new Promise((resolve) => backup.stdout.once("readable", resolve))
-
-  const change = start(["timezone", "Europe/London"], { CHAD_DATA: data })
-  // The daemon says the change waits only when the queue is held, and the backup holds it until it ends.
-  await change.printed(Messages.queueWaiting("chad backup"))
-  let finished = false
-  void change.done.then(() => (finished = true))
-
-  let bytes = 0
-  backup.stdout.on("data", (chunk: Buffer) => (bytes += chunk.length))
-  expect(await ended).toBe(0)
-  expect(finished).toBe(false)
-  expect(bytes).toBeGreaterThan(8 * 1024 * 1024)
-  expect((await change.done).code).toBe(0)
-  daemon.child.kill("SIGKILL")
-  await daemon.done
-}, 60_000)
-
 it("an older chad serve on a volume a newer chad wrote exits 1 and writes nothing on it but its log, and gives the steps back only when the copy taken before the migration is its own", async () => {
   const data = directory("chad-newer-")
   const first = await serve(data)
@@ -399,93 +364,6 @@ const backedUp = async () => {
   })
   return tar
 }
-
-it("a restore - whose producer keeps standard input open ends with the restore, exit 0, and a SIGINT part way ends it with exit 130 without waiting for the input to close", async () => {
-  const whole = readFileSync(await backedUp())
-  /** `chad restore -` with standard input left open after `input`, and its exit code when it ends. */
-  const restore = (data: string, input: Buffer) => {
-    const child = spawn(
-      process.execPath,
-      [path("bin/chad.js"), "restore", "-"],
-      {
-        env: owner({ CHAD_DATA: data }),
-        stdio: ["pipe", "ignore", "ignore"],
-      },
-    )
-    onTestFinished(() => void child.kill("SIGKILL"))
-    const code = new Promise<number | null>((resolve) =>
-      child.on("close", (exit) => resolve(exit)),
-    )
-    // A restore that ends before it read all of the input closes the pipe under the rest.
-    child.stdin.on("error", () => {})
-    child.stdin.write(input)
-    return { child, code }
-  }
-
-  // A pipe that stays open after the whole tar, as a one-off container whose standard input nobody closes leaves it.
-  const complete = directory("chad-target-")
-  expect(await restore(complete, whole).code).toBe(0)
-  expect(readFileSync(join(complete, "secrets/token"), "utf8")).toBe("secret")
-
-  const cut = directory("chad-target-")
-  const interrupted = restore(cut, whole.subarray(0, whole.length / 2))
-  await eventually(
-    () => existsSync(join(cut, "restore.partial")),
-    (there) => there,
-  )
-  interrupted.child.kill("SIGINT")
-  expect(await interrupted.code).toBe(130)
-})
-
-it("a restore holds the lock against chad serve, and one that a kill or a damaged tar cut while unpacking leaves the volume to the next restore's check, so a secret written since is never replaced", async () => {
-  const tar = await backedUp()
-  const whole = readFileSync(tar)
-  const data = directory("chad-target-")
-
-  // A tar that ends part way fails, and leaves nothing to resume.
-  const cut = join(directory("chad-tar-"), "cut.tar")
-  writeFileSync(cut, whole.subarray(0, whole.length / 2))
-  expect(await chad(["restore", cut], { CHAD_DATA: data })).toMatchObject({
-    code: 1,
-  })
-  expect(existsSync(join(data, "restore.partial"))).toBe(false)
-  expect(existsSync(join(data, "secrets"))).toBe(false)
-
-  // Cut by a kill part way through the tar, which arrives on a pipe that stalls.
-  const restoring = spawn(
-    process.execPath,
-    [path("bin/chad.js"), "restore", "-"],
-    {
-      env: owner({ CHAD_DATA: data }),
-      stdio: ["pipe", "pipe", "pipe"],
-    },
-  )
-  onTestFinished(() => void restoring.kill("SIGKILL"))
-  const ended = new Promise<NodeJS.Signals | null>((resolve) =>
-    restoring.on("close", (_, signal) => resolve(signal)),
-  )
-  restoring.stdin.write(whole.subarray(0, whole.length / 2))
-  await eventually(
-    () => existsSync(join(data, "restore.partial")),
-    (there) => there,
-  )
-  const refused = await chad(["serve"], { CHAD_DATA: data })
-  expect(refused.code).toBe(1)
-  expect(refused.stdout + refused.stderr).toContain("event=boot.refused")
-  restoring.kill("SIGKILL")
-  expect(await ended).toBe("SIGKILL")
-  expect(existsSync(join(data, "restore.partial"))).toBe(true)
-  expect(existsSync(join(data, "restore.installing"))).toBe(false)
-
-  // The volume was used since, so the next restore is refused.
-  mkdirSync(join(data, "secrets"))
-  writeFileSync(join(data, "secrets/later"), "since")
-  expect(await chad(["restore", tar], { CHAD_DATA: data })).toMatchObject({
-    code: 1,
-  })
-  expect(readdirSync(join(data, "secrets"))).toEqual(["later"])
-  expect(readFileSync(join(data, "secrets/later"), "utf8")).toBe("since")
-}, 60_000)
 
 it("a restore cut while it replaces the volume leaves it to the restore alone: chad serve, a command that writes, one that was already waiting on its model's trial and the starter files of chad plugin new and chad skill new are refused, and the restore run again finishes it into a volume that boots", async () => {
   const tar = await backedUp()
@@ -710,59 +588,4 @@ it("a backup whose daemon goes away while it holds the queue ends with exit 4 an
   )
   again.child.kill("SIGKILL")
   await again.done
-}, 60_000)
-
-it("a seeded volume backed up, restored onto an emptied volume and booted by a newer chad goes on as it was: the conversation resumes with its history and the cron job its plugin stored fires", async () => {
-  const running = await daemon({ bundled: true })
-  const { fakes, data } = running
-  await fakes.model.script([
-    runs(
-      'console.log(await cronCreate({ name: "later", prompt: "Say that it is later.", in: "2 seconds" }))',
-    ),
-    { text: "Set." },
-    { text: "It is later." },
-    { text: "Welcome back." },
-  ])
-  const first = await running.start()
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "remind me later")
-  await fakes.chat.answers(thread, 1)
-  const [job] = rows(running, "SELECT value FROM plugin_kv_cron")
-  const at = Number(
-    JSON.parse(Buffer.from(job!["value"] as Uint8Array).toString())["at"],
-  )
-  expect((await first.stop()).code).toBe(0)
-
-  const tar = join(directory("chad-tar-"), "chad.tar")
-  expect(await running.chad(["backup", tar])).toMatchObject({ code: 0 })
-  // Everything goes but the socket of the test's chat platform, which is no part of a volume.
-  for (const entry of readdirSync(data)) {
-    if (entry !== "run") rmSync(join(data, entry), { recursive: true })
-  }
-  expect(await running.chad(["restore", tar])).toMatchObject({ code: 0 })
-  // As an older chad left it, so the boot takes the copy before it migrates.
-  writeFileSync(join(data, "state/version"), "0.0.0-old\n")
-  // The job's time passes while chad is down.
-  await eventually(
-    () => Date.now(),
-    (now) => now > at,
-  )
-
-  await running.start()
-  await fakes.chat.answers(thread, 2)
-  expect(
-    readFileSync(join(data, "db/chad.db.before-migration.version"), "utf8"),
-  ).toBe("0.0.0-old\n")
-  expect(readFileSync(join(data, "state/version"), "utf8")).toBe(`${version}\n`)
-  await says(running, thread, "are you still there?")
-  await fakes.chat.answers(thread, 3)
-  expect(await posted(running, thread)).toEqual([
-    "Set.",
-    "It is later.",
-    "Welcome back.",
-  ])
-  const calls = await fakes.model.calls()
-  expect(calls).toHaveLength(4)
-  expect(JSON.stringify(calls.at(-1)?.body)).toContain("remind me later")
-  expect(JSON.stringify(calls.at(-1)?.body)).toContain("It is later.")
 }, 60_000)

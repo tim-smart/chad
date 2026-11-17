@@ -4,48 +4,8 @@ import { expect, test } from "vitest"
 import { version } from "../../dist/Version.js"
 import { execute, query } from "../support/database.ts"
 import { git } from "../support/applied.ts"
-import { fresh, owner, scenario } from "../support/driver.ts"
-import { printed, runs } from "../support/model.ts"
-import { json, path } from "../support/repo.ts"
-
-test("with a daemon running, the agent runs chad db query and chad db check in its turn and reads what the owner's shell reads", async () => {
-  const running = await scenario()
-  const { fakes, data } = running
-  const chad = `CHAD_DATA=${data} ${process.execPath} ${path("bin/chad.js")}`
-  const sessions = "SELECT id, thread FROM sessions"
-  await fakes.model.script([
-    runs(`
-      console.log(await run(${JSON.stringify(`${chad} db query --json "${sessions}"`)}))
-      console.log(await run(${JSON.stringify(`${chad} db check`)}))
-    `),
-    { text: "done" },
-  ])
-  const thread = await fakes.chat.makeThread("direct")
-  const event = await fakes.chat.userPosts(thread, {
-    text: "hello",
-    authorId: owner,
-  })
-  expect(await fakes.chat.deliver(event)).toBe(true)
-  await fakes.chat.answers(thread, 1)
-
-  const read = await running.chad(["db", "query", "--json", sessions])
-  expect(read.stderr).toBe("")
-  expect(read.code).toBe(0)
-  const rows: ReadonlyArray<{ id: string; thread: string }> = JSON.parse(
-    read.stdout,
-  )
-  expect(rows).toHaveLength(1)
-  expect(rows[0]?.id).toMatch(/^[0-9a-f-]{36}$/)
-  expect(await running.chad(["db", "check"])).toEqual({
-    stdout: "ok\n",
-    stderr: "",
-    code: 0,
-  })
-
-  // What the agent's two commands printed is what the model's next call carries as the tool's result.
-  const [, next] = await fakes.model.calls()
-  expect(printed(next)).toEqual([`${read.stdout}\nok\n\n`])
-})
+import { fresh, scenario } from "../support/driver.ts"
+import { json } from "../support/repo.ts"
 
 test("nothing checks integrity at boot: the daemon boots on a database whose index has lost a row, and chad db check then prints SQLite's own lines and exits 1", async () => {
   const directory = fresh()

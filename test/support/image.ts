@@ -23,9 +23,8 @@ import { root } from "./repo.ts"
 /** The container engine. podman works where it answers to the same commands. */
 export const engine = process.env["CHAD_ENGINE"] ?? "docker"
 
-/** The image under test, and its build stage, which holds the vendored tarballs and the build's own steps. */
+/** The image under test. */
 export const image = "chad-test:image"
-export const buildStage = "chad-test:build"
 
 export interface Result {
   readonly status: number | null
@@ -73,36 +72,8 @@ const build = (tag: string, ...flags: ReadonlyArray<string>) =>
 
 let built: Promise<void> | undefined
 
-/** Builds the image and tags its build stage, once however often it is asked. The second build is all cache. */
-export const buildImage = (): Promise<void> =>
-  (built ??= build(image).then(() => build(buildStage, "--target", "build")))
-
-export interface Healthcheck {
-  readonly Test: ReadonlyArray<string>
-  readonly Interval: number
-  readonly Timeout: number
-  readonly StartPeriod: number
-  readonly StartInterval: number
-  readonly Retries: number
-}
-
-export interface Config {
-  readonly User?: string
-  readonly Env?: ReadonlyArray<string>
-  readonly Entrypoint?: ReadonlyArray<string>
-  readonly Cmd?: ReadonlyArray<string>
-  readonly WorkingDir?: string
-  readonly ExposedPorts?: Record<string, unknown> | null
-  readonly Volumes?: Record<string, unknown> | null
-  readonly StopSignal?: string
-  readonly Healthcheck?: Healthcheck
-}
-
-/** The built image's configuration. podman reports the health check beside the configuration and Docker inside it. */
-export const inspect = (): Config => {
-  const [about] = JSON.parse(succeed(["image", "inspect", image]))
-  return { Healthcheck: about.Healthcheck, ...about.Config }
-}
+/** Builds the image once per suite. */
+export const buildImage = (): Promise<void> => (built ??= build(image))
 
 const containers: Array<string> = []
 const volumes: Array<string> = []
@@ -275,10 +246,6 @@ export interface Container {
 
 export const container = (name: string): Container =>
   JSON.parse(succeed(["container", "inspect", name]))[0]
-
-/** The id of the built image, as a container made from it names it. */
-export const imageId = (): string =>
-  succeed(["image", "inspect", "--format", "{{.Id}}", image]).trim()
 
 /** The second container: where it mounts its one file, and the port of its fake model server. */
 export const fakesFile = "/opt/fakes.mjs"

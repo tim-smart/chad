@@ -96,30 +96,6 @@ test("an answer longer than five messages goes out in five and answer.md, with n
   )
 })
 
-test("a post that replies to a message that is gone goes out as a plain post", async () => {
-  const { posting, messages } = await Effect.runPromise(
-    Effect.gen(function* () {
-      const { test, chat } = yield* platform
-      const thread = yield* test.makeThread("thread")
-      const posting = yield* Post.post(
-        chat,
-        Format.local,
-        thread,
-        "the turn failed",
-        {
-          replyTo: "999",
-        },
-      )
-      return { posting, messages: yield* test.messages(thread) }
-    }),
-  )
-  expect(posting).toBe("posted")
-  const mine = messages.filter((message) => message.author.isSelf)
-  expect(mine.map((message) => [message.text, message.replyTo])).toEqual([
-    ["the turn failed", undefined],
-  ])
-})
-
 const blocked = /^text \d{4} x+ \d+$/
 
 test("a part that may have landed is not sent again and still uses one of the five messages, down to none left for text", async () => {

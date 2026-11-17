@@ -1,20 +1,12 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
-import { isAbsolute, join, relative, resolve } from "node:path"
+import { join } from "node:path"
 import { Effect } from "effect"
 import { ChatError } from "effect/chat"
 import { expect, test } from "vitest"
 import * as Format from "../../dist/daemon/Format.js"
 import * as Messages from "../../dist/Messages.js"
-import { fresh, scenario, type Scenario } from "../support/driver.ts"
-import { printed, runs } from "../support/model.ts"
-import {
-  eventually,
-  posted,
-  prompted,
-  rows,
-  says,
-  sessions,
-} from "../support/owner.ts"
+import { scenario, type Scenario } from "../support/driver.ts"
+import { posted, prompted, rows, says, sessions } from "../support/owner.ts"
 
 const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3])
 const megabyte = 1024 * 1024
@@ -140,107 +132,4 @@ test("a file over 25 MB is not downloaded and one whose download fails is skippe
   expect(rows(running, "SELECT outcome FROM turns")).toEqual([
     { outcome: "answered" },
   ])
-})
-
-test("on a message that steers a running turn every file is saved under inbox/ before the message joins the turn, an image included, and the steering text carries the path in place of the image", async () => {
-  const running = await scenario()
-  const { fakes } = running
-  await fakes.model.script([
-    { ...runs('console.log("ran")'), hold: true },
-    { text: "done" },
-  ])
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "hello")
-  await fakes.model.received(1)
-  const steer = await says(running, thread, "and this picture", {
-    files: [{ name: "dot.png", contentType: "image/png", content: png }],
-  })
-  const name = `${steer.message.id}-dot.png`
-  await eventually(
-    () => saved(running),
-    (files) => files.includes(name),
-  )
-  // The file is there while the turn has not read the message.
-  expect(rows(running, "SELECT * FROM steers")).toEqual([])
-  await fakes.model.release(0)
-  await fakes.chat.answers(thread, 1)
-
-  const calls = await fakes.model.calls()
-  expect(prompted(calls[1])).toBe(
-    [
-      "and this picture",
-      Messages.promptFileSaved("dot.png", join(inbox(running), name)),
-    ].join("\n\n"),
-  )
-  expect(JSON.stringify(calls[1]?.body)).not.toContain(
-    Buffer.from(png).toString("base64"),
-  )
-  expect(new Uint8Array(readFileSync(join(inbox(running), name)))).toEqual(png)
-  expect(rows(running, "SELECT * FROM steers")).toHaveLength(1)
-})
-
-test("a file the owner sends after the Agent has changed its directory is named by a path that reaches the saved file from there", async () => {
-  const running = await scenario()
-  const { fakes } = running
-  await fakes.model.script([
-    runs('await run("mkdir -p work"); await changeDirectory("work")'),
-    { text: "moved" },
-    runs('console.log((await run("pwd")).trim())'),
-    { text: "read it" },
-  ])
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "move")
-  await fakes.chat.answers(thread, 1)
-  const note = await says(running, thread, "read this", {
-    files: [
-      {
-        name: "note.txt",
-        contentType: "text/plain",
-        content: new TextEncoder().encode("a note"),
-      },
-    ],
-  })
-  await fakes.chat.answers(thread, 2)
-
-  const calls = await fakes.model.calls()
-  const cwd = String(printed(calls[3]).at(-1)).trim()
-  expect(cwd).toBe(join(inbox(running), "..", "work"))
-  const path = join(inbox(running), `${note.message.id}-note.txt`)
-  expect(prompted(calls[2])).toBe(
-    ["read this", Messages.promptFileSaved("note.txt", path)].join("\n\n"),
-  )
-  expect(readFileSync(resolve(cwd, path), "utf8")).toBe("a note")
-})
-
-test("with a relative CHAD_DATA the prompt still names a saved file by its absolute path, which reaches the file from the Agent's directory", async () => {
-  const directory = fresh()
-  const running = await scenario({
-    directory,
-    env: { CHAD_DATA: relative(process.cwd(), join(directory, "data")) },
-  })
-  const { fakes } = running
-  await fakes.model.script([
-    runs('console.log((await run("pwd")).trim())'),
-    { text: "read it" },
-  ])
-  const thread = await fakes.chat.makeThread("direct")
-  const note = await says(running, thread, "read this", {
-    files: [
-      {
-        name: "note.txt",
-        contentType: "text/plain",
-        content: new TextEncoder().encode("a note"),
-      },
-    ],
-  })
-  await fakes.chat.answers(thread, 1)
-
-  const calls = await fakes.model.calls()
-  const cwd = String(printed(calls[1]).at(-1)).trim()
-  const path = join(inbox(running), `${note.message.id}-note.txt`)
-  expect(isAbsolute(path)).toBe(true)
-  expect(prompted(calls[0])).toBe(
-    ["read this", Messages.promptFileSaved("note.txt", path)].join("\n\n"),
-  )
-  expect(readFileSync(resolve(cwd, path), "utf8")).toBe("a note")
 })

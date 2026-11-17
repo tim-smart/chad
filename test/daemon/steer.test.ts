@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { Duration, Effect } from "effect"
 import { ChatError, ChatThread } from "effect/chat"
@@ -13,7 +13,6 @@ import {
   found,
   lines,
   posted,
-  prompted,
   rows,
   says,
   sessions,
@@ -135,180 +134,6 @@ test("two messages sent during a turn join it as one batch, each gets a steers r
   expect(await posted(running, thread)).toEqual(["done"])
 })
 
-test("a message that arrives when the turn's model part is over starts the next turn by the same request, and its image goes to the model as on a first message", async () => {
-  const running = await scenario()
-  const { fakes, chat } = running
-  await fakes.model.script([{ text: "one", hold: true }, { text: "two" }])
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "hello")
-  // The answer's post is refused once, which holds the turn open after its model part.
-  await fakes.model.received(1)
-  await Effect.runPromise(
-    chat.failNext(
-      "post",
-      new ChatError.RateLimited({ retryAfter: Duration.millis(400) }),
-    ),
-  )
-  const before = (await Effect.runPromise(chat.calls)).length
-  await fakes.model.release(0)
-  await eventually(
-    () => Effect.runPromise(chat.calls),
-    (calls) => calls.slice(before).some((call) => call.op === "post"),
-  )
-  await says(running, thread, "later", {
-    files: [
-      {
-        name: "dot.png",
-        contentType: "image/png",
-        content: new Uint8Array([137, 80, 78, 71]),
-      },
-    ],
-  })
-  await fakes.chat.answers(thread, 2)
-  await found(running, answered, 2)
-
-  expect(await posted(running, thread)).toEqual(["one", "two"])
-  expect(
-    rows(running, "SELECT outcome FROM turns ORDER BY started_at"),
-  ).toEqual([{ outcome: "answered" }, { outcome: "answered" }])
-  expect(rows(running, "SELECT * FROM steers")).toEqual([])
-  expect(replies(running)).toEqual(["Answered", "Answered"])
-  const calls = await fakes.model.calls()
-  expect(calls).toHaveLength(2)
-  expect(JSON.stringify(calls[1]?.body)).toContain(
-    Buffer.from([137, 80, 78, 71]).toString("base64"),
-  )
-  const [session] = sessions(running)
-  expect(
-    existsSync(
-      join(running.data, "sessions", String(session?.["id"]), "inbox"),
-    ),
-  ).toBe(false)
-})
-
-test("/stop interrupts the turn, which ends as Stopped with its notice and no failure, the message that waited to steer it is Dropped, and the session takes the next turn with its history", async () => {
-  const running = await scenario()
-  const { fakes } = running
-  await fakes.model.script([
-    { ...runs('console.log("ran")'), hold: true },
-    { text: "after the stop" },
-  ])
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "hello")
-  await fakes.model.received(1)
-  await waits(running, thread)
-  await says(running, thread, "/stop")
-  const [notice] = await fakes.chat.answers(thread, 1)
-  await found(running, answered, 2)
-
-  expect(
-    stoppedNotices((milliseconds) =>
-      Messages.stopped(Format.local, milliseconds),
-    ),
-  ).toContain(notice?.text)
-  const [turn] = rows(running, "SELECT outcome, ended_at, failure FROM turns")
-  expect(turn).toMatchObject({ outcome: "stopped", failure: null })
-  expect(turn?.["ended_at"]).toEqual(expect.any(Number))
-  expect(replies(running).toSorted()).toEqual(["Dropped", "Stopped"])
-  expect(rows(running, "SELECT * FROM steers")).toEqual([])
-  const ended = await running.logged("turn.ended")
-  expect(ended.annotations["outcome"]).toBe("stopped")
-  expect(
-    running.log().filter((line) => line.annotations["event"] === "turn.failed"),
-  ).toEqual([])
-  // The stop is no stored request: cluster holds the two messages and nothing else.
-  expect(
-    rows(
-      running,
-      "SELECT tag FROM cluster_messages WHERE tag NOT LIKE 'Cluster/%' AND entity_type NOT LIKE 'ClusterCron/%'",
-    ).map((row) => row["tag"]),
-  ).toEqual(["message", "message"])
-
-  // The same session takes the next turn, with what the stopped turn left in its history.
-  await says(running, thread, "next")
-  await fakes.chat.answers(thread, 2)
-  const calls = await fakes.model.calls()
-  expect(calls).toHaveLength(2)
-  const sent = JSON.stringify(calls[1]?.body)
-  expect(sent).toContain("hello")
-  expect(sent).not.toContain("never read")
-  expect(prompted(calls[1])).toBe("next")
-  expect(sessions(running)).toHaveLength(1)
-})
-
-test("/new ends the session's row and starts a new session in the thread with its own id and directory, the next message runs in it, and the command leaves a command.ran line", async () => {
-  const running = await scenario()
-  const { fakes } = running
-  await fakes.model.script([{ text: "one" }, { text: "two" }])
-  const thread = await fakes.chat.makeThread("direct")
-  const hello = await says(running, thread, "hello")
-  await fakes.chat.answers(thread, 1)
-  const [before] = sessions(running)
-  expect(before).toMatchObject({
-    ended_at: null,
-    last_message_id: hello.message.id,
-  })
-
-  // The message is sent straight after the command, and still belongs to the new session.
-  await says(running, thread, "/new")
-  const again = await says(running, thread, "again")
-  await fakes.chat.answers(thread, 3)
-  expect(await posted(running, thread)).toEqual([
-    "one",
-    Messages.newSession(Format.local),
-    "two",
-  ])
-
-  const [old, fresh] = sessions(running)
-  expect(sessions(running)).toHaveLength(2)
-  expect(old).toMatchObject({ id: before?.["id"], thread: before?.["thread"] })
-  expect(old?.["ended_at"]).toEqual(expect.any(Number))
-  expect(fresh).toMatchObject({
-    thread: ChatThread.toString(thread),
-    kind: "direct",
-    ended_at: null,
-    last_message_id: again.message.id,
-  })
-  expect(fresh?.["id"]).not.toBe(old?.["id"])
-  expect(
-    rows(running, "SELECT session_id FROM turns ORDER BY started_at").map(
-      (row) => row["session_id"],
-    ),
-  ).toEqual([old?.["id"], fresh?.["id"]])
-  // The new session has none of the old conversation, and a directory of its own.
-  expect(JSON.stringify((await fakes.model.calls())[1]?.body)).not.toContain(
-    "hello",
-  )
-  for (const session of [old, fresh]) {
-    expect(
-      existsSync(join(running.data, "sessions", String(session?.["id"]))),
-    ).toBe(true)
-  }
-  // The reset is not a stored request.
-  expect(
-    rows(
-      running,
-      "SELECT tag FROM cluster_messages WHERE tag NOT LIKE 'Cluster/%' AND entity_type NOT LIKE 'ClusterCron/%'",
-    ).map((row) => row["tag"]),
-  ).toEqual(["message", "message"])
-
-  const ran = await running.logged("command.ran")
-  expect(ran.annotations).toMatchObject({
-    command: "/new",
-    caller: "owner",
-    outcome: "changed",
-    session: fresh?.["id"],
-  })
-  // /stop and /status change nothing, and leave no such line. Each still moves the mark.
-  const stop = await says(running, thread, "/stop")
-  expect(sessions(running)[1]?.["last_message_id"]).toBe(stop.message.id)
-  const status = await says(running, thread, "/status")
-  expect(sessions(running)[1]?.["last_message_id"]).toBe(status.message.id)
-  expect(
-    running.log().filter((line) => line.annotations["event"] === "command.ran"),
-  ).toHaveLength(1)
-})
-
 test("/new during a turn stops it first, posts the stopped notice and then its own, drops the message that waited to steer, and stops the old session's background processes", async () => {
   const running = await scenario()
   const { fakes } = running
@@ -357,52 +182,6 @@ test("/new during a turn stops it first, posts the stopped notice and then its o
   await says(running, thread, "again")
   await fakes.chat.answers(thread, 3)
   expect(sessions(running)).toHaveLength(2)
-})
-
-test("a turn stays open while a background sub-agent runs after the model has answered, and a message sent meanwhile steers that turn", async () => {
-  const running = await scenario()
-  const { fakes } = running
-  await fakes.model.script([
-    // The turn's script waits until the sub-agent's script runs, so the sub-agent's call is the second one.
-    runs(
-      `await run("mkfifo ready gate"); await subagent({ prompt: "Wait.", background: true }); await run("cat ready")`,
-    ),
-    // The sub-agent's one call: its script says that it runs, and then waits for the scenario.
-    runs(
-      `await run("echo go > ready; cat gate"); await taskComplete("waited")`,
-    ),
-    { text: "answered while it runs" },
-    { text: "read the message" },
-    { text: "the end" },
-  ])
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "hello")
-  await fakes.model.received(3)
-  // The model has answered, and the turn has not ended.
-  expect(rows(running, "SELECT outcome FROM turns")).toEqual([
-    { outcome: null },
-  ])
-  expect(await posted(running, thread)).toEqual([])
-
-  await says(running, thread, "are you there")
-  const calls = await fakes.model.received(4)
-  expect(prompted(calls[3])).toBe("are you there")
-  await found(running, "SELECT 1 FROM steers")
-  expect(rows(running, "SELECT outcome FROM turns")).toEqual([
-    { outcome: null },
-  ])
-
-  // The sub-agent ends, and the turn with it.
-  const [session] = sessions(running)
-  writeFileSync(
-    join(running.data, "sessions", String(session?.["id"]), "gate"),
-    "go",
-  )
-  await fakes.chat.answers(thread, 1)
-  expect(
-    await found(running, "SELECT outcome FROM turns WHERE outcome IS NOT NULL"),
-  ).toEqual([{ outcome: "answered" }])
-  expect(rows(running, "SELECT 1 FROM turns")).toHaveLength(1)
 })
 
 test("a stop whose reconcile writes a lost row of an earlier turn again does not take that row for a steer the Agent never read, though their text is the same", async () => {

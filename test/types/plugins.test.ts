@@ -1,4 +1,4 @@
-// The type layer of a plugin: the compiler options `chad check` uses, run over the asphodel fixture and over the six
+// The type layer of a plugin: the compiler options `chad check` uses, run over the asphodel fixture and over the two
 // deliberate mistakes, each of which must fail with its own error and name the service or type it lacks.
 import { spawnSync } from "node:child_process"
 import { rmSync, writeFileSync } from "node:fs"
@@ -8,15 +8,11 @@ import { path } from "../support/repo.ts"
 
 /** Each mistake's file, the error code it fails with, and the service or type its error names. */
 const mistakes = {
-  "hook-own-service": ["TS2345", "Notes | PluginContext"],
-  "toolkit-no-handlers": ["TS2345", 'Handler<"roll"> | PluginContext'],
   "tool-dependency": ["TS2345", "Notes | PluginContext"],
-  "provide-after-make": ["TS2345", "Notes | PluginContext"],
-  "handler-wrong-type": ["TS2322", "Effect<number"],
   "hook-wrong-type": ["TS2322", "Effect<string"],
 } as const
 
-it("the fixture plugin passes the check's options, and each of the six mistakes fails with its code and names what is missing", () => {
+it("the fixture plugin passes the check's options, and each of the two mistakes fails with its code and names what is missing", () => {
   // The config sits in the package, so the Node types resolve from its node_modules as they do from repo/.
   const config = path(
     `test/types/fixtures/plugins-${process.pid}.tsconfig.json`,

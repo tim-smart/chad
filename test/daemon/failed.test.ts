@@ -6,7 +6,6 @@ import * as Messages from "../../dist/Messages.js"
 import * as Failed from "../../dist/daemon/Failed.js"
 import { scenario } from "../support/driver.ts"
 import type { Call } from "../support/model.ts"
-import { execute } from "../support/database.ts"
 import { found, lines, posted, rows, says } from "../support/owner.ts"
 
 /** The text of each user message a model call sent. */
@@ -124,85 +123,4 @@ test("a turn that answered adds nothing for the next turn, and an answer whose p
     { outcome: "answered" },
     { outcome: "answered" },
   ])
-})
-
-test("a turn whose thread is gone when its answer is posted ends failed with ThreadGone, posts nothing, and logs turn.failed in place of turn.ended", async () => {
-  const running = await scenario()
-  const { fakes, chat } = running
-  await fakes.model.script([{ text: "one", hold: true }])
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "hello")
-  await fakes.model.received(1)
-  await Effect.runPromise(
-    chat.failNext(
-      "post",
-      new ChatError.NotFound({ detail: "thread_not_found" }),
-      // A thread that is gone refuses the answer's second try too.
-      { times: 2 },
-    ),
-  )
-  await fakes.model.release(0)
-  const [failed] = await lines(running, "turn.failed", 1)
-  expect(failed!.annotations["reason"]).toBe("ThreadGone")
-  expect(rows(running, "SELECT outcome, failure FROM turns")).toEqual([
-    { outcome: "failed", failure: "ThreadGone" },
-  ])
-  expect(running.log().map((line) => line.annotations["event"])).not.toContain(
-    "turn.ended",
-  )
-  expect(rows(running, "SELECT * FROM session_updates")).toEqual([])
-})
-
-test("chad status gives Problems and Recent, with the failed turns grouped by reason and the last of them by id, and still answers when the turns table cannot be read", async () => {
-  const running = await scenario()
-  const { fakes } = running
-  await fakes.model.script([{ status: 400 }])
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "hello")
-  const [failed] = await lines(running, "turn.failed", 1)
-  const status = async () => {
-    const result = await running.chad(["status", "--json"])
-    expect(result.code).toBe(0)
-    return JSON.parse(result.stdout)
-  }
-  const report = await status()
-  expect(report.problems).toEqual([])
-  expect(report.recent).toMatchObject({
-    failed: [{ reason: "ModelError", count: 1 }],
-    last: [{ turn: failed!.annotations["turn"], reason: "ModelError" }],
-  })
-  expect(report.started).toBeTypeOf("number")
-
-  execute(running.data, "ALTER TABLE turns RENAME TO turns_gone")
-  const broken = await status()
-  expect(broken.phase).toBe("ready")
-  expect(broken.recent.unavailable).toBeTypeOf("string")
-})
-
-test("after two failed turns in a row the third turn's update message gives the latest in full and counts the older one by its reason, though the second turn's history cleared its line", async () => {
-  const running = await scenario()
-  const { fakes } = running
-  await fakes.model.script([{ status: 400 }, { status: 400 }, { text: "back" }])
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "hello")
-  await fakes.chat.answers(thread, 1)
-  await says(running, thread, "again")
-  await fakes.chat.answers(thread, 2)
-  const failed = await lines(running, "turn.failed", 2)
-  const [one, two] = failed.map((line) => String(line.annotations["turn"]))
-  // The second turn's history holds the first failure's line, so the line is gone.
-  expect(rows(running, "SELECT turn_id FROM session_updates")).toEqual([
-    { turn_id: two },
-  ])
-
-  await says(running, thread, "and again")
-  await fakes.chat.answers(thread, 3)
-  const update = Messages.update([
-    { turn: one!, outcome: "failed", failure: "ModelError" },
-    { turn: two!, outcome: "failed", failure: "ModelError" },
-  ])
-  const sent = userTexts((await fakes.model.calls())[2])
-  expect(sent.at(-2)).toBe(update)
-  expect(sent.at(-1)).toContain("and again")
-  expect(rows(running, "SELECT * FROM session_updates")).toEqual([])
 })

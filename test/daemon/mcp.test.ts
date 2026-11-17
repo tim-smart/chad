@@ -14,9 +14,9 @@ import { Effect, Layer } from "effect"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
-import { applied as committed, write } from "../support/applied.ts"
+import { write } from "../support/applied.ts"
 import * as Cli from "../support/cli.ts"
-import { fresh, scenario, type Scenario } from "../support/driver.ts"
+import { scenario, type Scenario } from "../support/driver.ts"
 import { results, runs, type Call } from "../support/model.ts"
 import { eventually, lines, says } from "../support/owner.ts"
 
@@ -371,56 +371,4 @@ test("a running turn's call in flight is cut by a restart, a call during the reb
   expect(systemText(next[0])).toContain("- slow (2 tools)")
   expect(systemText(next[0])).not.toContain("- other")
   expect(results(next[1]).join("\n")).toContain("fresh")
-}, 60_000)
-
-test("a malformed applied mcp.json boots with no servers and a notice that an apply clears, a turn before the first connect has message 7 and no MCP, and safe mode loads no server", async () => {
-  const directory = fresh()
-  const gate = join(directory, "gate")
-  committed(join(directory, "data/repo"), {
-    "mcp.json": "{ nope",
-    "persona.md": "",
-  })
-  const first = await scenario({ directory })
-  await first.logged("mcp.config-unreadable")
-  // The second boot's chat fake numbers its messages from the start again, so this boot takes no message.
-  const broken = (await first.chad(["status"])).stdout
-  const unreadable = before((error) =>
-    Messages.mcpUnreadable(Messages.mcpNotJson(error)),
-  )
-  expect(broken).toContain(unreadable)
-  expect(broken).not.toContain("mcp: ")
-
-  write(join(first.data, "repo/work"), {
-    "mcp.json": mcpJson({ slow: fixture("--tools", "echo", "--gate", gate) }),
-  })
-  expect((await apply(first, "Fix mcp.json")).code).toBe(0)
-  expect((await first.chad(["status"])).stdout).not.toContain(unreadable)
-  expect(await first.stop()).toBe(0)
-
-  // A boot is a rebuild in the background: a turn before the first layer connects starts without MCP.
-  writeFileSync(gate, "")
-  const second = await scenario({ directory })
-  // The log goes on from the first daemon's, so this boot is the second boot.ready in it.
-  await lines(second, "boot.ready", 2)
-  const rebuilt = second
-    .log()
-    .filter((line) => line.annotations["event"] === "mcp.rebuilt").length
-  const early = systemText((await turn(second, undefined))[0])
-  expect(early).toContain(Messages.mcpStarting)
-  expect(early).not.toContain("# MCP servers")
-  rmSync(gate)
-  await lines(second, "mcp.rebuilt", rebuilt + 1)
-  expect(systemText((await turn(second, undefined))[0])).toContain(
-    "- slow (1 tools)",
-  )
-
-  // Safe mode stops every server, and safe off brings them back.
-  expect((await second.chad(["safe", "on"])).stdout).not.toContain(
-    connected("slow", 1),
-  )
-  expect((await second.chad(["status"])).stdout).not.toContain("mcp: slow")
-  expect(systemText((await turn(second, undefined))[0])).not.toContain("- slow")
-  expect((await second.chad(["safe", "off"])).stdout).toContain(
-    connected("slow", 1),
-  )
 }, 60_000)

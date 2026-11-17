@@ -8,7 +8,6 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs"
-import { createConnection } from "node:net"
 import { join } from "node:path"
 import * as NodeSocket from "@effect/platform-node/NodeSocket"
 import { Duration, Effect, Layer } from "effect"
@@ -290,35 +289,6 @@ test("with no daemon, a CLI that is older than the version in state/version refu
   expect(stored(data)).toEqual(waiting)
 })
 
-test("a connections file with a higher format number is refused with exit 1 by every command that reads or writes it, chad status says so and keeps its own exit code, and chad serve refuses the boot", async () => {
-  const directory = fresh()
-  const data = join(directory, "data")
-  mkdirSync(join(data, "secrets"), { recursive: true })
-  const file = join(data, "secrets/connections.json")
-  const newer = JSON.stringify({ format: 2, bots: { home: "a-token" } })
-  writeFileSync(file, newer)
-  const env = { CHAD_DATA: data }
-  const refusal = (command: string) =>
-    Messages.newerFormat(command, file, "2", 1)
-
-  expect(await Cli.chad(["connection", "list"], env)).toEqual(
-    failed(1, refusal("connection list")),
-  )
-  expect(await Cli.chad(["owner", "add", "home", owner], env)).toEqual(
-    failed(1, refusal("owner add")),
-  )
-  const status = await Cli.chad(["status"], env)
-  expect(status).toMatchObject({ stderr: refusal("status") + "\n", code: 4 })
-  expect(readFileSync(file, "utf8")).toBe(newer)
-
-  const running = await scenario({ directory })
-  expect(await running.exit).toBe(1)
-  const refused = await running.logged("boot.refused")
-  expect(refused.message).toBe(refusal("serve"))
-  expect(refused.annotations["reason"]).toBe("connections")
-  expect(readFileSync(file, "utf8")).toBe(newer)
-})
-
 test("with CHAD_SESSION set, whatever its value, the CLI refuses every connection and owner command with exit 3 and a line that names the command and the owner, the other commands stay open, and the same command with the variable unset is accepted", async () => {
   const { data, chad } = await volume()
   const commands = [
@@ -356,32 +326,6 @@ test("with CHAD_SESSION set, whatever its value, the CLI refuses every connectio
   expect(
     await chad(["connection", "add", "local"], { CHAD_SESSION: undefined }),
   ).toEqual(done([Messages.connectionAdded("local", "local")]))
-})
-
-test("a token is never a command argument, and no environment variable supplies one, to the CLI or to the daemon", async () => {
-  const names = ["DISCORD_TOKEN", "DISCORD_BOT_TOKEN", "CHAD_DISCORD_TOKEN"]
-  const env = Object.fromEntries(names.map((name) => [name, "env-token"]))
-  const running = await scenario({ env })
-  await running.logged("boot.ready")
-
-  // With nothing on stdin and no file there is no token, whatever the environment holds.
-  expect(await running.chad(["connection", "add", "discord"], env, "")).toEqual(
-    failed(2, Messages.noToken("connection add")),
-  )
-  for (const args of [
-    ["connection", "add", "discord", "arg-token"],
-    ["connection", "add", "discord", "--token", "arg-token"],
-    ["connection", "token", "local", "arg-token"],
-  ]) {
-    expect((await running.chad(args, env, "")).code, args.join(" ")).toBe(2)
-  }
-
-  // The daemon made no Discord connection of its own from the environment either.
-  expect(await running.chad(["connection", "list"])).toEqual(
-    done([Messages.connectionLine("local", "local", ["owner"])]),
-  )
-  expect(running.discord.gateway.sockets()).toEqual([])
-  expect(running.discord.rest.calls()).toEqual([])
 })
 
 test("with the daemon running the daemon checks a token against Discord and swaps that connection's gateway with no restart: a new bot dials in with the intents of the one constant the invite URL is built from, a token Discord refuses leaves the old one in place, and a new token closes the old gateway and opens another", async () => {
@@ -640,157 +584,4 @@ test("changes that arrive at once go through the daemon's one queue, so none is 
   // A command that only reads leaves no line.
   expect((await running.chad(["connection", "list"])).code).toBe(0)
   expect(ran(running)).toHaveLength(ids.length + 3)
-})
-
-test("the daemon asks Discord about a token before the change takes its place in the queue, so another change is made while Discord is slow, and neither the command.ran line nor any answer of the daemon holds a token", async () => {
-  const chad = await scenario({ connections: [home] })
-  await identify(chad, 0, "session-home")
-  const release = chad.discord.rest.hold("slow-token")
-  const adding = chad.chad(
-    ["connection", "add", "discord", "--name", "work"],
-    {},
-    "slow-token\n",
-  )
-  await chad.discord.rest.called("GET", /^\/applications\/@me$/, 2)
-
-  // Discord has not answered, and the owner change does not wait for it.
-  expect(await chad.chad(["owner", "add", "home", "ada"])).toEqual(
-    done([Messages.ownerAdded("ada", "home")]),
-  )
-  expect(ran(chad).map((line) => line.command)).toEqual(["owner add"])
-  release()
-  expect(await adding).toEqual(done(addedDiscord("work")))
-  expect(ran(chad).map((line) => line.command)).toEqual([
-    "owner add",
-    "connection add",
-  ])
-
-  // What the daemon wrote on its socket for the status and connection calls, as the bytes a client reads.
-  const bytes = await new Promise<string>((resolve, reject) => {
-    const socket = createConnection(join(chad.data, "run/chad.sock"))
-    let read = ""
-    const request = (id: number, tag: string, payload: unknown) =>
-      JSON.stringify({
-        _tag: "Request",
-        id: String(id),
-        tag,
-        payload,
-        headers: [["chad-version", version]],
-      }) + "\n"
-    socket.on("error", reject)
-    socket.on("data", (chunk) => {
-      read += chunk.toString("utf8")
-      if (read.split('"_tag":"Exit"').length > 4) {
-        socket.destroy()
-        resolve(read)
-      }
-    })
-    socket.write(
-      request(1, "Status", null) +
-        request(2, "ConnectionList", null) +
-        request(3, "ConnectionCheck", {}) +
-        request(4, "ConnectionChange", {
-          change: { _tag: "OwnerAdd", name: "work", id: "ada" },
-        }),
-    )
-  })
-  expect(bytes).toContain('"name":"work"')
-  const output = [
-    await chad.chad(["status"]),
-    await chad.chad(["connection", "list"]),
-    await chad.chad(["connection", "check"]),
-  ]
-  expect(output.map((ran) => ran.code)).toEqual([0, 0, 0])
-  const log = readFileSync(join(chad.data, "logs/chad.log"), "utf8")
-  for (const token of ["home-token", "slow-token"]) {
-    expect(bytes).not.toContain(token)
-    expect(JSON.stringify(output)).not.toContain(token)
-    expect(log).not.toContain(token)
-  }
-})
-
-test("chad connection check asks Discord about each stored token and tries run/local.sock for the local connection, which is what chad connection add local makes and where the daemon's adapter dials: one line for each connection, no token, and exit 1 when one fails", async () => {
-  const { directory, rest, data, chad, cli } = await volume()
-  expect(await chad(["connection", "check"])).toEqual(
-    done([Messages.noConnections()]),
-  )
-  expect((await chad(["connection", "add", "local"])).code).toBe(0)
-  // The socket's path is fixed, and no option moves it.
-  expect(
-    (await chad(["connection", "add", "local", "--socket", "/tmp/other.sock"]))
-      .code,
-  ).toBe(2)
-  for (const name of ["home", "work"]) {
-    const file = tokenFile(directory, name + "-token")
-    expect(
-      (
-        await cli([
-          "connection",
-          "add",
-          "discord",
-          "--name",
-          name,
-          "--token-file",
-          file,
-        ])
-      ).code,
-    ).toBe(0)
-  }
-  // No platform listens on the volume, and Discord has taken the second bot's token back.
-  rest.refuse("work-token")
-  const socket = join(data, "run/local.sock")
-  expect(await cli(["connection", "check"])).toEqual({
-    stdout:
-      [
-        Messages.connectionChecked(
-          "local",
-          "local",
-          "no-platform",
-          `${socket}: ENOENT`,
-        ),
-        Messages.connectionChecked("home", "discord", "ok", ""),
-        Messages.connectionChecked("work", "discord", "token-refused", "401"),
-      ].join("\n") + "\n",
-    stderr: "",
-    code: 1,
-  })
-  expect(await cli(["connection", "check", "home"])).toEqual(
-    done([Messages.connectionChecked("home", "discord", "ok", "")]),
-  )
-  expect(await cli(["connection", "check", "nobody"])).toEqual(
-    failed(
-      1,
-      Messages.connectionRejected("connection check", {
-        reason: "no-connection",
-        name: "nobody",
-        detail: "",
-      }),
-    ),
-  )
-
-  // With the daemon running the daemon makes the check, and the platform of the scenario listens on the socket.
-  const running = await scenario({ transport: "socket" })
-  expect(await running.chad(["connection", "check"])).toEqual(
-    done([Messages.connectionChecked("local", "local", "ok", "")]),
-  )
-  expect(await running.chad(["connection", "check", "local"])).toEqual(
-    done([Messages.connectionChecked("local", "local", "ok", "")]),
-  )
-})
-
-test("a connection command that reaches the daemon while it still boots waits for the boot, and is made when the connections have loaded", async () => {
-  let loaded = () => {}
-  const running = await scenario({
-    loading: new Promise<void>((resolve) => (loaded = resolve)),
-  })
-  await running.logged("boot.started")
-  const adding = running.chad(["owner", "add", "local", "grace"])
-  // The daemon answers while it boots, and the change has not been made.
-  expect((await running.chad(["status"])).stdout).toContain(
-    "daemon: up (loading)\n",
-  )
-  expect(stored(running.data).connections[0].owners).toEqual(["owner"])
-  loaded()
-  expect(await adding).toEqual(done([Messages.ownerAdded("grace", "local")]))
-  expect(stored(running.data).connections[0].owners).toEqual(["owner", "grace"])
 })

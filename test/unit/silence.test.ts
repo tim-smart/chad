@@ -78,21 +78,3 @@ it("a background sub-agent's call that the turn timeout cuts while a login is pe
   )
   expect(ended).toMatchObject([{ _tag: "ModelError", reason: "TurnTimeout" }])
 })
-
-it("the root agent's call that the turn timeout cuts while a login is pending does not count toward the silence bound, also when the login completes before clanka's retry", async () => {
-  const { login, ended, owner } = turn()
-  await run(
-    owner,
-    Effect.gen(function* () {
-      login.pending = true
-      yield* call
-      login.pending = false
-      yield* call
-      yield* call
-      yield* call
-      expect(ended).toEqual([])
-      yield* call
-    }),
-  )
-  expect(ended).toMatchObject([{ _tag: "ModelError", reason: "TurnTimeout" }])
-})

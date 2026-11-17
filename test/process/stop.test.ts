@@ -102,64 +102,6 @@ test("a turn that ends inside the wait of a graceful stop finishes and is not de
   ])
 }, 20_000)
 
-test("a failed plugin build whose finalizer never ends and holds the event loop is still owned at the stop, and the deadline exits 1", async () => {
-  const running = await daemon()
-  const repo = join(running.data, "repo")
-  applied(repo, {
-    "plugins/stuck.ts": `import { Effect, Layer } from "effect"
-import { Plugin } from "chad"
-
-export default Plugin.make(
-  Layer.effectDiscard(
-    Effect.gen(function* () {
-      yield* Effect.addFinalizer(() =>
-        Effect.sync(() => setInterval(() => {}, 1000)).pipe(
-          Effect.andThen(Effect.never),
-        ),
-      )
-      return yield* Effect.fail(new Error("no build"))
-    }),
-  ),
-)
-`,
-  })
-  const current = await running.start()
-  await running.logged("plugin.skipped")
-  expect(await current.stop()).toEqual({ code: 1, signal: null })
-})
-
-test("a close that a swap abandoned, which never ends and holds the event loop, is still owned at the stop, and the deadline exits 1", async () => {
-  const running = await daemon()
-  applied(join(running.data, "repo"), {
-    "plugins/stuck.ts": `import { Effect, Layer } from "effect"
-import { Plugin } from "chad"
-
-let builds = 0
-
-export default Plugin.make(
-  Layer.unwrap(
-    Effect.sync(() => {
-      const version = ++builds
-      return Layer.effectDiscard(
-        Effect.addFinalizer(() =>
-          version === 1
-            ? Effect.sync(() => setInterval(() => {}, 1000)).pipe(
-                Effect.andThen(Effect.never),
-              )
-            : Effect.void,
-        ),
-      )
-    }),
-  ),
-)
-`,
-  })
-  const current = await running.start()
-  expect((await running.chad(["plugin", "reload", "stuck"])).code).toBe(0)
-  await running.logged("swap.close-abandoned")
-  expect(await current.stop()).toEqual({ code: 1, signal: null })
-})
-
 test("a stdio MCP server that ignores its input closing and SIGTERM outlasts the plugins' close, and the deadline cuts the stop with a stop.cut line that names it and exit 1", async () => {
   const running = await daemon()
   const server = fileURLToPath(

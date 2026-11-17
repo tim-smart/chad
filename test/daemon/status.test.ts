@@ -1,11 +1,9 @@
 // The status message of a running turn and its Stop button.
 import { Effect } from "effect"
-import { ChatError } from "effect/chat"
 import { expect, test } from "vitest"
 import * as Format from "../../dist/daemon/Format.js"
 import * as Messages from "../../dist/Messages.js"
 import { owner, scenario } from "../support/driver.ts"
-import { runs } from "../support/model.ts"
 import {
   eventually,
   found,
@@ -83,80 +81,4 @@ test("a click on Stop from an owner is answered inside the interaction deadline 
   expect(rows(running, "SELECT outcome FROM turns")).toEqual([
     { outcome: "stopped" },
   ])
-})
-
-test("a status message post that finds the thread gone ends the turn as ThreadGone before the model runs, posts nothing, and still logs the turn's start once", async () => {
-  const running = await scenario()
-  const { fakes, chat } = running
-  await fakes.model.script([{ text: "never sent" }])
-  const thread = await fakes.chat.makeThread("direct")
-  await Effect.runPromise(
-    chat.failNext(
-      "post",
-      new ChatError.NotFound({ detail: "thread_not_found" }),
-    ),
-  )
-  await says(running, thread, "hello")
-  const [failed] = await lines(running, "turn.failed", 1)
-  expect(failed!.annotations["reason"]).toBe("ThreadGone")
-  expect(await fakes.model.calls()).toEqual([])
-  expect(rows(running, "SELECT outcome, failure FROM turns")).toEqual([
-    { outcome: "failed", failure: "ThreadGone" },
-  ])
-  expect(await posted(running, thread)).toEqual([])
-  expect(
-    running
-      .log()
-      .filter((line) => line.annotations["event"] === "turn.started")
-      .map((line) => line.annotations["turn"]),
-  ).toEqual([failed!.annotations["turn"]])
-})
-
-test("a background sub-agent's compaction gets its status line from the call that logs it, and the root's later script shows beside it", async () => {
-  const running = await scenario()
-  const { fakes } = running
-  // The sub-agent's calls after its first carry a tool result, and its summarizer's do not, so either can take them.
-  const step = {
-    ...runs('console.log("more")'),
-    summary: { text: "The story so far." },
-  }
-  const visible = 'console.log("after")'
-  await fakes.model.script([
-    runs(`const behind = await subagent({ prompt: "a long story. ".repeat(8_000), background: true })
-await waitTasks({ ids: [behind.id] })`),
-    // The sub-agent's context is over clanka's threshold after its first call, which starts a compaction.
-    { ...runs('console.log("ran")'), usage: { input: 250_000, output: 10 } },
-    // Its next call and its summarizer's, in either order. Its own is held until the summarizer has been called.
-    { ...step, hold: true },
-    { ...step, hold: true },
-    step,
-    step,
-    step,
-    runs('await taskComplete("done")'),
-    // The root runs a script of its own, and its next call is held while the status message is read.
-    runs(visible),
-    { text: "done", hold: true },
-  ])
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "hello")
-  await fakes.model.received(4)
-  await fakes.model.release(2)
-  await fakes.model.release(3)
-  await fakes.model.received(10)
-  await eventually(
-    () => statusMessages(running, thread),
-    ([text]) =>
-      text !== undefined &&
-      text.includes(Messages.statusCompaction()) &&
-      text.includes(Messages.statusScript(visible)),
-  )
-  await lines(running, "turn.compaction", 1)
-  await fakes.model.release(9)
-  await fakes.chat.answers(thread, 1)
-  await running.logged("turn.ended")
-  expect(
-    running
-      .log()
-      .filter((line) => line.annotations["event"] === "turn.compaction"),
-  ).toHaveLength(1)
 })

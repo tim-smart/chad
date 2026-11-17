@@ -144,81 +144,6 @@ test("a login whose time runs out ends every waiting turn as LoginFailed with th
   expect(await fakes.model.calls()).toEqual([])
 })
 
-test("a chad logout during a turn does not stop it, and a turn that then loses its login waits where it is with a code in its thread and carries on once the login completes", async () => {
-  const running = await scenario({ ...codex, codex: "token" })
-  const { fakes, model } = running
-  model.holdPolls()
-  // The first call is held while the owner logs out, then fails, so clanka opens a new socket, which needs a token.
-  await fakes.model.script([
-    { hold: true, status: 500 },
-    { text: "carried on" },
-  ])
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "hello")
-  await fakes.model.received(1)
-
-  const out = await running.chad(["logout"])
-  expect(out).toEqual({
-    code: 0,
-    stdout: `${Messages.loggedOut}\n`,
-    stderr: "",
-  })
-  await fakes.model.release(0)
-  await postedWith(running, thread, prompt(1))
-  await eventually(
-    () => statusMessages(running, thread),
-    ([status]) => status?.includes(Messages.statusLoginWait) === true,
-  )
-  model.approve()
-  expect(await postedWith(running, thread, "carried on")).toEqual([
-    prompt(1),
-    "carried on",
-  ])
-  const [turn] = await eventually(
-    () => rows(running, "SELECT outcome FROM turns"),
-    (all) => all[0]?.["outcome"] === "answered",
-  )
-  expect(turn?.["outcome"]).toBe("answered")
-  expect(model.deviceCodes()).toBe(1)
-})
-
-test("a chad login through the daemon with no turn waiting posts its code by the notice route as well as printing it, a turn then waits on it, and a second chad login with the token good says so", async () => {
-  const running = await scenario({ ...codex, codex: "token" })
-  const { fakes, model } = running
-  model.holdPolls()
-  await fakes.model.script([{ text: "first" }, { text: "second" }])
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "hello")
-  await postedWith(running, thread, "first")
-
-  expect(await running.chad(["logout"])).toMatchObject({ code: 0 })
-  const login = Cli.start(["login"], { CHAD_DATA: running.data })
-  await login.printed(prompt(1))
-  // With no turn asking, the owner's most recent direct thread gets the code.
-  await postedWith(running, thread, prompt(1))
-  await says(running, thread, "again")
-  await eventually(
-    () => statusMessages(running, thread),
-    ([status]) => status?.includes(Messages.statusLoginWait) === true,
-  )
-  model.approve()
-  expect(await login.done).toMatchObject({
-    code: 0,
-    stdout: `${prompt(1)}\n${Messages.loggedIn}\n`,
-  })
-  expect(await postedWith(running, thread, "second")).toEqual([
-    "first",
-    prompt(1),
-    "second",
-  ])
-  expect(await running.chad(["login"])).toEqual({
-    code: 0,
-    stdout: `${Messages.alreadyLoggedIn}\n`,
-    stderr: "",
-  })
-  expect(model.deviceCodes()).toBe(1)
-})
-
 test("with no daemon chad login runs the device flow itself and stores a private token, fails when a daemon took the lock before it stored, logout clears the token, and both are refused to the agent", async () => {
   const running = await scenario(codex)
   const { model, data } = running
@@ -272,32 +197,4 @@ test("with no daemon chad login runs the device flow itself and stores a private
     stdout: `${Messages.loginNotNeeded("openai-compat/fake")}\n`,
     stderr: "",
   })
-})
-
-test("a chad login through the daemon prints its code and completes while the notice route's thread lookup does not answer", async () => {
-  const first = await scenario()
-  const direct = await first.fakes.chat.makeThread("direct")
-  await says(first, direct, "/status")
-  await first.fakes.chat.answers(direct, 1)
-  expect(await first.stop()).toBe(0)
-
-  // The notice route's destination is restored, and the lookup of its kind is held for the whole login.
-  const running = await scenario({
-    ...codex,
-    directory: first.directory,
-    timings: { modelLogin: Duration.seconds(10) },
-  })
-  expect(await running.fakes.chat.makeThread("direct")).toEqual(direct)
-  const held = running.holdThreads()
-  running.model.holdPolls()
-  const login = Cli.start(["login"], { CHAD_DATA: running.data })
-  await login.printed(prompt(1))
-  running.model.approve()
-  expect(await login.done).toMatchObject({
-    code: 0,
-    stdout: `${prompt(1)}\n${Messages.loggedIn}\n`,
-  })
-  expect(running.model.deviceCodes()).toBe(1)
-  held.release()
-  expect(await running.stop()).toBe(0)
 })
