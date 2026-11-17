@@ -1,9 +1,16 @@
 import { join } from "node:path"
+import { fileURLToPath } from "node:url"
 
 /**
  * Where the daemon and the CLI find the volume and the socket. Both take the environment as an argument, so each side
  * reads its own in its one place.
  */
+
+/**
+ * The root of the chad package, the directory that holds `src/` and `dist/`. It is found from this file's own URL, so
+ * the file has to sit directly in one of them, as the bundles in `dist/` do.
+ */
+export const packageRoot = fileURLToPath(new URL("..", import.meta.url))
 
 /** The data directory, which is `CHAD_DATA` and `/data` without it. */
 export const data = (env: NodeJS.ProcessEnv): string =>
