@@ -45,7 +45,19 @@ export interface Target {
   /** The entry's own headers, which the first request of a sign-in carries as every request to the server does. */
   readonly headers: Readonly<Record<string, string>>
   readonly oauth: McpFile.OAuth
-  /** Keeps the values the server's names expanded to, its client secret and every stored token out of a text. */
+  /**
+   * Every secret the SDK was handed for this target or brought back for it: tokens, a registered client's secret and
+   * a verifier, those since replaced or signed out of included. A request sent with one can be answered at any time
+   * after, since closing a transport does not end it, and the answer may quote it. A target is made for one layer or
+   * one sign-in, and what that layer or sign-in says goes through the scrubber that reads this set. So a value is
+   * hidden for as long as anything that could quote it can still be heard, and the set goes when its layer or
+   * sign-in does. It grows by the tokens of each refresh until then.
+   */
+  readonly passed: Set<string>
+  /**
+   * Keeps the values the server's names expanded to, its client secret, every stored token and what `passed` holds
+   * out of a text.
+   */
   readonly scrub: (text: string) => string
 }
 
@@ -106,9 +118,6 @@ const stillUnauthorized = "Server returned 401 after successful authentication"
 
 /** What a provider answers the SDK with once a newer sign-in or a sign-out has taken the place of its own. */
 class Replaced extends Error {}
-
-/** How many secrets that left the store stay hidden for each server name. */
-const retiredKept = 64
 
 export interface McpOAuth {
   /** The target of a resolved server, or none for one with no `oauth` key or that expansion left unavailable. */
@@ -187,33 +196,6 @@ export const make = Effect.fnUntraced(function* (options: {
     eras.set(name, eraOf(name) + 1)
   }
 
-  /** The secrets of an entry, or of a part of one. */
-  const secretsOf = (
-    entry: Pick<Entry, "tokens" | "client" | "pending"> | undefined,
-  ): ReadonlyArray<string> =>
-    [
-      entry?.tokens?.access_token,
-      entry?.tokens?.refresh_token,
-      entry?.tokens?.id_token,
-      entry?.client?.client_secret,
-      entry?.pending?.verifier,
-    ].filter((value) => typeof value === "string")
-  /**
-   * The secrets that left the store, by server name, the newest last: the tokens a refresh, a sign-out or a new
-   * sign-in replaced, and those the SDK brought that were never kept. A request sent with one can be answered long
-   * after, since closing a transport does not end it, and the server may quote it. So each stays hidden as it was
-   * while the store held it. Only the newest `retiredKept` of a name are kept, which is many refreshes more than a
-   * request lasts.
-   */
-  const retired = new Map<string, Array<string>>()
-  const retire = (name: string, values: ReadonlyArray<string>) => {
-    if (values.length === 0) return
-    retired.set(
-      name,
-      [...(retired.get(name) ?? []), ...values].slice(-retiredKept),
-    )
-  }
-
   const text = yield* fs.readFileString(path).pipe(
     Effect.catchReason("PlatformError", "NotFound", () =>
       Effect.succeed(undefined),
@@ -262,10 +244,7 @@ export const make = Effect.fnUntraced(function* (options: {
       )
       yield* fs.chmod(temporary, 0o600)
       yield* fs.rename(temporary, path)
-      if (without !== undefined) {
-        retire(without, secretsOf(entries.get(without)))
-        entries.delete(without)
-      }
+      if (without !== undefined) entries.delete(without)
     }).pipe(
       Effect.catch((error) => {
         const code = Errno.code(error)
@@ -298,13 +277,6 @@ export const make = Effect.fnUntraced(function* (options: {
   const update = (target: Target, change: (entry: Entry) => void) => {
     const entry: Entry = { ...(own(target) ?? { binding: bindingOf(target) }) }
     change(entry)
-    const now = secretsOf(entry)
-    retire(
-      target.name,
-      secretsOf(entries.get(target.name)).filter(
-        (value) => !now.includes(value),
-      ),
-    )
     entries.set(target.name, entry)
   }
 
@@ -339,11 +311,9 @@ export const make = Effect.fnUntraced(function* (options: {
      * request can be answered once its sign-in is gone, and closing a transport does not end it. The SDK then asks
      * on: it drops the tokens, reads them again and refreshes with what it is given. So a provider that is no longer
      * live is given nothing and changes nothing, or it would spend the refresh token of the sign-in made since.
-     * `given` is what the SDK brought with it, which is kept out of what chad says even though it is not stored.
      */
-    const mine = (given: ReadonlyArray<string> = []) => {
+    const mine = () => {
       if (live()) return
-      retire(name, given)
       if (sign !== undefined)
         throw new Replaced(Messages.mcpLoginReplaced(name))
       runFork(
@@ -355,14 +325,19 @@ export const make = Effect.fnUntraced(function* (options: {
       )
       throw new Replaced(Messages.mcpSignInReplaced(name))
     }
-    const change = (
-      apply: (entry: Entry) => void,
-      given: ReadonlyArray<string> = [],
-    ) => {
-      mine(given)
+    const change = (apply: (entry: Entry) => void) => {
+      mine()
       update(target, apply)
       return saved()
     }
+    /** Notes what the SDK is handed, or brings, whether or not it is stored. See `Target.passed`. */
+    const pass = (...values: ReadonlyArray<string | undefined>) => {
+      for (const value of values) {
+        if (typeof value === "string") target.passed.add(value)
+      }
+    }
+    const passTokens = (tokens: OAuthTokens | undefined) =>
+      pass(tokens?.access_token, tokens?.refresh_token, tokens?.id_token)
     const configured: OAuthClientInformationMixed | undefined =
       oauth.clientId === undefined
         ? undefined
@@ -394,29 +369,33 @@ export const make = Effect.fnUntraced(function* (options: {
         const client = configured ?? own(target)?.client
         // A layer never registers a client: that is the first step of a sign-in.
         if (client === undefined && sign === undefined) throw needsLogin(name)
+        pass(client?.client_secret)
         return client
       },
       // A client `mcp.json` names is used as it is, so the SDK has no way to register another.
       ...(configured !== undefined
         ? {}
         : {
-            saveClientInformation: (client: OAuthClientInformationMixed) =>
-              change((entry) => {
+            saveClientInformation: (client: OAuthClientInformationMixed) => {
+              pass(client.client_secret)
+              return change((entry) => {
                 entry.client = client
-              }, secretsOf({ client })),
+              })
+            },
           }),
       tokens: () => {
         // A sign-in sends no stored token, so the SDK authorizes anew in place of refreshing.
         if (sign !== undefined) return undefined
         mine()
-        return own(target)?.tokens
+        const tokens = own(target)?.tokens
+        passTokens(tokens)
+        return tokens
       },
       saveTokens: (tokens) => {
-        const given = secretsOf({ tokens })
-        mine(given)
+        passTokens(tokens)
+        mine()
         // A layer only refreshes the tokens of a sign-in that is stored. It never makes one.
         if (sign === undefined && own(target)?.tokens === undefined) {
-          retire(name, given)
           throw needsLogin(name)
         }
         update(target, (entry) => {
@@ -437,7 +416,8 @@ export const make = Effect.fnUntraced(function* (options: {
         sign.url = url
       },
       saveCodeVerifier: (verifier) => {
-        mine([verifier])
+        pass(verifier)
+        mine()
         // A layer's verifier is never used, and must not replace that of a sign-in the owner is making.
         if (sign === undefined) return
         const { state } = sign
@@ -450,6 +430,7 @@ export const make = Effect.fnUntraced(function* (options: {
         mine()
         const verifier = own(target)?.pending?.verifier
         if (verifier === undefined) throw needsLogin(name)
+        pass(verifier)
         return verifier
       },
       invalidateCredentials: (scope) => {
@@ -534,10 +515,16 @@ export const make = Effect.fnUntraced(function* (options: {
       ),
     )
 
-  const hidden = (): ReadonlyArray<string> => [
-    ...[...entries.values()].flatMap(secretsOf),
-    ...[...retired.values()].flat(),
-  ]
+  const hidden = (): ReadonlyArray<string> =>
+    [...entries.values()].flatMap((entry) =>
+      [
+        entry.tokens?.access_token,
+        entry.tokens?.refresh_token,
+        entry.tokens?.id_token,
+        entry.client?.client_secret,
+        entry.pending?.verifier,
+      ].filter((value) => typeof value === "string"),
+    )
 
   /**
    * What the server's 401 names: where its metadata is and the scope it asks for. A server that answers anything else
@@ -571,23 +558,30 @@ export const make = Effect.fnUntraced(function* (options: {
       : target.oauth.scopes.join(" ")
 
   return {
-    target: (name, resolved) =>
-      resolved.oauth === undefined || resolved.config.type !== "http"
-        ? undefined
-        : {
-            name,
-            url: resolved.config.url,
-            headers: Object.fromEntries(
-              Object.entries(resolved.config.headers ?? {}).map(
-                ([key, value]) => [key, Redacted.value(value)],
-              ),
-            ),
-            oauth: resolved.oauth,
-            scrub: McpFile.scrubber([resolved], () => [
-              ...hidden(),
-              resolved.oauth?.clientSecret ?? "",
-            ]),
-          },
+    target: (name, resolved) => {
+      const { oauth } = resolved
+      if (oauth === undefined || resolved.config.type !== "http") {
+        return undefined
+      }
+      const passed = new Set<string>()
+      return {
+        name,
+        url: resolved.config.url,
+        headers: Object.fromEntries(
+          Object.entries(resolved.config.headers ?? {}).map(([key, value]) => [
+            key,
+            Redacted.value(value),
+          ]),
+        ),
+        oauth,
+        passed,
+        scrub: McpFile.scrubber([resolved], () => [
+          ...hidden(),
+          ...passed,
+          oauth.clientSecret ?? "",
+        ]),
+      }
+    },
     signedIn: (target) => own(target)?.tokens !== undefined,
     needsLogin: (target) =>
       own(target)?.tokens === undefined || refused.has(target.name),

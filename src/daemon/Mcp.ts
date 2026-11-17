@@ -200,9 +200,13 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
     }
     // Every server connects again, so what an earlier layer was refused says nothing of this one.
     oauth.reset()
+    // The layer's own scrubber, which everything this layer's servers say goes through, however late it is said.
     const scrub = McpFile.scrubber(resolved.values(), () => [
       ...oauth.hidden(),
-      ...[...targets.values()].map(({ oauth }) => oauth.clientSecret ?? ""),
+      ...[...targets.values()].flatMap(({ oauth, passed }) => [
+        oauth.clientSecret ?? "",
+        ...passed,
+      ]),
     ])
     const built: Built = {
       services: undefined as never,

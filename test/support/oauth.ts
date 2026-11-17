@@ -29,6 +29,8 @@ export interface FakeOAuth {
   readonly access: () => string | undefined
   /** Ends the access token, as its lifetime does. The refresh token stays good. */
   readonly expire: () => void
+  /** Ends each access token with the first tool call it makes, as a lifetime shorter than a call's does. */
+  readonly brief: (on: boolean) => void
   /** Ends the access token and the refresh token, as the owner revoking chad does. */
   readonly revoke: () => void
   /**
@@ -68,6 +70,7 @@ export const make = async (options: Options = {}): Promise<FakeOAuth> => {
   let refresh: string | undefined
   let count = 0
   let rejecting = false
+  let brief = false
   let refusing: string | undefined
   const held = new Map<string, Promise<void>>()
 
@@ -117,12 +120,14 @@ export const make = async (options: Options = {}): Promise<FakeOAuth> => {
               inputSchema: { type: "object", additionalProperties: true },
             })),
           })
-        if (method === "tools/call")
+        if (method === "tools/call") {
+          if (brief) access = undefined
           return result({
             content: [
               { type: "text", text: JSON.stringify(params.arguments ?? {}) },
             ],
           })
+        }
         if (id === undefined) return response.writeHead(202).end()
         return result({})
       }
@@ -234,6 +239,9 @@ export const make = async (options: Options = {}): Promise<FakeOAuth> => {
     access: () => access,
     expire: () => {
       access = undefined
+    },
+    brief: (on) => {
+      brief = on
     },
     revoke: () => {
       access = undefined

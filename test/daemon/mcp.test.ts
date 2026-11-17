@@ -515,9 +515,12 @@ test("an http server with an oauth key comes up needing a login and nothing unat
   /**
    * The owner signs out and in again while a refresh of the old sign-in is still on its way, and the authorization
    * server then refuses that refresh in words that quote it. The answer comes to a layer that is gone, for a sign-in
-   * that is stored no more. `heard` is in the log line that says the daemon got it.
+   * that is stored no more, and whose tokens the new sign-in has by then replaced many times over. `heard` is in the
+   * log line that says the daemon got it.
    */
   const outlived = async (error: string, heard: string) => {
+    // The layer that sends the refresh is one built since the token was stored, which only ever read it.
+    expect((await running.chad(["mcp", "restart"])).code).toBe(0)
     fake.expire()
     fake.refuse(error)
     const late = fake.hold("/token")
@@ -531,12 +534,22 @@ test("an http server with an oauth key comes up needing a login and nothing unat
     await cut
     const anew = await signIn((address) => address)
     expect(anew.stdout).toContain(connected("slack", 1))
+    // However many tokens come and go meanwhile, the old ones stay out of what the daemon writes.
+    const before = fake.exchanges().length
+    fake.brief(true)
+    const churned = await turn(
+      running,
+      tries(...Array.from({ length: 40 }, () => "mcp.slack.echo({ x: 7 })")),
+    )
+    fake.brief(false)
+    expect(results(churned[1]).join("\n")).not.toContain("slack")
+    expect(fake.exchanges().length - before).toBeGreaterThanOrEqual(39)
     const newest = signIns(running.data)["slack"]
     const told = () =>
       running.log().filter((line) => JSON.stringify(line).includes(heard))
-    const before = told().length
+    const lines = told().length
     late()
-    await eventually(told, (all) => all.length > before)
+    await eventually(told, (all) => all.length > lines)
     // The log names none of the old sign-in's tokens, the new sign-in is as it was, and its refresh token is still
     // the one the authorization server takes.
     expect(JSON.stringify(running.log())).not.toContain("canary")
@@ -546,13 +559,13 @@ test("an http server with an oauth key comes up needing a login and nothing unat
     expect(results(works[1]).join("\n")).toContain('{"x":6}')
     return anew
   }
+  // A refusal the SDK answers by dropping the tokens and trying again, which must not be the new sign-in's.
+  const retried = await outlived("invalid_grant", "mcp.oauth-stale")
   // A refusal the SDK reports as it is, with the old refresh token in it.
   const reported = await outlived(
     "temporarily_unavailable",
     "refused grant_type",
   )
-  // A refusal the SDK answers by dropping the tokens and trying again, which must not be the new sign-in's.
-  const retried = await outlived("invalid_grant", "mcp.oauth-stale")
 
   // The server refuses the token a refresh has just given. The call says what to ask, as do the status, the next
   // turn's prompt and a rebuild, and the sign-in is kept for when the server takes it again.
