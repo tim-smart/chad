@@ -100,6 +100,12 @@ const decodeStored = Schema.decodeUnknownResult(Schema.fromJsonString(Stored))
 /** The SDK's words for an authorization server with no registration endpoint. */
 const noRegistration = "does not support dynamic client registration"
 
+/** The SDK's words for a server that answers 401 to the token a refresh has just given. */
+const stillUnauthorized = "Server returned 401 after successful authentication"
+
+/** What a sign-in is answered once a newer sign-in or a sign-out has taken its place. */
+class Replaced extends Error {}
+
 export interface McpOAuth {
   /** The target of a resolved server, or none for one with no `oauth` key or that expansion left unavailable. */
   readonly target: (
@@ -113,6 +119,11 @@ export interface McpOAuth {
    * refresh could not fix it.
    */
   readonly needsLogin: (target: Target) => boolean
+  /**
+   * Whether a failure of the server's transport is a 401 that outlived a refresh the authorization server allowed.
+   * Nothing chad holds gets it past that, so the server then needs a login.
+   */
+  readonly refuses: (target: Target, error: string) => boolean
   /** Forgets which servers a layer was refused on, as each rebuild connects them again. */
   readonly reset: () => void
   /** The provider a layer connects a signed-in server with. It refreshes, and never begins an authorization. */
@@ -121,15 +132,21 @@ export interface McpOAuth {
   readonly refusing: (name: string) => OAuthClientProvider
   /** Every stored value that must reach no output: the tokens, a registered client's secret and a pending verifier. */
   readonly hidden: () => ReadonlyArray<string>
-  /** Begins a sign-in and gives the authorization URL. One it replaces can no longer be finished. */
+  /**
+   * Begins a sign-in and gives the authorization URL. One it replaces can no longer be finished, and neither can one
+   * a sign-out came after: what either still hears from the server is dropped.
+   */
   readonly begin: (target: Target) => Effect.Effect<string, string>
   /** Finishes the sign-in with the address the owner's browser ended on. */
   readonly finish: (
     target: Target,
     address: string,
   ) => Effect.Effect<void, string>
-  /** Drops what is stored for a server name: tokens, registered client and pending sign-in. False when it held none. */
-  readonly logout: (name: string) => Effect.Effect<boolean>
+  /**
+   * Drops what is stored for a server name: tokens, registered client and pending sign-in. False when it held none.
+   * It fails when the store could not be written, and the sign-in then stands as it was.
+   */
+  readonly logout: (name: string) => Effect.Effect<boolean, string>
 }
 
 export const make = Effect.fnUntraced(function* (options: {
@@ -143,6 +160,20 @@ export const make = Effect.fnUntraced(function* (options: {
   const entries = new Map<string, Entry>()
   /** The servers whose running connection was answered 401 with nothing left to refresh. */
   const refused = new Set<string>()
+  /**
+   * The newest sign-in or sign-out of each server name. A sign-in writes only while it is the newest, so an answer
+   * that comes back late to one that was replaced, signed out of or timed out changes nothing.
+   */
+  const newest = new Map<string, number>()
+  let attempts = 0
+  /** Takes the place of whatever sign-in the name has under way, and says whether it still holds that place. */
+  const supersede = (name: string) => {
+    const attempt = ++attempts
+    newest.set(name, attempt)
+    return () => newest.get(name) === attempt
+  }
+  /** The codes of the sign-ins being finished, which an authorization server may quote in what it refuses. */
+  const codes = new Set<string>()
 
   const text = yield* fs.readFileString(path).pipe(
     Effect.catchReason("PlatformError", "NotFound", () =>
@@ -174,31 +205,44 @@ export const make = Effect.fnUntraced(function* (options: {
   }
 
   /**
-   * Writes the whole store by a temporary file and a rename, as the secret store is written. A write that fails is
-   * logged and the daemon keeps what it holds in memory, so a refreshed token still serves until the next start.
+   * Writes the whole store by a temporary file and a rename, as the secret store is written. With `without` it
+   * writes the store less that name, and drops the name from memory only once the file no longer holds it. It fails
+   * with the errno code, after logging it.
    */
-  const persist = Effect.gen(function* () {
-    const directory = dirname(path)
-    yield* fs.makeDirectory(directory, { recursive: true })
-    yield* fs.chmod(directory, 0o700)
-    const temporary = `${path}.${process.pid}.tmp`
-    yield* fs.writeFileString(
-      temporary,
-      JSON.stringify(Object.fromEntries(entries), null, 2) + "\n",
-      { mode: 0o600 },
+  const write = (without?: string) =>
+    Effect.gen(function* () {
+      const directory = dirname(path)
+      yield* fs.makeDirectory(directory, { recursive: true })
+      yield* fs.chmod(directory, 0o700)
+      const temporary = `${path}.${process.pid}.tmp`
+      const kept = [...entries].filter(([name]) => name !== without)
+      yield* fs.writeFileString(
+        temporary,
+        JSON.stringify(Object.fromEntries(kept), null, 2) + "\n",
+        { mode: 0o600 },
+      )
+      yield* fs.chmod(temporary, 0o600)
+      yield* fs.rename(temporary, path)
+      if (without !== undefined) entries.delete(without)
+    }).pipe(
+      Effect.catch((error) => {
+        const code = Errno.code(error)
+        return Effect.andThen(
+          Logger.event(
+            "mcp.oauth-unwritable",
+            "The MCP sign-ins could not be written",
+            { error: code },
+          ),
+          Effect.fail(code),
+        )
+      }),
+      (effect) => semaphore.withPermit(effect),
     )
-    yield* fs.chmod(temporary, 0o600)
-    yield* fs.rename(temporary, path)
-  }).pipe(
-    Effect.catch((error) =>
-      Logger.event(
-        "mcp.oauth-unwritable",
-        "The MCP sign-ins could not be written",
-        { error: Errno.code(error) },
-      ),
-    ),
-    (effect) => semaphore.withPermit(effect),
-  )
+  /**
+   * A write of what a sign-in or a refresh changed. When it fails the daemon keeps what it holds in memory, so a
+   * refreshed token still serves until the next start.
+   */
+  const persist = Effect.ignore(write())
   const context = yield* Effect.context<never>()
   /** A change the SDK makes through the provider, which it waits for. */
   const saved = () => Effect.runPromiseWith(context)(persist)
@@ -222,9 +266,29 @@ export const make = Effect.fnUntraced(function* (options: {
    */
   const providerOf = (
     target: Target,
-    sign?: { readonly state: string; url?: URL },
+    sign?: {
+      readonly state: string
+      /** Whether no newer sign-in and no sign-out has taken this one's place. */
+      readonly current: () => boolean
+      url?: URL
+    },
   ): OAuthClientProvider => {
     const { name, oauth } = target
+    /** A change a sign-in makes, which it makes only while it is the newest. */
+    const signed = (change: (entry: Entry) => void) => {
+      if (sign?.current() !== true) throw new Replaced()
+      update(target, change)
+      return saved()
+    }
+    /**
+     * A change a layer makes to the sign-in it runs on. Once a sign-out has dropped that sign-in there is nothing to
+     * change, and an answer the layer still gets must not bring it back.
+     */
+    const kept = (change: (entry: Entry) => void) => {
+      if (own(target) === undefined) return
+      update(target, change)
+      return saved()
+    }
     const configured: OAuthClientInformationMixed | undefined =
       oauth.clientId === undefined
         ? undefined
@@ -261,20 +325,25 @@ export const make = Effect.fnUntraced(function* (options: {
       ...(configured !== undefined
         ? {}
         : {
-            saveClientInformation: (client: OAuthClientInformationMixed) => {
-              update(target, (entry) => {
+            saveClientInformation: (client: OAuthClientInformationMixed) =>
+              signed((entry) => {
                 entry.client = client
-              })
-              return saved()
-            },
+              }),
           }),
       tokens: () => (sign === undefined ? own(target)?.tokens : undefined),
       saveTokens: (tokens) => {
-        refused.delete(name)
-        update(target, (entry) => {
+        const save = (entry: Entry) => {
           entry.tokens = tokens
-        })
-        return saved()
+        }
+        if (sign !== undefined) {
+          const done = signed(save)
+          refused.delete(name)
+          return done
+        }
+        // A layer only refreshes the tokens of a sign-in that is stored. It never makes one.
+        if (own(target)?.tokens === undefined) throw needsLogin(name)
+        refused.delete(name)
+        return kept(save)
       },
       ...(sign === undefined ? {} : { state: () => sign.state }),
       redirectToAuthorization: (url) => {
@@ -287,10 +356,9 @@ export const make = Effect.fnUntraced(function* (options: {
       saveCodeVerifier: (verifier) => {
         // A layer's verifier is never used, and must not replace that of a sign-in the owner is making.
         if (sign === undefined) return
-        update(target, (entry) => {
+        return signed((entry) => {
           entry.pending = { state: sign.state, verifier }
         })
-        return saved()
       },
       codeVerifier: () => {
         const verifier = own(target)?.pending?.verifier
@@ -300,32 +368,35 @@ export const make = Effect.fnUntraced(function* (options: {
       invalidateCredentials: (scope) => {
         // A sign-in sent no stored token, so a code the server refused says nothing of the tokens in use.
         if (sign !== undefined && scope === "tokens") return
-        update(target, (entry) => {
+        return (sign === undefined ? kept : signed)((entry) => {
           if (scope === "all" || scope === "client") delete entry.client
           if (scope === "all" || scope === "tokens") delete entry.tokens
           if (scope === "all" || scope === "discovery") delete entry.discovery
           if (scope === "verifier") delete entry.pending
         })
-        return saved()
       },
-      saveDiscoveryState: (discovery) => {
-        update(target, (entry) => {
+      saveDiscoveryState: (discovery) =>
+        (sign === undefined ? kept : signed)((entry) => {
           entry.discovery = discovery
-        })
-        return saved()
-      },
+        }),
       discoveryState: () => own(target)?.discovery,
     }
   }
 
-  /** One half of a sign-in, with its deadline. What it fails with carries no token and no client secret. */
+  /**
+   * One half of a sign-in, with its deadline. What it fails with carries no token, no client secret and no code. One
+   * that fails is retired, so an answer that still comes back to it after its deadline is dropped.
+   */
   const signing = <A>(
     target: Target,
+    current: () => boolean,
     work: (fetchFn: typeof fetch) => Promise<A>,
   ): Effect.Effect<A, string> =>
     Effect.tryPromise({
       try: (signal) => work((input, init) => fetch(input, { ...init, signal })),
       catch: (error) => {
+        if (error instanceof Replaced)
+          return Messages.mcpLoginReplaced(target.name)
         const message = error instanceof Error ? error.message : String(error)
         return message.includes(noRegistration)
           ? Messages.mcpLoginNoRegistration(target.name)
@@ -345,18 +416,25 @@ export const make = Effect.fnUntraced(function* (options: {
             ),
           ),
       }),
+      Effect.onError(() =>
+        Effect.sync(() => {
+          if (current()) supersede(target.name)
+        }),
+      ),
     )
 
   const hidden = (): ReadonlyArray<string> =>
-    [...entries.values()].flatMap((entry) =>
-      [
-        entry.tokens?.access_token,
-        entry.tokens?.refresh_token,
-        entry.tokens?.id_token,
-        entry.client?.client_secret,
-        entry.pending?.verifier,
-      ].filter((value) => typeof value === "string"),
-    )
+    [...entries.values()]
+      .flatMap((entry) =>
+        [
+          entry.tokens?.access_token,
+          entry.tokens?.refresh_token,
+          entry.tokens?.id_token,
+          entry.client?.client_secret,
+          entry.pending?.verifier,
+        ].filter((value) => typeof value === "string"),
+      )
+      .concat([...codes])
 
   /**
    * What the server's 401 names: where its metadata is and the scope it asks for. A server that answers anything else
@@ -410,6 +488,11 @@ export const make = Effect.fnUntraced(function* (options: {
     signedIn: (target) => own(target)?.tokens !== undefined,
     needsLogin: (target) =>
       own(target)?.tokens === undefined || refused.has(target.name),
+    refuses: (target, error) => {
+      if (!error.includes(stillUnauthorized)) return false
+      refused.add(target.name)
+      return true
+    },
     reset: () => refused.clear(),
     provider: (target) => providerOf(target),
     refusing: (name) => {
@@ -432,6 +515,7 @@ export const make = Effect.fnUntraced(function* (options: {
     hidden,
     begin: Effect.fnUntraced(function* (target) {
       const state = randomBytes(32).toString("base64url")
+      const current = supersede(target.name)
       // The client a registration gave and the tokens of an earlier sign-in stay until this one ends. What the
       // earlier sign-in found is looked up again.
       update(target, (entry) => {
@@ -439,9 +523,9 @@ export const make = Effect.fnUntraced(function* (options: {
         entry.pending = { state }
       })
       yield* persist
-      const sign: { readonly state: string; url?: URL } = { state }
+      const sign: Parameters<typeof providerOf>[1] = { state, current }
       const scope = scopeOf(target)
-      yield* signing(target, async (fetchFn) => {
+      yield* signing(target, current, async (fetchFn) => {
         const asked = await challenge(target, fetchFn)
         return auth(providerOf(target, sign), {
           serverUrl: target.url,
@@ -457,6 +541,9 @@ export const make = Effect.fnUntraced(function* (options: {
             : { resourceMetadataUrl: asked.resourceMetadataUrl }),
         })
       })
+      // A sign-out may have come once the link was made, and it dropped the sign-in the link belongs to.
+      if (!current())
+        return yield* Effect.fail(Messages.mcpLoginReplaced(target.name))
       if (sign.url === undefined)
         return yield* Effect.fail(
           Messages.mcpLoginError(target.name, "the server gave no link"),
@@ -473,41 +560,64 @@ export const make = Effect.fnUntraced(function* (options: {
       } catch {
         return yield* Effect.fail(Messages.mcpLoginNotAddress(target.name))
       }
+      // Nothing of an address is believed before its state is this sign-in's own, a refusal included.
+      if (params.get("state") !== pending.state)
+        return yield* Effect.fail(Messages.mcpLoginOtherState(target.name))
       const error = params.get("error")
       if (error !== null)
         return yield* Effect.fail(
           Messages.mcpLoginDenied(
             target.name,
             Messages.firstLine(
-              [error, params.get("error_description") ?? ""]
-                .filter((part) => part !== "")
-                .join(": "),
+              target.scrub(
+                [error, params.get("error_description") ?? ""]
+                  .filter((part) => part !== "")
+                  .join(": "),
+              ),
             ),
           ),
         )
       const code = params.get("code")
       if (code === null || code === "")
         return yield* Effect.fail(Messages.mcpLoginNoCode(target.name))
-      if (params.get("state") !== pending.state)
-        return yield* Effect.fail(Messages.mcpLoginOtherState(target.name))
       const scope = scopeOf(target)
-      yield* signing(target, (fetchFn) =>
-        auth(providerOf(target, { state: pending.state }), {
+      const current = supersede(target.name)
+      // The code is good until it is used, so what the authorization server says of it is not passed on with it.
+      const quoted = [code, encodeURIComponent(code)]
+      for (const value of quoted) codes.add(value)
+      yield* signing(target, current, (fetchFn) =>
+        auth(providerOf(target, { state: pending.state, current }), {
           serverUrl: target.url,
           authorizationCode: code,
           fetchFn,
           ...(scope === undefined ? {} : { scope }),
         }),
+      ).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            for (const value of quoted) codes.delete(value)
+          }),
+        ),
       )
-      update(target, (entry) => {
-        delete entry.pending
-      })
-      yield* persist
+      // A sign-in begun meanwhile has its own pending state, which stays.
+      if (own(target)?.pending?.state === pending.state) {
+        update(target, (entry) => {
+          delete entry.pending
+        })
+        yield* persist
+      }
     }),
     logout: Effect.fnUntraced(function* (name) {
+      // A sign-in under way ends here too: what it still hears from the server is dropped.
+      supersede(name)
+      if (!entries.has(name)) return false
+      // The file is what the next start reads, so the sign-out has happened only once the file is written.
+      const written = yield* Effect.result(write(name))
+      if (written._tag === "Failure")
+        return yield* Effect.fail(
+          Messages.mcpLogoutUnsaved(name, written.failure),
+        )
       refused.delete(name)
-      if (!entries.delete(name)) return false
-      yield* persist
       return true
     }),
   } satisfies McpOAuth as McpOAuth

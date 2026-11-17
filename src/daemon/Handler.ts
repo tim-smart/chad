@@ -667,28 +667,54 @@ export const interactions = (connection: Live) =>
               ).pipe(
                 Effect.matchEffect({
                   onFailure: say,
-                  onSuccess: (url) => {
-                    const button = url.length <= linkButtonLength
-                    return chat.post(click.thread, {
-                      markdown: [
-                        Messages.mcpLoginSteps(server),
-                        ...(button ? [] : [Messages.mcpLoginLink(url)]),
-                      ].join("\n"),
-                      actions: [
-                        ...(button
-                          ? [
-                              ChatUi.linkButton({
-                                label: Messages.mcpLoginOpenLabel,
-                                url,
-                              }),
-                            ]
-                          : []),
-                        McpLoginPaste.of(server, {
-                          label: Messages.mcpLoginPasteLabel,
-                        }),
-                      ],
-                    })
-                  },
+                  onSuccess: (url) =>
+                    Effect.gen(function* () {
+                      const button = url.length <= linkButtonLength
+                      const message = {
+                        markdown: [
+                          Messages.mcpLoginSteps(server),
+                          ...(button ? [] : [Messages.mcpLoginLink(url)]),
+                        ].join("\n"),
+                        actions: [
+                          ...(button
+                            ? [
+                                ChatUi.linkButton({
+                                  label: Messages.mcpLoginOpenLabel,
+                                  url,
+                                }),
+                              ]
+                            : []),
+                          McpLoginPaste.of(server, {
+                            label: Messages.mcpLoginPasteLabel,
+                          }),
+                        ],
+                      }
+                      // A link cannot be cut in two, so one that fits in no message is not posted, and the owner is
+                      // told the way in that has no limit. The same goes for a message the platform did not take.
+                      const { limits, measure } = yield* chat.descriptor(
+                        click.thread.platform,
+                      )
+                      const long =
+                        measure(message.markdown, message.actions) >
+                        limits.messageLength
+                      if (long)
+                        return yield* say(
+                          Messages.mcpLoginUnposted(server, true),
+                        )
+                      yield* chat
+                        .post(click.thread, message)
+                        .pipe(
+                          Effect.catchCause((cause) =>
+                            Effect.andThen(
+                              Effect.logError(
+                                "An MCP sign-in's link could not be posted",
+                                cause,
+                              ),
+                              say(Messages.mcpLoginUnposted(server, false)),
+                            ),
+                          ),
+                        )
+                    }),
                 }),
                 Effect.catchCause((cause) =>
                   Effect.logError("An MCP sign-in could not begin", cause),

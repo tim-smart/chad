@@ -146,10 +146,11 @@ An HTTP server that signs in with OAuth needs an `oauth` key. Without the key ch
 - `scopes` are the scopes chad asks for. Without it chad asks for what the server names.
 - Only an HTTP server takes `oauth`. Every string in it takes `${NAME}`.
 - A server with no usable sign-in is listed as "needs login": in what an apply and `chad mcp restart` print, in `chad status`, and in your prompt. Nothing starts a sign-in by itself, at a boot, an apply, a restart or a secret change, and the other servers connect as usual.
-- Only the owner signs in. You cannot, and no command you run does. Call `await requestMcpLogin({ server: "linear" })`, which posts a button in the thread, and end your turn. The owner presses it, opens the link chad posts, approves, and puts the address the browser ended on into a form. Where that tool is not there, ask the owner to run `chad mcp login linear` in a shell on the server. `chad mcp logout linear` drops the tokens and the registered client.
+- Only the owner signs in. You cannot, and no command you run does. Call `await requestMcpLogin({ server: "linear" })`, which posts a button in the thread, and end your turn. The owner presses it, opens the link chad posts, approves, and puts the address the browser ended on into a form. Where that tool is not there, ask the owner to run `chad mcp login linear` in a shell on the server. `chad mcp logout linear` drops the tokens and the registered client, and ends a sign-in that is under way. When it cannot write the volume it says so and chad stays signed in.
+- A link too long for a message is not posted. chad then tells the owner in the thread to run `chad mcp login <name>`, which prints the link.
 - Never ask the owner to paste that address or a token into the chat. The address carries the code of the sign-in.
 - A sign-in that finished, and a sign-out, restart every MCP server, as a secret change does. Calls in flight are interrupted.
-- chad refreshes the token by itself and keeps the new one across restarts. When the server refuses the refresh, a call fails with "MCP server "<name>" needs the owner to sign in", and the server shows as "needs login". Ask the owner to sign in again. Do not retry the call.
+- chad refreshes the token by itself and keeps the new one across restarts. When the server refuses the refresh, or still answers 401 to the token a refresh gave, a call fails with "MCP server "<name>" needs the owner to sign in", and the server shows as "needs login". Ask the owner to sign in again. Do not retry the call.
 - A changed `url` or `oauth` block makes the server need a new sign-in. The old tokens are not sent to it.
 
 ## Settings and secrets

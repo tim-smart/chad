@@ -34,6 +34,8 @@ type OnImage = Parameters<McpServers.McpServers["Service"]["handlers"]>[0]
 /** One clanka layer and what chad keeps of it. */
 interface Built {
   readonly services: McpServers.McpServers["Service"]
+  /** clanka's prompt section, with what to ask of the owner on the line of each server that needs a login. */
+  readonly prompt: string
   /** Keeps the values of the layer's `${NAME}`s out of what it says. */
   readonly scrub: (text: string) => string
   /** Each server's name by the identifier its keys carry. */
@@ -86,7 +88,7 @@ export interface Mcp {
       address: string,
     ) => Effect.Effect<void, string>
     /** Drops the stored sign-in of a name, listed or not. False when it held none. */
-    readonly logout: (name: string) => Effect.Effect<boolean>
+    readonly logout: (name: string) => Effect.Effect<boolean, string>
   }
 }
 
@@ -125,9 +127,14 @@ const states = (
 ): Effect.Effect<ReadonlyArray<Messages.McpServerState>> =>
   Effect.map(layer.services.status, (status) =>
     Object.entries(status).map(([name, server]) => {
-      // A server whose sign-in is gone needs a login whatever its transport says, a connected one included.
+      // A server whose sign-in is gone needs a login whatever its transport says, a connected one included. So does
+      // one that refused the token a refresh gave as it connected.
       const target = layer.targets.get(name)
-      if (target !== undefined && oauth.needsLogin(target))
+      if (
+        target !== undefined &&
+        ((server._tag === "Failed" && oauth.refuses(target, server.error)) ||
+          oauth.needsLogin(target))
+      )
         return { name, state: "needs-login" }
       return server._tag === "Connected"
         ? { name, state: "connected", tools: server.tools.length }
@@ -201,6 +208,7 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
     ])
     const built: Built = {
       services: undefined as never,
+      prompt: "",
       scrub,
       names,
       targets,
@@ -222,11 +230,25 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
       McpServers.McpServers,
     )
     const next: Built = Object.assign(built, { services })
+    const servers = yield* states(next, oauth)
+    // clanka words a failed server's line from the transport's error, which for a server that refused a refreshed
+    // token says nothing of the owner. The model reads what to ask in its place.
+    const status = yield* services.status
+    const prompt = servers.reduce((text, { name, state }) => {
+      const server = status[name]
+      return state === "needs-login" && server?._tag === "Failed"
+        ? text.replace(
+            `- ${name}: failed to connect: ${Messages.firstLine(server.error)}`,
+            () =>
+              `- ${name}: failed to connect: ${Messages.mcpNeedsLogin(name)}`,
+          )
+        : text
+    }, services.prompt)
+    Object.assign(next, { prompt })
     // The new layer is current once clanka has connected it, and sessions follow it on their next turn.
     current = next
     rebuilding = false
     generation++
-    const servers = yield* states(next, oauth)
     for (const server of servers) {
       if (server.state === "failed")
         yield* Logger.event(
@@ -315,14 +337,25 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
       )
     }
     const handler = handlers[key]
-    if (handler !== undefined)
+    if (handler !== undefined) {
+      const server = layer.names.get(split(key).server)
+      const target =
+        server === undefined ? undefined : layer.targets.get(server)
       return Effect.raceFirst(
-        handler(params),
+        // A 401 that outlived a refresh is told as every other sign-in that no longer works is.
+        target === undefined
+          ? handler(params)
+          : Effect.mapError(handler(params), (error) =>
+              oauth.refuses(target, error)
+                ? Messages.mcpNeedsLogin(target.name)
+                : error,
+            ),
         Effect.andThen(
           Deferred.await(layer.restart),
           Effect.fail(Messages.mcpInterrupted(key)),
         ),
       )
+    }
     // chad words what the new layer lacks itself, from its config and status.
     const ids = split(key)
     const name = layer.names.get(ids.server)
@@ -347,7 +380,7 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
     // rebuild takes those of the last layer that finished connecting, and one before the first layer has none, with
     // `Messages.mcpStarting` in place of the section when servers are on their way.
     get prompt() {
-      if (current !== undefined) return current.scrub(current.services.prompt)
+      if (current !== undefined) return current.scrub(current.prompt)
       return rebuilding && (wanted?.size ?? 0) > 0 ? Messages.mcpStarting : ""
     },
     get dts() {

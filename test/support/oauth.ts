@@ -31,6 +31,13 @@ export interface FakeOAuth {
   readonly expire: () => void
   /** Ends the access token and the refresh token, as the owner revoking chad does. */
   readonly revoke: () => void
+  /**
+   * Makes the MCP server refuse every token, the one a refresh has just given included, as a server does whose
+   * grant no longer covers it though its authorization server still refreshes.
+   */
+  readonly reject: (on: boolean) => void
+  /** Keeps the answer to every request of a path back until the release it gives is called. */
+  readonly hold: (path: string) => () => void
   /** Opens an authorization URL as the owner's browser does, approves, and gives the address it is sent to. */
   readonly approve: (url: string) => Promise<string>
   readonly close: () => Promise<void>
@@ -55,6 +62,8 @@ export const make = async (options: Options = {}): Promise<FakeOAuth> => {
   let access: string | undefined
   let refresh: string | undefined
   let count = 0
+  let rejecting = false
+  const held = new Map<string, Promise<void>>()
 
   const server = createServer((request, response) => {
     const json = (status: number, value: unknown, headers = {}) => {
@@ -69,6 +78,7 @@ export const make = async (options: Options = {}): Promise<FakeOAuth> => {
     void (async () => {
       if (url.pathname === "/mcp") {
         if (
+          rejecting ||
           access === undefined ||
           request.headers.authorization !== `Bearer ${access}`
         )
@@ -107,6 +117,7 @@ export const make = async (options: Options = {}): Promise<FakeOAuth> => {
         return result({})
       }
       asked.push(url.pathname)
+      await held.get(url.pathname)
       if (url.pathname === "/.well-known/oauth-protected-resource")
         return json(200, {
           resource: `${base}/mcp`,
@@ -157,7 +168,7 @@ export const make = async (options: Options = {}): Promise<FakeOAuth> => {
         const refuse = (error: string) =>
           json(400, {
             error,
-            error_description: `refused ${form["client_secret"] ?? ""} ${form["refresh_token"] ?? ""}`,
+            error_description: `refused ${form["client_secret"] ?? ""} ${form["refresh_token"] ?? ""} ${form["code"] ?? ""}`,
           })
         if (
           options.client !== undefined &&
@@ -213,6 +224,22 @@ export const make = async (options: Options = {}): Promise<FakeOAuth> => {
     revoke: () => {
       access = undefined
       refresh = undefined
+    },
+    reject: (on) => {
+      rejecting = on
+    },
+    hold: (path) => {
+      let release = () => {}
+      held.set(
+        path,
+        new Promise((resolve) => {
+          release = resolve
+        }),
+      )
+      return () => {
+        held.delete(path)
+        release()
+      }
     },
     approve: async (url) => {
       const response = await fetch(url, { redirect: "manual" })

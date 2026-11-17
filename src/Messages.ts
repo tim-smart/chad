@@ -1860,6 +1860,10 @@ export const mcpLoggedIn = (name: string) => `Signed in to "${name}".`
 export const mcpLoggedOut = (name: string) =>
   `Signed out of "${name}". Its tokens and its registered client are dropped.`
 
+/** `chad mcp logout` whose write of the store failed, with the errno code. The sign-in is still stored. */
+export const mcpLogoutUnsaved = (name: string, code: string) =>
+  `chad mcp logout: the sign-in to "${name}" could not be removed from the volume (${code}), so chad is still signed in. Run chad mcp logout ${name} again once the volume can be written.`
+
 /** `chad mcp logout` of a name that holds no sign-in. */
 export const mcpLogoutNothing = (name: string) =>
   `chad mcp logout: "${name}" holds no sign-in`
@@ -1900,6 +1904,10 @@ export const mcpLoginOtherState = (name: string) =>
 export const mcpLoginNoRegistration = (name: string) =>
   `chad mcp login: the authorization server of "${name}" registers no client by itself. Register chad with it, and put the client's id in "oauth": { "clientId": ... } in mcp.json.`
 
+/** A sign-in that a newer sign-in or a sign-out took the place of while it was under way. */
+export const mcpLoginReplaced = (name: string) =>
+  `chad mcp login: this sign-in to "${name}" was replaced by a newer one or ended by a sign-out. Start again.`
+
 /** Any other failure of a sign-in's requests. */
 export const mcpLoginError = (name: string, reason: string) =>
   `chad mcp login: the sign-in to "${name}" failed (${reason})`
@@ -1918,6 +1926,10 @@ export const mcpLoginSteps = (name: string) =>
 
 /** The link, in the message itself, when it is too long for a button. */
 export const mcpLoginLink = (url: string) => `The link: <${url}>`
+
+/** In place of the sign-in message, when the link fits in no message here or the message could not be posted. */
+export const mcpLoginUnposted = (name: string, long: boolean) =>
+  `${long ? `The sign-in link for "${name}" is too long for a message here` : `The sign-in link for "${name}" could not be posted here`}. Run \`chad mcp login ${name}\` in a shell on the server instead, which prints the link.`
 
 /**
  * What an older `chad serve` says when `state/version` names a newer chad. `copy` is the copy of the database taken

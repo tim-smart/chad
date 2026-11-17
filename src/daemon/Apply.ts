@@ -1204,9 +1204,14 @@ export const make = Effect.fnUntraced(function* (options: {
     return yield* owned(
       Effect.gen(function* () {
         if (request._tag === "McpLogout") {
-          if (!(yield* options.mcp.login.logout(server))) {
+          const dropped = yield* Effect.result(options.mcp.login.logout(server))
+          if (dropped._tag === "Failure" || !dropped.success) {
             yield* Queue.ran(command, who, "unchanged", { server })
-            return failed(Messages.mcpLogoutNothing(server))
+            return failed(
+              dropped._tag === "Failure"
+                ? dropped.failure
+                : Messages.mcpLogoutNothing(server),
+            )
           }
           yield* Queue.ran(command, who, "changed", { server })
           return {
