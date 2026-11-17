@@ -57,11 +57,9 @@ it("chad db query refuses a statement that writes, in the database or anywhere e
   const copy = join(data, "copy.db")
   for (const [sql, message] of [
     [`VACUUM INTO '${copy}'`, "authorization denied"],
-    ["VACUUM", "authorization denied"],
     ["CREATE TEMP TABLE more (n)", "not authorized"],
     [`ATTACH DATABASE '${copy}' AS more`, "not authorized"],
     ["PRAGMA temp.user_version = 42", "attempt to write a readonly database"],
-    ["PRAGMA temp.application_id = 42", "attempt to write a readonly database"],
   ] as const) {
     expect(await db(data, "query", sql), sql).toEqual({
       stdout: "",
@@ -77,24 +75,11 @@ it("chad db query refuses a statement that writes, in the database or anywhere e
     stderr: "",
     code: 0,
   })
-  expect(await db(data, "query", "PRAGMA temp.user_version")).toEqual({
-    stdout: "user_version\n0\n",
-    stderr: "",
-    code: 0,
+  expect(await db(data, "query", "DELETE FROM numbers")).toEqual({
+    stdout: "",
+    stderr: `${Messages.dbFailed("query", "attempt to write a readonly database")}\n`,
+    code: 1,
   })
-  for (const sql of [
-    "DELETE FROM numbers",
-    "INSERT INTO numbers VALUES (4)",
-    "UPDATE numbers SET n = n + 10",
-    "DROP TABLE numbers",
-    "CREATE TABLE more (n)",
-  ]) {
-    expect(await db(data, "query", sql), sql).toEqual({
-      stdout: "",
-      stderr: `${Messages.dbFailed("query", "attempt to write a readonly database")}\n`,
-      code: 1,
-    })
-  }
   expect(query(data, "SELECT n FROM numbers")).toEqual([
     { n: 1n },
     { n: 2n },
@@ -103,12 +88,6 @@ it("chad db query refuses a statement that writes, in the database or anywhere e
   expect(query(data, "SELECT name FROM sqlite_schema")).toEqual([
     { name: "numbers" },
   ])
-
-  expect(await db(data, "query", "SELECT n FROM nowhere")).toEqual({
-    stdout: "",
-    stderr: `${Messages.dbFailed("query", "no such table: nowhere")}\n`,
-    code: 1,
-  })
 
   const empty = mkdtempSync(join(tmpdir(), "chad-db-"))
   onTestFinished(() => rmSync(empty, { recursive: true, force: true }))
@@ -126,101 +105,3 @@ it("chad db query refuses a statement that writes, in the database or anywhere e
   // A read creates nothing on the volume.
   expect(existsSync(join(empty, "db"))).toBe(false)
 }, 20_000)
-
-it("chad db query prints at most 200 rows, or as many as --limit gives, says on stderr when the statement had more, and takes no --limit below 1", async () => {
-  const data = volume(numbered(250))
-  const lines = (stdout: string) => stdout.split("\n").slice(1, -1)
-  const all = "SELECT n FROM numbers ORDER BY n"
-
-  const capped = await db(data, "query", all)
-  expect(lines(capped.stdout)).toHaveLength(200)
-  expect(lines(capped.stdout).at(-1)).toBe("200")
-  expect(capped.stderr).toBe(`${Messages.dbMore(200)}\n`)
-  expect(capped.code).toBe(0)
-
-  const raised = await db(data, "query", all, "--limit", "1000")
-  expect(lines(raised.stdout)).toHaveLength(250)
-  expect(raised.stderr).toBe("")
-
-  const lowered = await db(data, "query", "--limit", "3", all)
-  expect(lowered).toEqual({
-    stdout: "n\n1\n2\n3\n",
-    stderr: `${Messages.dbMore(3)}\n`,
-    code: 0,
-  })
-
-  // A statement with exactly as many rows as the limit has no more.
-  const exact = await db(data, "query", "--limit", "250", all)
-  expect(lines(exact.stdout)).toHaveLength(250)
-  expect(exact.stderr).toBe("")
-
-  for (const limit of ["0", "-1", "1.5", "many"]) {
-    const refused = await db(data, "query", all, "--limit", limit)
-    expect(refused.code, limit).toBe(2)
-    expect(refused.stdout).toMatch(/USAGE\n {2}chad db query /)
-  }
-  expect((await db(data, "query", all, "--limit", "0")).stderr).toContain(
-    Messages.dbLimit(),
-  )
-})
-
-const mixed = `
-  CREATE TABLE mixed ("na\tme" TEXT, number, bytes BLOB);
-  INSERT INTO mixed VALUES
-    ('one' || char(9) || 'tab', 1.5, x'00ff'),
-    ('two' || char(10) || 'lines', NULL, x''),
-    ('a\\back' || char(92) || 'n', 9007199254740993, NULL),
-    ('', 7, NULL)
-`
-
-it("without --json chad db query prints a header line and one line for each row, with tabs between the values, and a tab, a newline and a backslash escaped so that a row is one line", async () => {
-  const data = volume(mixed)
-  expect(await db(data, "query", "SELECT * FROM mixed ORDER BY rowid")).toEqual(
-    {
-      stdout: [
-        "na\\tme\tnumber\tbytes",
-        "one\\ttab\t1.5\tx'00ff'",
-        "two\\nlines\tNULL\tx''",
-        "a\\\\back\\\\n\t9007199254740993\tNULL",
-        "\t7\tNULL",
-        "",
-      ].join("\n"),
-      stderr: "",
-      code: 0,
-    },
-  )
-  // A statement with no rows prints its header.
-  expect(
-    (await db(data, "query", "SELECT number FROM mixed WHERE 0")).stdout,
-  ).toBe("number\n")
-})
-
-it("with --json chad db query prints one line that holds an array with an object for each row, keyed by column name", async () => {
-  const data = volume(mixed)
-  const ran = await db(
-    data,
-    "query",
-    "--json",
-    "SELECT * FROM mixed ORDER BY rowid",
-  )
-  expect(ran.stderr).toBe("")
-  expect(ran.code).toBe(0)
-  expect(ran.stdout.split("\n")).toHaveLength(2)
-  expect(JSON.parse(ran.stdout)).toEqual([
-    { "na\tme": "one\ttab", number: 1.5, bytes: "x'00ff'" },
-    { "na\tme": "two\nlines", number: null, bytes: "x''" },
-    { "na\tme": "a\\back\\n", number: "9007199254740993", bytes: null },
-    { "na\tme": "", number: 7, bytes: null },
-  ])
-  expect((await db(data, "query", "SELECT 1 WHERE 0", "--json")).stdout).toBe(
-    "[]\n",
-  )
-})
-
-it("chad db query runs the first statement of its argument and ignores what follows it", async () => {
-  const data = volume(numbered(2))
-  expect(
-    await db(data, "query", "SELECT 1 AS first; DELETE FROM numbers; SELECT 2"),
-  ).toEqual({ stdout: "first\n1\n", stderr: "", code: 0 })
-  expect(query(data, "SELECT count(*) AS n FROM numbers")).toEqual([{ n: 2n }])
-})

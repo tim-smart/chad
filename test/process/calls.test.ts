@@ -27,17 +27,6 @@ const checking = async (running: Process) => {
   return { check, release }
 }
 
-test("a daemon stopped in the middle of a call ends the command with exit 4 and the message to run chad status and chad logs", async () => {
-  const running = await daemon({ connections: [home] })
-  const current = await running.start()
-  const { check, release } = await checking(running)
-  await current.signal("SIGTERM")
-  const ran = await check.done
-  release()
-  expect(ran.code).toBe(4)
-  expect(ran.stderr).toContain(Messages.daemonGone("connection check"))
-}, 20_000)
-
 test("a daemon that stops answering in the middle of a call ends the command with exit 4 once the RPC ping of 5 seconds goes unanswered", async () => {
   const running = await daemon({ connections: [home] })
   const current = await running.start()

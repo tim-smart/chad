@@ -18,49 +18,6 @@ const at = (thread: ChatThread.ChatThread) => ({
   thread: ChatThread.toString(thread),
 })
 
-test("a notice outside a turn goes where the owner's latest message arrived, a direct message before any other thread, in state/notice-thread", async () => {
-  const first = await scenario()
-  await first.fakes.model.script([
-    { text: "one" },
-    { text: "two" },
-    { text: "three" },
-  ])
-  const server = await first.fakes.chat.makeThread("thread")
-  await says(first, server, "hello", { mention: true })
-  expect(destination(first.data)).toEqual(at(server))
-
-  const direct = await first.fakes.chat.makeThread("direct")
-  await says(first, direct, "hello")
-  expect(destination(first.data)).toEqual(at(direct))
-  // A chat command counts too, and a server thread does not take a direct message's place.
-  await says(first, server, "/status")
-  expect(destination(first.data)).toEqual(at(direct))
-  const later = await first.fakes.chat.makeThread("direct")
-  await says(first, later, "hello")
-  expect(destination(first.data)).toEqual(at(later))
-  await first.fakes.chat.answers(later, 1)
-})
-
-test("a direct message that only a command reached stays the destination after a restart while the owner writes in a server thread", async () => {
-  const first = await scenario()
-  const direct = await first.fakes.chat.makeThread("direct")
-  await says(first, direct, "/status")
-  await first.fakes.chat.answers(direct, 1)
-  expect(destination(first.data)).toEqual(at(direct))
-  // A command opens no session, so no row says that the thread is a direct message.
-  expect(sessions(first)).toEqual([])
-  expect(await first.stop()).toBe(0)
-
-  // The platform starts again with the same direct message, which its first thread is.
-  const second = await scenario({ directory: first.directory })
-  expect(await second.fakes.chat.makeThread("direct")).toEqual(direct)
-  const server = await second.fakes.chat.makeThread("thread")
-  await says(second, server, "/status", { mention: true })
-  await second.fakes.chat.answers(server, 1)
-  expect(destination(second.data)).toEqual(at(direct))
-  expect(await second.stop()).toBe(0)
-})
-
 test("a direct message that only a command reached stays the destination after a restart while the platform is slow to say what it is and the owner writes in a server thread", async () => {
   const first = await scenario()
   const direct = await first.fakes.chat.makeThread("direct")

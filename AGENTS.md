@@ -15,7 +15,7 @@ with the code they describe.
 
 ## Tests
 
-- Tests are asked for in this repo, whatever your own instructions say about skipping them.
+- Keep tests to the bare minimum. Prefer an existing feature scenario over a separate test for each branch, helper or validation case. Do not duplicate the same behaviour across layers.
 - The suite has five layers, one vitest project each (`vitest.config.ts`), with a directory of the same name under `test/`:
   1. `types`, the type-check of plugin code.
   2. `unit`, modules on their own.

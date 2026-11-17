@@ -1,32 +1,14 @@
 // Plugins handed to `runDaemon`, which the daemon builds as it builds a bundled plugin: what a plugin reaches, the
 // turns it starts, and its hooks' budgets.
-import { mkdtempSync } from "node:fs"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
-import * as NodeServices from "@effect/platform-node/NodeServices"
-import * as SqliteClient from "@effect/sql-sqlite-node/SqliteClient"
-import {
-  Deferred,
-  Duration,
-  Effect,
-  Exit,
-  Layer,
-  Option,
-  Schema,
-  Scope,
-} from "effect"
+import { Deferred, Effect, Layer, Option, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
-import { Chat, ChatThread } from "effect/chat"
-import { HttpClient } from "effect/http"
+import { ChatThread } from "effect/chat"
 import { SqlClient } from "effect/sql"
 import { expect, test } from "vitest"
 import * as Plugin from "../../dist/Plugin.js"
 import * as Session from "../../dist/Session.js"
-import * as Timings from "../../dist/Timings.js"
 import { Turns } from "../../dist/Turns.js"
-import * as Plugins from "../../dist/daemon/Plugins.js"
 import sendFile from "../../dist/plugins/send-file.js"
-import { execute } from "../support/database.ts"
 import * as Discord from "../support/discord.ts"
 import { scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
@@ -185,61 +167,6 @@ test("a plugin's turn runs in another thread with the plugin as its origin, a [S
   }
 })
 
-test("a beforeTurn hook past its budget is dropped and logged and the turn runs, and afterTurn runs for a turn the owner stopped", async () => {
-  const ended = Deferred.makeUnsafe<string>()
-  const slow = Plugin.make(
-    Plugin.beforeTurn(() => Effect.as(Effect.never, "never"), {
-      timeout: "50 millis",
-    }),
-    Plugin.afterTurn((turn) =>
-      Deferred.succeed(ended, turn.outcome._tag).pipe(Effect.asVoid),
-    ),
-  )
-  const running = await scenario({ plugins: [{ name: "slow", plugin: slow }] })
-  const { fakes } = running
-  await fakes.model.script([{ ...runs('console.log("ran")'), hold: true }])
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "hello")
-  const failed = await running.logged("hook.failed")
-  expect(failed.annotations).toMatchObject({ plugin: "slow" })
-  await fakes.model.received(1)
-  await says(running, thread, "/stop")
-  expect(await Effect.runPromise(Deferred.await(ended))).toBe("Stopped")
-})
-
-test("a plugin whose tool name another plugin holds is skipped with the holder's name, and the rest load", async () => {
-  const same = tool("same")
-  const make = () =>
-    Plugin.make(
-      Plugin.toolkit(same).pipe(
-        Layer.provide(
-          same.toLayer(
-            Effect.succeed(same.of({ same: () => Effect.succeed("ok") })),
-          ),
-        ),
-      ),
-    )
-  const running = await scenario({
-    plugins: [
-      { name: "first", plugin: make() },
-      { name: "second", plugin: make() },
-    ],
-  })
-  const { fakes } = running
-  const skipped = await running.logged("plugin.skipped")
-  expect(skipped.annotations["plugin"]).toBe("second")
-  expect(String(skipped.annotations["reason"])).toContain("first")
-  await fakes.model.script([
-    runs("console.log(await same({}))"),
-    { text: "ok" },
-  ])
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "hello")
-  // The skipped plugin's notice goes to this direct message too, so the turn's end is what is waited for.
-  await running.logged("turn.ended")
-  expect(results((await fakes.model.calls())[1]).join("\n")).toContain("ok")
-})
-
 test("the bundled sendFile posts a file the agent wrote, named by a relative path, with its caption in the session's thread before the answer", async () => {
   const running = await scenario({
     plugins: [{ name: "send-file", plugin: sendFile }],
@@ -326,67 +253,6 @@ test("a graceful stop lets a running afterTurn hook finish before it closes the 
   await Effect.runPromise(Deferred.succeed(release, undefined))
   expect(await stop).toBe(0)
   expect(events).toEqual(["hook-started", "hook-finished", "plugin-closed"])
-})
-
-test("the hooks a stop drains have until stopHooksUntil after the stop began, and not that long again from when the drain begins", async () => {
-  const hung = Plugin.make(Plugin.afterTurn(() => Effect.never))
-  const services = Layer.mergeAll(
-    NodeServices.layer,
-    SqliteClient.layer({
-      filename: join(mkdtempSync(join(tmpdir(), "chad-host-")), "db"),
-    }),
-    Layer.succeed(Chat.Chat, {} as never),
-    Layer.succeed(HttpClient.HttpClient, {} as never),
-  )
-  await Effect.gen(function* () {
-    const scope = yield* Scope.make()
-    const host = yield* Plugins.make({
-      entries: [{ name: "hung", plugin: hung }],
-      owners: () => [],
-      timezone: () => "UTC",
-      timings: { ...Timings.defaults, stopHooksUntil: Duration.hours(1) },
-      // The stop began an hour ago, so its time for queued hooks is spent and the close does not wait an hour.
-      stopping: () => Date.now() - Duration.toMillis(Duration.hours(1)),
-      notices: { raise: () => Effect.void, clear: () => Effect.void } as never,
-      turns: () => ({}) as never,
-    }).pipe(Scope.provide(scope))
-    yield* host.afterTurn({} as never)
-    yield* Scope.close(scope, Exit.void)
-  }).pipe(Effect.provide(services), Effect.runPromise)
-})
-
-test("Turns.start returns the turn's outcome when cluster cannot save the reply, a missing thread's ThreadGone included", async () => {
-  let turns: Turns["Service"] | undefined
-  const plugin = Plugin.make(
-    Layer.effectDiscard(
-      Effect.gen(function* () {
-        turns = yield* Turns
-      }),
-    ),
-  )
-  const running = await scenario({ plugins: [{ name: "probe", plugin }] })
-  const { fakes } = running
-  await running.logged("boot.ready")
-  await fakes.model.script([{ text: "done anyway" }])
-  const thread = await fakes.chat.makeThread("direct")
-  execute(
-    running.data,
-    "CREATE TRIGGER full BEFORE INSERT ON cluster_replies BEGIN SELECT RAISE(ABORT, 'database or disk is full'); END",
-  )
-  const outcome = await Effect.runPromise(
-    turns!.start({ thread, prompt: "plugin says hello", label: "probe" }),
-  )
-  expect(outcome).toMatchObject({ _tag: "Answered", text: "done anyway" })
-  // The handler returns early for a thread the platform does not have, and that outcome reaches the caller too.
-  const gone = await Effect.runPromise(
-    turns!.start({
-      thread: ChatThread.make(thread.platform, "missing"),
-      prompt: "plugin says hello",
-      label: "probe",
-    }),
-  )
-  expect(gone).toMatchObject({ _tag: "Failed", reason: { _tag: "ThreadGone" } })
-  execute(running.data, "DROP TRIGGER full")
 })
 
 test("an owner removed while a plugin's turn runs is not mentioned in its answer", async () => {

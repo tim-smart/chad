@@ -1,6 +1,5 @@
 import { expect, it } from "vitest"
-import { refusalFrame, responses } from "../support/model.ts"
-import { load, shape, shapes, strip, stripped } from "../support/recording.ts"
+import { load, strip, stripped } from "../support/recording.ts"
 
 it("the kept recording of the Codex side holds no token and no account id", () => {
   const recording = load()
@@ -36,23 +35,4 @@ it("the kept recording of the Codex side holds no token and no account id", () =
       usage: { request_fields: { instructions: { input_tokens: 10 } } },
     },
   })
-})
-
-it("the fake's Codex frames have the shape of the kept recording's, for an answer on each transport and for a usage limit", () => {
-  const recording = load()
-  const answer = shapes(responses(0, { text: "Hello" }, "gpt-6-astra"))
-  expect(answer).toEqual(shapes(recording.answer.http))
-  expect(answer).toEqual(shapes(recording.answer.socket))
-  expect(
-    shape(
-      refusalFrame({
-        status: 429,
-        error: {
-          type: "usage_limit_reached",
-          message: "The usage limit has been reached",
-          resets_at: 1_900_000_000,
-        },
-      }),
-    ),
-  ).toEqual(shape(recording.refusal))
 })

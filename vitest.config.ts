@@ -31,7 +31,6 @@ export default defineConfig({
           ? { testTimeout: 20_000 }
           : {}),
         env: { TZ: timezone, CHAD_TEST_RUN: run },
-        setupFiles: ["test/support/modules.ts"],
         // The built package is loaded by Node itself and never through vite, as a plugin's imports are.
         server: { deps: { external: [/\/dist\//] } },
       },

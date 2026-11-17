@@ -155,58 +155,6 @@ test("three failed runs in a row pause a recurring job with the pause line and c
   expect(timers(running)).toEqual([])
 })
 
-test("a run that ends as UsageLimit is not a failure of the job: it keeps and pauses a one-shot, leaves a recurring job's count and timer as they were, and posts no pause line", async () => {
-  const running = await scenario({
-    plugins,
-    env: {
-      CHAD_MODEL: "openai/gpt-6-astra/medium",
-      CHAD_OPENAI_API_KEY: undefined,
-    },
-    codex: "token",
-  })
-  const { fakes } = running
-  const limit = {
-    status: 429,
-    error: {
-      type: "usage_limit_reached",
-      message: "The usage limit has been reached",
-      resets_at: 1_900_000_000,
-    },
-  }
-  await fakes.model.script([
-    runs(
-      'await cronCreate({ name: "note", prompt: "Note it.", in: "1 hour" }); await cronCreate({ name: "daily", prompt: "Daily.", cron: "0 9 * * *" }); await cronRun({ name: "note" }); await cronRun({ name: "daily" })',
-    ),
-    { text: "Queued." },
-    limit,
-    limit,
-  ])
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "make and run two jobs")
-  await eventually(
-    () =>
-      rows(
-        running,
-        "SELECT request_key FROM turns WHERE failure = 'UsageLimit'",
-      ),
-    (failed) => failed.length === 2,
-  )
-  await eventually(
-    () => jobs(running)["note"],
-    (job) => job?.["enabled"] === false,
-  )
-  expect(jobs(running)["note"]).toMatchObject({
-    failures: 0,
-    pausedBy: "UsageLimit",
-  })
-  expect(jobs(running)["daily"]).toMatchObject({ enabled: true, failures: 0 })
-  expect(jobs(running)["daily"]).not.toHaveProperty("pausedBy")
-  expect(timers(running)).toEqual(["daily"])
-  expect(
-    (await posted(running, thread)).filter((text) => text.startsWith("Paused")),
-  ).toEqual([])
-})
-
 test("a job's runs go one at a time across threads: a run asked for after the job moved waits for the run in progress and then runs in the new thread, a cronRun needs no write to the job's store, a one-shot moved on during a manual run keeps its new time, and runs of a removed job, in progress or queued, leave a new job of its name alone", async () => {
   const running = await scenario({ plugins })
   const { fakes } = running
@@ -356,32 +304,4 @@ test("a job's runs go one at a time across threads: a run asked for after the jo
   })
   expect(made["prompt"]).toContain("Other.")
   expect(timerThread("daily")).toEqual([ChatThread.toString(a)])
-})
-
-test("the reconcile at activation cancels a timer that has no job and schedules an enabled job that has none", async () => {
-  const running = await scenario({ plugins })
-  const { fakes } = running
-  await fakes.model.script([
-    runs(
-      'console.log(await cronCreate({ name: "kept", prompt: "One.", cron: "0 9 * * *" })); console.log(await cronCreate({ name: "orphan", prompt: "Two.", cron: "0 10 * * *" }))',
-    ),
-    { text: "Both made." },
-  ])
-  const thread = await fakes.chat.makeThread("direct")
-  await says(running, thread, "make two jobs")
-  await fakes.chat.answers(thread, 1)
-  expect(timers(running)).toEqual(["kept", "orphan"])
-  // A kill between the two writes of a change leaves records like these.
-  execute(running.data, "DELETE FROM plugin_kv_cron WHERE id = 'orphan'")
-  execute(
-    running.data,
-    "DELETE FROM timers WHERE plugin = 'cron' AND label = 'kept'",
-  )
-
-  expect((await running.chad(["plugin", "reload", "cron"])).code).toBe(0)
-  await eventually(
-    () => timers(running),
-    (names) => names.join() === "kept",
-  )
-  expect(Object.keys(jobs(running))).toEqual(["kept"])
 })

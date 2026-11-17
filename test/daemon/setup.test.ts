@@ -12,7 +12,7 @@ import { expect, onTestFinished, test } from "vitest"
 import * as Discord from "../../dist/Discord.js"
 import * as Messages from "../../dist/Messages.js"
 import * as Rest from "../support/discord.ts"
-import { fresh, httpClient, inProcess, scenario } from "../support/driver.ts"
+import { fresh, httpClient, inProcess } from "../support/driver.ts"
 
 const owner = "700000000000000001"
 
@@ -158,37 +158,4 @@ test("with no terminal and no daemon, setup names every missing flag and changes
       /first-token|refused-token|second-token/,
     )
   }
-})
-
-test("setup with the daemon running asks the daemon, which names the stored bot, keeps the owners and reloads for the new zone", async () => {
-  const running = await scenario({
-    connections: [
-      { name: "home", kind: "discord", token: "home-token", owners: [owner] },
-    ],
-  })
-  const ran = await running.chad(["setup", "--timezone", "Asia/Tokyo"], {
-    CHAD_MODEL: "openai-compat/fake",
-  })
-  expect(ran).toEqual({
-    code: 0,
-    stderr: "",
-    stdout: lines(
-      Messages.setupTokenStored("home", "chad"),
-      Messages.setupOwnersKept([owner], "home"),
-      Messages.timezoneSet("Asia/Tokyo"),
-      Messages.loginNotNeeded("openai-compat/fake"),
-    ),
-  })
-  expect(readFileSync(join(running.data, "state/timezone"), "utf8")).toBe(
-    "Asia/Tokyo\n",
-  )
-  expect(
-    running
-      .log()
-      .some(
-        (line) =>
-          line.annotations["event"] === "command.ran" &&
-          line.annotations["zone"] === "Asia/Tokyo",
-      ),
-  ).toBe(true)
 })

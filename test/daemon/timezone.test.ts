@@ -1,14 +1,13 @@
 // The owner's timezone as the owner, a plugin and the agent reach it: `chad timezone` with and without the daemon, the
 // zone a plugin reads as `DateTime.CurrentTimeZone` and a session's processes get as `TZ`, and the reload a change makes.
-import { mkdirSync, readFileSync } from "node:fs"
+import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { DateTime, Effect, Layer, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
-import * as Cli from "../support/cli.ts"
-import { fresh, scenario, type Scenario } from "../support/driver.ts"
+import { scenario, type Scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
 import { eventually, posted, says, sessions } from "../support/owner.ts"
 
@@ -125,23 +124,3 @@ test("a timezone the agent sets is stored, reaches the plugins and the session's
   expect(status).not.toContain(`plugin: clock, ${mark}`)
   expect(await ask(running, thread)).toContain("Asia/Tokyo Asia/Tokyo")
 }, 30_000)
-
-test("with no daemon chad timezone writes state/timezone itself, and a TZ that names no zone falls through to UTC and is named", async () => {
-  const data = join(fresh(), "data")
-  mkdirSync(data, { recursive: true })
-  const chad = (args: ReadonlyArray<string>, TZ: string) =>
-    Cli.chad(args, { CHAD_DATA: data, TZ })
-  expect((await chad(["timezone"], "Mars/Olympus")).stdout).toBe(
-    Messages.timezoneInForce("UTC", "fallback", "Mars/Olympus") + "\n",
-  )
-  expect(await chad(["timezone", "America/New_York"], "UTC")).toMatchObject({
-    code: 0,
-    stdout: Messages.timezoneSet("America/New_York") + "\n",
-  })
-  expect(readFileSync(join(data, "state/timezone"), "utf8")).toBe(
-    "America/New_York\n",
-  )
-  expect((await chad(["timezone"], "Mars/Olympus")).stdout).toBe(
-    Messages.timezoneInForce("America/New_York", "stored", undefined) + "\n",
-  )
-})

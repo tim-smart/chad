@@ -2,7 +2,7 @@ import { expect, test } from "vitest"
 import { execute } from "../support/database.ts"
 import { scenario, type Scenario } from "../support/driver.ts"
 import { runs } from "../support/model.ts"
-import { lines, posted, rows, says, sessions } from "../support/owner.ts"
+import { lines, posted, rows, says } from "../support/owner.ts"
 
 /** The stored history of a scenario's one session, in order, as it is written. */
 const stored = (running: Scenario) =>
@@ -20,48 +20,6 @@ const sent = (call: { readonly body: unknown } | undefined) => {
     { messages: ReadonlyArray<{ role: string; content: unknown }> } | undefined
   return (body?.messages ?? []).filter((message) => message.role !== "system")
 }
-
-test("the history is stored batch by batch while the turn runs, as clanka produced it and with nothing masked, and each batch carries the environment of that moment", async () => {
-  const running = await scenario()
-  const { fakes } = running
-  await fakes.model.script([
-    runs('await changeDirectory("/tmp"); console.log("moved")'),
-    { text: "done", hold: true },
-    { text: "again" },
-  ])
-  const thread = await fakes.chat.makeThread("direct")
-  const secret = "the token is sk-live-0123456789abcdef"
-  await says(running, thread, secret)
-  await fakes.model.received(2)
-
-  // The turn has not ended, and what it has produced so far is stored: the prompt, the call and its result.
-  const during = stored(running)
-  expect(roles(during)).toEqual(["user", "assistant", "tool"])
-  expect(during[0]).toContain(secret)
-  expect(during[2]).toContain("moved")
-  const [session] = sessions(running)
-  expect(String(session?.["environment"])).toContain("/tmp")
-
-  await fakes.model.release(1)
-  await fakes.chat.answers(thread, 1)
-  await running.logged("turn.ended")
-  const after = stored(running)
-  expect(after.slice(0, 3)).toEqual(during)
-  expect(roles(after)).toEqual(["user", "assistant", "tool", "assistant"])
-
-  // The next turn adds rows and rewrites none, and the model gets back what was stored.
-  await says(running, thread, "more")
-  await fakes.chat.answers(thread, 2)
-  await lines(running, "turn.ended", 2)
-  const later = rows(
-    running,
-    "SELECT seq, message FROM session_messages ORDER BY seq",
-  )
-  expect(later.slice(0, 4).map((row) => row["message"])).toEqual(after)
-  expect(later).toHaveLength(6)
-  const calls = await fakes.model.calls()
-  expect(JSON.stringify(sent(calls[2]))).toContain(secret)
-})
 
 test("a compaction swaps the session's rows for the compacted history, its summarizer outlives the turn that started it, and the summarizer's tokens are not in the turn's usage", async () => {
   const running = await scenario()

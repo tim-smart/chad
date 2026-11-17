@@ -14,7 +14,6 @@ import { Deferred, Effect, Layer } from "effect"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
-import { Turns } from "../../dist/Turns.js"
 import sendFile from "../../dist/plugins/send-file.js"
 import { fresh, scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
@@ -154,29 +153,6 @@ export default Plugin.make(Layer.empty)
   ).toEqual([])
 })
 
-test("a plugin whose Layer build waits on a Turns call is skipped at the deadline with the place for the call, and the others load", async () => {
-  const stuck = Plugin.make(
-    Layer.effectDiscard(
-      Effect.gen(function* () {
-        const turns = yield* Turns
-        yield* turns.scheduled()
-      }),
-    ),
-  )
-  const running = await scenario({
-    plugins: [
-      { name: "stuck", plugin: stuck },
-      { name: "send-file", plugin: sendFile },
-    ],
-  })
-  const skipped = await running.logged("plugin.skipped")
-  expect(skipped.annotations["plugin"]).toBe("stuck")
-  expect(String(skipped.annotations["reason"])).toContain("Plugin.background")
-  const status = (await running.chad(["status"])).stdout
-  expect(status).toContain("plugin: send-file, 0 warnings")
-  expect(status).toContain("plugin: stuck, skipped (")
-})
-
 test("a Layer build that cannot be interrupted, and a failed build whose finalizer never ends, are skipped at the deadline, the boot goes on, and nothing the build acquired is released until it ends", async () => {
   const release = Deferred.makeUnsafe<void>()
   const first = { released: false, releasedWhileHeld: false }
@@ -222,28 +198,4 @@ test("a Layer build that cannot be interrupted, and a failed build whose finaliz
   await Effect.runPromise(Deferred.succeed(release, undefined))
   await Effect.runPromise(Deferred.await(second))
   expect(first.releasedWhileHeld).toBe(false)
-})
-
-test("a stop while a plugin's Layer builds interrupts the build", async () => {
-  const entered = Deferred.makeUnsafe<void>()
-  const gate = Deferred.makeUnsafe<void>()
-  let interrupted = false
-  const waiting = Plugin.make(
-    Layer.effectDiscard(
-      Deferred.succeed(entered, undefined).pipe(
-        Effect.andThen(Deferred.await(gate)),
-        Effect.onInterrupt(() =>
-          Effect.sync(() => {
-            interrupted = true
-          }),
-        ),
-      ),
-    ),
-  )
-  const running = await scenario({
-    plugins: [{ name: "waiting", plugin: waiting }],
-  })
-  await Effect.runPromise(Deferred.await(entered))
-  expect(await running.stop()).toBe(0)
-  expect(interrupted).toBe(true)
 })

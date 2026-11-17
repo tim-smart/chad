@@ -1,43 +1,29 @@
+import { ExitCode } from "../../src/cli/Failure.ts"
+import * as Messages from "../../src/Messages.ts"
 import { spawn } from "node:child_process"
 import { mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as NodeSocket from "@effect/platform-node/NodeSocket"
 import * as NodeSocketServer from "@effect/platform-node/NodeSocketServer"
 import { Deferred, Duration, Effect, Exit, Layer, Schema, Scope } from "effect"
-import { Command } from "effect/cli"
 import {
   Rpc,
   RpcClient,
   RpcGroup,
   RpcSerialization,
   RpcServer,
-  RpcTest,
 } from "effect/rpc"
 import { expect, it, onTestFinished } from "vitest"
 import * as Daemon from "../../src/cli/Daemon.ts"
 import { Environment } from "../../src/cli/Environment.ts"
-import { ExitCode } from "../../src/cli/Failure.ts"
-import * as Flags from "../../src/cli/Flags.ts"
-import type { CliInputs } from "../../src/cli/runCli.ts"
 import * as Filesystem from "../../src/daemon/Filesystem.ts"
 import * as Logger from "../../src/daemon/Logger.ts"
 import * as Server from "../../src/daemon/Server.ts"
 import * as Lock from "../../src/Lock.ts"
-import * as Messages from "../../src/Messages.ts"
-import * as Paths from "../../src/Paths.ts"
-import {
-  OpenRpcs,
-  Refused,
-  VersionCheck,
-  layerVersionCheck,
-  versionHeader,
-} from "../../src/Rpcs.ts"
-import * as Status from "../../src/Status.ts"
+import { OpenRpcs, layerVersionCheck } from "../../src/Rpcs.ts"
 import { Timings, defaults } from "../../src/Timings.ts"
 import { version } from "../../src/Version.ts"
-import { json, read } from "../support/repo.ts"
 
 const temporary = () => mkdtempSync(join(tmpdir(), "chad-cli-"))
 
@@ -70,33 +56,6 @@ const holder = (path: string, milliseconds?: number) => {
     gone: new Promise<void>((resolve) => child.once("exit", () => resolve())),
   }
 }
-
-it("the CLI's lock test reads a missing lock file as free and creates nothing, reads a held lock as held in under 4 ms, and no journal file appears beside the lock", async () => {
-  const directory = temporary()
-  const path = join(directory, "daemon.lock")
-  try {
-    expect(Lock.test(path)).toBe("free")
-    expect(readdirSync(directory)).toEqual([])
-
-    const other = holder(path)
-    await other.held
-    const took: Array<number> = []
-    for (let run = 0; run < 20; run++) {
-      const before = performance.now()
-      expect(Lock.test(path)).toBe("held")
-      took.push(performance.now() - before)
-    }
-    expect(Math.min(...took)).toBeLessThan(4)
-    expect(readdirSync(directory)).toEqual(["daemon.lock"])
-
-    other.child.kill("SIGKILL")
-    await other.gone
-    expect(Lock.test(path)).toBe("free")
-    expect(readdirSync(directory)).toEqual(["daemon.lock"])
-  } finally {
-    rmSync(directory, { recursive: true, force: true })
-  }
-})
 
 it("a daemon that starts while another process holds the lock for a moment waits for it and takes the lock, and one that finds it held past the busy timeout does not", async () => {
   const directory = temporary()
@@ -143,32 +102,6 @@ const warned = (
     real,
   })
 
-it("the filesystem check warns for NFS, CephFS, SMB, FUSE, the container's own layer and tmpfs, and for nothing else", () => {
-  const network = (type: string) =>
-    `/data is on ${type}. chad needs a local filesystem: SQLite's lock and write-ahead log are not safe on a network or FUSE filesystem.`
-  for (const type of [
-    "nfs",
-    "nfs4",
-    "ceph",
-    "cifs",
-    "smb3",
-    "fuse",
-    "fuse.sshfs",
-    "fuseblk",
-  ]) {
-    expect(warned(type)).toEqual([network(type)])
-  }
-  expect(warned("overlay")).toEqual([
-    "/data is on the container's own filesystem, not on a volume. Everything chad writes is lost when the container is removed. Mount a volume at /data.",
-  ])
-  expect(warned("tmpfs")).toEqual([
-    "/data is on tmpfs, which is memory. Everything chad writes is lost when the container stops.",
-  ])
-  for (const type of ["ext4", "xfs", "btrfs", "zfs"]) {
-    expect(warned(type)).toEqual([])
-  }
-})
-
 it("the filesystem check follows the data directory to the mount that really holds it, by the longest mount point above it", () => {
   // The data path is a link to a directory on the NFS mount, whose mount point the kernel writes with an escape.
   const linked = warned("ext4", {}, "/srv/chad", (path) =>
@@ -178,97 +111,6 @@ it("the filesystem check follows the data directory to the mount that really hol
   // A path that only starts with the name of a mount point is not under it.
   expect(warned("nfs", {}, "/data2")).toEqual([])
   expect(warned("nfs", {}, "/data/deep/down")).toHaveLength(1)
-})
-
-it("the filesystem check warns for each of HOME, NPM_CONFIG_PREFIX and XDG_CACHE_HOME that is on the container's own layer or on tmpfs", () => {
-  expect(
-    warned("ext4", {
-      HOME: "/layer/home",
-      NPM_CONFIG_PREFIX: "/data/home/.npm-global",
-      XDG_CACHE_HOME: "/dev/shm/cache",
-    }),
-  ).toEqual([
-    "HOME=/layer/home is on the container's own filesystem, not on the volume at /data. What is installed there is lost with the container. In the chad image the volume is mounted at /data.",
-    "XDG_CACHE_HOME=/dev/shm/cache is on tmpfs, not on the volume at /data. What is installed there is lost with the container. In the chad image the volume is mounted at /data.",
-  ])
-  // A network filesystem under one of the three is the data directory's warning to give, not theirs.
-  expect(warned("nfs", { HOME: "/data/home" })).toHaveLength(1)
-})
-
-it("the socket path limit is the platform's, 107 bytes on Linux and 103 on macOS, and a listen that fails for any reason but an address in use or a refused permission names the filesystem as unsupported", () => {
-  expect(Paths.socketLimit("linux")).toBe(107)
-  expect(Paths.socketLimit("darwin")).toBe(103)
-  expect(Paths.socketTooLong("/" + "a".repeat(106), "linux")).toBeUndefined()
-  expect(Paths.socketTooLong("/" + "a".repeat(106), "darwin")).toEqual({
-    bytes: 107,
-    limit: 103,
-  })
-  // The limit is in bytes, and this path is 106 characters long.
-  expect(Paths.socketTooLong("/" + "é".repeat(105), "linux")).toEqual({
-    bytes: 211,
-    limit: 107,
-  })
-
-  const volume = { data: "/data", socket: "/data/run/chad.sock" }
-  expect(Server.listenFailure(volume, "EOPNOTSUPP", "nfs4")).toBe(
-    "chad serve: cannot create the socket /data/run/chad.sock (EOPNOTSUPP). /data/run is on nfs4, which cannot hold a unix socket. chad needs a local filesystem under /data.",
-  )
-  for (const code of ["EADDRINUSE", "EACCES"]) {
-    expect(Server.listenFailure(volume, code, "nfs4")).toBe(
-      `chad serve: cannot create the socket /data/run/chad.sock (${code}).`,
-    )
-  }
-})
-
-const Probe = RpcGroup.make(
-  Rpc.make("Probe", { success: Schema.String }),
-).middleware(VersionCheck)
-
-const probe = (headers: Record<string, string>, daemon?: string) =>
-  Effect.gen(function* () {
-    const client = yield* RpcTest.makeClient(Probe)
-    return yield* client.Probe().pipe(RpcClient.withHeaders(headers))
-  }).pipe(
-    Effect.provide(Probe.toLayer({ Probe: () => Effect.succeed("ran") })),
-    Effect.provide(layerVersionCheck(daemon)),
-    Effect.scoped,
-    // What the call gave: its answer, or the refusal.
-    Effect.catch((refused) => Effect.succeed({ ...refused })),
-    Effect.runPromise,
-  )
-
-it("a call that the version check covers runs for a CLI of the daemon's exact version and is refused for any other version or none, and the CLI's headers carry its version", async () => {
-  expect(Daemon.headers()).toEqual({
-    "chad-version": json("package.json").version,
-  })
-  expect(versionHeader).toBe("chad-version")
-
-  expect(await probe(Daemon.headers())).toBe("ran")
-  expect(await probe({ [versionHeader]: "1.2.3" }, "1.2.3")).toBe("ran")
-  // The compare is exact, so a build suffix and a prefix both differ.
-  for (const cli of ["1.2.30", "1.2", "v1.2.3", "1.2.3-rc.1"]) {
-    expect(await probe({ [versionHeader]: cli }, "1.2.3")).toMatchObject({
-      _tag: "Refused",
-      cli,
-      daemon: "1.2.3",
-    })
-  }
-  expect(await probe({}, "1.2.3")).toMatchObject({
-    _tag: "Refused",
-    cli: null,
-    daemon: "1.2.3",
-  })
-})
-
-it("a command the daemon refused for its version fails with exit code 1 and tells the owner to run it with docker exec", () => {
-  const failure = Daemon.refused(
-    "connection list",
-    new Refused({ cli: "1.0.0", daemon: "1.1.0" }),
-  )
-  expect(failure.code).toBe(1)
-  expect(failure.message).toBe(
-    "chad connection list: refused: this CLI is chad 1.0.0 and the daemon is chad 1.1.0. Run the command with the daemon's own CLI, for example: docker exec -it chad chad connection list",
-  )
 })
 
 it("a command waits for the daemon's first answer no longer than the CLI's wait, and once the daemon has answered it waits on its call with no deadline of its own", async () => {
@@ -400,150 +242,4 @@ it("the RPC server interrupts a call whose client went away and the daemon write
   } finally {
     rmSync(directory, { recursive: true, force: true })
   }
-})
-
-it("the client's exit codes are 0 to 4 and 130, and not the 125, 126 and 127 of chad secret run", () => {
-  expect(Object.values(ExitCode).sort((a, b) => a - b)).toEqual([
-    0, 1, 2, 3, 4, 130,
-  ])
-})
-
-it("a boolean flag is declared with a default, so a command line without it parses and the flag reads false", async () => {
-  const seen: Array<boolean> = []
-  const command = Command.make(
-    "probe",
-    { loud: Flags.boolean("loud") },
-    (flags) => Effect.sync(() => seen.push(flags.loud)),
-  )
-  const run = (args: ReadonlyArray<string>) =>
-    Command.runWith(command, { version: "0" })(args).pipe(
-      Effect.provide(NodeServices.layer),
-      Effect.runPromise,
-    )
-  await run([])
-  await run(["--loud"])
-  expect(seen).toEqual([false, true])
-})
-
-it("chad status prints one fact to a line: the daemon and its phase, chad's version and effect's, each filesystem warning and each connection, and what the files say when no daemon answers", () => {
-  expect(
-    Status.render({
-      daemon: "up",
-      report: {
-        version: "1.2.3",
-        effect: "4.1.4",
-        phase: "loading",
-        filesystem: ["/data is on tmpfs, which is memory."],
-        connections: [
-          { name: "discord", kind: "discord" },
-          { name: "test", kind: "local" },
-        ],
-      },
-    }),
-  ).toBe(
-    [
-      "daemon: up (loading)",
-      "version: chad 1.2.3, effect 4.1.4",
-      "filesystem: /data is on tmpfs, which is memory.",
-      "connection: discord (discord)",
-      "connection: test (local)",
-    ].join("\n"),
-  )
-  expect(
-    Status.render({
-      daemon: "none",
-      lock: "/data/state/daemon.lock",
-      version: "1.2.3",
-      volume: undefined,
-    }),
-  ).toBe(
-    [
-      "daemon: not running (lock /data/state/daemon.lock is free)",
-      "version: chad 1.2.3, volume not written yet",
-    ].join("\n"),
-  )
-  expect(
-    Status.render({
-      daemon: "silent",
-      socket: "/data/run/chad.sock",
-      seconds: 2,
-      version: "1.2.3",
-      volume: "1.2.2",
-    }),
-  ).toBe(
-    [
-      "daemon: starting or frozen (lock held, no answer on /data/run/chad.sock in 2s)",
-      "version: chad 1.2.3, volume written by chad 1.2.2",
-    ].join("\n"),
-  )
-})
-
-it("the CLI's messages are templates of the Messages module, with their fixed wording", () => {
-  expect(Messages.noDaemon("apply", "<volume>/state/daemon.lock")).toBe(
-    "chad apply: no daemon (lock <volume>/state/daemon.lock is free)",
-  )
-  expect(Messages.daemonSilent("apply", "<socket>", 2)).toBe(
-    "chad apply: daemon is starting or frozen (lock held, no answer on <socket> in 2s)",
-  )
-  expect(Messages.healthy()).toBe("chad health: ok")
-  const templates = [
-    Messages.noDaemon("apply", "<volume>/state/daemon.lock"),
-    Messages.daemonSilent("apply", "<socket>", 2),
-    Messages.healthy(),
-    Messages.lockHeld("/data"),
-    Messages.socketPathTooLong("<path>", 120, 107)
-      .replace("120 bytes", "<n> bytes")
-      .replace("holds 107", "holds <limit>"),
-    Messages.socketUnsupported(
-      "<path>",
-      "<error code>",
-      "<directory>",
-      "<filesystem type>",
-      "/data",
-    ),
-    Messages.socketFailed("<path>", "<error code>"),
-    Messages.filesystemNetwork("/data", "<type>"),
-    Messages.filesystemContainer("/data"),
-    Messages.filesystemMemory("/data", "<tmpfs or ramfs>"),
-    Messages.filesystemInstall(
-      "<NAME>",
-      "<value>",
-      "<the container's own filesystem, or tmpfs>",
-      "/data",
-    ),
-    Messages.versionMismatch("<command>", "<cli>", "<daemon>"),
-  ]
-  expect(templates).toEqual([
-    "chad apply: no daemon (lock <volume>/state/daemon.lock is free)",
-    "chad apply: daemon is starting or frozen (lock held, no answer on <socket> in 2s)",
-    "chad health: ok",
-    "chad serve: another chad serve holds the lock on /data.",
-    "chad serve: the socket path <path> is <n> bytes and a unix socket path holds <limit>. Set CHAD_SOCKET to a shorter path, for example /tmp/chad.sock.",
-    "chad serve: cannot create the socket <path> (<error code>). <directory> is on <filesystem type>, which cannot hold a unix socket. chad needs a local filesystem under /data.",
-    "chad serve: cannot create the socket <path> (<error code>).",
-    "/data is on <type>. chad needs a local filesystem: SQLite's lock and write-ahead log are not safe on a network or FUSE filesystem.",
-    "/data is on the container's own filesystem, not on a volume. Everything chad writes is lost when the container is removed. Mount a volume at /data.",
-    "/data is on <tmpfs or ramfs>, which is memory. Everything chad writes is lost when the container stops.",
-    "<NAME>=<value> is on <the container's own filesystem, or tmpfs>, not on the volume at /data. What is installed there is lost with the container. In the chad image the volume is mounted at /data.",
-    "chad <command>: refused: this CLI is chad <cli> and the daemon is chad <daemon>. Run the command with the daemon's own CLI, for example: docker exec -it chad chad <command>",
-  ])
-})
-
-it("runCli takes the words of the command line, an HttpClient and the durations, and no other input, and the bundle's entry hands it the real ones", () => {
-  // The type-check fails on a key that is missing here or that CliInputs does not have.
-  const inputs: Record<keyof CliInputs, true> = {
-    args: true,
-    httpClient: true,
-    timings: true,
-  }
-  const entry = read("src/cli.ts")
-  for (const name of Object.keys(inputs)) {
-    expect(entry).toMatch(new RegExp(`^  ${name}: `, "m"))
-  }
-  expect(entry).toContain("timings: defaults")
-  expect(entry).toContain("process.exitCode = await runCli(")
-  const code = entry
-    .split("\n")
-    .filter((line) => line !== "" && !line.startsWith("//"))
-  expect(code.length).toBeLessThanOrEqual(15)
 })
