@@ -1174,6 +1174,10 @@ export const prettierFormatted = (files: ReadonlyArray<string>) =>
 export const prettierFailed = (file: string, error: string) =>
   `Prettier could not format ${file}, so it is left as it is: ${error}`
 
+/** The Prettier format that ran past its deadline and was stopped. */
+export const prettierTimedOut = (seconds: number) =>
+  `Prettier did not finish within ${seconds} seconds and was stopped`
+
 /** An apply or a revert with nothing changed. */
 export const nothingChanged = "Nothing changed. No commit was made."
 

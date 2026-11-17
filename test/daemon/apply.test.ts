@@ -16,7 +16,7 @@ import {
   writeSync,
 } from "node:fs"
 import { join } from "node:path"
-import { Deferred, Effect, Exit, Layer, Schema } from "effect"
+import { Deferred, Duration, Effect, Exit, Layer, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
 import { expect, onTestFinished, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
@@ -705,10 +705,14 @@ test("a check refuses AGENTS.md in work/ and a plugin with a bundled plugin's na
   expect(git(work, ["log", "--format=%s", "-1", "applied"])).toBe(subject)
 }, 30_000)
 
-test("a check formats plugins with a JavaScript Prettier config read fresh each time, reports a config that fails to load, and never follows a link at work/plugins", async () => {
+test("a check formats plugins with a JavaScript Prettier config read fresh each time, whatever the config prints or leaves open, reports a config that fails to load or never finishes, and never follows a link at work/plugins", async () => {
   const directory = fresh()
   applied(join(directory, "data", "repo"), { "plugins/dice.ts": dice("one") })
-  const running = await scenario({ directory })
+  const deadline = Duration.seconds(5)
+  const running = await scenario({
+    directory,
+    timings: { prettierFormat: deadline },
+  })
   await running.logged("boot.ready")
   const work = join(running.data, "repo", "work")
   const messy = dice("two").replace(
@@ -741,6 +745,32 @@ test("a check formats plugins with a JavaScript Prettier config read fresh each 
   const broken = await running.chad(["check"])
   expect(broken.stdout).toContain(
     "Prettier could not format work/plugins/dice.ts, so it is left as it is: work/.prettierrc.mjs:",
+  )
+  expect(readFileSync(dicePath, "utf8")).toBe(messy)
+
+  // What a config prints on stdout does not reach the results, and a handle it leaves open does not hold the check.
+  write(work, {
+    ".prettierrc.mjs":
+      'console.log("loading config")\nsetInterval(() => {}, 1000)\nexport default { semi: false }\n',
+  })
+  const noisy = await running.chad(["check"])
+  expect(noisy.stdout).toContain(
+    Messages.prettierFormatted(["work/plugins/dice.ts"]),
+  )
+  expect(readFileSync(dicePath, "utf8")).toBe(dice("two"))
+
+  // A format that never finishes is stopped at its deadline, and the plugin is left as it is.
+  write(work, {
+    "plugins/dice.ts": messy,
+    ".prettierrc.mjs":
+      "await new Promise(() => setInterval(() => {}, 1000))\nexport default {}\n",
+  })
+  const stalled = await running.chad(["check"])
+  expect(stalled.stdout).toContain(
+    Messages.prettierFailed(
+      "work/plugins/dice.ts",
+      Messages.prettierTimedOut(Duration.toSeconds(deadline)),
+    ),
   )
   expect(readFileSync(dicePath, "utf8")).toBe(messy)
 

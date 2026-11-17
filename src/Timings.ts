@@ -18,6 +18,11 @@ export interface Timings {
   /** One plugin's Layer build. */
   readonly pluginBuild: Duration.Duration
   /**
+   * The Prettier format of `work/plugins/` that a check and an apply run first, from the start of its process to its
+   * end, after which the process is killed and the plugins are left as they are.
+   */
+  readonly prettierFormat: Duration.Duration
+  /**
    * One install of the packages of a lockfile, `npm ci` from start to end. A boot waits for it before it loads the
    * repo's plugins, and an apply before its type-check.
    */
@@ -85,6 +90,7 @@ export const defaults: Timings = {
   hookAfterTurn: Duration.seconds(30),
   hookOnSession: Duration.seconds(10),
   pluginBuild: Duration.seconds(30),
+  prettierFormat: Duration.minutes(2),
   packageInstall: Duration.minutes(5),
   packageStop: Duration.seconds(5),
   stopRequests: Duration.seconds(15),

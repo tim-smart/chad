@@ -6,7 +6,7 @@
  * client cannot interrupt.
  */
 import { join } from "node:path"
-import { Cause, Effect, Fiber, FileSystem, Path, Scope } from "effect"
+import { Cause, Duration, Effect, Fiber, FileSystem, Path, Scope } from "effect"
 import type { ChildProcessSpawner } from "effect/process"
 import * as Errno from "../Errno.ts"
 import * as McpFile from "../McpFile.ts"
@@ -151,6 +151,8 @@ type Services =
 
 export const make = Effect.fnUntraced(function* (options: {
   readonly repo: string
+  /** How long the Prettier format before a check or an apply may take. */
+  readonly formatDeadline: Duration.Duration
   readonly data: string
   /** Whether `CHAD_SAFE_MODE=1` is set for the daemon. */
   readonly forced: boolean
@@ -746,7 +748,7 @@ export const make = Effect.fnUntraced(function* (options: {
    */
   const formatted = <E, R>(command: Effect.Effect<Performed, E, R>) =>
     Effect.gen(function* () {
-      const format = yield* Prettier.plugins(work)
+      const format = yield* Prettier.plugins(work, options.formatDeadline)
       const performed = yield* command
       return {
         ...performed,

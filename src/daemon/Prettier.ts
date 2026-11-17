@@ -3,7 +3,7 @@
  * snapshot, so what an apply commits is formatted.
  */
 import { join } from "node:path"
-import { Effect, FileSystem, Schema, Stream } from "effect"
+import { Duration, Effect, FileSystem, Schema, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/process"
 import * as Messages from "../Messages.ts"
 
@@ -21,11 +21,13 @@ const style = { semi: false }
 
 /**
  * The script of the child process that formats. It reads `{ prettier, style, files }` on stdin and writes one result
- * for each file on stdout. A config is resolved apart from the format, so a config that fails is reported and is never
- * taken for a plugin that does not parse. A plugin that does not parse is Prettier's `SyntaxError`, the one with a
- * `loc`.
+ * for each file on descriptor 3, which nothing else writes, so what a config prints on stdout never mixes with the
+ * results. It exits once they are written, so a handle a config left open does not keep it alive. A config is resolved
+ * apart from the format, so a config that fails is reported and is never taken for a plugin that does not parse. A
+ * plugin that does not parse is Prettier's `SyntaxError`, the one with a `loc`.
  */
 const script = `
+import { Socket } from "node:net"
 let input = ""
 for await (const chunk of process.stdin) input += chunk
 const { prettier, style, files } = JSON.parse(input)
@@ -49,7 +51,7 @@ for (const { path, text } of files) {
     )
   }
 }
-process.stdout.write(JSON.stringify(results))
+new Socket({ fd: 3, readable: false }).end(JSON.stringify(results), () => process.exit(0))
 `
 
 const Results = Schema.fromJsonString(
@@ -106,9 +108,14 @@ const sources = Effect.fnUntraced(function* (work: string) {
  * is given back.
  *
  * Prettier runs in a child process of its own each time, so a config that is JavaScript is loaded fresh, as Node's
- * cache of modules would otherwise keep the first version the daemon loaded, and its code runs outside the daemon.
+ * cache of modules would otherwise keep the first version the daemon loaded, and its code runs outside the daemon. A
+ * process still running at `deadline` is killed, since the command holds the daemon's queue, and every file is left as
+ * it is.
  */
-export const plugins = Effect.fnUntraced(function* (work: string) {
+export const plugins = Effect.fnUntraced(function* (
+  work: string,
+  deadline: Duration.Duration,
+) {
   const fs = yield* FileSystem.FileSystem
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
   const relatives = yield* sources(work)
@@ -149,12 +156,16 @@ export const plugins = Effect.fnUntraced(function* (work: string) {
             stdin: {
               stream: Stream.make(new TextEncoder().encode(input)),
             },
+            stdout: "ignore",
+            additionalFds: { fd3: { type: "output" } },
+            // Nothing in the process needs a clean stop, and a config could ignore a SIGTERM.
+            killSignal: "SIGKILL",
           },
         ),
       )
       return yield* Effect.all(
         [
-          Stream.mkString(Stream.decodeText(handle.stdout)),
+          Stream.mkString(Stream.decodeText(handle.getOutputFd(3))),
           Stream.mkString(Stream.decodeText(handle.stderr)),
           handle.exitCode,
         ],
@@ -162,9 +173,14 @@ export const plugins = Effect.fnUntraced(function* (work: string) {
       )
     }),
   ).pipe(
-    Effect.flatMap(([stdout, stderr, code]) =>
+    Effect.timeoutOrElse({
+      duration: deadline,
+      orElse: () =>
+        Effect.fail(Messages.prettierTimedOut(Duration.toSeconds(deadline))),
+    }),
+    Effect.flatMap(([results, stderr, code]) =>
       code === 0
-        ? Schema.decodeUnknownEffect(Results)(stdout).pipe(
+        ? Schema.decodeUnknownEffect(Results)(results).pipe(
             Effect.mapError(() => stderr.trim() || "no results"),
           )
         : Effect.fail(stderr.trim() || `exit code ${code}`),
