@@ -16,7 +16,7 @@ import {
   writeSync,
 } from "node:fs"
 import { join } from "node:path"
-import { Deferred, Effect, Exit, Layer, Schema } from "effect"
+import { Deferred, Duration, Effect, Exit, Layer, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
 import { expect, onTestFinished, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
@@ -172,16 +172,26 @@ test("an apply commits work/ and loads it at the session's next turn, a failed a
     "work: no changes since the applied commit",
   )
 
-  // A check commits nothing.
-  write(work, { "plugins/dice.ts": dice("one") })
+  // A check commits nothing, and formats the plugin code in work/ with Prettier.
+  write(work, {
+    "plugins/dice.ts": dice("one").replace(
+      "const Dice = Toolkit.make(Roll)",
+      "const Dice   =   Toolkit.make( Roll );",
+    ),
+  })
   expect((await running.chad(["status"])).stdout).toContain(
     "work: holds changes that are not applied",
   )
   const checked = await running.chad(["check"])
   expect(checked).toMatchObject({
     code: 0,
-    stdout: Messages.checkPassed + "\n",
+    stdout:
+      Messages.prettierFormatted(["work/plugins/dice.ts"]) +
+      "\n" +
+      Messages.checkPassed +
+      "\n",
   })
+  expect(readFileSync(join(work, "plugins/dice.ts"), "utf8")).toBe(dice("one"))
   expect(await log()).toHaveLength(1)
 
   expect((await running.chad(["apply", "-m", "Add dice"])).code).toBe(0)
@@ -693,4 +703,83 @@ test("a check refuses AGENTS.md in work/ and a plugin with a bundled plugin's na
   expect(named.code).toBe(1)
   expect(named.stderr).toContain(Messages.bundledNameRefused("guard"))
   expect(git(work, ["log", "--format=%s", "-1", "applied"])).toBe(subject)
+}, 30_000)
+
+test("a check formats plugins with a JavaScript Prettier config read fresh each time, whatever the config prints or leaves open, reports a config that fails to load or never finishes, and never follows a link at work/plugins", async () => {
+  const directory = fresh()
+  applied(join(directory, "data", "repo"), { "plugins/dice.ts": dice("one") })
+  const deadline = Duration.seconds(5)
+  const running = await scenario({
+    directory,
+    timings: { prettierFormat: deadline },
+  })
+  await running.logged("boot.ready")
+  const work = join(running.data, "repo", "work")
+  const messy = dice("two").replace(
+    "const Dice = Toolkit.make(Roll)",
+    "const Dice   =   Toolkit.make( Roll )",
+  )
+  const dicePath = join(work, "plugins/dice.ts")
+
+  // The config is loaded on each check, not kept from the first.
+  write(work, {
+    "plugins/dice.ts": messy,
+    ".prettierrc.mjs": "export default { semi: true }\n",
+  })
+  expect((await running.chad(["check"])).code).toBe(0)
+  expect(readFileSync(dicePath, "utf8")).toContain(
+    "const Dice = Toolkit.make(Roll);\n",
+  )
+  write(work, { ".prettierrc.mjs": "export default { semi: false }\n" })
+  const fresher = await running.chad(["check"])
+  expect(fresher.stdout).toContain(
+    Messages.prettierFormatted(["work/plugins/dice.ts"]),
+  )
+  expect(readFileSync(dicePath, "utf8")).toBe(dice("two"))
+
+  // A config that does not load is reported, and the plugin is left as it is.
+  write(work, {
+    "plugins/dice.ts": messy,
+    ".prettierrc.mjs": "export default { semi: false; }\n",
+  })
+  const broken = await running.chad(["check"])
+  expect(broken.stdout).toContain(
+    "Prettier could not format work/plugins/dice.ts, so it is left as it is: work/.prettierrc.mjs:",
+  )
+  expect(readFileSync(dicePath, "utf8")).toBe(messy)
+
+  // What a config prints on stdout does not reach the results, and a handle it leaves open does not hold the check.
+  write(work, {
+    ".prettierrc.mjs":
+      'console.log("loading config")\nsetInterval(() => {}, 1000)\nexport default { semi: false }\n',
+  })
+  const noisy = await running.chad(["check"])
+  expect(noisy.stdout).toContain(
+    Messages.prettierFormatted(["work/plugins/dice.ts"]),
+  )
+  expect(readFileSync(dicePath, "utf8")).toBe(dice("two"))
+
+  // A format that never finishes is stopped at its deadline, and the plugin is left as it is.
+  write(work, {
+    "plugins/dice.ts": messy,
+    ".prettierrc.mjs":
+      "await new Promise(() => setInterval(() => {}, 1000))\nexport default {}\n",
+  })
+  const stalled = await running.chad(["check"])
+  expect(stalled.stdout).toContain(
+    Messages.prettierFailed(
+      "work/plugins/dice.ts",
+      Messages.prettierTimedOut(Duration.toSeconds(deadline)),
+    ),
+  )
+  expect(readFileSync(dicePath, "utf8")).toBe(messy)
+
+  // A link at work/plugins is not followed, so nothing outside work/ is written.
+  rmSync(join(work, ".prettierrc.mjs"))
+  const outside = join(directory, "outside")
+  write(outside, { "dice.ts": messy })
+  rmSync(join(work, "plugins"), { recursive: true })
+  symlinkSync(outside, join(work, "plugins"))
+  await running.chad(["check"])
+  expect(readFileSync(join(outside, "dice.ts"), "utf8")).toBe(messy)
 }, 30_000)

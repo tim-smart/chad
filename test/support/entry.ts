@@ -9,7 +9,12 @@ import { factor } from "./factor.ts"
  * and no ordering with another length rests on it. The prune's schedule is no length, and a scenario that runs the
  * prune gives one of its own.
  */
-type Lengths = "sessionIdle" | "messageRetention" | "modelLogin" | "turnTimeout"
+type Lengths =
+  | "sessionIdle"
+  | "messageRetention"
+  | "modelLogin"
+  | "turnTimeout"
+  | "prettierFormat"
 export type Own = Partial<Pick<Timings, Lengths | "pruneAt">>
 
 export const start = (world: Omit<DaemonInputs, "timings">, own: Own = {}) =>

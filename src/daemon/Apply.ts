@@ -6,7 +6,7 @@
  * client cannot interrupt.
  */
 import { join } from "node:path"
-import { Cause, Effect, Fiber, FileSystem, Path, Scope } from "effect"
+import { Cause, Duration, Effect, Fiber, FileSystem, Path, Scope } from "effect"
 import type { ChildProcessSpawner } from "effect/process"
 import * as Errno from "../Errno.ts"
 import * as McpFile from "../McpFile.ts"
@@ -25,6 +25,7 @@ import * as Packages from "./Packages.ts"
 import * as Persona from "./Persona.ts"
 import * as PluginSettings from "./PluginSettings.ts"
 import type * as Plugins from "./Plugins.ts"
+import * as Prettier from "./Prettier.ts"
 import * as Queue from "./Queue.ts"
 
 /** What a command prints and its exit code. */
@@ -150,6 +151,8 @@ type Services =
 
 export const make = Effect.fnUntraced(function* (options: {
   readonly repo: string
+  /** How long the Prettier format before a check or an apply may take. */
+  readonly formatDeadline: Duration.Duration
   readonly data: string
   /** Whether `CHAD_SAFE_MODE=1` is set for the daemon. */
   readonly forced: boolean
@@ -739,35 +742,53 @@ export const make = Effect.fnUntraced(function* (options: {
       )
     })
 
-  const apply = (message: string, caller: Caller) =>
+  /**
+   * Formats the plugin code in `work/` before a check or an apply snapshots it, and puts what the format did before
+   * what the command prints.
+   */
+  const formatted = <E, R>(command: Effect.Effect<Performed, E, R>) =>
     Effect.gen(function* () {
-      const head = yield* Repo.head(work)
-      const tree = yield* Repo.snapshot(repo)
-      if (head !== undefined && tree === (yield* Repo.treeOf(work, head))) {
-        // Nothing changed: no commit and no line in the session.
-        return done(Messages.nothingChanged)
-      }
-      return yield* change({
-        kind: "apply",
-        tree,
-        head: head!,
-        message,
-        caller,
-      })
+      const format = yield* Prettier.plugins(work, options.formatDeadline)
+      const performed = yield* command
+      return {
+        ...performed,
+        stdout: [...Prettier.lines(format), ...performed.stdout],
+      } satisfies Performed as Performed
     })
 
+  const apply = (message: string, caller: Caller) =>
+    formatted(
+      Effect.gen(function* () {
+        const head = yield* Repo.head(work)
+        const tree = yield* Repo.snapshot(repo)
+        if (head !== undefined && tree === (yield* Repo.treeOf(work, head))) {
+          // Nothing changed: no commit and no line in the session.
+          return done(Messages.nothingChanged)
+        }
+        return yield* change({
+          kind: "apply",
+          tree,
+          head: head!,
+          message,
+          caller,
+        })
+      }),
+    )
+
   const check = (caller: Caller) =>
-    Effect.gen(function* () {
-      const head = yield* Repo.head(work)
-      const tree = yield* Repo.snapshot(repo)
-      return yield* change({
-        kind: "check",
-        tree,
-        head: head!,
-        message: "",
-        caller,
-      })
-    })
+    formatted(
+      Effect.gen(function* () {
+        const head = yield* Repo.head(work)
+        const tree = yield* Repo.snapshot(repo)
+        return yield* change({
+          kind: "check",
+          tree,
+          head: head!,
+          message: "",
+          caller,
+        })
+      }),
+    )
 
   const revert = (commit: string | undefined, caller: Caller) =>
     Effect.gen(function* () {

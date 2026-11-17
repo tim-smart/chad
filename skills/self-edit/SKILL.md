@@ -39,6 +39,8 @@ Your plugins, skills, MCP servers, settings and persona are files in one git rep
 
 ## Rules that are easy to get wrong
 
+- `chad check` and `chad apply` first format every `.ts` file under `work/plugins/` with Prettier, in place, and name the files they rewrote. The style is chad's own (no semicolons) unless a Prettier config in `work/`, such as `.prettierrc.json`, says otherwise. Read a file again before you edit it after a check. A file that does not parse is left as it is and the type-check reports it.
+
 - An apply takes the whole of `work/`, drafts from another session included. Read the list of changed files that `chad check` prints. If a file there is not yours, stop and tell the owner.
 - A change reaches a session on its next turn. In the turn that applied it you keep the tools you had. A tool whose plugin's code or settings you changed fails with "<tool> was changed by an apply. The new version is in your next turn." until the turn ends, in every session.
 - An apply that changes a plugin's code or its settings affects other sessions. Their running turns lose that plugin's tools until they end, and a call still running 30 seconds into the swap is interrupted and may have partly run. The apply output names the affected sessions. Say so in your answer.

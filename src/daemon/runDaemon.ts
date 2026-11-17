@@ -816,6 +816,7 @@ const boot = Effect.fnUntraced(function* (
   const announce = PluginTurns.chat(running.chats, running.list)
   repository = yield* Apply.make({
     repo: volume.repo,
+    formatDeadline: inputs.timings.prettierFormat,
     data: volume.data,
     forced: environment.safeMode,
     initial: safe,

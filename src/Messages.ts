@@ -1166,6 +1166,18 @@ export const replaceMeRefused = (tool: string) =>
 /** A check that passed. */
 export const checkPassed = "The check passed. Nothing was applied."
 
+/** The plugin files a check or an apply formatted with Prettier before it read `work/`. */
+export const prettierFormatted = (files: ReadonlyArray<string>) =>
+  `Formatted with Prettier: ${files.join(", ")}`
+
+/** A plugin file Prettier could not format, which is checked and applied as it is. */
+export const prettierFailed = (file: string, error: string) =>
+  `Prettier could not format ${file}, so it is left as it is: ${error}`
+
+/** The Prettier format that ran past its deadline and was stopped. */
+export const prettierTimedOut = (seconds: number) =>
+  `Prettier did not finish within ${seconds} seconds and was stopped`
+
 /** An apply or a revert with nothing changed. */
 export const nothingChanged = "Nothing changed. No commit was made."
 
