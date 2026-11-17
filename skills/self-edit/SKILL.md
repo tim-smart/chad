@@ -63,7 +63,10 @@ Your plugins, skills, MCP servers, settings and persona are files in one git rep
 
 ## Plugins
 
-Before you write one, read `/data/repo/node_modules/effect/AGENTS.md` and then `plugin.md` next to this file. Start from `chad plugin new <name>`. Working plugins to read are in `/data/repo/examples/`.
+Before you write one, **YOU MUST READ IN FULL** `/data/repo/node_modules/effect/AGENTS.md` and then `plugin.md` next to this file. Start from `chad plugin new <name>`. Working plugins to read are in `/data/repo/examples/`.
+
+`/data/repo/node_modules/effect/AGENTS.md` MUST BE FOLLOWED when writing effect
+plugins.
 
 - A repo plugin cannot take a bundled plugin's name, and `chad plugin new` refuses a taken or bundled name.
 - A plugin can use npm packages, which `work/package.json` names. Add one with `npm install --package-lock-only --ignore-scripts <name>` in `work/`, never a plain `npm install`. `plugin.md` says what an install does and which packages do not work.
