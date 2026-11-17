@@ -68,8 +68,8 @@ FROM ${NODE}
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     # What chad and a session's shell need, and the usual tools of a development machine.
-    bzip2 ca-certificates curl fd-find file git jq less make openssh-client patch procps python3 ripgrep rsync sqlite3 \
-    tini tree unzip wget xz-utils zip zstd \
+    bzip2 ca-certificates curl fd-find file git jq less make neovim openssh-client patch procps python3 ripgrep \
+    rsync sqlite3 tini tree unzip wget xz-utils zip zstd \
     # PDFs: poppler reads them, as text, as page images and as what they embed, and qpdf rewrites them.
     poppler-utils qpdf \
     # Images: ImageMagick for everything, HEIC and AVIF read included, rsvg-convert for SVG, and the three that
