@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import * as Messages from "../../dist/Messages.js"
 import { owner } from "../support/driver.ts"
+import { results, runs } from "../support/model.ts"
 import {
   buildImage,
   cleanup,
@@ -40,7 +41,11 @@ const onPath = (names: ReadonlyArray<string>, options?: Options) =>
   )
 
 const manifest = json("package.json")
-const volumeBins = ["/data/home/.npm-global/bin", "/data/home/.local/bin"]
+const volumeBins = [
+  "/data/home/.npm-global/bin",
+  "/data/home/.local/bin",
+  "/data/repo/live/node_modules/.bin",
+]
 
 beforeAll(async () => {
   await buildImage()
@@ -65,7 +70,7 @@ describe("installs, PATH and the caches", () => {
     output(
       [
         installGlobal,
-        "mkdir -p /data/home/.local/bin",
+        "mkdir -p /data/home/.local/bin /data/repo/live/node_modules/.bin",
         "printf '%s\\n' '#!/bin/sh' 'echo a dropped binary' > /data/home/.local/bin/dropped",
         "chmod +x /data/home/.local/bin/dropped",
         ...volumeBins.flatMap((directory) =>
@@ -147,6 +152,51 @@ describe("the image booted on an empty named volume, and then stopped", () => {
   })
 })
 
+/**
+ * Names a package with one command, repo-tool, in `work/package.json` and applies it. The daemon's network reaches
+ * nothing but the fakes, so the package is packed in the container and put in npm's cache on the volume, and the
+ * lockfile is written as `npm install --package-lock-only` would write it for the registry. The install reads the
+ * tarball from the cache by its integrity.
+ */
+const applyTool = [
+  "set -e",
+  "mkdir -p /tmp/repo-tool && cd /tmp/repo-tool",
+  "cat > package.json <<'EOF'",
+  JSON.stringify({
+    name: "repo-tool",
+    version: "1.0.0",
+    bin: { "repo-tool": "tool.js" },
+  }),
+  "EOF",
+  "printf '%s\\n' '#!/usr/bin/env node' 'console.log(\"a command of work/package.json\")' > tool.js",
+  "integrity=$(npm pack --json 2>/dev/null | jq -r '.[0].integrity')",
+  "npm cache add ./repo-tool-1.0.0.tgz --loglevel=error",
+  "cd /data/repo/work",
+  "cat > package.json <<'EOF'",
+  JSON.stringify({
+    type: "module",
+    private: true,
+    dependencies: { "repo-tool": "1.0.0" },
+  }),
+  "EOF",
+  "cat > package-lock.json <<EOF",
+  JSON.stringify({
+    lockfileVersion: 3,
+    requires: true,
+    packages: {
+      "": { dependencies: { "repo-tool": "1.0.0" } },
+      "node_modules/repo-tool": {
+        version: "1.0.0",
+        resolved: "https://registry.npmjs.org/repo-tool/-/repo-tool-1.0.0.tgz",
+        integrity: "$integrity",
+        bin: { "repo-tool": "tool.js" },
+      },
+    },
+  }),
+  "EOF",
+  'chad apply -m "Add repo-tool"',
+].join("\n")
+
 describe("the owner talks to the image", () => {
   const reply = "Hello from the image."
   let data: string
@@ -156,6 +206,8 @@ describe("the owner talks to the image", () => {
   let health: string
   let answers: ReadonlyArray<string>
   let status: ReadonlyArray<string>
+  let applied: string
+  let ran: ReadonlyArray<string>
   let daemon: Container
 
   beforeAll(async () => {
@@ -201,6 +253,31 @@ describe("the owner talks to the image", () => {
       answers = (await fakes.chat.answers(thread, 1)).map(({ text }) => text)
       step("running chad status in the daemon's container")
       status = exec(daemonName, "chad status").split("\n")
+      /** What a session's command printed when it ran repo-tool by name. */
+      const runTool = async () => {
+        await fakes.model.script([
+          runs(
+            'console.log((await bash({ command: "repo-tool; echo status=$?" })).output)',
+          ),
+          { text: "done" },
+        ])
+        const thread = await fakes.chat.makeThread("direct")
+        const event = await fakes.chat.userPosts(thread, {
+          text: "run repo-tool",
+          authorId: owner,
+        })
+        expect(await fakes.chat.deliver(event)).toBe(true)
+        await fakes.chat.answers(thread, 1)
+        return results((await fakes.model.calls()).at(-1)).join("\n")
+      }
+      step("applying a package with a command")
+      applied = exec(daemonName, applyTool)
+      step("running the package's command from a session")
+      const afterApply = await runTool()
+      step("reverting the apply")
+      exec(daemonName, "chad revert")
+      step("running the package's command from a session after the revert")
+      ran = [afterApply, await runTool()]
       daemon = container(daemonName)
     })
   }, 120_000)
@@ -219,6 +296,14 @@ describe("the owner talks to the image", () => {
         "connection: local (local)",
       ]),
     )
+  })
+
+  it("a command of a package that work/package.json names runs by name from a session's command after an apply, and a revert takes it off PATH", () => {
+    expect(applied).toContain("Packages added: repo-tool 1.0.0.")
+    expect(ran[0]).toContain("a command of work/package.json")
+    expect(ran[0]).toContain("status=0")
+    expect(ran[1]).toContain("repo-tool: command not found")
+    expect(ran[1]).toContain("status=127")
   })
 })
 

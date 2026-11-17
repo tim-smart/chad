@@ -15,7 +15,7 @@ Your plugins, skills, MCP servers, settings and persona are files in one git rep
   skills/<name>/SKILL.md      a skill
   mcp.json                    MCP servers
   chad.json                   plugin settings and on/off switches
-  package.json                the npm packages plugins import, with package-lock.json
+  package.json                the npm packages plugins import and the tools you keep, with package-lock.json
   persona.md                  who you are for the owner
 /data/repo/live               what is loaded now. Never edit it.
 /data/repo/node_modules/      chad, effect and chad's other packages, with their declarations and docs
@@ -77,6 +77,15 @@ A skill is `skills/<name>/SKILL.md` with `name` and `description` in its front m
 - A check or an apply fails on a skill with no front matter, a missing or empty `name` or `description`, a name that differs from its directory, or two skills in the repo with one name.
 - A skill with a bundled skill's name replaces the bundled one, and that includes this skill. Do not copy this skill to change it. Write the owner's conventions as a separate skill.
 
+## Command line tools
+
+- A package in `work/package.json` can be a command line tool. Once the change is applied, its commands are on PATH and run by name in every session's next command. A revert that takes the package out takes its commands off PATH. Neither needs a restart.
+- This is the way to add a tool the owner wants kept: it is committed, checked and reverted with the rest of the repo. Add it as any package, `npm install --package-lock-only --ignore-scripts --save-exact <name>@<version>` in `work/`, then `chad check` and `chad apply`.
+- Install scripts never run, so a tool that needs its install script does not work. A tool that ships its binary as an optional dependency for each platform does.
+- These commands come last on PATH, after what you install with `npm install -g`, `uv tool install` or into `~/.local/bin`, so none of them can replace one of the image's tools or one of yours. A command of chad's own packages, such as `tsc` or `semver`, is not there.
+- A stdio server in `mcp.json` can run one of these commands by name, added in the same apply as its package.
+- Safe mode installs nothing when it starts. The commands of the applied tree stay on PATH while its install is on disk, and are missing after a safe-mode start that found it gone, until safe mode goes off.
+
 ## MCP servers
 
 Edit `mcp.json` and apply. There is no command that adds one.
@@ -100,10 +109,10 @@ Edit `mcp.json` and apply. There is no command that adds one.
 }
 ```
 
-- stdio servers run with `npx`, `uvx` or `node`, which are in the image. The image has no Python packages, no apt and no sudo. What you install with `npm install -g`, `uv tool install` or into `~/.local/bin` stays on the volume and sits last on PATH, so it cannot replace the image's own tools.
+- stdio servers run with `npx`, `uvx` or `node`, which are in the image. The image has no Python packages, no apt and no sudo. What you install with `npm install -g`, `uv tool install` or into `~/.local/bin` stays on the volume and sits last on PATH, so it cannot replace the image's own tools. A command of a package in `work/package.json` works too, by name.
 - `chad check` reads `mcp.json`, checks that every `${NAME}` resolves and prints which servers an apply would add, remove or change. It connects nothing. A malformed `mcp.json` fails the apply.
 - A server that cannot connect does not fail the apply. The apply prints each server's status and tool count.
-- Any MCP restart interrupts the MCP calls that are running, and a stdio server loses what it held in memory. An apply that changes `mcp.json`, `chad mcp restart` and a change to a secret that `mcp.json` names all restart every server. A call that was running fails with "mcp.<server>.<tool> was interrupted by an MCP restart. It may have run in part or in full."
+- Any MCP restart interrupts the MCP calls that are running, and a stdio server loses what it held in memory. An apply that changes `mcp.json` or `package-lock.json`, `chad mcp restart` and a change to a secret that `mcp.json` names all restart every server. A call that was running fails with "mcp.<server>.<tool> was interrupted by an MCP restart. It may have run in part or in full."
 - A call made during a restart fails at once with "MCP servers are restarting. This call was not sent." Nothing ran, so call again when the servers are back.
 - After a restart a tool's parameters may have changed. When a call fails validation, check it against the tool's current declaration.
 - An HTTP server signs in with a header. Write the token in `headers` as `${NAME}`. chad has no OAuth login. A server that answers 401 is listed as unavailable with its error.

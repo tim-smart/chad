@@ -22,6 +22,11 @@ docker push "ghcr.io/tim-smart/chad:$version"
 The image runs as the `node` user, uid 1000, and has no sudo and no apt. A tool the agent needs is installed with npm
 or uv, which keep what they install on the volume, or is a single binary in `/data/home/.local/bin`.
 
+A tool you want kept goes in `work/package.json` in the repo, as a plugin's package does. The commands of those packages
+are on PATH, from `/data/repo/live/node_modules/.bin`, which follows the applied tree: an apply puts a command there and
+a revert takes it away, with no restart. That directory comes last on PATH, after the volume's other bin directories,
+so no package can shadow a tool of the image. Install scripts never run, so a tool that needs one does not work.
+
 A plugin can import npm packages that `work/package.json` in the repo names. chad installs them with `npm ci` into
 `/data/repo/packages/`, one directory for each lockfile, with npm's cache in `/data/cache/npm`. An apply or a revert
 whose lockfile changed needs the network unless the cache holds every package it names, and so does the first start

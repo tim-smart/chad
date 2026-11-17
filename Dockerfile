@@ -76,14 +76,15 @@ COPY --from=build /opt/chad/plugins /opt/chad/plugins
 COPY skills /opt/chad/skills
 RUN ln -s /opt/chad/bin/chad.js /usr/local/bin/chad && install -d -o node -g node /data
 # A login shell resets PATH from /etc/profile. This puts the volume's bin directories back, last, and only once.
-RUN printf '%s\n' 'for d in /data/home/.npm-global/bin /data/home/.local/bin; do case ":$PATH:" in *":$d:"*) ;; *) PATH="$PATH:$d" ;; esac; done; export PATH' > /etc/profile.d/chad.sh
-# The volume's bin directories come last, so nothing installed there shadows the image's tools.
+RUN printf '%s\n' 'for d in /data/home/.npm-global/bin /data/home/.local/bin /data/repo/live/node_modules/.bin; do case ":$PATH:" in *":$d:"*) ;; *) PATH="$PATH:$d" ;; esac; done; export PATH' > /etc/profile.d/chad.sh
+# The volume's bin directories come last, so nothing installed there shadows the image's tools. The last one holds the
+# commands of the packages work/package.json names. `live` is repointed by each apply and revert, so it follows them.
 ENV CHAD_DATA=/data \
     HOME=/data/home \
     XDG_CACHE_HOME=/data/cache \
     NPM_CONFIG_CACHE=/data/cache/npm \
     NPM_CONFIG_PREFIX=/data/home/.npm-global \
-    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/data/home/.npm-global/bin:/data/home/.local/bin
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/data/home/.npm-global/bin:/data/home/.local/bin:/data/repo/live/node_modules/.bin
 USER node
 WORKDIR /data
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=60s --start-interval=2s CMD ["chad", "health"]
