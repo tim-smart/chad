@@ -2,8 +2,8 @@
 
 chad ships as one image, `ghcr.io/tim-smart/chad`, built for amd64. Each image is tagged with chad's version and no
 prefix, such as `ghcr.io/tim-smart/chad:0.0.0`, and that is the same string `chad status` prints and the volume's
-`state/version` holds, so a tag always matches a running chad. The examples pin a version tag. Use the version you
-want in place of `0.0.0`.
+`state/version` holds, so a version tag always matches a running chad. The examples pin a version tag. Use the
+version you want in place of `0.0.0`. Each image also has a tag for its commit, which "The image" describes.
 
 Everything chad keeps lives on one volume mounted at `/data`. The volume has to be a local filesystem: a host
 directory, a named Docker volume, a Kubernetes local-path volume, a cloud block volume or Longhorn RWO. NFS, CephFS,
@@ -11,7 +11,17 @@ SMB and Longhorn RWX are not supported, because SQLite's lock and write-ahead lo
 
 ## The image
 
-Building and publishing the image is done by hand, from the root of the repository:
+A push to `main` publishes the image. `.github/workflows/publish.yml` builds it for amd64 and pushes it to
+`ghcr.io/tim-smart/chad` with two tags:
+
+- chad's version, such as `0.0.0`. It moves to each new commit of `main` until the version changes.
+- The commit, such as `sha-4d3d587`, which is `sha-` and the first seven characters of the commit on `main`. It
+  never moves, so a deployment that should change only when you change it pins this one.
+
+Pushes are published one at a time. When several arrive while one is being built, only the newest of them is
+published next, so a commit in between can be left without a tag of its own.
+
+Building and pushing by hand still works, from the root of the repository:
 
 ```sh
 version=$(node -p 'require("./package.json").version')

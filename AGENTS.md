@@ -32,4 +32,4 @@ with the code they describe.
 - Nothing gets a test of its own for the wording of a message or a log line, a default, what `tsc` already holds, or a fact about a dependency. A test that only pins one of those may be deleted, in place of fixing it, when your change breaks it. Say so in the commit message.
 - A scenario waits on what the daemon does, never on a clock.
 - No `skip`, `todo` or `only`.
-- No test and no CI job uses a real Discord token or a real Codex login, and no job reads a secret. `gate.yml` is the only workflow, and nothing runs on a schedule. What only a real Discord, a real login or a real server can show is checked by hand, from `docs/live-checks.md`.
+- No test and no CI job uses a real Discord token or a real Codex login. The one secret a job reads is the built-in `GITHUB_TOKEN`, which `publish.yml` uses to push the image to `ghcr.io/tim-smart/chad`. There are two workflows: `gate.yml`, which reads no secret, and `publish.yml`, which runs on a push to `main` and on nothing else. Nothing runs on a schedule. What only a real Discord, a real login or a real server can show is checked by hand, from `docs/live-checks.md`.
