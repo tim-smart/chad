@@ -33,6 +33,8 @@ export interface Timings {
   readonly modelLogin: Duration.Duration
   /** Model trial request, deadline with no retry. */
   readonly modelTrial: Duration.Duration
+  /** One half of an MCP server's OAuth sign-in: its requests to the server and its authorization server. */
+  readonly mcpLogin: Duration.Duration
   /** Thread title, deadline of the whole job with no retry: the model's token, its layer, its answer and the rename. */
   readonly threadTitle: Duration.Duration
   /** Session passivation after idle. */
@@ -90,6 +92,7 @@ export const defaults: Timings = {
   stopDeadline: Duration.seconds(60),
   modelLogin: Duration.minutes(15),
   modelTrial: Duration.seconds(60),
+  mcpLogin: Duration.seconds(60),
   threadTitle: Duration.seconds(30),
   sessionIdle: Duration.minutes(30),
   messagePoll: Duration.seconds(1),

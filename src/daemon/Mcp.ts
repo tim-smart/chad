@@ -4,6 +4,10 @@
  * caused it: the calls in flight are interrupted, the old layer is closed, the new one connects, and once it is current
  * the generation moves so each session rebuilds its Agent on its next turn. A rebuild has no gate, no drain and no
  * held calls.
+ *
+ * An HTTP server with an `oauth` key connects with the sign-in the owner made (`McpOAuth`). One with no usable sign-in
+ * is left out of the layer as needing a login, so a rebuild never starts a sign-in and never waits on one, and the
+ * other servers connect as usual.
  */
 import * as McpServers from "clanka/McpServers"
 import {
@@ -21,6 +25,7 @@ import * as McpFile from "../McpFile.ts"
 import * as Messages from "../Messages.ts"
 import type * as Settings from "../Settings.ts"
 import * as Logger from "./Logger.ts"
+import type * as McpOAuth from "./McpOAuth.ts"
 import type * as Notices from "./Notices.ts"
 
 type Handlers = ReturnType<McpServers.McpServers["Service"]["handlers"]>
@@ -33,6 +38,8 @@ interface Built {
   readonly scrub: (text: string) => string
   /** Each server's name by the identifier its keys carry. */
   readonly names: ReadonlyMap<string, string>
+  /** The layer's servers that sign in with OAuth, by name. */
+  readonly targets: ReadonlyMap<string, McpOAuth.Target>
   /** Done when a rebuild starts, which interrupts every call this layer has in flight. */
   readonly restart: Deferred.Deferred<void>
   readonly scope: Scope.Closeable
@@ -66,6 +73,21 @@ export interface Mcp {
   readonly open: () => ReadonlyArray<string>
   /** A stop abandons a rebuild in progress. */
   readonly abandon: Effect.Effect<void>
+  /**
+   * The owner's OAuth sign-in to a server of the applied `mcp.json`, by its name. None of the three rebuilds the
+   * layer: the caller does, once a sign-in or a sign-out changed what a server connects with.
+   */
+  readonly login: {
+    /** Begins a sign-in and gives the link the owner opens. */
+    readonly begin: (name: string) => Effect.Effect<string, string>
+    /** Finishes it with the address the owner's browser ended on. */
+    readonly finish: (
+      name: string,
+      address: string,
+    ) => Effect.Effect<void, string>
+    /** Drops the stored sign-in of a name, listed or not. False when it held none. */
+    readonly logout: (name: string) => Effect.Effect<boolean, string>
+  }
 }
 
 /** The notice key of an `mcp.json` a boot or `chad safe off` could not read. */
@@ -99,13 +121,23 @@ export const atBoot = Effect.fnUntraced(function* (
 /** Each server of a layer as clanka sees it now, which a server that exits after connecting changes. */
 const states = (
   layer: Built,
+  oauth: McpOAuth.McpOAuth,
 ): Effect.Effect<ReadonlyArray<Messages.McpServerState>> =>
   Effect.map(layer.services.status, (status) =>
-    Object.entries(status).map(([name, server]) =>
-      server._tag === "Connected"
+    Object.entries(status).map(([name, server]) => {
+      // A server whose sign-in is gone needs a login whatever its transport says, a connected one included. So does
+      // one that refused the token a refresh gave as it connected.
+      const target = layer.targets.get(name)
+      if (
+        target !== undefined &&
+        ((server._tag === "Failed" && oauth.refuses(target, server.error)) ||
+          oauth.needsLogin(target))
+      )
+        return { name, state: "needs-login" }
+      return server._tag === "Connected"
         ? { name, state: "connected", tools: server.tools.length }
-        : { name, state: "failed", error: layer.scrub(server.error) },
-    ),
+        : { name, state: "failed", error: layer.scrub(server.error) }
+    }),
   )
 
 /** The server and tool identifiers of a key, which clanka writes as `<server>.<tool>`. */
@@ -120,7 +152,10 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
   readonly lookup: Settings.Lookup<E, R>
   /** The daemon's `HOME`, a stdio server's `cwd` when it names none. */
   readonly home: string
+  /** The sign-ins of the servers with an `oauth` key. */
+  readonly oauth: McpOAuth.McpOAuth
 }) {
+  const { oauth } = options
   const context = yield* Effect.context<R>()
   const fibers = yield* FiberSet.make<
     ReadonlyArray<Messages.McpServerState>
@@ -151,11 +186,33 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
       const id = McpServers.identifier(name)
       if (!names.has(id)) names.set(id, name)
     }
-    const scrub = McpFile.scrubber(resolved.values())
+    // Each server with an `oauth` key, and what clanka is given for it: its entry when a sign-in is stored, and
+    // otherwise an entry that connects nowhere and says what it needs.
+    const targets = new Map<string, McpOAuth.Target>()
+    const config: Record<string, McpServers.ServerEntry> = {}
+    for (const [name, server] of resolved) {
+      const target = oauth.target(name, server)
+      if (target !== undefined) targets.set(name, target)
+      config[name] =
+        target === undefined || oauth.signedIn(target)
+          ? server.config
+          : { type: "unavailable", error: Messages.mcpNeedsLogin(name) }
+    }
+    // Every server connects again, so what an earlier layer was refused says nothing of this one.
+    oauth.reset()
+    // The layer's own scrubber, which everything this layer's servers say goes through, however late it is said.
+    const scrub = McpFile.scrubber(resolved.values(), () => [
+      ...oauth.hidden(),
+      ...[...targets.values()].flatMap(({ oauth, passed }) => [
+        oauth.clientSecret ?? "",
+        ...passed,
+      ]),
+    ])
     const built: Built = {
       services: undefined as never,
       scrub,
       names,
+      targets,
       restart: yield* Deferred.make<void>(),
       scope,
       open: true,
@@ -163,21 +220,22 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
     layers.add(built)
     const services = Context.get(
       yield* Layer.buildWithScope(
-        McpServers.layer(
-          Object.fromEntries(
-            [...resolved].map(([name, { config }]) => [name, config]),
-          ),
-        ),
+        McpServers.layer(config, (name) => {
+          const target = targets.get(name)
+          return target === undefined
+            ? oauth.refusing(name)
+            : oauth.provider(target)
+        }),
         scope,
       ).pipe(Effect.provideService(Logger.Scrub, scrub)),
       McpServers.McpServers,
     )
     const next: Built = Object.assign(built, { services })
+    const servers = yield* states(next, oauth)
     // The new layer is current once clanka has connected it, and sessions follow it on their next turn.
     current = next
     rebuilding = false
     generation++
-    const servers = yield* states(next)
     for (const server of servers) {
       if (server.state === "failed")
         yield* Logger.event(
@@ -194,6 +252,8 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
       servers: servers.length,
       connected: servers.filter(({ state }) => state === "connected").length,
       failed: servers.filter(({ state }) => state === "failed").length,
+      needs_login: servers.filter(({ state }) => state === "needs-login")
+        .length,
     })
     return servers
   }).pipe(
@@ -202,6 +262,25 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
   )
 
   const fork = FiberSet.run(fibers, once)
+
+  /** The server of the applied `mcp.json` a sign-in names, as it expands now. */
+  const targetOf = Effect.fnUntraced(function* (name: string) {
+    const server = wanted?.get(name)
+    if (server === undefined)
+      return yield* Effect.fail(Messages.mcpLoginUnknown(name))
+    const resolved = yield* McpFile.resolveServer(
+      server,
+      options.lookup,
+      options.home,
+    )
+    const target = oauth.target(name, resolved)
+    if (target !== undefined) return target
+    return yield* Effect.fail(
+      resolved.config.type === "unavailable"
+        ? Messages.mcpLoginUnavailable(name, resolved.config.error)
+        : Messages.mcpLoginNoOAuth(name),
+    )
+  }, Effect.provideContext(context))
 
   /** A call by its key, routed to the layer that is current when it is made. */
   const call = (
@@ -245,14 +324,25 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
       )
     }
     const handler = handlers[key]
-    if (handler !== undefined)
+    if (handler !== undefined) {
+      const server = layer.names.get(split(key).server)
+      const target =
+        server === undefined ? undefined : layer.targets.get(server)
       return Effect.raceFirst(
-        handler(params),
+        // A 401 that outlived a refresh is told as every other sign-in that no longer works is.
+        target === undefined
+          ? handler(params)
+          : Effect.mapError(handler(params), (error) =>
+              oauth.refuses(target, error)
+                ? Messages.mcpNeedsLogin(target.name)
+                : error,
+            ),
         Effect.andThen(
           Deferred.await(layer.restart),
           Effect.fail(Messages.mcpInterrupted(key)),
         ),
       )
+    }
     // chad words what the new layer lacks itself, from its config and status.
     const ids = split(key)
     const name = layer.names.get(ids.server)
@@ -277,8 +367,21 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
     // rebuild takes those of the last layer that finished connecting, and one before the first layer has none, with
     // `Messages.mcpStarting` in place of the section when servers are on their way.
     get prompt() {
-      if (current !== undefined) return current.scrub(current.services.prompt)
-      return rebuilding && (wanted?.size ?? 0) > 0 ? Messages.mcpStarting : ""
+      if (current === undefined)
+        return rebuilding && (wanted?.size ?? 0) > 0 ? Messages.mcpStarting : ""
+      // clanka wrote the section when the layer connected, and a server that has refused chad's sign-in since is
+      // still listed in it with its tools. So each read puts what such a server needs under the list, which is what
+      // the next turn is told. One that connected needing a login has it on its own line already.
+      const section = current.services.prompt
+      const lost = [...current.targets.values()]
+        .filter(oauth.needsLogin)
+        .map(({ name }) => Messages.mcpNeedsLogin(name))
+        .filter((line) => !section.includes(line))
+      return current.scrub(
+        lost.length === 0
+          ? section
+          : `${section}\n\n${Messages.mcpLoginsLost(lost)}`,
+      )
     },
     get dts() {
       return current?.services.dts ?? ""
@@ -334,12 +437,20 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
             )
           : current === undefined
             ? Effect.succeed([])
-            : states(current),
+            : states(current, oauth),
     ),
     open: () =>
       [...layers]
         .filter((layer) => layer.open)
         .flatMap((layer) => [...layer.names.values()]),
     abandon: FiberSet.clear(fibers),
+    login: {
+      begin: (name) => Effect.flatMap(targetOf(name), oauth.begin),
+      finish: (name, address) =>
+        Effect.flatMap(targetOf(name), (target) =>
+          oauth.finish(target, address),
+        ),
+      logout: oauth.logout,
+    },
   } satisfies Mcp as Mcp
 })

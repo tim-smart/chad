@@ -166,7 +166,9 @@ const mcp = (server: NonNullable<Report["mcp"]>[number]) =>
     ? `mcp: ${server.name}, connected, ${server.tools ?? 0} tools`
     : server.state === "failed"
       ? `mcp: ${server.name}, failed (${Messages.firstLine(server.error ?? "")})`
-      : `mcp: ${server.name}, starting`
+      : server.state === "needs-login"
+        ? `mcp: ${server.name}, needs login (chad mcp login ${server.name})`
+        : `mcp: ${server.name}, starting`
 
 /** A time as the blocks print it: UTC, to the second. */
 const time = (at: number) => `${new Date(at).toISOString().slice(0, 19)}Z`

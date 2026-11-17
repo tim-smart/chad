@@ -116,8 +116,43 @@ Edit `mcp.json` and apply. There is no command that adds one.
 - Any MCP restart interrupts the MCP calls that are running, and a stdio server loses what it held in memory. An apply that changes `mcp.json` or `package-lock.json`, `chad mcp restart` and a change to a secret that `mcp.json` names all restart every server. A call that was running fails with "mcp.<server>.<tool> was interrupted by an MCP restart. It may have run in part or in full."
 - A call made during a restart fails at once with "MCP servers are restarting. This call was not sent." Nothing ran, so call again when the servers are back.
 - After a restart a tool's parameters may have changed. When a call fails validation, check it against the tool's current declaration.
-- An HTTP server signs in with a header. Write the token in `headers` as `${NAME}`. chad has no OAuth login. A server that answers 401 is listed as unavailable with its error.
+- An HTTP server that takes a key signs in with a header. Write the token in `headers` as `${NAME}`.
 - `chad mcp restart` rebuilds every MCP server. It does not reconnect one. Run it when a server dropped. Nothing restarts one by itself.
+
+### OAuth
+
+An HTTP server that signs in with OAuth needs an `oauth` key. Without the key chad sends no OAuth request, and a server that answers 401 is listed as unavailable with an error that says to add it.
+
+```json
+{
+  "mcpServers": {
+    "linear": { "url": "https://mcp.linear.app/mcp", "oauth": {} },
+    "slack": {
+      "url": "https://mcp.slack.com/mcp",
+      "oauth": {
+        "clientId": "${SLACK_CLIENT_ID}",
+        "clientSecret": "${SLACK_CLIENT_SECRET}",
+        "redirectUrl": "https://chad.example.com/oauth/callback",
+        "scopes": ["channels:read", "chat:write"]
+      }
+    }
+  }
+}
+```
+
+- `"oauth": {}` is enough for a server whose authorization server registers clients by itself. chad registers on the first sign-in and keeps the client it is given.
+- `clientId` names a client the owner registered with the server. chad then uses that client and never registers one. With `clientSecret` it is a confidential client, and `clientSecret` needs `clientId`. Keep the secret in the secret store and write it as `${NAME}`.
+- `redirectUrl` is sent as the redirect URI exactly as written, so it has to match what the client was registered with. The default is `http://localhost/oauth/callback`. Nothing listens at either: the owner copies the address the browser ends on.
+- `scopes` are the scopes chad asks for. Without it chad asks for what the server names.
+- Only an HTTP server takes `oauth`. Every string in it takes `${NAME}`.
+- A server with no usable sign-in is listed as "needs login": in what an apply and `chad mcp restart` print, in `chad status`, and in your prompt. Nothing starts a sign-in by itself, at a boot, an apply, a restart or a secret change, and the other servers connect as usual.
+- Only the owner signs in. You cannot, and no command you run does. Call `await requestMcpLogin({ server: "linear" })`, which posts a button in the thread, and end your turn. The owner presses it, opens the link chad posts, approves, and puts the address the browser ended on into a form. Where that tool is not there, ask the owner to run `chad mcp login linear` in a shell on the server. `chad mcp logout linear` drops the tokens and the registered client, and ends a sign-in that is under way. When it cannot write the volume it says so and chad stays signed in.
+- A link too long for a message is not posted. chad then tells the owner in the thread to run `chad mcp login <name>`, which prints the link.
+- Never ask the owner to paste that address or a token into the chat. The address carries the code of the sign-in.
+- A sign-in the authorization server refuses fails with the OAuth error code it gave, such as `invalid_grant`. chad repeats nothing else of the answer, which may quote the code or the client secret.
+- A sign-in that finished, and a sign-out, restart every MCP server, as a secret change does. Calls in flight are interrupted.
+- chad refreshes the token by itself and keeps the new one across restarts. When the server refuses the refresh, or still answers 401 to the token a refresh gave, a call fails with "MCP server "<name>" needs the owner to sign in", and the server shows as "needs login". Ask the owner to sign in again. Do not retry the call.
+- A changed `url` or `oauth` block makes the server need a new sign-in. The old tokens are not sent to it.
 
 ## Settings and secrets
 

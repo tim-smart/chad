@@ -1806,7 +1806,7 @@ export const mcpUnreadable = (error: string) =>
 /** One MCP server as status and an apply show it. */
 export interface McpServerState {
   readonly name: string
-  readonly state: "connected" | "failed" | "starting"
+  readonly state: "connected" | "failed" | "starting" | "needs-login"
   readonly tools?: number
   readonly error?: string
 }
@@ -1817,13 +1817,148 @@ export const mcpServerLine = (server: McpServerState) =>
     ? `MCP server ${server.name}: connected, ${server.tools ?? 0} tools.`
     : server.state === "failed"
       ? `MCP server ${server.name}: unavailable: ${firstLine(server.error ?? "")}`
-      : `MCP server ${server.name}: starting.`
+      : server.state === "needs-login"
+        ? `MCP server ${server.name}: needs login. The owner signs in with chad mcp login ${server.name}, or from the button requestMcpLogin posts in chat.`
+        : `MCP server ${server.name}: starting.`
 
 /** What a rebuild prints: each server's line, or that none is configured. */
 export const mcpRebuilt = (servers: ReadonlyArray<McpServerState>) =>
   servers.length === 0
     ? ["No MCP servers are configured."]
     : servers.map(mcpServerLine)
+
+// The OAuth sign-in of an HTTP MCP server.
+
+/**
+ * A server with an `oauth` key and no usable sign-in. It is the server's error in the layer, which the model reads in
+ * its prompt, and what a call fails with when the server answers 401 and the refresh cannot fix it.
+ */
+export const mcpNeedsLogin = (name: string) =>
+  `MCP server "${name}" needs the owner to sign in, and nothing you run can do that. Call requestMcpLogin({ server: ${JSON.stringify(name)} }) to post the sign-in button and end your turn, or ask the owner to run chad mcp login ${name}.`
+
+/**
+ * Put under the list of servers in the prompt, which was written when they connected, for each that has refused
+ * chad's sign-in since. `lines` is what each needs.
+ */
+export const mcpLoginsLost = (lines: ReadonlyArray<string>) =>
+  [
+    "Whatever the list above says of them, these servers take no call now:",
+    ...lines.map((line) => `- ${line}`),
+  ].join("\n")
+
+/**
+ * What a connection's requests fail with once the owner has signed out of its server or signed in to it again. The
+ * connection is on its way out, and it is given none of the new sign-in.
+ */
+export const mcpSignInReplaced = (name: string) =>
+  `MCP server "${name}": the sign-in this connection ran on was ended by a sign-out or replaced by a newer one, so it sends nothing more`
+
+/** An HTTP server with no `oauth` key that answered 401. */
+export const mcpUnauthorized = (name: string) =>
+  `the server refused chad as unauthorized (401). If it signs in with OAuth, add "oauth": {} to "${name}" in mcp.json and apply it, and the owner then signs in. If it takes a key, check its headers.`
+
+/** What `chad mcp login` prints before it reads the address. */
+export const mcpLoginOpen = (name: string, url: string) => [
+  `Open this link in a browser and approve chad for "${name}":`,
+  url,
+  "The browser then goes to an address that may not load. Copy the whole address from the address bar.",
+]
+
+/** The prompt `chad mcp login` reads the address at. */
+export const mcpLoginPrompt = "Paste the address (it is not shown)"
+
+/** `chad mcp login` given no address. */
+export const mcpLoginNoAddress = () => "chad mcp login: no address on stdin"
+
+/** A sign-in that ended well, before the lines of the rebuild it starts. */
+export const mcpLoggedIn = (name: string) => `Signed in to "${name}".`
+
+/** `chad mcp logout` once the stored sign-in is gone, before the lines of the rebuild it starts. */
+export const mcpLoggedOut = (name: string) =>
+  `Signed out of "${name}". Its tokens and its registered client are dropped.`
+
+/** `chad mcp logout` whose write of the store failed, with the errno code. The sign-in is still stored. */
+export const mcpLogoutUnsaved = (name: string, code: string) =>
+  `chad mcp logout: the sign-in to "${name}" could not be removed from the volume (${code}), so chad is still signed in. Run chad mcp logout ${name} again once the volume can be written.`
+
+/** `chad mcp logout` of a name that holds no sign-in. */
+export const mcpLogoutNothing = (name: string) =>
+  `chad mcp logout: "${name}" holds no sign-in`
+
+/** A sign-in to a name the applied `mcp.json` does not list, which safe mode makes of every name. */
+export const mcpLoginUnknown = (name: string) =>
+  `chad mcp login: the applied mcp.json has no server named "${name}"`
+
+/** A sign-in to a server with no `oauth` key. */
+export const mcpLoginNoOAuth = (name: string) =>
+  `chad mcp login: "${name}" has no "oauth" key in mcp.json, so it takes no sign-in`
+
+/** A sign-in to a server that expansion left unavailable. */
+export const mcpLoginUnavailable = (name: string, error: string) =>
+  `chad mcp login: "${name}" is unavailable: ${firstLine(error)}`
+
+/** An address given with no sign-in to finish. */
+export const mcpLoginNotStarted = (name: string) =>
+  `chad mcp login: no sign-in to "${name}" is waiting for an address. Start one with chad mcp login ${name}.`
+
+/** What was pasted is no URL. */
+export const mcpLoginNotAddress = (name: string) =>
+  `chad mcp login: that is not an address. Paste the whole address the browser ended on after you approved chad for "${name}".`
+
+/** The address says the server refused. */
+export const mcpLoginDenied = (name: string, reason: string) =>
+  `chad mcp login: "${name}" refused the sign-in (${reason})`
+
+/** The address carries no code. */
+export const mcpLoginNoCode = (name: string) =>
+  `chad mcp login: that address carries no code. Paste the whole address the browser ended on after you approved chad for "${name}".`
+
+/** The address belongs to a sign-in a later one replaced, or to none of chad's. */
+export const mcpLoginOtherState = (name: string) =>
+  `chad mcp login: that address is not from the newest sign-in to "${name}". Open the newest link and paste the address it ends on.`
+
+/** The authorization server registers no client by itself. */
+export const mcpLoginNoRegistration = (name: string) =>
+  `chad mcp login: the authorization server of "${name}" registers no client by itself. Register chad with it, and put the client's id in "oauth": { "clientId": ... } in mcp.json.`
+
+/** A sign-in that a newer sign-in or a sign-out took the place of while it was under way. */
+export const mcpLoginReplaced = (name: string) =>
+  `chad mcp login: this sign-in to "${name}" was replaced by a newer one or ended by a sign-out. Start again.`
+
+/** Any other failure of a sign-in's requests. */
+export const mcpLoginError = (name: string, reason: string) =>
+  `chad mcp login: the sign-in to "${name}" failed (${reason})`
+
+/** Why a sign-in failed when its authorization server refused a request: the OAuth error code, and nothing else of the answer. */
+export const mcpLoginAnswered = (code: string) =>
+  `its authorization server answered "${code}"`
+
+/** Why a sign-in failed when a request reached no server, with the errno code when there is one. */
+export const mcpLoginUnreachable = (code: string | undefined) =>
+  `the server or its authorization server could not be reached${code === undefined ? "" : `: ${code}`}`
+
+/** Why a sign-in failed when an answer was none chad could read. The answer is not repeated. */
+export const mcpLoginUnusable =
+  "the server or its authorization server gave an answer chad could not use"
+
+/** A sign-in whose requests ran past their deadline. */
+export const mcpLoginTimedOut = (name: string, seconds: number) =>
+  `chad mcp login: "${name}" or its authorization server did not answer in ${seconds} seconds`
+
+export const mcpLoginOpenLabel = "Open the sign-in"
+
+export const mcpLoginPasteLabel = "Paste the address"
+
+/** The message chad posts once the owner pressed the sign-in button, with the link and the button of the form. */
+export const mcpLoginSteps = (name: string) =>
+  `To sign chad in to "${name}": open the link and approve. Your browser then goes to an address that may not load. Copy the whole address from the address bar, press "${mcpLoginPasteLabel}" and put it in the form. Do not post it in the chat.`
+
+/** The link, in the message itself, when it is too long for a button. */
+export const mcpLoginLink = (url: string) => `The link: <${url}>`
+
+/** In place of the sign-in message, when the link fits in no message here or the message could not be posted. */
+export const mcpLoginUnposted = (name: string, long: boolean) =>
+  `${long ? `The sign-in link for "${name}" is too long for a message here` : `The sign-in link for "${name}" could not be posted here`}. Run \`chad mcp login ${name}\` in a shell on the server instead, which prints the link.`
 
 /**
  * What an older `chad serve` says when `state/version` names a newer chad. `copy` is the copy of the database taken

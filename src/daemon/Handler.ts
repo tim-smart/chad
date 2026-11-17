@@ -17,6 +17,7 @@ import {
   ChatMarkdown,
   ChatMessage,
   ChatThread,
+  ChatUi,
 } from "effect/chat"
 import {
   EntityAddress,
@@ -25,6 +26,11 @@ import {
   Sharding,
 } from "effect/cluster"
 import * as Messages from "../Messages.ts"
+import {
+  McpLoginButton,
+  McpLoginForm,
+  McpLoginPaste,
+} from "../plugins/request-mcp-login/Form.ts"
 import { SecretButton, SecretForm } from "../plugins/request-secret/Form.ts"
 import type { Live } from "./Chats.ts"
 import * as Disk from "./Disk.ts"
@@ -91,6 +97,27 @@ export const SecretSave = Context.Reference<{
 }>("chad/Handler/SecretSave", {
   defaultValue: () => ({ run: () => Effect.void }),
 })
+
+/**
+ * An owner's OAuth sign-in to an MCP server from chat. `begin` gives the link, or why there is none. `finish` takes
+ * the address the owner's browser ended on, as `chad mcp login` does through the daemon's queue, and posts what that
+ * command prints. Nothing it posts or logs carries the address or a token.
+ */
+export const McpLogin = Context.Reference<{
+  readonly begin: (server: string) => Effect.Effect<string, string>
+  readonly finish: (
+    sign: { readonly server: string; readonly address: string },
+    post: (markdown: string) => Effect.Effect<void>,
+  ) => Effect.Effect<void>
+}>("chad/Handler/McpLogin", {
+  defaultValue: () => ({
+    begin: () => Effect.fail(""),
+    finish: () => Effect.void,
+  }),
+})
+
+/** The longest URL Discord takes on a link button. A longer link goes in the message. */
+const linkButtonLength = 512
 
 /**
  * Whether a message counts as mentioning chad: it mentions chad, or it was posted in a channel or thread whose id is
@@ -491,12 +518,22 @@ export const unusable = (
  * - A click on Stop goes to the session of its thread as the `stop` request that `/stop` sends.
  * - A click on a secret request's button opens its form, and the form's submit saves the secret as `chad secret set`
  *   does. The value goes from the submit to the store: no message, log line or session gets it.
+ * - A click on an MCP sign-in request's button begins the sign-in and posts its link with a second button, which
+ *   opens the form for the address the browser ended on. The form's submit finishes the sign-in as `chad mcp login`
+ *   does. The address goes from the submit to the daemon: no message, log line or session gets it.
  * - A slash command does what the typed command of its name does, and gets a private answer that only says it runs.
  *   `/new` and `/stop` need the thread to have a session, and `/new` starts the new one at the thread's newest
  *   message.
  */
 export const interactions = (connection: Live) =>
-  ChatInteraction.group(StopButton, SecretButton, SecretForm)
+  ChatInteraction.group(
+    StopButton,
+    SecretButton,
+    SecretForm,
+    McpLoginButton,
+    McpLoginPaste,
+    McpLoginForm,
+  )
     .merge(SlashCommands.all)
     .toLayer(
       Effect.gen(function* () {
@@ -614,6 +651,106 @@ export const interactions = (connection: Live) =>
                 // The value is in the submit, which the cause does not carry.
                 Effect.catchCause((cause) =>
                   Effect.logError("A secret could not be saved", cause),
+                ),
+                Effect.forkDetach,
+              )
+              return ChatInteraction.close
+            }),
+          "mcp-login": (click) =>
+            Effect.gen(function* () {
+              if (!owner(click.userId)) return ChatInteraction.ack
+              const server = click.value
+              const say = post(click.thread)
+              // The link takes requests to the server, which do not fit in the click's deadline.
+              yield* Effect.flatMap(McpLogin, (service) =>
+                service.begin(server),
+              ).pipe(
+                Effect.matchEffect({
+                  onFailure: say,
+                  onSuccess: (url) =>
+                    Effect.gen(function* () {
+                      const button = url.length <= linkButtonLength
+                      const message = {
+                        markdown: [
+                          Messages.mcpLoginSteps(server),
+                          ...(button ? [] : [Messages.mcpLoginLink(url)]),
+                        ].join("\n"),
+                        actions: [
+                          ...(button
+                            ? [
+                                ChatUi.linkButton({
+                                  label: Messages.mcpLoginOpenLabel,
+                                  url,
+                                }),
+                              ]
+                            : []),
+                          McpLoginPaste.of(server, {
+                            label: Messages.mcpLoginPasteLabel,
+                          }),
+                        ],
+                      }
+                      // A link cannot be cut in two, so one that fits in no message is not posted, and the owner is
+                      // told the way in that has no limit. The same goes for a message the platform did not take.
+                      const { limits, measure } = yield* chat.descriptor(
+                        click.thread.platform,
+                      )
+                      const long =
+                        measure(message.markdown, message.actions) >
+                        limits.messageLength
+                      if (long)
+                        return yield* say(
+                          Messages.mcpLoginUnposted(server, true),
+                        )
+                      yield* chat
+                        .post(click.thread, message)
+                        .pipe(
+                          Effect.catchCause((cause) =>
+                            Effect.andThen(
+                              Effect.logError(
+                                "An MCP sign-in's link could not be posted",
+                                cause,
+                              ),
+                              say(Messages.mcpLoginUnposted(server, false)),
+                            ),
+                          ),
+                        )
+                    }),
+                }),
+                Effect.catchCause((cause) =>
+                  Effect.logError("An MCP sign-in could not begin", cause),
+                ),
+                Effect.forkDetach,
+              )
+              return ChatInteraction.ack
+            }),
+          "mcp-login-paste": (click) =>
+            Effect.succeed(
+              owner(click.userId)
+                ? McpLoginForm.open({ metadata: click.value })
+                : ChatInteraction.ack,
+            ),
+          "mcp-login-form": (submit) =>
+            Effect.gen(function* () {
+              if (!owner(submit.userId)) return ChatInteraction.close
+              const say = post(submit.thread)
+              yield* Effect.flatMap(McpLogin, (service) =>
+                service.finish(
+                  {
+                    server: submit.metadata,
+                    address: submit.values.address,
+                  },
+                  (markdown) =>
+                    say(
+                      markdown
+                        .split("\n")
+                        .map(connection.format.subtext)
+                        .join("\n"),
+                    ),
+                ),
+              ).pipe(
+                // The address is in the submit, which the cause does not carry.
+                Effect.catchCause((cause) =>
+                  Effect.logError("An MCP sign-in could not finish", cause),
                 ),
                 Effect.forkDetach,
               )

@@ -12,7 +12,24 @@ import * as Settings from "./Settings.ts"
 
 export const fileName = "mcp.json"
 
-/** The keys clanka's loader reads, before expansion. Any other key is dropped, as clanka drops it. */
+/** The redirect URL chad sends when an `oauth` block names none. Nothing listens there: the owner copies it back. */
+export const defaultRedirectUrl = "http://localhost/oauth/callback"
+
+/**
+ * The `oauth` key of an HTTP server, before expansion. An empty object is a client chad registers itself, and a
+ * `clientId` is a client the owner registered, which chad uses as it is.
+ */
+const OAuthEntry = Schema.Struct({
+  clientId: Schema.optionalKey(Schema.String),
+  clientSecret: Schema.optionalKey(Schema.String),
+  redirectUrl: Schema.optionalKey(Schema.String),
+  scopes: Schema.optionalKey(Schema.Array(Schema.String)),
+})
+
+/**
+ * The keys clanka's loader reads, before expansion, and `oauth`, which is chad's own. Any other key is dropped, as
+ * clanka drops it.
+ */
 const Entry = Schema.Struct({
   type: Schema.optionalKey(Schema.Literals(["stdio", "http", "sse"])),
   command: Schema.optionalKey(Schema.String),
@@ -21,6 +38,7 @@ const Entry = Schema.Struct({
   cwd: Schema.optionalKey(Schema.String),
   url: Schema.optionalKey(Schema.String),
   headers: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
+  oauth: Schema.optionalKey(OAuthEntry),
   connectTimeout: Schema.optionalKey(Schema.Number),
   callTimeout: Schema.optionalKey(Schema.Number),
 })
@@ -82,6 +100,17 @@ export const parse = (text: string): Read => {
       )
     if (kind === "http" && entry.url === undefined)
       return malformed(Messages.mcpEntry(name, "an http server needs a url"))
+    if (entry.oauth !== undefined && kind !== "http")
+      return malformed(
+        Messages.mcpEntry(name, "only an http server takes oauth"),
+      )
+    if (
+      entry.oauth?.clientSecret !== undefined &&
+      entry.oauth.clientId === undefined
+    )
+      return malformed(
+        Messages.mcpEntry(name, "oauth.clientSecret needs oauth.clientId"),
+      )
     file.set(name, { kind, entry, raw })
   }
   return { _tag: "File", file }
@@ -111,22 +140,40 @@ export const read = Effect.fnUntraced(function* (tree: string | undefined) {
 export const names = (file: File | undefined): ReadonlySet<string> => {
   const found = new Set<string>()
   for (const server of file?.values() ?? []) {
-    const { command, args, env, cwd, url, headers } = server.entry
-    for (const name of Settings.names([command, args, env, cwd, url, headers]))
+    const { command, args, env, cwd, url, headers, oauth } = server.entry
+    for (const name of Settings.names([
+      command,
+      args,
+      env,
+      cwd,
+      url,
+      headers,
+      oauth,
+    ]))
       found.add(name)
   }
   return found
 }
 
+/** A server's `oauth` block after expansion, with the redirect URL it sends. */
+export interface OAuth {
+  readonly clientId?: string
+  readonly clientSecret?: string
+  readonly redirectUrl: string
+  readonly scopes?: ReadonlyArray<string>
+}
+
 /**
  * One server after expansion: the entry clanka takes, the name that resolved nowhere or the relative `cwd`, and each
  * name that expanded with the value it gave, which `scrubber` keeps out of what chad prints, logs and tells the model.
+ * An HTTP server with an `oauth` key carries the block.
  */
 export interface Resolved {
   readonly config: McpServers.ServerEntry
   readonly missing?: string
   /** The relative `cwd`, scrubbed. */
   readonly relative?: string
+  readonly oauth?: OAuth
   readonly values: ReadonlyMap<string, string>
 }
 
@@ -134,24 +181,52 @@ export interface Resolved {
  * Puts `${NAME}` back in place of each value the names expanded to, as it is and as JSON escapes it. An error from
  * clanka, a spawn's included, can quote a command, an argument, a `cwd`, a URL or a server's stderr, so every
  * diagnostic of a layer passes through it before it reaches the CLI, the log or the model.
+ *
+ * `hidden` is every other value to keep out, which has no name to put back: an OAuth token, or a client secret that
+ * `mcp.json` spells out. It is read at each call, since a refresh changes the tokens under a running layer.
  */
+/**
+ * A value as it stands in JSON, in a URL and in a form's body. A server may quote what it was sent in the encoding
+ * it was sent in, and an OAuth request is a form.
+ */
+const written = (value: string): ReadonlyArray<string> => {
+  const forms = new Set([
+    value,
+    JSON.stringify(value).slice(1, -1),
+    new URLSearchParams({ v: value }).toString().slice(2),
+  ])
+  try {
+    forms.add(encodeURIComponent(value))
+  } catch {
+    // A lone surrogate has no such form.
+  }
+  return [...forms]
+}
+
 export const scrubber = (
   servers: Iterable<{ readonly values: ReadonlyMap<string, string> }>,
+  hidden: () => Iterable<string> = () => [],
 ) => {
   const pairs = new Map<string, string>()
   for (const { values } of servers)
-    for (const [name, value] of values) if (value !== "") pairs.set(value, name)
-  // The longest value first, so one that holds another is replaced whole.
-  const ordered = [...pairs].sort(([a], [b]) => b.length - a.length)
-  return (text: string): string =>
-    ordered.reduce(
-      (out, [value, name]) =>
-        out
-          .replaceAll(value, `\${${name}}`)
-          .replaceAll(JSON.stringify(value).slice(1, -1), `\${${name}}`),
+    for (const [name, value] of values)
+      if (value !== "") pairs.set(value, `\${${name}}`)
+  return (text: string): string => {
+    const all = new Map(pairs)
+    for (const value of hidden())
+      if (value !== "" && !all.has(value)) all.set(value, hiddenValue)
+    // The longest value first, so one that holds another is replaced whole.
+    const ordered = [...all].sort(([a], [b]) => b.length - a.length)
+    return ordered.reduce(
+      (out, [value, put]) =>
+        written(value).reduce((out, form) => out.replaceAll(form, put), out),
       text,
     )
+  }
 }
+
+/** What stands in a diagnostic where a value with no name was. */
+export const hiddenValue = "[hidden]"
 
 /**
  * Expands one server's names, the secret store first and then the daemon's environment, and builds the entry clanka
@@ -215,6 +290,25 @@ const resolveWith = <E, R>(
     }
     if (server.kind === "http") {
       const headers = yield* record(entry.headers)
+      const block = entry.oauth
+      const oauth: OAuth | undefined =
+        block === undefined
+          ? undefined
+          : {
+              ...(block.clientId === undefined
+                ? {}
+                : { clientId: yield* text(block.clientId) }),
+              ...(block.clientSecret === undefined
+                ? {}
+                : { clientSecret: yield* text(block.clientSecret) }),
+              redirectUrl:
+                block.redirectUrl === undefined
+                  ? defaultRedirectUrl
+                  : yield* text(block.redirectUrl),
+              ...(block.scopes === undefined
+                ? {}
+                : { scopes: yield* Effect.forEach(block.scopes, text) }),
+            }
       return {
         config: {
           type: "http",
@@ -222,6 +316,7 @@ const resolveWith = <E, R>(
           ...(headers === undefined ? {} : { headers }),
           ...timeouts,
         },
+        ...(oauth === undefined ? {} : { oauth }),
         values,
       } satisfies Resolved as Resolved
     }

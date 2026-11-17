@@ -206,6 +206,9 @@ importers:
       '@effect/sql-sqlite-node':
         specifier: 'catalog:'
         version: file:vendor/effect-sql-sqlite-node.tgz(effect@file:vendor/effect.tgz)
+      '@modelcontextprotocol/sdk':
+        specifier: 1.32.2
+        version: 1.32.2(zod@4.6.7)
       clanka:
         specifier: 0.28.0
         version: 0.28.0(@anthropic-ai/sdk@1.8.0(zod@4.6.7))(@effect/ai-openai-compat@file:vendor/effect-ai-openai-compat.tgz(effect@file:vendor/effect.tgz))(@effect/ai-openai@file:vendor/effect-ai-openai.tgz(effect@file:vendor/effect.tgz))(@effect/platform-node@file:vendor/effect-platform-node.tgz(effect@file:vendor/effect.tgz)(redis@6.3.1(@opentelemetry/api@1.10.0)))(effect@file:vendor/effect.tgz)(zod@4.6.7)

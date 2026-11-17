@@ -147,7 +147,12 @@ export const Report = Schema.Struct({
     Schema.Array(
       Schema.Struct({
         name: Schema.String,
-        state: Schema.Literals(["connected", "failed", "starting"]),
+        state: Schema.Literals([
+          "connected",
+          "failed",
+          "starting",
+          "needs-login",
+        ]),
         tools: Schema.optionalKey(Schema.Number),
         error: Schema.optionalKey(Schema.String),
       }),
@@ -262,6 +267,15 @@ export const RepoRequest = Schema.Union([
   Schema.TaggedStruct("Purge", { name: Schema.String }),
   /** `chad mcp restart`. */
   Schema.TaggedStruct("McpRestart", {}),
+  /** The first half of `chad mcp login`, which gives the link. */
+  Schema.TaggedStruct("McpLoginStart", { server: Schema.String }),
+  /** The second half of `chad mcp login`, with the address the owner's browser ended on. */
+  Schema.TaggedStruct("McpLoginFinish", {
+    server: Schema.String,
+    address: Schema.String,
+  }),
+  /** `chad mcp logout`. */
+  Schema.TaggedStruct("McpLogout", { server: Schema.String }),
 ])
 export type RepoRequest = typeof RepoRequest.Type
 

@@ -224,7 +224,7 @@ store, so it keeps what the copy had spooled.
 ### Backup
 
 `chad backup` writes one tar that holds the database, the repo, the secrets and the home directory. The tar holds
-the Discord token, the Codex login and every saved secret, so keep it as you keep a password, and write it so that only
+the Discord token, the Codex login, every saved secret and the OAuth sign-ins of the MCP servers, so keep it as you keep a password, and write it so that only
 you can read it. With chad running:
 
 ```sh

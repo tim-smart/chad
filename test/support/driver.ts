@@ -102,6 +102,8 @@ export interface Scenario {
   readonly submit: Platform.Platform["submit"]
   /** A slash command, see `Platform.command`. */
   readonly command: Platform.Platform["command"]
+  /** The URL of every link button chad has posted, see `Platform.links`. */
+  readonly links: Platform.Platform["links"]
   /** Discord's two ends for a `discord` connection: the scripted gateway and the fake REST server. */
   readonly discord: {
     readonly gateway: Discord.Gateway
@@ -414,6 +416,7 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
     click: platform.click,
     submit: platform.submit,
     command: platform.command,
+    links: platform.links,
     discord,
     requests: () => requests,
     model,
