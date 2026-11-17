@@ -137,6 +137,17 @@ const override = (name: string, what: string) =>
     Flag.optional,
   )
 
+/** `--fast on|off`, which turns fast mode on or off. */
+const fast = Flag.ChoiceWithValue("fast", [
+  ["on", true],
+  ["off", false],
+] as const).pipe(
+  Flag.withDescription(
+    "Fast mode, on or off: OpenAI requests ask for the priority service tier",
+  ),
+  Flag.optional,
+)
+
 /**
  * `chad model`: shows the model and the login state, or changes the model after a trial request.
  * It is an owner command, with no argument too, since `chad status` shows the agent the model.
@@ -147,8 +158,9 @@ export const model = Command.make(
     spec,
     subagent: override("subagent", "sub-agent"),
     summarizer: override("summarizer", "summarizer"),
+    fast,
   },
-  Effect.fn("model")(function* ({ spec, subagent, summarizer }) {
+  Effect.fn("model")(function* ({ spec, subagent, summarizer, fast }) {
     yield* Owner.only("model")
     const request = {
       ...(Option.isSome(spec) ? { main: spec.value } : {}),
@@ -158,6 +170,7 @@ export const model = Command.make(
       ...(Option.isSome(summarizer)
         ? { summarizer: flagValue(summarizer.value) }
         : {}),
+      ...(Option.isSome(fast) ? { fast: fast.value } : {}),
     }
     return yield* (yield* Daemon.lock) === "held"
       ? throughDaemon(request)

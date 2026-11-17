@@ -95,6 +95,21 @@ docker run --rm -it -v chad-data:/data --entrypoint bash ghcr.io/tim-smart/chad:
 A host directory works in place of the named volume when it belongs to uid 1000 (`sudo chown 1000:1000 <dir>`).
 chad refuses to boot on a volume another uid owns, and writes nothing to it.
 
+### Fast mode
+
+`chad model --fast on`, or `/model --fast on` in Discord, sends chad's OpenAI requests on the `priority` service tier,
+which answers faster and costs more. `--fast off` turns it off, and off is the default. It combines with a model change,
+as in `/model openai/gpt-6-astra/high --fast on`, and `chad model` with no argument shows whether it is on. A running
+session uses the new setting from its next turn, with no restart.
+
+It applies to `openai` models, on the Codex login or with `CHAD_OPENAI_API_KEY`, and to the sub-agent and summarizer
+models with them. `openai-compat`, `copilot` and `xai` have no fast mode: chad keeps the setting and sends no tier, and
+`chad model` says it is ignored. It applies again when the main model moves back to `openai`.
+
+Turning it on makes a trial request with the tier set, and a model or an account that refuses it leaves the setting as
+it was. The tier is best effort on OpenAI's side: not every model, region or project serves it, and one that does not
+can answer on the default tier.
+
 ### When chad freezes
 
 chad's health check is `chad health`, and Docker marks a frozen chad unhealthy. Under plain Docker nothing restarts an

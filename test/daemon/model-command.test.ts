@@ -42,7 +42,7 @@ const turnModels = (running: Scenario) =>
 
 // Each `chad` here is the real bin in its own process, which finds the daemon by its lock as an owner's shell does.
 
-test("only an owner changes the model: a stranger's /model and an agent's chad model store nothing, and an owner's /model tries the model without a turn, posts where it was typed and is what the next session runs on", async () => {
+test("only an owner changes the model: a stranger's /model and an agent's chad model store nothing, and an owner's /model tries the model without a turn, posts where it was typed and is what the next session runs on, and /model --fast on sends the priority tier from a running session's next turn until it is turned off", async () => {
   const running = await scenario()
   const { fakes, model } = running
   const thread = await fakes.chat.makeThread("direct")
@@ -81,6 +81,31 @@ test("only an owner changes the model: a stranger's /model and an agent's chad m
   await fakes.chat.answers(other, 1)
   expect(model.calls()[0]?.body).toMatchObject({ model: "next" })
   expect(turnModels(running)).toEqual(["openai-compat/next"])
+
+  // Fast mode on the `openai` path: the trial asks for the tier, and so does the running session's next turn.
+  await says(running, thread, "/model openai/quick --fast on")
+  const [, , fast] = await fakes.chat.answers(thread, 3)
+  expect(fast?.text).toBe(
+    `${Messages.modelNow("openai/quick")}\n${Messages.modelFastNow(true, undefined)}`,
+  )
+  expect(model.checks().at(-1)?.body).toMatchObject({
+    model: "quick",
+    service_tier: "priority",
+  })
+  await fakes.model.script([{ text: "fast" }, { text: "plain" }])
+  await says(running, other, "again")
+  await fakes.chat.answers(other, 2)
+  expect(model.calls()[0]?.body).toMatchObject({
+    model: "quick",
+    service_tier: "priority",
+  })
+
+  await says(running, thread, "/model --fast off")
+  await fakes.chat.answers(thread, 4)
+  await says(running, other, "and again")
+  await fakes.chat.answers(other, 3)
+  expect(model.calls()[1]?.body).toMatchObject({ model: "quick" })
+  expect(model.calls()[1]?.body).not.toHaveProperty("service_tier")
 })
 
 test("with no daemon chad model tries the model itself, stores nothing when the trial fails, replaces state/model by rename so a write cut short leaves the old value, and a restart runs what it stored", async () => {
@@ -164,6 +189,7 @@ test("with no daemon, a chad model whose trial outlasts another change is planne
       subagent: undefined,
       summarizer: undefined,
       ignored: [],
+      fast: Messages.modelFastShown(false, undefined),
     })
       .split("\n")
       .slice(1),

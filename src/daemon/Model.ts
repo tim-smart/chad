@@ -71,7 +71,8 @@ export type Provided =
 
 /**
  * The model layer of one session: the main model, the sub-agents' and the summarizer's, over the session's one
- * client. Without an override the sub-agents and the summarizer run on their own copies of the main model. The
+ * client, all three with the fast mode of the settings. Without an override the sub-agents and the summarizer run on
+ * their own copies of the main model. The
  * summarizer layer is always there, so a summary still running when its turn ends keeps a working model. The agents'
  * models are watched for chad's own ends of a turn, which are counted at each call, and a call of any of the three that
  * succeeds clears the model's conditions.
@@ -82,7 +83,7 @@ export const session = (
   endpoint: Endpoint,
 ): Layer.Layer<Provided, never, Requirements> => {
   const main = settings.main.success
-  return sessionModels(main, id, endpoint).over((model) =>
+  return sessionModels(main, id, endpoint, settings.fast).over((model) =>
     Layer.mergeAll(
       TurnLog.watched(TurnLog.succeeding(model(main))),
       Agent.layerSubagentModel(
@@ -255,10 +256,12 @@ export const check = Effect.fnUntraced(function* (options: {
         )
         if (Exit.isFailure(token)) continue
       }
-      const ran = yield* trial(spec, options.endpoint, options.deadline).pipe(
-        Effect.provideContext(requirements),
-        Effect.result,
-      )
+      const ran = yield* trial(
+        spec,
+        options.endpoint,
+        options.deadline,
+        settings.fast,
+      ).pipe(Effect.provideContext(requirements), Effect.result)
       if (Result.isFailure(ran)) yield* failed(spec.text, ran.failure)
     }
   }
