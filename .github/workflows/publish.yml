@@ -47,10 +47,11 @@ jobs:
 
   # Moves the tags that move: main, which a deployment follows, and chad's version. It does not go by the commit of
   # its own run. It reads the head of main once it holds the lock and moves the tags to that commit's image, so a run
-  # that is late, or run again, cannot move them back. When the head is another commit with no image yet, that
-  # commit's run moves them later.
+  # that is late, or run again, cannot move them back.
   # GitHub keeps one waiting job for a group and cancels the one it replaces, which loses nothing here: the job that
   # takes its place does the same work.
+  # The job fails whenever it does not move both tags, and never passes over a commit quietly. That includes a head
+  # whose image is not there yet because its own run is still building. That run then moves them.
   promote:
     name: move main and the version tag
     needs: image
@@ -73,10 +74,8 @@ jobs:
           head=$(git rev-parse HEAD)
           version=$(jq -er .version package.json)
           source="$IMAGE:sha-${head::7}"
-          # This run's own image exists, because the job above pushed it, so only another commit's is asked for.
-          if [ "$head" != "$GITHUB_SHA" ] && ! docker buildx imagetools inspect "$source" > /dev/null; then
-            echo "::notice::$source is not published yet. The run of $head moves the tags."
-            exit 0
+          # A copy as it is, so the tags it moves have the digest of the commit's tag.
+          if ! docker buildx imagetools create --prefer-index=false --tag "$IMAGE:main" --tag "$IMAGE:$version" "$source"; then
+            echo "::error::main and $version were not both moved to $source. When the run of $head is still building, it moves them. Otherwise run this job again once that image exists."
+            exit 1
           fi
-          # A copy as it is, so the three tags of a commit have one digest.
-          docker buildx imagetools create --prefer-index=false --tag "$IMAGE:main" --tag "$IMAGE:$version" "$source"

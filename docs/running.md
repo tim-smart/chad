@@ -15,17 +15,34 @@ SMB and Longhorn RWX are not supported, because SQLite's lock and write-ahead lo
 A push to `main` publishes the image. `.github/workflows/publish.yml` builds it for amd64 and pushes it to
 `ghcr.io/tim-smart/chad` with three tags:
 
-- `main`, which is the newest commit of `main` that has an image. A deployment that follows chad uses this one with
-  the pull policy `Always`, and gets the newest image each time chad's container starts.
+- `main`, which is the head of `main` as it was when the tags were last moved with success. A deployment that
+  follows chad uses this one with the pull policy `Always`, and gets that image each time chad's container starts.
 - chad's version, such as `0.0.0`. It moves with `main` until the version changes.
 - The commit, such as `sha-4d3d587`, which is `sha-` and the first seven characters of the commit. Every push to
-  `main` gets one, and it only ever names an image built from that commit, so it says which commit an image is and is
-  the tag to pin when chad should change only when you change it.
+  `main` whose build succeeds gets one, and it only ever names an image built from that commit, so it says which
+  commit an image is. A run that is started again builds the commit again and can give the tag another digest. When
+  the image itself must not change, pin the digest, as `ghcr.io/tim-smart/chad@sha256:...`.
 
 Each push builds its own image, and pushes do not wait for each other. A second job then moves `main` and the version
 tag, one run at a time, to the image of whatever commit is the head of `main` at that moment. A build that finishes
-late, or a run that is started again, therefore cannot move them back to an older commit. When a build fails, `main`
-and the version tag stay where they were.
+late, or a run that is started again, therefore cannot move them back to an older commit.
+
+That second job fails when it has not moved both tags, and there are three ways it does:
+
+- Two pushes came close together, and the earlier run found that the later commit has no image yet. Nothing is
+  wrong. The later run moves the tags when its build is done.
+- The build of the head failed, so no run has an image to move the tags to. They stay on an older commit.
+- The registry failed, which can leave `main` moved and the version tag not.
+
+For the last two, start the failed jobs again with `gh run rerun <run id> --failed`: of the head's run when its build
+failed, and of the run whose second job failed when the registry did. Either moves both tags to the head. The three
+tags of the head then have one digest:
+
+```sh
+for tag in main 0.0.0 sha-4d3d587; do
+  docker buildx imagetools inspect "ghcr.io/tim-smart/chad:$tag" --format '{{.Manifest.Digest}}'
+done
+```
 
 Building and pushing by hand still works, from the root of the repository:
 
