@@ -9,6 +9,7 @@ import * as Plugin from "../../dist/Plugin.js"
 import * as Session from "../../dist/Session.js"
 import { Turns } from "../../dist/Turns.js"
 import sendFile from "../../dist/plugins/send-file.js"
+import sendMessage from "../../dist/plugins/send-message.js"
 import * as Discord from "../support/discord.ts"
 import { scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
@@ -197,6 +198,23 @@ test("the bundled sendFile posts a file the agent wrote, named by a relative pat
   expect(results((await fakes.model.calls())[1]).join("\n")).toContain(
     "sent report.txt",
   )
+})
+
+test("the bundled sendMessage posts in the session's thread during the turn, before the answer", async () => {
+  const running = await scenario({
+    plugins: [{ name: "send-message", plugin: sendMessage }],
+  })
+  const { fakes } = running
+  await fakes.model.script([
+    runs(`console.log(await sendMessage("halfway there"))`),
+    { text: "done" },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "work on it")
+  await fakes.chat.answers(thread, 2)
+
+  expect(await posted(running, thread)).toEqual(["halfway there", "done"])
+  expect(results((await fakes.model.calls())[1]).join("\n")).toContain("sent")
 })
 
 test("a hook past its budget that cannot be interrupted holds up nothing, and the turn carries on without it", async () => {
