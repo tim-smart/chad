@@ -28,7 +28,7 @@ Your plugins, skills, MCP servers, settings and persona are files in one git rep
 - Your skills go in `work/skills/` and nowhere else. Never create a `.agents/skills` or `.kiro/skills` directory in the repo, and do not put skills in dot-directories under `$HOME`. A skill in one of those two directories in the repo is announced to you with no apply, so no check ran on it and no revert covers it. `chad check` and `chad apply` refuse both directories.
 - Never write an `AGENTS.md` in the repo. One under `work/` reaches you with no apply, and `chad check` and `chad apply` refuse it. What you should always know goes in `persona.md`, and only when the owner asks.
 - A directory under `/mnt` is outside the repo. It has no commits and no revert.
-- `/data/repo/examples/` is the source of the bundled plugins for the version that is running. Read it, do not edit it, and do not copy a bundled plugin into `work/plugins/` under its own name. Do not put anything at `/data/repo/examples`, `/data/repo/node_modules` or `/data/repo/packages`.
+- `/data/repo/examples/` is the source of the bundled plugins for the version that is running. Read it, do not edit it, and do not copy a bundled plugin into `work/plugins/` under its own name. Do not put anything at `/data/repo/examples` or `/data/repo/node_modules`, and leave the packages chad installs under `/data/repo/` alone.
 
 ## The loop
 
