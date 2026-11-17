@@ -34,8 +34,6 @@ type OnImage = Parameters<McpServers.McpServers["Service"]["handlers"]>[0]
 /** One clanka layer and what chad keeps of it. */
 interface Built {
   readonly services: McpServers.McpServers["Service"]
-  /** clanka's prompt section, with what to ask of the owner on the line of each server that needs a login. */
-  readonly prompt: string
   /** Keeps the values of the layer's `${NAME}`s out of what it says. */
   readonly scrub: (text: string) => string
   /** Each server's name by the identifier its keys carry. */
@@ -208,7 +206,6 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
     ])
     const built: Built = {
       services: undefined as never,
-      prompt: "",
       scrub,
       names,
       targets,
@@ -231,20 +228,6 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
     )
     const next: Built = Object.assign(built, { services })
     const servers = yield* states(next, oauth)
-    // clanka words a failed server's line from the transport's error, which for a server that refused a refreshed
-    // token says nothing of the owner. The model reads what to ask in its place.
-    const status = yield* services.status
-    const prompt = servers.reduce((text, { name, state }) => {
-      const server = status[name]
-      return state === "needs-login" && server?._tag === "Failed"
-        ? text.replace(
-            `- ${name}: failed to connect: ${Messages.firstLine(server.error)}`,
-            () =>
-              `- ${name}: failed to connect: ${Messages.mcpNeedsLogin(name)}`,
-          )
-        : text
-    }, services.prompt)
-    Object.assign(next, { prompt })
     // The new layer is current once clanka has connected it, and sessions follow it on their next turn.
     current = next
     rebuilding = false
@@ -380,8 +363,21 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
     // rebuild takes those of the last layer that finished connecting, and one before the first layer has none, with
     // `Messages.mcpStarting` in place of the section when servers are on their way.
     get prompt() {
-      if (current !== undefined) return current.scrub(current.prompt)
-      return rebuilding && (wanted?.size ?? 0) > 0 ? Messages.mcpStarting : ""
+      if (current === undefined)
+        return rebuilding && (wanted?.size ?? 0) > 0 ? Messages.mcpStarting : ""
+      // clanka wrote the section when the layer connected, and a server that has refused chad's sign-in since is
+      // still listed in it with its tools. So each read puts what such a server needs under the list, which is what
+      // the next turn is told. One that connected needing a login has it on its own line already.
+      const section = current.services.prompt
+      const lost = [...current.targets.values()]
+        .filter(oauth.needsLogin)
+        .map(({ name }) => Messages.mcpNeedsLogin(name))
+        .filter((line) => !section.includes(line))
+      return current.scrub(
+        lost.length === 0
+          ? section
+          : `${section}\n\n${Messages.mcpLoginsLost(lost)}`,
+      )
     },
     get dts() {
       return current?.services.dts ?? ""

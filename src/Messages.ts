@@ -1836,6 +1836,16 @@ export const mcpRebuilt = (servers: ReadonlyArray<McpServerState>) =>
 export const mcpNeedsLogin = (name: string) =>
   `MCP server "${name}" needs the owner to sign in, and nothing you run can do that. Call requestMcpLogin({ server: ${JSON.stringify(name)} }) to post the sign-in button and end your turn, or ask the owner to run chad mcp login ${name}.`
 
+/**
+ * Put under the list of servers in the prompt, which was written when they connected, for each that has refused
+ * chad's sign-in since. `lines` is what each needs.
+ */
+export const mcpLoginsLost = (lines: ReadonlyArray<string>) =>
+  [
+    "Whatever the list above says of them, these servers take no call now:",
+    ...lines.map((line) => `- ${line}`),
+  ].join("\n")
+
 /** An HTTP server with no `oauth` key that answered 401. */
 export const mcpUnauthorized = (name: string) =>
   `the server refused chad as unauthorized (401). If it signs in with OAuth, add "oauth": {} to "${name}" in mcp.json and apply it, and the owner then signs in. If it takes a key, check its headers.`
@@ -1911,6 +1921,18 @@ export const mcpLoginReplaced = (name: string) =>
 /** Any other failure of a sign-in's requests. */
 export const mcpLoginError = (name: string, reason: string) =>
   `chad mcp login: the sign-in to "${name}" failed (${reason})`
+
+/** Why a sign-in failed when its authorization server refused a request: the OAuth error code, and nothing else of the answer. */
+export const mcpLoginAnswered = (code: string) =>
+  `its authorization server answered "${code}"`
+
+/** Why a sign-in failed when a request reached no server, with the errno code when there is one. */
+export const mcpLoginUnreachable = (code: string | undefined) =>
+  `the server or its authorization server could not be reached${code === undefined ? "" : `: ${code}`}`
+
+/** Why a sign-in failed when an answer was none chad could read. The answer is not repeated. */
+export const mcpLoginUnusable =
+  "the server or its authorization server gave an answer chad could not use"
 
 /** A sign-in whose requests ran past their deadline. */
 export const mcpLoginTimedOut = (name: string, seconds: number) =>

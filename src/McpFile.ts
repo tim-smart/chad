@@ -185,6 +185,24 @@ export interface Resolved {
  * `hidden` is every other value to keep out, which has no name to put back: an OAuth token, or a client secret that
  * `mcp.json` spells out. It is read at each call, since a refresh changes the tokens under a running layer.
  */
+/**
+ * A value as it stands in JSON, in a URL and in a form's body. A server may quote what it was sent in the encoding
+ * it was sent in, and an OAuth request is a form.
+ */
+const written = (value: string): ReadonlyArray<string> => {
+  const forms = new Set([
+    value,
+    JSON.stringify(value).slice(1, -1),
+    new URLSearchParams({ v: value }).toString().slice(2),
+  ])
+  try {
+    forms.add(encodeURIComponent(value))
+  } catch {
+    // A lone surrogate has no such form.
+  }
+  return [...forms]
+}
+
 export const scrubber = (
   servers: Iterable<{ readonly values: ReadonlyMap<string, string> }>,
   hidden: () => Iterable<string> = () => [],
@@ -201,9 +219,7 @@ export const scrubber = (
     const ordered = [...all].sort(([a], [b]) => b.length - a.length)
     return ordered.reduce(
       (out, [value, put]) =>
-        out
-          .replaceAll(value, put)
-          .replaceAll(JSON.stringify(value).slice(1, -1), put),
+        written(value).reduce((out, form) => out.replaceAll(form, put), out),
       text,
     )
   }

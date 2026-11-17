@@ -36,7 +36,12 @@ export interface FakeOAuth {
    * grant no longer covers it though its authorization server still refreshes.
    */
   readonly reject: (on: boolean) => void
-  /** Keeps the answer to every request of a path back until the release it gives is called. */
+  /** Makes the token endpoint refuse its next request with this error, whatever the request holds. */
+  readonly refuse: (error: string) => void
+  /**
+   * Keeps the answer to the next request of a path back until the release it gives is called. The request is taken
+   * as it comes, so a token it gives is issued before the answer is let go.
+   */
   readonly hold: (path: string) => () => void
   /** Opens an authorization URL as the owner's browser does, approves, and gives the address it is sent to. */
   readonly approve: (url: string) => Promise<string>
@@ -63,15 +68,20 @@ export const make = async (options: Options = {}): Promise<FakeOAuth> => {
   let refresh: string | undefined
   let count = 0
   let rejecting = false
+  let refusing: string | undefined
   const held = new Map<string, Promise<void>>()
 
   const server = createServer((request, response) => {
+    /** The hold this request's answer waits on. */
+    let gate: Promise<void> | undefined
     const json = (status: number, value: unknown, headers = {}) => {
-      response.writeHead(status, {
-        "content-type": "application/json",
-        ...headers,
+      void Promise.resolve(gate).then(() => {
+        response.writeHead(status, {
+          "content-type": "application/json",
+          ...headers,
+        })
+        response.end(JSON.stringify(value))
       })
-      response.end(JSON.stringify(value))
     }
     const base = `http://${request.headers.host}`
     const url = new URL(request.url ?? "/", base)
@@ -117,7 +127,8 @@ export const make = async (options: Options = {}): Promise<FakeOAuth> => {
         return result({})
       }
       asked.push(url.pathname)
-      await held.get(url.pathname)
+      gate = held.get(url.pathname)
+      held.delete(url.pathname)
       if (url.pathname === "/.well-known/oauth-protected-resource")
         return json(200, {
           resource: `${base}/mcp`,
@@ -160,16 +171,18 @@ export const make = async (options: Options = {}): Promise<FakeOAuth> => {
         return response.writeHead(302, { location: to.toString() }).end()
       }
       if (url.pathname === "/token") {
-        const form = Object.fromEntries(
-          new URLSearchParams(await body(request)),
-        )
+        const sent = await body(request)
+        const form = Object.fromEntries(new URLSearchParams(sent))
         exchanges.push(form)
-        // A refusal quotes what it was sent, as a server's error may, which chad must keep out of what it prints.
+        // A refusal quotes the request as it was sent, as a server's error may, which chad must keep out of what it
+        // prints in that encoding too.
         const refuse = (error: string) =>
-          json(400, {
-            error,
-            error_description: `refused ${form["client_secret"] ?? ""} ${form["refresh_token"] ?? ""} ${form["code"] ?? ""}`,
-          })
+          json(400, { error, error_description: `refused ${sent}` })
+        if (refusing !== undefined) {
+          const error = refusing
+          refusing = undefined
+          return refuse(error)
+        }
         if (
           options.client !== undefined &&
           (form["client_id"] !== options.client.id ||
@@ -196,7 +209,8 @@ export const make = async (options: Options = {}): Promise<FakeOAuth> => {
         )
           return refuse("invalid_grant")
         access = `access-canary-${++count}`
-        refresh = `refresh-canary-${++count}`
+        // A form writes the token otherwise than it is.
+        refresh = `refresh~canary-${++count}`
         issued.push(access, refresh)
         return json(200, {
           access_token: access,
@@ -228,6 +242,9 @@ export const make = async (options: Options = {}): Promise<FakeOAuth> => {
     reject: (on) => {
       rejecting = on
     },
+    refuse: (error) => {
+      refusing = error
+    },
     hold: (path) => {
       let release = () => {}
       held.set(
@@ -236,10 +253,7 @@ export const make = async (options: Options = {}): Promise<FakeOAuth> => {
           release = resolve
         }),
       )
-      return () => {
-        held.delete(path)
-        release()
-      }
+      return release
     },
     approve: async (url) => {
       const response = await fetch(url, { redirect: "manual" })

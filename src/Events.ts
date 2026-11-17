@@ -44,6 +44,7 @@ export const events = {
   "mcp.server-failed": "Warn",
   "mcp.rebuilt": "Info",
   "mcp.oauth-unreadable": "Warn",
+  "mcp.oauth-stale": "Info",
   "mcp.oauth-unwritable": "Error",
   "skill.skipped": "Warn",
   "skill.bundled-changed": "Info",

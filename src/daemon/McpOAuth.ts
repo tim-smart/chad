@@ -17,6 +17,7 @@ import {
   type OAuthClientProvider,
   type OAuthDiscoveryState,
 } from "@modelcontextprotocol/sdk/client/auth.js"
+import { OAuthError } from "@modelcontextprotocol/sdk/server/auth/errors.js"
 import type {
   OAuthClientInformationMixed,
   OAuthTokens,
@@ -172,8 +173,16 @@ export const make = Effect.fnUntraced(function* (options: {
     newest.set(name, attempt)
     return () => newest.get(name) === attempt
   }
-  /** The codes of the sign-ins being finished, which an authorization server may quote in what it refuses. */
-  const codes = new Set<string>()
+  /**
+   * How many times each server name's sign-in was replaced, by a sign-in that finished or by a sign-out. A layer
+   * writes only to the sign-in it was built on, so what an older layer still hears from the authorization server
+   * changes nothing of a newer sign-in.
+   */
+  const eras = new Map<string, number>()
+  const eraOf = (name: string) => eras.get(name) ?? 0
+  const replaced = (name: string) => {
+    eras.set(name, eraOf(name) + 1)
+  }
 
   const text = yield* fs.readFileString(path).pipe(
     Effect.catchReason("PlatformError", "NotFound", () =>
@@ -280,12 +289,23 @@ export const make = Effect.fnUntraced(function* (options: {
       update(target, change)
       return saved()
     }
+    /** The sign-in a layer is built on. */
+    const era = eraOf(name)
+    /** Whether a sign-out or a later sign-in has taken the place of the sign-in this layer was built on. */
+    const stale = () => eraOf(name) !== era || own(target) === undefined
     /**
-     * A change a layer makes to the sign-in it runs on. Once a sign-out has dropped that sign-in there is nothing to
-     * change, and an answer the layer still gets must not bring it back.
+     * A change a layer makes to the sign-in it was built on. A refresh a layer began can be answered after the layer
+     * is gone, and that answer must neither bring back a sign-in the owner dropped nor change the one made since.
      */
     const kept = (change: (entry: Entry) => void) => {
-      if (own(target) === undefined) return
+      if (stale())
+        return Effect.runPromiseWith(context)(
+          Logger.event(
+            "mcp.oauth-stale",
+            "An MCP layer heard from its authorization server after its sign-in was replaced",
+            { server: name },
+          ),
+        )
       update(target, change)
       return saved()
     }
@@ -338,17 +358,20 @@ export const make = Effect.fnUntraced(function* (options: {
         if (sign !== undefined) {
           const done = signed(save)
           refused.delete(name)
+          replaced(name)
           return done
         }
-        // A layer only refreshes the tokens of a sign-in that is stored. It never makes one.
-        if (own(target)?.tokens === undefined) throw needsLogin(name)
-        refused.delete(name)
+        if (!stale()) {
+          // A layer only refreshes the tokens of a sign-in that is stored. It never makes one.
+          if (own(target)?.tokens === undefined) throw needsLogin(name)
+          refused.delete(name)
+        }
         return kept(save)
       },
       ...(sign === undefined ? {} : { state: () => sign.state }),
       redirectToAuthorization: (url) => {
         if (sign === undefined) {
-          refused.add(name)
+          if (!stale()) refused.add(name)
           throw needsLogin(name)
         }
         sign.url = url
@@ -384,27 +407,48 @@ export const make = Effect.fnUntraced(function* (options: {
   }
 
   /**
-   * One half of a sign-in, with its deadline. What it fails with carries no token, no client secret and no code. One
-   * that fails is retired, so an answer that still comes back to it after its deadline is dropped.
+   * Why a request of a sign-in failed, in chad's own words. What a server answered is never repeated: an
+   * authorization server may quote the request it refuses, with the code, the verifier and the client secret in
+   * whatever encoding they were sent in. Of its answer chad keeps the OAuth error code, which is one of the SDK's own.
+   *
+   * `exchange` is the half that sends the code. The other half sends nothing secret, so there the SDK's own words
+   * for a step that failed are passed on, such as a metadata document that is not there.
+   */
+  const reasonOf = (target: Target, exchange: boolean, error: unknown) => {
+    if (error instanceof OAuthError)
+      return Messages.mcpLoginAnswered(error.errorCode)
+    if (error instanceof TypeError) {
+      const code = (error.cause as NodeJS.ErrnoException | undefined)?.code
+      return Messages.mcpLoginUnreachable(
+        typeof code === "string" ? code : undefined,
+      )
+    }
+    return !exchange && error instanceof Error && error.constructor === Error
+      ? Messages.firstLine(target.scrub(error.message))
+      : Messages.mcpLoginUnusable
+  }
+
+  /**
+   * One half of a sign-in, with its deadline. One that fails is retired, so an answer that still comes back to it
+   * after its deadline is dropped.
    */
   const signing = <A>(
     target: Target,
     current: () => boolean,
+    exchange: boolean,
     work: (fetchFn: typeof fetch) => Promise<A>,
   ): Effect.Effect<A, string> =>
     Effect.tryPromise({
       try: (signal) => work((input, init) => fetch(input, { ...init, signal })),
-      catch: (error) => {
-        if (error instanceof Replaced)
-          return Messages.mcpLoginReplaced(target.name)
-        const message = error instanceof Error ? error.message : String(error)
-        return message.includes(noRegistration)
-          ? Messages.mcpLoginNoRegistration(target.name)
-          : Messages.mcpLoginError(
-              target.name,
-              Messages.firstLine(target.scrub(message)),
-            )
-      },
+      catch: (error) =>
+        error instanceof Replaced
+          ? Messages.mcpLoginReplaced(target.name)
+          : error instanceof Error && error.message.includes(noRegistration)
+            ? Messages.mcpLoginNoRegistration(target.name)
+            : Messages.mcpLoginError(
+                target.name,
+                reasonOf(target, exchange, error),
+              ),
     }).pipe(
       Effect.timeoutOrElse({
         duration: options.timeout,
@@ -424,17 +468,15 @@ export const make = Effect.fnUntraced(function* (options: {
     )
 
   const hidden = (): ReadonlyArray<string> =>
-    [...entries.values()]
-      .flatMap((entry) =>
-        [
-          entry.tokens?.access_token,
-          entry.tokens?.refresh_token,
-          entry.tokens?.id_token,
-          entry.client?.client_secret,
-          entry.pending?.verifier,
-        ].filter((value) => typeof value === "string"),
-      )
-      .concat([...codes])
+    [...entries.values()].flatMap((entry) =>
+      [
+        entry.tokens?.access_token,
+        entry.tokens?.refresh_token,
+        entry.tokens?.id_token,
+        entry.client?.client_secret,
+        entry.pending?.verifier,
+      ].filter((value) => typeof value === "string"),
+    )
 
   /**
    * What the server's 401 names: where its metadata is and the scope it asks for. A server that answers anything else
@@ -525,7 +567,7 @@ export const make = Effect.fnUntraced(function* (options: {
       yield* persist
       const sign: Parameters<typeof providerOf>[1] = { state, current }
       const scope = scopeOf(target)
-      yield* signing(target, current, async (fetchFn) => {
+      yield* signing(target, current, false, async (fetchFn) => {
         const asked = await challenge(target, fetchFn)
         return auth(providerOf(target, sign), {
           serverUrl: target.url,
@@ -582,22 +624,13 @@ export const make = Effect.fnUntraced(function* (options: {
         return yield* Effect.fail(Messages.mcpLoginNoCode(target.name))
       const scope = scopeOf(target)
       const current = supersede(target.name)
-      // The code is good until it is used, so what the authorization server says of it is not passed on with it.
-      const quoted = [code, encodeURIComponent(code)]
-      for (const value of quoted) codes.add(value)
-      yield* signing(target, current, (fetchFn) =>
+      yield* signing(target, current, true, (fetchFn) =>
         auth(providerOf(target, { state: pending.state, current }), {
           serverUrl: target.url,
           authorizationCode: code,
           fetchFn,
           ...(scope === undefined ? {} : { scope }),
         }),
-      ).pipe(
-        Effect.ensuring(
-          Effect.sync(() => {
-            for (const value of quoted) codes.delete(value)
-          }),
-        ),
       )
       // A sign-in begun meanwhile has its own pending state, which stays.
       if (own(target)?.pending?.state === pending.state) {
@@ -618,6 +651,7 @@ export const make = Effect.fnUntraced(function* (options: {
           Messages.mcpLogoutUnsaved(name, written.failure),
         )
       refused.delete(name)
+      replaced(name)
       return true
     }),
   } satisfies McpOAuth as McpOAuth

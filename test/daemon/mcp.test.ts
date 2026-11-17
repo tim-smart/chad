@@ -403,7 +403,8 @@ const holding = (
   })
 
 test("an http server with an oauth key comes up needing a login and nothing unattended asks its authorization server, chad mcp login signs in with the client mcp.json names once the address carries its own state, the sign-in outlives a refresh and a restart, a revoked one fails the call and starts nothing, and a sign-out empties the store", async () => {
-  const secret = "client-secret-canary-41c7"
+  // A form writes the secret otherwise than it is.
+  const secret = "client-secret~canary-41c7"
   const fake = await OAuth.make({ client: { id: "chad-client", secret } })
   onTestFinished(fake.close)
   const running = await scenario()
@@ -468,13 +469,15 @@ test("an http server with an oauth key comes up needing a login and nothing unat
   )
   expect(denied.code).toBe(1)
   expect(denied.stderr).toContain("access_denied: ${SLACK_SECRET}")
-  // The authorization server refuses a code it did not give, in words that quote the client secret and the code.
+  // The authorization server refuses a code it did not give, in words that quote the request as it was sent: the
+  // code, the verifier and the client secret. Nothing of them is repeated.
   const refused = await signIn((address) =>
-    address.replace(/code=[^&]+/, "code=code-canary-9d2e"),
+    address.replace(/code=[^&]+/, "code=code~canary-9d2e"),
   )
   expect(refused.code).toBe(1)
-  expect(refused.stderr).toContain("refused ${SLACK_SECRET}")
-  expect(refused.stderr).not.toContain("code-canary-9d2e")
+  expect(fake.exchanges().at(-1)).toMatchObject({ code: "code~canary-9d2e" })
+  expect(refused.stderr).not.toContain("canary")
+  expect(refused.stderr).not.toContain("code_verifier")
 
   const signed = await signIn((address) => address)
   expect(signed.stderr).toBe("")
@@ -500,8 +503,34 @@ test("an http server with an oauth key comes up needing a login and nothing unat
     grant_type: "refresh_token",
   })
 
-  // The server refuses the token a refresh has just given. The call says what to ask, as the status, a rebuild and
-  // the next prompt do, and the sign-in is kept for when the server takes it again.
+  // The authorization server refuses a refresh in words that quote the request as it was sent. What the call fails
+  // with holds neither the client secret nor the refresh token.
+  fake.expire()
+  fake.refuse("temporarily_unavailable")
+  const quoted = await turn(running, tries("mcp.slack.echo({ x: 4 })"))
+  expect(results(quoted[1]).join("\n")).toContain("refused grant_type")
+  expect(results(quoted[1]).join("\n")).not.toContain("canary")
+
+  // The owner signs out and in again while a refresh of the old sign-in is still on its way. Its answer comes to a
+  // layer that is gone, and changes nothing of the new sign-in.
+  const late = fake.hold("/token")
+  const sent = fake.exchanges().length
+  const cut = turn(running, tries("mcp.slack.echo({ x: 5 })"))
+  await eventually(
+    () => fake.exchanges(),
+    (all) => all.length > sent,
+  )
+  expect((await running.chad(["mcp", "logout", "slack"])).code).toBe(0)
+  await cut
+  const anew = await signIn((address) => address)
+  expect(anew.stdout).toContain(connected("slack", 1))
+  const newest = signIns(running.data)["slack"]
+  late()
+  await running.logged("mcp.oauth-stale")
+  expect(signIns(running.data)["slack"]).toEqual(newest)
+
+  // The server refuses the token a refresh has just given. The call says what to ask, as do the status, the next
+  // turn's prompt and a rebuild, and the sign-in is kept for when the server takes it again.
   fake.reject(true)
   const rejected = await turn(running, tries("mcp.slack.echo({ x: 3 })"))
   expect(results(rejected[1]).join("\n")).toContain(
@@ -510,6 +539,8 @@ test("an http server with an oauth key comes up needing a login and nothing unat
   expect((await running.chad(["status"])).stdout).toContain(
     "mcp: slack, needs login",
   )
+  const next = await turn(running, undefined)
+  expect(systemText(next[0])).toContain(Messages.mcpNeedsLogin("slack"))
   const rebuilt = await running.chad(["mcp", "restart"])
   expect(rebuilt.stdout).toContain(needsLogin("slack"))
   const told = await turn(running, undefined)
@@ -541,8 +572,8 @@ test("an http server with an oauth key comes up needing a login and nothing unat
 
   // The owner revokes chad. The call fails with what to ask, and no sign-in is begun for it.
   fake.revoke()
-  // The new chat fake counts its threads from the first again, and those four hold the sessions of the turns above.
-  for (let made = 0; made < 4; made++)
+  // The new chat fake counts its threads from the first again, and those seven hold the sessions of the turns above.
+  for (let made = 0; made < 7; made++)
     await again.fakes.chat.makeThread("direct")
   const revoked = await turn(again, tries("mcp.slack.echo({ x: 2 })"))
   expect(results(revoked[1]).join("\n")).toContain(
@@ -566,6 +597,7 @@ test("an http server with an oauth key comes up needing a login and nothing unat
     denied,
     refused,
     signed,
+    anew,
     rebuilt,
     unsaved,
     up,
