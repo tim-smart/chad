@@ -81,7 +81,8 @@ export const announce = (
 
 /**
  * The plugins that load, each with its settings from the file: the bundled ones and those of the tree, less those the
- * file turns off. In safe mode only the bundled ones load, on their defaults.
+ * file turns off or that are off by default. In safe mode only the bundled ones load, on their defaults, less those that
+ * are off by default.
  * A bundled entry given its settings by the caller keeps them when the file gives none, which is how a test hands a
  * bundled plugin its settings.
  */
@@ -91,7 +92,7 @@ export const entries = (options: {
   readonly repo: ReadonlyArray<Loader.Loaded>
   readonly safe: boolean
 }): ReadonlyArray<Plugins.Entry> => {
-  const off = Settings.off(options.file)
+  const off = Settings.off(options.file, options.safe)
   const all: ReadonlyArray<Plugins.Entry> = options.safe
     ? options.bundled
     : [

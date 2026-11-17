@@ -6,28 +6,32 @@ import { join } from "node:path"
 import { expect, test } from "vitest"
 import type { Entry } from "../../dist/daemon/Plugins.js"
 import * as Plugin from "../../dist/Plugin.js"
+import * as Messages from "../../dist/Messages.js"
+import asphodel from "../../dist/plugins/asphodel/index.js"
 import { Turns } from "../../dist/Turns.js"
-import asphodel from "../fixtures/asphodel/asphodel.ts"
 import * as Daemon from "../fixtures/asphodel/daemon.ts"
+import { applied, write } from "../support/applied.ts"
 import * as AdjustableClock from "../support/clock.ts"
 import * as Cli from "../support/cli.ts"
 import { fresh, scenario, type Scenario } from "../support/driver.ts"
 import { type Call, results, runs } from "../support/model.ts"
 import { eventually, rows, says, sessions } from "../support/owner.ts"
 
-/** The prototype's settings, with the owner `local:owner` and the suite's timezone `Pacific/Auckland`. */
+/** The plugin's settings, with the owner `local:owner` and the suite's timezone `Pacific/Auckland`. */
 const settings = { url: "http://asphodel:7720", ownerName: "Tim" }
 
+/** `chad.json` with the bundled plugin turned on with `settings`. */
+const turnedOn = (options: Record<string, unknown>) =>
+  JSON.stringify({
+    plugins: { asphodel: { enabled: true, settings: options } },
+  })
+
 /**
- * A daemon with the fixture loaded against a fresh fake asphodel daemon. The fake and the clock are provided to the
- * fixture's Layer as its HttpClient and its Clock before `Plugin.make` brands it again, so the plugin's requests never
- * reach the world's client, and its breaker and its fiber's schedule read the time the scenario sets.
+ * The bundled plugin against a fake asphodel daemon. The fake and the clock are provided to the plugin's Layer as its
+ * HttpClient and its Clock before `Plugin.make` brands it again, so the plugin's requests never reach the world's
+ * client, and its breaker and its fiber's schedule read the time the scenario sets.
  */
-const boot = async (
-  extra: ReadonlyArray<Entry> = [],
-  options: Record<string, unknown> = settings,
-  directory?: string,
-) => {
+const faked = () => {
   const daemon = Daemon.make()
   const clock = AdjustableClock.make()
   const plugin = Plugin.make(
@@ -40,11 +44,18 @@ const boot = async (
       ),
     ),
   )
-  const running = await scenario({
-    ...(directory === undefined ? {} : { directory }),
-    plugins: [{ name: "asphodel", plugin, settings: options }, ...extra],
-  })
-  // The load's health probe and bank PUT.
+  return { daemon, clock, entry: { name: "asphodel", plugin } }
+}
+
+/** A daemon whose applied `chad.json` turns the plugin on with `options`, and the load's health probe and bank PUT. */
+const boot = async (
+  extra: ReadonlyArray<Entry> = [],
+  options: Record<string, unknown> = settings,
+) => {
+  const directory = fresh()
+  applied(join(directory, "data", "repo"), { "chad.json": turnedOn(options) })
+  const { daemon, clock, entry } = faked()
+  const running = await scenario({ directory, plugins: [entry, ...extra] })
   const load = await sent(daemon, 2)
   return { running, daemon, clock, load }
 }
@@ -96,18 +107,7 @@ const spooling =
 const openSession = (running: Scenario) =>
   String(sessions(running).find((row) => row["ended_at"] === null)?.["id"])
 
-/** One owner turn that the fake asphodel daemon answers, so the session has its block and the bank is ready. */
-const firstTurn = async (
-  running: Scenario,
-  daemon: ReturnType<typeof Daemon.make>,
-  thread: ChatThread.ChatThread,
-) => {
-  await says(running, thread, "book a table for two")
-  await running.fakes.chat.answers(thread, 1)
-  return sent(daemon, 3)
-}
-
-test("a token written ${ASPHODEL_TOKEN} reaches the asphodel daemon as a bearer token on every request, from the secret store and with the value in no log line", async () => {
+test("with no entry in chad.json the plugin is off and sends nothing, and an apply that turns it on with a token written ${ASPHODEL_TOKEN} loads it, the token reaching the asphodel daemon as a bearer token on every request and no log line", async () => {
   const token = "asphodel-token-5f2a9c"
   const directory = fresh()
   const data = join(directory, "data")
@@ -121,14 +121,33 @@ test("a token written ${ASPHODEL_TOKEN} reaches the asphodel daemon as a bearer 
       )
     ).code,
   ).toBe(0)
-  const { running, daemon, load } = await boot(
-    [],
-    { ...settings, token: "${ASPHODEL_TOKEN}" },
-    directory,
-  )
+  const { daemon, entry } = faked()
+  const running = await scenario({ directory, plugins: [entry] })
   const thread = await running.fakes.chat.makeThread("direct")
-  await running.fakes.model.script([{ text: "Booked." }])
-  const turn = await firstTurn(running, daemon, thread)
+  await running.fakes.model.script([{ text: "Hello." }, { text: "Booked." }])
+  // Off: no tools and no hooks, so a turn sends nothing, and status says it is off.
+  await says(running, thread, "hello")
+  await running.fakes.chat.answers(thread, 1)
+  expect(daemon.state.requests).toEqual([])
+  expect((await running.chad(["status"])).stdout).toContain(
+    Messages.offPlugin("asphodel", 0),
+  )
+
+  write(join(data, "repo/work"), {
+    "chad.json": turnedOn({ ...settings, token: "${ASPHODEL_TOKEN}" }),
+  })
+  expect((await running.chad(["apply", "-m", "Turn asphodel on"])).code).toBe(0)
+  const load = await sent(daemon, 2)
+  await says(running, thread, "book a table for two")
+  await running.fakes.chat.answers(thread, 2)
+  const turn = await sent(daemon, 3)
+  expect([...load, ...turn].map(route)).toEqual([
+    "GET /health",
+    "PUT ",
+    "GET /system-prompt",
+    "POST /prefetch",
+    "POST /turns",
+  ])
   expect([...load, ...turn].map((request) => request.authorization)).toEqual(
     Array(5).fill(`Bearer ${token}`),
   )

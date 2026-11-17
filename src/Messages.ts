@@ -2,6 +2,7 @@
  * What chad posts in chat, its CLI errors and the messages the model reads as tool results. Each template is pinned to
  * its wording by a test, and a scenario refers to a message by its name here.
  */
+import * as BundledNames from "./BundledNames.ts"
 import * as Connections from "./Connections.ts"
 import type * as Failed from "./daemon/Failed.ts"
 import type { Format } from "./daemon/Format.ts"
@@ -907,9 +908,18 @@ export const pluginSkipped = (name: string, reason: string) =>
 export const movedAside = (path: string, to: string) =>
   `${path} was not a link, so it was moved to ${to}`
 
-/** A repo plugin that has a bundled plugin's name, which is skipped at boot. */
+/** Whether a bundled plugin is off until `chad.json` turns it on, which is the one a repo copy of it is replaced by. */
+const offByDefault = (name: string) =>
+  (BundledNames.offByDefault as ReadonlyArray<string>).includes(name)
+
+/**
+ * A repo plugin that has a bundled plugin's name, which is skipped at boot. A boot only says so while the bundled one is
+ * on. A copy of a plugin that is off by default is the bundled plugin itself, so the line says to delete it.
+ */
 export const bundledName = (name: string) =>
-  `${name}: a bundled plugin has this name, so the bundled one loads and this one is skipped. The two share one key-value table, and renaming this plugin does not move its data.`
+  offByDefault(name)
+    ? `${name}: the bundled ${name} plugin loads and this copy of it is skipped. Delete its file or directory under work/plugins/ and run chad apply. The bundled one uses the same key-value table, so it keeps the data.`
+    : `${name}: a bundled plugin has this name, so the bundled one loads and this one is skipped. The two share one key-value table, and renaming this plugin does not move its data.`
 
 /** The refusal of a call to a tool whose version a swap took out of service. */
 export const toolRefused = (
@@ -964,7 +974,9 @@ export const closeAbandoned = (plugin: string) =>
 
 /** An apply's refusal of a repo plugin with a bundled plugin's name. */
 export const bundledNameRefused = (name: string) =>
-  `The plugin "${name}" has the name of a bundled plugin. Rename it: the two would share one key-value table.`
+  offByDefault(name)
+    ? `The plugin "${name}" is bundled with chad now. Delete its file or directory under work/plugins/ and turn the bundled one on with "enabled": true under plugins.${name} in work/chad.json, keeping its settings. It uses the same key-value table, so it keeps the data.`
+    : `The plugin "${name}" has the name of a bundled plugin. Rename it: the two would share one key-value table.`
 
 /** The refusal of `AGENTS.md`, `.agents` and `.kiro` in the repo, which names where their content goes. */
 export const instructionsRefused = (paths: ReadonlyArray<string>) =>
@@ -1482,7 +1494,9 @@ export const settingsIgnored = (paths: ReadonlyArray<string>) =>
 
 /** `chad plugin reload` of a plugin that is off. */
 export const reloadOff = (name: string) =>
-  `${name} is off in chad.json ("enabled": false), so it is not loaded. Turn it on in work/chad.json and run chad apply.`
+  offByDefault(name)
+    ? `${name} is off until chad.json turns it on, so it is not loaded. Set "enabled": true under plugins.${name} in work/chad.json and run chad apply.`
+    : `${name} is off in chad.json ("enabled": false), so it is not loaded. Turn it on in work/chad.json and run chad apply.`
 
 /** Where one setting's value came from, never the value. */
 export const settingSource = (

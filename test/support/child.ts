@@ -29,8 +29,9 @@ export interface Config {
    */
   readonly gc: string | undefined
   /**
-   * The asphodel fixture's settings when the scenario loads it, its `url` at the fake the driver serves. The fixture
-   * gets its own HttpClient, as in layer 3, so its requests never reach the world's.
+   * The bundled asphodel plugin's settings when the scenario turns it on, its `url` at the fake the driver serves. The
+   * process driver writes them to the applied `chad.json` with `"enabled": true`. The plugin gets its own HttpClient,
+   * as in layer 3, so its requests never reach the world's.
    */
   readonly asphodel?: { readonly settings: unknown } | undefined
   /** Loads the bundled plugins, as `chad serve` does. */
@@ -57,7 +58,9 @@ const retention = millis(config.timings.messageRetention)
 
 const plugins = [
   ...(config.bundled === true
-    ? (await import("../../dist/Bundled.js")).bundled
+    ? (await import("../../dist/Bundled.js")).bundled.filter(
+        ({ name }) => config.asphodel === undefined || name !== "asphodel",
+      )
     : []),
   ...(config.asphodel === undefined
     ? []
@@ -65,11 +68,10 @@ const plugins = [
         {
           name: "asphodel",
           plugin: Plugin.make(
-            (await import("../fixtures/asphodel/asphodel.ts")).default.pipe(
+            (await import("../../dist/plugins/asphodel/index.js")).default.pipe(
               Layer.provide(NodeHttpClient.layerUndici),
             ),
           ),
-          settings: config.asphodel.settings,
         },
       ]),
 ]

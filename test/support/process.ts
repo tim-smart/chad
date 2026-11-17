@@ -19,6 +19,7 @@ import type { ChatTest } from "effect/chat"
 import { onTestFinished } from "vitest"
 import type { Connection } from "../../dist/daemon/Connection.js"
 import * as LocalChat from "../../dist/daemon/LocalChat.js"
+import { applied } from "./applied.ts"
 import type { Config } from "./child.ts"
 import * as Cli from "./cli.ts"
 import * as Discord from "./discord.ts"
@@ -43,7 +44,7 @@ export interface Options {
   readonly gc?: boolean
   /** Stands in for the process table the driver reads, for a scenario that makes the read fail. */
   readonly processTable?: () => ReadonlyArray<Reap.Row>
-  /** Loads the asphodel fixture on every start, see `Config`. */
+  /** Turns the bundled asphodel plugin on in the applied `chad.json`, see `Config`. */
   readonly asphodel?: Config["asphodel"]
   /** Loads the bundled plugins on every start, see `Config`. */
   readonly bundled?: boolean
@@ -118,6 +119,14 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
   const home = join(directory, "home")
   const cache = join(directory, "cache")
   for (const path of [data, home, cache]) mkdirSync(path, { recursive: true })
+  if (options.asphodel !== undefined)
+    applied(join(data, "repo"), {
+      "chad.json": JSON.stringify({
+        plugins: {
+          asphodel: { enabled: true, settings: options.asphodel.settings },
+        },
+      }),
+    })
   const record = (kind: string, fields: object) =>
     appendFileSync(
       join(directory, "events.jsonl"),

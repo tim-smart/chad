@@ -7,6 +7,7 @@ import { Config, Effect, Layer, Option, Redacted, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
 import { expect, onTestFinished, test, vi } from "vitest"
 import { bundled } from "../../dist/Bundled.js"
+import { offByDefault } from "../../dist/BundledNames.js"
 import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
 import { applied, write } from "../support/applied.ts"
@@ -262,7 +263,7 @@ test("a bundled plugin's settings expand from the secret store and process env, 
   ).toBe("Hi, Ada")
 }, 30_000)
 
-test("in safe mode the bundled plugins build on their defaults, one the applied chad.json turns off stays off, and an apply that flips it takes effect at once", async () => {
+test("in safe mode the bundled plugins build on their defaults, one the applied chad.json turns off stays off, asphodel stays off even when the file turns it on, and an apply that flips it takes effect at once", async () => {
   // A previous boot's repo must work without a developer's global Git identity, as on the gate.
   vi.stubEnv("GIT_CONFIG_GLOBAL", "/dev/null")
   vi.stubEnv("GIT_CONFIG_NOSYSTEM", "1")
@@ -276,13 +277,16 @@ test("in safe mode the bundled plugins build on their defaults, one the applied 
   onTestFinished(() => {
     vi.unstubAllEnvs()
   })
-  const names = bundled.map(({ name }) => name)
+  const all = bundled.map(({ name }) => name)
+  // Safe mode reads no settings, so a plugin that is off by default never loads in it.
+  const names = all.filter((name) => !offByDefault.includes(name))
   const { state, plugin } = probe()
   const directory = fresh()
   applied(join(directory, "data/repo"), {
     "chad.json": chadJson({
       probe: { enabled: false },
-      ...Object.fromEntries(names.map((name) => [name, { enabled: "yes" }])),
+      ...Object.fromEntries(all.map((name) => [name, { enabled: "yes" }])),
+      asphodel: { enabled: true },
     }),
     "persona.md": "",
   })
@@ -295,6 +299,7 @@ test("in safe mode the bundled plugins build on their defaults, one the applied 
     JSON.parse((await running.chad(["status", "--json"])).stdout) as {
       readonly plugins: ReadonlyArray<{ readonly name: string }>
       readonly skipped: ReadonlyArray<unknown>
+      readonly off: ReadonlyArray<string>
     }
   // Every bundled plugin builds with no entry of its own, and a bad `enabled` turns on only that plugin.
   expect(
@@ -302,6 +307,7 @@ test("in safe mode the bundled plugins build on their defaults, one the applied 
   ).toMatchObject({
     plugins: names.sort().map((name) => ({ name })),
     skipped: [],
+    off: expect.arrayContaining(["asphodel"]),
   })
   expect(state.builds).toBe(0)
 

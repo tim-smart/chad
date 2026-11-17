@@ -1,5 +1,5 @@
-// The type layer of a plugin: the compiler options `chad check` uses, run over the asphodel fixture and over the two
-// deliberate mistakes, each of which must fail with its own error and name the service or type it lacks.
+// The type layer of a plugin: the compiler options `chad check` uses, run over the bundled asphodel plugin as the
+// image's examples hold it, with chad's own imports as a repo plugin writes them, and over the two deliberate mistakes, each of which must fail with its own error and name the service or type it lacks.
 import { spawnSync } from "node:child_process"
 import { rmSync, writeFileSync } from "node:fs"
 import { expect, it } from "vitest"
@@ -12,7 +12,7 @@ const mistakes = {
   "hook-wrong-type": ["TS2322", "Effect<string"],
 } as const
 
-it("the fixture plugin passes the check's options, and each of the two mistakes fails with its code and names what is missing", () => {
+it("the asphodel example passes the check's options, and each of the two mistakes fails with its code and names what is missing", () => {
   // The config sits in the package, so the Node types resolve from its node_modules as they do from repo/.
   const config = path(
     `test/types/fixtures/plugins-${process.pid}.tsconfig.json`,
@@ -21,7 +21,7 @@ it("the fixture plugin passes the check's options, and each of the two mistakes 
     config,
     JSON.stringify({
       compilerOptions,
-      include: ["mistakes/*.ts", "../../fixtures/asphodel/asphodel.ts"],
+      include: ["mistakes/*.ts", "../../../plugins/asphodel/*.ts"],
     }),
   )
   try {
@@ -38,7 +38,7 @@ it("the fixture plugin passes the check's options, and each of the two mistakes 
     )
     const errors = (result.stdout + result.stderr)
       .split("\n")
-      .filter((line) => line.startsWith("test/"))
+      .filter((line) => /^\S+\.ts\(\d+,\d+\): error /.test(line))
     expect(errors.filter((line) => !line.includes("/mistakes/"))).toEqual([])
     for (const [name, [code, named]] of Object.entries(mistakes)) {
       const own = errors.filter((line) =>

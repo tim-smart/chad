@@ -1,6 +1,7 @@
-// Test support for the asphodel fixture. An HttpClient that plays the asphodel daemon in memory and records every
-// request. The response shapes follow crates/asphodel/src/serve/api.rs at f8ccdea. Nothing here is the daemon. The
-// request bodies are typed `any`, which the repo's lint refuses.
+// Test support for the bundled asphodel plugin. An HttpClient that plays the asphodel daemon in memory and records
+// every request. The answers have the shapes of crates/asphodel/src/serve/api.rs in tim-smart/asphodel at f8ccdea, as
+// a real daemon gave them with no LLM set. Nothing here is the daemon. The request bodies are typed `any`, which the
+// repo's lint refuses.
 /* oxlint-disable typescript/no-explicit-any */
 import * as Effect from "effect/Effect"
 import * as HttpClient from "effect/http/HttpClient"
@@ -21,17 +22,45 @@ export const make = () => {
     up: true,
     requests: [] as Array<Request>,
     refused: 0,
+    bank: false,
     blocks: 0,
     recalls: 0,
   }
 
   const answer = (request: Request): [status: number, body: unknown] => {
     const route = `${request.method} ${request.path.replace(/^\/v1/, "").replace(/^\/banks\/[^/]+/, "/bank")}`
-    if (route === "GET /health") return [200, { ready: true, version: "0.4.0" }]
-    if (route === "PUT /bank") return [200, { name: "chad" }]
+    const now = new Date().toISOString()
+    if (route === "GET /health")
+      return [200, { version: "0.1.0", ready: true, setup: false, now }]
+    if (route === "PUT /bank") {
+      const created = !state.bank
+      state.bank = true
+      return [
+        created ? 201 : 200,
+        {
+          id: "bank-1",
+          name: "chad",
+          owner_name: request.body.owner_name,
+          assistant_name: request.body.assistant_name,
+          timezone: request.body.timezone,
+          embedding_model: "embedding",
+          reranker_model: "reranker",
+          created,
+        },
+      ]
+    }
     if (route === "GET /bank/system-prompt") {
       const id = `block-${++state.blocks}`
-      return [200, { id, text: `[asphodel agenda, ${id}]` }]
+      return [
+        200,
+        {
+          id,
+          built_at: now,
+          text: `[asphodel agenda, ${id}]`,
+          agenda: [],
+          cited: [],
+        },
+      ]
     }
     if (route === "POST /bank/prefetch") {
       const id = `recall-${++state.recalls}`
@@ -45,23 +74,39 @@ export const make = () => {
         },
       ]
     }
-    if (route === "POST /bank/turns")
+    if (route === "POST /bank/turns") {
+      const tombstone = request.body.forget_requested === true
       return [
         200,
-        { outcome: request.body.forget_requested ? "tombstone" : "stored" },
+        {
+          source: `source-${state.requests.length}`,
+          outcome: tombstone ? "tombstone" : "stored",
+          chunks_queued: tombstone ? 0 : 1,
+          chunks_skipped: 0,
+          secret_kinds: [],
+          speaker: tombstone ? null : { entity: "user", owner: true },
+        },
       ]
+    }
     if (route === "POST /bank/recall")
       return [
         200,
-        { text: "m7: Tim's dentist is Dr. Lee", results: [{ id: "m7" }] },
+        {
+          recall_id: `recall-${++state.recalls}`,
+          results: [{ id: "m7" }],
+          text: "m7: Tim's dentist is Dr. Lee",
+          reranked: true,
+        },
       ]
     if (route === "POST /bank/forget")
       return [200, { forgotten: request.body.ids, unknown: [] }]
-    if (route === "POST /bank/keep" || route === "POST /bank/unkeep")
-      return [200, { ids: request.body.ids }]
+    if (route === "POST /bank/keep")
+      return [200, { kept: request.body.ids, unknown: [] }]
+    if (route === "POST /bank/unkeep")
+      return [200, { unkept: request.body.ids, unknown: [] }]
     if (/^POST \/bank\/sessions\/[^/]+\/clear$/.test(route))
       return [204, undefined]
-    return [404, { error: `no route ${route}` }]
+    return [404, { error: "no such route" }]
   }
 
   const client = HttpClient.make((request, url) => {

@@ -1,4 +1,4 @@
-// The asphodel fixture across a kill in layer 4: the daemon is a child process that a kill cuts in the middle of a
+// The bundled asphodel plugin across a kill in layer 4: the daemon is a child process that a kill cuts in the middle of a
 // turn. The fake asphodel daemon stays in the test's process behind an HTTP server, so it outlives the kill and keeps
 // every request both starts sent.
 import { DateTime } from "effect"

@@ -107,7 +107,10 @@ export interface Commands {
   readonly skills: () => ReadonlyArray<Skills.Provided>
   /** The applied tree's skills that hide a bundled one, none in safe mode, which `chad status` marks. */
   readonly hiding: () => ReadonlyArray<string>
-  /** The plugins the applied `chad.json` turns off, which `chad status` and `chad plugin purge` read. */
+  /**
+   * The plugins that are off, the applied `chad.json`'s and the bundled ones that are off by default, which
+   * `chad status` and `chad plugin purge` read.
+   */
   readonly off: () => ReadonlySet<string>
   /** The plugins whose settings in the applied `chad.json` name a secret, less those that are off. */
   readonly users: (secret: string) => ReadonlyArray<string>
@@ -1265,7 +1268,13 @@ export const make = Effect.fnUntraced(function* (options: {
           yield* prepared.swap
         }),
       ),
-    off: () => Settings.off(applied),
+    off: () =>
+      new Set(
+        [...Settings.off(applied, safe !== "off")].filter(
+          (name) =>
+            bundledNames.has(name) || Object.hasOwn(applied.plugins, name),
+        ),
+      ),
     users: (secret) => PluginSettings.users(applied, secret),
     rebuild,
   }

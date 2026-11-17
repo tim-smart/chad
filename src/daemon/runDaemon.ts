@@ -418,7 +418,7 @@ const boot = Effect.fnUntraced(function* (
     safe: safe !== "off",
     notices,
   })
-  const off = Settings.off(appliedSettings)
+  const off = Settings.off(appliedSettings, safe !== "off")
   for (const name of off) yield* notices.clear(Plugins.skippedKey(name))
   // The MCP layer, in a scope forked before the plugins' so a stop closes it after them, and the deadline only ever
   // cuts MCP servers. A boot is a rebuild, in the background, so turns start before the servers connect. Safe mode

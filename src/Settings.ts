@@ -13,6 +13,7 @@ import {
   Option,
   Predicate,
 } from "effect"
+import * as BundledNames from "./BundledNames.ts"
 import * as Errno from "./Errno.ts"
 import * as Messages from "./Messages.ts"
 
@@ -186,13 +187,23 @@ export const lenient = (
   return { file: { plugins: entries }, unparsable: undefined, ignored }
 }
 
-/** The plugins the file turns off with `"enabled": false`. */
-export const off = (file: File): ReadonlySet<string> =>
-  new Set(
-    Object.entries(file.plugins)
+/**
+ * The plugins that are off: those the file turns off with `"enabled": false`, and each bundled plugin that is off by
+ * default unless the file turns it on with `"enabled": true`. In safe mode, which reads no settings, a plugin that is off
+ * by default is off whatever the file says.
+ */
+export const off = (file: File, safe = false): ReadonlySet<string> =>
+  new Set([
+    ...Object.entries(file.plugins)
       .filter(([, entry]) => entry.enabled === false)
       .map(([name]) => name),
-  )
+    ...BundledNames.offByDefault.filter(
+      (name) =>
+        safe ||
+        !Object.hasOwn(file.plugins, name) ||
+        file.plugins[name]?.enabled !== true,
+    ),
+  ])
 
 /** A plugin's `settings` object, which is empty with no entry or no key. */
 export const settingsOf = (
