@@ -10,43 +10,73 @@ permissions:
   contents: read
   packages: write
 
-# One publish at a time, in the order of the pushes, so the moving tags end on the newest commit. A push that arrives
-# while another waits replaces the one waiting, so a commit in the middle of a burst can go without its own tag.
-concurrency:
-  group: publish
-  cancel-in-progress: false
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
+  # Every push builds, with no lock, so every commit of main gets its own tag whatever else is running.
   image:
     name: image for amd64
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
-      - id: version
-        run: echo "version=$(jq -er .version package.json)" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # Three tags: main, which always moves and is what a deployment follows, chad's version, which moves with main
-      # until the version changes, and the commit, as sha-<short>, which never moves.
+      # The labels, which name the repository and the commit.
       - id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=raw,value=main
-            type=raw,value=${{ steps.version.outputs.version }}
-            type=sha
+          images: ${{ env.IMAGE }}
+      # The commit's tag, sha- and its first seven characters, which no other commit writes.
+      - id: tag
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
       - uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Moves the tags that move: main, which a deployment follows, and chad's version. It does not go by the commit of
+  # its own run. It reads the head of main once it holds the lock and moves the tags to that commit's image, so a run
+  # that is late, or run again, cannot move them back. When the head is another commit with no image yet, that
+  # commit's run moves them later.
+  # GitHub keeps one waiting job for a group and cancels the one it replaces, which loses nothing here: the job that
+  # takes its place does the same work.
+  promote:
+    name: move main and the version tag
+    needs: image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    concurrency:
+      group: publish-promote
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          head=$(git rev-parse HEAD)
+          version=$(jq -er .version package.json)
+          source="$IMAGE:sha-${head::7}"
+          # This run's own image exists, because the job above pushed it, so only another commit's is asked for.
+          if [ "$head" != "$GITHUB_SHA" ] && ! docker buildx imagetools inspect "$source" > /dev/null; then
+            echo "::notice::$source is not published yet. The run of $head moves the tags."
+            exit 0
+          fi
+          # A copy as it is, so the three tags of a commit have one digest.
+          docker buildx imagetools create --prefer-index=false --tag "$IMAGE:main" --tag "$IMAGE:$version" "$source"

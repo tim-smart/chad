@@ -15,15 +15,17 @@ SMB and Longhorn RWX are not supported, because SQLite's lock and write-ahead lo
 A push to `main` publishes the image. `.github/workflows/publish.yml` builds it for amd64 and pushes it to
 `ghcr.io/tim-smart/chad` with three tags:
 
-- `main`, which is always the newest published commit of `main`. A deployment that follows chad uses this one with
+- `main`, which is the newest commit of `main` that has an image. A deployment that follows chad uses this one with
   the pull policy `Always`, and gets the newest image each time chad's container starts.
-- chad's version, such as `0.0.0`. It moves to each new commit of `main` until the version changes.
-- The commit, such as `sha-4d3d587`, which is `sha-` and the first seven characters of the commit on `main`. It
-  never moves, so it says which commit an image is and is the tag to pin when chad should change only when you change
-  it.
+- chad's version, such as `0.0.0`. It moves with `main` until the version changes.
+- The commit, such as `sha-4d3d587`, which is `sha-` and the first seven characters of the commit. Every push to
+  `main` gets one, and it only ever names an image built from that commit, so it says which commit an image is and is
+  the tag to pin when chad should change only when you change it.
 
-Pushes are published one at a time. When several arrive while one is being built, only the newest of them is
-published next, so a commit in between can be left without a tag of its own.
+Each push builds its own image, and pushes do not wait for each other. A second job then moves `main` and the version
+tag, one run at a time, to the image of whatever commit is the head of `main` at that moment. A build that finishes
+late, or a run that is started again, therefore cannot move them back to an older commit. When a build fails, `main`
+and the version tag stay where they were.
 
 Building and pushing by hand still works, from the root of the repository:
 
