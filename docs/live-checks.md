@@ -147,21 +147,10 @@ container's own layer.
 
 ## D3. asphodel for real
 
-The asphodel plugin is not in the image. The repository holds a working copy as a test fixture,
-`test/fixtures/asphodel/asphodel.ts`, and porting the real plugin belongs to asphodel's repository. Until that lands,
-this check uses the fixture.
-
 1. Start asphodel and save its token in chad as `docs/running.md` says under "asphodel". Then open
    `http://127.0.0.1:7720/dashboard` on the host, choose an LLM (an OpenAI-compatible endpoint with its key, or a
    ChatGPT subscription and its login) and click Finish setup.
-2. Copy the fixture into chad's working tree, from the root of the checkout:
-
-   ```sh
-   docker exec -i chad sh -c 'mkdir -p /data/repo/work/plugins && cat > /data/repo/work/plugins/asphodel.ts' \
-     < test/fixtures/asphodel/asphodel.ts
-   ```
-
-3. Add the plugin to `/data/repo/work/chad.json`. On a fresh volume the file is `{ "plugins": {} }`, and
+2. Turn the plugin on in `/data/repo/work/chad.json`. On a fresh volume the file is `{ "plugins": {} }`, and
    `docker exec chad cat /data/repo/work/chad.json` shows what it holds now. Keep any plugin already in it, and add
    `asphodel` under `plugins`:
 
@@ -169,6 +158,7 @@ this check uses the fixture.
    {
      "plugins": {
        "asphodel": {
+         "enabled": true,
          "settings": {
            "url": "http://asphodel:7720",
            "token": "${ASPHODEL_TOKEN}",
@@ -182,11 +172,11 @@ this check uses the fixture.
    One way to write it is `docker exec -i chad sh -c 'cat > /data/repo/work/chad.json' < chad.json` from a file on
    the host.
 
-4. Run `chad apply -m "Try the asphodel fixture"`. It prints `Applied <commit>.`, a settings line that ends with
+3. Run `chad apply -m "Turn asphodel on"`. It prints `Applied <commit>.`, a settings line that ends with
    `token (${ASPHODEL_TOKEN} from the secret store)`, and `Rebuilt: asphodel.`, and `chad log` lists the commit.
-5. Send chad two direct messages, then ask "what do you remember about me?".
-6. Run `chad logs` and look for lines from the plugin `asphodel`.
-7. Run `docker exec asphodel asphodel bank list`.
+4. Send chad two direct messages, then ask "what do you remember about me?".
+5. Run `chad logs` and look for lines from the plugin `asphodel`.
+6. Run `docker exec asphodel asphodel bank list`.
 
 Passes when the apply loads the plugin, `chad logs` shows no `asphodel` error, and the bank list shows the bank
 `chad` with your turns. A `401` in chad's log means the token chad holds is not asphodel's. A line `asphodel: memory is off until the daemon is back` means chad

@@ -126,6 +126,7 @@ Edit `mcp.json` and apply. There is no command that adds one.
 ```
 
 - `"enabled": false` turns a plugin off and keeps its data and timers, which are held. This works for bundled plugins too. Turning a plugin back on fires each overdue held timer once, and the apply says how many.
+- The bundled plugin `asphodel`, chad's long-term memory, is the one plugin that is off until its entry says `"enabled": true`. Its `settings` are the asphodel daemon's `url` and `"token": "${ASPHODEL_TOKEN}"`, with the token saved as the secret `ASPHODEL_TOKEN`.
 - An unknown key or an entry that names no plugin fails the apply.
 - An empty string reads as missing. A `${NAME}` found nowhere fails the plugin's load with an error that names it.
 - `${NAME:-default}` gives a default. To write a literal `${X}`, write `${CHAD_DOLLAR:-$}{X}`.

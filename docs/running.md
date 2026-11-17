@@ -80,9 +80,9 @@ is up to you.
 
 ### asphodel
 
-asphodel, the memory daemon the asphodel plugin talks to, is not in the chad image. It runs as its own container on a
-network it shares with chad. Its image runs as uid and gid 65532 and has no `/data`, so give it the volume first, as
-its README does. Then start it with a token that chad is given too:
+chad's long-term memory is the bundled plugin `asphodel`. It talks to an asphodel daemon, which is not in the chad
+image. The daemon runs as its own container on a network it shares with chad. Its image runs as uid and gid 65532 and
+has no `/data`, so give it the volume first, as its README does. Then start it with a token that chad is given too:
 
 ```sh
 docker volume create asphodel-data
@@ -102,10 +102,58 @@ printf %s "$token" | docker exec -i chad chad secret set ASPHODEL_TOKEN
 ```
 
 asphodel then waits for its first-run setup: open `http://127.0.0.1:7720/dashboard` on the host. Keep the port bound
-to `127.0.0.1`, because whoever reaches an unconfigured asphodel first can set it up.
+to `127.0.0.1`, because whoever reaches an unconfigured asphodel first can set it up. With no LLM chosen there, asphodel
+stores each turn but extracts no memories from it.
 
-The plugin's `url` is `http://asphodel:7720`. Its `token` setting is `${ASPHODEL_TOKEN}`, which chad reads
-from its secret store or from its own environment.
+The plugin is off until you turn it on, and `chad status` shows it as `plugin: asphodel, off`. While it is off it
+sends nothing and gives the model no memory tools. To turn it on, add its entry to `/data/repo/work/chad.json`, keeping
+any plugin already in it:
+
+```json
+{
+  "plugins": {
+    "asphodel": {
+      "enabled": true,
+      "settings": {
+        "url": "http://asphodel:7720",
+        "token": "${ASPHODEL_TOKEN}",
+        "ownerName": "Tim"
+      }
+    }
+  }
+}
+```
+
+Then run `docker exec chad chad apply -m "Turn asphodel on"`. `chad status` lists the plugin with its settings once
+it has loaded. `"enabled": false`, or deleting the entry, turns it off again at the next apply. Its data stays in
+either case.
+
+The settings are these. Only `url` and `token` are needed.
+
+- `url`: where the daemon listens, `http://` or `https://`. The default is `http://127.0.0.1:7720`, which is right for
+  a sidecar in the same pod.
+- `token`: the daemon's bearer token. `${ASPHODEL_TOKEN}` is read from chad's secret store or from its own
+  environment, and the value never reaches a log.
+- `bank`: the bank in the daemon that chad's memories go to and come from. The default is `chad`, which a daemon that
+  Hermes has been using does not have yet, so chad starts with no memories. To give chad what Hermes remembers, set
+  `bank` to the bank Hermes used, which is the name of the Hermes profile unless you changed it.
+- `ownerName` and `assistantName`: the names the daemon gives you and chad, `chad` for the assistant by default.
+- `timezone`: an IANA name for the turns chad sends. The default is the timezone `chad timezone` set.
+- `ingest`: `false` keeps recall and stops chad sending turns.
+
+When the daemon is down, chad works as before without memory. A load while it is down logs `asphodel: memory is off
+until the daemon is back`, the system prompt has no memory block, and the turns that could not be sent wait in the plugin's store, up to
+500 of them and none older than a week. After three failed requests in a row the plugin sends nothing for 30 seconds.
+Once the daemon answers again the next turn gets its block and the waiting turns are sent, at the latest a minute
+later. The memory tools answer that the daemon cannot be reached.
+
+Safe mode never loads the plugin, even when `chad.json` turns it on, because safe mode reads no settings and the
+plugin has nothing to reach the daemon with. Nothing said in safe mode is remembered, and `chad status` shows the
+plugin as off until safe mode ends.
+
+A volume that already has a copy of the plugin at `work/plugins/asphodel.ts` has its next apply refused, because a
+repo plugin cannot have a bundled plugin's name. Delete the copy and turn the bundled one on as above. It uses the same
+store, so it keeps what the copy had spooled.
 
 ### Backup
 

@@ -17,7 +17,7 @@ Read in this order:
 
 1. `/data/repo/node_modules/effect/AGENTS.md`, for how to write Effect.
 2. `/data/repo/node_modules/chad/dist/Plugin.d.ts`, `/data/repo/node_modules/chad/dist/Session.d.ts` and `/data/repo/node_modules/chad/dist/Turns.d.ts`, for the plugin API. Their doc comments say what each call does.
-3. One bundled plugin as a worked example: `/data/repo/examples/cron/` or `/data/repo/examples/send-file.ts`. These are the plugins chad ships, at the version that is running.
+3. One bundled plugin as a worked example: `/data/repo/examples/cron/` or `/data/repo/examples/send-file.ts`. These are the plugins chad ships, at the version that is running. For a plugin that calls an HTTP service, `/data/repo/examples/asphodel/` decodes the service's answers with `Schema` and keeps going when the service is down.
 
 Plugins compile against the effect and chad packages under `/data/repo/node_modules`. Their `package.json` files give the versions, and so does `chad status`. This is Effect 4. Names you remember from Effect 3, such as imports from `@effect/platform` where this version has `effect/http`, are the most common cause of type errors.
 
