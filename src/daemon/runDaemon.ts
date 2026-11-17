@@ -693,7 +693,10 @@ const boot = Effect.fnUntraced(function* (
                   ),
                 ),
                 Effect.flatMap((output) =>
-                  post([...output.stdout, ...output.stderr].join("\n")),
+                  post(
+                    [...output.stdout, ...output.stderr].join("\n"),
+                    output.code === 0,
+                  ),
                 ),
               ),
           }),

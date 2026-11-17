@@ -554,7 +554,10 @@ test("the agent's requestSecret posts a button whose form saves the secret as ch
   ])
   const thread = await fakes.chat.makeThread("direct")
   await says(running, thread, "get the forecast")
-  const [request] = await fakes.chat.answers(thread, 2)
+  await fakes.model.received(2)
+  const request = (await fakes.chat.messages(thread)).find((message) =>
+    message.text.includes("I need the secret `WEATHER_TOKEN`"),
+  )
   expect(request?.text).toContain("WEATHER_TOKEN")
   expect(results((await fakes.model.calls())[1]).join("\n")).toContain(
     "Posted a button for WEATHER_TOKEN",
@@ -581,8 +584,13 @@ test("the agent's requestSecret posts a button whose form saves the secret as ch
   )
   expect(filled.clicked._tag).toBe("OpenModal")
   expect(filled.submitted?._tag).toBe("Close")
-  const saved = await fakes.chat.answers(thread, 3)
-  expect(saved.at(-1)?.text).toBe(
+  const saved = await eventually(
+    () => fakes.chat.messages(thread),
+    (messages) =>
+      messages.find((message) => message.id === request!.id)?.text !==
+      request!.text,
+  )
+  expect(saved.find((message) => message.id === request!.id)?.text).toBe(
     Format.local.subtext(Messages.secretSaved("WEATHER_TOKEN", false, [])),
   )
   expect(store(running.data)).toEqual({
@@ -591,6 +599,14 @@ test("the agent's requestSecret posts a button whose form saves the secret as ch
       note: "weather.example, owner",
       date: expect.any(String),
     },
+  })
+
+  const click = await Effect.runPromise(
+    running.chat.click(request!.id, "secret").pipe(Effect.result),
+  )
+  expect(click).toMatchObject({
+    _tag: "Failure",
+    failure: { _tag: "NoSuchElement" },
   })
 
   // The daemon's log, its database and the session's directory are on the volume, and the chat and the model are not.
