@@ -333,7 +333,7 @@ export const make = Effect.fnUntraced(function* (options: {
   readonly timezone: () => string
   readonly timings: Timings
   /** The daemon's `requestOnce` requests, which only a bundled plugin is given (`Once.ts`). */
-  readonly once?: OnceStore.Store
+  readonly once?: OnceStore.Daemon
   /** When the stop began, in milliseconds since the epoch, or nothing before a stop. */
   readonly stopping: () => number | undefined
   readonly notices: Notices.Notices["Service"]

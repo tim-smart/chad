@@ -1,7 +1,7 @@
 // The secret store as the owner, the agent and a plugin reach it: `chad secret set`, `list`, `rm` and `run` with and
 // without the daemon, the form an owner fills when the agent asks for a secret, the reload of the plugins whose settings
 // name a secret, and the check that no command prints a stored value. And `requestOnce`, which asks the owner for a value
-// it returns to the agent and never saves.
+// that only the calling script gets.
 import {
   mkdirSync,
   readdirSync,
@@ -14,6 +14,7 @@ import type { ChatThread } from "effect/chat"
 import { Config, Duration, Effect, Layer, Redacted } from "effect"
 import { expect, test } from "vitest"
 import * as Format from "../../dist/daemon/Format.js"
+import * as Once from "../../dist/daemon/Once.js"
 import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
 import requestSecret from "../../dist/plugins/request-secret/index.js"
@@ -638,13 +639,23 @@ const onceRequest = async (running: Scenario, thread: ChatThread.ChatThread) =>
     )
   ).find((message) => message.text.includes("one-off value"))!
 
-test("the agent's requestOnce waits in its turn for the owner's form, a stranger's click opens no form, the owner's value comes back as the tool's result, and nothing saves it in the secret store", async () => {
+test("the agent's requestOnce waits in its turn for the owner's form, a stranger's click opens no form, and only the calling script gets the owner's value: a traced command, a print and a thrown error carry a mask, and the value is nowhere on the volume, in the chat or in what the model is sent", async () => {
   const value = "once-7c3e9a41d2"
   const running = await scenario({
     plugins: [{ name: "request-secret", plugin: requestSecret }],
   })
   const { fakes } = running
-  await fakes.model.script([requestOnce("SMS_CODE"), { text: "Logged in." }])
+  await fakes.model.script([
+    runs(
+      [
+        `const code = await requestOnce({ name: "SMS_CODE", reason: "example.com sent a login code by SMS to your phone." })`,
+        `console.log(await run("test -n " + JSON.stringify(code) + " && echo nonempty"))`,
+        `console.log("got " + code)`,
+        `throw new Error("the site refused " + code)`,
+      ].join("\n"),
+    ),
+    { text: "Logged in." },
+  ])
   const thread = await fakes.chat.makeThread("direct")
   await says(running, thread, "log in to example.com")
   const request = await onceRequest(running, thread)
@@ -672,10 +683,13 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
   )
   expect(filled.clicked._tag).toBe("OpenModal")
   expect(filled.submitted?._tag).toBe("Close")
-  // The tool returns once the value is there, and what it returns is the value. A call carries the whole history, so
-  // the script's own output is its last result.
+  // The script got the value: the command saw it, and the print and the error say where it was. A call carries the
+  // whole history, so the script's own output is its last result.
   const returned = await fakes.model.received(2)
-  expect(results(returned[1]).at(-1)?.trim()).toBe(value)
+  const output = results(returned[1]).at(-1) ?? ""
+  expect(output).toContain("nonempty")
+  expect(output).toContain(`got ${Once.mask}`)
+  expect(output).toContain(`the site refused ${Once.mask}`)
   // The request loses its button, so it takes no second click.
   await eventually(
     () => fakes.chat.messages(thread),
@@ -692,16 +706,23 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
     () => posted(running, thread),
     (lines) => lines.includes("Logged in."),
   )
+  // The traced command line was logged with the mask.
+  expect(
+    running
+      .log()
+      .some((line) => JSON.stringify(line).includes(`test -n \\"${Once.mask}`)),
+  ).toBe(true)
 
-  // The value is in the session's history and the log now, and in nothing under secrets/.
+  // The daemon's log, its database and the session's directory are on the volume, and the chat and the model are not.
   await running.stop()
   expect(
-    files(running.data).filter(
-      (path) =>
-        path.startsWith("secrets/") &&
-        readFileSync(join(running.data, path), "utf8").includes(value),
+    files(running.data).filter((path) =>
+      readFileSync(join(running.data, path), "utf8").includes(value),
     ),
   ).toEqual([])
+  const chat = await Effect.runPromise(running.chat.calls)
+  expect(JSON.stringify(chat)).not.toContain(value)
+  expect(JSON.stringify(await fakes.model.calls())).not.toContain(value)
   expect(await running.chad(["secret", "list"])).toMatchObject({
     stdout: Messages.secretsNone() + "\n",
   })

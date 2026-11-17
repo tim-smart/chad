@@ -534,7 +534,7 @@ export const unusable = (
  *   `/new` and `/stop` need the thread to have a session, and `/new` starts the new one at the thread's newest
  *   message.
  */
-export const interactions = (connection: Live, once?: Once.Store) =>
+export const interactions = (connection: Live, once?: Once.Daemon) =>
   ChatInteraction.group(
     StopButton,
     SecretButton,

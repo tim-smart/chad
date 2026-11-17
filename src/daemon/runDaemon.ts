@@ -643,6 +643,7 @@ const boot = Effect.fnUntraced(function* (
               [],
             ended: (key, outcome) => PluginTurns.ended(waiting, key, outcome),
             timezone,
+            once,
           }),
           Layer.succeed(Timers.Support, {
             active: plugins.active,

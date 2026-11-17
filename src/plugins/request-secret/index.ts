@@ -71,7 +71,10 @@ const handlers = tools.toLayer(
             return yield* Effect.fail(Messages.onceUnavailable("turn"))
           }
           const { session } = current
-          const request = once.open(ChatThread.toString(session.thread))
+          const request = once.open(
+            ChatThread.toString(session.thread),
+            session.id,
+          )
           return yield* Effect.gen(function* () {
             const posted = yield* chat
               .post(session.thread, {

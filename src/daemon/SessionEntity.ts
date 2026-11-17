@@ -38,6 +38,7 @@ import * as Disk from "./Disk.ts"
 import * as Failed from "./Failed.ts"
 import type { Format } from "./Format.ts"
 import * as Logger from "./Logger.ts"
+import type * as Once from "./Once.ts"
 import * as Login from "./Login.ts"
 import * as Model from "./Model.ts"
 import * as Notices from "./Notices.ts"
@@ -225,12 +226,15 @@ export const Support = Context.Reference<{
   readonly ended: (key: string, outcome: Outcome) => void
   /** The owner's timezone now, which every process a session starts gets as `TZ`. */
   readonly timezone: () => string
+  /** The values `requestOnce` gave the session's scripts, which its log lines and script output mask (`Once.ts`). */
+  readonly once: Once.Daemon | undefined
 }>("chad/SessionEntity/Support", {
   defaultValue: () => ({
     loggedOut: Effect.succeed(false),
     owners: () => [],
     ended: () => {},
     timezone: () => "UTC",
+    once: undefined,
   }),
 })
 
@@ -658,12 +662,22 @@ export const layer = Layer.unwrap(
           })
           const subagents = () => current.steps?.subagents.size ?? 0
           const view = { lines: StatusMessage.none }
+          // The values `requestOnce` gave this session's scripts are masked in every line its executor and tool calls log,
+          // the command lines clanka traces and the causes of failed scripts included, before any sink or script output.
+          const once = support.once
+          const scrub =
+            once === undefined
+              ? undefined
+              : (line: string) => once.scrub(id, line)
           const built = yield* Layer.buildWithScope(
             AgentExecutor.layerLocal({ directory }).pipe(
               Layer.provide(Spawner.layer(id, volume.home, support.timezone)),
             ),
             own,
-          ).pipe(Effect.provideService(Logger.CurrentLogIds, ids))
+          ).pipe(
+            Effect.provideService(Logger.CurrentLogIds, ids),
+            Effect.provideService(Logger.Scrub, scrub),
+          )
           const inner = Context.get(built, AgentExecutor.AgentExecutor)
           // A sub-agent's number by the environment clanka starts it in, until its first script ties the number to its
           // task owner. An environment rendered from a numbered one keeps the number.
@@ -762,8 +776,19 @@ export const layer = Layer.unwrap(
                   )
                   const at = Date.now()
                   let text = ""
+                  // What the script prints goes to the model, the history and the log only once the values
+                  // `requestOnce` gave the session are masked in it, a value split across chunks included.
+                  const redactor = once?.redactor(id)
+                  const redacted =
+                    redactor === undefined
+                      ? ran
+                      : ran.pipe(
+                          Stream.map(redactor.push),
+                          Stream.concat(Stream.sync(redactor.end)),
+                          Stream.filter((chunk) => chunk !== ""),
+                        )
                   // The end is logged however the script ends, a stop included, with what it printed so far.
-                  return ran.pipe(
+                  return redacted.pipe(
                     Stream.tap((chunk) =>
                       Effect.sync(() => {
                         text += chunk
@@ -781,7 +806,10 @@ export const layer = Layer.unwrap(
                     ),
                   )
                 }),
-              ).pipe(Stream.provideService(Logger.CurrentSubagent, subagent))
+              ).pipe(
+                Stream.provideService(Logger.CurrentSubagent, subagent),
+                Stream.provideService(Logger.Scrub, scrub),
+              )
             },
           })
           /**

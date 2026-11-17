@@ -1,17 +1,21 @@
 // What the daemon keeps of the requests that `requestOnce` makes: each one waits for the owner's form, and the submit
-// hands the value to the tool that waits. The daemon makes the store (src/daemon/Once.ts) and gives it only to the
-// bundled plugins, so a plugin from the repo reads none and its `requestOnce` says it cannot take a value. No request
-// outlives the tool call that opened it, and none is written anywhere.
+// hands the value to the tool that waits, which returns it to the calling script. The daemon makes the store
+// (src/daemon/Once.ts) and gives it only to the bundled plugins, so a plugin from the repo reads none and its
+// `requestOnce` says it cannot take a value. No request outlives the tool call that opened it, and none is written
+// anywhere. The daemon masks the value in the session's log lines and script output.
 import { Context, type Duration, type Effect } from "effect"
 
 export interface Store {
   /** How long a request waits for the owner's form. */
   readonly deadline: Duration.Duration
   /**
-   * Opens a request in a thread, given as a string, and gives its id, which the button carries, and what resolves
-   * with the value once the owner's form arrives. The request waits until `close`.
+   * Opens a request of a session in its thread, given as a string, and gives its id, which the button carries, and
+   * what resolves with the value once the owner's form arrives. The request waits until `close`.
    */
-  readonly open: (thread: string) => {
+  readonly open: (
+    thread: string,
+    session: string,
+  ) => {
     readonly id: string
     readonly submitted: Effect.Effect<string>
   }
