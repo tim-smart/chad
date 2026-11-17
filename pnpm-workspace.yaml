@@ -1,0 +1,42 @@
+# effect and every @effect/* package come from one snapshot of the effect PR, as tarballs under vendor/.
+# vendor/manifest.json names the commit.
+# Moving to released versions is this catalog and the overrides, nothing else.
+catalog:
+  effect: file:vendor/effect.tgz
+  "@effect/ai-openai": file:vendor/effect-ai-openai.tgz
+  "@effect/ai-openai-compat": file:vendor/effect-ai-openai-compat.tgz
+  "@effect/chat-discord": file:vendor/effect-chat-discord.tgz
+  "@effect/platform-node": file:vendor/effect-platform-node.tgz
+  "@effect/platform-node-shared": file:vendor/effect-platform-node-shared.tgz
+  "@effect/sql-sqlite-node": file:vendor/effect-sql-sqlite-node.tgz
+  "@effect/vitest": file:vendor/effect-vitest.tgz
+
+# The snapshot's @effect/platform-node names @effect/platform-node-shared by a pkg.pr.new URL.
+# Each such edge is redirected to the tarball here.
+overrides:
+  effect: "catalog:"
+  "@effect/platform-node-shared": "catalog:"
+
+blockExoticSubdeps: false
+
+# pnpm 12 links node_modules into a store outside the project by default. The image copies
+# /opt/chad from the build stage, so the packages have to sit inside it.
+enableGlobalVirtualStore: false
+
+# esbuild's postinstall only checks its binary. Without this entry pnpm 12 exits 1.
+allowBuilds:
+  esbuild: true
+
+# The Claude SDK's JavaScript stays because clanka imports it. Its platform binary (349 MB) does not.
+ignoredOptionalDependencies:
+  - "@anthropic-ai/claude-agent-sdk-linux-x64"
+  - "@anthropic-ai/claude-agent-sdk-linux-arm64"
+  - "@anthropic-ai/claude-agent-sdk-linux-x64-musl"
+  - "@anthropic-ai/claude-agent-sdk-linux-arm64-musl"
+  - "@anthropic-ai/claude-agent-sdk-darwin-x64"
+  - "@anthropic-ai/claude-agent-sdk-darwin-arm64"
+  - "@anthropic-ai/claude-agent-sdk-win32-x64"
+  - "@anthropic-ai/claude-agent-sdk-win32-arm64"
+
+minimumReleaseAgeExclude:
+  - clanka@0.28.0

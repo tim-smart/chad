@@ -1,0 +1,143 @@
+// A cron job across a kill, in layer 4: the daemon as a child process with every bundled plugin, killed and started
+// again on the same volume after the job's time has passed.
+import { join } from "node:path"
+import { ChatThread } from "effect/chat"
+import { expect, test } from "vitest"
+import * as Messages from "../../dist/Messages.js"
+import { applied, write } from "../support/applied.ts"
+import { execute } from "../support/database.ts"
+import { runs } from "../support/model.ts"
+import { eventually, posted, prompted, rows, says } from "../support/owner.ts"
+import { daemon } from "../support/process.ts"
+
+test("a one-shot job survives a kill and fires once when chad starts again after its time, and is deleted after that run", async () => {
+  const running = await daemon({ bundled: true })
+  const { fakes } = running
+  await fakes.model.script([
+    runs(
+      'console.log(await cronCreate({ name: "later", prompt: "Say that it is later.", in: "2 seconds" }))',
+    ),
+    { text: "Set." },
+    { text: "It is later." },
+  ])
+  const first = await running.start()
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "remind me later")
+  await fakes.chat.answers(thread, 1)
+  const [job] = rows(running, "SELECT value FROM plugin_kv_cron")
+  const at = Number(
+    JSON.parse(Buffer.from(job!["value"] as Uint8Array).toString())["at"],
+  )
+  expect((await first.kill()).signal).toBe("SIGKILL")
+
+  // chad is down when the job comes due.
+  await eventually(
+    () => Date.now(),
+    (now) => now > at,
+  )
+  await running.start()
+  await fakes.chat.answers(thread, 2)
+  expect(await posted(running, thread)).toEqual(["Set.", "It is later."])
+  await eventually(
+    () => rows(running, "SELECT id FROM plugin_kv_cron"),
+    (left) => left.length === 0,
+  )
+  expect(
+    rows(running, "SELECT origin_label FROM turns WHERE origin = 'plugin'"),
+  ).toEqual([{ origin_label: "later" }])
+  expect(await fakes.model.calls()).toHaveLength(3)
+}, 20_000)
+
+/** A plugin of the owner's repo with one timer that runs every second in a thread, scheduled once. */
+const chain = (
+  thread: ChatThread.ChatThread,
+) => `import { Effect, Option } from "effect"
+import { ChatThread } from "effect/chat"
+import { Plugin, Turns } from "chad"
+
+export default Plugin.make(
+  Plugin.background(
+    Effect.gen(function* () {
+      const turns = yield* Turns.Turns
+      if ((yield* turns.scheduled()).length > 0) return
+      yield* turns.schedule({
+        name: "tick",
+        cron: "* * * * * *",
+        timezone: "UTC",
+        thread: Option.getOrThrow(ChatThread.fromString(${JSON.stringify(ChatThread.toString(thread))})),
+        prompt: "tick",
+        label: "tick",
+      })
+    }),
+  ),
+)
+`
+
+test("a recurring timer killed in the middle of its turn while its plugin goes off resumes that scheduled run as the same turn after the restart, holds the next run until the plugin is on, and the chain then goes on with one turn per later time when none of its runs' replies can be saved", async () => {
+  const running = await daemon()
+  const { fakes } = running
+  const thread = await fakes.chat.makeThread("direct")
+  applied(join(running.data, "repo"), { "plugins/chain.ts": chain(thread) })
+  await fakes.model.script([
+    { text: "never sent", hold: true },
+    ...Array.from({ length: 20 }, () => ({ text: "tick" })),
+  ])
+  const ticks = () =>
+    rows(
+      running,
+      "SELECT request_key, turn_id, starts, outcome FROM turns WHERE request_key LIKE 'timer/chain/tick/%' ORDER BY started_at",
+    )
+  const apply = async (plugins: object, message: string) => {
+    write(join(running.data, "repo/work"), {
+      "chad.json": JSON.stringify({ plugins }),
+    })
+    expect((await running.chad(["apply", "-m", message])).code).toBe(0)
+  }
+  const first = await running.start()
+  await fakes.model.received(1)
+  const [cut] = ticks()
+  expect(cut).toMatchObject({ starts: 1, outcome: null })
+  // The plugin goes off during the turn, and no reply of the timer's runs can be saved from here on.
+  await apply({ chain: { enabled: false } }, "Turn chain off")
+  const replies =
+    "SELECT id FROM cluster_messages WHERE entity_type = 'TimerRuns' AND entity_id = 'chain/tick'"
+  execute(
+    running.data,
+    `CREATE TRIGGER noreply BEFORE INSERT ON cluster_replies WHEN NEW.request_id IN (${replies}) BEGIN SELECT RAISE(ABORT, 'database or disk is full'); END`,
+  )
+  expect((await first.kill()).signal).toBe("SIGKILL")
+
+  // The cut turn was admitted to its session, so it resumes with the plugin off, while the next run is held.
+  const second = await running.start()
+  await eventually(
+    () => ticks(),
+    ([resumed]) => resumed?.["outcome"] === "answered",
+  )
+  await running.logged("timer.held")
+  expect(ticks()).toHaveLength(1)
+  await apply({}, "Turn chain on")
+  await eventually(
+    () => ticks().filter((row) => row["outcome"] === "answered"),
+    (answered) => answered.length >= 3,
+  )
+  await second.stop()
+  expect(
+    rows(
+      running,
+      `SELECT 1 FROM cluster_replies WHERE request_id IN (${replies})`,
+    ),
+  ).toEqual([])
+  const calls = await fakes.model.calls()
+  // The first call after the restart resumes the cut turn.
+  expect(prompted(calls[1])).toBe(Messages.restartNote())
+  const all = ticks()
+  expect(all[0]).toEqual({ ...cut, starts: 2, outcome: "answered" })
+  // Each later scheduled time is one turn, after the resumed one.
+  const times = all.map((row) =>
+    Number(String(row["request_key"]).split("/").pop()),
+  )
+  expect(new Set(times).size).toBe(times.length)
+  expect([...times].sort((x, y) => x - y)).toEqual(times)
+  expect(new Set(all.map((row) => row["turn_id"])).size).toBe(all.length)
+  expect(await posted(running, thread)).not.toContain("never sent")
+}, 30_000)

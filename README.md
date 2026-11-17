@@ -2,10 +2,19 @@
 
 A personal assistant daemon that lives in Discord, built on effect/chat and clanka. It is a lighter alternative to Hermes: one process, one data volume, plugins written in TypeScript that chad can write and apply to itself.
 
-Nothing is built yet. This repo holds the spec the build works from.
+chad has one owner. It ships as one Docker image with one data volume, and it changes itself by editing the plugins, skills, MCP config and persona on that volume.
 
-- `docs/spec/` is the spec, 21 parts. `00-overview.md` is the way in, and its part table says what each part holds.
-- `docs/spec/20-for-tim.md` is the owner's reading list: the size of the build, the open questions and what changed after it was agreed.
-- `docs/spec/19-build-order.md` is the order of the build, five stages on one branch and one pull request.
-- `AGENTS.md` is the contract for whoever builds it.
-- The `prototypes` branch holds the throwaway prototypes that ran many of the rules. It is never merged.
+## Running it
+
+`docs/running.md` says how to run the image, with Docker or on Kubernetes, and how to back it up and restore it. After the first start, `chad setup` inside the container connects Discord, names the owner and can log chad in to Codex.
+
+## Docs
+
+- `docs/running.md`: running, backing up and restoring the image.
+- `docs/owners.md`: who chad answers.
+- `docs/live-checks.md`: the checks done by hand against a real Discord, Codex login and deployment.
+- `docs/codex-capture.md`: how the recorded Codex frames the tests replay were made, and how to make them again.
+- `skills/`: the skills chad ships with, which the model reads.
+- `AGENTS.md`: the contract for whoever changes chad.
+
+The `prototypes` branch holds throwaway prototypes from before the build. It is never merged.

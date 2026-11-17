@@ -1,0 +1,66 @@
+{
+  "name": "chad",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.9.0",
+  "engines": {
+    "node": "^26.0.0"
+  },
+  "bin": {
+    "chad": "./bin/chad.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./Plugin": {
+      "types": "./dist/Plugin.d.ts",
+      "default": "./dist/Plugin.js"
+    },
+    "./Session": {
+      "types": "./dist/Session.d.ts",
+      "default": "./dist/Session.js"
+    },
+    "./Turns": {
+      "types": "./dist/Turns.d.ts",
+      "default": "./dist/Turns.js"
+    }
+  },
+  "files": [
+    "bin",
+    "dist",
+    "plugins",
+    "skills"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfile=dist/cli.bundle.js --log-level=warning --external:@anthropic-ai/claude-agent-sdk --banner:js=\"import { createRequire as __chadRequire } from 'node:module'; const require = __chadRequire(import.meta.url);\" && node scripts/examples.ts",
+    "check": "pnpm build && tsc --noEmit && oxlint && prettier --check .",
+    "test": "node scripts/local.ts",
+    "test:image": "node scripts/image.ts",
+    "vendor": "node scripts/vendor.ts"
+  },
+  "dependencies": {
+    "@effect/ai-openai": "catalog:",
+    "@effect/ai-openai-compat": "catalog:",
+    "@effect/chat-discord": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@effect/sql-sqlite-node": "catalog:",
+    "clanka": "0.28.0",
+    "dfx": "1.1.1",
+    "effect": "catalog:",
+    "esbuild": "0.28.2",
+    "semver": "7.8.6",
+    "typescript": "7.0.2"
+  },
+  "devDependencies": {
+    "@effect/vitest": "catalog:",
+    "@types/node": "26.6.6",
+    "@types/semver": "7.8.0",
+    "oxlint": "1.93.0",
+    "prettier": "3.10.1",
+    "vitest": "5.1.0",
+    "yaml": "2.9.1"
+  }
+}
