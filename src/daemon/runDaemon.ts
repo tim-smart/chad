@@ -395,14 +395,13 @@ const boot = Effect.fnUntraced(function* (
   })
   // Each connection has a `Chat` and an adapter registry of its own, because the registry is keyed by platform and
   // two connections can share one. A session finds the `Chat` of a connection by the connection's name.
+  // The requests of `requestOnce`, which a form's submit answers. They live as long as this daemon, and no longer.
+  const once = Once.make(inputs.timings.onceWait)
   const running = yield* Chats.make((connection, live) =>
     inputs
       .chat(connection)
       .pipe(
-        Layer.provide([
-          Handler.layer(live),
-          Handler.interactions(live, state.once),
-        ]),
+        Layer.provide([Handler.layer(live), Handler.interactions(live, once)]),
       ),
   )
   // The notices outside a turn post through the connections, and "Problems" lists their keys from here on.
@@ -643,8 +642,6 @@ const boot = Effect.fnUntraced(function* (
               running.list().find(({ name }) => name === connection)?.owners ??
               [],
             ended: (key, outcome) => PluginTurns.ended(waiting, key, outcome),
-            forget: state.once.forget,
-            turnKey: state.once.key,
             timezone,
           }),
           Layer.succeed(Timers.Support, {
@@ -787,7 +784,7 @@ const boot = Effect.fnUntraced(function* (
         ),
     timezone,
     timings: inputs.timings,
-    once: state.once,
+    once,
     stopping: () => state.stopping,
     notices,
     // The trial `Agent.makeWith` of an apply, on an executor of its own, since clanka dies when two tools share a name.
@@ -967,8 +964,7 @@ export const runDaemon = (inputs: DaemonInputs): Promise<number> => {
   process.env["CHAD_SESSION"] = "daemon"
   const file = Logger.makeFileSink()
   const logging = Logger.layer({ level: environment.logLevel, file })
-  // The one-off values live as long as this daemon, and no longer.
-  const state = Server.makeState(Once.make(inputs.timings.onceWait))
+  const state = Server.makeState()
 
   const program = Effect.gen(function* () {
     const scope = yield* Scope.make()

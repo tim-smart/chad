@@ -23,7 +23,7 @@ A check with no recorded result has not run.
 | 9. A secret through a form                                    | The agent's request posts a button, the form saves the secret, and the value shows nowhere in the chat.                          | not run |
 | 10. OAuth sign-in to an MCP server that registers chad itself | A server with `"oauth": {}` needs login, the owner signs in from Discord, and the sign-in outlives a restart.                    | not run |
 | 11. OAuth sign-in with a client you registered                | `chad mcp login` signs in with your client id, secret, redirect URL and scopes, and registers no client.                         | not run |
-| 12. A one-off value through a form                            | The agent's `requestOnce` waits in its turn, a command of that turn gets the value, and nothing keeps it.                        | not run |
+| 12. A one-off value through a form                            | The agent's `requestOnce` returns the owner's value, and nothing saves it in the secret store.                                   | not run |
 | D1. Publish the image                                         | The image builds and pushes to `ghcr.io/tim-smart/chad`.                                                                         | not run |
 | D2. The volume's filesystem                                   | The volume's filesystem is one chad's lock and SQLite are safe on.                                                               | not run |
 | D3. asphodel for real                                         | The asphodel plugin talks to a real asphodel daemon with its token.                                                              | not run |
@@ -218,19 +218,15 @@ no second client, a turn in the DM can call one of the server's tools, and the g
 
 ## 12. A one-off value through a form
 
-Pick a fresh value that appears nowhere else, such as a few random words. It goes only into the form, never into a
-message or a command.
-
-1. In the DM, send "Ask me for a one-off value named LIVE_ONCE with requestOnce, then run
-   `chad secret run --env V=LIVE_ONCE -- sh -c 'test -n "$V" && echo got-a-value'` and tell me what it printed".
+1. In the DM, send "Ask me for a one-off value named LIVE_ONCE with requestOnce, then tell me how many characters it
+   has, without repeating it".
 2. chad posts a message that names `LIVE_ONCE` with an `Enter LIVE_ONCE` button, and the turn keeps running. Click it.
-3. A form titled "Enter a one-off value" opens, with one field. Type your fresh value and submit.
-4. Once the turn has ended, run `chad secret list`, then `chad logs | grep -c -F '<value>'` with your value, typed in
-   a shell whose history you do not keep.
+3. A form titled "Enter a one-off value" opens, with one field. Type `live-once-value` and submit.
+4. Once the turn has ended, run `chad secret list` and `grep -c live-once-value secrets/*` on the data volume.
 
-Passes when the request changes to `Got LIVE_ONCE` and its button disappears, chad's answer says the command printed
-`got-a-value`, `chad secret list` does not list `LIVE_ONCE`, the grep prints `0`, and no message in the DM shows your
-value.
+Passes when the request changes to `Got LIVE_ONCE` and its button disappears, chad's answer says 15, `chad secret list`
+does not list `LIVE_ONCE`, and the grep prints `0` for every file. The value is in the session's history and the log,
+which is expected.
 
 ## D1. Publish the image
 

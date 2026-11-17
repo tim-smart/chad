@@ -525,9 +525,8 @@ export const unusable = (
  * - A click on a secret request's button opens its form, and the form's submit saves the secret as `chad secret set`
  *   does. The value goes from the submit to the store: no message, log line or session gets it.
  * - A click on a one-off request's button opens its form while the request waits, and the form's submit hands the value
- *   to the daemon's memory for the session that asked (`Once.ts`). A submit that comes after the request ended is
- *   discarded, and a line says so. The value goes from the submit to the daemon's memory: no message, log line, file or
- *   session's history gets it.
+ *   to the `requestOnce` call that waits for it (`Once.ts`), which returns it to the agent. A submit that comes after
+ *   the request ended is discarded, and a line says so. Nothing on the way from the submit to the call logs or posts it.
  * - A click on an MCP sign-in request's button begins the sign-in and posts its link with a second button, which
  *   opens the form for the address the browser ended on. The form's submit finishes the sign-in as `chad mcp login`
  *   does. The address goes from the submit to the daemon: no message, log line or session gets it.

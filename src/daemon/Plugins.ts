@@ -332,7 +332,7 @@ export const make = Effect.fnUntraced(function* (options: {
   /** The owner's timezone, which a plugin reads as `DateTime.CurrentTimeZone` and gets at load. */
   readonly timezone: () => string
   readonly timings: Timings
-  /** The daemon's one-off values, which only a bundled plugin is given (`Once.ts`). */
+  /** The daemon's `requestOnce` requests, which only a bundled plugin is given (`Once.ts`). */
   readonly once?: OnceStore.Store
   /** When the stop began, in milliseconds since the epoch, or nothing before a stop. */
   readonly stopping: () => number | undefined
@@ -720,7 +720,7 @@ export const make = Effect.fnUntraced(function* (options: {
               DateTime.CurrentTimeZone,
               DateTime.zoneMakeNamedUnsafe(options.timezone()),
             ),
-            // A plugin from the repo has a bundle, and is not given the one-off values.
+            // A plugin from the repo has a bundle, and is not given the `requestOnce` requests.
             Context.make(
               Once,
               entry.bundle === undefined ? options.once : undefined,

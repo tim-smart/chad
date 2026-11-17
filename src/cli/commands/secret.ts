@@ -269,33 +269,9 @@ const execute = (
 const pair = /^([A-Za-z_][A-Za-z0-9_]*)=(.+)$/
 
 /**
- * The one-off values the daemon holds for the turn whose key this CLI has, of the names it asks for. Only a process of
- * a session's running turn has a key, so the owner's shell and the processes of another session or an earlier turn get
- * none, and with no daemon there are none to get. A daemon that is not reached ends the command, so a stored value
- * never stands in for a one-off one.
- */
-const oneOff = (names: ReadonlyArray<string>) =>
-  Effect.gen(function* () {
-    const { turnKey } = yield* Environment
-    if (turnKey === undefined || names.length === 0) return {}
-    if ((yield* Daemon.lock) === "free") return {}
-    const client = yield* Daemon.reach("secret run")
-    return yield* Daemon.call(
-      "secret run",
-      client.OnceValues({ key: turnKey, names }),
-    )
-  }).pipe(
-    Effect.mapError(
-      (failure) =>
-        new Failure({ code: RunCode.usage, message: failure.message }),
-    ),
-  )
-
-/**
  * `chad secret run [--env VAR=NAME]... [--stdin NAME] -- <command> [args]`. The CLI reads the store itself, with or
- * without a daemon, and puts each value only into the child's environment or stdin. A one-off value the daemon holds
- * for the command's session wins over a stored one of the same name. Its own failures exit 125, and otherwise the
- * child's code passes through.
+ * without a daemon, and puts each value only into the child's environment or stdin. Its own failures exit 125, and
+ * otherwise the child's code passes through.
  */
 const runCommand = Command.make(
   "run",
@@ -330,16 +306,10 @@ const runCommand = Command.make(
         usage(Messages.secretStoreBroken("run", error.message)),
       ),
     )
-    const once = yield* oneOff([
-      ...pairs.map(([, name]) => name),
-      ...(Option.isSome(stdin) ? [stdin.value] : []),
-    ])
     const lookup = (name: string) =>
-      Object.hasOwn(once, name)
-        ? Effect.succeed(once[name]!)
-        : Object.hasOwn(store, name)
-          ? Effect.succeed(store[name]!.value)
-          : Effect.fail(usage(Messages.secretMissing("run", name)))
+      Object.hasOwn(store, name)
+        ? Effect.succeed(store[name]!.value)
+        : Effect.fail(usage(Messages.secretMissing("run", name)))
     const variables: Record<string, string> = {}
     for (const [variable, name] of pairs)
       variables[variable] = yield* lookup(name)
