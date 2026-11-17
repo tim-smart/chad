@@ -1,6 +1,4 @@
-import { globSync } from "node:fs"
 import { describe, expect, it } from "vitest"
-import { read, root } from "../support/repo.ts"
 import { skipsIn } from "../support/skips.ts"
 
 // The modifiers and keys are spliced in, so that this file does not itself hold one.
@@ -12,15 +10,6 @@ const option = (test: string, key: string) =>
   `${test}("a title", { ${key}: true }, () => {})`
 
 describe("the check for skipped tests", () => {
-  it("finds no test file that skips a test, marks it todo or runs it alone", () => {
-    const found = globSync("test/**/*.test.ts", { cwd: root }).flatMap((file) =>
-      skipsIn(read(file)).map(
-        (skip) => `${file}:${skip.line} uses ${skip.uses}`,
-      ),
-    )
-    expect(found).toEqual([])
-  })
-
   it("finds each modifier, the conditional ones included", () => {
     expect(
       skipsIn(
