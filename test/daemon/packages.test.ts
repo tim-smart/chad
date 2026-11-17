@@ -3,7 +3,9 @@
 // an effect the host does not satisfy is refused.
 import { existsSync, readdirSync, rmSync, symlinkSync } from "node:fs"
 import { join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { expect, test } from "vitest"
+import * as Messages from "../../dist/Messages.js"
 import { git, write } from "../support/applied.ts"
 import { scenario, type Scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
@@ -60,12 +62,23 @@ const greeted = async (
   return results((await running.fakes.model.calls()).at(-1)).join("\n")
 }
 
-test("a check refuses a package that needs another effect and an alias of effect, an apply leaves out a node_modules the agent made, installs the packages work/package.json names and the plugin's tool runs them on the host's effect, a boot with the install and the registry gone installs them again from chad's cache, and a revert takes them away", async () => {
+/** A stdio MCP server, which can be a command of a package, so a changed lockfile restarts it. */
+const server = {
+  command: process.execPath,
+  args: [fileURLToPath(new URL("../fixtures/mcp/server.mjs", import.meta.url))],
+}
+
+test("a check refuses a package that needs another effect and an alias of effect, an apply leaves out a node_modules the agent made, installs the packages work/package.json names, restarts the MCP servers and the plugin's tool runs them on the host's effect, a boot with the install and the registry gone installs them again from chad's cache, and a revert takes them away", async () => {
   const registry = await Registry.start()
   const running = await scenario({ env })
   await running.logged("boot.ready")
   const repo = join(running.data, "repo")
   const work = join(repo, "work")
+  write(work, {
+    "mcp.json": JSON.stringify({ mcpServers: { server } }),
+  })
+  expect((await running.chad(["apply", "-m", "Add a server"])).code).toBe(0)
+
   // A package that needs an effect the host's does not satisfy is refused, and so are an npm alias of effect, whether
   // it keeps effect's name or takes another, and another package aliased under a host package's name, whose types
   // would shadow the host's copy that the bundle runs. Nothing is installed.
@@ -105,6 +118,9 @@ test("a check refuses a package that needs another effect and an alias of effect
   const applied = await running.chad(["apply", "-m", "Add hello"])
   expect(applied.code, applied.stderr).toBe(0)
   expect(applied.stdout).toContain("Packages added: greet 1.0.0, words 1.0.0.")
+  expect(applied.stdout).toContain(
+    Messages.mcpServerLine({ name: "server", state: "connected", tools: 1 }),
+  )
   // The fake effect of the registry throws when it runs, so the tool answers only on the host's.
   expect(await greeted(running, "direct", "greet Tim")).toContain(
     "hello from words, Tim",

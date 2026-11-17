@@ -634,10 +634,16 @@ export const make = Effect.fnUntraced(function* (options: {
             ignored: [],
           })
           // A changed `mcp.json` rebuilds the MCP layer once the queue is released, and the plugins do not wait for it.
-          // In safe mode it loads when safe mode goes off.
+          // So does a changed lockfile while a server is configured, because a stdio server can be a command of a
+          // package, and the install it was started from has just been replaced. In safe mode it loads when safe mode
+          // goes off.
           const mcpChanged =
             safe === "off" &&
-            changes.some(({ path }) => path === McpFile.fileName)
+            changes.some(
+              ({ path }) =>
+                path === McpFile.fileName ||
+                (path === Packages.lockName && mcpRead.file.size > 0),
+            )
           if (mcpChanged) {
             options.mcp.set(mcpRead.file)
             yield* options.notices.clear(Mcp.unreadableKey)
