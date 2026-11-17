@@ -152,7 +152,7 @@ test("with no daemon chad model tries the model itself, stores nothing when the 
   )
 })
 
-test("with no daemon, a chad model whose trial outlasts another change is planned again on what that change stored, so no override of another provider is stored", async () => {
+test("with no daemon, a chad model whose trial outlasts another change is planned again on what that change stored, so no override of another provider is stored, and fast mode is stored only once the other change's model passed a trial on the priority tier", async () => {
   const first = await scenario()
   await first.stop()
   const env = { ...alone(first), CHAD_DATA: first.data }
@@ -195,4 +195,23 @@ test("with no daemon, a chad model whose trial outlasts another change is planne
       .slice(1),
     "",
   ])
+
+  // Fast mode turned on while another change moves the main model: the new model is tried with the tier before the
+  // setting is stored beside it.
+  const fastHeld = first.model.holdChecks("new-main")
+  const fast = Cli.start(["model", "--fast", "on"], env)
+  await fastHeld.reached
+  const plain = await first.chad(["model", "openai/plain"], env)
+  expect(plain.code).toBe(0)
+  fastHeld.release()
+  expect(await fast.done).toMatchObject({
+    code: 0,
+    stdout: `${Messages.modelFastNow(true, undefined)}\n`,
+  })
+  const bodies = first.model.checks().map((call) => call.body)
+  expect(bodies).toContainEqual(
+    expect.objectContaining({ model: "plain", service_tier: "priority" }),
+  )
+  expect(stored(first, "model")?.trim()).toBe("openai/plain")
+  expect(stored(first, "fast-mode")).toBe("on\n")
 })

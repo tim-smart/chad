@@ -559,10 +559,23 @@ export const plan = (
   })
 }
 
+/** What one trial request proved: a model, with the priority tier or without it. */
+const proof = (spec: Spec, fast: boolean) =>
+  `${spec.text} ${fast && fastApplies(spec) ? "fast" : "default"}`
+
+/**
+ * The trials of a plan that no request in `tried` proved. A plan made again on settings another change stored can
+ * need trials the first plan did not, such as a new main model while this change turns fast mode on.
+ */
+export const untried = (planned: Plan, tried: ReadonlySet<string>) =>
+  planned.trials.filter(
+    (spec) => !tried.has(proof(spec, planned.settings.fast)),
+  )
+
 /**
  * Readies a change: the plan, then the login when a model to try needs one and none exists, then the trial
  * request of each model to try, one after another. The first that fails ends the change with nothing
- * stored.
+ * stored. A trial `tried` already proved is not made again, and each one that passes is added to it.
  */
 export const prepare = Effect.fnUntraced(function* <E>(options: {
   readonly current: Settings
@@ -571,18 +584,16 @@ export const prepare = Effect.fnUntraced(function* <E>(options: {
   readonly deadline: Duration.Duration
   /** Runs the login, or fails with what the command prints. */
   readonly login: Effect.Effect<void, E, Requirements>
+  readonly tried?: Set<string> | undefined
 }): Effect.fn.Return<Plan, Unchanged | E, Requirements> {
   const planned = plan(options.current, options.request, options.endpoint)
   if (Result.isFailure(planned)) return yield* planned.failure
-  const { trials } = planned.success
+  const tried = options.tried ?? new Set<string>()
+  const { fast } = planned.success.settings
+  const trials = untried(planned.success, tried)
   if (trials.some(needsLogin)) yield* options.login
   for (const spec of trials) {
-    yield* trial(
-      spec,
-      options.endpoint,
-      options.deadline,
-      planned.success.settings.fast,
-    ).pipe(
+    yield* trial(spec, options.endpoint, options.deadline, fast).pipe(
       Effect.mapError(
         (error) =>
           new Unchanged({
@@ -590,6 +601,7 @@ export const prepare = Effect.fnUntraced(function* <E>(options: {
           }),
       ),
     )
+    tried.add(proof(spec, fast))
   }
   return planned.success
 })

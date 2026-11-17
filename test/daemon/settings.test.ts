@@ -297,13 +297,15 @@ test("in safe mode the bundled plugins build on their defaults, one the applied 
   })
   const status = async () =>
     JSON.parse((await running.chad(["status", "--json"])).stdout) as {
+      readonly phase?: string
       readonly plugins: ReadonlyArray<{ readonly name: string }>
       readonly skipped: ReadonlyArray<unknown>
       readonly off: ReadonlyArray<string>
     }
-  // Every bundled plugin builds with no entry of its own, and a bad `enabled` turns on only that plugin.
+  // Every bundled plugin builds with no entry of its own, and a bad `enabled` turns on only that plugin. Before the
+  // boot is ready the report holds no plugin yet, so the wait is on the phase.
   expect(
-    await eventually(status, (report) => report.plugins !== undefined),
+    await eventually(status, (report) => report.phase === "ready"),
   ).toMatchObject({
     plugins: names.sort().map((name) => ({ name })),
     skipped: [],
