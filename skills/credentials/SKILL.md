@@ -23,7 +23,7 @@ There is no command that reads a value back.
 
 Only the owner saves a secret. There are two ways, and neither puts the value in the chat.
 
-- In chat, through `requestSecret`. Call it with the name you will use and a sentence on what the secret is for: `await requestSecret({ name: "EXAMPLE_PASSWORD", reason: "to sign in to example.com." })`. It posts a button in the thread. The owner clicks it and types the value into a form, which saves it as `chad secret set` does. The tool returns as soon as the button is posted, so end your turn there and use the secret once the owner says it is saved. The form also has a note field for the site and the username.
+- In chat, through `requestSecret`. Call it with the name you will use and a sentence on what the secret is for: `await requestSecret({ name: "EXAMPLE_PASSWORD", reason: "to sign in to example.com." })`. It posts a button in the thread. The owner clicks it and types the value into a form, which saves it as `chad secret set` does. On success, the request message shows the confirmation and its button disappears. The tool returns as soon as the button is posted, so end your turn there and use the secret once the owner says it is saved. The form also has a note field for the site and the username.
 - In a shell on the server, with the value typed at a hidden prompt or piped on stdin:
 
 ```sh

@@ -73,7 +73,8 @@ export const SafeCommand = Context.Reference<{
 
 /**
  * Saves a secret that an owner submitted in a request's form, as `chad secret set` does through the daemon's queue,
- * and posts what that command prints. Nothing it posts or logs carries the value.
+ * and reports what that command prints, marking only a successful final result as saved.
+ * Nothing it posts or logs carries the value.
  */
 export const SecretSave = Context.Reference<{
   readonly run: (
@@ -82,7 +83,7 @@ export const SecretSave = Context.Reference<{
       readonly value: string
       readonly note: string | undefined
     },
-    post: (markdown: string) => Effect.Effect<void>,
+    post: (markdown: string, saved?: boolean) => Effect.Effect<void>,
   ) => Effect.Effect<void>
 }>("chad/Handler/SecretSave", {
   defaultValue: () => ({ run: () => Effect.void }),
@@ -503,13 +504,23 @@ export const interactions = (connection: Live) =>
                     value: submit.values.value,
                     note: submit.values.note,
                   },
-                  (markdown) =>
-                    say(
-                      markdown
-                        .split("\n")
-                        .map(connection.format.subtext)
-                        .join("\n"),
-                    ),
+                  (markdown, saved) => {
+                    const text = markdown
+                      .split("\n")
+                      .map(connection.format.subtext)
+                      .join("\n")
+                    if (!saved || submit.messageId === undefined)
+                      return say(text)
+                    return chat
+                      .edit(submit.thread, submit.messageId, {
+                        markdown: text,
+                        actions: [],
+                      })
+                      .pipe(
+                        Effect.catchCause(() => say(text)),
+                        Effect.asVoid,
+                      )
+                  },
                 ),
               ).pipe(
                 // The value is in the submit, which the cause does not carry.
