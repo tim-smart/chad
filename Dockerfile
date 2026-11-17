@@ -1,8 +1,14 @@
 # syntax=docker/dockerfile:1
 ARG NODE=docker.io/library/node:26-trixie-slim@sha256:e6bedef217677b276c591795e169840edd9096dbf13f29df8ef8d1856b8820bc
 ARG UV=ghcr.io/astral-sh/uv:0.13.8
+# pandoc and typst come from their projects' own images as one static binary each. Debian's pandoc is 3.1 and larger,
+# and Debian has no typst.
+ARG PANDOC=docker.io/pandoc/minimal:3.14-static@sha256:652137d4297489195e767ab364849c905932de5e4e1a65442b94cede6bf7603e
+ARG TYPST=ghcr.io/typst/typst:0.15.1@sha256:032e292249bcd378480cc7c142cfa324b63ef8aadeb88d7e7230320c4c9c422f
 
 FROM ${UV} AS uv
+FROM ${PANDOC} AS pandoc
+FROM ${TYPST} AS typst
 
 FROM ${NODE} AS build
 RUN npm install -g --no-audit --no-fund pnpm@12.9.0
@@ -57,8 +63,20 @@ RUN test "$(find node_modules -name package.json -path '*/node_modules/effect/pa
  && node --input-type=module -e 'await import("clanka/ClaudeAgent"); console.log("clanka/ClaudeAgent imports")'
 
 FROM ${NODE}
+# The tools a session runs. The image has no apt and no sudo once it is built, so a tool that needs root to install is
+# here or nowhere. What npm or uv can fetch is left to them, and lands on the volume.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl git jq openssh-client procps ripgrep sqlite3 tini unzip xz-utils \
+ && apt-get install -y --no-install-recommends \
+    # What chad and a session's shell need, and the usual tools of a development machine.
+    bzip2 ca-certificates curl fd-find file git jq less make openssh-client patch procps python3 ripgrep rsync sqlite3 \
+    tini tree unzip wget xz-utils zip zstd \
+    # PDFs: poppler reads them, as text, as page images and as what they embed, and qpdf rewrites them.
+    poppler-utils qpdf \
+    # Images: ImageMagick for everything, HEIC and AVIF read included, rsvg-convert for SVG, and the three that
+    # shrink a PNG, a JPEG and a GIF. The fonts stand in for Arial, Times New Roman and Courier New.
+    fonts-liberation gifsicle imagemagick jpegoptim librsvg2-bin pngquant \
+ # Debian names fd's command fdfind.
+ && ln -s /usr/bin/fdfind /usr/local/bin/fd \
  && mkdir -p -m 755 /etc/apt/keyrings \
  && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
  && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
@@ -67,6 +85,9 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends gh \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=uv /uv /uvx /usr/local/bin/
+# pandoc converts between document formats, and typst is the engine it makes a PDF with: `--pdf-engine=typst`.
+COPY --from=pandoc /usr/local/bin/pandoc /usr/local/bin/
+COPY --from=typst /bin/typst /usr/local/bin/
 COPY --from=build /opt/chad/package.json /opt/chad/package.json
 COPY --from=build /opt/chad/node_modules /opt/chad/node_modules
 COPY --from=build /opt/chad/dist /opt/chad/dist

@@ -79,6 +79,7 @@ A skill is `skills/<name>/SKILL.md` with `name` and `description` in its front m
 
 ## Command line tools
 
+- The image has the usual development tools. For documents and images it has `pandoc`, `typst`, poppler's commands such as `pdftotext` and `pdftoppm`, `qpdf`, ImageMagick's `magick`, `rsvg-convert`, `pngquant`, `jpegoptim` and `gifsicle`. pandoc makes a PDF with `--pdf-engine=typst`. Run `command -v` on a tool before you install it.
 - A package in `work/package.json` can be a command line tool. Once the change is applied, its commands are on PATH and run by name in every session's next command. A revert that takes the package out takes its commands off PATH. Neither needs a restart.
 - This is the way to add a tool the owner wants kept: it is committed, checked and reverted with the rest of the repo. Add it as any package, `npm install --package-lock-only --ignore-scripts --save-exact <name>@<version>` in `work/`, then `chad check` and `chad apply`.
 - Install scripts never run, so a tool that needs its install script does not work. A tool that ships its binary as an optional dependency for each platform does.
@@ -109,7 +110,7 @@ Edit `mcp.json` and apply. There is no command that adds one.
 }
 ```
 
-- stdio servers run with `npx`, `uvx` or `node`, which are in the image. The image has no Python packages, no apt and no sudo. What you install with `npm install -g`, `uv tool install` or into `~/.local/bin` stays on the volume and sits last on PATH, so it cannot replace the image's own tools. A command of a package in `work/package.json` works too, by name.
+- stdio servers run with `npx`, `uvx` or `node`, which are in the image. The image has `python3` with no packages and no pip, no apt and no sudo. What you install with `npm install -g`, `uv tool install` or into `~/.local/bin` stays on the volume and sits last on PATH, so it cannot replace the image's own tools. A command of a package in `work/package.json` works too, by name.
 - `chad check` reads `mcp.json`, checks that every `${NAME}` resolves and prints which servers an apply would add, remove or change. It connects nothing. A malformed `mcp.json` fails the apply.
 - A server that cannot connect does not fail the apply. The apply prints each server's status and tool count.
 - Any MCP restart interrupts the MCP calls that are running, and a stdio server loses what it held in memory. An apply that changes `mcp.json` or `package-lock.json`, `chad mcp restart` and a change to a secret that `mcp.json` names all restart every server. A call that was running fails with "mcp.<server>.<tool> was interrupted by an MCP restart. It may have run in part or in full."
