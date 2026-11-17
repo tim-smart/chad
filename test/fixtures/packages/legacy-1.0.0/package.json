@@ -1,0 +1,8 @@
+{
+  "name": "legacy",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "effect": "^3.0.0"
+  }
+}
