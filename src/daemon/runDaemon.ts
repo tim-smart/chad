@@ -518,7 +518,6 @@ const boot = Effect.fnUntraced(function* (
     inputs: environment,
     requirements,
     deadline: inputs.timings.modelTrial,
-    titleDeadline: inputs.timings.threadTitle,
     changed: notices.clear(Model.checkKey),
   })
   const account: Server.Account = {

@@ -111,9 +111,22 @@ export interface FakeModel {
   readonly titles: () => ReadonlyArray<Call>
   /**
    * The reply to every later title request, in place of the fake's own title: its `text`, or its `status` as a refusal.
-   * With `hold`, each of them waits until the test calls what this gives.
+   * With `hold`, each of them waits for `release`. `reached` resolves when the first of them arrives, and `abandoned`
+   * when the client of one went away before its answer.
    */
-  readonly title: (reply: Reply) => () => void
+  readonly title: (reply: Reply) => {
+    readonly reached: Promise<void>
+    readonly release: () => void
+    readonly abandoned: Promise<void>
+  }
+  /**
+   * Holds every later refresh of a Codex token until `release` is called. `reached` resolves when the first of them
+   * arrives.
+   */
+  readonly holdRefreshes: () => {
+    readonly reached: Promise<void>
+    readonly release: () => void
+  }
   /** A new Codex token that the fake accepts, or one whose access token has expired and whose refresh is good. */
   readonly token: (options?: { readonly expired?: boolean }) => StoredToken
   /** The refresh tokens the login exchanged, oldest first. */
@@ -526,7 +539,15 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
   let checkFailure: number | undefined
   const titles: Array<Call> = []
   let titleReply: Reply = { text: "A fake title" }
-  let titleGate: Promise<void> | undefined
+  let titleGate:
+    | {
+        readonly reach: () => void
+        readonly released: Promise<void>
+        readonly abandon: () => void
+      }
+    | undefined
+  let refreshGate:
+    { readonly reach: () => void; readonly released: Promise<void> } | undefined
   const heldChecks = new Map<
     string,
     { readonly reach: () => void; readonly released: Promise<void> }
@@ -631,7 +652,11 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
     if (isTitle(call.body)) {
       titles.push({ ...call, index: titles.length })
       const reply = titleReply
-      if (titleGate !== undefined) await titleGate
+      const gate = titleGate
+      if (gate !== undefined) {
+        gate.reach()
+        await gate.released
+      }
       if (refusal !== undefined) return refusal
       return reply.status !== undefined && reply.status !== 200
         ? {
@@ -714,7 +739,7 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
   }
 
   /** The login's issuer: the device code, its poll, and the token endpoint's two grants. */
-  const login = (
+  const login = async (
     path: string,
     text: string,
     response: import("node:http").ServerResponse,
@@ -750,6 +775,10 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
         return json(response, 401, { error: "invalid_grant" })
       }
       if (grant === "refresh_token") refreshed.push(refresh)
+      if (grant === "refresh_token" && refreshGate !== undefined) {
+        refreshGate.reach()
+        await refreshGate.released
+      }
       const token = issue(false)
       return json(response, 200, {
         access_token: token.access,
@@ -773,6 +802,13 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
         body: text === "" ? null : JSON.parse(text),
       }
       const responsesApi = path.endsWith("/responses")
+      // A held title whose client goes away, as when its fiber is interrupted, says so.
+      const gate = isTitle(call.body) ? titleGate : undefined
+      if (gate !== undefined) {
+        response.on("close", () => {
+          if (!response.writableEnded) gate.abandon()
+        })
+      }
       const result = await answer(call, path.startsWith("/codex/"))
       if ("status" in result)
         return json(response, result.status, { error: result.error })
@@ -880,10 +916,35 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
     },
     titles: () => titles,
     title: (reply) => {
-      const gate = Promise.withResolvers<void>()
+      const reached = Promise.withResolvers<void>()
+      const released = Promise.withResolvers<void>()
+      const abandoned = Promise.withResolvers<void>()
       titleReply = reply
-      titleGate = reply.hold === true ? gate.promise : undefined
-      return gate.resolve
+      titleGate =
+        reply.hold === true
+          ? {
+              reach: reached.resolve,
+              released: released.promise,
+              abandon: abandoned.resolve,
+            }
+          : undefined
+      return {
+        reached: reached.promise,
+        release: released.resolve,
+        abandoned: abandoned.promise,
+      }
+    },
+    holdRefreshes: () => {
+      const reached = Promise.withResolvers<void>()
+      const released = Promise.withResolvers<void>()
+      refreshGate = { reach: reached.resolve, released: released.promise }
+      return {
+        reached: reached.promise,
+        release: () => {
+          refreshGate = undefined
+          released.resolve()
+        },
+      }
     },
     token: (options) => issue(options?.expired === true),
     refreshed: () => refreshed,

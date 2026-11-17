@@ -33,7 +33,7 @@ export interface Timings {
   readonly modelLogin: Duration.Duration
   /** Model trial request, deadline with no retry. */
   readonly modelTrial: Duration.Duration
-  /** Thread title request, deadline with no retry. */
+  /** Thread title, deadline of the whole job with no retry: the model's token, its layer, its answer and the rename. */
   readonly threadTitle: Duration.Duration
   /** Session passivation after idle. */
   readonly sessionIdle: Duration.Duration

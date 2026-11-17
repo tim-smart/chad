@@ -389,13 +389,12 @@ export const trial = (
 
 /**
  * The title of a thread from the message that opened it: one request on a model with a client of its own, with no
- * retry and no fast mode, since nobody waits on it. A model that has not answered by the deadline has failed, and so
- * has one whose answer holds no title.
+ * retry and no fast mode, since nobody waits on it. An answer that holds no title has failed. The caller sets the
+ * deadline, which covers the layer's build as well.
  */
 export const title = (
   spec: Spec,
   endpoint: Endpoint,
-  deadline: Duration.Duration,
   message: string,
 ): Effect.Effect<string, unknown, Requirements> =>
   LanguageModel.streamText({ prompt: Messages.titlePrompt(message) }).pipe(
@@ -403,10 +402,6 @@ export const title = (
       () => "",
       (text, part) => (part.type === "text-delta" ? text + part.delta : text),
     ),
-    Effect.timeoutOrElse({
-      duration: deadline,
-      orElse: () => Effect.fail(new Error(Messages.modelTrialTimedOut)),
-    }),
     Effect.provide(languageModel(spec, undefined, endpoint, false)),
     Effect.flatMap((answer) => {
       const title = titleOf(answer)

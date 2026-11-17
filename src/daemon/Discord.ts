@@ -254,7 +254,8 @@ export const layer = (connection: Connection) => {
     )
   const built = Layer.effectDiscard(
     Effect.gen(function* () {
-      // A Discord thread is a channel, and its name is the channel's.
+      // A Discord thread is a channel, and its name is the channel's. The rename goes as the connection's gateway
+      // and REST client are taken down.
       const rest = yield* DiscordREST
       yield* (yield* Chats.Renames)((thread, name) =>
         rest.updateChannel(thread.id, { name }),

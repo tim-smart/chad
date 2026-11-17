@@ -126,6 +126,7 @@ export class Models extends Context.Service<
     /**
      * The title of a thread from the message that opened it, on the sub-agent model when one is set and the main model
      * otherwise. A model on the Codex login asks for its token as the check at start does, so it never starts a login.
+     * It has no deadline of its own: the caller's covers the token, the model's layer and its answer.
      */
     readonly title: (message: string) => Effect.Effect<string, unknown>
   }
@@ -139,8 +140,6 @@ export const make = (options: {
   readonly requirements: Context.Context<Requirements | FileSystem.FileSystem>
   /** How long a trial request may take. */
   readonly deadline: Duration.Duration
-  /** How long a title request may take. */
-  readonly titleDeadline: Duration.Duration
   /** What a change that is stored clears: the failed check of a model nobody runs any more. */
   readonly changed: Effect.Effect<void>
 }): Models["Service"] => {
@@ -173,7 +172,7 @@ export const make = (options: {
         }
         const spec = subagent ?? main.success
         if (needsLogin(spec)) yield* auth.get
-        return yield* title(spec, inputs, options.titleDeadline, message)
+        return yield* title(spec, inputs, message)
       }).pipe(
         Effect.provideService(Login.Unattended, true),
         Effect.provideContext(requirements),

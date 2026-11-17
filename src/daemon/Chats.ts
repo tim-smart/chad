@@ -48,11 +48,12 @@ export type Rename = (
 ) => Effect.Effect<void, unknown>
 
 /**
- * Where a connection's platform sets how it renames a thread. Each connection's platform has it. A platform that sets
- * nothing renames nothing, and outside a connection, as when a test builds the Discord layer alone, it does nothing.
+ * Where a connection's platform sets how it renames a thread, for as long as the scope it is called in. Each
+ * connection's platform has it. A platform that sets nothing renames nothing, and outside a connection, as when a test
+ * builds the Discord layer alone, it does nothing.
  */
 export const Renames = Context.Reference<
-  (rename: Rename) => Effect.Effect<void>
+  (rename: Rename) => Effect.Effect<void, never, Scope.Scope>
 >("chad/Chats/Renames", { defaultValue: () => () => Effect.void })
 
 /** Whether a connection is connected once its adapter registers, see `connected`. */
@@ -67,7 +68,7 @@ export interface Live {
   readonly name: string
   readonly owners: () => ReadonlyArray<string>
   readonly format: Format.Format
-  /** How the platform renames a thread, or nothing for a platform that has not set how. */
+  /** How the platform renames a thread, or nothing for a platform that has not set how or is being taken down. */
   readonly rename: () => Rename | undefined
 }
 
@@ -159,9 +160,15 @@ export const make = <R>(
         rename: () => entry.rename,
       }
       const renames = (rename: Rename) =>
-        Effect.sync(() => {
-          entry.rename = rename
-        })
+        Effect.acquireRelease(
+          Effect.sync(() => {
+            entry.rename = rename
+          }),
+          () =>
+            Effect.sync(() => {
+              entry.rename = undefined
+            }),
+        )
       return Layer.buildWithScope(
         Layer.mergeAll(registered, layer(entry.connection, live)).pipe(
           Layer.provide(announcing(entry, connected)),

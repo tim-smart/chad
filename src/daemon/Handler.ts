@@ -4,6 +4,7 @@ import {
   DateTime,
   Effect,
   Exit,
+  FiberSet,
   Layer,
   Option,
   Stream,
@@ -31,6 +32,7 @@ import * as Logger from "./Logger.ts"
 import * as Model from "./Model.ts"
 import { Message, Session } from "./SessionEntity.ts"
 import * as Notices from "./Notices.ts"
+import { Timings } from "../Timings.ts"
 import * as Sessions from "./Sessions.ts"
 import * as SlashCommands from "./SlashCommands.ts"
 import { StopButton } from "./StatusMessage.ts"
@@ -88,6 +90,64 @@ export const SecretSave = Context.Reference<{
 }>("chad/Handler/SecretSave", {
   defaultValue: () => ({ run: () => Effect.void }),
 })
+
+/**
+ * The title tasks of one connection's threads. The set is built with the connection's handler, in the connection's
+ * scope, so a task outlives the event that started it and ends when the connection is removed or swapped, or the daemon
+ * stops.
+ */
+class TitleTasks extends Context.Service<TitleTasks, FiberSet.FiberSet<void>>()(
+  "chad/Handler/TitleTasks",
+) {}
+
+/**
+ * Titles a new thread from the message that opened it, as one job with one deadline: the model's token, its layer, its
+ * answer and the rename. The rename is read when it runs, so a connection that is being taken down renames nothing.
+ * Until the rename, and for good when the job fails, the thread keeps the name the platform gave it.
+ */
+const titled = (
+  connection: Live,
+  thread: ChatThread.ChatThread,
+  text: string,
+) =>
+  Effect.gen(function* () {
+    const fields = {
+      connection: connection.name,
+      thread: ChatThread.toString(thread),
+    }
+    const timings = yield* Timings
+    const job = Effect.gen(function* () {
+      const title = yield* (yield* Model.Models).title(text)
+      const rename = connection.rename()
+      if (rename === undefined) {
+        return yield* Effect.fail(new Error(Messages.titleNoRename))
+      }
+      yield* rename(thread, title)
+      return title
+    }).pipe(
+      Effect.timeoutOrElse({
+        duration: timings.threadTitle,
+        orElse: () => Effect.fail(new Error(Messages.modelTrialTimedOut)),
+      }),
+    )
+    yield* job.pipe(
+      Effect.flatMap((title) =>
+        Logger.event("thread.titled", "A thread was titled", {
+          ...fields,
+          title,
+        }),
+      ),
+      Effect.catchCause((cause) =>
+        Logger.event(
+          "thread.untitled",
+          "A thread could not be titled",
+          fields,
+          cause,
+        ),
+      ),
+      FiberSet.run(yield* TitleTasks),
+    )
+  })
 
 /** The chat commands, by their first word. They are plain text, and none of them reaches the model. */
 const commands = {
@@ -242,41 +302,15 @@ export const layer = (connection: Live) =>
             )
           }
           thread = opened.value
-          // A thread with no session yet is new, and the model titles it on a fiber of its own, so the message is
-          // saved without waiting. Until the rename, and for good when the title fails, the thread keeps the name
-          // the platform gave it.
-          const rename = connection.rename()
+          // A thread with no session yet is new, and the model titles it on a fiber of the connection's, so the
+          // message is saved without waiting. A platform that cannot rename a thread gets no title request.
           const text = stripped(message)
           if (
-            rename !== undefined &&
+            connection.rename() !== undefined &&
             text !== "" &&
             (yield* Sessions.current(ChatThread.toString(thread))) === undefined
           ) {
-            const fields = {
-              connection: connection.name,
-              thread: ChatThread.toString(thread),
-            }
-            const opened = thread
-            yield* Effect.flatMap(Model.Models, (models) =>
-              models.title(text),
-            ).pipe(
-              Effect.tap((title) => rename(opened, title)),
-              Effect.flatMap((title) =>
-                Logger.event("thread.titled", "A thread was titled", {
-                  ...fields,
-                  title,
-                }),
-              ),
-              Effect.catchCause((cause) =>
-                Logger.event(
-                  "thread.untitled",
-                  "A thread could not be titled",
-                  fields,
-                  cause,
-                ),
-              ),
-              Effect.forkDetach,
-            )
+            yield* titled(connection, thread, text)
           }
         } else if (
           event.kind === "thread" &&
@@ -395,7 +429,7 @@ export const layer = (connection: Live) =>
     ),
     // effect/chat would drop chad's own messages without a word, and chad logs the drop.
     { deliverSelf: true },
-  )
+  ).pipe(Layer.provide(Layer.effect(TitleTasks, FiberSet.make<void>())))
 
 /**
  * The handler while the database cannot be opened or migrated. An owner's message in a direct message, or one that
