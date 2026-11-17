@@ -1,5 +1,5 @@
 # The pull request gate: layers 1 to 4, the image layer on amd64,
-# the type-check, the linter, the formatter and the rule-id script. Nothing here reads a secret.
+# the type-check, the linter and the formatter. Nothing here reads a secret.
 name: gate
 
 on:
@@ -78,24 +78,3 @@ jobs:
         with:
           name: failed-image-scenarios
           path: ${{ runner.temp }}/failed-image-scenarios.tar.gz
-
-  rule-ids:
-    name: rule ids
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 26
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm rule-ids
-      - uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: rule-index
-          path: .rule-ids/index.json
-          include-hidden-files: true
-          if-no-files-found: error

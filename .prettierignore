@@ -1,3 +1,1 @@
 pnpm-lock.yaml
-# The parts of the spec are kept as they were merged, so that a change to a part shows only the rule it touches.
-docs/spec/[0-9][0-9]-*.md

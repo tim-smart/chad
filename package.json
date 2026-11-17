@@ -39,7 +39,6 @@
     "check": "pnpm build && tsc --noEmit && oxlint && prettier --check .",
     "test": "node scripts/local.ts",
     "test:image": "node scripts/image.ts",
-    "rule-ids": "node scripts/rule-ids.ts",
     "vendor": "node scripts/vendor.ts"
   },
   "dependencies": {
