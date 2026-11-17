@@ -10,7 +10,7 @@ permissions:
   contents: read
   packages: write
 
-# One publish at a time, in the order of the pushes, so the version tag ends on the newest commit. A push that arrives
+# One publish at a time, in the order of the pushes, so the moving tags end on the newest commit. A push that arrives
 # while another waits replaces the one waiting, so a commit in the middle of a burst can go without its own tag.
 concurrency:
   group: publish
@@ -31,13 +31,14 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # Two tags: chad's version, which moves with main until the version changes, and the commit, as sha-<short>,
-      # which never moves and is what a deployment pins.
+      # Three tags: main, which always moves and is what a deployment follows, chad's version, which moves with main
+      # until the version changes, and the commit, as sha-<short>, which never moves.
       - id: meta
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
+            type=raw,value=main
             type=raw,value=${{ steps.version.outputs.version }}
             type=sha
       - uses: docker/build-push-action@v7
