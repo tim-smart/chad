@@ -3,19 +3,17 @@
  * the link to the bundled plugins' source and `package.json`.
  */
 import { join } from "node:path"
-import { fileURLToPath } from "node:url"
 import { Effect, FileSystem } from "effect"
 import * as Errno from "../Errno.ts"
 import * as Messages from "../Messages.ts"
+import { packageRoot } from "../Paths.ts"
 import * as Logger from "./Logger.ts"
 
 /** The image's `node_modules`, which holds this chad's own package as `chad`. */
-export const modules = fileURLToPath(
-  new URL("../../node_modules", import.meta.url),
-)
+export const modules = join(packageRoot, "node_modules")
 
 /** The bundled plugins' TypeScript source inside the chad package. */
-export const examples = fileURLToPath(new URL("../../plugins", import.meta.url))
+export const examples = join(packageRoot, "plugins")
 
 /** What `repo/package.json` holds. Without it `tsc` reads a plugin file as CommonJS. */
 const manifest = `${JSON.stringify({ type: "module" }, null, 2)}\n`

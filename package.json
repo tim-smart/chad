@@ -35,7 +35,7 @@
     "skills"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && esbuild src/cli.ts --bundle --platform=node --format=esm --target=node26 --outfile=dist/cli.bundle.js --log-level=warning --external:@anthropic-ai/claude-agent-sdk --banner:js=\"import { createRequire as __chadRequire } from 'node:module'; const require = __chadRequire(import.meta.url);\" && node scripts/examples.ts",
+    "build": "tsc -p tsconfig.build.json && tsdown && node scripts/examples.ts",
     "check": "pnpm build && tsc --noEmit && oxlint && prettier --check .",
     "test": "node scripts/local.ts",
     "test:image": "node scripts/image.ts",
@@ -60,6 +60,7 @@
     "@types/semver": "7.8.0",
     "oxlint": "1.93.0",
     "prettier": "3.10.1",
+    "tsdown": "0.23.7",
     "vitest": "5.1.0",
     "yaml": "2.9.1"
   }

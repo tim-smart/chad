@@ -44,7 +44,7 @@ fi
 present
 EOF
 RUN sh /opt/effect-docs.sh
-COPY tsconfig.json tsconfig.build.json ./
+COPY tsconfig.json tsconfig.build.json tsdown.config.ts ./
 COPY bin ./bin
 COPY src ./src
 COPY scripts/examples.ts ./scripts/examples.ts
