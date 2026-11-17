@@ -17,13 +17,26 @@ export class DaemonUnavailable extends Data.TaggedError("DaemonUnavailable")<{
   readonly reason: string
 }> {}
 
-/** The daemon answered with a status outside 2xx, or with an answer that does not decode. */
+/** The daemon answered with a status outside 2xx. */
 export class DaemonError extends Data.TaggedError("DaemonError")<{
   readonly status: number
   readonly message: string
 }> {}
 
-export type DaemonFailure = DaemonUnavailable | DaemonError
+/** The daemon answered 2xx with an answer that does not decode. */
+export class DaemonInvalid extends Data.TaggedError("DaemonInvalid")<{
+  readonly status: number
+  readonly message: string
+}> {}
+
+export type DaemonFailure = DaemonUnavailable | DaemonError | DaemonInvalid
+
+/**
+ * Whether the daemon refused a request for good, which only a 4xx says. A turn whose ingest failed any other way, with
+ * no answer, a 5xx or an answer that does not decode, is kept to send again.
+ */
+export const refused = (failure: DaemonFailure): failure is DaemonError =>
+  failure._tag === "DaemonError" && failure.status < 500
 
 /** Failures in a row that open the breaker, and how long it stays open before the next request is tried. */
 const breakerFailures = 3
@@ -156,7 +169,7 @@ export const make = Effect.fnUntraced(function* (config: {
 
   /**
    * A request whose answer has to be 2xx and decode with `answer`. Any other status is a `DaemonError` with the
-   * daemon's `error` text, and an answer that does not decode is a `DaemonError` with its status.
+   * daemon's `error` text, and an answer that does not decode is a `DaemonInvalid` with its status.
    */
   const ok = <A>(
     method: Method,
@@ -164,26 +177,28 @@ export const make = Effect.fnUntraced(function* (config: {
     answer: Answer<A>,
     options: Options,
   ): Effect.Effect<A, DaemonFailure> =>
-    Effect.flatMap(request(method, path, options), ({ status, json }) =>
-      status >= 200 && status < 300
-        ? Schema.decodeUnknownEffect(answer)(json).pipe(
-            Effect.mapError(
-              (error) =>
-                new DaemonError({
-                  status,
-                  message: `the answer did not decode: ${error.message}`,
+    Effect.flatMap(
+      request(method, path, options),
+      ({ status, json }): Effect.Effect<A, DaemonFailure> =>
+        status >= 200 && status < 300
+          ? Schema.decodeUnknownEffect(answer)(json).pipe(
+              Effect.mapError(
+                (error) =>
+                  new DaemonInvalid({
+                    status,
+                    message: `the answer did not decode: ${error.message}`,
+                  }),
+              ),
+            )
+          : Effect.fail(
+              new DaemonError({
+                status,
+                message: Option.match(errorOf(json), {
+                  onNone: () => "",
+                  onSome: ({ error }) => error,
                 }),
-            ),
-          )
-        : Effect.fail(
-            new DaemonError({
-              status,
-              message: Option.match(errorOf(json), {
-                onNone: () => "",
-                onSome: ({ error }) => error,
               }),
-            }),
-          ),
+            ),
     )
 
   return { request, ok }

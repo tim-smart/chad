@@ -22,6 +22,8 @@ export const make = () => {
     up: true,
     requests: [] as Array<Request>,
     refused: 0,
+    /** Routes, as "POST /bank/turns", that answer 200 with a body that matches none of the daemon's answers. */
+    invalid: new Set<string>(),
     bank: false,
     blocks: 0,
     recalls: 0,
@@ -30,6 +32,7 @@ export const make = () => {
   const answer = (request: Request): [status: number, body: unknown] => {
     const route = `${request.method} ${request.path.replace(/^\/v1/, "").replace(/^\/banks\/[^/]+/, "/bank")}`
     const now = new Date().toISOString()
+    if (state.invalid.has(route)) return [200, {}]
     if (route === "GET /health")
       return [200, { version: "0.1.0", ready: true, setup: false, now }]
     if (route === "PUT /bank") {

@@ -151,8 +151,8 @@ class Asphodel extends Context.Service<Asphodel>()("asphodel/Asphodel", {
           Effect.logWarning(`${name}: could not spool a turn`, error),
         ),
       )
-    // Sends the spooled turns oldest first. A 4xx drops the entry, since the daemon will never take it, and a 5xx or
-    // no answer stops the replay and keeps the rest. An entry that is not JSON is dropped.
+    // Sends the spooled turns oldest first. A 4xx drops the entry, since the daemon will never take it. A 5xx, no
+    // answer or an answer that does not decode stops the replay and keeps the rest. An entry that is not JSON is dropped.
     const replaySpool: Effect.Effect<void> = Effect.gen(function* () {
       for (const key of [...(yield* spool.keys)].sort()) {
         const body = Option.flatMap(
@@ -164,12 +164,7 @@ class Asphodel extends Context.Service<Asphodel>()("asphodel/Asphodel", {
             body: body.value,
             timeout: "10 seconds",
           }).pipe(Effect.result)
-          if (
-            sent._tag === "Failure" &&
-            (sent.failure._tag === "DaemonUnavailable" ||
-              sent.failure.status >= 500)
-          )
-            return
+          if (sent._tag === "Failure" && !Client.refused(sent.failure)) return
         }
         yield* spool.remove(key)
       }
@@ -282,7 +277,9 @@ const Memory = Toolkit.make(
 const toolError = (tool: string) => (error: Client.DaemonFailure) =>
   error._tag === "DaemonUnavailable"
     ? "Asphodel's daemon can't be reached right now; try again later."
-    : `${tool}: Asphodel answered ${error.status}: ${error.message}`
+    : error._tag === "DaemonInvalid"
+      ? `${tool}: Asphodel's answer could not be read (${error.message}); try again later.`
+      : `${tool}: Asphodel answered ${error.status}: ${error.message}`
 
 const MemoryHandlers = Memory.toLayer(
   Effect.gen(function* () {
@@ -481,10 +478,7 @@ const SyncTurn = Plugin.afterTurn(({ turn, steers, outcome }) =>
       })
       .pipe(Effect.result)
     if (sent._tag === "Success") return yield* asphodel.replaySpool
-    if (
-      sent.failure._tag === "DaemonUnavailable" ||
-      sent.failure.status >= 500
-    ) {
+    if (!Client.refused(sent.failure)) {
       yield* Effect.logWarning(
         `${asphodel.name}: ingest failed (${sent.failure._tag}); spooling the turn`,
       )

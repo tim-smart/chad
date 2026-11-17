@@ -208,7 +208,7 @@ test("two owner turns in a direct message: one block fetch, a prefetch and an in
   expect(keys(running)).toEqual([`block/${session}`])
 })
 
-test("a turn a plugin started can recall and is refused memory_forget, and sends no prefetch and no ingest", async () => {
+test("a turn a plugin started can recall and is refused memory_forget, memory_keep and memory_unkeep, none of which reaches the asphodel daemon, and sends no prefetch and no ingest", async () => {
   const thread = Promise.withResolvers<ChatThread.ChatThread>()
   // A plugin of the test's that starts one turn, as a cron job does.
   const cron = Plugin.make(
@@ -228,7 +228,8 @@ test("a turn a plugin started can recall and is refused memory_forget, and sends
   const { fakes } = running
   await fakes.model.script([
     runs(`console.log(await memory_recall({ query: "dentist" }))
-console.log(await memory_forget({ ids: ["m7"] }).catch((error) => "refused: " + error.message))`),
+for (const call of [memory_forget, memory_keep, memory_unkeep])
+  console.log(await call({ ids: ["m7"] }).catch((error) => "refused: " + error.message))`),
     { text: "Nothing new." },
     { text: "Noted." },
   ])
@@ -237,12 +238,13 @@ console.log(await memory_forget({ ids: ["m7"] }).catch((error) => "refused: " + 
   await fakes.chat.answers(direct, 1)
   const calls = await fakes.model.calls()
   expect(results(calls[1]).join("\n")).toContain("m7: Tim's dentist is Dr. Lee")
-  expect(results(calls[1]).join("\n")).toContain(
-    "refused: Only the owner may call memory_forget.",
-  )
+  for (const tool of ["memory_forget", "memory_keep", "memory_unkeep"])
+    expect(results(calls[1]).join("\n")).toContain(
+      `refused: Only the owner may call ${tool}.`,
+    )
 
   // The owner's turn after it runs behind the plugin turn's afterTurn in the plugin's queue, so its ingest is the
-  // point by which the plugin turn's hooks have sent all they would.
+  // point by which the plugin turn's hooks have sent all they would. No forget, keep or unkeep is among the requests.
   await says(running, direct, "thanks")
   await fakes.chat.answers(direct, 2)
   const requests = await sent(daemon, 4)
@@ -298,10 +300,15 @@ test("the owner's memory_forget carries the session id, the turn is ingested wit
   expect(keys(running)).toEqual([`block/${session}`])
 })
 
-test("a session that starts while the asphodel daemon is down: three refused requests open the breaker and the turn is spooled, and once it is back the next turn fetches the block and delivers the spooled turn after its own ingest", async () => {
+test("a session that starts while the asphodel daemon is down: three refused requests open the breaker and the turn is spooled, and once it is back the next turn fetches the block and delivers the spooled turn after its own ingest, and an ingest answered with what does not decode is spooled in the same way", async () => {
   const { running, daemon, clock } = await boot()
   const { fakes } = running
-  await fakes.model.script([{ text: "Booked." }, { text: "Rain." }])
+  await fakes.model.script([
+    { text: "Booked." },
+    { text: "Rain." },
+    { text: "Sun." },
+    { text: "Wind." },
+  ])
   const thread = await fakes.chat.makeThread("direct")
 
   daemon.state.up = false
@@ -338,4 +345,34 @@ test("a session that starts while the asphodel daemon is down: three refused req
   expect(sentText((await fakes.model.calls()).at(-1))).toContain(
     "[asphodel agenda, block-1]",
   )
+
+  // A 200 whose body is not an ingest answer is not the daemon refusing the turn, so the turn is kept, and the next
+  // turn delivers it after its own ingest.
+  daemon.state.invalid.add("POST /bank/turns")
+  await says(running, thread, "and Sunday?")
+  await fakes.chat.answers(thread, 3)
+  await pluginLogged(
+    running,
+    "asphodel: ingest failed (DaemonInvalid); spooling the turn",
+  )
+  await eventually(
+    () => keys(running),
+    (found) => found.some((key) => key.startsWith("spool/")),
+  )
+  expect((await sent(daemon, 2)).map(route)).toEqual([
+    "POST /prefetch",
+    "POST /turns",
+  ])
+  daemon.state.invalid.clear()
+  await says(running, thread, "and Monday?")
+  await fakes.chat.answers(thread, 4)
+  const recovered = await sent(daemon, 3)
+  expect(recovered.map(route)).toEqual([
+    "POST /prefetch",
+    "POST /turns",
+    "POST /turns",
+  ])
+  expect(recovered[1]?.body).toMatchObject({ user_text: "and Monday?" })
+  expect(recovered[2]?.body).toMatchObject({ user_text: "and Sunday?" })
+  expect(keys(running)).toEqual([`block/${session}`])
 })
