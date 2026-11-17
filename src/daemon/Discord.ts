@@ -139,30 +139,53 @@ const connected = (connection: Connection) =>
   )
 
 /**
- * Sets the bot's slash commands to chad's at each `READY`, which names the application. The call replaces the whole
- * list Discord holds for the application. A failure is logged and the connection carries on, and the typed commands
- * still work.
+ * Sets the bot's slash commands to chad's once per start of the connection, at its first `READY` or `RESUMED`. A start
+ * on stored shard state resumes and gets no `READY`, so a restart that ships new commands still sets them. `READY`
+ * names the application, and after a `RESUMED` it is read from Discord. The call replaces the whole list Discord holds
+ * for the application. A failure is logged, the next `READY` or `RESUMED` tries again, and the typed commands still
+ * work.
  */
 const commands = (connection: Connection) =>
   Layer.effectDiscard(
     Effect.gen(function* () {
       const gateway = yield* DiscordGateway
       const rest = yield* DiscordREST
-      yield* Effect.forkScoped(
-        gateway.handleDispatch("READY", (ready) =>
-          rest
-            .bulkSetApplicationCommands(ready.application.id, [
-              ...DiscordChat.commandRequests(SlashCommands.all),
-            ])
-            .pipe(
-              Effect.catchCause((cause) =>
-                Effect.logWarning(
-                  "The slash commands could not be registered",
-                  cause,
+      let registered = false
+      const register = <E>(application: Effect.Effect<string, E>) =>
+        Effect.suspend(() => {
+          if (registered) return Effect.void
+          registered = true
+          return application.pipe(
+            Effect.flatMap((id) =>
+              rest.bulkSetApplicationCommands(id, [
+                ...DiscordChat.commandRequests(SlashCommands.all),
+              ]),
+            ),
+            Effect.asVoid,
+            Effect.catchCause((cause) =>
+              Effect.sync(() => {
+                registered = false
+              }).pipe(
+                Effect.andThen(
+                  Effect.logWarning(
+                    "The slash commands could not be registered",
+                    cause,
+                  ),
                 ),
               ),
-              Effect.annotateLogs("connection", connection.name),
             ),
+            Effect.annotateLogs("connection", connection.name),
+          )
+        })
+      yield* Effect.forkScoped(
+        gateway.handleDispatch("READY", (ready) =>
+          register(Effect.succeed(ready.application.id)),
+        ),
+        { startImmediately: true },
+      )
+      yield* Effect.forkScoped(
+        gateway.handleDispatch("RESUMED", () =>
+          register(rest.getMyApplication().pipe(Effect.map(({ id }) => id))),
         ),
         { startImmediately: true },
       )
