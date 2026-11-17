@@ -43,6 +43,7 @@ import type * as Apply from "./Apply.ts"
 import type { Commands } from "./Connections.ts"
 import * as Filesystem from "./Filesystem.ts"
 import * as Logger from "./Logger.ts"
+import type * as Once from "./Once.ts"
 import type * as Login from "./Login.ts"
 import type * as Model from "./Model.ts"
 import * as Queue from "./Queue.ts"
@@ -109,6 +110,8 @@ export interface State {
   mcp: Effect.Effect<ReadonlyArray<Messages.McpServerState>>
   /** The MCP servers whose close has not ended, which a stop cut by its deadline names. */
   open: () => ReadonlyArray<string>
+  /** The one-off values of the sessions' turns, in this process's memory only. */
+  readonly once: Once.Store
 }
 
 /** What `chad login`, `chad logout` and `chad status` reach of the model in the daemon. */
@@ -177,7 +180,8 @@ export const modelCommand = (
 /** What "Recent" reads from the database. */
 export type RecentTurns = Exclude<Recent, { readonly unavailable: string }>
 
-export const makeState = (): State => ({
+export const makeState = (once: Once.Store): State => ({
+  once,
   phase: "starting",
   stopping: undefined,
   filesystem: [],
@@ -547,6 +551,10 @@ const handlers = (state: State) => {
         ),
       ),
     Status: () => report(state),
+    // The header names the session. The value goes to the CLI, which puts it in its child's environment or stdin and
+    // prints nothing of it.
+    OnceValues: ({ names }, { headers }) =>
+      Effect.sync(() => state.once.read(headers[sessionHeader], names)),
     ConnectionChange: ({ change }, { headers }) =>
       command((commands) =>
         commands.change(change, Queue.caller(headers[sessionHeader])),

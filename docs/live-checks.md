@@ -23,12 +23,13 @@ A check with no recorded result has not run.
 | 9. A secret through a form                                    | The agent's request posts a button, the form saves the secret, and the value shows nowhere in the chat.                          | not run |
 | 10. OAuth sign-in to an MCP server that registers chad itself | A server with `"oauth": {}` needs login, the owner signs in from Discord, and the sign-in outlives a restart.                    | not run |
 | 11. OAuth sign-in with a client you registered                | `chad mcp login` signs in with your client id, secret, redirect URL and scopes, and registers no client.                         | not run |
+| 12. A one-off value through a form                            | The agent's `requestOnce` waits in its turn, a command of that turn gets the value, and nothing keeps it.                        | not run |
 | D1. Publish the image                                         | The image builds and pushes to `ghcr.io/tim-smart/chad`.                                                                         | not run |
 | D2. The volume's filesystem                                   | The volume's filesystem is one chad's lock and SQLite are safe on.                                                               | not run |
 | D3. asphodel for real                                         | The asphodel plugin talks to a real asphodel daemon with its token.                                                              | not run |
 | D4. Backup and restore                                        | chad's tar and asphodel's backup restore onto two fresh volumes, and the restored pair recalls a memory saved before the backup. | not run |
 
-Checks 1 to 11 are the hand checks and the Codex checks. D1 to D4 are deployment checks. None of them has been run
+Checks 1 to 12 are the hand checks and the Codex checks. D1 to D4 are deployment checks. None of them has been run
 yet, and the automated suite only runs fakes of Discord, Codex, asphodel and an OAuth MCP server.
 
 ## Before you start
@@ -214,6 +215,17 @@ at it.
 
 Passes when step 4 prints `Signed in to "slack".` and `MCP server slack: connected`, the app's page on the server lists
 no second client, a turn in the DM can call one of the server's tools, and the grep prints `0`.
+
+## 12. A one-off value through a form
+
+1. In the DM, send "Ask me for a one-off value named LIVE_ONCE with requestOnce, then run
+   `chad secret run --env V=LIVE_ONCE -- sh -c 'test "$V" = live-once-value && echo match'` and tell me what it printed".
+2. chad posts a message that names `LIVE_ONCE` with an `Enter LIVE_ONCE` button, and the turn keeps running. Click it.
+3. A form titled "Enter a one-off value" opens, with one field. Type `live-once-value` and submit.
+4. Once the turn has ended, run `chad secret list` and `chad logs | grep -c live-once-value`.
+
+Passes when the request changes to `Got LIVE_ONCE` and its button disappears, chad's answer says the command printed
+`match`, `chad secret list` does not list `LIVE_ONCE`, the grep prints `0`, and no message in the DM shows the value.
 
 ## D1. Publish the image
 

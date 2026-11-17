@@ -1,6 +1,7 @@
 // The secret store as the owner, the agent and a plugin reach it: `chad secret set`, `list`, `rm` and `run` with and
 // without the daemon, the form an owner fills when the agent asks for a secret, the reload of the plugins whose settings
-// name a secret, and the check that no command prints a stored value.
+// name a secret, and the check that no command prints a stored value. And the one-off values `requestOnce` asks for,
+// which no file keeps.
 import {
   mkdirSync,
   readdirSync,
@@ -9,7 +10,8 @@ import {
   writeFileSync,
 } from "node:fs"
 import { join } from "node:path"
-import { Config, Effect, Layer, Redacted } from "effect"
+import type { ChatThread } from "effect/chat"
+import { Config, Duration, Effect, Layer, Redacted } from "effect"
 import { expect, test } from "vitest"
 import * as Format from "../../dist/daemon/Format.js"
 import * as Messages from "../../dist/Messages.js"
@@ -619,4 +621,160 @@ test("the agent's requestSecret posts a button whose form saves the secret as ch
   const chat = await Effect.runPromise(running.chat.calls)
   expect(JSON.stringify(chat)).not.toContain(value)
   expect(JSON.stringify(await fakes.model.calls())).not.toContain(value)
+})
+
+const requestOnce = (name: string) =>
+  runs(
+    `console.log(await requestOnce({ name: "${name}", reason: "example.com sent a login code by SMS to your phone." }))`,
+  )
+
+/** The request of a one-off value that chad posted in a thread, once it is there. */
+const onceRequest = async (running: Scenario, thread: ChatThread.ChatThread) =>
+  (
+    await eventually(
+      () => running.fakes.chat.messages(thread),
+      (messages) =>
+        messages.some((message) => message.text.includes("one-off value")),
+    )
+  ).find((message) => message.text.includes("one-off value"))!
+
+test("the agent's requestOnce waits in its turn for the owner's form, a stranger's click opens no form, the turn's commands get the value through chad secret run as often as they ask and no other command does, and the value is gone when the turn ends and in no file on the volume", async () => {
+  const value = "once-7c3e9a41d2"
+  const running = await scenario({
+    plugins: [{ name: "request-secret", plugin: requestSecret }],
+  })
+  const { fakes } = running
+  await fakes.model.script([
+    requestOnce("SMS_CODE"),
+    { text: "Logged in.", hold: true },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "log in to example.com")
+  const request = await onceRequest(running, thread)
+  expect(request.text).toContain("SMS_CODE")
+  expect(await fakes.model.calls()).toHaveLength(1)
+
+  const stranger = await Effect.runPromise(
+    running.submit(
+      request.id,
+      "once",
+      { clicker: "mallory", submitter: "mallory" },
+      { value: "mallory's" },
+    ),
+  )
+  expect(stranger.clicked._tag).toBe("Ack")
+  expect(stranger.submitted).toBeUndefined()
+
+  const filled = await Effect.runPromise(
+    running.submit(
+      request.id,
+      "once",
+      { clicker: owner, submitter: owner },
+      { value },
+    ),
+  )
+  expect(filled.clicked._tag).toBe("OpenModal")
+  expect(filled.submitted?._tag).toBe("Close")
+  // The tool returns once the value is there, and what it returns is not the value.
+  const calls = await fakes.model.received(2)
+  expect(results(calls[1]).join("\n")).toContain(
+    "The value is ready under SMS_CODE",
+  )
+  // The request loses its button, so it takes no second click.
+  await eventually(
+    () => fakes.chat.messages(thread),
+    (messages) =>
+      messages.find((message) => message.id === request.id)?.text !==
+      request.text,
+  )
+  expect(
+    await Effect.runPromise(
+      running.chat.click(request.id, "once").pipe(Effect.result),
+    ),
+  ).toMatchObject({ _tag: "Failure", failure: { _tag: "NoSuchElement" } })
+
+  // The turn is still open. Its session's commands get the value, a second time too, and no other command does.
+  const session = String(sessions(running)[0]?.["id"])
+  const check = (env: Record<string, string>) =>
+    running.chad(
+      [
+        "secret",
+        "run",
+        "--env",
+        "CODE=SMS_CODE",
+        "--",
+        "sh",
+        "-c",
+        `test "$CODE" = ${value}`,
+      ],
+      env,
+    )
+  expect(await check({ CHAD_SESSION: session })).toMatchObject({ code: 0 })
+  expect(await check({ CHAD_SESSION: session })).toMatchObject({ code: 0 })
+  expect(
+    await running.chad(
+      [
+        "secret",
+        "run",
+        "--stdin",
+        "SMS_CODE",
+        "--",
+        "sh",
+        "-c",
+        `test "$(cat)" = ${value}`,
+      ],
+      { CHAD_SESSION: session },
+    ),
+  ).toMatchObject({ code: 0 })
+  const missing = {
+    code: 125,
+    stderr: Messages.secretMissing("run", "SMS_CODE") + "\n",
+  }
+  expect(await check({ CHAD_SESSION: "s_another" })).toMatchObject(missing)
+  expect(await check({})).toMatchObject(missing)
+  expect(await running.chad(["secret", "list"])).toMatchObject({
+    stdout: Messages.secretsNone() + "\n",
+  })
+
+  // Once the turn has ended, its own session gets nothing either.
+  fakes.model.release(1)
+  await eventually(
+    () => posted(running, thread),
+    (lines) => lines.includes("Logged in."),
+  )
+  expect(await check({ CHAD_SESSION: session })).toMatchObject(missing)
+
+  // The daemon's log, its database and the session's directory are on the volume, and the chat and the model are not.
+  await running.stop()
+  expect(
+    files(running.data).filter((path) =>
+      readFileSync(join(running.data, path), "utf8").includes(value),
+    ),
+  ).toEqual([])
+  const chat = await Effect.runPromise(running.chat.calls)
+  expect(JSON.stringify(chat)).not.toContain(value)
+  expect(JSON.stringify(await fakes.model.calls())).not.toContain(value)
+})
+
+test("a requestOnce the owner does not answer in time fails with a line the model can act on, and its request loses its button", async () => {
+  const running = await scenario({
+    plugins: [{ name: "request-secret", plugin: requestSecret }],
+    timings: { onceWait: Duration.millis(200) },
+  })
+  const { fakes } = running
+  await fakes.model.script([requestOnce("SMS_CODE"), { text: "It expired." }])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "log in to example.com")
+  const request = await onceRequest(running, thread)
+  const calls = await fakes.model.received(2)
+  expect(results(calls[1]).join("\n")).toContain("so the request expired")
+  const messages = await fakes.chat.messages(thread)
+  expect(messages.find((message) => message.id === request.id)?.text).not.toBe(
+    request.text,
+  )
+  expect(
+    await Effect.runPromise(
+      running.chat.click(request.id, "once").pipe(Effect.result),
+    ),
+  ).toMatchObject({ _tag: "Failure", failure: { _tag: "NoSuchElement" } })
 })

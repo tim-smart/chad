@@ -33,3 +33,26 @@ export const SecretForm = ChatInteraction.modal("secret-form", {
     }),
   },
 })
+
+/** The id of a one-off request, which its button and its form carry. The value itself is never in either. */
+export const RequestId = Schema.String.check(Schema.isMaxLength(64))
+
+/**
+ * The button on a `requestOnce` request. chad answers its click with the form only while the request waits, and keeps
+ * what the form submits in the daemon's memory for the session that asked, not in the secret store.
+ */
+export const OnceButton = ChatInteraction.button("once", {
+  label: "Enter the value",
+  style: "primary",
+  value: RequestId,
+})
+
+/** The form a click on a one-off request opens. Its metadata is the request's id, and it has no note. */
+export const OnceForm = ChatInteraction.modal("once-form", {
+  title: "Enter a one-off value",
+  submitLabel: "Send",
+  metadata: RequestId,
+  fields: {
+    value: ChatInteraction.textInput({ label: "Value" }),
+  },
+})

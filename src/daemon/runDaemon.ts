@@ -57,6 +57,7 @@ import * as Mcp from "./Mcp.ts"
 import * as McpOAuth from "./McpOAuth.ts"
 import * as Model from "./Model.ts"
 import * as Notices from "./Notices.ts"
+import * as Once from "./Once.ts"
 import * as Persona from "./Persona.ts"
 import * as Skills from "../Skills.ts"
 import * as PluginTurns from "./PluginTurns.ts"
@@ -397,7 +398,12 @@ const boot = Effect.fnUntraced(function* (
   const running = yield* Chats.make((connection, live) =>
     inputs
       .chat(connection)
-      .pipe(Layer.provide([Handler.layer(live), Handler.interactions(live)])),
+      .pipe(
+        Layer.provide([
+          Handler.layer(live),
+          Handler.interactions(live, state.once),
+        ]),
+      ),
   )
   // The notices outside a turn post through the connections, and "Problems" lists their keys from here on.
   const notices = yield* Notices.make({
@@ -637,6 +643,7 @@ const boot = Effect.fnUntraced(function* (
               running.list().find(({ name }) => name === connection)?.owners ??
               [],
             ended: (key, outcome) => PluginTurns.ended(waiting, key, outcome),
+            forget: state.once.forget,
             timezone,
           }),
           Layer.succeed(Timers.Support, {
@@ -779,6 +786,7 @@ const boot = Effect.fnUntraced(function* (
         ),
     timezone,
     timings: inputs.timings,
+    once: state.once,
     stopping: () => state.stopping,
     notices,
     // The trial `Agent.makeWith` of an apply, on an executor of its own, since clanka dies when two tools share a name.
@@ -958,7 +966,8 @@ export const runDaemon = (inputs: DaemonInputs): Promise<number> => {
   process.env["CHAD_SESSION"] = "daemon"
   const file = Logger.makeFileSink()
   const logging = Logger.layer({ level: environment.logLevel, file })
-  const state = Server.makeState()
+  // The one-off values live as long as this daemon, and no longer.
+  const state = Server.makeState(Once.make(inputs.timings.onceWait))
 
   const program = Effect.gen(function* () {
     const scope = yield* Scope.make()
