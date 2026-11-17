@@ -32,6 +32,7 @@ import {
   type Settings,
   type Spec,
   store,
+  title,
   trial,
   Unchanged,
 } from "../ModelSpec.ts"
@@ -122,6 +123,11 @@ export class Models extends Context.Service<
       request: Request,
       login: Effect.Effect<void, Unchanged>,
     ) => Effect.Effect<string, Unchanged>
+    /**
+     * The title of a thread from the message that opened it, on the sub-agent model when one is set and the main model
+     * otherwise. A model on the Codex login asks for its token as the check at start does, so it never starts a login.
+     */
+    readonly title: (message: string) => Effect.Effect<string, unknown>
   }
 >()("chad/Model/Models") {}
 
@@ -133,6 +139,8 @@ export const make = (options: {
   readonly requirements: Context.Context<Requirements | FileSystem.FileSystem>
   /** How long a trial request may take. */
   readonly deadline: Duration.Duration
+  /** How long a title request may take. */
+  readonly titleDeadline: Duration.Duration
   /** What a change that is stored clears: the failed check of a model nobody runs any more. */
   readonly changed: Effect.Effect<void>
 }): Models["Service"] => {
@@ -157,6 +165,19 @@ export const make = (options: {
           ),
         }
       }),
+    title: (message) =>
+      Effect.gen(function* () {
+        const { main, subagent } = current
+        if (Result.isFailure(main)) {
+          return yield* Effect.fail(new Error(main.failure.error))
+        }
+        const spec = subagent ?? main.success
+        if (needsLogin(spec)) yield* auth.get
+        return yield* title(spec, inputs, options.titleDeadline, message)
+      }).pipe(
+        Effect.provideService(Login.Unattended, true),
+        Effect.provideContext(requirements),
+      ),
     change: (request, login) =>
       changes.withPermit(
         Effect.gen(function* () {

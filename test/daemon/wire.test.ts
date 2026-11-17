@@ -91,6 +91,61 @@ test("in a server thread the answer replies to the owner's message with the repl
   ])
 })
 
+/** An owner's mention of chad in a server's text channel, which opens a thread whose id is the message's. */
+const mention = (s: number, id: string, channel: string, content: string) =>
+  Discord.messageCreate(s, {
+    id,
+    channel,
+    channelType: 0,
+    guild: "600000000000000001",
+    author: owner,
+    content: `<@${Discord.bot}> ${content}`,
+    mentions: [Discord.bot],
+  })
+
+test("a mention in a server channel opens a thread that the model titles from the message, and the answer does not wait for the title", async () => {
+  const channel = "810000000000000003"
+  const chad = await scenario({ connections: [home] })
+  chad.discord.rest.channel(channel, 0)
+  await chad.fakes.model.script([{ text: "April is a good month" }])
+  const release = chad.model.title({
+    text: '"Spring trip to Lisbon."\n',
+    hold: true,
+  })
+  const { socket } = await identify(chad)
+  socket.receive(mention(2, "4", channel, "plan a spring trip to Lisbon"))
+
+  expect(await answers(chad, 1, "4")).toMatchObject([
+    { content: "April is a good month" },
+  ])
+  const [asked] = chad.model.titles()
+  expect(JSON.stringify(asked?.body)).toContain("plan a spring trip to Lisbon")
+  expect(JSON.stringify(asked?.body)).not.toContain(Discord.bot)
+  release()
+  const [renamed] = await chad.discord.rest.called("PATCH", /^\/channels\/4$/)
+  expect(renamed?.body).toEqual({ name: "Spring trip to Lisbon" })
+  // The title request is not a turn's, so the script's calls are the turn's alone.
+  expect(await chad.fakes.model.calls()).toHaveLength(1)
+})
+
+test("a title that fails leaves the thread with the name Discord gave it, and the turn answers all the same", async () => {
+  const channel = "810000000000000004"
+  const chad = await scenario({ connections: [home] })
+  chad.discord.rest.channel(channel, 0)
+  await chad.fakes.model.script([{ text: "answered" }])
+  chad.model.title({ status: 400 })
+  const { socket } = await identify(chad)
+  socket.receive(mention(2, "5", channel, "what is on today"))
+
+  expect(await answers(chad, 1, "5")).toMatchObject([{ content: "answered" }])
+  await chad.logged("thread.untitled")
+  expect(
+    chad.discord.rest
+      .calls()
+      .filter((call) => call.method === "PATCH" && call.path === "/channels/5"),
+  ).toEqual([])
+})
+
 test("a save that fails refuses the event, and dfx resumes in the same process and replays it", async () => {
   const chad = await scenario({ connections: [home] })
   await chad.fakes.model.script([{ text: "after the replay" }])

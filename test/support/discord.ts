@@ -403,6 +403,14 @@ export const rest = async (): Promise<Rest> => {
       const id = channel[1]!
       return [200, { id, type: channels.get(id) ?? 1 }]
     }
+    // A thread's rename. A scenario reads the name that was sent from the calls.
+    if (call.method === "PATCH" && channel !== null) {
+      const id = channel[1]!
+      return [
+        200,
+        { id, type: channels.get(id) ?? 1, name: call.body?.["name"] ?? "" },
+      ]
+    }
     const post = /^\/channels\/(\d+)\/messages$/.exec(path)
     if (call.method === "POST" && post !== null) {
       const message = {

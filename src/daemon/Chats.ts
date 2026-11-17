@@ -1,5 +1,5 @@
 import { Context, Deferred, Effect, Exit, Layer, Scope } from "effect"
-import { Chat, ChatAdapter } from "effect/chat"
+import { Chat, ChatAdapter, type ChatThread } from "effect/chat"
 import type { Connection } from "./Connection.ts"
 import * as Format from "./Format.ts"
 
@@ -41,6 +41,20 @@ export const Connected = Context.Reference<Effect.Effect<void>>(
   { defaultValue: () => Effect.void },
 )
 
+/** Renames a thread on a connection's platform, which effect/chat has no call for. */
+export type Rename = (
+  thread: ChatThread.ChatThread,
+  name: string,
+) => Effect.Effect<void, unknown>
+
+/**
+ * Where a connection's platform sets how it renames a thread. Each connection's platform has it. A platform that sets
+ * nothing renames nothing, and outside a connection, as when a test builds the Discord layer alone, it does nothing.
+ */
+export const Renames = Context.Reference<
+  (rename: Rename) => Effect.Effect<void>
+>("chad/Chats/Renames", { defaultValue: () => () => Effect.void })
+
 /** Whether a connection is connected once its adapter registers, see `connected`. */
 const connectsAtRegister = (connection: Connection) =>
   connection.kind !== "discord"
@@ -53,6 +67,8 @@ export interface Live {
   readonly name: string
   readonly owners: () => ReadonlyArray<string>
   readonly format: Format.Format
+  /** How the platform renames a thread, or nothing for a platform that has not set how. */
+  readonly rename: () => Rename | undefined
 }
 
 /**
@@ -78,6 +94,8 @@ interface Entry {
   readonly chat: Deferred.Deferred<ChatService>
   readonly registered: Deferred.Deferred<void>
   readonly scope: Scope.Closeable
+  /** How the platform renames a thread, once it has said. */
+  rename: Rename | undefined
 }
 
 /** The connection's adapter registry, which says when an adapter has registered in it. */
@@ -124,6 +142,7 @@ export const make = <R>(
         chat: yield* Deferred.make<ChatService>(),
         registered: yield* Deferred.make<void>(),
         scope: yield* Scope.fork(parent),
+        rename: undefined,
       }
       entries.set(connection.name, entry)
       return entry
@@ -137,12 +156,18 @@ export const make = <R>(
         name: entry.connection.name,
         owners: () => entry.connection.owners,
         format: Format.of(entry.connection.kind),
+        rename: () => entry.rename,
       }
+      const renames = (rename: Rename) =>
+        Effect.sync(() => {
+          entry.rename = rename
+        })
       return Layer.buildWithScope(
         Layer.mergeAll(registered, layer(entry.connection, live)).pipe(
           Layer.provide(announcing(entry, connected)),
           Layer.provide(Layer.fresh(Chat.layer)),
           Layer.provide(Layer.succeed(Connected, connected)),
+          Layer.provide(Layer.succeed(Renames, renames)),
         ),
         entry.scope,
       )

@@ -1,13 +1,14 @@
 // The fake model server of the tests. It is an HTTP server that the test starts, scripted by call index, and a script
 // can hold a response until the test releases it. It speaks the `openai-compat` endpoint, the Responses endpoint of
 // `openai` with a key, and Codex: the device-code, token and model endpoints, the model over HTTP and over WebSocket.
-// Its Codex side refuses what Codex refuses. The check at start and a trial request send the fixed prompt, which the
-// fake answers outside the script, so a scenario's call indexes are its turns' alone.
+// Its Codex side refuses what Codex refuses. The check at start and a trial request send the fixed prompt, and a thread's
+// title request the title's, which the fake answers outside the script, so a scenario's call indexes are its turns' alone.
 import { createServer, type IncomingMessage } from "node:http"
 import type { AddressInfo } from "node:net"
 import * as NodeSocketServer from "@effect/platform-node/NodeSocketServer"
 import { Effect, Exit, Scope } from "effect"
 import { Socket } from "effect/socket"
+import { titleInstruction } from "../../dist/Title.js"
 import { modelTrial } from "../../dist/Trial.js"
 
 /** What the fake answers to one call. */
@@ -106,6 +107,13 @@ export interface FakeModel {
     readonly reached: Promise<void>
     readonly release: () => void
   }
+  /** The title requests, which the script does not see, oldest first. */
+  readonly titles: () => ReadonlyArray<Call>
+  /**
+   * The reply to every later title request, in place of the fake's own title: its `text`, or its `status` as a refusal.
+   * With `hold`, each of them waits until the test calls what this gives.
+   */
+  readonly title: (reply: Reply) => () => void
   /** A new Codex token that the fake accepts, or one whose access token has expired and whose refresh is good. */
   readonly token: (options?: { readonly expired?: boolean }) => StoredToken
   /** The refresh tokens the login exchanged, oldest first. */
@@ -184,6 +192,15 @@ const textOf = (content: unknown): string =>
 const isTrial = (body: unknown) => {
   const users = items(body).filter((item) => item["role"] === "user")
   return users.length === 1 && textOf(users[0]?.["content"]) === modelTrial
+}
+
+/** Whether a call is a thread's title request, by the first line of its prompt. */
+const isTitle = (body: unknown) => {
+  const users = items(body).filter((item) => item["role"] === "user")
+  return (
+    users.length === 1 &&
+    textOf(users[0]?.["content"]).startsWith(titleInstruction)
+  )
 }
 
 /** What a call carries as the results of the tools the model called before it, oldest first. */
@@ -507,6 +524,9 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
   let closed = false
   const checks: Array<Call> = []
   let checkFailure: number | undefined
+  const titles: Array<Call> = []
+  let titleReply: Reply = { text: "A fake title" }
+  let titleGate: Promise<void> | undefined
   const heldChecks = new Map<
     string,
     { readonly reach: () => void; readonly released: Promise<void> }
@@ -607,6 +627,18 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
       return checkFailure === undefined
         ? { index: -1, reply: { text: "ok" } }
         : { status: checkFailure, error: { message: "scripted check failure" } }
+    }
+    if (isTitle(call.body)) {
+      titles.push({ ...call, index: titles.length })
+      const reply = titleReply
+      if (titleGate !== undefined) await titleGate
+      if (refusal !== undefined) return refusal
+      return reply.status !== undefined && reply.status !== 200
+        ? {
+            status: reply.status,
+            error: reply.error ?? { message: "scripted title failure" },
+          }
+        : { index: -1, reply }
     }
     const index = calls.length
     const recorded = { ...call, index }
@@ -845,6 +877,13 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
     },
     failChecks: (status) => {
       checkFailure = status
+    },
+    titles: () => titles,
+    title: (reply) => {
+      const gate = Promise.withResolvers<void>()
+      titleReply = reply
+      titleGate = reply.hold === true ? gate.promise : undefined
+      return gate.resolve
     },
     token: (options) => issue(options?.expired === true),
     refreshed: () => refreshed,

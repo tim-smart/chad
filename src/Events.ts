@@ -66,6 +66,8 @@ export const events = {
   "chat.disconnected": "Warn",
   "chat.refused": "Error",
   "message.ignored": "Info",
+  "thread.titled": "Info",
+  "thread.untitled": "Warn",
   "command.ran": "Info",
   "timer.held": "Warn",
   "rpc.cancelled": "Debug",

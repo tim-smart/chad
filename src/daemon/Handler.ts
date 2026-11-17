@@ -28,6 +28,7 @@ import { SecretButton, SecretForm } from "../plugins/request-secret/Form.ts"
 import type { Live } from "./Chats.ts"
 import * as Disk from "./Disk.ts"
 import * as Logger from "./Logger.ts"
+import * as Model from "./Model.ts"
 import { Message, Session } from "./SessionEntity.ts"
 import * as Notices from "./Notices.ts"
 import * as Sessions from "./Sessions.ts"
@@ -97,8 +98,10 @@ const commands = {
   "/safe": "safe",
 } as const
 
-/** The words of a message, with the mention of chad stripped first. */
-const words = (message: Pick<ChatMessage.ChatMessage, "text" | "mentions">) => {
+/** The text of a message with the mention of chad stripped, trimmed. */
+const stripped = (
+  message: Pick<ChatMessage.ChatMessage, "text" | "mentions">,
+) => {
   let text = ""
   let from = 0
   const own = message.mentions
@@ -109,8 +112,12 @@ const words = (message: Pick<ChatMessage.ChatMessage, "text" | "mentions">) => {
     from = mention.end
   }
   text += message.text.slice(from)
-  return text.trim().split(/\s+/)
+  return text.trim()
 }
+
+/** The words of a message, with the mention of chad stripped first. */
+const words = (message: Pick<ChatMessage.ChatMessage, "text" | "mentions">) =>
+  stripped(message).split(/\s+/)
 
 /**
  * The chat command a message is, when it is one. The mention of chad is stripped first, and the command is the first
@@ -235,6 +242,42 @@ export const layer = (connection: Live) =>
             )
           }
           thread = opened.value
+          // A thread with no session yet is new, and the model titles it on a fiber of its own, so the message is
+          // saved without waiting. Until the rename, and for good when the title fails, the thread keeps the name
+          // the platform gave it.
+          const rename = connection.rename()
+          const text = stripped(message)
+          if (
+            rename !== undefined &&
+            text !== "" &&
+            (yield* Sessions.current(ChatThread.toString(thread))) === undefined
+          ) {
+            const fields = {
+              connection: connection.name,
+              thread: ChatThread.toString(thread),
+            }
+            const opened = thread
+            yield* Effect.flatMap(Model.Models, (models) =>
+              models.title(text),
+            ).pipe(
+              Effect.tap((title) => rename(opened, title)),
+              Effect.flatMap((title) =>
+                Logger.event("thread.titled", "A thread was titled", {
+                  ...fields,
+                  title,
+                }),
+              ),
+              Effect.catchCause((cause) =>
+                Logger.event(
+                  "thread.untitled",
+                  "A thread could not be titled",
+                  fields,
+                  cause,
+                ),
+              ),
+              Effect.forkDetach,
+            )
+          }
         } else if (
           event.kind === "thread" &&
           !mentioned &&
