@@ -1,15 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["eslint", "import", "typescript", "unicorn", "oxc", "vitest"],
+  "plugins": ["eslint", "import", "typescript", "unicorn", "oxc"],
   "rules": {
-    "typescript/no-explicit-any": "error",
-    "vitest/no-focused-tests": "error",
-    "vitest/no-disabled-tests": "error",
-    "vitest/warn-todo": "error",
-    "vitest/expect-expect": "off",
-    "vitest/no-conditional-expect": "off",
-    "vitest/no-standalone-expect": "off",
-    "vitest/require-to-throw-message": "off",
-    "vitest/valid-expect": "off"
+    "typescript/no-explicit-any": "error"
   }
 }
