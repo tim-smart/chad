@@ -269,17 +269,21 @@ const execute = (
 const pair = /^([A-Za-z_][A-Za-z0-9_]*)=(.+)$/
 
 /**
- * The one-off values the daemon holds for this CLI's session, of the names it asks for. The owner's shell has no
- * session and gets none, and with no daemon there are none to get. A daemon that is not reached ends the command, so a
- * stored value never stands in for a one-off one.
+ * The one-off values the daemon holds for the turn whose key this CLI has, of the names it asks for. Only a process of
+ * a session's running turn has a key, so the owner's shell and the processes of another session or an earlier turn get
+ * none, and with no daemon there are none to get. A daemon that is not reached ends the command, so a stored value
+ * never stands in for a one-off one.
  */
 const oneOff = (names: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const environment = yield* Environment
-    if (environment.session === undefined || names.length === 0) return {}
+    const { turnKey } = yield* Environment
+    if (turnKey === undefined || names.length === 0) return {}
     if ((yield* Daemon.lock) === "free") return {}
     const client = yield* Daemon.reach("secret run")
-    return yield* Daemon.call("secret run", client.OnceValues({ names }))
+    return yield* Daemon.call(
+      "secret run",
+      client.OnceValues({ key: turnKey, names }),
+    )
   }).pipe(
     Effect.mapError(
       (failure) =>

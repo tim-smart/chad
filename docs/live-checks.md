@@ -218,14 +218,19 @@ no second client, a turn in the DM can call one of the server's tools, and the g
 
 ## 12. A one-off value through a form
 
+Pick a fresh value that appears nowhere else, such as a few random words. It goes only into the form, never into a
+message or a command.
+
 1. In the DM, send "Ask me for a one-off value named LIVE_ONCE with requestOnce, then run
-   `chad secret run --env V=LIVE_ONCE -- sh -c 'test "$V" = live-once-value && echo match'` and tell me what it printed".
+   `chad secret run --env V=LIVE_ONCE -- sh -c 'test -n "$V" && echo got-a-value'` and tell me what it printed".
 2. chad posts a message that names `LIVE_ONCE` with an `Enter LIVE_ONCE` button, and the turn keeps running. Click it.
-3. A form titled "Enter a one-off value" opens, with one field. Type `live-once-value` and submit.
-4. Once the turn has ended, run `chad secret list` and `chad logs | grep -c live-once-value`.
+3. A form titled "Enter a one-off value" opens, with one field. Type your fresh value and submit.
+4. Once the turn has ended, run `chad secret list`, then `chad logs | grep -c -F '<value>'` with your value, typed in
+   a shell whose history you do not keep.
 
 Passes when the request changes to `Got LIVE_ONCE` and its button disappears, chad's answer says the command printed
-`match`, `chad secret list` does not list `LIVE_ONCE`, the grep prints `0`, and no message in the DM shows the value.
+`got-a-value`, `chad secret list` does not list `LIVE_ONCE`, the grep prints `0`, and no message in the DM shows your
+value.
 
 ## D1. Publish the image
 

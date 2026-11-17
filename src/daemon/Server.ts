@@ -551,10 +551,10 @@ const handlers = (state: State) => {
         ),
       ),
     Status: () => report(state),
-    // The header names the session. The value goes to the CLI, which puts it in its child's environment or stdin and
-    // prints nothing of it.
-    OnceValues: ({ names }, { headers }) =>
-      Effect.sync(() => state.once.read(headers[sessionHeader], names)),
+    // The turn's key, and not the `CHAD_SESSION` header, says whose values these are. The value goes to the CLI, which
+    // puts it in its child's environment or stdin and prints nothing of it.
+    OnceValues: ({ key, names }) =>
+      Effect.sync(() => state.once.read(key, names)),
     ConnectionChange: ({ change }, { headers }) =>
       command((commands) =>
         commands.change(change, Queue.caller(headers[sessionHeader])),

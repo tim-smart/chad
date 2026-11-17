@@ -14,6 +14,8 @@ export interface Environment {
   readonly lock: string
   /** `CHAD_SESSION`, which marks a command that the agent or the daemon runs. The owner's shell has none. */
   readonly session: string | undefined
+  /** `CHAD_TURN_KEY`, which the daemon gives every process of a session's running turn, and nothing else has. */
+  readonly turnKey?: string | undefined
   /** `CHAD_MODEL`, the main model when no override is stored. */
   readonly model?: string | undefined
   /** Whether `CHAD_OPENAI_API_KEY` is set, which puts `openai` on the API and off the Codex login. */
@@ -37,6 +39,7 @@ export const read = (env: NodeJS.ProcessEnv): Environment => {
     socket: Paths.socket(env),
     lock: Paths.lock(data),
     session: env["CHAD_SESSION"],
+    turnKey: env["CHAD_TURN_KEY"],
     inherited: env,
     model: env["CHAD_MODEL"],
     openaiApiKey: env["CHAD_OPENAI_API_KEY"],

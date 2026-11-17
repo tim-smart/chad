@@ -223,8 +223,13 @@ export const Support = Context.Reference<{
    * this process, whether or not cluster could save the reply.
    */
   readonly ended: (key: string, outcome: Outcome) => void
-  /** Drops the one-off values and requests of a turn that ended, however it ended (`Once.ts`). */
-  readonly forget: (turn: string) => void
+  /**
+   * Drops the one-off values and requests of a turn that ended, however it ended, and retires the key its processes
+   * were given (`Once.ts`).
+   */
+  readonly forget: (session: string | undefined, turn: string) => void
+  /** The key of a session's running turn, which every process it starts gets as `CHAD_TURN_KEY`. */
+  readonly turnKey: ((session: string) => string) | undefined
   /** The owner's timezone now, which every process a session starts gets as `TZ`. */
   readonly timezone: () => string
 }>("chad/SessionEntity/Support", {
@@ -233,6 +238,7 @@ export const Support = Context.Reference<{
     owners: () => [],
     ended: () => {},
     forget: () => {},
+    turnKey: undefined,
     timezone: () => "UTC",
   }),
 })
@@ -663,7 +669,16 @@ export const layer = Layer.unwrap(
           const view = { lines: StatusMessage.none }
           const built = yield* Layer.buildWithScope(
             AgentExecutor.layerLocal({ directory }).pipe(
-              Layer.provide(Spawner.layer(id, volume.home, support.timezone)),
+              Layer.provide(
+                Spawner.layer(
+                  id,
+                  volume.home,
+                  support.timezone,
+                  support.turnKey === undefined
+                    ? undefined
+                    : () => support.turnKey!(id),
+                ),
+              ),
             ),
             own,
           ).pipe(Effect.provideService(Logger.CurrentLogIds, ids))
@@ -1397,7 +1412,7 @@ export const layer = Layer.unwrap(
         const close = (own: State, turn: Turn) =>
           Effect.gen(function* () {
             turn.closing = true
-            support.forget(turn.id)
+            support.forget(turn.public?.session.id ?? own.live?.id, turn.id)
             Deferred.doneUnsafe(turn.open, Effect.succeed(undefined))
             const waiting = turn.steers.splice(0)
             // An interrupted `steer` takes its message back, so the next `send` does not read it as well.

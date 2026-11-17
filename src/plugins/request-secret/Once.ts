@@ -31,13 +31,23 @@ export interface Store {
    * where it replaces an earlier value of the same name. False when no such request waits, and nothing is stored.
    */
   readonly submit: (id: string, thread: string, value: string) => boolean
-  /** The values of the names a session holds. A name it holds none of is left out. */
+  /**
+   * The key of a session's running turn, which every process the turn starts gets as `CHAD_TURN_KEY`. It is random,
+   * in the daemon's memory only, and made on the first ask of a turn. `forget` retires it, so a process of an earlier
+   * turn holds a key that opens nothing.
+   */
+  readonly key: (session: string) => string
+  /**
+   * The values of the names that the session whose turn holds `key` has. A name it holds none of is left out, and a
+   * key that is not current opens nothing. The session's id is no key: it is on the volume, in the log and in the
+   * database.
+   */
   readonly read: (
-    session: string | undefined,
+    key: string | undefined,
     names: ReadonlyArray<string>,
   ) => Record<string, string>
-  /** Drops what a turn asked for, its values and its requests. The turn's end calls this. */
-  readonly forget: (turn: string) => void
+  /** Drops what a turn asked for, its values and its requests, and retires its session's key. The turn's end calls this. */
+  readonly forget: (session: string | undefined, turn: string) => void
 }
 
 /** The daemon's store, or nothing in a plugin the daemon gives none. */

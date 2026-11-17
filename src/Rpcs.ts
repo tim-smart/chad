@@ -302,16 +302,17 @@ export type HoldEvent = typeof HoldEvent.Type
 /**
  * Every other call. A call is declared here, and is then refused to a CLI of another version. No call returns a
  * stored secret: a connection comes back without its token. `OnceValues` is the one call that returns a value, and
- * only one the owner entered for the calling session's turn.
+ * only one the owner entered for the turn whose key the call carries.
  */
 const checked = RpcGroup.make(
   /**
-   * The one-off values `chad secret run` resolves before it reads the store, for the session in the call's
-   * `CHAD_SESSION` header and no other. A name the session holds none of is left out, and a call with no session gets
-   * nothing.
+   * The one-off values `chad secret run` resolves before it reads the store. `key` is the `CHAD_TURN_KEY` the daemon
+   * gave the processes of one session's running turn, and the call gets that session's values and no other's. A
+   * `CHAD_SESSION` proves nothing, since a session's id is on the volume. A name the session holds none of is left
+   * out, and a key that is not current gets nothing.
    */
   Rpc.make("OnceValues", {
-    payload: { names: Schema.Array(Schema.String) },
+    payload: { key: Schema.String, names: Schema.Array(Schema.String) },
     success: Schema.Record(Schema.String, Schema.String),
   }),
   /** A `connection` or `owner` command that changes something. */

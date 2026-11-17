@@ -14,6 +14,7 @@ Everything a script holds or prints goes into the session's history, the log and
 These routes print a value. Never take them:
 
 - `chad secret run -- printenv`, or any command that prints its environment, such as `env`.
+- `env` or `printenv` on their own, in any command. Every command of your turn carries `CHAD_TURN_KEY`, which opens the turn's one-off values.
 - A command of a browser tool, or of any tool, that reads a password field or a saved password back.
 - Reading the secret store's file, `secrets/secrets.json` on the data volume, or `secrets/mcp-oauth.json` beside it, which holds the OAuth tokens of MCP servers.
 

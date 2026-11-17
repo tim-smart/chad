@@ -644,6 +644,7 @@ const boot = Effect.fnUntraced(function* (
               [],
             ended: (key, outcome) => PluginTurns.ended(waiting, key, outcome),
             forget: state.once.forget,
+            turnKey: state.once.key,
             timezone,
           }),
           Layer.succeed(Timers.Support, {
