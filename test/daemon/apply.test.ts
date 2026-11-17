@@ -670,6 +670,7 @@ test("a check refuses AGENTS.md in work/ and a plugin with a bundled plugin's na
     env: { CHAD_SAFE_MODE: "1" },
     plugins: [{ name: "guard", plugin: Plugin.make(Layer.empty) }],
   })
+  await running.logged("boot.ready")
   const work = join(running.data, "repo", "work")
   const subject = git(work, ["log", "--format=%s", "-1", "applied"])
   expect((await running.chad(["status"])).stdout).toContain(

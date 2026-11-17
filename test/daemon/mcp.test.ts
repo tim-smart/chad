@@ -98,6 +98,7 @@ test("an applied mcp.json connects its servers with names from the secret store 
   const running = await scenario({
     plugins: [{ name: "held", plugin: held.plugin }],
   })
+  await running.logged("boot.ready")
   const work = join(running.data, "repo/work")
   const canary = "canary-7f3e-not-in-env"
   expect(
