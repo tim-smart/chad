@@ -91,6 +91,107 @@ test("in a server thread the answer replies to the owner's message with the repl
   ])
 })
 
+/** An owner's mention of chad in a server's text channel, which opens a thread whose id is the message's. */
+const mention = (s: number, id: string, channel: string, content: string) =>
+  Discord.messageCreate(s, {
+    id,
+    channel,
+    channelType: 0,
+    guild: "600000000000000001",
+    author: owner,
+    content: `<@${Discord.bot}> ${content}`,
+    mentions: [Discord.bot],
+  })
+
+test("a mention in a server channel opens a thread that the model titles from the message, the answer does not wait for the title, and a title still running when its connection is removed renames nothing", async () => {
+  const channel = "810000000000000003"
+  const chad = await scenario({ connections: [home] })
+  chad.discord.rest.channel(channel, 0)
+  await chad.fakes.model.script([{ text: "April is a good month" }])
+  const first = chad.model.title({
+    text: '"Spring trip to Lisbon."\n',
+    hold: true,
+  })
+  const { socket } = await identify(chad)
+  socket.receive(mention(2, "4", channel, "plan a spring trip to Lisbon"))
+
+  expect(await answers(chad, 1, "4")).toMatchObject([
+    { content: "April is a good month" },
+  ])
+  await first.reached
+  const [asked] = chad.model.titles()
+  expect(JSON.stringify(asked?.body)).toContain("plan a spring trip to Lisbon")
+  expect(JSON.stringify(asked?.body)).not.toContain(Discord.bot)
+  first.release()
+  const [renamed] = await chad.discord.rest.called("PATCH", /^\/channels\/4$/)
+  expect(renamed?.body).toEqual({ name: "Spring trip to Lisbon" })
+  // The title request is not a turn's, so the script's calls are the turn's alone.
+  expect(await chad.fakes.model.calls()).toHaveLength(1)
+
+  await chad.fakes.model.script([{ text: "Lunch is at noon" }])
+  const second = chad.model.title({ text: "Never sent", hold: true })
+  socket.receive(mention(3, "6", channel, "when is lunch"))
+  expect(await answers(chad, 1, "6")).toMatchObject([
+    { content: "Lunch is at noon" },
+  ])
+  await second.reached
+  expect(
+    await chad.cli(["connection", "remove", "home", "--force"]),
+  ).toMatchObject({ code: 0 })
+  // The removal interrupted the title, which dropped its request, so the answer that comes after has nobody to take it.
+  await second.abandoned
+  second.release()
+  expect(
+    chad.discord.rest
+      .calls()
+      .filter((call) => call.method === "PATCH" && call.path === "/channels/6"),
+  ).toEqual([])
+})
+
+test("a title that fails leaves the thread with the name Discord gave it, and the turn answers all the same", async () => {
+  const channel = "810000000000000004"
+  const chad = await scenario({ connections: [home] })
+  chad.discord.rest.channel(channel, 0)
+  await chad.fakes.model.script([{ text: "answered" }])
+  chad.model.title({ status: 400 })
+  const { socket } = await identify(chad)
+  socket.receive(mention(2, "5", channel, "what is on today"))
+
+  expect(await answers(chad, 1, "5")).toMatchObject([{ content: "answered" }])
+  await chad.logged("thread.untitled")
+  expect(
+    chad.discord.rest
+      .calls()
+      .filter((call) => call.method === "PATCH" && call.path === "/channels/5"),
+  ).toEqual([])
+})
+
+test("a title whose model waits on a stalled token refresh gives up at its deadline, and the turn answers once the refresh ends", async () => {
+  const channel = "810000000000000005"
+  const chad = await scenario({
+    connections: [home],
+    codex: "expired",
+    env: {
+      CHAD_MODEL: "openai/gpt-6-astra/medium",
+      CHAD_OPENAI_API_KEY: undefined,
+    },
+  })
+  chad.discord.rest.channel(channel, 0)
+  await chad.fakes.model.script([{ text: "answered after the refresh" }])
+  const refresh = chad.model.holdRefreshes()
+  const { socket } = await identify(chad)
+  socket.receive(mention(2, "7", channel, "what is on today"))
+
+  await refresh.reached
+  const untitled = await chad.logged("thread.untitled")
+  expect(JSON.stringify(untitled)).toContain("no answer within the deadline")
+  refresh.release()
+  expect(await answers(chad, 1, "7")).toMatchObject([
+    { content: "answered after the refresh" },
+  ])
+  expect(chad.model.titles()).toEqual([])
+})
+
 test("a save that fails refuses the event, and dfx resumes in the same process and replays it", async () => {
   const chad = await scenario({ connections: [home] })
   await chad.fakes.model.script([{ text: "after the replay" }])
