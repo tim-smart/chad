@@ -91,10 +91,16 @@ const none: Found = { _tag: "None" }
 
 const host: ReadonlySet<string> = new Set(Version.hostPackages)
 
-/** The package an entry of the lockfile installs, which is the last name in its path. */
-const nameOf = (key: string, entry?: Entry) =>
-  entry?.name ??
+/** The directory an entry of the lockfile is installed in, which is the name a `require` finds it by. */
+const directoryOf = (key: string) =>
   key.slice(key.lastIndexOf("node_modules/") + "node_modules/".length)
+
+/** The package an entry of the lockfile installs, which an alias installs under another directory. */
+const nameOf = (key: string, entry?: Entry) => entry?.name ?? directoryOf(key)
+
+/** Whether an entry is a host package, by the package it is or by the directory a `require` finds it in. */
+const isHost = (key: string, entry: Entry) =>
+  host.has(directoryOf(key)) || host.has(nameOf(key, entry))
 
 const same = (
   a: Readonly<Record<string, string>> | undefined,
@@ -139,8 +145,10 @@ const asked = (key: string, spec: string) => {
 /**
  * Every spec in the lockfile on a host package that the host's version does not satisfy, as a line that names the
  * package that asks for it. The host's copy is the one every package gets, so such a package would run on a version it
- * does not support. A host package asked for under another name, or by a spec that is not a semver range, such as a
- * URL or a path, cannot be checked against the host's copy and is refused too.
+ * does not support. An alias with a host package's name on either side, such as `fx: npm:effect@4` or
+ * `semver: npm:words@1`, is refused: the bundle would `require` the host's copy while the type-check read another
+ * package, or the reverse. So is a host package asked for by a spec that is not a semver range, such as a URL or a path.
+ * `effect: npm:effect@<range>` asks for effect itself and is checked by its range.
  */
 const conflicts = Effect.fnUntraced(function* (packages: Lock["packages"]) {
   const versions = yield* hostVersions
@@ -148,7 +156,7 @@ const conflicts = Effect.fnUntraced(function* (packages: Lock["packages"]) {
   for (const [key, entry] of Object.entries(packages)) {
     if (entry.link === true) continue
     // A host package's own copy is never installed, so what it asks for does not matter.
-    if (key !== "" && host.has(nameOf(key, entry))) continue
+    if (key !== "" && isHost(key, entry)) continue
     const asking =
       key === ""
         ? "work/package.json"
@@ -162,11 +170,13 @@ const conflicts = Effect.fnUntraced(function* (packages: Lock["packages"]) {
         ] as const)) {
       for (const [key, spec] of Object.entries(entry[field] ?? {})) {
         const { name, range } = asked(key, spec)
-        const version = versions.get(name)
+        // The key is the directory a `require` and the type-check find, and the name is what is installed there.
+        const hosted = host.has(key) ? key : name
+        const version = versions.get(hosted)
         if (version === undefined) continue
         if (key !== name || semver.validRange(range) === null) {
           lines.push(
-            Messages.hostUncheckedLine(asking, key, spec, name, version),
+            Messages.hostUncheckedLine(asking, key, spec, hosted, version),
           )
         } else if (
           !semver.satisfies(version, range, { includePrerelease: true })
@@ -389,7 +399,7 @@ export const make = (options: {
       }
       // The host's packages resolve past the install, to the host's own copy.
       for (const [key, entry] of Object.entries(found.packages)) {
-        if (key !== "" && host.has(nameOf(key, entry))) {
+        if (key !== "" && isHost(key, entry)) {
           yield* fs.remove(join(temporary, key), {
             recursive: true,
             force: true,

@@ -66,13 +66,15 @@ test("a check refuses a package that needs another effect and an alias of effect
   await running.logged("boot.ready")
   const repo = join(running.data, "repo")
   const work = join(repo, "work")
-  // A package that needs an effect the host's does not satisfy is refused, and so is an npm alias of effect, whether
-  // it keeps effect's name or takes another. Nothing is installed.
+  // A package that needs an effect the host's does not satisfy is refused, and so are an npm alias of effect, whether
+  // it keeps effect's name or takes another, and another package aliased under a host package's name, whose types
+  // would shadow the host's copy that the bundle runs. Nothing is installed.
   write(work, {
     "package.json": manifest({
       legacy: "1.0.0",
       effect: "npm:effect@^3.0.0",
       fx: "npm:effect@^4.0.0",
+      semver: "npm:words@1.0.0",
     }),
   })
   await registry.lock(work)
@@ -82,6 +84,9 @@ test("a check refuses a package that needs another effect and an alias of effect
   expect(refused.stderr).toContain("work/package.json needs effect ^3.0.0")
   expect(refused.stderr).toContain(
     'work/package.json asks for fx as "npm:effect@^4.0.0"',
+  )
+  expect(refused.stderr).toContain(
+    'work/package.json asks for semver as "npm:words@1.0.0"',
   )
   expect(existsSync(join(repo, "packages"))).toBe(false)
 
