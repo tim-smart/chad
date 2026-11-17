@@ -4,7 +4,7 @@ import * as Messages from "../../dist/Messages.js"
 import { scenario } from "../support/driver.ts"
 import { lines, posted, rows, says, sessions } from "../support/owner.ts"
 
-test("a stranger's direct message, mention, Stop click and each chat command start, stop, change and post nothing while an owner's turn runs", async () => {
+test("a stranger's direct message, mention, Stop click and each chat command, typed or slash, start, stop, change and post nothing while an owner's turn runs", async () => {
   const running = await scenario()
   const { fakes } = running
   await fakes.model.script([{ text: "done", hold: true }])
@@ -41,9 +41,25 @@ test("a stranger's direct message, mention, Stop click and each chat command sta
   await stranger(channel, "/new", true)
   // The one button is Stop, and a stranger's click gets the plain acknowledgement in time and stops nothing.
   const click = await Effect.runPromise(
-    running.click(status!, "stop", "mallory"),
+    running.click(status!, "stop-turn", "mallory"),
   )
   expect(click._tag).toBe("Ack")
+  // A slash command needs an answer, and a stranger's gets a private refusal that only they see.
+  for (const [id, text] of [
+    ["stop", ""],
+    ["new", ""],
+    ["status", ""],
+    ["safe", "on"],
+    ["model", "openai-compat/other"],
+  ] as const) {
+    expect(
+      await Effect.runPromise(running.command(direct, id, "mallory", text)),
+    ).toMatchObject({
+      _tag: "Respond",
+      markdown: Messages.commandNotOwner,
+      visibility: "ephemeral",
+    })
+  }
   const ignored = await lines(running, "message.ignored", commands.length + 3)
   expect(
     ignored.map((line) => [

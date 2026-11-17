@@ -98,6 +98,10 @@ export interface Scenario {
   readonly holdThreads: Platform.Platform["holdThreads"]
   /** A user's click on a button of a message, and the daemon's answer to it, see `Platform.click`. */
   readonly click: Platform.Platform["click"]
+  /** A click that opens a form and the form's submit, see `Platform.submit`. */
+  readonly submit: Platform.Platform["submit"]
+  /** A slash command, see `Platform.command`. */
+  readonly command: Platform.Platform["command"]
   /** Discord's two ends for a `discord` connection: the scripted gateway and the fake REST server. */
   readonly discord: {
     readonly gateway: Discord.Gateway
@@ -408,6 +412,8 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
     chat: platform.chat,
     holdThreads: platform.holdThreads,
     click: platform.click,
+    submit: platform.submit,
+    command: platform.command,
     discord,
     requests: () => requests,
     model,

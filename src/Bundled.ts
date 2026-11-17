@@ -3,6 +3,7 @@ import type * as BundledNames from "./BundledNames.ts"
 import type * as Plugins from "./daemon/Plugins.ts"
 import asphodel from "./plugins/asphodel/index.ts"
 import cron from "./plugins/cron/index.ts"
+import requestSecret from "./plugins/request-secret/index.ts"
 import sendFile from "./plugins/send-file.ts"
 
 export const bundled: ReadonlyArray<
@@ -11,4 +12,5 @@ export const bundled: ReadonlyArray<
   { name: "send-file", plugin: sendFile },
   { name: "cron", plugin: cron },
   { name: "asphodel", plugin: asphodel },
+  { name: "request-secret", plugin: requestSecret },
 ]

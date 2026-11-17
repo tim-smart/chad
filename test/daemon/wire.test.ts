@@ -50,7 +50,7 @@ const direct = (s: number, id: string, content: string, author = owner) =>
 const answers = async (chad: Scenario, count: number, channel = dm) =>
   (await chad.discord.rest.answers(channel, count)).map((call) => call.body)
 
-test("in a server thread the answer replies to the owner's message with the reply ping on, pings nobody else, and lets Discord post it plain if that message is gone", async () => {
+test("in a server thread the answer replies to the owner's message with the reply ping on, pings nobody else, and lets Discord post it plain if that message is gone, and the connection sets its slash commands when it starts", async () => {
   const thread = "810000000000000002"
   const chad = await scenario({ connections: [home] })
   chad.discord.rest.channel(thread, 11)
@@ -74,6 +74,20 @@ test("in a server thread the answer replies to the owner's message with the repl
       flags: 4,
       message_reference: { message_id: "3", fail_if_not_exists: false },
     },
+  ])
+  // The whole list at once, which replaces what Discord held for the application.
+  const [commands] = await chad.discord.rest.called(
+    "PUT",
+    new RegExp(`^/applications/${Discord.application}/commands$`),
+  )
+  const sent = commands?.body as unknown as
+    ReadonlyArray<{ name: string }> | undefined
+  expect(sent?.map(({ name }) => name)).toEqual([
+    "new",
+    "stop",
+    "status",
+    "model",
+    "safe",
   ])
 })
 

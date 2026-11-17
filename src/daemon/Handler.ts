@@ -1,4 +1,13 @@
-import { Cause, Context, DateTime, Effect, Exit, Layer } from "effect"
+import {
+  Cause,
+  Context,
+  DateTime,
+  Effect,
+  Exit,
+  Layer,
+  Option,
+  Stream,
+} from "effect"
 import {
   Chat,
   ChatEvent,
@@ -15,12 +24,14 @@ import {
   Sharding,
 } from "effect/cluster"
 import * as Messages from "../Messages.ts"
+import { SecretButton, SecretForm } from "../plugins/request-secret/Form.ts"
 import type { Live } from "./Chats.ts"
 import * as Disk from "./Disk.ts"
 import * as Logger from "./Logger.ts"
 import { Message, Session } from "./SessionEntity.ts"
 import * as Notices from "./Notices.ts"
 import * as Sessions from "./Sessions.ts"
+import * as SlashCommands from "./SlashCommands.ts"
 import { StopButton } from "./StatusMessage.ts"
 
 /** What `/status` prints, which is the text `chad status` prints for the same daemon call. */
@@ -57,6 +68,23 @@ export const SafeCommand = Context.Reference<{
     post: (markdown: string) => Effect.Effect<void>,
   ) => Effect.Effect<void>
 }>("chad/Handler/SafeCommand", {
+  defaultValue: () => ({ run: () => Effect.void }),
+})
+
+/**
+ * Saves a secret that an owner submitted in a request's form, as `chad secret set` does through the daemon's queue,
+ * and posts what that command prints. Nothing it posts or logs carries the value.
+ */
+export const SecretSave = Context.Reference<{
+  readonly run: (
+    secret: {
+      readonly name: string
+      readonly value: string
+      readonly note: string | undefined
+    },
+    post: (markdown: string) => Effect.Effect<void>,
+  ) => Effect.Effect<void>
+}>("chad/Handler/SecretSave", {
   defaultValue: () => ({ run: () => Effect.void }),
 })
 
@@ -367,30 +395,192 @@ export const unusable = (
   )
 
 /**
- * What chad does with a click of one connection. A click on Stop goes to the session of its thread as the `stop` request
- * that `/stop` sends, and is answered at once, before the stop is done, so that the answer is inside the platform's
- * deadline. A click from anyone who is not an owner is answered and does nothing else.
+ * What chad does with the clicks, form submits and slash commands of one connection. Each is answered at once, inside
+ * the platform's deadline, and what it starts runs after the answer. One from anyone who is not an owner is answered
+ * and does nothing else.
+ *
+ * - A click on Stop goes to the session of its thread as the `stop` request that `/stop` sends.
+ * - A click on a secret request's button opens its form, and the form's submit saves the secret as `chad secret set`
+ *   does. The value goes from the submit to the store: no message, log line or session gets it.
+ * - A slash command does what the typed command of its name does, and gets a private answer that only says it runs.
+ *   `/new` and `/stop` need the thread to have a session, and `/new` starts the new one at the thread's newest
+ *   message.
  */
 export const interactions = (connection: Live) =>
-  ChatInteraction.group(StopButton)
-    .toLayer({
-      stop: (click) =>
-        Effect.gen(function* () {
-          if (!connection.owners().includes(click.userId)) {
-            return ChatInteraction.ack
-          }
-          const session = (yield* Session.client)(
-            ChatThread.toString(click.thread),
+  ChatInteraction.group(StopButton, SecretButton, SecretForm)
+    .merge(SlashCommands.all)
+    .toLayer(
+      Effect.gen(function* () {
+        const chat = yield* Chat.Chat
+        const owner = (id: string) => connection.owners().includes(id)
+        const sender = (by: string) => ({ by, connection: connection.name })
+        const post = (thread: ChatThread.ChatThread) => (markdown: string) =>
+          ChatMarkdown.post(thread, markdown).pipe(
+            Effect.provideService(Chat.Chat, chat),
+            Effect.catchCause((cause) =>
+              Effect.logError("A message could not be posted", cause),
+            ),
+            Effect.asVoid,
           )
-          yield* session
-            .stop({ by: click.userId, connection: connection.name })
-            .pipe(
-              Effect.catchCause((cause) =>
-                Effect.logError("A stop could not be delivered", cause),
-              ),
-              Effect.forkDetach,
+        /** Runs what a slash command does after its answer, and gives the answer. */
+        const taken = <R>(
+          command: ChatInteraction.CommandInvoked,
+          work: Effect.Effect<void, unknown, R>,
+        ) =>
+          work.pipe(
+            Effect.catchCause((cause) =>
+              Effect.logError("A slash command failed", cause),
+            ),
+            Effect.forkDetach,
+            Effect.as(
+              ChatInteraction.respond({
+                markdown: Messages.commandTaken(command.id),
+                visibility: "ephemeral",
+              }),
+            ),
+          )
+        const refused = (markdown: string) =>
+          Effect.succeed(
+            ChatInteraction.respond({ markdown, visibility: "ephemeral" }),
+          )
+        /** A slash command that needs the thread's session: `/new` and `/stop`. */
+        const inSession = <R>(
+          command: ChatInteraction.CommandInvoked,
+          work: (
+            key: string,
+            session: Sessions.Session,
+          ) => Effect.Effect<void, unknown, R>,
+        ) =>
+          Effect.gen(function* () {
+            if (!owner(command.userId)) {
+              return yield* refused(Messages.commandNotOwner)
+            }
+            const key = ChatThread.toString(command.thread)
+            const session = yield* Sessions.current(key).pipe(
+              Effect.orElseSucceed(() => undefined),
             )
-          return ChatInteraction.ack
-        }),
-    })
+            if (session === undefined) {
+              return yield* refused(Messages.noSession(connection.format))
+            }
+            return yield* taken(command, work(key, session))
+          })
+        const anywhere = <R>(
+          command: ChatInteraction.CommandInvoked,
+          work: Effect.Effect<void, unknown, R>,
+        ) =>
+          owner(command.userId)
+            ? taken(command, work)
+            : refused(Messages.commandNotOwner)
+        const client = yield* Session.client
+        return {
+          "stop-turn": (click) =>
+            Effect.gen(function* () {
+              if (!owner(click.userId)) return ChatInteraction.ack
+              yield* client(ChatThread.toString(click.thread))
+                .stop(sender(click.userId))
+                .pipe(
+                  Effect.catchCause((cause) =>
+                    Effect.logError("A stop could not be delivered", cause),
+                  ),
+                  Effect.forkDetach,
+                )
+              return ChatInteraction.ack
+            }),
+          secret: (click) =>
+            Effect.succeed(
+              owner(click.userId)
+                ? SecretForm.open({ metadata: click.value })
+                : ChatInteraction.ack,
+            ),
+          "secret-form": (submit) =>
+            Effect.gen(function* () {
+              if (!owner(submit.userId)) return ChatInteraction.close
+              const say = post(submit.thread)
+              yield* Effect.flatMap(SecretSave, (service) =>
+                service.run(
+                  {
+                    name: submit.metadata,
+                    value: submit.values.value,
+                    note: submit.values.note,
+                  },
+                  (markdown) =>
+                    say(
+                      markdown
+                        .split("\n")
+                        .map(connection.format.subtext)
+                        .join("\n"),
+                    ),
+                ),
+              ).pipe(
+                // The value is in the submit, which the cause does not carry.
+                Effect.catchCause((cause) =>
+                  Effect.logError("A secret could not be saved", cause),
+                ),
+                Effect.forkDetach,
+              )
+              return ChatInteraction.close
+            }),
+          stop: (command) =>
+            inSession(command, (key) =>
+              client(key).stop(sender(command.userId)),
+            ),
+          new: (command) =>
+            inSession(command, (key, session) =>
+              Effect.gen(function* () {
+                // The newest message is the new session's mark, as the `/new` message is for the typed command.
+                const newest = yield* chat
+                  .history(command.thread, { direction: "backward" })
+                  .pipe(
+                    Stream.take(1),
+                    Stream.runHead,
+                    Effect.orElseSucceed(() => Option.none()),
+                  )
+                yield* client(key).reset({
+                  ...sender(command.userId),
+                  kind: session.kind === "direct" ? "direct" : "thread",
+                  message: Option.match(newest, {
+                    onNone: () => "0",
+                    onSome: (message) => message.id,
+                  }),
+                  at: Option.match(newest, {
+                    onNone: () => 0,
+                    onSome: (message) =>
+                      DateTime.toEpochMillis(message.timestamp),
+                  }),
+                })
+              }),
+            ),
+          status: (command) =>
+            anywhere(
+              command,
+              Effect.flatMap(Status, (service) => service.text).pipe(
+                Effect.flatMap((text) =>
+                  post(command.thread)(Messages.status(text)),
+                ),
+              ),
+            ),
+          model: (command) =>
+            anywhere(
+              command,
+              Effect.flatMap(ModelCommand, (service) =>
+                service.run(command.text.trim().split(/\s+/).filter(Boolean), {
+                  link: connection.format.link(command.thread),
+                  post: post(command.thread),
+                }),
+              ),
+            ),
+          safe: (command) =>
+            anywhere(
+              command,
+              Effect.flatMap(SafeCommand, (service) => {
+                const to = command.text.trim().toLowerCase()
+                return service.run(
+                  to === "on" || to === "off" ? to : undefined,
+                  post(command.thread),
+                )
+              }),
+            ),
+        }
+      }),
+    )
     .pipe(Layer.provideMerge(ChatInteraction.layer()))

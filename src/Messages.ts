@@ -518,6 +518,30 @@ export const noSession = (format: Format) =>
     "There is no session in this channel. Mention me with a message and I'll open a thread for it.",
   )
 
+/** The descriptions the platform shows for chad's slash commands, 100 characters at most. */
+export const commandDescriptions = {
+  new: "Start a new session in this thread",
+  stop: "Stop the turn that is running",
+  status: "Show chad's status",
+  model: "Show the model, or change it",
+  safe: "Show safe mode, or turn it on or off",
+} as const
+
+/** The descriptions of the slash commands' one argument each. */
+export const commandArguments = {
+  model: "A model, and --subagent or --summarizer with theirs",
+  safe: "on or off",
+} as const
+
+/** A slash command from someone who is not an owner. Only they see it. */
+export const commandNotOwner = "Only an owner can use chad's commands."
+
+/**
+ * The private answer to a slash command, which the platform needs at once. What the command posts follows in the
+ * thread, as it does for the typed command.
+ */
+export const commandTaken = (command: string) => `Running /${command}.`
+
 /** chad could not open a thread on a mention. It is a normal message. */
 export const threadFailed = (reason: string) =>
   `I couldn't open a thread on that message (${reason}). I need Create Public Threads here, or you can DM me.`

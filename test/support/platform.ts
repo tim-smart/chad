@@ -21,6 +21,7 @@ import {
   ChatHandler,
   ChatInteraction,
   ChatTest,
+  type ChatThread,
 } from "effect/chat"
 import { RpcSerialization, RpcServer } from "effect/rpc"
 import * as LocalChat from "../../dist/daemon/LocalChat.js"
@@ -76,6 +77,30 @@ export interface Platform {
     ChatInteraction.ClickReply | ChatInteraction.Late,
     ChatTest.NoSuchElement
   >
+  /**
+   * Clicks a button that opens a form as `clicker`, and submits the form it opened with `values` as `submitter`. It
+   * gives the daemon's answer to the click and, when the click opened a form, to the submit.
+   */
+  readonly submit: (
+    messageId: string,
+    id: string,
+    users: { readonly clicker: string; readonly submitter: string },
+    values: Readonly<Record<string, string>>,
+  ) => Effect.Effect<
+    {
+      readonly clicked: ChatInteraction.ClickReply | ChatInteraction.Late
+      readonly submitted:
+        ChatInteraction.SubmitReply | ChatInteraction.Late | undefined
+    },
+    ChatTest.NoSuchElement
+  >
+  /** Types a slash command in a thread as a user, and gives the daemon's answer to it. */
+  readonly command: (
+    thread: ChatThread.ChatThread,
+    id: string,
+    userId: string,
+    text?: string,
+  ) => Effect.Effect<ChatInteraction.CommandReply | ChatInteraction.Late>
   /** The number of writes the daemon has made to the chat. */
   readonly writes: () => number
   /** Resolves once the daemon has made more writes than `seen`. */
@@ -198,7 +223,7 @@ export const make = (
                 if (
                   content.actions?.some(
                     (action) =>
-                      action._tag === "Button" && action.id === "stop",
+                      action._tag === "Button" && action.id === "stop-turn",
                   )
                 ) {
                   statuses.add(posted.id)
@@ -266,6 +291,40 @@ export const make = (
           return yield* chat
             .interact(event)
             .pipe(Effect.provideService(ChatInteraction.Handler, interactions))
+        }),
+      submit: (messageId, id, users, values) =>
+        Effect.gen(function* () {
+          const handler = interactions
+          const event = yield* chat.click(messageId, id, {
+            userId: users.clicker,
+          })
+          if (event._tag !== "ButtonClicked" || handler === undefined) {
+            return yield* Effect.die(new Error("no daemon takes the click"))
+          }
+          const clicked = yield* chat
+            .interact(event)
+            .pipe(Effect.provideService(ChatInteraction.Handler, handler))
+          if (clicked._tag !== "OpenModal") {
+            return { clicked, submitted: undefined }
+          }
+          const submit = yield* chat.submit(event, clicked, values, {
+            userId: users.submitter,
+          })
+          const submitted = yield* chat
+            .interact(submit)
+            .pipe(Effect.provideService(ChatInteraction.Handler, handler))
+          return { clicked, submitted }
+        }),
+      command: (thread, id, userId, text) =>
+        Effect.gen(function* () {
+          const handler = interactions
+          if (handler === undefined) {
+            return yield* Effect.die(new Error("no daemon takes the command"))
+          }
+          const event = yield* chat.command(thread, id, { userId, text })
+          return yield* chat
+            .interact(event)
+            .pipe(Effect.provideService(ChatInteraction.Handler, handler))
         }),
       writes: () => writes,
       written: (seen) =>

@@ -18,12 +18,14 @@ A check with no recorded result has not run.
 | 4. Stop                                                      | The Stop button on the status message stops a turn.                                                                              | not run |
 | 5. A mention in a server channel, then a message without one | A mention opens a thread, and chad reads a message in that thread that does not mention it.                                      | not run |
 | 6. The other Codex models (optional)                         | The sub-agent runs on `gpt-6.1-sol`, `gpt-6.1-terra` or `gpt-6-luna` on your login.                                              | not run |
+| 7. Slash commands                                            | Discord lists chad's slash commands, and each does what the typed command does.                                                  | not run |
+| 8. A secret through a form                                   | The agent's request posts a button, the form saves the secret, and the value shows nowhere in the chat.                          | not run |
 | D1. Publish the image                                        | The image builds and pushes to `ghcr.io/tim-smart/chad`.                                                                         | not run |
 | D2. The volume's filesystem                                  | The volume's filesystem is one chad's lock and SQLite are safe on.                                                               | not run |
 | D3. asphodel for real                                        | The asphodel plugin talks to a real asphodel daemon with its token.                                                              | not run |
 | D4. Backup and restore                                       | chad's tar and asphodel's backup restore onto two fresh volumes, and the restored pair recalls a memory saved before the backup. | not run |
 
-Checks 1 to 6 are the hand checks and the Codex check. D1 to D4 are deployment checks. None of them has been run
+Checks 1 to 8 are the hand checks and the Codex check. D1 to D4 are deployment checks. None of them has been run
 yet, and the automated suite only runs fakes of Discord, Codex and asphodel.
 
 ## Before you start
@@ -129,6 +131,27 @@ View Channel, Send Messages, Send Messages in Threads, Create Public Threads, Re
 
 Passes when the turn answers with no model error. `gpt-6.1-terra` and `gpt-6-luna` can be tried the same way, at
 efforts `low` and `medium`. A refused model fails the turn with `model_not_found`.
+
+## 7. Slash commands
+
+1. In the DM, type `/`. Discord lists `new`, `stop`, `status`, `model` and `safe` under chad's name. A list that was
+   just set can take a minute to show.
+2. Run `/status`. Only you see `Running /status.`, and the status follows in the DM.
+3. Send a message that takes a while, as in check 4, and run `/stop` while it works.
+4. Run `/new`.
+
+Passes when the turn in step 3 ends with a `Stopped after <time>.` line and step 4 posts `New session started.`. A
+command that Discord answers with "The application did not respond" failed.
+
+## 8. A secret through a form
+
+1. In the DM, send "Ask me for a secret named LIVE_CHECK with requestSecret, then stop".
+2. chad posts a message that names `LIVE_CHECK` with an `Enter LIVE_CHECK` button. Click it.
+3. A form titled "Save a secret" opens. Type `live-check-value` as the value and submit.
+4. Run `chad secret list`, then `chad logs | grep live-check-value` and `chad secret rm LIVE_CHECK`.
+
+Passes when the DM gets `Saved LIVE_CHECK` as subtext, `chad secret list` lists `LIVE_CHECK`, the grep prints nothing,
+and no message in the DM shows the value.
 
 ## D1. Publish the image
 

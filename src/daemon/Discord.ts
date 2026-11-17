@@ -5,7 +5,7 @@ import { JsonDiscordWSCodecLive } from "dfx/DiscordGateway/DiscordWS"
 import { DispatchHook } from "dfx/DiscordGateway/Shard/DispatchHook"
 import { ShardStateStore } from "dfx/DiscordGateway/Shard/StateStore"
 import { MemoryShardStoreLive } from "dfx/DiscordGateway/ShardStore"
-import { DiscordRESTLive } from "dfx/DiscordREST"
+import { DiscordREST, DiscordRESTLive } from "dfx/DiscordREST"
 import { MemoryRateLimitStoreLive } from "dfx/RateLimit"
 import { Deferred, Effect, Exit, Layer, Queue, Redacted, Scope } from "effect"
 import { KeyValueStore } from "effect/persistence"
@@ -15,6 +15,7 @@ import * as CatchUp from "./CatchUp.ts"
 import * as Chats from "./Chats.ts"
 import type { Connection } from "./Connection.ts"
 import * as Logger from "./Logger.ts"
+import * as SlashCommands from "./SlashCommands.ts"
 
 /** effect's Discord adapter module, for the address of a channel and for what a caller sets on a post. */
 export { DiscordChat }
@@ -137,6 +138,37 @@ const connected = (connection: Connection) =>
     }),
   )
 
+/**
+ * Sets the bot's slash commands to chad's at each `READY`, which names the application. The call replaces the whole
+ * list Discord holds for the application. A failure is logged and the connection carries on, and the typed commands
+ * still work.
+ */
+const commands = (connection: Connection) =>
+  Layer.effectDiscard(
+    Effect.gen(function* () {
+      const gateway = yield* DiscordGateway
+      const rest = yield* DiscordREST
+      yield* Effect.forkScoped(
+        gateway.handleDispatch("READY", (ready) =>
+          rest
+            .bulkSetApplicationCommands(ready.application.id, [
+              ...DiscordChat.commandRequests(SlashCommands.all),
+            ])
+            .pipe(
+              Effect.catchCause((cause) =>
+                Effect.logWarning(
+                  "The slash commands could not be registered",
+                  cause,
+                ),
+              ),
+              Effect.annotateLogs("connection", connection.name),
+            ),
+        ),
+        { startImmediately: true },
+      )
+    }),
+  )
+
 const config = (connection: Connection) =>
   DiscordConfig.layer({
     token: Redacted.make(connection.token ?? ""),
@@ -144,7 +176,8 @@ const config = (connection: Connection) =>
   })
 
 /**
- * effect's Discord adapter for one connection, over dfx's REST client. It registers the platform `discord`.
+ * effect's Discord adapter for one connection, over dfx's REST client, which it gives too. It registers the platform
+ * `discord`.
  *
  * The adapter and the REST client are the same layer values for every connection, and a layer is built once for all
  * who ask for it. So each connection builds them afresh, and the client of one never carries the token of another.
@@ -152,7 +185,7 @@ const config = (connection: Connection) =>
 export const adapter = (connection: Connection) =>
   Layer.fresh(
     DiscordChat.layer.pipe(
-      Layer.provide(DiscordRESTLive),
+      Layer.provideMerge(DiscordRESTLive),
       Layer.provide(MemoryRateLimitStoreLive),
       Layer.provide(config(connection)),
     ),
@@ -184,7 +217,7 @@ export const layer = (connection: Connection) => {
       Layer.provideMerge(gatewayOnly(refused)),
     )
   const gatewayOnly = (refused: Deferred.Deferred<number>) =>
-    connected(connection).pipe(
+    Layer.merge(connected(connection), commands(connection)).pipe(
       Layer.provideMerge(DiscordGatewayLive),
       Layer.provide([
         caughtUp,
