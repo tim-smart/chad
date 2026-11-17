@@ -221,6 +221,7 @@ export const ModelRequest = Schema.Struct({
   main: Schema.optionalKey(Schema.String),
   subagent: Schema.optionalKey(Schema.NullOr(Schema.String)),
   summarizer: Schema.optionalKey(Schema.NullOr(Schema.String)),
+  fast: Schema.optionalKey(Schema.Boolean),
 })
 
 /** What a `chad model` through the daemon hears: the code of a login it needs, then what it prints. */

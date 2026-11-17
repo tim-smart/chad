@@ -597,7 +597,7 @@ export const modelCheckFailed = (spec: string, error: string) =>
 
 /** The usage line of `/model`, for words it does not take. */
 export const modelUsage =
-  "Use /model [<provider>/<model>[/<effort>]] [--subagent <provider>/<model>[/<effort>]|none] [--summarizer <provider>/<model>[/<effort>]|none]."
+  "Use /model [<provider>/<model>[/<effort>]] [--subagent <provider>/<model>[/<effort>]|none] [--summarizer <provider>/<model>[/<effort>]|none] [--fast on|off]."
 
 /** What `chad model` and `/model` print with no argument, one fact to a line. */
 export const modelShown = (lines: {
@@ -605,13 +605,23 @@ export const modelShown = (lines: {
   readonly subagent: string | undefined
   readonly summarizer: string | undefined
   readonly ignored: ReadonlyArray<string>
+  readonly fast: string
 }) =>
   [
     `model: ${lines.main}`,
     `sub-agents: ${lines.subagent ?? "the main model"}`,
     `summarizer: ${lines.summarizer ?? "the main model"}`,
+    `fast mode: ${lines.fast}`,
     ...lines.ignored,
   ].join("\n")
+
+/** Fast mode's value in what `chad model` shows. `ignoredBy` is the provider of a main model that ignores it. */
+export const modelFastShown = (on: boolean, ignoredBy: string | undefined) =>
+  on
+    ? ignoredBy === undefined
+      ? "on"
+      : `on (ignored: ${ignoredBy} has no fast mode)`
+    : "off"
 
 /** The main model's value in what `chad model` shows, when it cannot run. */
 export const modelCannotRun = (spec: string, error: string) =>
@@ -636,6 +646,14 @@ export const modelOverrideNow = (
   override === "subagent"
     ? `Sub-agents now run on ${spec ?? "the main model"}.`
     : `The summarizer now runs on ${spec ?? "the main model"}.`
+
+/** Fast mode turned on or off. `ignoredBy` is the provider of a main model that ignores it. */
+export const modelFastNow = (on: boolean, ignoredBy: string | undefined) =>
+  on
+    ? ignoredBy === undefined
+      ? "Fast mode is now on: OpenAI requests ask for the priority service tier."
+      : `Fast mode is now on, but ${ignoredBy} has no fast mode, so it applies once the main model is on openai again.`
+    : "Fast mode is now off."
 
 /** The overrides a change of provider cleared. */
 export const modelOverridesCleared = (

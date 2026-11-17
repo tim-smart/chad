@@ -6,6 +6,7 @@ import { CodexAuth } from "clanka/CodexAuth"
 import * as Copilot from "clanka/Copilot"
 import type { DeviceCodeHandler } from "clanka/DeviceCodeHandler"
 import * as ModelLayer from "clanka/ModelLayer"
+import type { Provider } from "clanka/ModelsRepo"
 import * as OpenAiCompat from "clanka/OpenAiCompat"
 import * as Xai from "clanka/Xai"
 import {
@@ -57,7 +58,7 @@ export type Path = "codex" | "openai" | "compat" | "other"
 export interface Spec {
   /** The setting as it was given, the effort included. */
   readonly text: string
-  readonly provider: string
+  readonly provider: Provider
   readonly model: string
   readonly effort: ThoughtLevel | undefined
   readonly path: Path
@@ -106,6 +107,13 @@ export const text = (settings: Settings) =>
 /** Whether a setting's provider needs the Codex login. */
 export const needsLogin = (spec: Spec) => spec.path === "codex"
 
+/**
+ * Whether fast mode reaches a setting's requests, which clanka allows on OpenAI alone: the `codex` and `openai` paths.
+ * On any other provider the stored setting is kept and ignored.
+ */
+export const fastApplies = (spec: Spec) =>
+  ModelLayer.supportsFastMode(spec.provider)
+
 /** The two overrides beside the main model. */
 export type Override = "subagent" | "summarizer"
 
@@ -116,7 +124,11 @@ const files = {
   main: Paths.model,
   subagent: Paths.subagentModel,
   summarizer: Paths.summarizerModel,
+  fast: Paths.fastMode,
 } as const
+
+/** The one line of `state/fast-mode` when fast mode is on. Off is no file. */
+const fastOn = "on"
 
 /** The settings in force. The main one may be a setting that cannot run, which each turn then fails with. */
 export interface Settings {
@@ -132,6 +144,8 @@ export interface Settings {
     readonly text: string
     readonly error: string
   }>
+  /** Whether fast mode is on: OpenAI requests ask for the `priority` service tier. */
+  readonly fast: boolean
   /**
    * Counts the changes of the settings and of the login. A session builds a new model layer when the number it built
    * with is not this one.
@@ -195,6 +209,7 @@ export const read = Effect.fnUntraced(function* (data: string, inputs: Inputs) {
     subagent: yield* override("subagent"),
     summarizer: yield* override("summarizer"),
     ignored,
+    fast: (yield* readLine(Paths.fastMode(data))) === fastOn,
     generation: 0,
   } satisfies Settings
 })
@@ -271,16 +286,19 @@ const models = <C>(
 /**
  * The client of a session on `main`'s path, and its models. The session's id is its `prompt_cache_key` and its header
  * on a Codex login and on `openai` with a key, and `openai-compat` gets neither. A
- * model built for no session, as a check or a trial is, gets clanka's own random key and no header.
+ * model built for no session, as a check or a trial is, gets clanka's own random key and no header. Fast mode adds
+ * the `priority` service tier on those two paths, to every model of the session, and the other paths ignore it.
  */
 export const sessionModels = (
   main: Spec,
   session: string | undefined,
   endpoint: Endpoint,
+  fast: boolean,
 ): Models => {
   const options = (spec: Spec) => ({
     ...effortOf(spec),
     prompt_cache_key: session,
+    ...(fast ? { service_tier: "priority" as const } : {}),
   })
   const apiKey =
     endpoint.openaiApiKey === undefined
@@ -325,8 +343,9 @@ export const languageModel = (
   spec: Spec,
   session: string | undefined,
   endpoint: Endpoint,
+  fast: boolean,
 ): Layer.Layer<Provided, never, Requirements> =>
-  sessionModels(spec, session, endpoint).over((model) => model(spec))
+  sessionModels(spec, session, endpoint, fast).over((model) => model(spec))
 
 /** The text of a failed check or trial: the model error's reason and message, or the defect's message. */
 const failure = (cause: Cause.Cause<unknown>) => {
@@ -340,13 +359,14 @@ const failure = (cause: Cause.Cause<unknown>) => {
 
 /**
  * One small request on a model, the fixed prompt through the model layer a turn would use, with no output limit and
- * no retry. A model that has not answered by the deadline has failed. It fails with
- * the text of what went wrong, and an interrupt stays an interrupt.
+ * no retry, with the service tier fast mode asks for. A model that has not answered by the deadline has failed. It fails
+ * with the text of what went wrong, and an interrupt stays an interrupt.
  */
 export const trial = (
   spec: Spec,
   endpoint: Endpoint,
   deadline: Duration.Duration,
+  fast: boolean,
 ): Effect.Effect<void, string, Requirements> =>
   Effect.gen(function* () {
     // A stream, because the Codex endpoint answers nothing else.
@@ -358,7 +378,7 @@ export const trial = (
         duration: deadline,
         orElse: () => Effect.die(new Error(Messages.modelTrialTimedOut)),
       }),
-      Effect.provide(languageModel(spec, undefined, endpoint)),
+      Effect.provide(languageModel(spec, undefined, endpoint, fast)),
       Effect.exit,
     )
     if (Exit.isSuccess(ran)) return
@@ -367,23 +387,29 @@ export const trial = (
   })
 
 /**
- * A change that `chad model` and `/model` ask for. A missing field is left as it is, and
- * `null` clears an override.
+ * A change that `chad model` and `/model` ask for. A missing field is left as it is,
+ * `null` clears an override, and `fast` turns fast mode on or off.
  */
 export interface Request {
   readonly main?: string | undefined
   readonly subagent?: string | null | undefined
   readonly summarizer?: string | null | undefined
+  readonly fast?: boolean | undefined
 }
 
 /** Whether a request changes nothing, which is `chad model` and `/model` with no argument. */
 export const isShow = (request: Request) =>
   request.main === undefined &&
   request.subagent === undefined &&
-  request.summarizer === undefined
+  request.summarizer === undefined &&
+  request.fast === undefined
+
+/** The value of `--fast`: `on` or `off`, and `undefined` for anything else. */
+const fastValue = (value: string): boolean | undefined =>
+  value === "on" ? true : value === "off" ? false : undefined
 
 /**
- * The words after `/model`: an optional setting and the two flags, each with its value. It fails
+ * The words after `/model`: an optional setting and the three flags, each with its value. It fails
  * with the usage line for anything else.
  */
 export const parseWords = (
@@ -393,7 +419,13 @@ export const parseWords = (
   for (let at = 0; at < words.length; at++) {
     const word = words[at]!
     const flag = word === "--subagent" || word === "--summarizer"
-    if (flag) {
+    if (word === "--fast") {
+      const value = fastValue(words[++at] ?? "")
+      if (value === undefined || request.fast !== undefined) {
+        return Result.fail(Messages.modelUsage)
+      }
+      request.fast = value
+    } else if (flag) {
       const value = words[++at]
       const which = word === "--subagent" ? "subagent" : "summarizer"
       if (value === undefined || request[which] !== undefined) {
@@ -417,7 +449,10 @@ export class Unchanged extends Data.TaggedError("ModelUnchanged")<{
 /** A change that passed its checks: what it stores, the settings it leaves in force, and what the command prints. */
 export interface Plan {
   readonly settings: Settings
-  /** The models to try before anything is stored: the new main model and each override set. */
+  /**
+   * The models to try before anything is stored, with the fast mode of `settings`: the new main model and each
+   * override set, and every model fast mode reaches when the change turns it on.
+   */
   readonly trials: ReadonlyArray<Spec>
   readonly writes: ReadonlyArray<
     readonly [keyof typeof files, string | undefined]
@@ -428,7 +463,8 @@ export interface Plan {
 /**
  * Plans a change on the settings in force. The new main model and each override set must be able to run, and an
  * override must name the main model's provider. A main model on another provider clears every override this
- * request does not set, and the text says so. The generation is the caller's to move.
+ * request does not set, and the text says so. Fast mode stays as it is unless the request sets it, whatever the
+ * provider. The generation is the caller's to move.
  */
 export const plan = (
   current: Settings,
@@ -490,6 +526,23 @@ export const plan = (
   if (cleared.length > 0 && before !== undefined) {
     lines.push(Messages.modelOverridesCleared(cleared, before))
   }
+  const fast = request.fast ?? current.fast
+  if (request.fast !== undefined) {
+    // Turning it on tries each model it reaches with the tier set, since a model or an account may refuse it.
+    if (fast && fastApplies(main)) {
+      for (const spec of [main, kept.subagent, kept.summarizer]) {
+        if (spec !== undefined && trials.every((tried) => tried !== spec))
+          trials.push(spec)
+      }
+    }
+    writes.push(["fast", fast ? fastOn : undefined])
+    lines.push(
+      Messages.modelFastNow(
+        fast,
+        fastApplies(main) ? undefined : main.provider,
+      ),
+    )
+  }
   return Result.succeed({
     settings: {
       main: Result.succeed(main),
@@ -497,6 +550,7 @@ export const plan = (
       ignored: current.ignored.filter((ignored) =>
         writes.every(([which]) => which !== ignored.override),
       ),
+      fast,
       generation: current.generation,
     },
     trials,
@@ -505,10 +559,23 @@ export const plan = (
   })
 }
 
+/** What one trial request proved: a model, with the priority tier or without it. */
+const proof = (spec: Spec, fast: boolean) =>
+  `${spec.text} ${fast && fastApplies(spec) ? "fast" : "default"}`
+
+/**
+ * The trials of a plan that no request in `tried` proved. A plan made again on settings another change stored can
+ * need trials the first plan did not, such as a new main model while this change turns fast mode on.
+ */
+export const untried = (planned: Plan, tried: ReadonlySet<string>) =>
+  planned.trials.filter(
+    (spec) => !tried.has(proof(spec, planned.settings.fast)),
+  )
+
 /**
  * Readies a change: the plan, then the login when a model to try needs one and none exists, then the trial
  * request of each model to try, one after another. The first that fails ends the change with nothing
- * stored.
+ * stored. A trial `tried` already proved is not made again, and each one that passes is added to it.
  */
 export const prepare = Effect.fnUntraced(function* <E>(options: {
   readonly current: Settings
@@ -517,13 +584,16 @@ export const prepare = Effect.fnUntraced(function* <E>(options: {
   readonly deadline: Duration.Duration
   /** Runs the login, or fails with what the command prints. */
   readonly login: Effect.Effect<void, E, Requirements>
+  readonly tried?: Set<string> | undefined
 }): Effect.fn.Return<Plan, Unchanged | E, Requirements> {
   const planned = plan(options.current, options.request, options.endpoint)
   if (Result.isFailure(planned)) return yield* planned.failure
-  const { trials } = planned.success
+  const tried = options.tried ?? new Set<string>()
+  const { fast } = planned.success.settings
+  const trials = untried(planned.success, tried)
   if (trials.some(needsLogin)) yield* options.login
   for (const spec of trials) {
-    yield* trial(spec, options.endpoint, options.deadline).pipe(
+    yield* trial(spec, options.endpoint, options.deadline, fast).pipe(
       Effect.mapError(
         (error) =>
           new Unchanged({
@@ -531,6 +601,7 @@ export const prepare = Effect.fnUntraced(function* <E>(options: {
           }),
       ),
     )
+    tried.add(proof(spec, fast))
   }
   return planned.success
 })
@@ -566,5 +637,11 @@ export const shown = (settings: Settings, login: string) =>
     summarizer: settings.summarizer?.text,
     ignored: settings.ignored.map((ignored) =>
       Messages.modelIgnored(ignored.override, ignored.text, ignored.error),
+    ),
+    fast: Messages.modelFastShown(
+      settings.fast,
+      Result.isSuccess(settings.main) && !fastApplies(settings.main.success)
+        ? settings.main.success.provider
+        : undefined,
     ),
   })
