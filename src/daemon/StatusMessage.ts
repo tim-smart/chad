@@ -21,8 +21,11 @@ import type { Format } from "./Format.ts"
  * ends with. `discard` is the one attempt at a message whose turn chad closes without running it.
  */
 
-/** The Stop button, which does what `/stop` does. */
-export const StopButton = ChatInteraction.button("stop", {
+/**
+ * The Stop button, which does what `/stop` does. Its id is not `stop`, which is the slash command's: buttons and
+ * commands share one id space.
+ */
+export const StopButton = ChatInteraction.button("stop-turn", {
   label: "Stop",
   style: "danger",
 })

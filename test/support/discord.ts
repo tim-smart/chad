@@ -235,6 +235,7 @@ export const ready = (s: number, session = "session-1") => ({
     session_id: session,
     resume_gateway_url: resumeUrl,
     user: { id: bot, username: "chad", bot: true },
+    application: { id: application, flags: 0 },
   },
 })
 
@@ -379,6 +380,8 @@ export const rest = async (): Promise<Rest> => {
       flags = Number(call.body?.["flags"] ?? flags)
       return [200, { id: application, bot: user, flags }]
     }
+    // The slash commands a connection sets when it starts. A scenario reads what was sent from the calls.
+    if (route === `PUT /applications/${application}/commands`) return [200, []]
     if (route === "GET /gateway/bot") {
       return [
         200,

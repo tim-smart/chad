@@ -1,6 +1,6 @@
 // The secret store as the owner, the agent and a plugin reach it: `chad secret set`, `list`, `rm` and `run` with and
-// without the daemon, the reload of the plugins whose settings name a secret, and the check that no command prints a
-// stored value.
+// without the daemon, the form an owner fills when the agent asks for a secret, the reload of the plugins whose settings
+// name a secret, and the check that no command prints a stored value.
 import {
   mkdirSync,
   readdirSync,
@@ -11,11 +11,14 @@ import {
 import { join } from "node:path"
 import { Config, Effect, Layer, Redacted } from "effect"
 import { expect, test } from "vitest"
+import * as Format from "../../dist/daemon/Format.js"
 import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
+import requestSecret from "../../dist/plugins/request-secret/index.js"
 import { applied } from "../support/applied.ts"
 import * as Cli from "../support/cli.ts"
-import { fresh, scenario, type Scenario } from "../support/driver.ts"
+import { fresh, owner, scenario, type Scenario } from "../support/driver.ts"
+import { results, runs } from "../support/model.ts"
 import * as Skills from "../support/skills.ts"
 import {
   eventually,
@@ -528,3 +531,76 @@ test("saves with no daemon, run at once and some killed partway, leave a store t
     expect(statSync(join(data, "secrets", file)).mode & 0o077).toBe(0)
   expect(statSync(join(data, "secrets")).mode & 0o777).toBe(0o700)
 }, 60_000)
+
+/** Every file under a directory, by its path relative to it. A link is not followed. */
+const files = (root: string, under = ""): ReadonlyArray<string> =>
+  readdirSync(join(root, under), { withFileTypes: true }).flatMap((entry) => {
+    const path = join(under, entry.name)
+    if (entry.isDirectory()) return files(root, path)
+    return entry.isFile() ? [path] : []
+  })
+
+test("the agent's requestSecret posts a button whose form saves the secret as chad secret set does, a stranger's click opens no form, and the value is in no file on the volume but the store", async () => {
+  const value = "canary-5f1d2a9e7b"
+  const running = await scenario({
+    plugins: [{ name: "request-secret", plugin: requestSecret }],
+  })
+  const { fakes } = running
+  await fakes.model.script([
+    runs(
+      `console.log(await requestSecret({ name: "WEATHER_TOKEN", reason: "the forecast API needs it." }))`,
+    ),
+    { text: "Click the button." },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "get the forecast")
+  const [request] = await fakes.chat.answers(thread, 2)
+  expect(request?.text).toContain("WEATHER_TOKEN")
+  expect(results((await fakes.model.calls())[1]).join("\n")).toContain(
+    "Posted a button for WEATHER_TOKEN",
+  )
+
+  const stranger = await Effect.runPromise(
+    running.submit(
+      request!.id,
+      "secret",
+      { clicker: "mallory", submitter: "mallory" },
+      { value: "mallory's" },
+    ),
+  )
+  expect(stranger.clicked._tag).toBe("Ack")
+  expect(stranger.submitted).toBeUndefined()
+
+  const filled = await Effect.runPromise(
+    running.submit(
+      request!.id,
+      "secret",
+      { clicker: owner, submitter: owner },
+      { value, note: "weather.example, owner" },
+    ),
+  )
+  expect(filled.clicked._tag).toBe("OpenModal")
+  expect(filled.submitted?._tag).toBe("Close")
+  const saved = await fakes.chat.answers(thread, 3)
+  expect(saved.at(-1)?.text).toBe(
+    Format.local.subtext(Messages.secretSaved("WEATHER_TOKEN", false, [])),
+  )
+  expect(store(running.data)).toEqual({
+    WEATHER_TOKEN: {
+      value,
+      note: "weather.example, owner",
+      date: expect.any(String),
+    },
+  })
+
+  // The daemon's log, its database and the session's directory are on the volume, and the chat and the model are not.
+  await running.stop()
+  expect(
+    files(running.data).filter((path) =>
+      readFileSync(join(running.data, path), "utf8").includes(value),
+    ),
+  ).toEqual(["secrets/secrets.json"])
+  const chat = await Effect.runPromise(running.chat.calls)
+  expect(JSON.stringify(chat)).not.toContain(value)
+  expect(JSON.stringify(await fakes.model.calls())).not.toContain(value)
+})

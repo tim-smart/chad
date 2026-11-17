@@ -35,19 +35,23 @@ const identify = async (running: Process, index: number, session: string) => {
   return socket
 }
 
+/** The path of the call that sets the bot's slash commands. */
+const commands = new RegExp(`^/applications/${Discord.application}/commands$`)
+
 /** chad's answers in a channel, as Discord's REST got them. */
 const answers = async (running: Process, count: number, channel = dm) =>
   (await running.discord.rest.answers(channel, count)).map(
     (call) => call.body?.["content"],
   )
 
-test("a dispatch that was in flight when the daemon was killed is not stored as seen, the next start resumes from the sequence before it, and Discord's replay is answered once", async () => {
+test("a dispatch that was in flight when the daemon was killed is not stored as seen, the next start resumes from the sequence before it, Discord's replay is answered once, and each start sets the slash commands", async () => {
   const running = await daemon({ connections: [home] })
   const { fakes } = running
   await fakes.model.script([{ text: "answered once" }])
   const first = await running.start()
   const socket = await identify(running, 0, "session-1")
   await running.logged("chat.connected")
+  await running.discord.rest.called("PUT", commands, 1)
   // The daemon is stopped dead, so the dispatch reaches its socket and is never handled.
   first.signal("SIGSTOP")
   socket.receive(direct(2, "11", "hello"))
@@ -62,6 +66,8 @@ test("a dispatch that was in flight when the daemon was killed is not stored as 
   again.receive(Discord.resumed(3))
   expect(await answers(running, 1)).toEqual(["answered once"])
   expect(await fakes.model.calls()).toHaveLength(1)
+  // The second start resumed and got no READY, and it set the commands all the same.
+  expect(await running.discord.rest.called("PUT", commands, 2)).toHaveLength(2)
 }, 20_000)
 
 test("after a kill, a resume that Discord turns down ends in a fresh identify, and the catch-up reads forward from the last message chad saw in each active session and answers what the gateway never carried, once", async () => {

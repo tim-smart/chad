@@ -682,6 +682,21 @@ const boot = Effect.fnUntraced(function* (
                 ),
               ),
           }),
+          Layer.succeed(Handler.SecretSave, {
+            run: (secret, post) =>
+              Deferred.await(state.repository).pipe(
+                Effect.flatMap((repository) =>
+                  repository.run(
+                    { _tag: "SecretSet", ...secret },
+                    { session: undefined, chat: true },
+                    post,
+                  ),
+                ),
+                Effect.flatMap((output) =>
+                  post([...output.stdout, ...output.stderr].join("\n")),
+                ),
+              ),
+          }),
           Layer.succeed(Handler.ModelCommand, {
             run: (words, where) => modelCommand(account, scope, words, where),
           }),
