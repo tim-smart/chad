@@ -10,7 +10,7 @@ const tools = Toolkit.make(
   Tool.make("sendMessage", {
     description:
       "Post Markdown to the owner now, as its own message in this session's thread, while you keep working. Use it for a progress note or an early finding during long work. It is not your answer: the turn still ends with your answer, which should not repeat what you already sent.",
-    parameters: Schema.Struct({ markdown: Schema.String }),
+    parameters: Schema.String.annotate({ identifier: "markdown" }),
     success: Schema.String,
     failure: Schema.String,
     dependencies: [CurrentSession],
@@ -21,7 +21,7 @@ const handlers = tools.toLayer(
   Effect.gen(function* () {
     const chat = yield* Chat.Chat
     return tools.of({
-      sendMessage: ({ markdown }) =>
+      sendMessage: (markdown) =>
         Effect.gen(function* () {
           const { session } = yield* CurrentSession
           if (markdown.trim() === "") {

@@ -206,7 +206,7 @@ test("the bundled sendMessage posts in the session's thread during the turn, bef
   })
   const { fakes } = running
   await fakes.model.script([
-    runs(`console.log(await sendMessage({ markdown: "halfway there" }))`),
+    runs(`console.log(await sendMessage("halfway there"))`),
     { text: "done" },
   ])
   const thread = await fakes.chat.makeThread("direct")
