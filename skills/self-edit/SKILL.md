@@ -15,9 +15,10 @@ Your plugins, skills, MCP servers, settings and persona are files in one git rep
   skills/<name>/SKILL.md      a skill
   mcp.json                    MCP servers
   chad.json                   plugin settings and on/off switches
+  package.json                the npm packages plugins import, with package-lock.json
   persona.md                  who you are for the owner
 /data/repo/live               what is loaded now. Never edit it.
-/data/repo/node_modules/      what a plugin can import, with its declarations and docs
+/data/repo/node_modules/      chad, effect and chad's other packages, with their declarations and docs
 /data/repo/examples/          the source of the plugins chad ships, to read as examples
 /data/logs/chad.log           the daemon's log
 /data/home                    $HOME
@@ -27,7 +28,7 @@ Your plugins, skills, MCP servers, settings and persona are files in one git rep
 - Your skills go in `work/skills/` and nowhere else. Never create a `.agents/skills` or `.kiro/skills` directory in the repo, and do not put skills in dot-directories under `$HOME`. A skill in one of those two directories in the repo is announced to you with no apply, so no check ran on it and no revert covers it. `chad check` and `chad apply` refuse both directories.
 - Never write an `AGENTS.md` in the repo. One under `work/` reaches you with no apply, and `chad check` and `chad apply` refuse it. What you should always know goes in `persona.md`, and only when the owner asks.
 - A directory under `/mnt` is outside the repo. It has no commits and no revert.
-- `/data/repo/examples/` is the source of the bundled plugins for the version that is running. Read it, do not edit it, and do not copy a bundled plugin into `work/plugins/` under its own name. Do not put anything at `/data/repo/examples` or `/data/repo/node_modules`.
+- `/data/repo/examples/` is the source of the bundled plugins for the version that is running. Read it, do not edit it, and do not copy a bundled plugin into `work/plugins/` under its own name. Do not put anything at `/data/repo/examples`, `/data/repo/node_modules` or `/data/repo/packages`.
 
 ## The loop
 
@@ -65,6 +66,7 @@ Your plugins, skills, MCP servers, settings and persona are files in one git rep
 Before you write one, read `/data/repo/node_modules/effect/AGENTS.md` and then `plugin.md` next to this file. Start from `chad plugin new <name>`. Working plugins to read are in `/data/repo/examples/`.
 
 - A repo plugin cannot take a bundled plugin's name, and `chad plugin new` refuses a taken or bundled name.
+- A plugin can use npm packages, which `work/package.json` names. Add one with `npm install --package-lock-only --ignore-scripts <name>` in `work/`, never a plain `npm install`. `plugin.md` says what an install does and which packages do not work.
 - `chad plugin reload <name>` rebuilds one plugin whose code did not change, for example after a service it talks to came back. It builds the new version first and keeps the old one if the build fails.
 - Deleting a plugin's file unloads it and keeps its data and timers. `chad plugin purge <name>` drops them for good. It works only once the deletion is applied, and refuses a plugin still in the applied repo, including one that is off. A bundled plugin cannot be deleted, so it can be purged while it is turned off and not while it is on.
 

@@ -83,6 +83,12 @@ export const treeOf = (work: string, commit: string) =>
   git(work, ["rev-parse", `${commit}^{tree}`])
 
 /**
+ * What a snapshot and the draft leave out whatever `.gitignore` says: a `node_modules` at any depth. chad installs the
+ * packages of a tree itself, so one the agent made is never loaded and never applied.
+ */
+const derived = [":(exclude,glob)**/node_modules/**"]
+
+/**
  * A snapshot of `work/` as one tree: `git add -A` into a temporary index that starts empty, then `git write-tree`.
  * The agent's own index, HEAD and branch are untouched, and `.gitignore` is respected. An index that
  * starts empty hashes every file, so no edit is missed for a timestamp.
@@ -92,7 +98,7 @@ export const snapshot = Effect.fnUntraced(function* (repo: string) {
   const index = join(repo, `.snapshot-index-${unique()}`)
   const env = { GIT_INDEX_FILE: index }
   const { work } = paths(repo)
-  return yield* git(work, ["add", "-A"], env).pipe(
+  return yield* git(work, ["add", "-A", "--", ".", ...derived], env).pipe(
     Effect.andThen(git(work, ["write-tree"], env)),
     Effect.ensuring(Effect.ignore(fs.remove(index, { force: true }))),
   )
@@ -650,6 +656,9 @@ export const state = (repo: string) =>
       "ls-files",
       "--others",
       "--exclude-standard",
+      "--",
+      ".",
+      ...derived,
     ])
     return {
       applied: { commit: sha.slice(0, 7), message },

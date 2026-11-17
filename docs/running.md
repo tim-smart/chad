@@ -22,6 +22,13 @@ docker push "ghcr.io/tim-smart/chad:$version"
 The image runs as the `node` user, uid 1000, and has no sudo and no apt. A tool the agent needs is installed with npm
 or uv, which keep what they install on the volume, or is a single binary in `/data/home/.local/bin`.
 
+A plugin can import npm packages that `work/package.json` in the repo names. chad installs them with `npm ci` into
+`/data/repo/packages/`, one directory for each lockfile, with npm's cache in `/data/cache/npm`. An apply or a revert
+whose lockfile changed needs the network unless the cache holds every package it names, and so does the first start
+after a restore. One whose lockfile did not change installs nothing. A start waits for the install before it loads the repo's
+plugins. With no network npm gives up after about a minute, and the start then skips the plugins that import a
+missing package, with the reason in `chad status`, and loads the rest. An install that runs for five minutes is stopped.
+
 ## Docker
 
 There is one way to a running chad. Start the container, then run the setup wizard inside it:
@@ -149,6 +156,9 @@ Keep `chad-old` and the old volume until the restored chad answers, then remove 
 `chad restore` refuses a volume that holds secrets or sessions, and a volume a running chad holds. A restore that was
 cut part way leaves the volume to `chad restore` alone: run the same restore again and it finishes. A newer chad
 restores an older tar, and the first boot migrates it.
+
+The tar holds `work/package.json` and its lockfile but not the installed packages, so the first start after a restore
+installs them again and needs the network to do so.
 
 ## Kubernetes
 

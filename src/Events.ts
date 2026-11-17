@@ -36,6 +36,8 @@ export const events = {
   "apply.failed": "Error",
   "plugin.skipped": "Warn",
   "plugin.log": "Info",
+  "packages.installed": "Info",
+  "packages.failed": "Error",
   "settings.unparsable": "Warn",
   "settings.ignored": "Warn",
   "mcp.config-unreadable": "Warn",

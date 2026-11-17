@@ -780,9 +780,78 @@ export const twoEntries = (name: string, file: string, index: string) =>
 export const pluginName = (name: string, file: string) =>
   `The plugin name "${name}" (${file}) may hold only lower-case letters, digits and hyphens. Rename it.`
 
-/** The line after a TS2307 for a package. */
+/** The line after a TS2307 for a package, and after esbuild's error for one it could not resolve. */
 export const importable =
-  "A plugin has no packages of its own. It can import chad, effect and Node's built-in modules, such as node:fs."
+  "A plugin can import chad, effect, Node's built-in modules, such as node:fs, and the packages work/package.json names. To add one, run `npm install --package-lock-only --ignore-scripts <name>` in work/ and apply."
+
+/** `work/package.json` that cannot be read or is not JSON. */
+export const manifestUnreadable = (detail: string) =>
+  `work/package.json could not be read: ${detail}`
+
+/** `work/package.json` without `"type": "module"`. */
+export const manifestNotModule =
+  'work/package.json has to say "type": "module", or the type-check reads every plugin file as CommonJS. Add it and apply again.'
+
+/** A manifest that names packages, with no lockfile. */
+export const lockMissing =
+  "work/package.json names packages and work/package-lock.json is missing. Run `npm install --package-lock-only --ignore-scripts` in work/ and apply again."
+
+/** A lockfile that does not match the manifest, or that npm 6 or older wrote. */
+export const lockStale =
+  "work/package-lock.json does not match work/package.json. Run `npm install --package-lock-only --ignore-scripts` in work/ and apply again."
+
+/** One package that asks for a version of a host package that chad does not have. */
+export const hostConflictLine = (
+  asking: string,
+  name: string,
+  range: string,
+  version: string,
+) => `  ${asking} needs ${name} ${range}, and chad has ${name} ${version}`
+
+/** The packages that ask for versions of host packages that chad does not have. */
+export const hostConflict = (lines: ReadonlyArray<string>) =>
+  [
+    "A plugin's packages get chad's own copy of chad, effect and chad's other dependencies, and these ask for a version chad does not have:",
+    ...lines,
+    "Pick versions of them that work with chad's, or remove them from work/package.json, and run `npm install --package-lock-only --ignore-scripts` in work/.",
+  ].join("\n")
+
+/** An install that npm failed, with the lines of npm's output that say why. */
+export const installFailed = (lines: ReadonlyArray<string>) =>
+  [
+    "The packages of work/package-lock.json could not be installed:",
+    ...lines.map((line) => `  ${line}`),
+    "A package that npm's cache does not hold is fetched from the registry, which needs the network.",
+  ].join("\n")
+
+/** An install that ran past its deadline. */
+export const installTimedOut = (seconds: number) =>
+  installFailed([
+    `npm ci did not finish in ${seconds} seconds and was stopped.`,
+  ])
+
+/** The lines of a check or an apply about the packages its lockfile adds, removes and changes. */
+export const packageChanges = (options: {
+  readonly added: ReadonlyArray<readonly [string, string]>
+  readonly removed: ReadonlyArray<readonly [string, string]>
+  readonly changed: ReadonlyArray<readonly [string, string, string]>
+}) => [
+  ...(options.added.length === 0
+    ? []
+    : [
+        `Packages added: ${options.added.map(([name, version]) => `${name} ${version}`).join(", ")}.`,
+      ]),
+  ...(options.changed.length === 0
+    ? []
+    : [
+        `Packages changed: ${options.changed.map(([name, from, to]) => `${name} ${from} -> ${to}`).join(", ")}.`,
+      ]),
+  ...(options.removed.length === 0
+    ? []
+    : [
+        `Packages removed: ${options.removed.map(([name, version]) => `${name} ${version}`).join(", ")}.`,
+      ]),
+]
 
 /** The last line of a failed type-check of plugins. */
 export const effectGuide = (path: string) =>
@@ -795,6 +864,13 @@ export const topLevelAwait = (name: string, at: string) =>
 /** A plugin esbuild could not bundle. */
 export const notBundled = (name: string, errors: ReadonlyArray<string>) =>
   [`${name}: could not be bundled`, ...errors].join("\n")
+
+/** A plugin that imports a package of a tree whose packages could not be installed, with esbuild's errors and why. */
+export const notInstalled = (name: string, errors: ReadonlyArray<string>) =>
+  [
+    `${name}: imports a package that is not installed, because the packages of work/package-lock.json could not be installed. chad logs has npm's error.`,
+    ...errors,
+  ].join("\n")
 
 /** A bundle that threw when it ran, with the error's stack. */
 export const notLoaded = (name: string, stack: string) =>
@@ -1724,7 +1800,7 @@ export const restoreFailed = (error: string) =>
 
 /** `chad restore` finished. */
 export const restored = (data: string, made: string) =>
-  `Restored a backup of chad ${made} into ${data}. Start chad serve: its first start rebuilds repo/versions, repo/live and repo/node_modules from the applied branch, and migrates the database when this chad is newer.`
+  `Restored a backup of chad ${made} into ${data}. Start chad serve: its first start rebuilds repo/versions, repo/live and repo/node_modules from the applied branch, installs the npm packages work/package.json names, which needs the network, and migrates the database when this chad is newer.`
 
 /** A command, or `chad serve` as `serve`, on a volume that a cut `chad restore` left half replaced. */
 export const restoreUnfinished = (command: string, data: string) =>

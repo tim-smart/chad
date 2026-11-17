@@ -17,6 +17,13 @@ export interface Timings {
   readonly hookOnSession: Duration.Duration
   /** One plugin's Layer build. */
   readonly pluginBuild: Duration.Duration
+  /**
+   * One install of the packages of a lockfile, `npm ci` from start to end. A boot waits for it before it loads the
+   * repo's plugins, and an apply before its type-check.
+   */
+  readonly packageInstall: Duration.Duration
+  /** How long npm has to end after a SIGTERM, at an install's deadline or a stop, before it gets a SIGKILL. npm ignores a SIGTERM while it waits to retry a fetch. */
+  readonly packageStop: Duration.Duration
   /** Stop, wait for requests in flight, which is cluster's `entityTerminationTimeout`. */
   readonly stopRequests: Duration.Duration
   /** Stop, the point from SIGTERM until which queued hooks run. */
@@ -74,6 +81,8 @@ export const defaults: Timings = {
   hookAfterTurn: Duration.seconds(30),
   hookOnSession: Duration.seconds(10),
   pluginBuild: Duration.seconds(30),
+  packageInstall: Duration.minutes(5),
+  packageStop: Duration.seconds(5),
   stopRequests: Duration.seconds(15),
   stopHooksUntil: Duration.seconds(50),
   stopDeadline: Duration.seconds(60),

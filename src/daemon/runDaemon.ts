@@ -67,6 +67,7 @@ import * as Unusable from "./Unusable.ts"
 import * as Upgrade from "./Upgrade.ts"
 import * as Queue from "./Queue.ts"
 import * as RepoLinks from "./RepoLinks.ts"
+import * as Packages from "./Packages.ts"
 import * as Server from "./Server.ts"
 import * as SessionEntity from "./SessionEntity.ts"
 import * as Timers from "./Timers.ts"
@@ -349,12 +350,30 @@ const boot = Effect.fnUntraced(function* (
     Effect.option,
   )
   const bundledNames = new Set((inputs.plugins ?? []).map(({ name }) => name))
+  const packages = Packages.make({
+    repo: volume.repo,
+    cache: environment.npmCache ?? join(volume.data, "cache/npm"),
+    deadline: inputs.timings.packageInstall,
+    stop: inputs.timings.packageStop,
+  })
   const fromRepo =
-    // Safe mode loads nothing from the repo and never starts esbuild.
+    // Safe mode loads nothing from the repo, installs no package and never starts esbuild.
     safe !== "off" || Option.isNone(applied)
       ? { loaded: [], skipped: [] }
-      : // A repo plugin with a bundled plugin's name is skipped before it runs, since the two would share one table.
-        yield* Loader.load(applied.value.directory, bundledNames)
+      : yield* Effect.gen(function* () {
+          const directory = applied.value.directory
+          // A boot bundles from source, so the applied tree's packages are installed first when they are missing. When
+          // that fails, a plugin that imports one is skipped with the reason, and the rest load.
+          const ready = yield* packages.ready(directory).pipe(
+            Effect.map(({ hash }) => ({ hash, missing: undefined })),
+            Effect.catchTag("PackagesError", (error) =>
+              Effect.succeed({ hash: undefined, missing: error.message }),
+            ),
+          )
+          if (ready.missing === undefined) yield* packages.prune(ready.hash)
+          // A repo plugin with a bundled plugin's name is skipped before it runs, since the two would share one table.
+          return yield* Loader.load(directory, bundledNames, ready.missing)
+        })
   // The token store and the one Codex login of the process, which every session's model layer is built over. clanka's
   // login reads the stored token once, as it is built.
   const tokens = yield* Layer.buildWithScope(
@@ -762,6 +781,7 @@ const boot = Effect.fnUntraced(function* (
     forced: environment.safeMode,
     initial: safe,
     plugins,
+    packages,
     mcp,
     bundled: inputs.plugins ?? [],
     settings: appliedSettings,

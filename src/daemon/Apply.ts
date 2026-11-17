@@ -21,6 +21,7 @@ import * as Loader from "./Loader.ts"
 import * as Logger from "./Logger.ts"
 import * as Mcp from "./Mcp.ts"
 import type * as Notices from "./Notices.ts"
+import * as Packages from "./Packages.ts"
 import * as Persona from "./Persona.ts"
 import * as PluginSettings from "./PluginSettings.ts"
 import type * as Plugins from "./Plugins.ts"
@@ -145,6 +146,8 @@ export const make = Effect.fnUntraced(function* (options: {
   /** The safe mode the boot found. */
   readonly initial: SafeMode.State
   readonly plugins: Plugins.Plugins["Service"]
+  /** The installs of the trees' npm packages. */
+  readonly packages: Packages.Packages
   /** The MCP layer, which an apply that changed `mcp.json`, a secret it names, `chad safe` and `chad mcp restart` rebuild. */
   readonly mcp: Mcp.Mcp
   /** The bundled plugins, by name, which a repo plugin may not share and which `chad plugin reload` builds again. */
@@ -260,6 +263,18 @@ export const make = Effect.fnUntraced(function* (options: {
    */
   const rebuildIf = (needed: boolean) =>
     needed ? options.mcp.rebuild : Effect.succeed(undefined)
+
+  /**
+   * Makes the packages of the tree `live` names ready before it loads, and gives why they are not when they are not, so
+   * a plugin that imports one is skipped with the reason and the others load, as at a boot.
+   */
+  const readyLive = (tree: string) =>
+    options.packages.ready(tree).pipe(
+      Effect.as(undefined),
+      Effect.catchTag("PackagesError", (error) =>
+        Effect.succeed(error.message),
+      ),
+    )
 
   const refused = (stage: string, errors: ReadonlyArray<string>) =>
     Logger.event("apply.failed", "An apply was refused", {
@@ -399,6 +414,25 @@ export const make = Effect.fnUntraced(function* (options: {
             fs.remove(exported.directory, { recursive: true, force: true }),
           )
         : Effect.void
+      // The tree's packages are installed and linked before its type-check, which reads them.
+      const readied = yield* options.packages.ready(exported.directory).pipe(
+        Effect.map((ready) => ({ ready, error: undefined })),
+        Effect.catchTag("PackagesError", (error) =>
+          Effect.succeed({ ready: undefined, error: error.message }),
+        ),
+        Effect.onError(() => cleanup),
+      )
+      if (readied.ready === undefined) {
+        yield* cleanup
+        return yield* refused("packages", [readied.error])
+      }
+      const ready = readied.ready
+      const packageLines = Packages.changes(
+        yield* Packages.listed(
+          (yield* fs.exists(live)) ? yield* fs.realPath(live) : undefined,
+        ),
+        ready.packages,
+      )
       const checked = yield* checkTree(exported.directory).pipe(
         Effect.onError(() => cleanup),
       )
@@ -487,6 +521,7 @@ export const make = Effect.fnUntraced(function* (options: {
           diff.added.length + diff.removed.length + diff.changed.length > 0
         // "Replace me" is the one finding a check passes with.
         return done(
+          ...packageLines,
           ...listing,
           ...replaceMe.map(Messages.replaceMeCheck),
           ...(mcpChanged ? Messages.mcpCheckLines(diff) : []),
@@ -605,6 +640,7 @@ export const make = Effect.fnUntraced(function* (options: {
             yield* options.notices.clear(Mcp.unreadableKey)
           }
           yield* Repo.prune(repo, tree)
+          yield* options.packages.prune(ready.hash)
           yield* Logger.event("apply.done", "An apply finished", {
             kind,
             commit: sha,
@@ -640,7 +676,7 @@ export const make = Effect.fnUntraced(function* (options: {
                 restored,
                 swapped,
                 flipped,
-                settings: [...listing, ...timerLines],
+                settings: [...packageLines, ...listing, ...timerLines],
                 skills: [
                   ...Messages.skillChanges(skillChanges),
                   ...Skills.hiding(skills, options.skills.bundled).map(
@@ -790,7 +826,7 @@ export const make = Effect.fnUntraced(function* (options: {
         const found =
           tree === undefined
             ? { loaded: [], skipped: [] }
-            : yield* Loader.load(tree, bundledNames)
+            : yield* Loader.load(tree, bundledNames, yield* readyLive(tree))
         applied = yield* PluginSettings.atBoot({
           tree,
           known: new Set([
@@ -869,7 +905,12 @@ export const make = Effect.fnUntraced(function* (options: {
       ) {
         return refused(Messages.reloadUnknown(name))
       }
-      const found = yield* Loader.load(yield* fs.realPath(live), bundledNames)
+      const tree = yield* fs.realPath(live)
+      const found = yield* Loader.load(
+        tree,
+        bundledNames,
+        yield* readyLive(tree),
+      )
       const loaded = withSettings(found.loaded)
       if (loaded !== undefined) return loaded
       const problem = found.skipped.find((plugin) => plugin.name === name)

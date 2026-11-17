@@ -74,7 +74,7 @@ it("a tree that type-checks passes, and a type error and a missing package fail 
   })
   expect(failed.errors).toHaveLength(1)
   expect(failed.errors[0]!.split("\n")).toEqual([
-    "work/plugins/clock.ts(4,17): error TS2307: Cannot find module 'left-pad'. A plugin has no packages of its own. It can import chad, effect and Node's built-in modules, such as node:fs.",
+    `work/plugins/clock.ts(4,17): error TS2307: Cannot find module 'left-pad'. ${Messages.importable}`,
     "work/plugins/clock.ts(5,7): error TS2322: Type 'string' is not assignable to type 'number'.",
     `Read ${failed.repo}/node_modules/effect/AGENTS.md before you write Effect code.`,
   ])

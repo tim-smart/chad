@@ -11,7 +11,7 @@ Three things in the examples do not apply to a plugin:
 
 - chad provides `HttpClient`, so do not provide your own.
 - chad runs the plugin, so there is no `runMain` or `Layer.launch`.
-- You can import only chad's direct dependencies.
+- You can import only chad's direct dependencies, Node's built-in modules and the npm packages `work/package.json` names.
 
 Read in this order:
 
@@ -102,8 +102,18 @@ export default Plugin.make(NotesTools, Chunk)
 
 - No top-level await.
 - `import.meta` is empty, so a plugin cannot find files next to itself.
-- A plugin can import chad's direct dependencies and nothing else. They are the `dependencies` in chad's `package.json` under `/data/repo/node_modules/`. A plugin has no dependencies of its own. From chad itself the importable modules are `chad`, `chad/Plugin`, `chad/Session` and `chad/Turns`. Only `chad`, `effect` and Node's built-in modules are promised to stay importable. The other dependencies resolve today and can be gone in a later version.
+- A plugin can import chad's direct dependencies, Node's built-in modules and the npm packages `work/package.json` names, and nothing else. chad's dependencies are the `dependencies` in chad's `package.json` under `/data/repo/node_modules/`. From chad itself the importable modules are `chad`, `chad/Plugin`, `chad/Session` and `chad/Turns`. Only `chad`, `effect` and Node's built-in modules are promised to stay importable. The other dependencies resolve today and can be gone in a later version.
 - A fiber that runs for the plugin's whole life is started with `Plugin.background(effect)`. A fiber forked while the Layer builds runs next to the previous version's for a moment after an apply.
+
+## npm packages
+
+- Every plugin shares one manifest, `work/package.json`, and its lockfile, `work/package-lock.json`. There is no manifest for each plugin. The manifest has `"type": "module"`, or the check fails.
+- To add a package, run `npm install --package-lock-only --ignore-scripts <name>` in `work/`. It writes both files and installs nothing. To remove one, run `npm uninstall --package-lock-only <name>`. Then `chad check` and `chad apply` as for any change. Both files are committed with the code, so a revert takes a package back with the plugin that needs it.
+- chad installs exactly what the lockfile says, with install scripts off, and bundles each package into the plugin that imports it. A `node_modules` you make under `work/` is never loaded and never committed. Never run `npm install` without `--package-lock-only` there.
+- An apply whose lockfile changed downloads the packages, so it needs the network and can take a minute. One whose lockfile did not change installs nothing.
+- `chad`, `effect` and chad's other direct dependencies always come from chad, whatever the lockfile says, so a package that uses effect gets the same effect your plugin does. A package that needs a version of one of them that chad's does not satisfy fails the check, which names the package. Pick another version of it or drop it.
+- The check lists the packages an apply adds, removes and changes. A failed install fails the check with npm's error, and the plugins that are loaded stay as they are.
+- These do not work: a native addon (a `.node` file), a package that needs its install script, a package that reads files next to itself, because the bundle is one file in memory and `import.meta` is empty, and a package with top-level await.
 
 ## Tools
 

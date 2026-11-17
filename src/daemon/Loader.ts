@@ -20,6 +20,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process"
 import * as esbuild from "esbuild"
 import * as Messages from "../Messages.ts"
 import * as Plugin from "../Plugin.ts"
+import * as Version from "../Version.ts"
 
 /**
  * The compiler options of every type-check of plugins: `chad check`, `chad apply`, the image's test and the
@@ -149,7 +150,8 @@ const missingPackage =
 
 /**
  * Type-checks the plugins of a tree with the image's `tsc`, from `repo/` so that `effect`, `chad` and the Node types
- * resolve through `repo/node_modules`. chad writes the tsconfig itself, next to the tree, and deletes it after the
+ * resolve through `repo/node_modules`. The tree's own packages resolve first, through the `node_modules` link that
+ * `Packages` puts in the tree, and a host package that one of them imports falls through to the host's. chad writes the tsconfig itself, next to the tree, and deletes it after the
  * run, so no file in the repo can loosen the check. It covers `plugins/**\/*.ts` and nothing else. The result is the
  * rewritten output, or nothing when the check passed.
  */
@@ -228,8 +230,10 @@ export interface Bundle {
 
 /**
  * The one call of the bundler, so it can be replaced alone. esbuild runs as a child process of the daemon and writes
- * nothing. Every package import stays a `require` call, and the paths in the bundle are relative to the tree, so the
- * same source gives the same text in every tree.
+ * nothing. An import of a host package, chad or one of chad's direct dependencies, stays a `require` call that the
+ * host answers, as does one of Node's built-in modules. Every other package is bundled from the tree's install, so it
+ * is freed with the plugin. The paths in the bundle are relative to the tree, so the same source gives the same text in
+ * every tree.
  */
 const build = (tree: string, file: string) =>
   Effect.tryPromise({
@@ -244,7 +248,7 @@ const build = (tree: string, file: string) =>
         platform: "node",
         target: "node26",
         sourcemap: "external",
-        packages: "external",
+        external: [...Version.hostPackages],
         // A tsconfig of the tree's own is not read, so its `paths` cannot point a package at a file of the tree. The
         // type-check ignores it too, and the two resolve packages alike.
         tsconfigRaw: { compilerOptions: { verbatimModuleSyntax: true } },
@@ -264,8 +268,14 @@ const build = (tree: string, file: string) =>
     })),
   )
 
-/** esbuild's messages, with `work/` paths and the top-level await error rewritten to its fix. */
-const bundleError = (found: Found, error: unknown) => {
+/** A package that esbuild could not find, as opposed to a file of the plugin's own. */
+const unresolved = /^Could not resolve "[^./]/
+
+/**
+ * esbuild's messages, with `work/` paths and the top-level await error rewritten to its fix. A package it could not
+ * find is told what a plugin can import, and why the tree's packages are missing when they are.
+ */
+const bundleError = (found: Found, error: unknown, missing?: string) => {
   const messages =
     typeof error === "object" &&
     error !== null &&
@@ -284,17 +294,21 @@ const bundleError = (found: Found, error: unknown) => {
   )
   if (awaited !== undefined)
     return Messages.topLevelAwait(found.name, at(awaited))
-  return Messages.notBundled(
-    found.name,
-    messages.map((message) => `${at(message)}: ${message.text}`),
-  )
+  const lines = messages.map((message) => `${at(message)}: ${message.text}`)
+  if (!messages.some((message) => unresolved.test(message.text))) {
+    return Messages.notBundled(found.name, lines)
+  }
+  // The first line is the reason `chad status` gives for a skipped plugin, so it names the missing install.
+  return missing === undefined
+    ? Messages.notBundled(found.name, [...lines, Messages.importable])
+    : Messages.notInstalled(found.name, [...lines, missing])
 }
 
-/** Bundles one plugin of a tree. */
-export const bundle = (tree: string, found: Found) =>
+/** Bundles one plugin of a tree. `missing` is why the tree's packages are not installed, when they are not. */
+export const bundle = (tree: string, found: Found, missing?: string) =>
   build(tree, found.file).pipe(
     Effect.mapError(
-      (error) => new LoadError({ message: bundleError(found, error) }),
+      (error) => new LoadError({ message: bundleError(found, error, missing) }),
     ),
     Effect.map(({ code, map }): Bundle => ({
       name: found.name,
@@ -387,8 +401,8 @@ const thrown = (bundle: Bundle, error: unknown) => {
 }
 
 /**
- * Runs a bundle with `vm.compileFunction`, the host's `require` and a fresh `module`. Every package the plugin
- * imports is the host's own instance. The default export must pass `Plugin.isPlugin`, because a bare Layer passes the
+ * Runs a bundle with `vm.compileFunction`, the host's `require` and a fresh `module`. Every host package that the
+ * plugin or a package bundled into it imports is the host's own instance. The default export must pass `Plugin.isPlugin`, because a bare Layer passes the
  * type-check.
  */
 export const run = (bundle: Bundle) =>
@@ -432,11 +446,13 @@ export interface Loaded {
 
 /**
  * Loads every plugin of an exported tree: each one bundled and run, with no type-check. A plugin that breaks a name
- * rule, does not bundle, throws or exports no `Plugin` is skipped with its error, and the others load.
+ * rule, does not bundle, throws or exports no `Plugin` is skipped with its error, and the others load. `missing` is
+ * why the tree's packages are not installed, which a plugin that imports one of them is skipped with.
  */
 export const load = Effect.fnUntraced(function* (
   tree: string,
   bundled: ReadonlySet<string> = new Set(),
+  missing?: string,
 ) {
   const { found, problems } = yield* discover(tree)
   const loaded: Array<Loaded> = []
@@ -449,7 +465,7 @@ export const load = Effect.fnUntraced(function* (
   ]
   for (const plugin of found.filter(({ name }) => !bundled.has(name))) {
     const exit = yield* Effect.exit(
-      Effect.flatMap(bundle(tree, plugin), (bundle) =>
+      Effect.flatMap(bundle(tree, plugin, missing), (bundle) =>
         Effect.map(run(bundle), (value) => ({
           name: plugin.name,
           plugin: value,

@@ -14,6 +14,8 @@ export interface Environment {
   readonly socket: string
   /** `HOME`, `NPM_CONFIG_PREFIX` and `XDG_CACHE_HOME`, which the filesystem check follows. */
   readonly installs: Readonly<Record<string, string | undefined>>
+  /** `NPM_CONFIG_CACHE`, npm's cache for the installs of plugins' packages, which is `cache/npm` on the volume without it. */
+  readonly npmCache: string | undefined
   /** `CHAD_MODEL`, the default model setting. */
   readonly model: string | undefined
   readonly openaiApiUrl: string | undefined
@@ -40,6 +42,7 @@ export const read = (env: NodeJS.ProcessEnv): Environment => {
       NPM_CONFIG_PREFIX: env["NPM_CONFIG_PREFIX"],
       XDG_CACHE_HOME: env["XDG_CACHE_HOME"],
     },
+    npmCache: env["NPM_CONFIG_CACHE"] ?? env["npm_config_cache"],
     model: env["CHAD_MODEL"],
     openaiApiUrl: env["CHAD_OPENAI_API_URL"],
     openaiApiKey: env["CHAD_OPENAI_API_KEY"],

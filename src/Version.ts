@@ -1,10 +1,24 @@
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
 
-/** The chad version, which is the version of the package this file is part of. */
-export const version: string = JSON.parse(
+const manifest: {
+  readonly version: string
+  readonly dependencies?: Record<string, string>
+} = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
-).version
+)
+
+/** The chad version, which is the version of the package this file is part of. */
+export const version: string = manifest.version
+
+/**
+ * The packages a plugin always gets from the host: chad itself and chad's direct dependencies, effect among them. A
+ * plugin's bundle keeps them as `require` calls, and a plugin's own install never supplies a copy of one.
+ */
+export const hostPackages: ReadonlyArray<string> = [
+  "chad",
+  ...Object.keys(manifest.dependencies ?? {}),
+].sort()
 
 /**
  * The version of the effect package that is installed beside chad, which is the one the daemon runs and plugins are
