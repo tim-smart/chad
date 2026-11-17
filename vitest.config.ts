@@ -18,8 +18,8 @@ export default defineConfig({
   test: {
     passWithNoTests: true,
     maxWorkers: files,
-    // The scenarios import the built package, so the build comes first.
-    globalSetup: ["test/support/build.ts"],
+    // The scan for skipped tests, then the build, before any test. The scenarios import the built package.
+    globalSetup: ["test/support/skips.ts", "test/support/build.ts"],
     projects: layers.map((name) => ({
       test: {
         name,
