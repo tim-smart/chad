@@ -407,7 +407,8 @@ test("an http server with an oauth key comes up needing a login and nothing unat
   const secret = "client-secret~canary-41c7"
   const fake = await OAuth.make({ client: { id: "chad-client", secret } })
   onTestFinished(fake.close)
-  const running = await scenario()
+  // The log holds what clanka's MCP client reports, which is where a request that outlived its sign-in is heard.
+  const running = await scenario({ env: { CHAD_LOG_LEVEL: "Debug" } })
   const work = join(running.data, "repo/work")
   expect(
     (await running.chad(["secret", "set", "SLACK_SECRET"], {}, secret + "\n"))
@@ -511,23 +512,47 @@ test("an http server with an oauth key comes up needing a login and nothing unat
   expect(results(quoted[1]).join("\n")).toContain("refused grant_type")
   expect(results(quoted[1]).join("\n")).not.toContain("canary")
 
-  // The owner signs out and in again while a refresh of the old sign-in is still on its way. Its answer comes to a
-  // layer that is gone, and changes nothing of the new sign-in.
-  const late = fake.hold("/token")
-  const sent = fake.exchanges().length
-  const cut = turn(running, tries("mcp.slack.echo({ x: 5 })"))
-  await eventually(
-    () => fake.exchanges(),
-    (all) => all.length > sent,
+  /**
+   * The owner signs out and in again while a refresh of the old sign-in is still on its way, and the authorization
+   * server then refuses that refresh in words that quote it. The answer comes to a layer that is gone, for a sign-in
+   * that is stored no more. `heard` is in the log line that says the daemon got it.
+   */
+  const outlived = async (error: string, heard: string) => {
+    fake.expire()
+    fake.refuse(error)
+    const late = fake.hold("/token")
+    const sent = fake.exchanges().length
+    const cut = turn(running, tries("mcp.slack.echo({ x: 5 })"))
+    await eventually(
+      () => fake.exchanges(),
+      (all) => all.length > sent,
+    )
+    expect((await running.chad(["mcp", "logout", "slack"])).code).toBe(0)
+    await cut
+    const anew = await signIn((address) => address)
+    expect(anew.stdout).toContain(connected("slack", 1))
+    const newest = signIns(running.data)["slack"]
+    const told = () =>
+      running.log().filter((line) => JSON.stringify(line).includes(heard))
+    const before = told().length
+    late()
+    await eventually(told, (all) => all.length > before)
+    // The log names none of the old sign-in's tokens, the new sign-in is as it was, and its refresh token is still
+    // the one the authorization server takes.
+    expect(JSON.stringify(running.log())).not.toContain("canary")
+    expect(signIns(running.data)["slack"]).toEqual(newest)
+    fake.expire()
+    const works = await turn(running, tries("mcp.slack.echo({ x: 6 })"))
+    expect(results(works[1]).join("\n")).toContain('{"x":6}')
+    return anew
+  }
+  // A refusal the SDK reports as it is, with the old refresh token in it.
+  const reported = await outlived(
+    "temporarily_unavailable",
+    "refused grant_type",
   )
-  expect((await running.chad(["mcp", "logout", "slack"])).code).toBe(0)
-  await cut
-  const anew = await signIn((address) => address)
-  expect(anew.stdout).toContain(connected("slack", 1))
-  const newest = signIns(running.data)["slack"]
-  late()
-  await running.logged("mcp.oauth-stale")
-  expect(signIns(running.data)["slack"]).toEqual(newest)
+  // A refusal the SDK answers by dropping the tokens and trying again, which must not be the new sign-in's.
+  const retried = await outlived("invalid_grant", "mcp.oauth-stale")
 
   // The server refuses the token a refresh has just given. The call says what to ask, as do the status, the next
   // turn's prompt and a rebuild, and the sign-in is kept for when the server takes it again.
@@ -548,6 +573,7 @@ test("an http server with an oauth key comes up needing a login and nothing unat
   fake.reject(false)
 
   // A restart connects with the refreshed token, which is the only one the server still takes.
+  const last = await running.fakes.chat.makeThread("direct")
   expect(await running.stop()).toBe(0)
   const again = await scenario({ directory: running.directory })
   const up = await eventually(
@@ -572,9 +598,10 @@ test("an http server with an oauth key comes up needing a login and nothing unat
 
   // The owner revokes chad. The call fails with what to ask, and no sign-in is begun for it.
   fake.revoke()
-  // The new chat fake counts its threads from the first again, and those seven hold the sessions of the turns above.
-  for (let made = 0; made < 7; made++)
-    await again.fakes.chat.makeThread("direct")
+  // The new chat fake counts from one again, and what it counted before names the threads and messages of the turns
+  // above.
+  const count = (thread: { readonly id: string }) => Number(thread.id.slice(1))
+  while (count(await again.fakes.chat.makeThread("direct")) < count(last));
   const revoked = await turn(again, tries("mcp.slack.echo({ x: 2 })"))
   expect(results(revoked[1]).join("\n")).toContain(
     Messages.mcpNeedsLogin("slack"),
@@ -597,7 +624,8 @@ test("an http server with an oauth key comes up needing a login and nothing unat
     denied,
     refused,
     signed,
-    anew,
+    reported,
+    retried,
     rebuilt,
     unsaved,
     up,

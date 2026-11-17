@@ -104,8 +104,11 @@ const noRegistration = "does not support dynamic client registration"
 /** The SDK's words for a server that answers 401 to the token a refresh has just given. */
 const stillUnauthorized = "Server returned 401 after successful authentication"
 
-/** What a sign-in is answered once a newer sign-in or a sign-out has taken its place. */
+/** What a provider answers the SDK with once a newer sign-in or a sign-out has taken the place of its own. */
 class Replaced extends Error {}
+
+/** How many secrets that left the store stay hidden for each server name. */
+const retiredKept = 64
 
 export interface McpOAuth {
   /** The target of a resolved server, or none for one with no `oauth` key or that expansion left unavailable. */
@@ -175,13 +178,40 @@ export const make = Effect.fnUntraced(function* (options: {
   }
   /**
    * How many times each server name's sign-in was replaced, by a sign-in that finished or by a sign-out. A layer
-   * writes only to the sign-in it was built on, so what an older layer still hears from the authorization server
-   * changes nothing of a newer sign-in.
+   * reads and writes only the sign-in it was built on, so what an older layer still hears from the authorization
+   * server neither changes a newer sign-in nor is answered with it.
    */
   const eras = new Map<string, number>()
   const eraOf = (name: string) => eras.get(name) ?? 0
   const replaced = (name: string) => {
     eras.set(name, eraOf(name) + 1)
+  }
+
+  /** The secrets of an entry, or of a part of one. */
+  const secretsOf = (
+    entry: Pick<Entry, "tokens" | "client" | "pending"> | undefined,
+  ): ReadonlyArray<string> =>
+    [
+      entry?.tokens?.access_token,
+      entry?.tokens?.refresh_token,
+      entry?.tokens?.id_token,
+      entry?.client?.client_secret,
+      entry?.pending?.verifier,
+    ].filter((value) => typeof value === "string")
+  /**
+   * The secrets that left the store, by server name, the newest last: the tokens a refresh, a sign-out or a new
+   * sign-in replaced, and those the SDK brought that were never kept. A request sent with one can be answered long
+   * after, since closing a transport does not end it, and the server may quote it. So each stays hidden as it was
+   * while the store held it. Only the newest `retiredKept` of a name are kept, which is many refreshes more than a
+   * request lasts.
+   */
+  const retired = new Map<string, Array<string>>()
+  const retire = (name: string, values: ReadonlyArray<string>) => {
+    if (values.length === 0) return
+    retired.set(
+      name,
+      [...(retired.get(name) ?? []), ...values].slice(-retiredKept),
+    )
   }
 
   const text = yield* fs.readFileString(path).pipe(
@@ -232,7 +262,10 @@ export const make = Effect.fnUntraced(function* (options: {
       )
       yield* fs.chmod(temporary, 0o600)
       yield* fs.rename(temporary, path)
-      if (without !== undefined) entries.delete(without)
+      if (without !== undefined) {
+        retire(without, secretsOf(entries.get(without)))
+        entries.delete(without)
+      }
     }).pipe(
       Effect.catch((error) => {
         const code = Errno.code(error)
@@ -253,6 +286,7 @@ export const make = Effect.fnUntraced(function* (options: {
    */
   const persist = Effect.ignore(write())
   const context = yield* Effect.context<never>()
+  const runFork = Effect.runForkWith(context)
   /** A change the SDK makes through the provider, which it waits for. */
   const saved = () => Effect.runPromiseWith(context)(persist)
 
@@ -264,6 +298,13 @@ export const make = Effect.fnUntraced(function* (options: {
   const update = (target: Target, change: (entry: Entry) => void) => {
     const entry: Entry = { ...(own(target) ?? { binding: bindingOf(target) }) }
     change(entry)
+    const now = secretsOf(entry)
+    retire(
+      target.name,
+      secretsOf(entries.get(target.name)).filter(
+        (value) => !now.includes(value),
+      ),
+    )
     entries.set(target.name, entry)
   }
 
@@ -283,30 +324,43 @@ export const make = Effect.fnUntraced(function* (options: {
     },
   ): OAuthClientProvider => {
     const { name, oauth } = target
-    /** A change a sign-in makes, which it makes only while it is the newest. */
-    const signed = (change: (entry: Entry) => void) => {
-      if (sign?.current() !== true) throw new Replaced()
-      update(target, change)
-      return saved()
-    }
     /** The sign-in a layer is built on. */
     const era = eraOf(name)
-    /** Whether a sign-out or a later sign-in has taken the place of the sign-in this layer was built on. */
-    const stale = () => eraOf(name) !== era || own(target) === undefined
     /**
-     * A change a layer makes to the sign-in it was built on. A refresh a layer began can be answered after the layer
-     * is gone, and that answer must neither bring back a sign-in the owner dropped nor change the one made since.
+     * Whether the provider still speaks for the sign-in it was made for: a sign-in while it is the newest, and a layer
+     * until a sign-out or a later sign-in takes the place of the sign-in it was built on.
      */
-    const kept = (change: (entry: Entry) => void) => {
-      if (stale())
-        return Effect.runPromiseWith(context)(
-          Logger.event(
-            "mcp.oauth-stale",
-            "An MCP layer heard from its authorization server after its sign-in was replaced",
-            { server: name },
-          ),
-        )
-      update(target, change)
+    const live = () =>
+      sign === undefined
+        ? eraOf(name) === era && own(target) !== undefined
+        : sign.current()
+    /**
+     * The one way to the store, which everything the SDK reads, writes or drops through the provider passes. A
+     * request can be answered once its sign-in is gone, and closing a transport does not end it. The SDK then asks
+     * on: it drops the tokens, reads them again and refreshes with what it is given. So a provider that is no longer
+     * live is given nothing and changes nothing, or it would spend the refresh token of the sign-in made since.
+     * `given` is what the SDK brought with it, which is kept out of what chad says even though it is not stored.
+     */
+    const mine = (given: ReadonlyArray<string> = []) => {
+      if (live()) return
+      retire(name, given)
+      if (sign !== undefined)
+        throw new Replaced(Messages.mcpLoginReplaced(name))
+      runFork(
+        Logger.event(
+          "mcp.oauth-stale",
+          "An MCP layer asked for its sign-in after the sign-in was replaced",
+          { server: name },
+        ),
+      )
+      throw new Replaced(Messages.mcpSignInReplaced(name))
+    }
+    const change = (
+      apply: (entry: Entry) => void,
+      given: ReadonlyArray<string> = [],
+    ) => {
+      mine(given)
+      update(target, apply)
       return saved()
     }
     const configured: OAuthClientInformationMixed | undefined =
@@ -336,6 +390,7 @@ export const make = Effect.fnUntraced(function* (options: {
         }
       },
       clientInformation: () => {
+        mine()
         const client = configured ?? own(target)?.client
         // A layer never registers a client: that is the first step of a sign-in.
         if (client === undefined && sign === undefined) throw needsLogin(name)
@@ -346,44 +401,53 @@ export const make = Effect.fnUntraced(function* (options: {
         ? {}
         : {
             saveClientInformation: (client: OAuthClientInformationMixed) =>
-              signed((entry) => {
+              change((entry) => {
                 entry.client = client
-              }),
+              }, secretsOf({ client })),
           }),
-      tokens: () => (sign === undefined ? own(target)?.tokens : undefined),
+      tokens: () => {
+        // A sign-in sends no stored token, so the SDK authorizes anew in place of refreshing.
+        if (sign !== undefined) return undefined
+        mine()
+        return own(target)?.tokens
+      },
       saveTokens: (tokens) => {
-        const save = (entry: Entry) => {
+        const given = secretsOf({ tokens })
+        mine(given)
+        // A layer only refreshes the tokens of a sign-in that is stored. It never makes one.
+        if (sign === undefined && own(target)?.tokens === undefined) {
+          retire(name, given)
+          throw needsLogin(name)
+        }
+        update(target, (entry) => {
           entry.tokens = tokens
-        }
-        if (sign !== undefined) {
-          const done = signed(save)
-          refused.delete(name)
-          replaced(name)
-          return done
-        }
-        if (!stale()) {
-          // A layer only refreshes the tokens of a sign-in that is stored. It never makes one.
-          if (own(target)?.tokens === undefined) throw needsLogin(name)
-          refused.delete(name)
-        }
-        return kept(save)
+        })
+        refused.delete(name)
+        // The layers built before this sign-in ran on another.
+        if (sign !== undefined) replaced(name)
+        return saved()
       },
       ...(sign === undefined ? {} : { state: () => sign.state }),
       redirectToAuthorization: (url) => {
+        mine()
         if (sign === undefined) {
-          if (!stale()) refused.add(name)
+          refused.add(name)
           throw needsLogin(name)
         }
         sign.url = url
       },
       saveCodeVerifier: (verifier) => {
+        mine([verifier])
         // A layer's verifier is never used, and must not replace that of a sign-in the owner is making.
         if (sign === undefined) return
-        return signed((entry) => {
-          entry.pending = { state: sign.state, verifier }
+        const { state } = sign
+        update(target, (entry) => {
+          entry.pending = { state, verifier }
         })
+        return saved()
       },
       codeVerifier: () => {
+        mine()
         const verifier = own(target)?.pending?.verifier
         if (verifier === undefined) throw needsLogin(name)
         return verifier
@@ -391,7 +455,7 @@ export const make = Effect.fnUntraced(function* (options: {
       invalidateCredentials: (scope) => {
         // A sign-in sent no stored token, so a code the server refused says nothing of the tokens in use.
         if (sign !== undefined && scope === "tokens") return
-        return (sign === undefined ? kept : signed)((entry) => {
+        return change((entry) => {
           if (scope === "all" || scope === "client") delete entry.client
           if (scope === "all" || scope === "tokens") delete entry.tokens
           if (scope === "all" || scope === "discovery") delete entry.discovery
@@ -399,10 +463,13 @@ export const make = Effect.fnUntraced(function* (options: {
         })
       },
       saveDiscoveryState: (discovery) =>
-        (sign === undefined ? kept : signed)((entry) => {
+        change((entry) => {
           entry.discovery = discovery
         }),
-      discoveryState: () => own(target)?.discovery,
+      discoveryState: () => {
+        mine()
+        return own(target)?.discovery
+      },
     }
   }
 
@@ -467,16 +534,10 @@ export const make = Effect.fnUntraced(function* (options: {
       ),
     )
 
-  const hidden = (): ReadonlyArray<string> =>
-    [...entries.values()].flatMap((entry) =>
-      [
-        entry.tokens?.access_token,
-        entry.tokens?.refresh_token,
-        entry.tokens?.id_token,
-        entry.client?.client_secret,
-        entry.pending?.verifier,
-      ].filter((value) => typeof value === "string"),
-    )
+  const hidden = (): ReadonlyArray<string> => [
+    ...[...entries.values()].flatMap(secretsOf),
+    ...[...retired.values()].flat(),
+  ]
 
   /**
    * What the server's 401 names: where its metadata is and the scope it asks for. A server that answers anything else

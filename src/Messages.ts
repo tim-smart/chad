@@ -1846,6 +1846,13 @@ export const mcpLoginsLost = (lines: ReadonlyArray<string>) =>
     ...lines.map((line) => `- ${line}`),
   ].join("\n")
 
+/**
+ * What a connection's requests fail with once the owner has signed out of its server or signed in to it again. The
+ * connection is on its way out, and it is given none of the new sign-in.
+ */
+export const mcpSignInReplaced = (name: string) =>
+  `MCP server "${name}": the sign-in this connection ran on was ended by a sign-out or replaced by a newer one, so it sends nothing more`
+
 /** An HTTP server with no `oauth` key that answered 401. */
 export const mcpUnauthorized = (name: string) =>
   `the server refused chad as unauthorized (401). If it signs in with OAuth, add "oauth": {} to "${name}" in mcp.json and apply it, and the owner then signs in. If it takes a key, check its headers.`
