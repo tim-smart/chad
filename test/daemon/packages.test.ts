@@ -1,6 +1,6 @@
 // A plugin's own npm packages: work/package.json and its lockfile, installed by chad from a registry stand-in, bundled
-// into the plugin with the host's effect, loaded again by a boot that has no network, and an install that would bring
-// an effect the host does not satisfy.
+// into the plugin with the host's effect, and loaded again by a boot that has no network. An install that would bring
+// an effect the host does not satisfy is refused.
 import { existsSync, readdirSync, rmSync } from "node:fs"
 import { join } from "node:path"
 import { expect, test } from "vitest"
@@ -60,12 +60,20 @@ const greeted = async (
   return results((await running.fakes.model.calls()).at(-1)).join("\n")
 }
 
-test("an apply installs the packages work/package.json names and the plugin's tool runs them on the host's effect, a boot with the install and the registry gone installs them again from chad's cache, and a revert takes them away", async () => {
+test("a check refuses a package that needs another effect, an apply installs the packages work/package.json names and the plugin's tool runs them on the host's effect, a boot with the install and the registry gone installs them again from chad's cache, and a revert takes them away", async () => {
   const registry = await Registry.start()
   const running = await scenario({ env })
   await running.logged("boot.ready")
   const repo = join(running.data, "repo")
   const work = join(repo, "work")
+  // A package that needs an effect the host's does not satisfy is refused, and nothing is installed.
+  write(work, { "package.json": manifest({ legacy: "1.0.0" }) })
+  await registry.lock(work)
+  const refused = await running.chad(["check"])
+  expect(refused.code).toBe(1)
+  expect(refused.stderr).toContain("legacy@1.0.0 needs effect ^3.0.0")
+  expect(existsSync(join(repo, "packages"))).toBe(false)
+
   write(work, {
     "package.json": manifest({ greet: "1.0.0" }),
     "plugins/hello.ts": hello,
@@ -108,17 +116,4 @@ test("an apply installs the packages work/package.json names and the plugin's to
     "Packages removed: greet 1.0.0, words 1.0.0.",
   )
   expect(readdirSync(join(repo, "packages"))).toEqual([])
-})
-
-test("a check refuses a package that needs an effect the host's does not satisfy, and names it", async () => {
-  const registry = await Registry.start()
-  const running = await scenario()
-  await running.logged("boot.ready")
-  const work = join(running.data, "repo", "work")
-  write(work, { "package.json": manifest({ legacy: "1.0.0" }) })
-  await registry.lock(work)
-  const checked = await running.chad(["check"])
-  expect(checked.code).toBe(1)
-  expect(checked.stderr).toContain("legacy@1.0.0 needs effect ^3.0.0")
-  expect(existsSync(join(running.data, "repo", "packages"))).toBe(false)
 })
