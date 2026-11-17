@@ -54,6 +54,7 @@ import * as Handler from "./Handler.ts"
 import * as Logger from "./Logger.ts"
 import * as Login from "./Login.ts"
 import * as Mcp from "./Mcp.ts"
+import * as McpOAuth from "./McpOAuth.ts"
 import * as Model from "./Model.ts"
 import * as Notices from "./Notices.ts"
 import * as Persona from "./Persona.ts"
@@ -427,6 +428,10 @@ const boot = Effect.fnUntraced(function* (
     scope: yield* Scope.fork(scope),
     lookup: PluginSettings.lookup(volume.data, environment.variables, fs),
     home: environment.installs["HOME"] ?? volume.home,
+    oauth: yield* McpOAuth.make({
+      data: volume.data,
+      timeout: inputs.timings.mcpLogin,
+    }),
   })
   if (safe === "off" && Option.isSome(applied)) {
     mcp.set(yield* Mcp.atBoot(applied.value.directory, notices))
@@ -697,6 +702,22 @@ const boot = Effect.fnUntraced(function* (
                     [...output.stdout, ...output.stderr].join("\n"),
                     output.code === 0,
                   ),
+                ),
+              ),
+          }),
+          Layer.succeed(Handler.McpLogin, {
+            begin: mcp.login.begin,
+            finish: (sign, post) =>
+              Deferred.await(state.repository).pipe(
+                Effect.flatMap((repository) =>
+                  repository.run(
+                    { _tag: "McpLoginFinish", ...sign },
+                    { session: undefined, chat: true },
+                    post,
+                  ),
+                ),
+                Effect.flatMap((output) =>
+                  post([...output.stdout, ...output.stderr].join("\n")),
                 ),
               ),
           }),

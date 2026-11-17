@@ -10,24 +10,26 @@ A check with no recorded result has not run.
 
 ## Status
 
-| Check                                                        | What it confirms                                                                                                                 | Result  |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| 1. `chad setup` on a real bot                                | Setup turns the message content intent on, or says where to click. The invite gives the bot what it needs in a server.           | not run |
-| 2. Codex login in a thread                                   | The first direct message posts a login code, and its turn finishes once you approve the code.                                    | not run |
-| 3. A direct message                                          | chad answers a direct message on the login from check 2.                                                                         | not run |
-| 4. Stop                                                      | The Stop button on the status message stops a turn.                                                                              | not run |
-| 5. A mention in a server channel, then a message without one | A mention opens a thread that the model titles, chad reads a reply there with no mention, and a listed channel needs none.       | not run |
-| 6. The other Codex models (optional)                         | The sub-agent runs on `gpt-6.1-sol`, `gpt-6.1-terra` or `gpt-6-luna` on your login.                                              | not run |
-| 7. Fast mode (optional)                                      | The Codex login accepts the `priority` service tier, and a turn answers on it.                                                   | not run |
-| 8. Slash commands                                            | Discord lists chad's slash commands, and each does what the typed command does.                                                  | not run |
-| 9. A secret through a form                                   | The agent's request posts a button, the form saves the secret, and the value shows nowhere in the chat.                          | not run |
-| D1. Publish the image                                        | The image builds and pushes to `ghcr.io/tim-smart/chad`.                                                                         | not run |
-| D2. The volume's filesystem                                  | The volume's filesystem is one chad's lock and SQLite are safe on.                                                               | not run |
-| D3. asphodel for real                                        | The asphodel plugin talks to a real asphodel daemon with its token.                                                              | not run |
-| D4. Backup and restore                                       | chad's tar and asphodel's backup restore onto two fresh volumes, and the restored pair recalls a memory saved before the backup. | not run |
+| Check                                                         | What it confirms                                                                                                                 | Result  |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| 1. `chad setup` on a real bot                                 | Setup turns the message content intent on, or says where to click. The invite gives the bot what it needs in a server.           | not run |
+| 2. Codex login in a thread                                    | The first direct message posts a login code, and its turn finishes once you approve the code.                                    | not run |
+| 3. A direct message                                           | chad answers a direct message on the login from check 2.                                                                         | not run |
+| 4. Stop                                                       | The Stop button on the status message stops a turn.                                                                              | not run |
+| 5. A mention in a server channel, then a message without one  | A mention opens a thread that the model titles, chad reads a reply there with no mention, and a listed channel needs none.       | not run |
+| 6. The other Codex models (optional)                          | The sub-agent runs on `gpt-6.1-sol`, `gpt-6.1-terra` or `gpt-6-luna` on your login.                                              | not run |
+| 7. Fast mode (optional)                                       | The Codex login accepts the `priority` service tier, and a turn answers on it.                                                   | not run |
+| 8. Slash commands                                             | Discord lists chad's slash commands, and each does what the typed command does.                                                  | not run |
+| 9. A secret through a form                                    | The agent's request posts a button, the form saves the secret, and the value shows nowhere in the chat.                          | not run |
+| 10. OAuth sign-in to an MCP server that registers chad itself | A server with `"oauth": {}` needs login, the owner signs in from Discord, and the sign-in outlives a restart.                    | not run |
+| 11. OAuth sign-in with a client you registered                | `chad mcp login` signs in with your client id, secret, redirect URL and scopes, and registers no client.                         | not run |
+| D1. Publish the image                                         | The image builds and pushes to `ghcr.io/tim-smart/chad`.                                                                         | not run |
+| D2. The volume's filesystem                                   | The volume's filesystem is one chad's lock and SQLite are safe on.                                                               | not run |
+| D3. asphodel for real                                         | The asphodel plugin talks to a real asphodel daemon with its token.                                                              | not run |
+| D4. Backup and restore                                        | chad's tar and asphodel's backup restore onto two fresh volumes, and the restored pair recalls a memory saved before the backup. | not run |
 
-Checks 1 to 9 are the hand checks and the Codex checks. D1 to D4 are deployment checks. None of them has been run
-yet, and the automated suite only runs fakes of Discord, Codex and asphodel.
+Checks 1 to 11 are the hand checks and the Codex checks. D1 to D4 are deployment checks. None of them has been run
+yet, and the automated suite only runs fakes of Discord, Codex, asphodel and an OAuth MCP server.
 
 ## Before you start
 
@@ -168,6 +170,50 @@ command that Discord answers with "The application did not respond" failed.
 
 Passes when the original request changes to `Saved LIVE_CHECK` as subtext and its button disappears, `chad secret list` lists `LIVE_CHECK`, the grep prints nothing,
 and no message in the DM shows the value.
+
+## 10. OAuth sign-in to an MCP server that registers chad itself
+
+Use a hosted MCP server whose authorization server registers clients by itself, and on which you have an account. Linear's
+is one: `https://mcp.linear.app/mcp`.
+
+1. In `work/mcp.json` in the repo, add `"linear": { "url": "https://mcp.linear.app/mcp", "oauth": {} }` under
+   `mcpServers`, and run `chad apply -m "Add linear"`. The apply prints `MCP server linear: needs login.` and does not
+   wait. `chad status` shows `mcp: linear, needs login`.
+2. In the DM, send "Sign me in to the linear MCP server with requestMcpLogin, then stop".
+3. chad posts a `Sign in to linear` button. Click it. chad posts the steps with an `Open the sign-in` link button and a
+   `Paste the address` button. When the link is longer than a Discord button takes, it is in the message instead.
+4. Open the link and approve. The browser goes to `http://localhost/oauth/callback?code=...`, which does not load. Copy
+   the whole address from the address bar.
+5. Click `Paste the address`, put the address in the form and submit.
+6. In the DM, ask for something only the server knows, such as "List my Linear teams".
+7. Run `docker restart chad`, then `chad status`, then ask again.
+8. Run `chad logs | grep -c -F '<code>'` with the value of `code` from the address you pasted, and
+   `chad mcp logout linear`.
+
+Passes when the DM gets `Signed in to "linear".` and `MCP server linear: connected` as subtext, steps 6 and 7 answer from
+the server, `chad status` after the restart shows `mcp: linear, connected` with no new sign-in, the grep prints `0`,
+no message in the DM shows the address you pasted, and the logout prints `MCP server linear: needs login.`. Leave it
+signed in for a day before the logout if you can: a call after the access token has run out shows that the refresh
+works on the real server.
+
+## 11. OAuth sign-in with a client you registered
+
+Use a server you can register an OAuth client with, such as a Slack app for `https://mcp.slack.com/mcp`. Register the
+client with a redirect URL of your own, for example `https://chad.example.com/oauth/callback`. Nothing has to answer
+at it.
+
+1. Save the client's id and secret, each with `chad secret set`: `SLACK_CLIENT_ID` and `SLACK_CLIENT_SECRET`.
+2. In `work/mcp.json`, add the server with
+   `"oauth": { "clientId": "${SLACK_CLIENT_ID}", "clientSecret": "${SLACK_CLIENT_SECRET}", "redirectUrl": "https://chad.example.com/oauth/callback", "scopes": ["channels:read", "chat:write"] }`
+   and apply it. The apply prints that the server needs login.
+3. Run `docker exec -it chad chad mcp login slack`. It prints a link. Check that the link's `client_id`,
+   `redirect_uri` and `scope` are the values you wrote.
+4. Open the link and approve. Copy the address the browser ends on, paste it at the prompt, which shows nothing, and
+   press Enter.
+5. Run `chad logs | grep -c -F '<secret>'` with the client secret, typed in a shell whose history you do not keep.
+
+Passes when step 4 prints `Signed in to "slack".` and `MCP server slack: connected`, the app's page on the server lists
+no second client, a turn in the DM can call one of the server's tools, and the grep prints `0`.
 
 ## D1. Publish the image
 

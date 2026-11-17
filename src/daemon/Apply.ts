@@ -82,6 +82,13 @@ export type Request =
   | { readonly _tag: "SecretRm"; readonly name: string }
   | { readonly _tag: "Purge"; readonly name: string }
   | { readonly _tag: "McpRestart" }
+  | { readonly _tag: "McpLoginStart"; readonly server: string }
+  | {
+      readonly _tag: "McpLoginFinish"
+      readonly server: string
+      readonly address: string
+    }
+  | { readonly _tag: "McpLogout"; readonly server: string }
 
 export interface Commands {
   /**
@@ -1165,7 +1172,63 @@ export const make = Effect.fnUntraced(function* (options: {
     SecretRm: "chad secret rm",
     Purge: "chad plugin purge",
     McpRestart: "chad mcp restart",
+    McpLoginStart: "chad mcp login",
+    McpLoginFinish: "chad mcp login",
+    McpLogout: "chad mcp logout",
   }
+
+  /**
+   * The owner's sign-in to an MCP server and its sign-out. A session's own process is refused, as the CLI refuses it
+   * before it asks. A sign-in that finished and a sign-out rebuild the layer, which is what brings the server up or
+   * takes it down.
+   */
+  const sign = Effect.fnUntraced(function* (
+    request: Extract<
+      Request,
+      { readonly _tag: "McpLoginStart" | "McpLoginFinish" | "McpLogout" }
+    >,
+    caller: Caller,
+  ) {
+    const command = request._tag === "McpLogout" ? "mcp logout" : "mcp login"
+    const who = Queue.caller(caller.session)
+    const { server } = request
+    if (caller.session !== undefined) {
+      yield* Queue.ran(command, who, "refused", { server })
+      return failed(Messages.ownerRefused(command, caller.session))
+    }
+    if (request._tag === "McpLoginStart") {
+      const begun = yield* Effect.result(options.mcp.login.begin(server))
+      if (begun._tag === "Failure") return failed(begun.failure)
+      return done(...Messages.mcpLoginOpen(server, begun.success))
+    }
+    return yield* owned(
+      Effect.gen(function* () {
+        if (request._tag === "McpLogout") {
+          if (!(yield* options.mcp.login.logout(server))) {
+            yield* Queue.ran(command, who, "unchanged", { server })
+            return failed(Messages.mcpLogoutNothing(server))
+          }
+          yield* Queue.ran(command, who, "changed", { server })
+          return {
+            ...done(Messages.mcpLoggedOut(server)),
+            mcp: yield* rebuildIf(options.mcp.file()?.has(server) === true),
+          } satisfies Performed as Performed
+        }
+        const finished = yield* Effect.result(
+          options.mcp.login.finish(server, request.address),
+        )
+        if (finished._tag === "Failure") {
+          yield* Queue.ran(command, who, "refused", { server })
+          return failed(finished.failure)
+        }
+        yield* Queue.ran(command, who, "changed", { server })
+        return {
+          ...done(Messages.mcpLoggedIn(server)),
+          mcp: yield* rebuildIf(true),
+        } satisfies Performed as Performed
+      }),
+    )
+  })
 
   const perform = (
     request: Request,
@@ -1200,6 +1263,10 @@ export const make = Effect.fnUntraced(function* (options: {
             Effect.map((mcp): Performed => ({ ...done(), mcp })),
           ),
         )
+      case "McpLoginStart":
+      case "McpLoginFinish":
+      case "McpLogout":
+        return sign(request, caller)
     }
   }
 

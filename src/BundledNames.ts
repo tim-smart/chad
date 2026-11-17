@@ -7,6 +7,7 @@ export const plugins = [
   "cron",
   "asphodel",
   "request-secret",
+  "request-mcp-login",
 ] as const
 
 export type Plugin = (typeof plugins)[number]

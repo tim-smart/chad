@@ -1806,7 +1806,7 @@ export const mcpUnreadable = (error: string) =>
 /** One MCP server as status and an apply show it. */
 export interface McpServerState {
   readonly name: string
-  readonly state: "connected" | "failed" | "starting"
+  readonly state: "connected" | "failed" | "starting" | "needs-login"
   readonly tools?: number
   readonly error?: string
 }
@@ -1817,13 +1817,107 @@ export const mcpServerLine = (server: McpServerState) =>
     ? `MCP server ${server.name}: connected, ${server.tools ?? 0} tools.`
     : server.state === "failed"
       ? `MCP server ${server.name}: unavailable: ${firstLine(server.error ?? "")}`
-      : `MCP server ${server.name}: starting.`
+      : server.state === "needs-login"
+        ? `MCP server ${server.name}: needs login. The owner signs in with chad mcp login ${server.name}, or from the button requestMcpLogin posts in chat.`
+        : `MCP server ${server.name}: starting.`
 
 /** What a rebuild prints: each server's line, or that none is configured. */
 export const mcpRebuilt = (servers: ReadonlyArray<McpServerState>) =>
   servers.length === 0
     ? ["No MCP servers are configured."]
     : servers.map(mcpServerLine)
+
+// The OAuth sign-in of an HTTP MCP server.
+
+/**
+ * A server with an `oauth` key and no usable sign-in. It is the server's error in the layer, which the model reads in
+ * its prompt, and what a call fails with when the server answers 401 and the refresh cannot fix it.
+ */
+export const mcpNeedsLogin = (name: string) =>
+  `MCP server "${name}" needs the owner to sign in, and nothing you run can do that. Call requestMcpLogin({ server: ${JSON.stringify(name)} }) to post the sign-in button and end your turn, or ask the owner to run chad mcp login ${name}.`
+
+/** An HTTP server with no `oauth` key that answered 401. */
+export const mcpUnauthorized = (name: string) =>
+  `the server refused chad as unauthorized (401). If it signs in with OAuth, add "oauth": {} to "${name}" in mcp.json and apply it, and the owner then signs in. If it takes a key, check its headers.`
+
+/** What `chad mcp login` prints before it reads the address. */
+export const mcpLoginOpen = (name: string, url: string) => [
+  `Open this link in a browser and approve chad for "${name}":`,
+  url,
+  "The browser then goes to an address that may not load. Copy the whole address from the address bar.",
+]
+
+/** The prompt `chad mcp login` reads the address at. */
+export const mcpLoginPrompt = "Paste the address (it is not shown)"
+
+/** `chad mcp login` given no address. */
+export const mcpLoginNoAddress = () => "chad mcp login: no address on stdin"
+
+/** A sign-in that ended well, before the lines of the rebuild it starts. */
+export const mcpLoggedIn = (name: string) => `Signed in to "${name}".`
+
+/** `chad mcp logout` once the stored sign-in is gone, before the lines of the rebuild it starts. */
+export const mcpLoggedOut = (name: string) =>
+  `Signed out of "${name}". Its tokens and its registered client are dropped.`
+
+/** `chad mcp logout` of a name that holds no sign-in. */
+export const mcpLogoutNothing = (name: string) =>
+  `chad mcp logout: "${name}" holds no sign-in`
+
+/** A sign-in to a name the applied `mcp.json` does not list, which safe mode makes of every name. */
+export const mcpLoginUnknown = (name: string) =>
+  `chad mcp login: the applied mcp.json has no server named "${name}"`
+
+/** A sign-in to a server with no `oauth` key. */
+export const mcpLoginNoOAuth = (name: string) =>
+  `chad mcp login: "${name}" has no "oauth" key in mcp.json, so it takes no sign-in`
+
+/** A sign-in to a server that expansion left unavailable. */
+export const mcpLoginUnavailable = (name: string, error: string) =>
+  `chad mcp login: "${name}" is unavailable: ${firstLine(error)}`
+
+/** An address given with no sign-in to finish. */
+export const mcpLoginNotStarted = (name: string) =>
+  `chad mcp login: no sign-in to "${name}" is waiting for an address. Start one with chad mcp login ${name}.`
+
+/** What was pasted is no URL. */
+export const mcpLoginNotAddress = (name: string) =>
+  `chad mcp login: that is not an address. Paste the whole address the browser ended on after you approved chad for "${name}".`
+
+/** The address says the server refused. */
+export const mcpLoginDenied = (name: string, reason: string) =>
+  `chad mcp login: "${name}" refused the sign-in (${reason})`
+
+/** The address carries no code. */
+export const mcpLoginNoCode = (name: string) =>
+  `chad mcp login: that address carries no code. Paste the whole address the browser ended on after you approved chad for "${name}".`
+
+/** The address belongs to a sign-in a later one replaced, or to none of chad's. */
+export const mcpLoginOtherState = (name: string) =>
+  `chad mcp login: that address is not from the newest sign-in to "${name}". Open the newest link and paste the address it ends on.`
+
+/** The authorization server registers no client by itself. */
+export const mcpLoginNoRegistration = (name: string) =>
+  `chad mcp login: the authorization server of "${name}" registers no client by itself. Register chad with it, and put the client's id in "oauth": { "clientId": ... } in mcp.json.`
+
+/** Any other failure of a sign-in's requests. */
+export const mcpLoginError = (name: string, reason: string) =>
+  `chad mcp login: the sign-in to "${name}" failed (${reason})`
+
+/** A sign-in whose requests ran past their deadline. */
+export const mcpLoginTimedOut = (name: string, seconds: number) =>
+  `chad mcp login: "${name}" or its authorization server did not answer in ${seconds} seconds`
+
+export const mcpLoginOpenLabel = "Open the sign-in"
+
+export const mcpLoginPasteLabel = "Paste the address"
+
+/** The message chad posts once the owner pressed the sign-in button, with the link and the button of the form. */
+export const mcpLoginSteps = (name: string) =>
+  `To sign chad in to "${name}": open the link and approve. Your browser then goes to an address that may not load. Copy the whole address from the address bar, press "${mcpLoginPasteLabel}" and put it in the form. Do not post it in the chat.`
+
+/** The link, in the message itself, when it is too long for a button. */
+export const mcpLoginLink = (url: string) => `The link: <${url}>`
 
 /**
  * What an older `chad serve` says when `state/version` names a newer chad. `copy` is the copy of the database taken

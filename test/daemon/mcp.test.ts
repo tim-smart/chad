@@ -1,23 +1,30 @@
 // MCP servers as the owner, the model and the CLI reach them: `mcp.json` checked, applied and rebuilt, `${NAME}` from
-// the secret store, the calls the model makes while the layer rebuilds, and a boot on a malformed or slow file.
+// the secret store, the calls the model makes while the layer rebuilds, a boot on a malformed or slow file, and the
+// OAuth sign-in of an HTTP server, from the CLI and from chat.
 import { createHash } from "node:crypto"
 import {
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { Effect, Layer } from "effect"
-import { expect, test } from "vitest"
+import type { ChatMessage, ChatThread } from "effect/chat"
+import { expect, onTestFinished, test } from "vitest"
+import * as Format from "../../dist/daemon/Format.js"
 import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
+import requestMcpLogin from "../../dist/plugins/request-mcp-login/index.js"
 import { write } from "../support/applied.ts"
 import * as Cli from "../support/cli.ts"
-import { scenario, type Scenario } from "../support/driver.ts"
+import { owner, scenario, type Scenario } from "../support/driver.ts"
 import { results, runs, type Call } from "../support/model.ts"
+import * as OAuth from "../support/oauth.ts"
 import { eventually, lines, says } from "../support/owner.ts"
 
 const server = fileURLToPath(
@@ -371,4 +378,277 @@ test("a running turn's call in flight is cut by a restart, a call during the reb
   expect(systemText(next[0])).toContain("- slow (2 tools)")
   expect(systemText(next[0])).not.toContain("- other")
   expect(results(next[1]).join("\n")).toContain("fresh")
+}, 60_000)
+
+const needsLogin = (name: string) =>
+  Messages.mcpServerLine({ name, state: "needs-login" })
+
+/** The stored sign-ins, by server name. */
+const signIns = (data: string): Record<string, Record<string, unknown>> =>
+  JSON.parse(readFileSync(join(data, "secrets/mcp-oauth.json"), "utf8"))
+
+/** Every file under a directory that holds one of the values, by its path relative to it. */
+const holding = (
+  root: string,
+  values: ReadonlyArray<string>,
+  under = "",
+): ReadonlyArray<string> =>
+  readdirSync(join(root, under), { withFileTypes: true }).flatMap((entry) => {
+    const path = join(under, entry.name)
+    if (entry.isDirectory()) return holding(root, values, path)
+    if (!entry.isFile()) return []
+    const text = readFileSync(join(root, path), "utf8")
+    return values.some((value) => text.includes(value)) ? [path] : []
+  })
+
+test("an http server with an oauth key comes up needing a login and nothing unattended asks its authorization server, chad mcp login signs in with the client mcp.json names once the address carries its own state, the sign-in outlives a refresh and a restart, a revoked one fails the call and starts nothing, and a sign-out empties the store", async () => {
+  const secret = "client-secret-canary-41c7"
+  const fake = await OAuth.make({ client: { id: "chad-client", secret } })
+  onTestFinished(fake.close)
+  const running = await scenario()
+  const work = join(running.data, "repo/work")
+  expect(
+    (await running.chad(["secret", "set", "SLACK_SECRET"], {}, secret + "\n"))
+      .code,
+  ).toBe(0)
+  const redirect = "https://chad.example.com/oauth/callback"
+  write(work, {
+    "mcp.json": mcpJson({
+      slack: {
+        url: fake.url,
+        oauth: {
+          clientId: "chad-client",
+          clientSecret: "${SLACK_SECRET}",
+          redirectUrl: redirect,
+          scopes: ["channels:read", "chat:write"],
+        },
+      },
+      // The same server with no oauth key: its 401 says what to add, and chad asks no authorization server.
+      plain: { url: fake.url },
+    }),
+  })
+  const applied = await apply(running, "Add an OAuth server")
+  expect(applied.code).toBe(0)
+  expect(applied.stdout).toContain(needsLogin("slack"))
+  expect(applied.stdout).toContain(Messages.mcpUnauthorized("plain"))
+  const status = await running.chad(["status"])
+  expect(status.stdout).toContain("mcp: slack, needs login")
+  const first = await turn(running, undefined)
+  expect(systemText(first[0])).toContain(Messages.mcpNeedsLogin("slack"))
+  expect(fake.asked()).toEqual([])
+
+  /** `chad mcp login` as the owner runs it: the link opened in a browser, and the address pasted at the prompt. */
+  const signIn = async (pasted: (address: string) => string) => {
+    const login = Cli.start(
+      ["mcp", "login", "slack"],
+      { CHAD_DATA: running.data },
+      false,
+    )
+    await login.printed(Messages.mcpLoginOpen("slack", "").at(-1)!)
+    const link = login
+      .output()
+      .split("\n")
+      .find((line) => line.startsWith("http"))
+    login.child.stdin!.end(pasted(await fake.approve(link!)) + "\n")
+    return login.done
+  }
+  // An address with another state is refused before its code is sent anywhere.
+  const forged = await signIn((address) =>
+    address.replace(/state=[^&]+/, "state=forged"),
+  )
+  expect(forged.code).toBe(1)
+  expect(forged.stderr).toContain(Messages.mcpLoginOtherState("slack"))
+  expect(fake.exchanges()).toEqual([])
+  // The authorization server refuses a code it did not give, in words that quote the client secret.
+  const refused = await signIn((address) =>
+    address.replace(/code=[^&]+/, "code=other"),
+  )
+  expect(refused.code).toBe(1)
+  expect(refused.stderr).toContain("refused ${SLACK_SECRET}")
+
+  const signed = await signIn((address) => address)
+  expect(signed.stderr).toBe("")
+  expect(signed.stdout).toContain(connected("slack", 1))
+  expect(fake.authorizations().at(-1)).toMatchObject({
+    client_id: "chad-client",
+    redirect_uri: redirect,
+    scope: "channels:read chat:write",
+  })
+  expect(fake.exchanges().at(-1)).toMatchObject({
+    grant_type: "authorization_code",
+    client_id: "chad-client",
+    client_secret: secret,
+    redirect_uri: redirect,
+  })
+  expect(fake.asked()).not.toContain("/register")
+
+  // The access token ends under the running layer. The call refreshes it and goes through.
+  fake.expire()
+  const refreshed = await turn(running, tries("mcp.slack.echo({ x: 1 })"))
+  expect(results(refreshed[1]).join("\n")).toContain('{"x":1}')
+  expect(fake.exchanges().at(-1)).toMatchObject({
+    grant_type: "refresh_token",
+  })
+
+  // A restart connects with the refreshed token, which is the only one the server still takes.
+  expect(await running.stop()).toBe(0)
+  const again = await scenario({ directory: running.directory })
+  const up = await eventually(
+    () => again.chad(["status"]),
+    ({ stdout }) => !stdout.includes("mcp: slack, starting"),
+  )
+  expect(up.stdout).toContain("mcp: slack, connected, 1 tools")
+  const asked = fake.authorizations().length
+
+  // The owner revokes chad. The call fails with what to ask, and no sign-in is begun for it.
+  fake.revoke()
+  // The new chat fake counts its threads from the first again, and those two hold the sessions of the turns above.
+  await again.fakes.chat.makeThread("direct")
+  await again.fakes.chat.makeThread("direct")
+  const revoked = await turn(again, tries("mcp.slack.echo({ x: 2 })"))
+  expect(results(revoked[1]).join("\n")).toContain(
+    Messages.mcpNeedsLogin("slack"),
+  )
+  const down = await again.chad(["status"])
+  expect(down.stdout).toContain("mcp: slack, needs login")
+  expect(signIns(again.data)["slack"]).not.toHaveProperty("pending")
+  expect(fake.authorizations()).toHaveLength(asked)
+
+  const out = await again.chad(["mcp", "logout", "slack"])
+  expect(out.stdout).toContain(needsLogin("slack"))
+  expect(signIns(again.data)).toEqual({})
+
+  expect(await again.stop()).toBe(0)
+  expect(holding(again.data, [secret])).toEqual(["secrets/secrets.json"])
+  const shown = JSON.stringify([
+    applied,
+    status,
+    forged,
+    refused,
+    signed,
+    up,
+    down,
+    await Effect.runPromise(again.chat.calls),
+    await again.fakes.model.calls(),
+  ])
+  for (const value of [secret, ...fake.issued()])
+    expect(shown).not.toContain(value)
+}, 60_000)
+
+/** chad's message in a thread that holds the text, once it is posted. A notice may share the thread. */
+const said = async (
+  running: Scenario,
+  thread: ChatThread.ChatThread,
+  text: string,
+) => {
+  const holds = (message: ChatMessage.ChatMessage) =>
+    message.author.isSelf && message.text.includes(text)
+  const all = await eventually(
+    () => running.fakes.chat.messages(thread),
+    (messages) => messages.some(holds),
+  )
+  return all.find(holds)!
+}
+
+test("requestMcpLogin posts a button that only the owner's click begins a sign-in with and only the owner's form finishes, chad registers itself for an empty oauth key, a session's own shell signs in to nothing, and no token is in a file but the store, in the chat or in what the model sees", async () => {
+  const fake = await OAuth.make()
+  onTestFinished(fake.close)
+  const running = await scenario({
+    plugins: [{ name: "request-mcp-login", plugin: requestMcpLogin }],
+  })
+  const { fakes } = running
+  await running.logged("boot.ready")
+  write(join(running.data, "repo/work"), {
+    "mcp.json": mcpJson({ linear: { url: fake.url, oauth: {} } }),
+  })
+  const applied = await apply(running, "Add an OAuth server")
+  expect(applied.stdout).toContain(needsLogin("linear"))
+
+  await fakes.model.script([
+    runs(`console.log(await requestMcpLogin({ server: "linear" }))`),
+    { text: "Press the button." },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "what is on my board?")
+  const request = await said(running, thread, "linear")
+
+  // Neither a stranger's click nor the agent's own shell begins a sign-in.
+  expect(
+    (await Effect.runPromise(running.click(request.id, "mcp-login", "mallory")))
+      ._tag,
+  ).toBe("Ack")
+  const shell = await running.chad(["mcp", "login", "linear"], {
+    CHAD_SESSION: "s1",
+  })
+  expect(shell.code).toBe(3)
+  expect(fake.asked()).toEqual([])
+
+  await Effect.runPromise(running.click(request.id, "mcp-login", owner))
+  const steps = await said(running, thread, Messages.mcpLoginSteps("linear"))
+  expect(fake.registrations()).toHaveLength(1)
+  const address = await fake.approve(running.links().at(-1)!)
+  expect(fake.authorizations().at(-1)).toMatchObject({
+    client_id: "registered-1",
+  })
+
+  // A stranger opens no form, and a form a stranger submits finishes nothing: a command behind it in the daemon's
+  // queue finds the server as it was, and the code unused.
+  const stranger = await Effect.runPromise(
+    running.submit(
+      steps.id,
+      "mcp-login-paste",
+      { clicker: "mallory", submitter: "mallory" },
+      { address },
+    ),
+  )
+  expect(stranger.clicked._tag).toBe("Ack")
+  const other = await Effect.runPromise(
+    running.submit(
+      steps.id,
+      "mcp-login-paste",
+      { clicker: owner, submitter: "mallory" },
+      { address },
+    ),
+  )
+  expect(other.submitted?._tag).toBe("Close")
+  const still = await running.chad(["mcp", "restart"])
+  expect(still.stdout).toContain(needsLogin("linear"))
+  expect(fake.exchanges()).toEqual([])
+  const filled = await Effect.runPromise(
+    running.submit(
+      steps.id,
+      "mcp-login-paste",
+      { clicker: owner, submitter: owner },
+      { address },
+    ),
+  )
+  expect(filled.submitted?._tag).toBe("Close")
+  const done = await said(
+    running,
+    thread,
+    Format.local.subtext(Messages.mcpLoggedIn("linear")),
+  )
+  expect(done.text).toContain(Format.local.subtext(connected("linear", 1)))
+  expect(fake.exchanges()).toHaveLength(1)
+
+  const used = await turn(running, tries("mcp.linear.echo({ x: 1 })"))
+  expect(results(used[1]).join("\n")).toContain('{"x":1}')
+  const status = await running.chad(["status"])
+  expect(status.stdout).toContain("mcp: linear, connected, 1 tools")
+  const store = join(running.data, "secrets/mcp-oauth.json")
+  expect(statSync(store).mode & 0o777).toBe(0o600)
+
+  // The scan reads the daemon's lock file, which a running daemon in this process would lose its lock by.
+  expect(await running.stop()).toBe(0)
+  expect(holding(running.data, fake.issued())).toEqual([
+    "secrets/mcp-oauth.json",
+  ])
+  const shown = JSON.stringify([
+    applied,
+    status,
+    await Effect.runPromise(running.chat.calls),
+    await fakes.model.calls(),
+  ])
+  for (const value of fake.issued()) expect(shown).not.toContain(value)
+  expect(shown).not.toContain(address)
 }, 60_000)

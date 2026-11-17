@@ -68,6 +68,8 @@ export interface Platform {
   readonly holdThreads: () => { readonly release: () => void }
   /** The ids of the status messages chad has posted: the posts with the Stop button on them. */
   readonly statuses: () => ReadonlyArray<string>
+  /** The URL of every link button chad has posted, oldest first. */
+  readonly links: () => ReadonlyArray<string>
   /** Clicks a button on a message as a user, and gives the daemon's answer to the click. */
   readonly click: (
     messageId: string,
@@ -228,6 +230,8 @@ export const make = (
                 ) {
                   statuses.add(posted.id)
                 }
+                for (const action of content.actions ?? [])
+                  if (action._tag === "LinkButton") links.push(action.url)
               }),
             ),
           ),
@@ -238,6 +242,7 @@ export const make = (
     }
 
     const statuses = new Set<string>()
+    const links: Array<string> = []
     let interactions: ChatInteraction.Handler["Service"] | undefined
     let handler: Handler | undefined
     let attached: Array<() => void> = []
@@ -282,6 +287,7 @@ export const make = (
       holdDownloads,
       holdThreads,
       statuses: () => [...statuses],
+      links: () => links,
       click: (messageId, id, userId) =>
         Effect.gen(function* () {
           const event = yield* chat.click(messageId, id, { userId })
