@@ -808,12 +808,22 @@ export const hostConflictLine = (
   version: string,
 ) => `  ${asking} needs ${name} ${range}, and chad has ${name} ${version}`
 
+/** One package that asks for a host package by an alias or a spec that is not a semver range. */
+export const hostUncheckedLine = (
+  asking: string,
+  key: string,
+  spec: string,
+  name: string,
+  version: string,
+) =>
+  `  ${asking} asks for ${key} as "${spec}", which chad cannot check against its own ${name} ${version}`
+
 /** The packages that ask for versions of host packages that chad does not have. */
 export const hostConflict = (lines: ReadonlyArray<string>) =>
   [
-    "A plugin's packages get chad's own copy of chad, effect and chad's other dependencies, and these ask for a version chad does not have:",
+    "A plugin's packages get chad's own copy of chad, effect and chad's other dependencies, and these ask for a version chad does not have, or ask in a way chad cannot check:",
     ...lines,
-    "Pick versions of them that work with chad's, or remove them from work/package.json, and run `npm install --package-lock-only --ignore-scripts` in work/.",
+    "Pick versions of them that work with chad's, ask for a host package by its own name and a version range, or remove them from work/package.json, and run `npm install --package-lock-only --ignore-scripts` in work/.",
   ].join("\n")
 
 /** An install that npm failed, with the lines of npm's output that say why. */

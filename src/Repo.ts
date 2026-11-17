@@ -83,10 +83,14 @@ export const treeOf = (work: string, commit: string) =>
   git(work, ["rev-parse", `${commit}^{tree}`])
 
 /**
- * What a snapshot and the draft leave out whatever `.gitignore` says: a `node_modules` at any depth. chad installs the
- * packages of a tree itself, so one the agent made is never loaded and never applied.
+ * What a snapshot and the draft leave out whatever `.gitignore` says: a `node_modules` at any depth, the entry itself
+ * as well as what is under it, so neither a directory nor a link of that name gets in. chad installs the packages of a
+ * tree itself, so one the agent made is never loaded and never applied.
  */
-const derived = [":(exclude,glob)**/node_modules/**"]
+const derived = [
+  ":(exclude,glob)**/node_modules",
+  ":(exclude,glob)**/node_modules/**",
+]
 
 /**
  * A snapshot of `work/` as one tree: `git add -A` into a temporary index that starts empty, then `git write-tree`.

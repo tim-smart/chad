@@ -126,9 +126,21 @@ const hostVersions = Effect.gen(function* () {
 })
 
 /**
- * Every range in the lockfile on a host package that the host's version does not satisfy, as a line that names the
+ * What a dependency spec asks for: the package and the range. An npm alias, `npm:<name>@<range>`, asks for the package
+ * it names, whatever the key it is installed under.
+ */
+const asked = (key: string, spec: string) => {
+  const alias = /^npm:((?:@[^/@]+\/)?[^@]+)(?:@(.*))?$/.exec(spec)
+  return alias === null
+    ? { name: key, range: spec }
+    : { name: alias[1]!, range: alias[2] ?? "*" }
+}
+
+/**
+ * Every spec in the lockfile on a host package that the host's version does not satisfy, as a line that names the
  * package that asks for it. The host's copy is the one every package gets, so such a package would run on a version it
- * does not support. A range that is not a semver range, such as a URL, is not judged.
+ * does not support. A host package asked for under another name, or by a spec that is not a semver range, such as a
+ * URL or a path, cannot be checked against the host's copy and is refused too.
  */
 const conflicts = Effect.fnUntraced(function* (packages: Lock["packages"]) {
   const versions = yield* hostVersions
@@ -148,10 +160,17 @@ const conflicts = Effect.fnUntraced(function* (packages: Lock["packages"]) {
           "optionalDependencies",
           "peerDependencies",
         ] as const)) {
-      for (const [name, range] of Object.entries(entry[field] ?? {})) {
+      for (const [key, spec] of Object.entries(entry[field] ?? {})) {
+        const { name, range } = asked(key, spec)
         const version = versions.get(name)
-        if (version === undefined || semver.validRange(range) === null) continue
-        if (!semver.satisfies(version, range, { includePrerelease: true })) {
+        if (version === undefined) continue
+        if (key !== name || semver.validRange(range) === null) {
+          lines.push(
+            Messages.hostUncheckedLine(asking, key, spec, name, version),
+          )
+        } else if (
+          !semver.satisfies(version, range, { includePrerelease: true })
+        ) {
           lines.push(Messages.hostConflictLine(asking, name, range, version))
         }
       }

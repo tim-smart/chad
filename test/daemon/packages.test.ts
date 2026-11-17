@@ -1,10 +1,10 @@
 // A plugin's own npm packages: work/package.json and its lockfile, installed by chad from a registry stand-in, bundled
 // into the plugin with the host's effect, and loaded again by a boot that has no network. An install that would bring
 // an effect the host does not satisfy is refused.
-import { existsSync, readdirSync, rmSync } from "node:fs"
+import { existsSync, readdirSync, rmSync, symlinkSync } from "node:fs"
 import { join } from "node:path"
 import { expect, test } from "vitest"
-import { write } from "../support/applied.ts"
+import { git, write } from "../support/applied.ts"
 import { scenario, type Scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
 import { eventually, says } from "../support/owner.ts"
@@ -60,24 +60,42 @@ const greeted = async (
   return results((await running.fakes.model.calls()).at(-1)).join("\n")
 }
 
-test("a check refuses a package that needs another effect, an apply installs the packages work/package.json names and the plugin's tool runs them on the host's effect, a boot with the install and the registry gone installs them again from chad's cache, and a revert takes them away", async () => {
+test("a check refuses a package that needs another effect and an alias of effect, an apply leaves out a node_modules the agent made, installs the packages work/package.json names and the plugin's tool runs them on the host's effect, a boot with the install and the registry gone installs them again from chad's cache, and a revert takes them away", async () => {
   const registry = await Registry.start()
   const running = await scenario({ env })
   await running.logged("boot.ready")
   const repo = join(running.data, "repo")
   const work = join(repo, "work")
-  // A package that needs an effect the host's does not satisfy is refused, and nothing is installed.
-  write(work, { "package.json": manifest({ legacy: "1.0.0" }) })
+  // A package that needs an effect the host's does not satisfy is refused, and so is an npm alias of effect, whether
+  // it keeps effect's name or takes another. Nothing is installed.
+  write(work, {
+    "package.json": manifest({
+      legacy: "1.0.0",
+      effect: "npm:effect@^3.0.0",
+      fx: "npm:effect@^4.0.0",
+    }),
+  })
   await registry.lock(work)
   const refused = await running.chad(["check"])
   expect(refused.code).toBe(1)
   expect(refused.stderr).toContain("legacy@1.0.0 needs effect ^3.0.0")
+  expect(refused.stderr).toContain("work/package.json needs effect ^3.0.0")
+  expect(refused.stderr).toContain(
+    'work/package.json asks for fx as "npm:effect@^4.0.0"',
+  )
   expect(existsSync(join(repo, "packages"))).toBe(false)
 
+  // A node_modules the agent made, here a link to a greet of its own beside the plugin, is never applied or loaded.
+  const own = join(running.directory, "own")
+  write(join(own, "greet"), {
+    "package.json": JSON.stringify({ name: "greet", main: "index.js" }),
+    "index.js": 'throw new Error("the agent\'s own greet was loaded")\n',
+  })
   write(work, {
     "package.json": manifest({ greet: "1.0.0" }),
     "plugins/hello.ts": hello,
   })
+  symlinkSync(own, join(work, "plugins", "node_modules"))
   await registry.lock(work)
   const applied = await running.chad(["apply", "-m", "Add hello"])
   expect(applied.code, applied.stderr).toBe(0)
@@ -85,6 +103,12 @@ test("a check refuses a package that needs another effect, an apply installs the
   // The fake effect of the registry throws when it runs, so the tool answers only on the host's.
   expect(await greeted(running, "direct", "greet Tim")).toContain(
     "hello from words, Tim",
+  )
+  expect(git(work, ["ls-tree", "-r", "--name-only", "HEAD"])).not.toContain(
+    "node_modules",
+  )
+  expect((await running.chad(["status"])).stdout).toContain(
+    "work: no changes since the applied commit",
   )
   const [install, ...others] = readdirSync(join(repo, "packages"))
   expect(others).toEqual([])
