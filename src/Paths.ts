@@ -60,6 +60,9 @@ export const subagentModel = (data: string): string =>
 export const summarizerModel = (data: string): string =>
   join(data, "state/summarizer-model")
 
+/** The stored fast mode setting, beside the model files: `on`, or no file for off. */
+export const fastMode = (data: string): string => join(data, "state/fast-mode")
+
 /** The token store of the model logins, which the CLI writes with no daemon as well. */
 export const auth = (data: string): string => join(data, "secrets/auth")
 

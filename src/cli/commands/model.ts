@@ -84,40 +84,50 @@ const alone = (request: ModelSpec.Request) =>
     yield* Files.writable("model")
     const timings = yield* Timings
     const { auth, store, handler } = yield* Login.terminal("model")
-    yield* Spec.prepare({
-      current,
-      request,
-      endpoint: inputs,
-      deadline: timings.modelTrial,
-      login: Effect.asVoid(
-        Login.run(
-          auth,
-          (reason) =>
-            new Spec.Unchanged({
-              text: Messages.modelLoginFailed(reason),
-            }),
+    const tried = new Set<string>()
+    const prepare = (current: ModelSpec.Settings) =>
+      Spec.prepare({
+        current,
+        request,
+        endpoint: inputs,
+        deadline: timings.modelTrial,
+        tried,
+        login: Effect.asVoid(
+          Login.run(
+            auth,
+            (reason) =>
+              new Spec.Unchanged({
+                text: Messages.modelLoginFailed(reason),
+              }),
+          ),
         ),
-      ),
-    }).pipe(
-      Effect.provideContext(
-        Context.make(CodexAuth, auth).pipe(
-          Context.add(KeyValueStore.KeyValueStore, store),
-          Context.add(DeviceCodeHandler, handler),
+      }).pipe(
+        Effect.provideContext(
+          Context.make(CodexAuth, auth).pipe(
+            Context.add(KeyValueStore.KeyValueStore, store),
+            Context.add(DeviceCodeHandler, handler),
+          ),
         ),
-      ),
-    )
+      )
+    yield* prepare(current)
     // Another change may have been stored while the trials ran, so the change is planned again under the lock on what
-    // the files hold now. The models to try come from the request alone, so they are the ones just tried, and a main
-    // model that moved to another provider refuses an override of the old one.
-    const stored = yield* Files.locked(
-      "model",
-      Effect.gen(function* () {
-        const again = Spec.plan(yield* settings, request, inputs)
-        if (Result.isFailure(again)) return yield* again.failure
-        yield* Spec.store(environment.data, again.success)
-        return again.success
-      }),
-    )
+    // the files hold now, and a main model that moved to another provider refuses an override of the old one. That
+    // plan can need a trial none of these made, such as the other change's main model with the priority tier, and
+    // then the lock is let go and the missing trials run before the change is planned again.
+    let stored: ModelSpec.Plan | undefined
+    while (stored === undefined) {
+      stored = yield* Files.locked(
+        "model",
+        Effect.gen(function* () {
+          const again = Spec.plan(yield* settings, request, inputs)
+          if (Result.isFailure(again)) return yield* again.failure
+          if (Spec.untried(again.success, tried).length > 0) return undefined
+          yield* Spec.store(environment.data, again.success)
+          return again.success
+        }),
+      )
+      if (stored === undefined) yield* prepare(yield* settings)
+    }
     yield* Console.log(stored.text)
   }).pipe(
     Effect.catchTag("ModelUnchanged", (error) => Effect.fail(unchanged(error))),
@@ -137,6 +147,17 @@ const override = (name: string, what: string) =>
     Flag.optional,
   )
 
+/** `--fast on|off`, which turns fast mode on or off. */
+const fast = Flag.ChoiceWithValue("fast", [
+  ["on", true],
+  ["off", false],
+] as const).pipe(
+  Flag.withDescription(
+    "Fast mode, on or off: OpenAI requests ask for the priority service tier",
+  ),
+  Flag.optional,
+)
+
 /**
  * `chad model`: shows the model and the login state, or changes the model after a trial request.
  * It is an owner command, with no argument too, since `chad status` shows the agent the model.
@@ -147,8 +168,9 @@ export const model = Command.make(
     spec,
     subagent: override("subagent", "sub-agent"),
     summarizer: override("summarizer", "summarizer"),
+    fast,
   },
-  Effect.fn("model")(function* ({ spec, subagent, summarizer }) {
+  Effect.fn("model")(function* ({ spec, subagent, summarizer, fast }) {
     yield* Owner.only("model")
     const request = {
       ...(Option.isSome(spec) ? { main: spec.value } : {}),
@@ -158,6 +180,7 @@ export const model = Command.make(
       ...(Option.isSome(summarizer)
         ? { summarizer: flagValue(summarizer.value) }
         : {}),
+      ...(Option.isSome(fast) ? { fast: fast.value } : {}),
     }
     return yield* (yield* Daemon.lock) === "held"
       ? throughDaemon(request)
