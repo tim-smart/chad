@@ -12,6 +12,7 @@ import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { afterEach, expect, it } from "vitest"
+import { parse } from "yaml"
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = resolve(here, "../..")
@@ -91,7 +92,7 @@ const server = () => {
   }
 }
 
-it("an install whose seed fails part way fails, and the next run finishes it and leaves the firewall alone", () => {
+it("an install whose seed fails part way fails, and the next run finishes it, puts the desktop and the dashboard on the tailnet alone and leaves the firewall alone", () => {
   const { fake, git, install, calls } = server()
   const marker = join(fake, "data/home/.deploy-seeded")
   // The server is on a tailnet already, which alone closes nothing.
@@ -113,6 +114,40 @@ it("an install whose seed fails part way fails, and the next run finishes it and
   )
   expect(readFileSync(join(fake, "secrets"), "utf8")).toBe("ASPHODEL_TOKEN\n")
   expect(calls().filter((call) => call.startsWith("ufw "))).toEqual([])
+
+  // Compose publishes the desktop and the dashboard on the server's loopback alone, and the browser shares no
+  // network with asphodel. `tailscale serve` takes both ports to the tailnet, the dashboard before asphodel is set up
+  // too. Nothing calls `tailscale funnel`, which would take them to the internet.
+  const compose = parse(
+    readFileSync(join(root, "deploy/compose.yaml"), "utf8"),
+  ) as {
+    services: Record<
+      string,
+      {
+        ports?: ReadonlyArray<string>
+        networks?: ReadonlyArray<string> | Record<string, unknown>
+      }
+    >
+  }
+  const { services } = compose
+  expect(
+    Object.values(services).flatMap((service) => service.ports ?? []),
+  ).toEqual(["127.0.0.1:7720:7720", "127.0.0.1:3000:3000"])
+  const networks = (name: string) => {
+    const listed = services[name]?.networks ?? []
+    return Array.isArray(listed) ? listed : Object.keys(listed)
+  }
+  expect(
+    networks("chromium").filter((network) =>
+      networks("asphodel").includes(network),
+    ),
+  ).toEqual([])
+  expect(
+    calls().filter((call) => /^tailscale (serve|funnel)\b/.test(call)),
+  ).toEqual([
+    "tailscale serve --bg --https=8443 http://127.0.0.1:3000",
+    "tailscale serve --bg --https=9443 http://127.0.0.1:7720",
+  ])
 })
 
 it("a key that does not join the server starts no container", () => {

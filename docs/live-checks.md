@@ -418,31 +418,36 @@ steps, is the record of what was run without either.
    `tailscale status`. The first boot is done, no container is listed, and Tailscale says it is logged out.
 3. In that session, run `bash /opt/chad/install.sh`. It prints a link and starts nothing. In a second session,
    `docker ps` still lists no container. Open the link and sign in. The installer goes on, lists the containers
-   `chad`, `asphodel` and `chromium` as up, prints the desktop's `https` address and says the public ports are as
-   they were. The machine `chad` is on the "Machines" page of the Tailscale admin console.
+   `chad`, `asphodel` and `chromium` as up, prints the `https` addresses of the desktop and asphodel's dashboard,
+   and says the public ports are as they were. The machine `chad` is on the "Machines" page of the Tailscale admin
+   console.
 4. In that session, run `bash /opt/chad/install.sh lockdown`. It says the session did not come in over Tailscale and
    exits non-zero, and `ufw status` says `inactive`.
 5. Run `ssh root@chad`. In that session, run `bash /opt/chad/install.sh lockdown` and then `ufw status`. It is
    active and allows `tailscale0` and `41641/udp`, and nothing else.
-6. From your own computer, run `nc -vz -w 5 <the public address> 22` and the same for ports 3000 and 8443. Each
-   times out. A new `ssh root@chad` connects.
+6. From your own computer, run `nc -vz -w 5 <the public address> 22` and the same for
+   ports 3000, 7720, 8443 and 9443. Each times out. A new `ssh root@chad` connects.
 7. Run `chad setup` as "Set chad up" says. Open the desktop's address from step 3 in your own browser: it shows
    Chromium, and you can click and type in it. Send chad a direct message: "Open example.com in the browser and tell
    me the page's title." The page opens in the desktop as chad works, and chad answers `Example Domain`.
 8. In the desktop, open a new tab on `https://example.org`. Ask chad: "Which tabs are open in the browser?" Its
-   answer names `example.org`. From a device that is not on your tailnet, the desktop's address does not load.
-9. Finish asphodel's setup as "Set asphodel up" says, with an LLM chosen. Send chad two more messages, one of them
-   something to recall later, then run `docker compose exec asphodel asphodel bank list` in `/opt/chad`. It shows the
-   bank `chad` with your turns.
+   answer names `example.org`. In the desktop, `http://asphodel:7720/dashboard` does not load. From a device that
+   is not on your tailnet, the desktop's address does not load.
+9. Open the dashboard's address from step 3 in your own browser: the certificate is valid and the setup page shows.
+   Finish asphodel's setup there, with an LLM chosen, as "Set asphodel up" says. The dashboard then asks for the
+   token, and with it the memory pages load. `curl https://chad.<tailnet>.ts.net:9443/v1/config` without the token
+   answers 401. From a device that is not on your tailnet, the dashboard's address does not load. Send chad two more
+   messages, one of them something to recall later, then run `docker compose exec asphodel asphodel bank list` in
+   `/opt/chad`. It shows the bank `chad` with your turns.
 10. Run `reboot` on the server. A minute later `ssh root@chad` works again, `docker compose ps` in `/opt/chad`
-    shows the three containers up, and the desktop's address loads.
+    shows the three containers up, and the addresses of the desktop and the dashboard both load.
 11. Take a backup as "What is kept, and backups" says, then follow "Restoring chad" and "Restoring asphodel"
     on this server. `chad status` shows no problem and `asphodel status` exits 0. In the DM, send `/new` and ask
     for what you told chad in step 9. The new session has no history, so the answer comes from asphodel.
 
-Passes when every step shows what it says. If the installer in step 3 says the desktop is not on the tailnet, record
-what `tailscale serve` printed above it. Fix what it names, such as HTTPS certificates that are off for the
-tailnet, run the installer again, and record that path too.
+Passes when every step shows what it says. If the installer in step 3 says the desktop or the dashboard is not on
+the tailnet, record what `tailscale serve` printed above it. Fix what it names, such as HTTPS certificates that are
+off for the tailnet, run the installer again, and record that path too.
 
 ### What has been run so far
 

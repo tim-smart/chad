@@ -26,6 +26,7 @@ services:
       - chad-data:/data
     networks:
       - chad
+      - memory
     logging: *logging
 
   # A named volume starts out owned by root, and asphodel runs as 65532, so it is given its volume before it starts.
@@ -52,14 +53,16 @@ services:
     command: ["serve", "--listen", "0.0.0.0:7720", "--data-dir", "/data"]
     environment:
       ASPHODEL_TOKEN: ${ASPHODEL_TOKEN:?Set ASPHODEL_TOKEN in .env, as deploy/install.sh does}
-    # The dashboard, for its first-run setup. Whoever reaches an unconfigured asphodel first can set it up, so this
-    # stays on loopback.
+    # The dashboard, which first-run setup is done on. Whoever reaches an unconfigured asphodel first can set it up, so
+    # this stays on loopback, and `deploy/install.sh` puts it on the tailnet alone with `tailscale serve`, at port 9443.
     ports:
       - 127.0.0.1:7720:7720
     volumes:
       - asphodel-data:/data
+    # A network it shares with chad alone. The browser is not on it, so neither the desktop nor a page Chromium opens
+    # reaches asphodel.
     networks:
-      - chad
+      - memory
     logging: *logging
 
   chromium:
@@ -89,7 +92,7 @@ services:
       - source: devtools
         target: /etc/nginx/conf.d/devtools.conf
     # The desktop. It has no password and whoever reaches it uses the browser, so it stays on loopback.
-    # `deploy/install.sh` puts it on the tailnet with `tailscale serve`.
+    # `deploy/install.sh` puts it on the tailnet with `tailscale serve`, at port 8443.
     ports:
       - 127.0.0.1:3000:3000
     volumes:
@@ -119,10 +122,13 @@ configs:
       }
 
 networks:
+  # chad and Chromium.
   chad:
     ipam:
       config:
         - subnet: 172.30.72.0/24
+  # chad and asphodel.
+  memory:
 
 volumes:
   chad-data:
