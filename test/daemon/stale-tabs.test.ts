@@ -128,6 +128,13 @@ test("a tab whose URL has not changed for longer than maxAge is closed, one that
   expect(browser.state.closed).toEqual(["a", "c", "c"])
   expect(remembered()).toEqual(["tab/b", "tab/c"])
 
+  // c moves to another URL while its close is still outstanding. That does not say the close was cancelled, so c is
+  // still not the tab left open, and it is not sent a close for its new URL. b, stale and the only other tab, stays.
+  browser.pages.set("c", "https://c.example/moved")
+  clock.advance("5 minutes")
+  await swept()
+  expect(browser.state.closed).toEqual(["a", "c", "c"])
+
   // Once c is gone, the plugin forgets it.
   browser.lingering.delete("c")
   browser.pages.delete("c")
