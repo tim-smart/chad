@@ -418,10 +418,9 @@ steps, is the record of what was run without either.
    `tailscale status`. The first boot is done, no container is listed, and Tailscale says it is logged out.
 3. In that session, run `bash /opt/chad/install.sh`. It prints a link and starts nothing. In a second session,
    `docker ps` still lists no container. Open the link and sign in. The installer goes on, lists the containers
-   `chad`, `asphodel` and `chromium` as up, prints the desktop's `https` address, says asphodel is waiting for its
-   setup and its dashboard is not on the tailnet, and says the public ports are as they were. On the server,
-   `tailscale serve status` lists 8443 and not 9443. The machine `chad` is on the "Machines" page of the Tailscale
-   admin console.
+   `chad`, `asphodel` and `chromium` as up, prints the `https` addresses of the desktop and asphodel's dashboard,
+   and says the public ports are as they were. The machine `chad` is on the "Machines" page of the Tailscale admin
+   console.
 4. In that session, run `bash /opt/chad/install.sh lockdown`. It says the session did not come in over Tailscale and
    exits non-zero, and `ufw status` says `inactive`.
 5. Run `ssh root@chad`. In that session, run `bash /opt/chad/install.sh lockdown` and then `ufw status`. It is
@@ -434,8 +433,8 @@ steps, is the record of what was run without either.
 8. In the desktop, open a new tab on `https://example.org`. Ask chad: "Which tabs are open in the browser?" Its
    answer names `example.org`. In the desktop, `http://asphodel:7720/dashboard` does not load. From a device that
    is not on your tailnet, the desktop's address does not load.
-9. Finish asphodel's setup as "Set asphodel up" says, with an LLM chosen, and run the installer again. It prints the
-   dashboard's `https` address. Open it from your own browser: the certificate is valid, the dashboard asks for the
+9. Open the dashboard's address from step 3 in your own browser: the certificate is valid and the setup page shows.
+   Finish asphodel's setup there, with an LLM chosen, as "Set asphodel up" says. The dashboard then asks for the
    token, and with it the memory pages load. `curl https://chad.<tailnet>.ts.net:9443/v1/config` without the token
    answers 401. From a device that is not on your tailnet, the dashboard's address does not load. Send chad two more
    messages, one of them something to recall later, then run `docker compose exec asphodel asphodel bank list` in
@@ -445,12 +444,6 @@ steps, is the record of what was run without either.
 11. Take a backup as "What is kept, and backups" says, then follow "Restoring chad" and "Restoring asphodel"
     on this server. `chad status` shows no problem and `asphodel status` exits 0. In the DM, send `/new` and ask
     for what you told chad in step 9. The new session has no history, so the answer comes from asphodel.
-12. With the dashboard on the tailnet, run `docker compose down` and `docker volume rm chad_asphodel-data` in
-    `/opt/chad`, then the installer. In a second session, run `tailscale serve status` again and again while it
-    works: from before the containers start until the installer ends, 9443 is not listed. The installer says
-    asphodel is waiting for its setup, and the dashboard's address does not load. `curl http://asphodel:7720/v1/health`
-    in the desktop's terminal does not connect. Finish the setup over SSH and run the installer again, and the
-    address loads.
 
 Passes when every step shows what it says. If the installer in step 3 says the desktop or the dashboard is not on
 the tailnet, record what `tailscale serve` printed above it. Fix what it names, such as HTTPS certificates that are

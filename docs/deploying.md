@@ -27,9 +27,8 @@ The server is kept private in four ways:
 - `deploy/cloud-init.yaml` holds no secret. The server joins your tailnet when you sign in at a link the installer
   prints, so no Tailscale key is in the Droplet's user data, which everything running on a Droplet can read back.
 - asphodel's dashboard and the browser's desktop are bound to the server's loopback. Tailscale serves them on your
-  tailnet, the desktop at port 8443 and the dashboard at port 9443, and on no public address. asphodel's first-run
-  setup takes no token, so the dashboard goes on the tailnet only once that setup is done, and you do it over SSH.
-  The browser shares no network with asphodel, so the desktop does not reach it either.
+  tailnet, the desktop at port 8443 and the dashboard at port 9443, and on no public address. The browser shares no
+  network with asphodel, so neither the desktop nor a page it opens reaches asphodel.
 - The Discord token and the model login are typed into `chad setup` over SSH and stored on chad's volume. asphodel's
   token is made on the server, in `/opt/chad/.env`, which only root reads.
 - Once you have connected over Tailscale, `install.sh lockdown` closes every public port, SSH included. chad needs
@@ -84,8 +83,7 @@ The server is kept private in four ways:
 
    The installer prints a link. Open it and sign in to Tailscale, and the server joins your tailnet as `chad`. Only
    then does it start the containers. It waits ten minutes for you, and starts nothing if the server has not joined.
-   At the end it puts the browser's desktop on your tailnet and prints its address. asphodel's dashboard follows
-   once asphodel is set up, as "Set asphodel up" says.
+   At the end it puts the browser's desktop and asphodel's dashboard on your tailnet and prints their addresses.
 
 3. On the "Machines" page of the Tailscale admin console, open the menu of the machine `chad` and choose "Disable
    key expiry". Without that the server drops off your tailnet when its key expires, after 180 days by default.
@@ -152,24 +150,8 @@ Every other chad command runs the same way, as `docker compose exec chad chad <c
 
 ## Set asphodel up
 
-asphodel waits for its first-run setup, which is a page on its dashboard. The setup takes no token, and whoever
-finishes it chooses where asphodel sends what chad remembers, so until then the installer keeps the dashboard off
-your tailnet. Forward the port from your own computer and open `http://localhost:7720/dashboard`:
-
-```sh
-ssh -L 7720:127.0.0.1:7720 root@chad
-```
-
-Choose the LLM asphodel extracts memories with and click "Finish setup". chad's plugin is already on and holds the
-token, so memory starts with chad's next message. `chad status` shows the plugin as `plugin: asphodel`.
-
-Then run the installer again, which now puts the dashboard on your tailnet:
-
-```sh
-bash /opt/chad/install.sh
-```
-
-From then on it is at this address, from a computer on your tailnet:
+asphodel waits for its first-run setup, which is a page on its dashboard. Open the dashboard from a computer on your
+tailnet:
 
 ```
 https://chad.<your tailnet's name>.ts.net:9443/dashboard
@@ -178,13 +160,14 @@ https://chad.<your tailnet's name>.ts.net:9443/dashboard
 The installer prints the address in full, and `tailscale serve status` on the server prints it again. If the
 installer said the dashboard is not on the tailnet, see "Troubleshooting".
 
-- The dashboard asks for asphodel's token. On the server, `sed -n 's/^ASPHODEL_TOKEN=//p' /opt/chad/.env` prints it.
-  asphodel's memory and settings need the token. Its health check and the state of setup answer without it.
-- An asphodel on a new volume waits for setup again. Each run of the installer takes the dashboard off the tailnet
-  before it starts a container, and puts it back only once asphodel says it is set up. It stops, and starts nothing,
-  when it cannot read what `tailscale serve` has on or cannot take the dashboard off.
-- If you give asphodel a new volume yourself, as with `docker compose down -v` and `docker compose up -d`, run
-  `tailscale serve --https=9443 off` first. The installer cannot protect an asphodel that was already started.
+Choose the LLM asphodel extracts memories with and click "Finish setup". chad's plugin is already on and holds the
+token, so memory starts with chad's next message. `chad status` shows the plugin as `plugin: asphodel`.
+
+- The setup takes no token. Until it is done, anyone your tailnet's access rules let reach port 9443 of the server
+  can do it, and so choose where asphodel sends what chad remembers. On a tailnet of your own that is you.
+- After setup the dashboard asks for asphodel's token. On the server, `sed -n 's/^ASPHODEL_TOKEN=//p' /opt/chad/.env`
+  prints it. asphodel's memory and settings need the token. Its health check and the state of setup answer without
+  it.
 - `tailscale serve --https=9443 off` on the server takes the dashboard off the tailnet, and the next run of the
   installer puts it back.
 
@@ -233,8 +216,7 @@ Everything lives in three Docker volumes on the Droplet's own disk, under `/var/
 - `chad_chromium-profile`: Chromium's cookies and site data, and its desktop's settings.
 
 They outlive a restart, a reboot, a new image and another run of the installer. Destroying the Droplet destroys them,
-and so does `docker compose down -v`. Before you start asphodel on a new volume yourself, take its dashboard off the
-tailnet, as "Set asphodel up" says.
+and so does `docker compose down -v`.
 
 DigitalOcean's backups copy the whole disk once a week or once a day, for a fee, and are the least work. To keep
 copies of your own, pull chad's tar, asphodel's store and asphodel's settings to your computer. Each backup goes in a
@@ -396,11 +378,6 @@ not that, and this guide does not cover it.
 - If the installer exits non-zero, its last lines say why. Run it again once that is fixed, until it prints "Done".
   `docker compose ps` and `docker compose logs chad` in `/opt/chad` show a container that did not come up, and
   `docker compose exec chad chad status` shows what chad itself finds wrong.
-- If the installer said `tailscale serve status` failed, or that port 9443 may still be on the tailnet, it started
-  and replaced no container. Run `tailscale serve status` on the server, fix what stops it, and run the installer
-  again.
-- If the installer said asphodel is waiting for its first-run setup, do the setup as "Set asphodel up" says, and run
-  the installer again. If it said asphodel did not answer, `docker compose logs asphodel` in `/opt/chad` says why.
 - If the installer said the desktop or the dashboard is not on the tailnet, `tailscale serve` failed or did not
   answer within a minute. What it printed is just above that line. HTTPS certificates that are off for your tailnet
   are one cause. Fix what it names and run the installer again. Until then, forward the port from your own computer

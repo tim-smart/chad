@@ -1,14 +1,6 @@
 #!/usr/bin/env bash
 echo "tailscale $*" >>"$FAKE/calls"
-case "$*" in
-  ip*) cat "$FAKE/tailnet" 2>/dev/null ;;
-  up*) [ ! -e "$FAKE/fail-join" ] && echo 100.64.0.7 >"$FAKE/tailnet" ;;
-  "serve status --json")
-    [ ! -e "$FAKE/fail-serve-status" ] || exit 1
-    cat "$FAKE/serve-status" 2>/dev/null || echo "{}"
-    ;;
-  "serve "*" off")
-    [ ! -e "$FAKE/fail-serve-off" ] || exit 1
-    rm -f "$FAKE/serve-status"
-    ;;
+case "$1" in
+  ip) cat "$FAKE/tailnet" 2>/dev/null ;;
+  up) [ ! -e "$FAKE/fail-join" ] && echo 100.64.0.7 >"$FAKE/tailnet" ;;
 esac

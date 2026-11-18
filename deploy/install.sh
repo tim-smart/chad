@@ -125,10 +125,6 @@ install() {
 
   step "Starting chad, asphodel and Chromium"
   docker compose pull -q
-  # The dashboard comes off the tailnet before any container starts. An asphodel on a new volume waits for its
-  # first-run setup, which takes no token, and a 9443 left on by an earlier run would reach it the moment it listens.
-  # It goes back on only once asphodel says it is set up, below.
-  off_tailnet 9443
   docker compose up -d --remove-orphans
 
   if ! healthy; then
@@ -154,28 +150,12 @@ install() {
   fi
 
   # The desktop and asphodel's dashboard are bound to the server's loopback. This puts each on the tailnet over
-  # HTTPS, which the desktop's page needs to show video, and on no public address.
-  step "Putting the browser's desktop on your tailnet"
+  # HTTPS, which the desktop's page needs to show video, and on no public address. The dashboard goes on before
+  # asphodel is set up, so its first-run setup is done there too. That setup takes no token, so anyone your tailnet's
+  # access rules let reach port 9443 can do it.
+  step "Putting the browser's desktop and asphodel's dashboard on your tailnet"
   on_tailnet_https "the browser's desktop" 8443 3000 / "$hostname"
-
-  # asphodel's first-run setup takes no token, and whoever finishes it chooses where asphodel sends what chad
-  # remembers. So the dashboard goes on the tailnet only once asphodel says it is set up, and comes off it when an
-  # asphodel on a new volume waits for setup again.
-  step "Putting asphodel's dashboard on your tailnet"
-  case $(asphodel_state) in
-    ready)
-      on_tailnet_https "asphodel's dashboard" 9443 7720 /dashboard "$hostname"
-      ;;
-    setup)
-      echo "asphodel is waiting for its first-run setup, which takes no token, so its dashboard is not on the tailnet."
-      echo "Set it up through SSH from your own computer: ssh -L 7720:127.0.0.1:7720 root@$hostname, then open"
-      echo "http://localhost:7720/dashboard. Then run this script again to put the dashboard on the tailnet."
-      ;;
-    *)
-      echo "install.sh: asphodel did not answer in two minutes, so its dashboard is not on the tailnet."
-      echo "See: cd $dir && docker compose logs asphodel. Then run this script again."
-      ;;
-  esac
+  on_tailnet_https "asphodel's dashboard" 9443 7720 /dashboard "$hostname"
 
   step "Done"
   docker compose ps
@@ -249,51 +229,8 @@ on_tailnet_https() {
   fi
 }
 
-# Takes a port off the tailnet when `tailscale serve` has it there. A port that may still be on ends the install: one
-# whose state could not be read, and one that did not come off. The port is a key of its own, and ends the key of the
-# host's name it is served at.
-off_tailnet() {
-  local https=$1 status
-  if ! status=$(timeout 60 tailscale serve status --json); then
-    {
-      echo "install.sh: tailscale serve status failed, so it is not known whether port $https is on the tailnet,"
-      echo "so no container was started or replaced. Run this script again once \`tailscale serve status\` works."
-    } >&2
-    exit 1
-  fi
-  if grep -Eq "\"([^\"]*:)?$https\":" <<<"$status"; then
-    if ! timeout 60 tailscale serve --https="$https" off; then
-      {
-        echo "install.sh: port $https may still be on the tailnet: tailscale serve --https=$https off failed,"
-        echo "so no container was started or replaced."
-      } >&2
-      exit 1
-    fi
-  fi
-}
-
 on_tailnet() {
   tailscale ip -4 >/dev/null 2>&1
-}
-
-# What asphodel's health check says, which needs no token: `ready` once it is set up and has started, `setup` while
-# it waits for its first-run setup, and nothing when it has said neither in two minutes.
-asphodel_state() {
-  local health
-  for _ in $(seq 60); do
-    health=$(curl -fsS --max-time 5 http://127.0.0.1:7720/v1/health 2>/dev/null || true)
-    case $health in
-      *'"ready":true'*)
-        echo ready
-        return
-        ;;
-      *'"setup":true'*)
-        echo setup
-        return
-        ;;
-    esac
-    sleep 2
-  done
 }
 
 # A command in chad's container. One that reads nothing is given no input, so it cannot take this script's.

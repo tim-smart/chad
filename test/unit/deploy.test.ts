@@ -92,7 +92,7 @@ const server = () => {
   }
 }
 
-it("an install whose seed fails part way fails, and the next run finishes it, puts the dashboard on the tailnet only once asphodel is set up and leaves the firewall alone", () => {
+it("an install whose seed fails part way fails, and the next run finishes it, puts the desktop and the dashboard on the tailnet alone and leaves the firewall alone", () => {
   const { fake, git, install, calls } = server()
   const marker = join(fake, "data/home/.deploy-seeded")
   // The server is on a tailnet already, which alone closes nothing.
@@ -103,9 +103,6 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
   expect(existsSync(marker)).toBe(false)
 
   rmSync(join(fake, "fail-apply"))
-  // asphodel waits for its first-run setup, on a server where an earlier install put the dashboard on the tailnet.
-  writeFileSync(join(fake, "health"), '{"ready":false,"setup":true}')
-  writeFileSync(join(fake, "serve-status"), '{"TCP":{"9443":{"HTTPS":true}}}')
   expect(install([]).status).toBe(0)
   expect(existsSync(marker)).toBe(true)
   expect(existsSync(join(fake, "opt/compose.yaml"))).toBe(true)
@@ -119,8 +116,8 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
   expect(calls().filter((call) => call.startsWith("ufw "))).toEqual([])
 
   // Compose publishes the desktop and the dashboard on the server's loopback alone, and the browser shares no
-  // network with asphodel. `tailscale serve` takes the desktop to the tailnet, and the dashboard only once asphodel
-  // is set up, since its setup takes no token. Nothing calls `tailscale funnel`, which would reach the internet.
+  // network with asphodel. `tailscale serve` takes both ports to the tailnet, the dashboard before asphodel is set up
+  // too. Nothing calls `tailscale funnel`, which would take them to the internet.
   const compose = parse(
     readFileSync(join(root, "deploy/compose.yaml"), "utf8"),
   ) as {
@@ -145,29 +142,15 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
       networks("asphodel").includes(network),
     ),
   ).toEqual([])
-  // The second run took 9443 off before it started a container, and did not put it back.
-  const served = () =>
-    calls().filter((call) =>
-      /^(tailscale (serve|funnel)|docker compose up)\b/.test(call),
-    )
-  expect(served().slice(2)).toEqual([
-    "tailscale serve status --json",
-    "tailscale serve --https=9443 off",
-    "docker compose up -d --remove-orphans",
-    "tailscale serve --bg --https=8443 http://127.0.0.1:3000",
-  ])
-
-  writeFileSync(join(fake, "health"), '{"ready":true,"setup":false}')
-  expect(install([]).status).toBe(0)
-  expect(served().slice(6)).toEqual([
-    "tailscale serve status --json",
-    "docker compose up -d --remove-orphans",
+  expect(
+    calls().filter((call) => /^tailscale (serve|funnel)\b/.test(call)),
+  ).toEqual([
     "tailscale serve --bg --https=8443 http://127.0.0.1:3000",
     "tailscale serve --bg --https=9443 http://127.0.0.1:7720",
   ])
 })
 
-it("a key that does not join the server, and a dashboard that may still be on the tailnet, start no container", () => {
+it("a key that does not join the server starts no container", () => {
   const { fake, install, calls } = server()
   const key = { TS_AUTHKEY: "tskey-auth-test" }
   const started = (command: string) =>
@@ -184,20 +167,6 @@ it("a key that does not join the server, and a dashboard that may still be on th
   writeFileSync(join(fake, "fail-join"), "")
   expect(install([], key).status).not.toBe(0)
   expect(started("tailscale up")).toHaveLength(1)
-  expect(started("docker compose up")).toEqual([])
-
-  // On the tailnet, with no key: a Serve state that cannot be read, and a 9443 that does not come off.
-  rmSync(join(fake, "fail-join"))
-  writeFileSync(join(fake, "tailnet"), "100.64.0.7\n")
-  writeFileSync(join(fake, "fail-serve-status"), "")
-  expect(install([]).status).not.toBe(0)
-  expect(started("docker compose up")).toEqual([])
-
-  rmSync(join(fake, "fail-serve-status"))
-  writeFileSync(join(fake, "serve-status"), '{"TCP":{"9443":{"HTTPS":true}}}')
-  writeFileSync(join(fake, "fail-serve-off"), "")
-  expect(install([]).status).not.toBe(0)
-  expect(started("tailscale serve --https=9443 off")).toHaveLength(1)
   expect(started("docker compose up")).toEqual([])
 })
 
