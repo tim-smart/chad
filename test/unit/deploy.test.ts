@@ -108,7 +108,9 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
   expect(existsSync(join(fake, "opt/compose.yaml"))).toBe(true)
   expect(existsSync(join(fake, "opt/unit"))).toBe(false)
   expect(calls().filter((call) => call === "chad apply")).toHaveLength(1)
-  expect(git("show", "HEAD:chad.json")).toContain("http://asphodel:7720")
+  const seeded = JSON.parse(git("show", "HEAD:chad.json"))
+  expect(seeded.plugins.asphodel.settings.url).toBe("http://asphodel:7720")
+  expect(seeded.plugins["stale-tabs"]).toMatchObject({ enabled: true })
   expect(git("ls-tree", "-r", "--name-only", "HEAD")).toContain(
     "skills/browser/SKILL.md",
   )

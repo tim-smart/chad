@@ -5,6 +5,8 @@ import { Clock, Duration, Effect } from "effect"
 export interface Adjustable extends Clock.Clock {
   /** Moves the clock forward, and ends every sleep whose deadline that passes. */
   readonly advance: (duration: Duration.Input) => void
+  /** Whether a sleep has at least `duration` left, which is how a scenario sees a fiber waiting on a long schedule. */
+  readonly sleeping: (duration: Duration.Input) => boolean
 }
 
 /** The longest delay `setTimeout` takes. A longer sleep ends only when the clock is advanced past it. */
@@ -50,5 +52,9 @@ export const make = (): Adjustable => {
       offset += Duration.toMillis(duration)
       for (const sleeper of sleepers) if (sleeper.at <= now()) sleeper.wake()
     },
+    sleeping: (duration) =>
+      [...sleepers].some(
+        (sleeper) => sleeper.at - now() >= Duration.toMillis(duration),
+      ),
   }
 }

@@ -200,12 +200,47 @@ If the installer said the desktop is not on the tailnet, see "Troubleshooting".
   profile, and every session shares it. Chromium writes cookies to the disk a little after they are set, so a sign-in
   made just before a restart can be lost.
 - Closing Chromium's window does not leave chad without a browser. It starts again in a moment.
+- Tabs that have gone stale are closed: see "Stale tabs" below.
 - Chromium and the desktop run in their own container as an ordinary user that cannot become root. Chromium has no
   sandbox of its own, because a container cannot give it one without more privileges. The desktop's menu has a
   terminal, which is a shell in that container.
 - A file Chromium downloads stays on its volume, and it cannot upload a file from chad's.
 - Chromium's DevTools port, which `agent-browser` uses, is open to chad's container and to nothing else. Chromium
   shares no network with asphodel, so neither the desktop nor a page it opens reaches asphodel.
+
+### Stale tabs
+
+The bundled plugin `stale-tabs` closes the tabs in this Chromium that have sat on one address for 12 hours. Every five
+minutes it lists the open tabs through Chromium's DevTools port and notes when each tab's address last changed. A tab
+whose address has not changed for longer than 12 hours is closed, whoever opened it: Chromium does not record whether
+chad or you opened a tab, so the age of its address is all the plugin can go by. It leaves one tab open, because
+Compose starts Chromium again when its last window closes. A tab it has asked Chromium to close never counts as that
+one, until Chromium lists it gone. While Chromium is down the plugin does nothing, and it carries on when Chromium is
+back.
+
+Before each close the plugin lists the tabs again, and closes the tab only if it is still on the same address and
+another tab stays open. That is a check and not a lock: if you close that other tab at the same moment, both can go,
+and Chromium starts again with no tab of yours. Sites stay signed in, since the profile is on its volume.
+
+A tab that stays on one address while you use it, such as a dashboard you keep open or a long form on one page, is
+closed too once it has sat 12 hours. To keep a page past that, open it again, or set a longer `maxAge`.
+
+The installer turns the plugin on for a new volume. On a volume the installer seeded before the plugin existed, it is
+off, and `chad status` shows `plugin: stale-tabs, off`. To turn it on, add this under `plugins` in
+`/data/repo/work/chad.json` in chad's container:
+
+```json
+"stale-tabs": {
+  "enabled": true,
+  "settings": {
+    "url": "http://172.30.72.10:9223"
+  }
+}
+```
+
+Then run `docker compose exec chad chad apply -m "Turn stale-tabs on"` in `/opt/chad`. `url` is Chromium's DevTools
+address, which is the address `AGENT_BROWSER_CDP` holds in `compose.yaml`. `maxAge` sets how long a tab may sit on
+one address, as in `"maxAge": "24 hours"`, and is 12 hours when it is left out.
 
 ## What is kept, and backups
 
@@ -333,7 +368,9 @@ in chad's repo stay as they are.
 The installer gives a chad volume asphodel and the browser once, and then marks the volume with the file
 `/data/home/.deploy-seeded`. A volume with the mark is left alone. A new volume has none, and neither has one whose
 first run was cut short, so the next run finishes those. The installer exits non-zero when chad does not come up or
-when any part of that fails. Run it again until it prints "Done".
+when any part of that fails. Run it again until it prints "Done". Since the mark keeps a later run from changing
+`chad.json`, a plugin the installer turns on after your volume was seeded stays off until you turn it on, as "Stale
+tabs" says for `stale-tabs`.
 
 To hold chad at one image, add a line such as `CHAD_IMAGE=ghcr.io/tim-smart/chad:sha-4d3d587` to `/opt/chad/.env`.
 

@@ -248,9 +248,9 @@ healthy() {
   return 1
 }
 
-# What a chad volume is given, once: asphodel's token in the secret store, the asphodel plugin turned on, the `browser`
-# skill and agent-browser. Each part is skipped when the volume already has it, so a run that was cut is finished by
-# the next, and what the owner changed is left alone. The marker is written last.
+# What a chad volume is given, once: asphodel's token in the secret store, the asphodel and stale-tabs plugins turned
+# on, the `browser` skill and agent-browser. Each part is skipped when the volume already has it, so a run that was
+# cut is finished by the next, and what the owner changed is left alone. The marker is written last.
 seed() {
   local token listed json pending wrote=no
   local new=/data/home/.deploy-seed.new
@@ -275,6 +275,12 @@ seed() {
         "url": "http://asphodel:7720",
         "token": "${ASPHODEL_TOKEN}"
       }
+    },
+    "stale-tabs": {
+      "enabled": true,
+      "settings": {
+        "url": "http://172.30.72.10:9223"
+      }
     }
   }
 }
@@ -291,7 +297,7 @@ EOF
   # An apply is due for what this run wrote, and for what an earlier run wrote and was cut before applying.
   pending=$(in_chad git -C /data/repo/work status --porcelain -- chad.json skills/browser </dev/null)
   if [ "$wrote" = yes ] || [ -n "$pending" ]; then
-    in_chad chad apply -m "Turn asphodel on and add the browser skill" </dev/null
+    in_chad chad apply -m "Turn asphodel and stale-tabs on and add the browser skill" </dev/null
   fi
 
   if ! in_chad sh -c 'command -v agent-browser' >/dev/null </dev/null; then
