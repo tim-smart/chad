@@ -34,8 +34,9 @@ Your plugins, skills, MCP servers, settings and persona are files in one git rep
 
 1. Edit files under `/data/repo/work`. `chad plugin new <name>` and `chad skill new <name>` write a starting file and do nothing else.
 2. `chad check`. It runs everything an apply runs and commits nothing. Fix what it reports and run it again.
-3. `chad apply -m "<why>"`.
-4. `chad status` shows what is loaded, what was skipped and why, and the chad and effect versions.
+3. If the change adds or edits plugin code, a sub-agent reviews it before you apply, as the review section at the end of `plugin.md` says. Fix every valid finding, run `chad check` again, and review again. A plugin is not finished while a valid finding is open, and you do not apply it.
+4. `chad apply -m "<why>"`.
+5. `chad status` shows what is loaded, what was skipped and why, and the chad and effect versions.
 
 ## Rules that are easy to get wrong
 
@@ -70,6 +71,8 @@ Before you write one, **YOU MUST READ IN FULL** `/data/repo/node_modules/effect/
 
 `/data/repo/node_modules/effect/AGENTS.md` MUST BE FOLLOWED when writing effect
 plugins.
+
+A plugin is done only when `chad check` passes and a sub-agent's review has no valid finding left. The review section at the end of `plugin.md` says how to run the review and what to do with what it finds.
 
 - A repo plugin cannot take a bundled plugin's name, and `chad plugin new` refuses a taken or bundled name.
 - A plugin can use npm packages, which `work/package.json` names. Add one with `npm install --package-lock-only --ignore-scripts <name>` in `work/`, never a plain `npm install`. `plugin.md` says what an install does and which packages do not work.
