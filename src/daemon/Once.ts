@@ -27,6 +27,8 @@ export interface Daemon extends Store {
   readonly redactor: (session: string) => {
     readonly push: (chunk: string) => string
     readonly end: () => string
+    /** A whole text, such as an error's, with every value this redactor masks replaced. */
+    readonly scrub: (text: string) => string
   }
   /** Whether the session was given a value, so its output has something to mask. */
   readonly holds: (session: string) => boolean
@@ -143,6 +145,10 @@ export const make = (deadline: Duration.Duration): Daemon => {
           const text = rest
           rest = ""
           return text
+        },
+        scrub: (text) => {
+          const values = seen()
+          return values.length === 0 ? text : replace(text, values)
         },
       }
     },

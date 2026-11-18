@@ -1,4 +1,5 @@
-import { Effect, Layer, Stream } from "effect"
+import { Effect, Layer, Sink, Stream } from "effect"
+import * as PlatformError from "effect/PlatformError"
 import { ChildProcess, ChildProcessSpawner } from "effect/process"
 
 /**
@@ -35,6 +36,52 @@ export const addSession = (id: string, home?: string, zone?: () => string) => {
 export interface Redactor {
   readonly push: (chunk: string) => string
   readonly end: () => string
+  /** A whole text, such as an error's, with every value the redactor masks replaced. */
+  readonly scrub: (text: string) => string
+}
+
+/**
+ * A child's error made again from its parts, each text scrubbed. effect's Node spawner puts the whole command line in
+ * the error, and the Node error under it, which a spawn error's `spawnargs` holds the arguments of. The cause is
+ * replaced by a plain error with the scrubbed message, so no raw copy is left under the new one for clanka to keep
+ * with the task.
+ */
+const cleaned = (
+  error: PlatformError.PlatformError,
+  scrub: (text: string) => string,
+): PlatformError.PlatformError => {
+  const reason = error.reason
+  const text = (value: string | undefined) =>
+    value === undefined ? undefined : scrub(value)
+  const cause =
+    reason.cause === undefined
+      ? undefined
+      : new Error(
+          scrub(
+            reason.cause instanceof Error
+              ? reason.cause.message
+              : String(reason.cause),
+          ),
+        )
+  return reason._tag === "BadArgument"
+    ? PlatformError.badArgument({
+        module: reason.module,
+        method: reason.method,
+        description: text(reason.description),
+        cause,
+      })
+    : PlatformError.systemError({
+        _tag: reason._tag,
+        module: reason.module,
+        method: reason.method,
+        description: text(reason.description),
+        syscall: reason.syscall,
+        pathOrDescriptor:
+          typeof reason.pathOrDescriptor === "string"
+            ? scrub(reason.pathOrDescriptor)
+            : reason.pathOrDescriptor,
+        cause,
+      })
 }
 
 /**
@@ -75,22 +122,36 @@ export const layer = (
       if (redactor === undefined) {
         return ChildProcessSpawner.make((command) => inner.spawn(add(command)))
       }
+      // A child's redactors are made as it is spawned, so they mask what the session held then. Its errors go through
+      // one of their own: the spawn's, the exit code's, a kill's and those of its streams, a signal's exit included.
       return ChildProcessSpawner.make((command) =>
-        Effect.map(inner.spawn(add(command)), (handle) =>
-          ChildProcessSpawner.makeHandle({
-            pid: handle.pid,
-            exitCode: handle.exitCode,
-            isRunning: handle.isRunning,
-            kill: handle.kill,
-            stdin: handle.stdin,
-            stdout: redacted(handle.stdout, redactor()),
-            stderr: redacted(handle.stderr, redactor()),
-            all: redacted(handle.all, redactor()),
-            getInputFd: handle.getInputFd,
-            getOutputFd: handle.getOutputFd,
-            unref: handle.unref,
-          }),
-        ),
+        Effect.suspend(() => {
+          const errors = redactor()
+          if (errors === undefined) return inner.spawn(add(command))
+          const clean = (error: PlatformError.PlatformError) =>
+            cleaned(error, errors.scrub)
+          const stream = (
+            output: Stream.Stream<Uint8Array, PlatformError.PlatformError>,
+            one: Redactor | undefined,
+          ) => redacted(Stream.mapError(output, clean), one)
+          return Effect.map(
+            Effect.mapError(inner.spawn(add(command)), clean),
+            (handle) =>
+              ChildProcessSpawner.makeHandle({
+                pid: handle.pid,
+                exitCode: Effect.mapError(handle.exitCode, clean),
+                isRunning: Effect.mapError(handle.isRunning, clean),
+                kill: (options) => Effect.mapError(handle.kill(options), clean),
+                stdin: Sink.mapError(handle.stdin, clean),
+                stdout: stream(handle.stdout, redactor()),
+                stderr: stream(handle.stderr, redactor()),
+                all: stream(handle.all, redactor()),
+                getInputFd: (fd) => Sink.mapError(handle.getInputFd(fd), clean),
+                getOutputFd: (fd) => stream(handle.getOutputFd(fd), redactor()),
+                unref: handle.unref,
+              }),
+          )
+        }),
       )
     }),
   )

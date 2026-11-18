@@ -640,7 +640,7 @@ const onceRequest = async (running: Scenario, thread: ChatThread.ChatThread) =>
     )
   ).find((message) => message.text.includes("one-off value"))!
 
-test("the agent's requestOnce waits in its turn for the owner's form, a stranger's click opens no form, and only the calling script gets the owner's value: a traced command, a print, a command's output saved to a temporary file and a thrown error carry a mask, a command that prints it after the turn has ended carries the mask still, a later turn reads no copy from the tasks, and the value is nowhere on the volume, in the chat or in what the model is sent", async () => {
+test("the agent's requestOnce waits in its turn for the owner's form, a stranger's click opens no form, and only the calling script gets the owner's value: a traced command, a print, a command's output saved to a temporary file and a thrown error carry a mask, a command that prints it or a signal ends after the turn has ended carries the mask still, a later turn reads no copy from the tasks, and the value is nowhere on the volume, in the chat or in what the model is sent", async () => {
   const value = "once-7c3e9a41d2"
   const running = await scenario({
     plugins: [{ name: "request-secret", plugin: requestSecret }],
@@ -656,6 +656,8 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
         // A command's output is kept with its task, which a later turn can read.
         `await run("printf 'code=%s' " + JSON.stringify(code))`,
         `await bash({ command: "while [ ! -e " + ${JSON.stringify(go)} + " ]; do sleep 0.05; done; printf 'late=%s' " + JSON.stringify(code), description: "a late print", background: true })`,
+        // A command a signal ends fails with an error that names its command line, which clanka keeps with the task.
+        `await bash({ command: "while [ ! -e " + ${JSON.stringify(go)} + " ]; do sleep 0.05; done; test -n " + JSON.stringify(code) + "; kill -TERM $$", description: "a signalled command", background: true })`,
         // Output past clanka's limit goes to a temporary file, and the script sees its path.
         `console.log(await run("printf %s " + JSON.stringify(code) + "; head -c 40000 /dev/zero | tr '\\\\0' x"))`,
         `console.log("got " + code)`,
@@ -737,6 +739,7 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
   const read = results(later[3]).at(-1) ?? ""
   expect(read).toContain(reverse(`late=${Once.mask}`))
   expect(read).toContain(reverse("a late print"))
+  expect(read).toContain(reverse("receipt of signal: 'SIGTERM'"))
   expect(JSON.stringify(later[3])).not.toContain(reverse(value))
   // The traced command line was logged with the mask.
   expect(
