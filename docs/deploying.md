@@ -355,24 +355,33 @@ virtual machine.
 The files were run in a local virtual machine, booted from Ubuntu's 24.04 cloud image with `deploy/cloud-init.yaml` as
 its user data, and on no tailnet. There:
 
-- With a key that Tailscale refused, the installer stopped before it started a container and left the firewall as it
-  was.
-- Without a key, the installer finished in two minutes and the three containers came up. chad opened a page through
-  Chromium, and the asphodel plugin loaded with its token. A second run changed nothing. Everything came back after a
-  reboot, and Chromium kept a cookie across a restart.
+- The first boot ended after a minute with Docker and Tailscale installed and the files in `/opt/chad`. No container
+  existed, and Tailscale was logged out.
+- The installer printed Tailscale's sign-in link and started nothing while it waited. Nobody signed in, because there
+  was no tailnet to join. From there a stand-in for `tailscale` played the join, a join that fails and
+  `tailscale serve`.
+- With a join that failed, the installer stopped before it started a container. With one that worked, the three
+  containers came up, chad opened a page through Chromium with only `AGENT_BROWSER_CDP` to point it there, and the
+  asphodel plugin loaded with its token. With a `tailscale serve` that failed, the install still finished and said how
+  to reach the desktop. A later run replaced no container. Everything came back after a reboot.
+- The desktop was opened through the SSH forward. An address typed into its Chromium loaded, and `agent-browser tab`
+  in chad's container then listed that page.
 - `install.sh lockdown` refused a session on the server's public address, and refused again while a rule allowed
-  port 22. With a stand-in for `tailscale ip` that named the machine's own address, it closed the ports: a new SSH
-  connection from outside timed out, and the containers still reached the internet.
-- The backups were taken over SSH as written, `secrets.toml` included. asphodel was restored onto a new volume with
-  its two files, and chad onto a new volume, after which the old one was removed.
-- Through the DevTools port forward, a script listed Chromium's tab and read the page's title from it, which is what
-  `chrome://inspect` does.
+  port 22. With the stand-in naming the machine's own address, it closed the ports: a new SSH connection from outside
+  timed out, and the containers still reached the internet.
+- The backups were taken over SSH as written, the second after `secrets.toml` was removed from the server, and that
+  backup's directory had none. chad was restored onto a new volume and asphodel onto its own, from `/root/backup`.
+
+The same images were run under podman as well. Chromium started again after its process was ended, and after its
+container was killed and made anew. A cookie set 40 seconds before a restart was kept, and one set just before a
+restart was lost.
 
 A seed that fails part way was run against the real chad image: the installer failed, and the next run finished the
-volume. `test/unit/deploy.test.ts` holds that, the failed join and the lockdown's two refusals.
+volume. `test/unit/deploy.test.ts` holds that, the key that joins nothing and the lockdown's refusals.
 
 No part of it has run on DigitalOcean or on a real tailnet, because neither was available without paying for one or
-joining someone's. `docs/live-checks.md`, check D5, is the list of what is still to see: the Droplet's first boot,
-the join with an auth key, that a Tailscale SSH session is one the lockdown accepts, the closed ports as the internet
-sees them, `chrome://inspect` by hand, chad on Discord with its model, and a restore that recalls a memory. asphodel's
-ChatGPT login after a restore has not been run either.
+joining someone's. `docs/live-checks.md`, check D5, is the list of what is still to see: the link to the create page,
+the Droplet's first boot, the sign-in at the installer's link, the desktop at its `https` address and what a tailnet
+with HTTPS off does there, that a Tailscale SSH session is one the lockdown accepts, the closed ports as the internet
+sees them, chad on Discord with its model, and a restore that recalls a memory. asphodel's ChatGPT login after a
+restore has not been run either.
