@@ -8,7 +8,7 @@
 #                        Tailscale, which shows that way in works before the other one closes.
 #
 #   TS_AUTHKEY   A Tailscale auth key. With it the server joins your tailnet before any container starts. Without it
-#                nothing joins, and `tailscale up` is yours to run.
+#                nothing joins, and `tailscale up` is yours to run. A server that is already on a tailnet refuses it.
 #   TS_HOSTNAME  The server's name on the tailnet. The default is chad.
 #   CHAD_REF     The branch, tag or commit of tim-smart/chad that deploy/ is taken from. The default is main.
 #   CHAD_DIR     Where the files go on the server. The default is /opt/chad.
@@ -75,8 +75,19 @@ install() {
   fi
 
   # The join comes before any container, so a key for one use is used up before anything that runs here could read
-  # it out of the server's user data. A join that fails starts nothing, because the key may still work.
-  if [ -n "${TS_AUTHKEY:-}" ] && ! on_tailnet; then
+  # it out of the server's user data. A key that joins nothing may still work, so nothing is started then.
+  if [ -n "${TS_AUTHKEY:-}" ]; then
+    # A server that is already on a tailnet would leave the key unused, and nothing here can tell whose tailnet it
+    # is on.
+    if on_tailnet; then
+      {
+        echo "install.sh: TS_AUTHKEY is set and the server is already on a tailnet, so the key was not used and"
+        echo "nothing was started. \`tailscale status\` shows which tailnet it is on."
+        echo "Revoke the key in the Tailscale admin console unless this server joined with it."
+        echo "Then run this script again without TS_AUTHKEY."
+      } >&2
+      exit 1
+    fi
     step "Joining the tailnet as $hostname"
     # The key goes in a file only root can read, so it is on no command line.
     local key joined=yes
@@ -135,7 +146,7 @@ install() {
 # policy decides that, so this asks for the proof: the session it runs in arrived at one of this server's Tailscale
 # addresses. Nothing changes before both checks pass.
 lockdown() {
-  local arrived addresses others
+  local arrived addresses rules others
   arrived=$(awk '{print $3}' <<<"${SSH_CONNECTION:-}")
   addresses=$(tailscale ip 2>/dev/null || true)
   if [ -z "$arrived" ] || ! grep -Fxq -- "$arrived" <<<"$addresses"; then
@@ -147,10 +158,14 @@ lockdown() {
   fi
 
   # A rule that lets connections in outlives `default deny`. One that is not this script's is the owner's, and it is
-  # neither kept in silence nor deleted.
+  # neither kept in silence nor deleted. A list that could not be read is not an empty one.
+  if ! rules=$(ufw show added); then
+    echo "install.sh: ufw could not list its rules, so nothing was closed." >&2
+    exit 1
+  fi
+  # grep exits 1 when it finds no line, which is the list this wants.
   others=$(
-    ufw show added |
-      grep -E '^ufw (allow|limit) ' |
+    grep -E '^ufw (allow|limit) ' <<<"$rules" |
       grep -Fxv -e 'ufw allow in on tailscale0' -e 'ufw allow 41641/udp' || true
   )
   if [ -n "$others" ]; then

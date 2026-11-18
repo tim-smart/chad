@@ -115,18 +115,27 @@ it("an install whose seed fails part way fails, and the next run finishes it and
   expect(calls().filter((call) => call.startsWith("ufw "))).toEqual([])
 })
 
-it("a join that fails starts no container", () => {
+it("a key that does not join the server starts no container", () => {
   const { fake, install, calls } = server()
-  writeFileSync(join(fake, "fail-join"), "")
+  const key = { TS_AUTHKEY: "tskey-auth-test" }
+  const started = (command: string) =>
+    calls().filter((call) => call.startsWith(command))
 
-  expect(install([], { TS_AUTHKEY: "tskey-auth-test" }).status).not.toBe(0)
-  expect(calls().some((call) => call.startsWith("tailscale up"))).toBe(true)
-  expect(
-    calls().filter((call) => call.startsWith("docker compose up")),
-  ).toEqual([])
+  // A server that is already on a tailnet, which the key would not be used on.
+  writeFileSync(join(fake, "tailnet"), "100.64.0.7\n")
+  expect(install([], key).status).not.toBe(0)
+  expect(started("tailscale up")).toEqual([])
+  expect(started("docker compose up")).toEqual([])
+
+  // A join that fails.
+  rmSync(join(fake, "tailnet"))
+  writeFileSync(join(fake, "fail-join"), "")
+  expect(install([], key).status).not.toBe(0)
+  expect(started("tailscale up")).toHaveLength(1)
+  expect(started("docker compose up")).toEqual([])
 })
 
-it("lockdown closes the public ports only from a session that came in over Tailscale, and only when no other rule opens one", () => {
+it("lockdown closes the public ports only from a session that came in over Tailscale, and only once it has seen that no other rule opens one", () => {
   const { fake, install, calls } = server()
   writeFileSync(join(fake, "tailnet"), "100.64.0.7\nfd7a:115c:a1e0::7\n")
   const changes = () =>
@@ -143,16 +152,19 @@ it("lockdown closes the public ports only from a session that came in over Tails
 
   // A session over Tailscale, on a server whose firewall already lets SSH in from anywhere.
   const tailnet = { SSH_CONNECTION: "100.64.0.2 50000 100.64.0.7 22" }
-  writeFileSync(
-    join(fake, "ufw-rules"),
-    "Added user rules (see 'ufw status' for running firewall):\nufw allow 22/tcp\n",
-  )
+  writeFileSync(join(fake, "ufw-rules"), "ufw allow 22/tcp\n")
   const open = install(["lockdown"], tailnet)
   expect(open.status).not.toBe(0)
   expect(open.stderr).toContain("ufw allow 22/tcp")
   expect(changes()).toEqual([])
 
+  // A firewall that cannot list its rules, which is not one with no rules.
   rmSync(join(fake, "ufw-rules"))
+  writeFileSync(join(fake, "fail-ufw"), "")
+  expect(install(["lockdown"], tailnet).status).not.toBe(0)
+  expect(changes()).toEqual([])
+
+  rmSync(join(fake, "fail-ufw"))
   expect(install(["lockdown"], tailnet).status).toBe(0)
   expect(changes()).toEqual([
     "ufw default deny incoming",

@@ -428,7 +428,7 @@ You need what its "What you need" lists.
    "inspect" shows the page.
 10. Run `reboot` on the server. A minute later `ssh root@chad` works again, and `docker compose ps` in `/opt/chad`
     shows the three containers up.
-11. Take the four copies as "What is kept, and backups" says, then follow "Restoring chad" and "Restoring asphodel"
+11. Take a backup as "What is kept, and backups" says, then follow "Restoring chad" and "Restoring asphodel"
     on this server. `chad status` shows no problem and `asphodel status` exits 0. In the DM, send `/new` and ask
     for what you told chad in step 8. The new session has no history, so the answer comes from asphodel.
 

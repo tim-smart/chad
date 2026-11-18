@@ -89,7 +89,7 @@ The server is kept private in three ways:
    - No other firewall rule lets connections in. `ufw` keeps such a rule when its default changes to deny, so a rule
      that allows port 22 from anywhere would leave SSH public. The step lists each rule it finds and stops. Delete
      them, as in `ufw delete allow 22/tcp`, and run it again. To keep one, set the firewall yourself in place of
-     this step.
+     this step. It also stops when `ufw` cannot list its rules.
 
 The installer writes what it did to `/var/log/cloud-init-output.log`. If the machine never appears in Tailscale, the
 join failed, and the installer stopped before it started a container. The key is still in the Droplet's user data, so
@@ -168,41 +168,53 @@ They outlive a restart, a reboot, a new image and another run of the installer. 
 and so does `docker compose down -v`.
 
 DigitalOcean's backups copy the whole disk once a week or once a day, for a fee, and are the least work. To keep
-copies of your own, pull chad's tar, asphodel's store and asphodel's settings to your computer:
+copies of your own, pull chad's tar, asphodel's store and asphodel's settings to your computer. Each backup goes in a
+directory of its own:
 
 ```sh
+dir=$(mktemp -d "chad-backup-$(date +%F).XXXXXX")
 save() {
-  tmp=$(mktemp "$1.XXXXXX") &&
-    { ssh root@chad "cd /opt/chad && $2" > "$tmp" && mv -f "$tmp" "$1" ||
+  tmp=$(mktemp "${dir:?}/$1.XXXXXX") &&
+    { ssh root@chad "cd /opt/chad && $2" > "$tmp" && mv -f "$tmp" "$dir/$1" ||
       { rc=$?; rm -f "$tmp"; (exit "$rc"); }; }
 }
-save "chad-$(date +%F).tar" 'docker compose exec -T chad chad backup -'
-save "asphodel-$(date +%F).db" 'docker compose exec -T asphodel asphodel backup --out -'
+save chad.tar 'docker compose exec -T chad chad backup -'
+save asphodel.db 'docker compose exec -T asphodel asphodel backup --out -'
 save asphodel.toml 'docker compose exec -T asphodel cat /data/asphodel.toml'
 save secrets.toml 'docker compose exec -T asphodel cat /data/secrets.toml'
 ```
 
-Each copy is written to a new file, which `mktemp` makes readable by you alone, and takes its name only once the
-command on the server has succeeded. A backup that fails, or a connection that drops, removes the new file and leaves
-an earlier copy of the same name as it was. `docs/running.md`, "Backup", uses the same pattern.
+`mktemp` makes the directory and each file in it readable by you alone. A file takes its name only once the command
+on the server has succeeded, so a backup that fails, or a connection that drops, leaves no file of that name. The
+directory is new each time, so what is in it was all taken together: asphodel's settings belong to the store beside
+them, and a `secrets.toml` from an earlier day is never mistaken for today's.
 
-- chad's tar holds the Discord token, the model login, every saved secret and `agent-browser`.
-- asphodel's backup holds its store and nothing else. `asphodel.toml` is the settings its setup wrote. Without it a
+- `chad.tar` holds the Discord token, the model login, every saved secret and `agent-browser`.
+- `asphodel.db` holds asphodel's store and nothing else. `asphodel.toml` is the settings its setup wrote. Without it a
   new asphodel waits for setup and does not open a restored store.
 - `secrets.toml` holds the LLM's API key, when you gave setup one. When there is none the last line fails with
-  `No such file` and writes nothing. A ChatGPT login is in none of the files, so on a new server you log in again.
+  `No such file` and the directory has no `secrets.toml`. A ChatGPT login is in none of the files, so on a new server
+  you log in again.
 - Nothing holds Chromium's profile, so after a restore chad signs in to its sites again.
+
+The restores below read one backup's directory, copied to the server as `/root/backup`:
+
+```sh
+scp -r chad-backup-2026-11-18.Xk3f9a root@chad:/root/backup
+```
+
+Remove `/root/backup` from the server once you are done with it.
 
 ### Restoring chad
 
 A restore goes onto a new volume, and the volume chad has now is kept until you have seen the restored chad work. On
-a server the installer has run on, with the tar copied to it:
+a server the installer has run on:
 
 ```sh
 cd /opt/chad
 docker compose stop chad
 echo 'CHAD_VOLUME=chad-restored' >> .env
-docker compose run --rm -T chad restore - < chad-2026-11-18.tar
+docker compose run --rm -T chad restore - < /root/backup/chad.tar
 docker compose up -d
 docker compose exec chad chad status
 ```
@@ -225,22 +237,23 @@ sed -n 's/^ASPHODEL_TOKEN=//p' .env | tr -d '\n' | docker compose exec -T chad c
 ### Restoring asphodel
 
 `asphodel restore` moves the store it finds aside, as `asphodel.db.before-restore-<time>` on the same volume, and
-deletes nothing. So it goes onto the volume asphodel already has. With the files copied to the server:
+deletes nothing. So it goes onto the volume asphodel already has:
 
 ```sh
 cd /opt/chad
 docker compose stop asphodel
-docker compose run --rm -T --entrypoint /bin/sh asphodel -c 'cat > /data/restore.db' < asphodel-2026-11-18.db
+docker compose run --rm -T --entrypoint /bin/sh asphodel -c 'cat > /data/restore.db' < /root/backup/asphodel.db
 docker compose run --rm asphodel restore /data/restore.db --data-dir /data
 docker compose run --rm --entrypoint /bin/sh asphodel -c 'rm /data/restore.db'
 ```
 
-On a new server the volume has no settings yet, so put back the two files you saved. Leave the second line out if you
-saved no `secrets.toml`. On the server the backup came from, the volume still has both, so skip these lines:
+On a new server the volume has no settings yet, so put back the two files you saved. Leave the second line out if the
+backup has no `secrets.toml`. On the server the backup came from, the volume still has both, so skip these lines:
 
 ```sh
-docker compose run --rm -T --entrypoint /bin/sh asphodel -c 'cat > /data/asphodel.toml' < asphodel.toml
-docker compose run --rm -T --entrypoint /bin/sh asphodel -c 'umask 077 && cat > /data/secrets.toml' < secrets.toml
+docker compose run --rm -T --entrypoint /bin/sh asphodel -c 'cat > /data/asphodel.toml' < /root/backup/asphodel.toml
+docker compose run --rm -T --entrypoint /bin/sh asphodel -c 'umask 077 && cat > /data/secrets.toml' \
+  < /root/backup/secrets.toml
 ```
 
 Then start it and check it:
@@ -285,7 +298,8 @@ unset TS_AUTHKEY
 ```
 
 `read -rs` takes the key without showing it, so it is not in your shell's history. The installer joins the tailnet
-first, and when the join fails it starts nothing.
+first, and when the join fails it starts nothing. It also starts nothing when it is given a key on a server that is
+already on a tailnet, because the key would be left usable. Revoke that key and run the installer without one.
 
 Without `TS_AUTHKEY` it starts the containers and joins nothing. Run `tailscale up --ssh` yourself, or keep the
 server's own SSH and skip Tailscale. Either way the firewall is as it was until you run `install.sh lockdown` from a
