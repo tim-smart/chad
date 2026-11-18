@@ -4,12 +4,12 @@ This puts chad on one small server with what it needs next to it: asphodel for l
 with that you can open in your own browser, and Tailscale as the only way in. The guide uses a DigitalOcean Droplet.
 The same files work on any Ubuntu 24.04 or Debian server that can run Docker, and "Another host" says how.
 
-`docs/running.md` describes the image, the volume and every command in full. This file is the short path to a
+[`docs/running.md`](./running.md) describes the image, the volume and every command in full. This file is the short path to a
 running chad.
 
 ## What you get
 
-`deploy/install.sh` installs Docker and Tailscale on the server and starts `deploy/compose.yaml`, which runs three
+[`deploy/install.sh`](../deploy/install.sh) installs Docker and Tailscale on the server and starts [`deploy/compose.yaml`](../deploy/compose.yaml), which runs three
 containers:
 
 - `chad`, from `ghcr.io/tim-smart/chad:main`.
@@ -24,7 +24,7 @@ containers are in.
 
 The server is kept private in four ways:
 
-- `deploy/cloud-init.yaml` holds no secret. The server joins your tailnet when you sign in at a link the installer
+- [`deploy/cloud-init.yaml`](../deploy/cloud-init.yaml) holds no secret. The server joins your tailnet when you sign in at a link the installer
   prints, so no Tailscale key is in the Droplet's user data, which everything running on a Droplet can read back.
 - asphodel's dashboard and the browser's desktop are bound to the server's loopback. Tailscale serves them on your
   tailnet, the desktop at port 8443 and the dashboard at port 9443, and on no public address. The browser shares no
@@ -61,7 +61,7 @@ The server is kept private in four ways:
    - Under "Choose Authentication Method", choose "SSH Key" and select your key. If your account has no key yet, click
      "Add SSH Key" and paste your public key, which is the content of a file such as `~/.ssh/id_ed25519.pub`. If
      you have no key at all, `ssh-keygen -t ed25519` on your computer makes one.
-   - Expand "Additional Options", turn on "Startup scripts", and paste `deploy/cloud-init.yaml` into the box as it
+   - Expand "Additional Options", turn on "Startup scripts", and paste [`deploy/cloud-init.yaml`](../deploy/cloud-init.yaml) into the box as it
      is. Without a copy of this repository, the file is at
      `https://raw.githubusercontent.com/tim-smart/chad/main/deploy/cloud-init.yaml`.
    - Turn on backups if you want DigitalOcean's.
@@ -171,7 +171,7 @@ token, so memory starts with chad's next message. `chad status` shows the plugin
 - `tailscale serve --https=9443 off` on the server takes the dashboard off the tailnet, and the next run of the
   installer puts it back.
 
-`docs/running.md`, "asphodel", lists the plugin's other settings, such as `ownerName`. They go in
+[`docs/running.md`](./running.md), "asphodel", lists the plugin's other settings, such as `ownerName`. They go in
 `/data/repo/work/chad.json` in chad's container, followed by `chad apply`.
 
 ## The browser
@@ -326,7 +326,7 @@ Run the installer again:
 bash /opt/chad/install.sh
 ```
 
-It fetches `deploy/` again, pulls the three images and restarts the containers whose image changed. chad waits up to
+It fetches [`deploy/`](../deploy/) again, pulls the three images and restarts the containers whose image changed. chad waits up to
 a minute for a turn to finish before it stops. The volumes, `/opt/chad/.env`, the firewall and whatever you changed
 in chad's repo stay as they are.
 
@@ -362,8 +362,8 @@ unset TS_AUTHKEY
 When the join fails the installer starts nothing. It also starts nothing when it is given a key on a server that is
 already on a tailnet, because the key would be left usable. Revoke that key and run the installer without one.
 
-`deploy/compose.yaml` also runs by itself on a machine that has Docker already. It needs `ASPHODEL_TOKEN` in a
-`.env` file next to it, and `docs/running.md`, "asphodel", says how to give chad the token and turn the plugin on.
+[`deploy/compose.yaml`](../deploy/compose.yaml) also runs by itself on a machine that has Docker already. It needs `ASPHODEL_TOKEN` in a
+`.env` file next to it, and [`docs/running.md`](./running.md), "asphodel", says how to give chad the token and turn the plugin on.
 
 This path needs one host that runs Docker Compose with Tailscale beside it, which is a virtual machine. fly.io is
 not that, and this guide does not cover it.
