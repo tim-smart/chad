@@ -56,8 +56,9 @@ The server is kept private in four ways:
 
    Open
    [the create page](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3).
-   The link chooses Ubuntu 24.04 (LTS) x64, 2 vCPUs with 4 GB of memory, and the region `nyc3`. Change the region if
-   another is nearer to you. `https://cloud.digitalocean.com/droplets/new` is the same page with nothing chosen.
+   The link chooses Ubuntu 24.04 (LTS) x64 and 2 vCPUs with 4 GB of memory. It also asks for the region `nyc3`, so
+   check which region the page shows and pick the one nearest to you. `https://cloud.digitalocean.com/droplets/new`
+   is the same page with nothing chosen.
 
    Then, on that page:
    - Under "Choose Authentication Method", choose "SSH Key" and select your key. If your account has no key yet, click
@@ -402,12 +403,14 @@ restart was lost.
 A seed that fails part way was run against the real chad image: the installer failed, and the next run finished the
 volume. `test/unit/deploy.test.ts` holds that, the key that joins nothing and the lockdown's refusals.
 
-The link to DigitalOcean's create page was opened by the repository's owner, who confirmed that it works. No other
-part has run on DigitalOcean or on a real tailnet, because neither was available without paying for one or joining
-someone's. The names of the create page's sections are taken from DigitalOcean's documentation, not from the page.
-The `doctl` flags were checked against the help of doctl 1.169.0, and the commands were not run.
-`docs/live-checks.md`, check D5, is the list of what is still to see: the create page's sections, the Droplet's
-first boot, the sign-in at the installer's link, the desktop at its `https` address and what a tailnet with HTTPS
-off does there, that a Tailscale SSH session is one the lockdown accepts, the closed ports as the internet sees them,
-chad on Discord with its model, and a restore that recalls a memory. asphodel's ChatGPT login after a restore has not
-been run either.
+The link to DigitalOcean's create page was opened by the repository's owner. It chose the image and the size, and the
+script was pasted under "Startup scripts". Whether it chose the region was not reported. The other section names of
+the create page are taken from DigitalOcean's documentation, not from the page. The `doctl` flags were checked
+against the help of doctl 1.169.0, and the commands were not run.
+
+No other part has run on DigitalOcean or on a real tailnet, because neither was available without paying for one or
+joining someone's. `docs/live-checks.md`, check D5, is the list of what is still to see: the link's region and the
+create page's other sections, the Droplet's first boot, the sign-in at the installer's link, the desktop at its
+`https` address and what a tailnet with HTTPS off does there, that a Tailscale SSH session is one the lockdown
+accepts, the closed ports as the internet sees them, chad on Discord with its model, and a restore that recalls a
+memory. asphodel's ChatGPT login after a restore has not been run either.
