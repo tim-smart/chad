@@ -640,11 +640,13 @@ const onceRequest = async (running: Scenario, thread: ChatThread.ChatThread) =>
     )
   ).find((message) => message.text.includes("one-off value"))!
 
-test("the agent's requestOnce waits in its turn for the owner's form, a stranger's click opens no form, and only the calling script gets the owner's value: a traced command, a print, a command's output saved to a temporary file and a thrown error carry a mask, a later turn reads no copy from the tasks, and the value is nowhere on the volume, in the chat or in what the model is sent", async () => {
+test("the agent's requestOnce waits in its turn for the owner's form, a stranger's click opens no form, and only the calling script gets the owner's value: a traced command, a print, a command's output saved to a temporary file and a thrown error carry a mask, a command that prints it after the turn has ended carries the mask still, a later turn reads no copy from the tasks, and the value is nowhere on the volume, in the chat or in what the model is sent", async () => {
   const value = "once-7c3e9a41d2"
   const running = await scenario({
     plugins: [{ name: "request-secret", plugin: requestSecret }],
   })
+  // The background command prints once this file exists, which the next turn makes, after the turn that asked ended.
+  const go = JSON.stringify(join(running.data, "..", "go"))
   const { fakes } = running
   await fakes.model.script([
     runs(
@@ -653,6 +655,7 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
         `console.log(await run("test -n " + JSON.stringify(code) + " && echo nonempty"))`,
         // A command's output is kept with its task, which a later turn can read.
         `await run("printf 'code=%s' " + JSON.stringify(code))`,
+        `await bash({ command: "while [ ! -e " + ${JSON.stringify(go)} + " ]; do sleep 0.05; done; printf 'late=%s' " + JSON.stringify(code), description: "a late print", background: true })`,
         // Output past clanka's limit goes to a temporary file, and the script sees its path.
         `console.log(await run("printf %s " + JSON.stringify(code) + "; head -c 40000 /dev/zero | tr '\\\\0' x"))`,
         `console.log("got " + code)`,
@@ -660,9 +663,15 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
       ].join("\n"),
     ),
     { text: "Logged in." },
-    // The next turn reads back what the tasks kept, reversed, which the mask of the exact value would not catch.
+    // The next turn lets the background command print, waits for it, and reads back what the tasks kept, descriptions
+    // and output, reversed, which the mask of the exact value would not catch.
     runs(
-      `console.log(JSON.stringify((await listTasks()).map((task) => task.output)).split("").reverse().join(""))`,
+      [
+        `await run("touch " + ${JSON.stringify(go)})`,
+        `const running = (await listTasks()).filter((task) => task.status === "running")`,
+        `await waitTasks({ ids: running.map((task) => task.id) })`,
+        `console.log(JSON.stringify((await listTasks()).map((task) => [task.description, task.output])).split("").reverse().join(""))`,
+      ].join("\n"),
     ),
     { text: "Read the tasks." },
   ])
@@ -724,9 +733,11 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
   )
   await says(running, thread, "what did the commands print?")
   const later = await fakes.model.received(4)
-  const reversed = [...value].reverse().join("")
-  expect(results(later[3]).at(-1)).toContain([...Once.mask].reverse().join(""))
-  expect(JSON.stringify(later[3])).not.toContain(reversed)
+  const reverse = (text: string) => [...text].reverse().join("")
+  const read = results(later[3]).at(-1) ?? ""
+  expect(read).toContain(reverse(`late=${Once.mask}`))
+  expect(read).toContain(reverse("a late print"))
+  expect(JSON.stringify(later[3])).not.toContain(reverse(value))
   // The traced command line was logged with the mask.
   expect(
     running

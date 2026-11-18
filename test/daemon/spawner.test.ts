@@ -44,13 +44,13 @@ const marker = 'console.log(await run("printenv CHAD_SESSION"))'
 
 /** The script of a turn that prints what a child process sees, once for each way clanka starts one. */
 const every = `
-await subagent({ prompt: "Print the marker." })
-const agent = await subagent({ prompt: "Print the marker.", background: true })
-const job = await bash({ command: "printenv CHAD_SESSION", background: true })
+await subagent({ description: "a sub-agent", prompt: "Print the marker." })
+const agent = await subagent({ description: "a sub-agent", prompt: "Print the marker.", background: true })
+const job = await bash({ description: "a command", command: "printenv CHAD_SESSION", background: true })
 await waitTasks({ ids: [agent.id, job.id] })
 console.log(JSON.stringify({
   run: await run("printenv CHAD_SESSION"),
-  bash: (await bash({ command: "printenv CHAD_SESSION" })).output,
+  bash: (await bash({ description: "a command", command: "printenv CHAD_SESSION" })).output,
   background: (await taskOutput(job.id)).output,
   rg: await rg({ pattern: "marker" }),
   gh: await gh(["marker"]),

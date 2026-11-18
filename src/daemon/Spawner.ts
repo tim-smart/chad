@@ -37,21 +37,23 @@ export interface Redactor {
   readonly end: () => string
 }
 
-/** A stream of a child's output, passed through a redactor of its own once the bytes are text. */
-const redacted =
-  (redactor: () => Redactor | undefined) =>
-  <E>(stream: Stream.Stream<Uint8Array, E>): Stream.Stream<Uint8Array, E> =>
-    Stream.suspend(() => {
-      const one = redactor()
-      if (one === undefined) return stream
-      return stream.pipe(
+/**
+ * A stream of a child's output, passed through a redactor made as the child is spawned, so that it masks what the
+ * session held then even after the session forgets it.
+ */
+const redacted = <E>(
+  stream: Stream.Stream<Uint8Array, E>,
+  one: Redactor | undefined,
+): Stream.Stream<Uint8Array, E> =>
+  one === undefined
+    ? stream
+    : stream.pipe(
         Stream.decodeText,
         Stream.map(one.push),
         Stream.concat(Stream.sync(one.end)),
         Stream.filter((text) => text !== ""),
         Stream.encodeText,
       )
-    })
 
 /**
  * The spawner of one session, over the daemon's own. clanka reads the spawner once, when an executor is built, so
@@ -73,7 +75,6 @@ export const layer = (
       if (redactor === undefined) {
         return ChildProcessSpawner.make((command) => inner.spawn(add(command)))
       }
-      const mask = redacted(redactor)
       return ChildProcessSpawner.make((command) =>
         Effect.map(inner.spawn(add(command)), (handle) =>
           ChildProcessSpawner.makeHandle({
@@ -82,9 +83,9 @@ export const layer = (
             isRunning: handle.isRunning,
             kill: handle.kill,
             stdin: handle.stdin,
-            stdout: mask(handle.stdout),
-            stderr: mask(handle.stderr),
-            all: mask(handle.all),
+            stdout: redacted(handle.stdout, redactor()),
+            stderr: redacted(handle.stderr, redactor()),
+            all: redacted(handle.all, redactor()),
             getInputFd: handle.getInputFd,
             getOutputFd: handle.getOutputFd,
             unref: handle.unref,

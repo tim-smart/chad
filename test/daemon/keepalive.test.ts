@@ -7,7 +7,7 @@ import { lines, posted, rows, says, sessions } from "../support/owner.ts"
 /** A turn that starts one background process which runs for a number of seconds, and prints the task's id. */
 const background = (seconds: number) =>
   runs(
-    `const job = await bash({ command: "sleep ${seconds}", background: true }); console.log(job.id)`,
+    `const job = await bash({ description: "a command", command: "sleep ${seconds}", background: true }); console.log(job.id)`,
   )
 
 test(

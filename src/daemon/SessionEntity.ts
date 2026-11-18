@@ -665,14 +665,6 @@ export const layer = Layer.unwrap(
           // The values `requestOnce` gave this session's scripts are masked in every line its executor and tool calls log,
           // the command lines clanka traces and the causes of failed scripts included, before any sink or script output.
           const once = support.once
-          // The values go once the executor has closed: a scope closes in reverse, so this finalizer, added before the
-          // executor is built, runs after its commands have ended and its copies of their lines and output are gone.
-          if (once !== undefined) {
-            yield* Scope.addFinalizer(
-              own,
-              Effect.sync(() => once.forget(id)),
-            )
-          }
           const scrub =
             once === undefined
               ? undefined
@@ -1441,6 +1433,10 @@ export const layer = Layer.unwrap(
         const close = (own: State, turn: Turn) =>
           Effect.gen(function* () {
             turn.closing = true
+            // The values `requestOnce` gave the turn go with it. The scripts have ended, and a command that still runs
+            // keeps the mask it had (`Once.ts`).
+            const asked = turn.public?.session.id ?? own.live?.id
+            if (asked !== undefined) support.once?.forget(asked)
             Deferred.doneUnsafe(turn.open, Effect.succeed(undefined))
             const waiting = turn.steers.splice(0)
             // An interrupted `steer` takes its message back, so the next `send` does not read it as well.

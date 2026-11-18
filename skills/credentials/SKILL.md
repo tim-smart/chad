@@ -58,7 +58,8 @@ await run("example-login --code " + JSON.stringify(code))
 ```
 
 - Never print the code. chad replaces the exact code with `[one-off value]` in the session's log and in what a script prints, the command lines it logs and the errors it reports included, so that is all you see. The mask only matches the code as it is: it misses the code once it is encoded, cut up or written to a file, so do none of those.
-- The code is never saved: `chad secret list` does not show it, and `chad secret run` cannot hand it to a command. A later script is not given it. The output of your commands is masked, but each command line you ran stays with its task until the session goes idle, and `listTasks` shows it: never read a code back from there. When the site sends a fresh code, or a command failed, call `requestOnce` again.
+- Never put the code in the `description` of a `bash` or `subagent` call. You write a description, it stays with the task, and chad does not mask it.
+- The code is never saved: `chad secret list` does not show it, and `chad secret run` cannot hand it to a command. It is gone when your turn ends, and a later script is not given it. When the site sends a fresh code, or a command failed, call `requestOnce` again.
 
 ## Handing a secret to a command
 

@@ -1,8 +1,9 @@
 // The requests that `requestOnce` makes, in the daemon's memory. A submit hands its value straight to the tool that
 // waits, which returns it to the calling script and nowhere else. The daemon also remembers each value for the session
 // that asked, so that the session's log lines, its script output and its commands' output carry a mask in its place
-// (`SessionEntity.ts`, `Spawner.ts`). It forgets them when the session's executor closes, which takes clanka's copies of
-// the session's commands with it. Nothing here writes to the volume, and a restart forgets everything.
+// (`SessionEntity.ts`, `Spawner.ts`). It forgets them when the turn that asked ends. A stream of output that was open
+// then, such as a background command's, keeps masking the values it saw. Nothing here writes to the volume, and a
+// restart forgets everything.
 //
 // The mask is a match of the exact value, nothing more: a script that encodes the value, splits it with other text,
 // writes it to a file or sends it somewhere gets past it.
@@ -20,7 +21,8 @@ export interface Daemon extends Store {
   /**
    * A redactor of one stream of a session's output. `push` gives the chunk's text that is safe to pass on and holds
    * back an end that could be the start of a value, so a value split across chunks is still masked. `end` gives what
-   * was held back.
+   * was held back. It masks every value the session held while it ran, those it held when it was made included, so a
+   * `forget` does not unmask a stream that outlives the turn.
    */
   readonly redactor: (session: string) => {
     readonly push: (chunk: string) => string
@@ -28,10 +30,7 @@ export interface Daemon extends Store {
   }
   /** Whether the session was given a value, so its output has something to mask. */
   readonly holds: (session: string) => boolean
-  /**
-   * Forgets the values a session was given. The session's executor calls this as it closes, which is when the copies
-   * clanka kept of its commands and their output go too.
-   */
+  /** Forgets the values a session was given. The end of each of its turns calls this. */
   readonly forget: (session: string) => void
 }
 
@@ -121,9 +120,19 @@ export const make = (deadline: Duration.Duration): Daemon => {
     },
     redactor: (session) => {
       let rest = ""
+      /** Every value the session held while this stream ran, the longest first. */
+      let values: ReadonlyArray<string> = valuesOf(session)
+      const seen = () => {
+        const now = valuesOf(session)
+        if (now.every((value) => values.includes(value))) return values
+        values = [...new Set([...values, ...now])].sort(
+          (a, b) => b.length - a.length,
+        )
+        return values
+      }
       return {
         push: (chunk) => {
-          const values = valuesOf(session)
+          const values = seen()
           if (values.length === 0 && rest === "") return chunk
           const text = replace(rest + chunk, values)
           const keep = held(text, values)

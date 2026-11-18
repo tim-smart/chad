@@ -27,3 +27,15 @@ it("a value split across chunks of a session's output is masked, and another ses
   const other = once.redactor("s2")
   expect(other.push(value)).toBe(value)
 })
+
+it("a session's values are gone once its turn ends, and a stream that was open then keeps its mask", async () => {
+  const value = "once-7c3e9a41d2"
+  const once = Once.make(Duration.minutes(5))
+  const request = once.open("local:t1", "s1")
+  once.submit(request.id, "local:t1", value)
+  const open = once.redactor("s1")
+  once.forget("s1")
+  expect(once.holds("s1")).toBe(false)
+  expect(once.scrub("s1", value)).toBe(value)
+  expect(open.push(value) + open.end()).toBe(Once.mask)
+})

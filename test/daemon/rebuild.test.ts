@@ -9,7 +9,7 @@ test("a model change rebuilds the Agent at the next turn, which keeps the histor
   const { fakes, model } = running
   await fakes.model.script([
     runs(
-      `const job = await bash({ command: "sleep 0.2; echo out", background: true }); console.log(job.id)`,
+      `const job = await bash({ description: "a command", command: "sleep 0.2; echo out", background: true }); console.log(job.id)`,
     ),
     { text: "started" },
     runs(
