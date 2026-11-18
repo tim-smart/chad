@@ -34,7 +34,7 @@ Your plugins, skills, MCP servers, settings and persona are files in one git rep
 
 1. Edit files under `/data/repo/work`. `chad plugin new <name>` and `chad skill new <name>` write a starting file and do nothing else.
 2. `chad check`. It runs everything an apply runs and commits nothing. Fix what it reports and run it again.
-3. If the change adds or edits plugin code, a sub-agent reviews it before you apply, as the review section at the end of `plugin.md` says. Fix every valid finding, run `chad check` again, and review again. A plugin is not finished while a valid finding is open, and you do not apply it.
+3. If the change adds or edits plugin code, a sub-agent reviews it before you apply, as the review section at the end of `plugin.md` says. Fix every valid finding and run `chad check` again. A plugin is not finished while a valid finding is open, and you do not apply it.
 4. `chad apply -m "<why>"`.
 5. `chad status` shows what is loaded, what was skipped and why, and the chad and effect versions.
 

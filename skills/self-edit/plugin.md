@@ -176,7 +176,7 @@ export default Plugin.make(NotesTools, Chunk)
 Every change to a plugin's code gets a review by a sub-agent before you apply it. A change to its settings in `chad.json` alone does not. You wrote the code, so a second reader with none of your context finds what you no longer see.
 
 - Start the review once `chad check` passes, so the sub-agent reads the code as Prettier left it and spends nothing on type errors.
-- Wait for the sub-agent's report in the same turn. Do not leave it running in the background, because the next turn cannot start while it runs.
+- Get the report before you apply, in the same turn. A sub-agent you wait on is the simplest way. One started in the background has to be awaited before the apply too, and the next turn cannot start while it runs.
 - The sub-agent reads and reports. It edits no file and runs no command that changes chad: no `chad apply`, `chad revert` or `chad plugin purge`.
 
 The sub-agent has none of your context, so its prompt names everything. Fill in this one:
@@ -195,10 +195,10 @@ Read these in full first:
 - /data/repo/node_modules/chad/dist/Plugin.d.ts, the plugin API.
 Trust these files and the .d.ts files under /data/repo/node_modules over what you remember about Effect.
 
-Check at least:
+Report concrete misuse that those files rule out or that breaks at runtime, not a pattern the code does not need. Check at least:
 1. A reusable function that returns an Effect uses Effect.fn("name"), with the name it is bound to, or Effect.fnUntraced. No function only wraps and returns an Effect.gen. Nothing calls .pipe on an Effect.fn; extra behaviour goes in as its later arguments.
-2. Errors are Schema.TaggedError classes, raised with return yield*, and handled by tag. Nothing throws, nothing swallows an error, and nothing turns a failure a caller could handle into a defect. Every failure a tool can have is in its failure schema.
-3. Data from outside (HTTP answers, files, stored values, model output) is decoded with Schema, not parsed by hand or cast with as. Runtime type checks use Predicate, not hand-written helpers.
+2. A custom error is a Schema.TaggedError class, raised with return yield*. Nothing throws, nothing drops an error without a reason, and nothing turns a failure a caller could handle into a defect. Every failure a tool can have is in its failure schema.
+3. Code that relies on the shape of data from outside (HTTP answers, files, stored values, model output) decodes it with Schema first, and does not parse it by hand or cast it with as. Runtime type checks use Predicate, not hand-written helpers.
 4. Shared behaviour is a Context.Service with a static layer built by Layer.effect and returned with .of. Layers are given what they need with Layer.provide, and nothing builds the same service twice.
 5. Resources are released: Effect.acquireRelease or a scope for what is opened, Plugin.background for a fiber that lives as long as the plugin. No unscoped fork while a Layer builds.
 6. Effect's modules in place of their plain JavaScript versions: HttpClient, not fetch; FileSystem, not node:fs; DateTime and Clock, not Date; Effect.sleep and Schedule, not setTimeout; no async functions or Promises where an Effect does.
@@ -219,7 +219,7 @@ What you do with the report:
 - Judge each finding against the code and the file it cites. A finding is valid when the code breaks a rule that `/data/repo/node_modules/effect/AGENTS.md` or this file states, or when it is a bug.
 - Fix every valid finding, small ones included. Do not leave one for later.
 - Drop a finding only when it is wrong: it misreads the code, names a rule neither file has, or asks for what this file rules out, such as a `runMain` or an `HttpClient` of your own. Keep one line on why for your answer.
-- Then `chad check`, and a new sub-agent reviews the plugin again with the same prompt, its fixes included. Repeat until a review has no valid finding.
-- If the third review still has a valid finding, stop. Leave the plugin as a draft and tell the owner what is open and why you could not fix it.
-- Only then apply. In your answer, say that the review ran, what you fixed and what you dropped and why.
-- In a turn with nobody there to answer questions the review runs the same way, and the plugin stays a draft as the self-edit skill says.
+- Then `chad check` again. When a fix did more than change the lines a finding named, such as new code or a moved responsibility, a new sub-agent reviews the plugin with the same prompt.
+- A valid finding you cannot resolve keeps the plugin a draft. Tell the owner what is open and why.
+- Apply only once every valid finding is fixed. In your answer, say that the review ran, what you fixed and what you dropped and why.
+- In a turn with nobody there to answer questions the review runs the same way. Whether you then apply follows the rule for such turns in the self-edit skill.
