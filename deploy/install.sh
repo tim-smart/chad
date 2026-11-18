@@ -60,8 +60,10 @@ install() {
   step "Fetching deploy/ at $ref into $dir"
   mkdir -p "$dir"
   chmod 700 "$dir"
+  # The pattern's star stops at a slash, so it takes the repository's own deploy/ and no directory of that name
+  # deeper in the tree.
   curl -fsSL "https://codeload.github.com/tim-smart/chad/tar.gz/$ref" |
-    tar -xz -C "$dir" --strip-components=2 --no-same-owner --wildcards '*/deploy/*'
+    tar -xz -C "$dir" --strip-components=2 --no-same-owner --wildcards --no-wildcards-match-slash '*/deploy'
   cd "$dir"
 
   # asphodel's token is made once and kept. The file is read by Compose and by root, and by nothing else.

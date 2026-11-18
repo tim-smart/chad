@@ -41,10 +41,15 @@ const server = () => {
     return ran.stdout
   }
   cpSync(join(here, "fixtures/deploy"), fake, { recursive: true })
-  // What the installer downloads is this checkout's deploy/.
+  // What the installer downloads is this checkout's deploy/, in a tree that has another directory of that name.
   cpSync(join(root, "deploy"), join(fake, "source/chad/deploy"), {
     recursive: true,
   })
+  cpSync(
+    join(here, "fixtures/deploy"),
+    join(fake, "source/chad/test/unit/fixtures/deploy"),
+    { recursive: true },
+  )
   sh("tar", [
     "-czf",
     join(fake, "deploy.tgz"),
@@ -99,6 +104,8 @@ it("an install whose seed fails part way fails, and the next run finishes it and
   rmSync(join(fake, "fail-apply"))
   expect(install([]).status).toBe(0)
   expect(existsSync(marker)).toBe(true)
+  expect(existsSync(join(fake, "opt/compose.yaml"))).toBe(true)
+  expect(existsSync(join(fake, "opt/unit"))).toBe(false)
   expect(calls().filter((call) => call === "chad apply")).toHaveLength(1)
   expect(git("show", "HEAD:chad.json")).toContain("http://asphodel:7720")
   expect(git("ls-tree", "-r", "--name-only", "HEAD")).toContain(
