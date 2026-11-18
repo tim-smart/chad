@@ -412,9 +412,10 @@ You need what its "What you need" lists.
 One part has a result. On 2026-11-18 the repository's owner opened the link in step 1 and confirmed that it works.
 That is the link alone: no Droplet was reported made from it, and every other step below is not run.
 
-1. Open the link in "Create the server". The page has Ubuntu 24.04 x64, the 2 vCPU and 4 GB size and the region
-   `nyc3` chosen. Choose your SSH key, paste `deploy/cloud-init.yaml` unchanged, and create the Droplet. Note its
-   public address.
+1. Follow step 1 of "Create the server" in the browser, with no `doctl`. The link's page has Ubuntu 24.04 x64, the
+   2 vCPU and 4 GB size and the region `nyc3` chosen. The sections the guide names are there: you select your SSH
+   key, paste `deploy/cloud-init.yaml` unchanged under "Startup scripts", and create the Droplet. The page then
+   shows its IP address. Note it, and note any section whose name differs from the guide's.
 2. Run `ssh root@<the public address>`, and there `cloud-init status --wait` and then `docker ps` and
    `tailscale status`. The first boot is done, no container is listed, and Tailscale says it is logged out.
 3. In that session, run `bash /opt/chad/install.sh`. It prints a link and starts nothing. In a second session,

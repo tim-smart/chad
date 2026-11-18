@@ -36,8 +36,9 @@ The server is kept private in four ways:
 
 ## What you need
 
-- A DigitalOcean account, with an SSH key added to it. The key is how you first connect, and the way back in if
-  Tailscale does not come up.
+- A DigitalOcean account, and an SSH key on your computer. The key is how you first connect, and the way back in if
+  Tailscale does not come up. "Create the server" says how to give it to the Droplet. DigitalOcean's command line,
+  `doctl`, is not needed.
 - A Tailscale account, with Tailscale on the computer you work from.
 - MagicDNS and HTTPS certificates turned on for your tailnet, on the "DNS" page of the Tailscale admin console. The
   browser's desktop is served with them. Tailscale warns there that a machine's name then shows in a public log of
@@ -50,22 +51,26 @@ The server is kept private in four ways:
 
 ## Create the server
 
-1. In DigitalOcean, create a Droplet: Ubuntu 24.04 (LTS) x64, 2 vCPUs and 4 GB of memory, and your SSH key. Under
-   "Advanced Options" tick "Add Initialization scripts" and paste `deploy/cloud-init.yaml` as it is. Turn on backups
-   here if you want DigitalOcean's.
+1. Create the Droplet in DigitalOcean's control panel, in your browser. Nothing has to be installed on your computer
+   for it.
 
-   [This link](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3)
-   opens the create page with that image and size chosen, in the region `nyc3`. It carries neither your SSH key nor
-   the initialization script, so you choose the one and paste the other either way.
+   Open
+   [the create page](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3).
+   The link chooses Ubuntu 24.04 (LTS) x64, 2 vCPUs with 4 GB of memory, and the region `nyc3`. Change the region if
+   another is nearer to you. `https://cloud.digitalocean.com/droplets/new` is the same page with nothing chosen.
 
-   With `doctl`, the same Droplet is one command:
+   Then, on that page:
+   - Under "Choose Authentication Method", choose "SSH Key" and select your key. If your account has no key yet, click
+     "Add SSH Key" and paste your public key, which is the content of a file such as `~/.ssh/id_ed25519.pub`. If
+     you have no key at all, `ssh-keygen -t ed25519` on your computer makes one.
+   - Expand "Additional Options", turn on "Startup scripts", and paste `deploy/cloud-init.yaml` into the box as it
+     is. Without a copy of this repository, the file is at
+     `https://raw.githubusercontent.com/tim-smart/chad/main/deploy/cloud-init.yaml`.
+   - Turn on backups if you want DigitalOcean's.
+   - Under "Finalize Details", give the Droplet a hostname, for example `chad`, and click "Create Droplet".
 
-   ```sh
-   doctl compute droplet create chad \
-     --image ubuntu-24-04-x64 --size s-2vcpu-4gb --region nyc3 \
-     --ssh-keys <your key's fingerprint> \
-     --user-data-file deploy/cloud-init.yaml
-   ```
+   The control panel shows a progress bar and, once the Droplet is ready, its IP address. Copy it. It is the public
+   address the next step connects to.
 
    The first boot installs Docker and Tailscale and fetches the files into `/opt/chad`. It joins nothing and starts
    no container.
@@ -117,6 +122,24 @@ install.
 
 After the lockdown, a server that drops off your tailnet has no SSH port to reach. The console in DigitalOcean's
 control panel is then the way in, and `ufw allow 22/tcp` there opens SSH again.
+
+### Optional: doctl in place of the control panel
+
+Step 1 above needs none of this. `doctl` is DigitalOcean's command line. It has to be installed and signed in to
+your account with an API token first, and
+[DigitalOcean's guide](https://docs.digitalocean.com/reference/doctl/how-to/install/) says how. Your SSH key has to
+be in your DigitalOcean account already. Then these three commands, run from a copy of this repository, stand in for
+step 1: the first lists your keys with their fingerprints, the second makes the Droplet, and the third prints its
+public address.
+
+```sh
+doctl compute ssh-key list
+doctl compute droplet create chad \
+  --image ubuntu-24-04-x64 --size s-2vcpu-4gb --region nyc3 \
+  --ssh-keys <your key's fingerprint> \
+  --user-data-file deploy/cloud-init.yaml --wait
+doctl compute droplet list --format Name,PublicIPv4
+```
 
 ## Set chad up
 
@@ -381,7 +404,10 @@ volume. `test/unit/deploy.test.ts` holds that, the key that joins nothing and th
 
 The link to DigitalOcean's create page was opened by the repository's owner, who confirmed that it works. No other
 part has run on DigitalOcean or on a real tailnet, because neither was available without paying for one or joining
-someone's. `docs/live-checks.md`, check D5, is the list of what is still to see: the Droplet's first boot, the
-sign-in at the installer's link, the desktop at its `https` address and what a tailnet with HTTPS off does there,
-that a Tailscale SSH session is one the lockdown accepts, the closed ports as the internet sees them, chad on Discord
-with its model, and a restore that recalls a memory. asphodel's ChatGPT login after a restore has not been run either.
+someone's. The names of the create page's sections are taken from DigitalOcean's documentation, not from the page.
+The `doctl` flags were checked against the help of doctl 1.169.0, and the commands were not run.
+`docs/live-checks.md`, check D5, is the list of what is still to see: the create page's sections, the Droplet's
+first boot, the sign-in at the installer's link, the desktop at its `https` address and what a tailnet with HTTPS
+off does there, that a Tailscale SSH session is one the lockdown accepts, the closed ports as the internet sees them,
+chad on Discord with its model, and a restore that recalls a memory. asphodel's ChatGPT login after a restore has not
+been run either.
