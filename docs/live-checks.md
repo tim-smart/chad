@@ -438,5 +438,6 @@ You need what its "What you need" lists.
     for what you told chad in step 9. The new session has no history, so the answer comes from asphodel.
 
 Passes when every step shows what it says. Record what step 1 found either way: a link that chooses nothing costs
-only the clicks, and the guide then says so. If the installer in step 3 says the desktop is not on the tailnet, HTTPS
-certificates are off for the tailnet. Turn them on, run the installer again, and record that path too.
+only the clicks, and the guide then says so. If the installer in step 3 says the desktop is not on the tailnet, record
+what `tailscale serve` printed above it. Fix what it names, such as HTTPS certificates that are off for the
+tailnet, run the installer again, and record that path too.

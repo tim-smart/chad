@@ -169,8 +169,10 @@ The installer prints the address in full, and `tailscale serve status` on the se
 the one Chromium there is. A tab chad opens appears in it as chad works, a tab you open is one chad can use, and a
 site you sign in to is signed in for chad.
 
-If the installer said the desktop is not on the tailnet, HTTPS certificates are off for your tailnet. Turn them on and
-run the installer again. Or forward the port from your own computer and open `http://localhost:3000`:
+If the installer said the desktop is not on the tailnet, `tailscale serve` failed or did not answer within a minute.
+What it printed is just above that line. HTTPS certificates that are off for your tailnet are one cause, and not the
+only one. Fix what it names and run the installer again. Whatever the cause, you can forward the port from your own
+computer and open `http://localhost:3000`:
 
 ```sh
 ssh -L 3000:127.0.0.1:3000 root@chad

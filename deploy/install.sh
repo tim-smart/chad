@@ -150,11 +150,14 @@ install() {
   fi
 
   # The desktop is bound to the server's loopback. This puts it on the tailnet over HTTPS, which the desktop's page
-  # needs to show video, and on no public address. A tailnet with HTTPS off prints a link to turn it on and waits.
+  # needs to show video, and on no public address. It can fail, or wait for an answer, for more than one reason, and
+  # a tailnet with HTTPS certificates off is one. So it gets a minute, and its failure does not fail the install.
   step "Putting the browser's desktop on your tailnet"
   if ! timeout 60 tailscale serve --bg --https=8443 http://127.0.0.1:3000; then
-    echo "install.sh: the desktop is not on the tailnet. Turn HTTPS certificates on for your tailnet and run this"
-    echo "script again, or reach it now with: ssh -L 3000:127.0.0.1:3000 root@$hostname, then http://localhost:3000"
+    echo "install.sh: the desktop is not on the tailnet: tailscale serve failed or did not answer in a minute."
+    echo "What it printed is above. HTTPS certificates that are off for your tailnet are one cause. Fix it and run this"
+    echo "script again. Either way you can reach the desktop with:"
+    echo "  ssh -L 3000:127.0.0.1:3000 root@$hostname, then http://localhost:3000"
   fi
 
   step "Done"
