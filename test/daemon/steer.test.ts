@@ -139,7 +139,7 @@ test("/new during a turn stops it first, posts the stopped notice and then its o
   const { fakes } = running
   await fakes.model.script([
     runs(
-      `await bash({ command: "echo $$ > pid; exec sleep 30", background: true })`,
+      `await bash({ description: "a command", command: "echo $$ > pid; exec sleep 30", background: true })`,
     ),
     { text: "held", hold: true },
     { text: "in the new session" },

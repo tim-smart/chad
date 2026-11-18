@@ -15,6 +15,7 @@ type Lengths =
   | "modelLogin"
   | "turnTimeout"
   | "prettierFormat"
+  | "onceWait"
 export type Own = Partial<Pick<Timings, Lengths | "pruneAt">>
 
 export const start = (world: Omit<DaemonInputs, "timings">, own: Own = {}) =>

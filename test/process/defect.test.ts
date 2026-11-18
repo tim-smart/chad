@@ -15,8 +15,8 @@ test("a defect in the handler of a steering message fails that request alone: th
       tool: {
         name: "execute",
         arguments: {
-          script: `await bash({ command: "touch inbox" })
-await bash({ command: "echo $$ > ${pidFile}; exec sleep 30", background: true })`,
+          script: `await bash({ description: "a command", command: "touch inbox" })
+await bash({ description: "a command", command: "echo $$ > ${pidFile}; exec sleep 30", background: true })`,
         },
       },
     },

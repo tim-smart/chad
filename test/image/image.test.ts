@@ -257,7 +257,7 @@ describe("the owner talks to the image", () => {
       const runTool = async () => {
         await fakes.model.script([
           runs(
-            'console.log((await bash({ command: "repo-tool; echo status=$?" })).output)',
+            'console.log((await bash({ description: "a command", command: "repo-tool; echo status=$?" })).output)',
           ),
           { text: "done" },
         ])

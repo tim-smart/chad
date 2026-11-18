@@ -109,8 +109,8 @@ test("a foreground sub-agent's turn timeouts count where its own call is cut, al
   // The markers are joined in the script, so only each sub-agent's own calls carry its marker.
   await fakes.model.script([
     runs(`await Promise.all([
-  subagent({ prompt: "Long" + "-answer" }),
-  subagent({ prompt: "Silent" + "-call" }),
+  subagent({ description: "a sub-agent", prompt: "Long" + "-answer" }),
+  subagent({ description: "a sub-agent", prompt: "Silent" + "-call" }),
 ])`),
   ])
   const long = model.route("Long-answer", [

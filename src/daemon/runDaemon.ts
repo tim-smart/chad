@@ -57,6 +57,7 @@ import * as Mcp from "./Mcp.ts"
 import * as McpOAuth from "./McpOAuth.ts"
 import * as Model from "./Model.ts"
 import * as Notices from "./Notices.ts"
+import * as Once from "./Once.ts"
 import * as Persona from "./Persona.ts"
 import * as Skills from "../Skills.ts"
 import * as PluginTurns from "./PluginTurns.ts"
@@ -394,10 +395,14 @@ const boot = Effect.fnUntraced(function* (
   })
   // Each connection has a `Chat` and an adapter registry of its own, because the registry is keyed by platform and
   // two connections can share one. A session finds the `Chat` of a connection by the connection's name.
+  // The requests of `requestOnce`, which a form's submit answers. They live as long as this daemon, and no longer.
+  const once = Once.make(inputs.timings.onceWait)
   const running = yield* Chats.make((connection, live) =>
     inputs
       .chat(connection)
-      .pipe(Layer.provide([Handler.layer(live), Handler.interactions(live)])),
+      .pipe(
+        Layer.provide([Handler.layer(live), Handler.interactions(live, once)]),
+      ),
   )
   // The notices outside a turn post through the connections, and "Problems" lists their keys from here on.
   const notices = yield* Notices.make({
@@ -638,6 +643,7 @@ const boot = Effect.fnUntraced(function* (
               [],
             ended: (key, outcome) => PluginTurns.ended(waiting, key, outcome),
             timezone,
+            once,
           }),
           Layer.succeed(Timers.Support, {
             active: plugins.active,
@@ -779,6 +785,7 @@ const boot = Effect.fnUntraced(function* (
         ),
     timezone,
     timings: inputs.timings,
+    once,
     stopping: () => state.stopping,
     notices,
     // The trial `Agent.makeWith` of an apply, on an executor of its own, since clanka dies when two tools share a name.

@@ -31,11 +31,17 @@ import {
   McpLoginForm,
   McpLoginPaste,
 } from "../plugins/request-mcp-login/Form.ts"
-import { SecretButton, SecretForm } from "../plugins/request-secret/Form.ts"
+import {
+  OnceButton,
+  OnceForm,
+  SecretButton,
+  SecretForm,
+} from "../plugins/request-secret/Form.ts"
 import type { Live } from "./Chats.ts"
 import * as Disk from "./Disk.ts"
 import * as Logger from "./Logger.ts"
 import * as Model from "./Model.ts"
+import type * as Once from "./Once.ts"
 import { Message, Session } from "./SessionEntity.ts"
 import * as Notices from "./Notices.ts"
 import { Timings } from "../Timings.ts"
@@ -518,6 +524,9 @@ export const unusable = (
  * - A click on Stop goes to the session of its thread as the `stop` request that `/stop` sends.
  * - A click on a secret request's button opens its form, and the form's submit saves the secret as `chad secret set`
  *   does. The value goes from the submit to the store: no message, log line or session gets it.
+ * - A click on a one-off request's button opens its form while the request waits, and the form's submit hands the value
+ *   to the `requestOnce` call that waits for it (`Once.ts`), which returns it to the agent. A submit that comes after
+ *   the request ended is discarded, and a line says so. Nothing on the way from the submit to the call logs or posts it.
  * - A click on an MCP sign-in request's button begins the sign-in and posts its link with a second button, which
  *   opens the form for the address the browser ended on. The form's submit finishes the sign-in as `chad mcp login`
  *   does. The address goes from the submit to the daemon: no message, log line or session gets it.
@@ -525,11 +534,13 @@ export const unusable = (
  *   `/new` and `/stop` need the thread to have a session, and `/new` starts the new one at the thread's newest
  *   message.
  */
-export const interactions = (connection: Live) =>
+export const interactions = (connection: Live, once?: Once.Daemon) =>
   ChatInteraction.group(
     StopButton,
     SecretButton,
     SecretForm,
+    OnceButton,
+    OnceForm,
     McpLoginButton,
     McpLoginPaste,
     McpLoginForm,
@@ -654,6 +665,28 @@ export const interactions = (connection: Live) =>
                 ),
                 Effect.forkDetach,
               )
+              return ChatInteraction.close
+            }),
+          once: (click) =>
+            Effect.succeed(
+              owner(click.userId) && once?.waiting(click.value) === true
+                ? OnceForm.open({ metadata: click.value })
+                : ChatInteraction.ack,
+            ),
+          "once-form": (submit) =>
+            Effect.gen(function* () {
+              if (!owner(submit.userId)) return ChatInteraction.close
+              const taken =
+                once?.submit(
+                  submit.metadata,
+                  ChatThread.toString(submit.thread),
+                  submit.values.value,
+                ) === true
+              if (!taken) {
+                yield* post(submit.thread)(
+                  connection.format.subtext(Messages.onceLate),
+                ).pipe(Effect.forkDetach)
+              }
               return ChatInteraction.close
             }),
           "mcp-login": (click) =>

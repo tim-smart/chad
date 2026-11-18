@@ -210,8 +210,8 @@ importers:
         specifier: 1.32.2
         version: 1.32.2(zod@4.6.7)
       clanka:
-        specifier: 0.28.0
-        version: 0.28.0(@anthropic-ai/sdk@1.8.0(zod@4.6.7))(@effect/ai-openai-compat@file:vendor/effect-ai-openai-compat.tgz(effect@file:vendor/effect.tgz))(@effect/ai-openai@file:vendor/effect-ai-openai.tgz(effect@file:vendor/effect.tgz))(@effect/platform-node@file:vendor/effect-platform-node.tgz(effect@file:vendor/effect.tgz)(redis@6.3.1(@opentelemetry/api@1.10.0)))(effect@file:vendor/effect.tgz)(zod@4.6.7)
+        specifier: 0.28.3
+        version: 0.28.3(@anthropic-ai/sdk@1.8.0(zod@4.6.7))(@effect/ai-openai-compat@file:vendor/effect-ai-openai-compat.tgz(effect@file:vendor/effect.tgz))(@effect/ai-openai@file:vendor/effect-ai-openai.tgz(effect@file:vendor/effect.tgz))(@effect/platform-node@file:vendor/effect-platform-node.tgz(effect@file:vendor/effect.tgz)(redis@6.3.1(@opentelemetry/api@1.10.0)))(effect@file:vendor/effect.tgz)(zod@4.6.7)
       dfx:
         specifier: 1.1.1
         version: 1.1.1(effect@file:vendor/effect.tgz)
@@ -1229,9 +1229,9 @@ packages:
     resolution: {integrity: sha512-/Ce6KNm3vIbWdMlNna6RVIZ/ICQxnJxCicet5LBKK9ZffBkqzDw0xh9EiKSljdRtiIQ1S1z4YgcscUUGzNCWrA==}
     engines: {node: '>=22'}
 
-  clanka@0.28.0:
-    resolution: {integrity: sha512-OdffqOQJ+3aLPMRzaeYbvv+G/jhT8D22+W33gPvJaBIJ4daORWhjWMg8slEEglAWr6Zf5q+ZM0px3kiQygu7JQ==}
-    version: 0.28.0
+  clanka@0.28.3:
+    resolution: {integrity: sha512-zDuLtwkQzk0lGGUQvSqyvP3BCXl4L2qs9stSKHXDSa1HXnv563KQlBWQ8+byGGNf6F0TQbHGDVPvHQmHU+W2Kw==}
+    version: 0.28.3
     hasBin: true
     peerDependencies:
       '@effect/ai-openai': ^4.0.0
@@ -2686,7 +2686,7 @@ snapshots:
 
   chalk@6.0.1: {}
 
-  clanka@0.28.0(@anthropic-ai/sdk@1.8.0(zod@4.6.7))(@effect/ai-openai-compat@file:vendor/effect-ai-openai-compat.tgz(effect@file:vendor/effect.tgz))(@effect/ai-openai@file:vendor/effect-ai-openai.tgz(effect@file:vendor/effect.tgz))(@effect/platform-node@file:vendor/effect-platform-node.tgz(effect@file:vendor/effect.tgz)(redis@6.3.1(@opentelemetry/api@1.10.0)))(effect@file:vendor/effect.tgz)(zod@4.6.7):
+  clanka@0.28.3(@anthropic-ai/sdk@1.8.0(zod@4.6.7))(@effect/ai-openai-compat@file:vendor/effect-ai-openai-compat.tgz(effect@file:vendor/effect.tgz))(@effect/ai-openai@file:vendor/effect-ai-openai.tgz(effect@file:vendor/effect.tgz))(@effect/platform-node@file:vendor/effect-platform-node.tgz(effect@file:vendor/effect.tgz)(redis@6.3.1(@opentelemetry/api@1.10.0)))(effect@file:vendor/effect.tgz)(zod@4.6.7):
     dependencies:
       '@anthropic-ai/claude-agent-sdk': 0.3.325(@anthropic-ai/sdk@1.8.0(zod@4.6.7))(@modelcontextprotocol/sdk@1.32.2(zod@4.6.7))(zod@4.6.7)
       '@effect/ai-openai': file:vendor/effect-ai-openai.tgz(effect@file:vendor/effect.tgz)

@@ -1286,6 +1286,10 @@ export const secretLine = (name: string, kept: ReadonlyArray<string>) =>
     ? `Secret ${name} removed.`
     : `Secret ${name} removed. Still on the previous secret: ${kept.join(", ")}.`
 
+/** What chad posts when a one-off form arrives after its request ended. The value is dropped. */
+export const onceLate =
+  "That value arrived after its request ended, so chad discarded it."
+
 /** A plugin that failed to build in a reload and kept its running version, with the error. */
 export const keptPrevious = (name: string, error: string) =>
   `${name}: ${firstLine(error)}`

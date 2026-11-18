@@ -14,7 +14,9 @@ test("a turn's usage is the total of its model calls, a sub-agent's included, th
   const { fakes } = running
   await fakes.model.script([
     {
-      ...runs('await subagent({ prompt: "Fail." })'),
+      ...runs(
+        'await subagent({ description: "a sub-agent", prompt: "Fail." })',
+      ),
       usage: { input: 100, output: 20, cached: 40, reasoning: 5 },
     },
     // The sub-agent's two calls: a script that throws, and its end.
