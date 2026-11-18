@@ -10,12 +10,12 @@ Everything chad keeps lives on one volume mounted at `/data`. The volume has to 
 directory, a named Docker volume, a Kubernetes local-path volume, a cloud block volume or Longhorn RWO. NFS, CephFS,
 SMB and Longhorn RWX are not supported, because SQLite's lock and write-ahead log are not safe on them.
 
-`docs/deploying.md` is a shorter path for one case: a cloud server that runs chad, asphodel and Chromium with Docker
+[`docs/deploying.md`](./deploying.md) is a shorter path for one case: a cloud server that runs chad, asphodel and Chromium with Docker
 Compose, reached over Tailscale.
 
 ## The image
 
-A push to `main` publishes the image. `.github/workflows/publish.yml` builds it for amd64 and pushes it to
+A push to `main` publishes the image. [`.github/workflows/publish.yml`](../.github/workflows/publish.yml) builds it for amd64 and pushes it to
 `ghcr.io/tim-smart/chad` with three tags:
 
 - `main`, which is the head of `main` as it was when the tags were last moved with success. A deployment that
@@ -269,7 +269,7 @@ docker run -d --name chad --restart unless-stopped --stop-timeout 90 \
 
 If chad uses asphodel, add `--network chad` to the last `docker run`, or chad cannot reach `http://asphodel:7720`.
 Keep `chad-old` and the old volume until the restored chad answers, then remove them with `docker rm chad-old` and
-`docker volume rm chad-data`. `docs/live-checks.md`, check D4, restores asphodel next to it.
+`docker volume rm chad-data`. [`docs/live-checks.md`](./live-checks.md), check D4, restores asphodel next to it.
 
 `chad restore` refuses a volume that holds secrets or sessions, and a volume a running chad holds. A restore that was
 cut part way leaves the volume to `chad restore` alone: run the same restore again and it finishes. A newer chad

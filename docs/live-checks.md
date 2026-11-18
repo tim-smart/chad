@@ -3,32 +3,32 @@
 These checks run chad against a real Discord, a real Codex login and a real deployment. No test in the repository does
 any of them, because no job holds a Discord token, a Codex login or access to your server. Do each one by hand, once,
 on the image you run, in the order given. Each step says what you should see. You need nothing outside this file and
-`docs/running.md`.
+[`docs/running.md`](./running.md).
 
 Record what you saw in the Result column below, or in a comment on the pull request that ships the image you ran.
 A check with no recorded result has not run.
 
 ## Status
 
-| Check                                                         | What it confirms                                                                                                                 | Result  |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| 1. `chad setup` on a real bot                                 | Setup turns the message content intent on, or says where to click. The invite gives the bot what it needs in a server.           | not run |
-| 2. Codex login in a thread                                    | The first direct message posts a login code, and its turn finishes once you approve the code.                                    | not run |
-| 3. A direct message                                           | chad answers a direct message on the login from check 2.                                                                         | not run |
-| 4. Stop                                                       | The Stop button on the status message stops a turn.                                                                              | not run |
-| 5. A mention in a server channel, then a message without one  | A mention opens a thread that the model titles, chad reads a reply there with no mention, and a listed channel needs none.       | not run |
-| 6. The other Codex models (optional)                          | The sub-agent runs on `gpt-6.1-sol`, `gpt-6.1-terra` or `gpt-6-luna` on your login.                                              | not run |
-| 7. Fast mode (optional)                                       | The Codex login accepts the `priority` service tier, and a turn answers on it.                                                   | not run |
-| 8. Slash commands                                             | Discord lists chad's slash commands, and each does what the typed command does.                                                  | not run |
-| 9. A secret through a form                                    | The agent's request posts a button, the form saves the secret, and the value shows nowhere in the chat.                          | not run |
-| 10. OAuth sign-in to an MCP server that registers chad itself | A server with `"oauth": {}` needs login, the owner signs in from Discord, and the sign-in outlives a restart.                    | not run |
-| 11. OAuth sign-in with a client you registered                | `chad mcp login` signs in with your client id, secret, redirect URL and scopes, and registers no client.                         | not run |
-| 12. A one-off value through a form                            | Only the script that called `requestOnce` gets the owner's value, and the log and the chat show a mask.                          | not run |
-| D1. Publish the image                                         | The image builds and pushes to `ghcr.io/tim-smart/chad`.                                                                         | not run |
-| D2. The volume's filesystem                                   | The volume's filesystem is one chad's lock and SQLite are safe on.                                                               | not run |
-| D3. asphodel for real                                         | The asphodel plugin talks to a real asphodel daemon with its token.                                                              | not run |
-| D4. Backup and restore                                        | chad's tar and asphodel's backup restore onto two fresh volumes, and the restored pair recalls a memory saved before the backup. | not run |
-| D5. The cloud deployment                                      | `deploy/install.sh` puts a Droplet on your tailnet with the three containers, and `install.sh lockdown` closes it.               | not run |
+| Check                                                         | What it confirms                                                                                                                           | Result  |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| 1. `chad setup` on a real bot                                 | Setup turns the message content intent on, or says where to click. The invite gives the bot what it needs in a server.                     | not run |
+| 2. Codex login in a thread                                    | The first direct message posts a login code, and its turn finishes once you approve the code.                                              | not run |
+| 3. A direct message                                           | chad answers a direct message on the login from check 2.                                                                                   | not run |
+| 4. Stop                                                       | The Stop button on the status message stops a turn.                                                                                        | not run |
+| 5. A mention in a server channel, then a message without one  | A mention opens a thread that the model titles, chad reads a reply there with no mention, and a listed channel needs none.                 | not run |
+| 6. The other Codex models (optional)                          | The sub-agent runs on `gpt-6.1-sol`, `gpt-6.1-terra` or `gpt-6-luna` on your login.                                                        | not run |
+| 7. Fast mode (optional)                                       | The Codex login accepts the `priority` service tier, and a turn answers on it.                                                             | not run |
+| 8. Slash commands                                             | Discord lists chad's slash commands, and each does what the typed command does.                                                            | not run |
+| 9. A secret through a form                                    | The agent's request posts a button, the form saves the secret, and the value shows nowhere in the chat.                                    | not run |
+| 10. OAuth sign-in to an MCP server that registers chad itself | A server with `"oauth": {}` needs login, the owner signs in from Discord, and the sign-in outlives a restart.                              | not run |
+| 11. OAuth sign-in with a client you registered                | `chad mcp login` signs in with your client id, secret, redirect URL and scopes, and registers no client.                                   | not run |
+| 12. A one-off value through a form                            | Only the script that called `requestOnce` gets the owner's value, and the log and the chat show a mask.                                    | not run |
+| D1. Publish the image                                         | The image builds and pushes to `ghcr.io/tim-smart/chad`.                                                                                   | not run |
+| D2. The volume's filesystem                                   | The volume's filesystem is one chad's lock and SQLite are safe on.                                                                         | not run |
+| D3. asphodel for real                                         | The asphodel plugin talks to a real asphodel daemon with its token.                                                                        | not run |
+| D4. Backup and restore                                        | chad's tar and asphodel's backup restore onto two fresh volumes, and the restored pair recalls a memory saved before the backup.           | not run |
+| D5. The cloud deployment                                      | [`deploy/install.sh`](../deploy/install.sh) puts a Droplet on your tailnet with the three containers, and `install.sh lockdown` closes it. | not run |
 
 Checks 1 to 12 are the hand checks and the Codex checks. D1 to D5 are deployment checks. None of them has been run
 yet, and the automated suite only runs fakes of Discord, Codex, asphodel and an OAuth MCP server. Part of D5's
@@ -38,7 +38,7 @@ step 1 has been seen, and D5 says which.
 
 For checks 1 to 6:
 
-- A running chad from `docs/running.md`, "Docker", on a fresh volume. Commands below are written `chad <command>`, so
+- A running chad from [`docs/running.md`](./running.md), "Docker", on a fresh volume. Commands below are written `chad <command>`, so
   run each one as `docker exec -it chad chad <command>`.
 - No `CHAD_OPENAI_API_KEY` in the container's environment, and no model change, so chad runs on the default
   `openai/gpt-6-astra/medium` through a Codex login. With the key set, chad uses the OpenAI API and check 2 shows no
@@ -238,7 +238,7 @@ chad's answer gives the address's length and shows `[one-off value]` where the a
 
 ## D1. Publish the image
 
-Build and push from the root of the repository, as `docs/running.md` says under "The image". Passes when `docker pull
+Build and push from the root of the repository, as [`docs/running.md`](./running.md) says under "The image". Passes when `docker pull
 ghcr.io/tim-smart/chad:<version>` works on your server and `chad status` in the container prints that version.
 
 ## D2. The volume's filesystem
@@ -253,7 +253,7 @@ container's own layer.
 
 ## D3. asphodel for real
 
-1. Start asphodel and save its token in chad as `docs/running.md` says under "asphodel". Then open
+1. Start asphodel and save its token in chad as [`docs/running.md`](./running.md) says under "asphodel". Then open
    `http://127.0.0.1:7720/dashboard` on the host, choose an LLM (an OpenAI-compatible endpoint with its key, or a
    ChatGPT subscription and its login) and click Finish setup.
 2. Turn the plugin on in `/data/repo/work/chad.json`. On a fresh volume the file is `{ "plugins": {} }`, and
@@ -288,7 +288,7 @@ Passes when the apply loads the plugin, `chad logs` shows no `asphodel` error, a
 `chad` with your turns. A `401` in chad's log means the token chad holds is not asphodel's. A line `asphodel: memory is off until the daemon is back` means chad
 cannot reach `http://asphodel:7720`: check that both containers are on the network `chad`.
 
-The asphodel image tag in `docs/running.md` is `latest`. Pin it to the version you tested once this passes.
+The asphodel image tag in [`docs/running.md`](./running.md) is `latest`. Pin it to the version you tested once this passes.
 
 ## D4. Backup and restore
 
@@ -406,13 +406,13 @@ docker start asphodel chad
 
 ## D5. The cloud deployment
 
-This runs `docs/deploying.md` on a real Droplet and a real tailnet. The guide is written as the finished path, and
+This runs [`docs/deploying.md`](./deploying.md) on a real Droplet and a real tailnet. The guide is written as the finished path, and
 this check is where that is seen. You need what its "What you need" lists. "What has been run so far", below the
 steps, is the record of what was run without either.
 
 1. Follow step 1 of "Create the server" in the browser, with no `doctl`. The link's page has Ubuntu 24.04 x64 and
    the 2 vCPU and 4 GB size chosen. Note which region it shows. The sections the guide names are there: you select
-   your SSH key, paste `deploy/cloud-init.yaml` unchanged under "Startup scripts", and create the Droplet. The page
+   your SSH key, paste [`deploy/cloud-init.yaml`](../deploy/cloud-init.yaml) unchanged under "Startup scripts", and create the Droplet. The page
    then shows its IP address. Note it, and note any section whose name differs from the guide's.
 2. Run `ssh root@<the public address>`, and there `cloud-init status --wait` and then `docker ps` and
    `tailscale status`. The first boot is done, no container is listed, and Tailscale says it is logged out.
@@ -459,7 +459,7 @@ script was pasted under "Startup scripts". The region was not reported, and no D
 section names of the create page are taken from DigitalOcean's documentation, not from the page. The `doctl` flags
 were checked against the help of doctl 1.169.0, and the commands were not run.
 
-The files were run in a local virtual machine, booted from Ubuntu's 24.04 cloud image with `deploy/cloud-init.yaml`
+The files were run in a local virtual machine, booted from Ubuntu's 24.04 cloud image with [`deploy/cloud-init.yaml`](../deploy/cloud-init.yaml)
 as its user data, and on no tailnet. There:
 
 - The first boot ended after a minute with Docker and Tailscale installed and the files in `/opt/chad`. No container
@@ -484,7 +484,7 @@ container was killed and made anew. A cookie set 40 seconds before a restart was
 restart was lost.
 
 A seed that fails part way was run against the real chad image: the installer failed, and the next run finished the
-volume. `test/unit/deploy.test.ts` holds that, the key that joins nothing and the lockdown's refusals.
+volume. [`test/unit/deploy.test.ts`](../test/unit/deploy.test.ts) holds that, the key that joins nothing and the lockdown's refusals.
 
 Nothing else has run on DigitalOcean or on a real tailnet, so every step above is still to see: the region the link
 shows and the create page's other sections, the Droplet's first boot, the sign-in at the installer's link, the

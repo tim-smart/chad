@@ -12,7 +12,7 @@ chad has one owner. It ships as one Docker image with one data volume, and it ch
 
 [`docs/deploying.md`](./docs/deploying.md) puts chad on one DigitalOcean Droplet with asphodel for long-term memory, a Chromium you can open in your own browser, and Tailscale as the only way in. In short:
 
-1. [Create a Droplet](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3). The link chooses Ubuntu 24.04 and 2 vCPUs with 4 GB of memory. Select your SSH key and paste `deploy/cloud-init.yaml` under "Startup scripts".
+1. [Create a Droplet](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3). The link chooses Ubuntu 24.04 and 2 vCPUs with 4 GB of memory. Select your SSH key and paste [`deploy/cloud-init.yaml`](./deploy/cloud-init.yaml) under "Startup scripts".
 2. Run `ssh root@<the Droplet's IP address>`, then `bash /opt/chad/install.sh`, and sign in to Tailscale at the link it prints.
 3. Run `ssh root@chad`, then `bash /opt/chad/install.sh lockdown` to close the public ports.
 4. In `/opt/chad`, run `docker compose exec chad chad setup` to connect Discord and log chad in to its model.
@@ -21,12 +21,12 @@ The guide has each step in full, with asphodel's setup, the browser, backups and
 
 ## Docs
 
-- `docs/running.md`: running, backing up and restoring the image.
-- `docs/deploying.md`: chad, asphodel, Chromium and Tailscale on one cloud server.
-- `docs/owners.md`: who chad answers.
-- `docs/live-checks.md`: the checks done by hand against a real Discord, Codex login and deployment.
-- `docs/codex-capture.md`: how the recorded Codex frames the tests replay were made, and how to make them again.
-- `skills/`: the skills chad ships with, which the model reads.
-- `AGENTS.md`: the contract for whoever changes chad.
+- [`docs/running.md`](./docs/running.md): running, backing up and restoring the image.
+- [`docs/deploying.md`](./docs/deploying.md): chad, asphodel, Chromium and Tailscale on one cloud server.
+- [`docs/owners.md`](./docs/owners.md): who chad answers.
+- [`docs/live-checks.md`](./docs/live-checks.md): the checks done by hand against a real Discord, Codex login and deployment.
+- [`docs/codex-capture.md`](./docs/codex-capture.md): how the recorded Codex frames the tests replay were made, and how to make them again.
+- [`skills/`](./skills/): the skills chad ships with, which the model reads.
+- [`AGENTS.md`](./AGENTS.md): the contract for whoever changes chad.
 
 The `prototypes` branch holds throwaway prototypes from before the build. It is never merged.

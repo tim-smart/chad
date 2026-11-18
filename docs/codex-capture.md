@@ -1,10 +1,10 @@
 # Recording the Codex frames
 
-This is the record of how the one recording of the Codex frames in `test/unit/fixtures/codex-frames.json` was made, and of how to make it again. It was made on 2026-11-16, with the OpenAI endpoint and key of the recorder's own environment. No test and no job on the gate reads that key. The gate runs the recorder against the fake model server only (`test/unit/record-codex.test.ts`), with one of the fake's own tokens as the key, and the suite passes with both variables unset.
+This is the record of how the one recording of the Codex frames in [`test/unit/fixtures/codex-frames.json`](../test/unit/fixtures/codex-frames.json) was made, and of how to make it again. It was made on 2026-11-16, with the OpenAI endpoint and key of the recorder's own environment. No test and no job on the gate reads that key. The gate runs the recorder against the fake model server only ([`test/unit/record-codex.test.ts`](../test/unit/record-codex.test.ts)), with one of the fake's own tokens as the key, and the suite passes with both variables unset.
 
 ## What was recorded
 
-`scripts/record-codex.ts` reads the endpoint from `CLANKA_OPENAI_API_URL` and the key from `CLANKA_OPENAI_API_KEY`. The endpoint is a proxy that serves the Responses API. The script makes two calls, each on `gpt-6-astra` with the prompt "Say hello." and one line of instructions:
+[`scripts/record-codex.ts`](../scripts/record-codex.ts) reads the endpoint from `CLANKA_OPENAI_API_URL` and the key from `CLANKA_OPENAI_API_KEY`. The endpoint is a proxy that serves the Responses API. The script makes two calls, each on `gpt-6-astra` with the prompt "Say hello." and one line of instructions:
 
 | Transport          | The call                                                                                                                             |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -26,12 +26,12 @@ clanka decodes the reshaped frames. Every Codex scenario of the suite passes on 
 ## What it does not show
 
 - The recording is what the proxy relays over the `openai` path. It is not shown to be what `chatgpt.com/backend-api/codex` sends to chad directly.
-- A run through the proxy goes through chad's `openai` path, which is `Codex.model` over HTTP with a key (`src/ModelSpec.ts`). It never touches the Codex login, the token store or the WebSocket transport at chatgpt.com. It does send the `session-id` header and `prompt_cache_key`, as chad does on `openai` with a key (`src/ModelSpec.ts`), so the header is not what tells the two paths apart. Nothing here is evidence about that path. Check 2 of `docs/live-checks.md`, the Codex login in a thread, is what covers it.
+- A run through the proxy goes through chad's `openai` path, which is `Codex.model` over HTTP with a key ([`src/ModelSpec.ts`](../src/ModelSpec.ts)). It never touches the Codex login, the token store or the WebSocket transport at chatgpt.com. It does send the `session-id` header and `prompt_cache_key`, as chad does on `openai` with a key ([`src/ModelSpec.ts`](../src/ModelSpec.ts)), so the header is not what tells the two paths apart. Nothing here is evidence about that path. Check 2 of [`docs/live-checks.md`](./live-checks.md), the Codex login in a thread, is what covers it.
 - The opening request's headers are chad's own. They come from chad's Codex path against the fake, not from this recording.
 
 ## What stays hand-made
 
-- The usage-limit frame under `refusal` in `test/unit/fixtures/codex-frames.json`. Nobody has recorded one, so it is written from the error schema clanka decodes. The proxy cannot produce a usage limit on demand, and an error that passes through it may not be the frame chatgpt.com sends.
+- The usage-limit frame under `refusal` in [`test/unit/fixtures/codex-frames.json`](../test/unit/fixtures/codex-frames.json). Nobody has recorded one, so it is written from the error schema clanka decodes. The proxy cannot produce a usage limit on demand, and an error that passes through it may not be the frame chatgpt.com sends.
 - What a new connection gets while a limit is in force. In the fake it is a socket that opens and answers `response.create` with that frame.
 - A tool call. The recorder made no call with tools. The fake's `function_call` events follow the pattern of the recorded answer.
 - A failed response. The fake's `failed` reply sends `response.created`, `response.in_progress` and `response.failed` with the response's `error`, following the pattern of the recorded answer.
@@ -40,7 +40,7 @@ The fixture's `source` line says the same. No later capture or comparison is pla
 
 ## What is stripped
 
-The recorder writes the fixture only through `keep` in `test/support/recording.ts`, which runs `strip` and then `renumber`:
+The recorder writes the fixture only through `keep` in [`test/support/recording.ts`](../test/support/recording.ts), which runs `strip` and then `renumber`:
 
 - `strip` replaces every JWT, and the value of each field the stripper names, wherever it is. The fields are the login's tokens and codes, the account and user ids, `email`, cookies, `safety_identifier`, `user`, `prompt_cache_key`, `metadata`, `access_programs` and `instructions` where it is text. A string becomes `<stripped>`, an object `{}`, a list `[]` and a number 0, so the frame keeps its shape. `null` stays `null`. The `instructions` entry of `usage.attribution.request_fields` holds token counts and is kept.
 - `renumber` gives each id the service made, such as `resp_…` and `msg_…`, the next number of its prefix (`resp_0`, `msg_0`, `msg_1`), as the fake numbers its own. An id names one call in the service's logs.
@@ -60,7 +60,7 @@ Before it writes, the recorder looks for the key, the endpoint and each part of 
 
    It prints how each call ended and where a secret was left, never a value. `--model <model>` records on another model. `--raw` refuses a path inside the repository.
 
-   A call that cannot be made, or a step that fails, prints one line on stderr that names only what failed, such as "the endpoint URL could not be parsed", "the HTTP request failed" or "the HTTP response could not be read", with the status where there is one. A call that is made but not answered is reported in the outcome, such as a status or "the WebSocket closed before an answer" with its close code. The error under a failure is never printed, because its message or cause can hold the endpoint or its host, and so is an error outside the awaited calls, such as a socket's. A run that fails exits 1. It writes the fixture only after stripping succeeded with nothing left over, so a failure before that leaves the fixture as it was; if writing the fixture itself fails, check `git diff` on it. With `--raw`, the raw copy may already be written when a later step fails or a secret is left in the stripped result. It sits at the path you gave, outside the repository, so delete it as step 4 says. `test/unit/record-codex.test.ts` runs the script as a child process on a malformed and on an unreachable endpoint, with a synthetic key.
+   A call that cannot be made, or a step that fails, prints one line on stderr that names only what failed, such as "the endpoint URL could not be parsed", "the HTTP request failed" or "the HTTP response could not be read", with the status where there is one. A call that is made but not answered is reported in the outcome, such as a status or "the WebSocket closed before an answer" with its close code. The error under a failure is never printed, because its message or cause can hold the endpoint or its host, and so is an error outside the awaited calls, such as a socket's. A run that fails exits 1. It writes the fixture only after stripping succeeded with nothing left over, so a failure before that leaves the fixture as it was; if writing the fixture itself fails, check `git diff` on it. With `--raw`, the raw copy may already be written when a later step fails or a secret is left in the stripped result. It sits at the path you gave, outside the repository, so delete it as step 4 says. [`test/unit/record-codex.test.ts`](../test/unit/record-codex.test.ts) runs the script as a child process on a malformed and on an unreachable endpoint, with a synthetic key.
 
 3. Check the fixture in code, so that no value is printed: it must not contain the key, the endpoint, the host or any part of the host longer than a common word. It must hold no JWT, and every field listed above must be blank. If another field names the account or the proxy, add it to `strip`. Then re-strip the raw copy without a second call:
 
@@ -69,4 +69,4 @@ Before it writes, the recorder looks for the key, the endpoint and each part of 
    ```
 
 4. Read the stripped file. Then delete `../raw-capture/`.
-5. Run `test/unit/recording.test.ts`. It compares the fake's frames with the recording's on each transport. Where the shapes differ, change `responses` in `test/support/model.ts` to match. Never change the recording to match the fake. Then run the full `pnpm test` with both variables unset.
+5. Run [`test/unit/recording.test.ts`](../test/unit/recording.test.ts). It compares the fake's frames with the recording's on each transport. Where the shapes differ, change `responses` in [`test/support/model.ts`](../test/support/model.ts) to match. Never change the recording to match the fake. Then run the full `pnpm test` with both variables unset.
