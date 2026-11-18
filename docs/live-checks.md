@@ -28,8 +28,9 @@ A check with no recorded result has not run.
 | D2. The volume's filesystem                                   | The volume's filesystem is one chad's lock and SQLite are safe on.                                                               | not run |
 | D3. asphodel for real                                         | The asphodel plugin talks to a real asphodel daemon with its token.                                                              | not run |
 | D4. Backup and restore                                        | chad's tar and asphodel's backup restore onto two fresh volumes, and the restored pair recalls a memory saved before the backup. | not run |
+| D5. The cloud deployment                                      | `deploy/cloud-init.yaml` makes a Droplet that is on your tailnet, closed to the internet, and runs the three containers.         | not run |
 
-Checks 1 to 12 are the hand checks and the Codex checks. D1 to D4 are deployment checks. None of them has been run
+Checks 1 to 12 are the hand checks and the Codex checks. D1 to D5 are deployment checks. None of them has been run
 yet, and the automated suite only runs fakes of Discord, Codex, asphodel and an OAuth MCP server.
 
 ## Before you start
@@ -401,3 +402,27 @@ docker rename chad-old chad
 docker rename asphodel-old asphodel
 docker start asphodel chad
 ```
+
+## D5. The cloud deployment
+
+`docs/deploying.md` has only been run in a local virtual machine, with no tailnet. This runs it on a real Droplet.
+You need what its "What you need" lists.
+
+1. Create the Droplet as "Create the server" says, with a Tailscale auth key for one use in the user data. Note the
+   Droplet's public address.
+2. Wait for the machine `chad` on the "Machines" page of the Tailscale admin console, then run `ssh root@chad`.
+3. On the server, run `tail -n 12 /var/log/cloud-init-output.log`. It lists the containers `chad`, `asphodel` and
+   `chromium` as up, and says `Its public ports are closed.`
+4. On the server, run `ufw status`. It is active and allows `tailscale0` and `41641/udp`, and nothing else.
+5. From your own computer, run `nc -vz -w 5 <the public address> 22`. It times out.
+6. Run `chad setup` as "Set chad up" says, then send chad a direct message: "Open example.com in the browser and
+   tell me the page's title." It answers `Example Domain`.
+7. Finish asphodel's setup as "Set asphodel up" says, with an LLM chosen. Send chad two more messages, then run
+   `docker compose exec asphodel asphodel bank list` in `/opt/chad`. It shows the bank `chad` with your turns.
+8. Forward the DevTools port as "The browser" says and open `chrome://inspect`. The tab from step 6 is listed, and
+   "inspect" shows the page.
+9. Run `reboot` on the server. A minute later `ssh root@chad` works again, and `docker compose ps` in `/opt/chad`
+   shows the three containers up.
+
+Passes when every step shows what it says. If step 2 never happens, the key was refused: `docs/deploying.md`,
+"Create the server", says how to get in and finish by hand, and that path is worth recording too.

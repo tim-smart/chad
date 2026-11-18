@@ -41,7 +41,7 @@ main() {
   mkdir -p "$dir"
   chmod 700 "$dir"
   curl -fsSL "https://codeload.github.com/tim-smart/chad/tar.gz/$ref" |
-    tar -xz -C "$dir" --strip-components=2 --wildcards '*/deploy/*'
+    tar -xz -C "$dir" --strip-components=2 --no-same-owner --wildcards '*/deploy/*'
   cd "$dir"
 
   # asphodel's token is made once and kept. The file is read by Compose and by root, and by nothing else.
@@ -127,7 +127,8 @@ seed() {
   [ "$ready" = yes ] || return 1
 
   if ! "${chad[@]}" chad secret list | grep -q '^ASPHODEL_TOKEN\b'; then
-    printf %s "$token" | "${chad[@]}" chad secret set ASPHODEL_TOKEN --note "asphodel's bearer token, from deploy/install.sh"
+    printf %s "$token" |
+      "${chad[@]}" chad secret set ASPHODEL_TOKEN --note "asphodel's bearer token, from deploy/install.sh"
   fi
 
   # chad.json on a new volume holds no plugin. One that holds anything else is the owner's.

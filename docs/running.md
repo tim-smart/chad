@@ -10,6 +10,9 @@ Everything chad keeps lives on one volume mounted at `/data`. The volume has to 
 directory, a named Docker volume, a Kubernetes local-path volume, a cloud block volume or Longhorn RWO. NFS, CephFS,
 SMB and Longhorn RWX are not supported, because SQLite's lock and write-ahead log are not safe on them.
 
+`docs/deploying.md` is a shorter path for one case: a cloud server that runs chad, asphodel and a headless Chromium
+with Docker Compose, reached over Tailscale.
+
 ## The image
 
 A push to `main` publishes the image. `.github/workflows/publish.yml` builds it for amd64 and pushes it to
