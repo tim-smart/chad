@@ -647,7 +647,11 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
   const scopes = ["calendar.events", "calendar.readonly", "userinfo.email"]
     .map((scope) => `https://www.googleapis.com/auth/${scope}`)
     .join(" ")
-  const value = `http://localhost/oauth/callback?state=st-9f2b6d81c4a7e035&iss=https%3A%2F%2Faccounts.google.com&code=${raw}&scope=${encodeURIComponent(scopes)}&authuser=0&prompt=consent`
+  // A parameter with a malformed escape, which a URL parser decodes in part, and one in the fragment.
+  const nonce = "n%ZZ-4c1a/9e7b"
+  const fragment = "fr-8d1e5a2c7b904f36"
+  const value = `http://localhost/oauth/callback?state=st-9f2b6d81c4a7e035&iss=https%3A%2F%2Faccounts.google.com&code=${raw}&scope=${encodeURIComponent(scopes)}&nonce=n%ZZ-4c1a%2F9e7b&authuser=0&prompt=consent#session_state=${fragment}`
+  const secrets = [value, raw, decoded, nonce, fragment]
   expect(value.length).toBeGreaterThan(250)
   const running = await scenario({
     plugins: [{ name: "request-secret", plugin: requestSecret }],
@@ -663,6 +667,11 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
         // An OAuth script's first step: the code out of the address, decoded and as written.
         `const param = code.split("code=")[1].split("&")[0]`,
         `console.log("param " + decodeURIComponent(param) + " raw " + param)`,
+        // A helper that parses the address as a URL, which decodes as a form does.
+        `console.log(await run("node -e 'const u = new URL(process.argv[1]); console.log(\\"parsed\\", u.searchParams.get(\\"code\\"), u.searchParams.get(\\"nonce\\"), new URLSearchParams(u.hash.slice(1)).get(\\"session_state\\"))' " + JSON.stringify(code)))`,
+        // The address written in two chunks, cut after its code, which is masked whole all the same.
+        `const cut = code.indexOf("&scope=")`,
+        `console.log(await run("printf 'split=%s' " + JSON.stringify(code.slice(0, cut)) + "; sleep 0.2; printf '%s=end' " + JSON.stringify(code.slice(cut))))`,
         // A command's output is kept with its task, which a later turn can read.
         `await run("printf 'code=%s' " + JSON.stringify(code))`,
         `await bash({ command: "while [ ! -e " + ${JSON.stringify(go)} + " ]; do sleep 0.05; done; printf 'late=%s' " + JSON.stringify(code), description: "a late print", background: true })`,
@@ -721,6 +730,8 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
   expect(output).toContain("nonempty")
   expect(output).toContain(`got ${Once.mask}`)
   expect(output).toContain(`param ${Once.mask} raw ${Once.mask}`)
+  expect(output).toContain(`parsed ${Once.mask} ${Once.mask} ${Once.mask}`)
+  expect(output).toContain(`split=${Once.mask}=end`)
   expect(output).toContain(`the site refused ${Once.mask}`)
   // The temporary file holds the mask, and not the value.
   const spooled = /Saved to: (\S+)/.exec(output)?.[1]
@@ -751,7 +762,7 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
   expect(read).toContain(reverse(`late=${Once.mask}`))
   expect(read).toContain(reverse("a late print"))
   expect(read).toContain(reverse("receipt of signal: 'SIGTERM'"))
-  for (const secret of [value, raw, decoded]) {
+  for (const secret of secrets) {
     expect(JSON.stringify(later[3])).not.toContain(reverse(secret))
   }
   // The traced command line was logged with the mask.
@@ -765,7 +776,7 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
   await running.stop()
   const chat = JSON.stringify(await Effect.runPromise(running.chat.calls))
   const model = JSON.stringify(await fakes.model.calls())
-  for (const secret of [value, raw, decoded]) {
+  for (const secret of secrets) {
     expect(
       files(running.data).filter((path) =>
         readFileSync(join(running.data, path), "utf8").includes(secret),
