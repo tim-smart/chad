@@ -135,6 +135,12 @@ test("a tab whose URL has not changed for longer than maxAge is closed, one that
   await swept()
   expect(browser.state.closed).toEqual(["a", "c", "c"])
 
+  // c comes back to the URL its close was sent for. Its age started again when it moved, so it is not sent another.
+  browser.pages.set("c", "https://c.example/")
+  clock.advance("5 minutes")
+  await swept()
+  expect(browser.state.closed).toEqual(["a", "c", "c"])
+
   // Once c is gone, the plugin forgets it.
   browser.lingering.delete("c")
   browser.pages.delete("c")

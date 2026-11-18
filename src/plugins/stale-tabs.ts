@@ -41,16 +41,18 @@ const Target = Schema.Struct({
 const Targets = Schema.Array(Target)
 
 /**
- * What the store keeps for a page: its URL, when the plugin first saw it there, in epoch millis, and the URL it was on
- * when a close was sent for it. Chromium answers a close before the page is gone, a close that timed out may have
- * worked, and a close names the page and not its URL, so a page with a close sent never counts as the one left open
- * until a list shows its id gone. A page that moved to another URL since is not sent the close again.
+ * What the store keeps for a page: its URL, when the plugin first saw it there, in epoch millis, and whether a close
+ * was sent for it. Chromium answers a close before the page is gone, a close that timed out may have worked, and a
+ * close names the page and not its URL, so a page with a close sent never counts as the one left open until a list
+ * shows its id gone, whatever URL it is on meanwhile. It is sent the close again only once its URL is past `maxAge`,
+ * as for a first close.
  */
 const Seen = Schema.Struct({
   url: Schema.String,
   since: Schema.Number,
-  closing: Schema.optionalKey(Schema.String),
+  closing: Schema.optionalKey(Schema.Boolean),
 })
+type Seen = typeof Seen.Type
 const SeenJson = Schema.fromJsonString(Seen)
 const decodeSeen = Schema.decodeUnknownOption(SeenJson)
 const encodeSeen = Schema.encodeSync(SeenJson)
@@ -112,47 +114,57 @@ const sweeper = Effect.gen(function* () {
       ),
     )
 
-  const sweep = Effect.gen(function* () {
-    const listed = yield* pages
-    if (Option.isNone(listed)) return
+  /**
+   * Records what one list of the pages shows, and gives each page's record. A page the store does not know, or one
+   * whose URL changed, starts its age now. A URL that changed keeps the mark of a close already sent, since the close
+   * was for the page and may still be under way. Every list goes through here, so a URL change that only the list
+   * before a close sees is kept too.
+   */
+  const observe = Effect.fnUntraced(function* (
+    listed: ReadonlyArray<typeof Target.Type>,
+  ) {
     const now = yield* Clock.currentTimeMillis
-    const open = new Set(listed.value.map((page) => page.id))
-
-    // The store has no expiry, so the plugin forgets each page that is gone.
-    for (const key of yield* seen.keys) {
-      if (!open.has(key)) yield* seen.remove(key)
-    }
-
-    // A page the store does not know, or one whose URL changed, starts its age now. A URL that changed keeps the
-    // mark of a close already sent, since the close was for the page and may still be under way.
-    type Known = typeof Seen.Type & { readonly id: string }
-    const stale: Array<Known> = []
-    const retries: Array<Known> = []
-    const sent = new Set<string>()
-    let live = 0
-    for (const page of listed.value) {
+    const records = new Map<string, Seen>()
+    for (const page of listed) {
       const known = Option.getOrUndefined(
         Option.flatMap(
           Option.fromUndefinedOr(yield* seen.get(page.id)),
           decodeSeen,
         ),
       )
-      const record: typeof Seen.Type =
+      const record: Seen =
         known === undefined
           ? { url: page.url, since: now }
           : known.url === page.url
             ? known
             : { ...known, url: page.url, since: now }
       if (record !== known) yield* seen.set(page.id, encodeSeen(record))
-      if (record.closing !== undefined) {
-        sent.add(page.id)
-        if (record.closing === page.url)
-          retries.push({ ...record, id: page.id })
+      records.set(page.id, record)
+    }
+    return { now, records }
+  })
+
+  const sweep = Effect.gen(function* () {
+    const listed = yield* pages
+    if (Option.isNone(listed)) return
+    const { now, records } = yield* observe(listed.value)
+
+    // The store has no expiry, so the plugin forgets each page that is gone.
+    for (const key of yield* seen.keys) {
+      if (!records.has(key)) yield* seen.remove(key)
+    }
+
+    type Known = Seen & { readonly id: string }
+    const stale: Array<Known> = []
+    const retries: Array<Known> = []
+    let live = 0
+    for (const [id, record] of records) {
+      const old = now - record.since > maxAgeMillis
+      if (record.closing === true) {
+        if (old) retries.push({ ...record, id })
       } else {
         live++
-        if (now - record.since > maxAgeMillis) {
-          stale.push({ ...record, id: page.id })
-        }
+        if (old) stale.push({ ...record, id })
       }
     }
 
@@ -169,17 +181,23 @@ const sweeper = Effect.gen(function* () {
       // left to the next sweep.
       const current = yield* pages
       if (Option.isNone(current)) break
-      const page = current.value.find(({ id }) => id === candidate.id)
-      if (page === undefined || page.url !== candidate.url) continue
-      if (!current.value.some(({ id }) => id !== page.id && !sent.has(id))) {
-        break
+      const { records } = yield* observe(current.value)
+      const record = records.get(candidate.id)
+      if (
+        record === undefined ||
+        record.url !== candidate.url ||
+        record.since !== candidate.since
+      ) {
+        continue
       }
+      const others = [...records].some(
+        ([id, other]) => id !== candidate.id && other.closing !== true,
+      )
+      if (!others) break
       // The mark goes in before the request, so a close that times out, or a chad killed mid-request, leaves it.
-      sent.add(page.id)
-      const { id, ...record } = candidate
-      yield* seen.set(id, encodeSeen({ ...record, closing: page.url }))
-      const outcome = yield* close(id)
-      if (outcome === "gone") yield* seen.remove(id)
+      yield* seen.set(candidate.id, encodeSeen({ ...record, closing: true }))
+      const outcome = yield* close(candidate.id)
+      if (outcome === "gone") yield* seen.remove(candidate.id)
       if (outcome === "closing") closed++
     }
     if (closed > 0) {
