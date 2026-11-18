@@ -8,7 +8,16 @@ chad has one owner. It ships as one Docker image with one data volume, and it ch
 
 `docs/running.md` says how to run the image, with Docker or on Kubernetes, and how to back it up and restore it. After the first start, `chad setup` inside the container connects Discord, names the owner and can log chad in to Codex.
 
-`docs/deploying.md` is the short path to a server of your own: one cloud server with chad, asphodel, a Chromium you can open in your own browser and Tailscale, set up by one script. [This link](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3) opens DigitalOcean's create page with the guide's image and size chosen. The guide has the script to paste there.
+## Deploying to a cloud server
+
+`docs/deploying.md` puts chad on one DigitalOcean Droplet with asphodel for long-term memory, a Chromium you can open in your own browser, and Tailscale as the only way in. In short:
+
+1. [Create a Droplet](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3). The link chooses Ubuntu 24.04 and 2 vCPUs with 4 GB of memory. Select your SSH key and paste `deploy/cloud-init.yaml` under "Startup scripts".
+2. Run `ssh root@<the Droplet's IP address>`, then `bash /opt/chad/install.sh`, and sign in to Tailscale at the link it prints.
+3. Run `ssh root@chad`, then `bash /opt/chad/install.sh lockdown` to close the public ports.
+4. In `/opt/chad`, run `docker compose exec chad chad setup` to connect Discord and log chad in to its model.
+
+The guide has each step in full, with asphodel's setup, the browser, backups and updating. The same installer runs on any Ubuntu 24.04 or Debian server.
 
 ## Docs
 

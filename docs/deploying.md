@@ -37,30 +37,25 @@ The server is kept private in four ways:
 ## What you need
 
 - A DigitalOcean account, and an SSH key on your computer. The key is how you first connect, and the way back in if
-  Tailscale does not come up. "Create the server" says how to give it to the Droplet. DigitalOcean's command line,
-  `doctl`, is not needed.
+  Tailscale does not come up. Everything is done in DigitalOcean's control panel, so its command line, `doctl`, is
+  not needed.
 - A Tailscale account, with Tailscale on the computer you work from.
 - MagicDNS and HTTPS certificates turned on for your tailnet, on the "DNS" page of the Tailscale admin console. The
   browser's desktop is served with them. Tailscale warns there that a machine's name then shows in a public log of
-  certificates. Without them everything else works, and "The browser" gives another way to the desktop.
-- A Discord application with a bot and its token, a Discord server to invite it to, and your own Discord user id.
-  `docs/live-checks.md`, "Before you start", says where each comes from.
+  certificates. Without them everything else works, and "Troubleshooting" gives another way to the desktop.
+- A Discord application with a bot, made at https://discord.com/developers/applications, and its bot token.
+- A Discord server to invite the bot to, and your own Discord user id. To get the id, turn on Developer Mode in
+  Discord's settings, then right-click your name and pick "Copy User ID".
 - A ChatGPT account that can use Codex, for chad's model.
 - For asphodel, an OpenAI-compatible API key or a ChatGPT subscription. You can also choose neither for now, and
   asphodel then stores each turn and extracts no memories.
 
 ## Create the server
 
-1. Create the Droplet in DigitalOcean's control panel, in your browser. Nothing has to be installed on your computer
-   for it.
-
-   Open
-   [the create page](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3).
-   The link chooses Ubuntu 24.04 (LTS) x64 and 2 vCPUs with 4 GB of memory. It also asks for the region `nyc3`, so
-   check which region the page shows and pick the one nearest to you. `https://cloud.digitalocean.com/droplets/new`
-   is the same page with nothing chosen.
-
-   Then, on that page:
+1. Create the Droplet in DigitalOcean's control panel. Open
+   [the create page](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3),
+   which chooses Ubuntu 24.04 (LTS) x64 and 2 vCPUs with 4 GB of memory. Then, on that page:
+   - Choose the datacenter region nearest to you.
    - Under "Choose Authentication Method", choose "SSH Key" and select your key. If your account has no key yet, click
      "Add SSH Key" and paste your public key, which is the content of a file such as `~/.ssh/id_ed25519.pub`. If
      you have no key at all, `ssh-keygen -t ed25519` on your computer makes one.
@@ -70,8 +65,8 @@ The server is kept private in four ways:
    - Turn on backups if you want DigitalOcean's.
    - Under "Finalize Details", give the Droplet a hostname, for example `chad`, and click "Create Droplet".
 
-   The control panel shows a progress bar and, once the Droplet is ready, its IP address. Copy it. It is the public
-   address the next step connects to.
+   When the Droplet is ready, the control panel shows its IP address. Copy it. It is the public address the next
+   step connects to.
 
    The first boot installs Docker and Tailscale and fetches the files into `/opt/chad`. It joins nothing and starts
    no container.
@@ -117,21 +112,13 @@ The server is kept private in four ways:
      them, as in `ufw delete allow 22/tcp`, and run it again. To keep one, set the firewall yourself in place of
      this step. It also stops when `ufw` cannot list its rules.
 
-The first boot writes what it did to `/var/log/cloud-init-output.log`. If `/opt/chad/install.sh` is not there, the
-first boot failed or the Droplet was made without the script, and the two commands under "Another host" do the whole
-install.
-
-After the lockdown, a server that drops off your tailnet has no SSH port to reach. The console in DigitalOcean's
-control panel is then the way in, and `ufw allow 22/tcp` there opens SSH again.
-
 ### Optional: doctl in place of the control panel
 
-Step 1 above needs none of this. `doctl` is DigitalOcean's command line. It has to be installed and signed in to
-your account with an API token first, and
-[DigitalOcean's guide](https://docs.digitalocean.com/reference/doctl/how-to/install/) says how. Your SSH key has to
-be in your DigitalOcean account already. Then these three commands, run from a copy of this repository, stand in for
-step 1: the first lists your keys with their fingerprints, the second makes the Droplet, and the third prints its
-public address.
+`doctl` is DigitalOcean's command line, and step 1 above needs none of it. To use it, install it and sign it in to
+your account with an API token, as
+[DigitalOcean's guide](https://docs.digitalocean.com/reference/doctl/how-to/install/) says, and add your SSH key to
+your DigitalOcean account. Then these three commands, run from a copy of this repository, stand in for step 1. The
+first lists your keys with their fingerprints, the second makes the Droplet, and the third prints its public address.
 
 ```sh
 doctl compute ssh-key list
@@ -191,14 +178,7 @@ The installer prints the address in full, and `tailscale serve status` on the se
 the one Chromium there is. A tab chad opens appears in it as chad works, a tab you open is one chad can use, and a
 site you sign in to is signed in for chad.
 
-If the installer said the desktop is not on the tailnet, `tailscale serve` failed or did not answer within a minute.
-What it printed is just above that line. HTTPS certificates that are off for your tailnet are one cause, and not the
-only one. Fix what it names and run the installer again. Whatever the cause, you can forward the port from your own
-computer and open `http://localhost:3000`:
-
-```sh
-ssh -L 3000:127.0.0.1:3000 root@chad
-```
+If the installer said the desktop is not on the tailnet, see "Troubleshooting".
 
 - The desktop has no password. Anyone your tailnet's access rules let reach port 8443 of the server uses the browser
   and every site it is signed in to. On a tailnet of your own that is you. `tailscale serve --https=8443 off` on the
@@ -371,46 +351,30 @@ already on a tailnet, because the key would be left usable. Revoke that key and 
 `deploy/compose.yaml` also runs by itself on a machine that has Docker already. It needs `ASPHODEL_TOKEN` in a
 `.env` file next to it, and `docs/running.md`, "asphodel", says how to give chad the token and turn the plugin on.
 
-fly.io is not covered yet. This path wants one host that runs Docker Compose with Tailscale beside it, which is a
-virtual machine.
+This path needs one host that runs Docker Compose with Tailscale beside it, which is a virtual machine. fly.io is
+not that, and this guide does not cover it.
 
-## What has been run, and what has not
+## Troubleshooting
 
-The files were run in a local virtual machine, booted from Ubuntu's 24.04 cloud image with `deploy/cloud-init.yaml` as
-its user data, and on no tailnet. There:
+- If `/opt/chad/install.sh` is not on the server, the first boot failed or the Droplet was made without the script.
+  `/var/log/cloud-init-output.log` has what the first boot did. The two commands under "Another host" do the whole
+  install.
+- If the installer stopped while it waited for you to sign in to Tailscale, it started nothing. Run it again for a new
+  link.
+- If the installer exits non-zero, its last lines say why. Run it again once that is fixed, until it prints "Done".
+  `docker compose ps` and `docker compose logs chad` in `/opt/chad` show a container that did not come up, and
+  `docker compose exec chad chad status` shows what chad itself finds wrong.
+- If the installer said the desktop is not on the tailnet, `tailscale serve` failed or did not answer within a
+  minute. What it printed is just above that line. HTTPS certificates that are off for your tailnet are one cause.
+  Fix what it names and run the installer again. Until then, forward the port from your own computer and open
+  `http://localhost:3000`:
 
-- The first boot ended after a minute with Docker and Tailscale installed and the files in `/opt/chad`. No container
-  existed, and Tailscale was logged out.
-- The installer printed Tailscale's sign-in link and started nothing while it waited. Nobody signed in, because there
-  was no tailnet to join. From there a stand-in for `tailscale` played the join, a join that fails and
-  `tailscale serve`.
-- With a join that failed, the installer stopped before it started a container. With one that worked, the three
-  containers came up, chad opened a page through Chromium with only `AGENT_BROWSER_CDP` to point it there, and the
-  asphodel plugin loaded with its token. With a `tailscale serve` that failed, the install still finished and said how
-  to reach the desktop. A later run replaced no container. Everything came back after a reboot.
-- The desktop was opened through the SSH forward. An address typed into its Chromium loaded, and `agent-browser tab`
-  in chad's container then listed that page.
-- `install.sh lockdown` refused a session on the server's public address, and refused again while a rule allowed
-  port 22. With the stand-in naming the machine's own address, it closed the ports: a new SSH connection from outside
-  timed out, and the containers still reached the internet.
-- The backups were taken over SSH as written, the second after `secrets.toml` was removed from the server, and that
-  backup's directory had none. chad was restored onto a new volume and asphodel onto its own, from `/root/backup`.
+  ```sh
+  ssh -L 3000:127.0.0.1:3000 root@chad
+  ```
 
-The same images were run under podman as well. Chromium started again after its process was ended, and after its
-container was killed and made anew. A cookie set 40 seconds before a restart was kept, and one set just before a
-restart was lost.
-
-A seed that fails part way was run against the real chad image: the installer failed, and the next run finished the
-volume. `test/unit/deploy.test.ts` holds that, the key that joins nothing and the lockdown's refusals.
-
-The link to DigitalOcean's create page was opened by the repository's owner. It chose the image and the size, and the
-script was pasted under "Startup scripts". Whether it chose the region was not reported. The other section names of
-the create page are taken from DigitalOcean's documentation, not from the page. The `doctl` flags were checked
-against the help of doctl 1.169.0, and the commands were not run.
-
-No other part has run on DigitalOcean or on a real tailnet, because neither was available without paying for one or
-joining someone's. `docs/live-checks.md`, check D5, is the list of what is still to see: the link's region and the
-create page's other sections, the Droplet's first boot, the sign-in at the installer's link, the desktop at its
-`https` address and what a tailnet with HTTPS off does there, that a Tailscale SSH session is one the lockdown
-accepts, the closed ports as the internet sees them, chad on Discord with its model, and a restore that recalls a
-memory. asphodel's ChatGPT login after a restore has not been run either.
+- If `ssh root@chad` does not connect, check that Tailscale is running on your computer and that the machine `chad`
+  is on the "Machines" page of the Tailscale admin console. Until the lockdown, the Droplet's public address still
+  takes SSH.
+- If the server drops off your tailnet after the lockdown, it has no SSH port to reach. Open the Droplet's console in
+  DigitalOcean's control panel and run `ufw allow 22/tcp` there to open SSH again.

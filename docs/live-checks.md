@@ -31,8 +31,8 @@ A check with no recorded result has not run.
 | D5. The cloud deployment                                      | `deploy/install.sh` puts a Droplet on your tailnet with the three containers, and `install.sh lockdown` closes it.               | not run |
 
 Checks 1 to 12 are the hand checks and the Codex checks. D1 to D5 are deployment checks. None of them has been run
-yet, and the automated suite only runs fakes of Discord, Codex, asphodel and an OAuth MCP server. One step of D5 has
-been seen, the link in its step 1, and D5 says so.
+yet, and the automated suite only runs fakes of Discord, Codex, asphodel and an OAuth MCP server. Part of D5's
+step 1 has been seen, and D5 says which.
 
 ## Before you start
 
@@ -406,19 +406,14 @@ docker start asphodel chad
 
 ## D5. The cloud deployment
 
-`docs/deploying.md` has only been run in a local virtual machine, with no tailnet. This runs it on a real Droplet.
-You need what its "What you need" lists.
-
-One part has a result. On 2026-11-18 the repository's owner opened the link in step 1. The page had the image and
-the size chosen, and the script was pasted under "Startup scripts". The region was not reported, so step 1 still
-checks it. That is the create page alone: no Droplet was reported made from it, and every other step below is not
-run.
+This runs `docs/deploying.md` on a real Droplet and a real tailnet. The guide is written as the finished path, and
+this check is where that is seen. You need what its "What you need" lists. "What has been run so far", below the
+steps, is the record of what was run without either.
 
 1. Follow step 1 of "Create the server" in the browser, with no `doctl`. The link's page has Ubuntu 24.04 x64 and
-   the 2 vCPU and 4 GB size chosen. Note whether it has the region `nyc3` chosen too. The sections the guide names
-   are there: you select your SSH key, paste `deploy/cloud-init.yaml` unchanged under "Startup scripts", and create
-   the Droplet. The page then shows its IP address. Note it, and note any section whose name differs from the
-   guide's.
+   the 2 vCPU and 4 GB size chosen. Note which region it shows. The sections the guide names are there: you select
+   your SSH key, paste `deploy/cloud-init.yaml` unchanged under "Startup scripts", and create the Droplet. The page
+   then shows its IP address. Note it, and note any section whose name differs from the guide's.
 2. Run `ssh root@<the public address>`, and there `cloud-init status --wait` and then `docker ps` and
    `tailscale status`. The first boot is done, no container is listed, and Tailscale says it is logged out.
 3. In that session, run `bash /opt/chad/install.sh`. It prints a link and starts nothing. In a second session,
@@ -448,3 +443,46 @@ run.
 Passes when every step shows what it says. If the installer in step 3 says the desktop is not on the tailnet, record
 what `tailscale serve` printed above it. Fix what it names, such as HTTPS certificates that are off for the
 tailnet, run the installer again, and record that path too.
+
+### What has been run so far
+
+None of this is a result for D5. It is what was run before any Droplet existed, kept here so the guide does not have
+to carry it.
+
+On 2026-11-18 the repository's owner opened the link in step 1. The page had the image and the size chosen, and the
+script was pasted under "Startup scripts". The region was not reported, and no Droplet was reported made. The other
+section names of the create page are taken from DigitalOcean's documentation, not from the page. The `doctl` flags
+were checked against the help of doctl 1.169.0, and the commands were not run.
+
+The files were run in a local virtual machine, booted from Ubuntu's 24.04 cloud image with `deploy/cloud-init.yaml`
+as its user data, and on no tailnet. There:
+
+- The first boot ended after a minute with Docker and Tailscale installed and the files in `/opt/chad`. No container
+  existed, and Tailscale was logged out.
+- The installer printed Tailscale's sign-in link and started nothing while it waited. Nobody signed in, because there
+  was no tailnet to join. From there a stand-in for `tailscale` played the join, a join that fails and
+  `tailscale serve`.
+- With a join that failed, the installer stopped before it started a container. With one that worked, the three
+  containers came up, chad opened a page through Chromium with only `AGENT_BROWSER_CDP` to point it there, and the
+  asphodel plugin loaded with its token. With a `tailscale serve` that failed, the install still finished and said
+  how to reach the desktop. A later run replaced no container. Everything came back after a reboot.
+- The desktop was opened through the SSH forward. An address typed into its Chromium loaded, and `agent-browser tab`
+  in chad's container then listed that page.
+- `install.sh lockdown` refused a session on the server's public address, and refused again while a rule allowed
+  port 22. With the stand-in naming the machine's own address, it closed the ports: a new SSH connection from outside
+  timed out, and the containers still reached the internet.
+- The backups were taken over SSH as written, the second after `secrets.toml` was removed from the server, and that
+  backup's directory had none. chad was restored onto a new volume and asphodel onto its own, from `/root/backup`.
+
+The same images were run under podman as well. Chromium started again after its process was ended, and after its
+container was killed and made anew. A cookie set 40 seconds before a restart was kept, and one set just before a
+restart was lost.
+
+A seed that fails part way was run against the real chad image: the installer failed, and the next run finished the
+volume. `test/unit/deploy.test.ts` holds that, the key that joins nothing and the lockdown's refusals.
+
+Nothing else has run on DigitalOcean or on a real tailnet, so every step above is still to see: the region the link
+shows and the create page's other sections, the Droplet's first boot, the sign-in at the installer's link, the
+desktop at its `https` address and what a tailnet with HTTPS off does there, that a Tailscale SSH session is one the
+lockdown accepts, the closed ports as the internet sees them, chad on Discord with its model, and a restore that
+recalls a memory. asphodel's ChatGPT login after a restore has not been run either.
