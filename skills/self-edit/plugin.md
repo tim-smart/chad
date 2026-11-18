@@ -195,7 +195,7 @@ Read these in full first:
 - /data/repo/node_modules/chad/dist/Plugin.d.ts, the plugin API.
 Trust these files and the .d.ts files under /data/repo/node_modules over what you remember about Effect.
 
-The list below names where to look. It is not a source of rules. A finding has to cite one of the three files above or describe a concrete bug. Code that does what an example AGENTS.md links to does is not a finding. Report misuse those sources rule out or that breaks at runtime, not a pattern the code does not need. Look at least at:
+The list below names where to look. It is not a source of rules. A finding has to cite one of the three files above or describe a concrete bug. Report misuse those sources rule out or that breaks at runtime, not a pattern the code does not need. Look at least at:
 1. A reusable function written with a generator uses Effect.fn("name"), with the name it is bound to, or Effect.fnUntraced, and does not only wrap and return an Effect.gen. A function that returns an Effect without a generator, such as Effect.sync(...), is fine. Nothing calls .pipe on an Effect.fn; extra behaviour goes in as its later arguments.
 2. A custom error is a Schema.TaggedError class, raised with return yield*. Nothing throws, nothing drops an error without a reason, and nothing turns a failure a caller could handle into a defect. Every failure a tool can have is in its failure schema.
 3. Code that relies on the shape of data from outside (HTTP answers, files, stored values, model output) decodes it with Schema first, and does not parse it by hand or cast it with as. Runtime type checks use Predicate, not hand-written helpers.
@@ -216,7 +216,7 @@ Do not report formatting, which Prettier owns. If you find nothing, say "no find
 
 What you do with the report:
 
-- Judge each finding against the code and the source it cites. A finding is valid when the code breaks a rule stated in `/data/repo/node_modules/effect/AGENTS.md`, in this file outside the review prompt, or in the `.d.ts` files, or when it is a bug. The list in the prompt is where the reviewer looks, not a rule of its own, and code that does what an example under `/data/repo/node_modules/effect/ai-docs/src/` does breaks no rule.
+- Judge each finding against the code and the source it cites. A finding is valid when the code breaks a rule stated in `/data/repo/node_modules/effect/AGENTS.md`, in this file outside the review prompt, or in the `.d.ts` files, or when it is a bug. The list in the prompt is where the reviewer looks, not a rule of its own.
 - Fix every valid finding, small ones included. Do not leave one for later.
 - Drop a finding only when it is wrong: it misreads the code, cites only the list in the prompt or a rule no source has, or asks for what this file rules out, such as a `runMain` or an `HttpClient` of your own. Keep one line on why for your answer.
 - Then `chad check` again. When a fix did more than change the lines a finding named, such as new code or a moved responsibility, a new sub-agent reviews the plugin with the same prompt.
