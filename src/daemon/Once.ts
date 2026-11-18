@@ -1,7 +1,8 @@
 // The requests that `requestOnce` makes, in the daemon's memory. A submit hands its value straight to the tool that
 // waits, which returns it to the calling script and nowhere else. The daemon also remembers each value for the session
-// that asked, so that the session's log lines and script output, which go to the log, the model and the history, carry
-// a mask in its place (`SessionEntity.ts`). Nothing here writes to the volume, and a restart forgets everything.
+// that asked, so that the session's log lines, its script output and its commands' output carry a mask in its place
+// (`SessionEntity.ts`, `Spawner.ts`). It forgets them when the session's executor closes, which takes clanka's copies of
+// the session's commands with it. Nothing here writes to the volume, and a restart forgets everything.
 //
 // The mask is a match of the exact value, nothing more: a script that encodes the value, splits it with other text,
 // writes it to a file or sends it somewhere gets past it.
@@ -25,6 +26,13 @@ export interface Daemon extends Store {
     readonly push: (chunk: string) => string
     readonly end: () => string
   }
+  /** Whether the session was given a value, so its output has something to mask. */
+  readonly holds: (session: string) => boolean
+  /**
+   * Forgets the values a session was given. The session's executor calls this as it closes, which is when the copies
+   * clanka kept of its commands and their output go too.
+   */
+  readonly forget: (session: string) => void
 }
 
 /** One request that waits for the owner's form. */
@@ -102,6 +110,10 @@ export const make = (deadline: Duration.Duration): Daemon => {
       request.value = value
       Deferred.doneUnsafe(request.submitted, Exit.succeed(value))
       return true
+    },
+    holds: (session) => (given.get(session)?.length ?? 0) > 0,
+    forget: (session) => {
+      given.delete(session)
     },
     scrub: (session, text) => {
       const values = valuesOf(session)

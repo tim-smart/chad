@@ -665,13 +665,32 @@ export const layer = Layer.unwrap(
           // The values `requestOnce` gave this session's scripts are masked in every line its executor and tool calls log,
           // the command lines clanka traces and the causes of failed scripts included, before any sink or script output.
           const once = support.once
+          // The values go once the executor has closed: a scope closes in reverse, so this finalizer, added before the
+          // executor is built, runs after its commands have ended and its copies of their lines and output are gone.
+          if (once !== undefined) {
+            yield* Scope.addFinalizer(
+              own,
+              Effect.sync(() => once.forget(id)),
+            )
+          }
           const scrub =
             once === undefined
               ? undefined
               : (line: string) => once.scrub(id, line)
           const built = yield* Layer.buildWithScope(
             AgentExecutor.layerLocal({ directory }).pipe(
-              Layer.provide(Spawner.layer(id, volume.home, support.timezone)),
+              Layer.provide(
+                Spawner.layer(
+                  id,
+                  volume.home,
+                  support.timezone,
+                  // A command's output is masked before clanka buffers it, keeps it with the task or saves it to a
+                  // temporary file, from the first value the session is given on.
+                  once === undefined
+                    ? undefined
+                    : () => (once.holds(id) ? once.redactor(id) : undefined),
+                ),
+              ),
             ),
             own,
           ).pipe(
