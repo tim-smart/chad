@@ -1,0 +1,12 @@
+#cloud-config
+# User data for a new Ubuntu 24.04 server, such as a DigitalOcean Droplet. It runs deploy/install.sh on the first
+# boot. `docs/deploying.md` is the guide.
+#
+# Put a Tailscale auth key in place of the one below before you use this. Make the key for one use, because the
+# server keeps this file where everything that runs on it can read it.
+runcmd:
+  - |
+    set -eu
+    export TS_AUTHKEY='tskey-auth-REPLACE-ME'
+    curl -fsSL -o /root/install-chad.sh https://raw.githubusercontent.com/tim-smart/chad/main/deploy/install.sh
+    bash /root/install-chad.sh

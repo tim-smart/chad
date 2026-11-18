@@ -1,0 +1,107 @@
+# chad with what it needs next to it: asphodel for long-term memory and a headless Chromium to browse with.
+# `docs/deploying.md` says how to put this on a server, and `deploy/install.sh` does it.
+#
+# Nothing here is published on a public address. asphodel's dashboard and Chromium's DevTools port are bound to the
+# host's loopback, so they are reached through SSH or Tailscale and by nothing else.
+name: chad
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  chad:
+    # `main` follows chad, and `deploy/install.sh` pulls it each time it runs. Set CHAD_IMAGE to pin a version or a digest.
+    image: ${CHAD_IMAGE:-ghcr.io/tim-smart/chad:main}
+    restart: unless-stopped
+    # A stop waits up to 60 seconds for a turn to finish.
+    stop_grace_period: 90s
+    environment:
+      # Points agent-browser at the Chromium below, so a session runs it with no flag.
+      AGENT_BROWSER_CONFIG: /etc/agent-browser.json
+    configs:
+      - source: agent-browser
+        target: /etc/agent-browser.json
+    volumes:
+      - chad-data:/data
+    networks:
+      - chad
+    logging: *logging
+
+  # A named volume starts out owned by root. asphodel runs as 65532 and Chromium as 1000, so each is given its volume
+  # before it starts. The asphodel image is used because it has a shell and is pulled anyway.
+  volumes:
+    image: ghcr.io/tim-smart/asphodel:latest
+    restart: "no"
+    user: "0:0"
+    network_mode: none
+    entrypoint:
+      - /bin/sh
+      - -c
+      - chown 65532:65532 /asphodel && chown 1000:1000 /chromium
+    volumes:
+      - asphodel-data:/asphodel
+      - chromium-profile:/chromium
+    logging: *logging
+
+  asphodel:
+    image: ghcr.io/tim-smart/asphodel:latest
+    restart: unless-stopped
+    depends_on:
+      volumes:
+        condition: service_completed_successfully
+    command: ["serve", "--listen", "0.0.0.0:7720", "--data-dir", "/data"]
+    environment:
+      ASPHODEL_TOKEN: ${ASPHODEL_TOKEN:?Set ASPHODEL_TOKEN in .env, as deploy/install.sh does}
+    # The dashboard, for its first-run setup. Whoever reaches an unconfigured asphodel first can set it up, so this
+    # stays on loopback.
+    ports:
+      - 127.0.0.1:7720:7720
+    volumes:
+      - asphodel-data:/data
+    networks:
+      - chad
+    logging: *logging
+
+  chromium:
+    image: docker.io/chromedp/headless-shell:158.0.8127.37
+    restart: unless-stopped
+    depends_on:
+      volumes:
+        condition: service_completed_successfully
+    # The image starts Chromium with no sandbox and as root. It keeps no sandbox, which a container cannot give it
+    # without more privileges, and runs as an ordinary user.
+    user: "1000:1000"
+    init: true
+    # The profile is on a volume, so a site chad signed in to stays signed in across restarts.
+    command: ["--user-data-dir=/profile"]
+    shm_size: 1gb
+    # DevTools, for watching or driving a page from your own Chrome. It has no password, so it stays on loopback.
+    ports:
+      - 127.0.0.1:9222:9222
+    volumes:
+      - chromium-profile:/profile
+    networks:
+      chad:
+        # Chromium answers DevTools requests only when the Host header is an IP address or localhost, so chad reaches
+        # it by this address and not by name.
+        ipv4_address: 172.30.72.10
+    logging: *logging
+
+configs:
+  agent-browser:
+    content: |
+      { "cdp": "http://172.30.72.10:9222" }
+
+networks:
+  chad:
+    ipam:
+      config:
+        - subnet: 172.30.72.0/24
+
+volumes:
+  chad-data:
+  asphodel-data:
+  chromium-profile:
