@@ -100,7 +100,7 @@ export const defaults: Timings = {
   stopDeadline: Duration.seconds(60),
   modelLogin: Duration.minutes(15),
   modelTrial: Duration.seconds(60),
-  onceWait: Duration.minutes(5),
+  onceWait: Duration.minutes(10),
   mcpLogin: Duration.seconds(60),
   threadTitle: Duration.seconds(30),
   sessionIdle: Duration.minutes(30),

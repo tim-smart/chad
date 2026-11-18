@@ -28,7 +28,7 @@ export const secretPosted = (name: string) =>
   `Posted a button for ${name}. It is not saved yet: end your turn and wait for the owner.`
 
 export const onceDescription =
-  "Ask the owner for a value you need once and chad must not store, such as a code a site sent by SMS or email in the middle of a login. Call it when the site asks for the code, not before. It posts a button in this session's thread and waits, for a few minutes at most, for the owner to enter the value in a form. name labels the request, and reason says which site the code is for and where it was sent; the owner reads both. It returns the value to the calling script only: use it in that same script, by handing it to the command or tool that enters it, and never print it. chad replaces the exact value with a mask in the session's log and in what the script prints, which is all you see of it, but the mask misses the value once it is encoded, cut up or written to a file. The value is never saved. Never use this for a password or anything else that stays valid: use requestSecret for a secret chad will need again."
+  "Ask the owner for a value they hand over that is used once and stops working soon after, which chad must not store: a code a site sent by SMS or email, an authenticator code, a device pairing code, or the address the browser ended on after the owner approved an OAuth sign-in. Use it for any such value in place of asking the owner to run a command on the server. Call it when the value is needed, not before. It posts a button in this session's thread and waits, for a few minutes at most, for the owner to enter the value in a form. name labels the request, and reason says what the value is and where the owner finds it; the owner reads both. It returns the value to the calling script only: use it in that same script, by handing it to the command or tool that needs it, and never print it. chad replaces the exact value with a mask in the session's log and in what the script prints, which is all you see of it, and for an address also each value of its query and fragment parameters that is 8 characters or longer, such as its code, as written and decoded. Hand the value to a command in single quotes, never in the double quotes JSON.stringify makes, where the shell expands it. The mask misses a value once it is encoded another way, cut up or written to a file. The value is never saved. Never use this for a password, a key or anything else that stays valid: use requestSecret for a secret chad will need again."
 
 /** `requestOnce` called where the daemon gives it no store, or outside a turn. */
 export const onceUnavailable = (why: "store" | "turn") =>
@@ -38,7 +38,7 @@ export const onceUnavailable = (why: "store" | "turn") =>
 
 /** The request `requestOnce` posts. */
 export const onceRequest = (name: string, reason: string) =>
-  `I need a one-off value for \`${name}\`: ${reason}\nThe button opens a form. What you type there goes to chad for this login and is not saved in the secret store.`
+  `I need a one-off value for \`${name}\`: ${reason}\nThe button opens a form. What you type there goes to the script that asked, for this one use, and is not saved in the secret store.`
 
 /** What the request says once the value arrived. */
 export const onceReceived = (name: string) => `Got \`${name}\`.`
@@ -53,4 +53,4 @@ export const onceStopped = (name: string) =>
 
 /** How `requestOnce` fails when the owner entered nothing in time. */
 export const onceTimedOut = (name: string, minutes: number) =>
-  `The owner entered no value for ${name} within ${minutes} minute${minutes === 1 ? "" : "s"}, so the request expired. If the site still waits for the code, tell the owner and ask again; otherwise start the login over.`
+  `The owner entered no value for ${name} within ${minutes} minute${minutes === 1 ? "" : "s"}, so the request expired. If whatever needs it still waits for the value, tell the owner and ask again; otherwise start over from the step that issued it.`

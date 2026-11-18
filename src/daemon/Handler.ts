@@ -676,11 +676,13 @@ export const interactions = (connection: Live, once?: Once.Daemon) =>
           "once-form": (submit) =>
             Effect.gen(function* () {
               if (!owner(submit.userId)) return ChatInteraction.close
+              // The field is multiline, and a stray newline kept in the value would stop the mask matching what a
+              // script that trims it prints.
               const taken =
                 once?.submit(
                   submit.metadata,
                   ChatThread.toString(submit.thread),
-                  submit.values.value,
+                  submit.values.value.trim(),
                 ) === true
               if (!taken) {
                 yield* post(submit.thread)(

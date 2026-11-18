@@ -6,7 +6,10 @@
 // restart forgets everything.
 //
 // The mask is a match of the exact value, nothing more: a script that encodes the value, splits it with other text,
-// writes it to a file or sends it somewhere gets past it.
+// writes it to a file or sends it somewhere gets past it. A value that is an address, such as the one a browser ended
+// on after an OAuth approval, also masks each of its query and fragment parameters' values, as they are written in the
+// address and decoded, so the `code` a script pulls out of it stays masked. Each of these is also masked as a command
+// line spells it in single quotes.
 import { randomUUID } from "node:crypto"
 import { Deferred, type Duration, Exit } from "effect"
 import type { Store } from "../plugins/request-secret/Once.ts"
@@ -20,9 +23,9 @@ export interface Daemon extends Store {
   readonly scrub: (session: string, text: string) => string
   /**
    * A redactor of one stream of a session's output. `push` gives the chunk's text that is safe to pass on and holds
-   * back an end that could be the start of a value, so a value split across chunks is still masked. `end` gives what
-   * was held back. It masks every value the session held while it ran, those it held when it was made included, so a
-   * `forget` does not unmask a stream that outlives the turn.
+   * back, unmasked, an end that could still become a longer value, so a value split across chunks is masked whole.
+   * `end` gives what was held back, masked. It masks every value the session held while it ran, those it held when it
+   * was made included, so a `forget` does not unmask a stream that outlives the turn.
    */
   readonly redactor: (session: string) => {
     readonly push: (chunk: string) => string
@@ -36,6 +39,57 @@ export interface Daemon extends Store {
   readonly forget: (session: string) => void
 }
 
+/** The shortest parameter value of an address that is masked on its own, so a value such as `0` masks nothing else. */
+const partLength = 8
+
+/** The query and the fragment of an address as the owner wrote it, before a URL parser re-encodes either. */
+const written = (value: string): ReadonlyArray<string> => {
+  const hash = value.indexOf("#")
+  const before = hash === -1 ? value : value.slice(0, hash)
+  const query = before.indexOf("?")
+  return [
+    query === -1 ? "" : before.slice(query + 1),
+    hash === -1 ? "" : value.slice(hash + 1),
+  ]
+}
+
+/**
+ * The values of the query and fragment parameters of a value that parses as an address: as the owner wrote them, as
+ * the URL parser writes them, which percent-encodes characters such as `'`, as a form decodes them, which is what
+ * `URLSearchParams` gives, and as `decodeURIComponent` decodes them where it can.
+ */
+const parts = (value: string): ReadonlyArray<string> => {
+  if (!URL.canParse(value)) return []
+  const url = new URL(value)
+  const found = new Set<string>()
+  for (const params of [
+    ...written(value),
+    url.search.slice(1),
+    url.hash.slice(1),
+  ]) {
+    for (const pair of params.split("&")) {
+      const equals = pair.indexOf("=")
+      if (equals === -1) continue
+      const raw = pair.slice(equals + 1)
+      found.add(raw)
+      try {
+        found.add(decodeURIComponent(raw))
+      } catch {
+        // A malformed escape: the form-decoded value below still decodes the valid ones.
+      }
+    }
+    for (const decoded of new URLSearchParams(params).values())
+      found.add(decoded)
+  }
+  return [...found].filter((part) => part.length >= partLength)
+}
+
+/**
+ * A value as a shell command line spells it in single quotes, each `'` written `'\''`, which is how the `credentials`
+ * skill hands a value to a command. The traced command line then holds this spelling and not the value.
+ */
+const quoted = (value: string) => value.replaceAll("'", "'\\''")
+
 /** One request that waits for the owner's form. */
 interface Pending {
   readonly thread: string
@@ -45,29 +99,50 @@ interface Pending {
   value: string | undefined
 }
 
-/** Each value in a text replaced by the mask, the longest first so that one value inside another is masked whole. */
-const replace = (text: string, values: ReadonlyArray<string>) => {
-  let out = text
-  for (const value of values) out = out.split(value).join(mask)
-  return out
-}
-
-/** The length of the longest end of a text that is the start of a value, and shorter than the value. */
-const held = (text: string, values: ReadonlyArray<string>) => {
-  let longest = 0
-  for (const value of values) {
-    for (
-      let length = Math.min(value.length - 1, text.length);
-      length > longest;
-      length--
-    ) {
-      if (text.endsWith(value.slice(0, length))) {
-        longest = length
+/**
+ * A text with each value replaced by the mask. It reads from the start and masks the longest value that begins at each
+ * place, so one value inside another, such as an address's code, is masked with the whole. Unless `final`, it stops at
+ * the first place where a value longer than any that matches there could still be completed by text yet to come, and
+ * gives the text from there as `rest`, unmasked, to be read again with what follows.
+ */
+const scan = (
+  text: string,
+  values: ReadonlyArray<string>,
+  final: boolean,
+): { readonly out: string; readonly rest: string } => {
+  let out = ""
+  let from = 0
+  let at = 0
+  while (at < text.length) {
+    const left = text.length - at
+    let matched = 0
+    let open = false
+    // The values are the longest first, so the first that matches or may still match decides.
+    for (const value of values) {
+      if (value.length <= left) {
+        if (text.startsWith(value, at)) {
+          matched = value.length
+          break
+        }
+      } else if (
+        !final &&
+        value.charCodeAt(0) === text.charCodeAt(at) &&
+        value.startsWith(text.slice(at))
+      ) {
+        open = true
         break
       }
     }
+    if (open) return { out: out + text.slice(from, at), rest: text.slice(at) }
+    if (matched === 0) {
+      at++
+      continue
+    }
+    out += text.slice(from, at) + mask
+    at += matched
+    from = at
   }
-  return longest
+  return { out: out + text.slice(from), rest: "" }
 }
 
 export const make = (deadline: Duration.Duration): Daemon => {
@@ -104,7 +179,11 @@ export const make = (deadline: Duration.Duration): Daemon => {
       // The value is masked from here on, before the script that asked can print it.
       if (value !== "") {
         const values = given.get(request.session) ?? []
-        if (!values.includes(value)) values.push(value)
+        for (const part of [value, ...parts(value)]) {
+          for (const masked of new Set([part, quoted(part)])) {
+            if (!values.includes(masked)) values.push(masked)
+          }
+        }
         values.sort((a, b) => b.length - a.length)
         given.set(request.session, values)
       }
@@ -118,7 +197,7 @@ export const make = (deadline: Duration.Duration): Daemon => {
     },
     scrub: (session, text) => {
       const values = valuesOf(session)
-      return values.length === 0 ? text : replace(text, values)
+      return values.length === 0 ? text : scan(text, values, true).out
     },
     redactor: (session) => {
       let rest = ""
@@ -136,19 +215,18 @@ export const make = (deadline: Duration.Duration): Daemon => {
         push: (chunk) => {
           const values = seen()
           if (values.length === 0 && rest === "") return chunk
-          const text = replace(rest + chunk, values)
-          const keep = held(text, values)
-          rest = text.slice(text.length - keep)
-          return text.slice(0, text.length - keep)
+          const scanned = scan(rest + chunk, values, false)
+          rest = scanned.rest
+          return scanned.out
         },
         end: () => {
           const text = rest
           rest = ""
-          return text
+          return text === "" ? text : scan(text, seen(), true).out
         },
         scrub: (text) => {
           const values = seen()
-          return values.length === 0 ? text : replace(text, values)
+          return values.length === 0 ? text : scan(text, values, true).out
         },
       }
     },

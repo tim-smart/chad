@@ -218,19 +218,21 @@ no second client, a turn in the DM can call one of the server's tools, and the g
 
 ## 12. A one-off value through a form
 
-Pick a fresh value that appears nowhere else, such as a few random words. It goes only into the form, never into a
-message or a command.
+Pick a fresh value that appears nowhere else, such as a few random words run together with hyphens. Build an address
+of a few hundred characters around it, as a browser ends on after an OAuth sign-in:
+`http://localhost/oauth/callback?state=<20 random letters>&code=<value>&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.events%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.readonly%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email&prompt=consent`.
+It goes only into the form, never into a message or a command.
 
 1. In the DM, send "Ask me for a one-off value named LIVE_ONCE with requestOnce, and in the same script print its
-   length and then the value itself".
+   length, then the whole value, then the value of its code parameter".
 2. chad posts a message that names `LIVE_ONCE` with an `Enter LIVE_ONCE` button, and the turn keeps running. Click it.
-3. A form titled "Enter a one-off value" opens, with one field. Type your fresh value and submit.
+3. A form titled "Enter a one-off value" opens, with one multiline field. Paste the whole address and submit.
 4. Once the turn has ended, run `chad secret list`, then `chad logs | grep -c -F '<value>'` with your value, typed in
    a shell whose history you do not keep.
 
-Passes when the request changes to `Got LIVE_ONCE` and its button disappears, chad's answer gives the right length and
-shows `[one-off value]` where the value was printed, `chad secret list` does not list `LIVE_ONCE`, the grep prints `0`,
-and no message in the DM shows your value.
+Passes when the field takes the whole address, the request changes to `Got LIVE_ONCE` and its button disappears,
+chad's answer gives the address's length and shows `[one-off value]` where the address and its code were printed,
+`chad secret list` does not list `LIVE_ONCE`, the grep prints `0`, and no message in the DM shows your value.
 
 ## D1. Publish the image
 
