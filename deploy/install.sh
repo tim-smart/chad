@@ -125,6 +125,10 @@ install() {
 
   step "Starting chad, asphodel and Chromium"
   docker compose pull -q
+  # The dashboard comes off the tailnet before any container starts. An asphodel on a new volume waits for its
+  # first-run setup, which takes no token, and a 9443 left on by an earlier run would reach it the moment it listens.
+  # It goes back on only once asphodel says it is set up, below.
+  off_tailnet 9443
   docker compose up -d --remove-orphans
 
   if ! healthy; then
@@ -163,13 +167,11 @@ install() {
       on_tailnet_https "asphodel's dashboard" 9443 7720 /dashboard "$hostname"
       ;;
     setup)
-      off_tailnet 9443
       echo "asphodel is waiting for its first-run setup, which takes no token, so its dashboard is not on the tailnet."
       echo "Set it up through SSH from your own computer: ssh -L 7720:127.0.0.1:7720 root@$hostname, then open"
       echo "http://localhost:7720/dashboard. Then run this script again to put the dashboard on the tailnet."
       ;;
     *)
-      off_tailnet 9443
       echo "install.sh: asphodel did not answer in two minutes, so its dashboard is not on the tailnet."
       echo "See: cd $dir && docker compose logs asphodel. Then run this script again."
       ;;
@@ -247,12 +249,24 @@ on_tailnet_https() {
   fi
 }
 
-# Takes a port off the tailnet when `tailscale serve` has it there. A port that stays on fails the install.
+# Takes a port off the tailnet when `tailscale serve` has it there. A port that may still be on ends the install: one
+# whose state could not be read, and one that did not come off. The port is a key of its own, and ends the key of the
+# host's name it is served at.
 off_tailnet() {
-  local https=$1
-  if timeout 60 tailscale serve status --json 2>/dev/null | grep -q "\"$https\""; then
+  local https=$1 status
+  if ! status=$(timeout 60 tailscale serve status --json); then
+    {
+      echo "install.sh: tailscale serve status failed, so it is not known whether port $https is on the tailnet,"
+      echo "so no container was started or replaced. Run this script again once \`tailscale serve status\` works."
+    } >&2
+    exit 1
+  fi
+  if grep -Eq "\"([^\"]*:)?$https\":" <<<"$status"; then
     if ! timeout 60 tailscale serve --https="$https" off; then
-      echo "install.sh: port $https is still on the tailnet: tailscale serve --https=$https off failed." >&2
+      {
+        echo "install.sh: port $https may still be on the tailnet: tailscale serve --https=$https off failed,"
+        echo "so no container was started or replaced."
+      } >&2
       exit 1
     fi
   fi

@@ -445,6 +445,12 @@ steps, is the record of what was run without either.
 11. Take a backup as "What is kept, and backups" says, then follow "Restoring chad" and "Restoring asphodel"
     on this server. `chad status` shows no problem and `asphodel status` exits 0. In the DM, send `/new` and ask
     for what you told chad in step 9. The new session has no history, so the answer comes from asphodel.
+12. With the dashboard on the tailnet, run `docker compose down` and `docker volume rm chad_asphodel-data` in
+    `/opt/chad`, then the installer. In a second session, run `tailscale serve status` again and again while it
+    works: from before the containers start until the installer ends, 9443 is not listed. The installer says
+    asphodel is waiting for its setup, and the dashboard's address does not load. `curl http://asphodel:7720/v1/health`
+    in the desktop's terminal does not connect. Finish the setup over SSH and run the installer again, and the
+    address loads.
 
 Passes when every step shows what it says. If the installer in step 3 says the desktop or the dashboard is not on
 the tailnet, record what `tailscale serve` printed above it. Fix what it names, such as HTTPS certificates that are
