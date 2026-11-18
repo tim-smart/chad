@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+echo "ufw $*" >>"$FAKE/calls"
+[ "$1 $2" = "show added" ] || exit 0
+[ ! -e "$FAKE/fail-ufw" ] || exit 1
+# What ufw prints, with `(None)` when no rule was added.
+echo "Added user rules (see 'ufw status' for running firewall):"
+cat "$FAKE/ufw-rules" 2>/dev/null || echo "(None)"

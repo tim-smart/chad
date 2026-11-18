@@ -1,0 +1,133 @@
+# chad with what it needs next to it: asphodel for long-term memory and a Chromium to browse with, on a desktop you
+# can open in your own browser. `docs/deploying.md` says how to put this on a server, and `deploy/install.sh` does it.
+#
+# Nothing here is published on a public address. asphodel's dashboard and the browser's desktop are bound to the host's
+# loopback, so they are reached through SSH or Tailscale and by nothing else.
+name: chad
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  chad:
+    # `main` follows chad, and `deploy/install.sh` pulls it each time it runs. Set CHAD_IMAGE in .env to hold one image.
+    image: ${CHAD_IMAGE:-ghcr.io/tim-smart/chad:main}
+    restart: unless-stopped
+    # A stop waits up to 60 seconds for a turn to finish.
+    stop_grace_period: 90s
+    environment:
+      # agent-browser attaches to the Chromium below from this alone, so a session runs it with no flag. The address
+      # is a number because Chromium answers DevTools requests only when the Host header is an IP address or localhost.
+      AGENT_BROWSER_CDP: http://172.30.72.10:9223
+    volumes:
+      - chad-data:/data
+    networks:
+      - chad
+    logging: *logging
+
+  # A named volume starts out owned by root, and asphodel runs as 65532, so it is given its volume before it starts.
+  # The asphodel image is used because it has a shell and is pulled anyway.
+  volumes:
+    image: ghcr.io/tim-smart/asphodel:latest
+    restart: "no"
+    user: "0:0"
+    network_mode: none
+    entrypoint:
+      - /bin/sh
+      - -c
+      - chown 65532:65532 /asphodel
+    volumes:
+      - asphodel-data:/asphodel
+    logging: *logging
+
+  asphodel:
+    image: ghcr.io/tim-smart/asphodel:latest
+    restart: unless-stopped
+    depends_on:
+      volumes:
+        condition: service_completed_successfully
+    command: ["serve", "--listen", "0.0.0.0:7720", "--data-dir", "/data"]
+    environment:
+      ASPHODEL_TOKEN: ${ASPHODEL_TOKEN:?Set ASPHODEL_TOKEN in .env, as deploy/install.sh does}
+    # The dashboard, for its first-run setup. Whoever reaches an unconfigured asphodel first can set it up, so this
+    # stays on loopback.
+    ports:
+      - 127.0.0.1:7720:7720
+    volumes:
+      - asphodel-data:/data
+    networks:
+      - chad
+    logging: *logging
+
+  chromium:
+    # Chromium on a desktop that a web page shows, so you can watch and use the browser chad drives. The tag follows
+    # the image, so each run of `deploy/install.sh` brings the browser up to date.
+    image: lscr.io/linuxserver/chromium:latest
+    restart: unless-stopped
+    # Chromium locks its profile under the hostname. With one that changed, a lock left by a container that was killed
+    # would keep the next container's Chromium from starting.
+    hostname: chromium
+    environment:
+      # The image sets itself up as root, and runs the desktop and Chromium as this user.
+      PUID: "1000"
+      PGID: "1000"
+      # DevTools, which chad drives the browser through. Chromium refuses it on its default profile, so the profile is
+      # named. It is on the volume, so a site chad signed in to stays signed in across restarts.
+      CHROME_CLI: >-
+        --user-data-dir=/config/profile --remote-debugging-port=9222 --no-first-run --no-default-browser-check
+      # Chromium is started again when its window is closed, so chad is not left without a browser.
+      RESTART_APP: "true"
+    # Nothing in the container gains root, the desktop's terminal included. Chromium keeps no sandbox of its own,
+    # which a container cannot give it without more privileges.
+    security_opt:
+      - no-new-privileges:true
+    shm_size: 1gb
+    configs:
+      - source: devtools
+        target: /etc/nginx/conf.d/devtools.conf
+    # The desktop. It has no password and whoever reaches it uses the browser, so it stays on loopback.
+    # `deploy/install.sh` puts it on the tailnet with `tailscale serve`.
+    ports:
+      - 127.0.0.1:3000:3000
+    volumes:
+      - chromium-profile:/config
+    networks:
+      chad:
+        ipv4_address: 172.30.72.10
+    logging: *logging
+
+configs:
+  # Chromium's DevTools listens on its container's loopback and nowhere else. The image's nginx, which serves the
+  # desktop, passes it on to the Compose network, where chad reaches it. No port of the host leads to it.
+  devtools:
+    content: |
+      server {
+        listen 9223;
+        location / {
+          proxy_pass http://127.0.0.1:9222;
+          proxy_http_version 1.1;
+          proxy_set_header Host $$http_host;
+          proxy_set_header Upgrade $$http_upgrade;
+          proxy_set_header Connection "upgrade";
+          proxy_read_timeout 7d;
+          proxy_send_timeout 7d;
+          proxy_buffering off;
+        }
+      }
+
+networks:
+  chad:
+    ipam:
+      config:
+        - subnet: 172.30.72.0/24
+
+volumes:
+  chad-data:
+    # A restore goes onto a volume of another name, which CHAD_VOLUME in .env then names, so the old one is kept
+    # until the restored chad has been checked.
+    name: ${CHAD_VOLUME:-chad_chad-data}
+  asphodel-data:
+  chromium-profile:

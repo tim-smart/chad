@@ -8,9 +8,21 @@ chad has one owner. It ships as one Docker image with one data volume, and it ch
 
 `docs/running.md` says how to run the image, with Docker or on Kubernetes, and how to back it up and restore it. After the first start, `chad setup` inside the container connects Discord, names the owner and can log chad in to Codex.
 
+## Deploying to a cloud server
+
+`docs/deploying.md` puts chad on one DigitalOcean Droplet with asphodel for long-term memory, a Chromium you can open in your own browser, and Tailscale as the only way in. In short:
+
+1. [Create a Droplet](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3). The link chooses Ubuntu 24.04 and 2 vCPUs with 4 GB of memory. Select your SSH key and paste `deploy/cloud-init.yaml` under "Startup scripts".
+2. Run `ssh root@<the Droplet's IP address>`, then `bash /opt/chad/install.sh`, and sign in to Tailscale at the link it prints.
+3. Run `ssh root@chad`, then `bash /opt/chad/install.sh lockdown` to close the public ports.
+4. In `/opt/chad`, run `docker compose exec chad chad setup` to connect Discord and log chad in to its model.
+
+The guide has each step in full, with asphodel's setup, the browser, backups and updating. The same installer runs on any Ubuntu 24.04 or Debian server.
+
 ## Docs
 
 - `docs/running.md`: running, backing up and restoring the image.
+- `docs/deploying.md`: chad, asphodel, Chromium and Tailscale on one cloud server.
 - `docs/owners.md`: who chad answers.
 - `docs/live-checks.md`: the checks done by hand against a real Discord, Codex login and deployment.
 - `docs/codex-capture.md`: how the recorded Codex frames the tests replay were made, and how to make them again.
