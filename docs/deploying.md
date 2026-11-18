@@ -77,6 +77,9 @@ The installer writes what it did to `/var/log/cloud-init-output.log`. If the mac
 key was refused. The firewall is then left open on port 22, so connect with `ssh root@<the Droplet's public address>`,
 run `tailscale up --ssh --hostname=chad`, and run `bash /opt/chad/install.sh` to close the public ports.
 
+If the server later drops off your tailnet, its public ports are still closed. The console in DigitalOcean's control
+panel is then the way in, and `ufw allow 22/tcp` there opens SSH again.
+
 ## Set chad up
 
 On the server:
