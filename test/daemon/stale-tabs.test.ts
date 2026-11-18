@@ -11,10 +11,12 @@ import { eventually, rows } from "../support/owner.ts"
 
 /**
  * Chromium's DevTools HTTP endpoint in memory: `GET /json/list` gives the open pages and one browser target, and
- * `GET /json/close/<id>` closes a page. Every other route is a 404.
+ * `GET /json/close/<id>` closes a page. A page in `lingering` answers its close and stays listed, as a page Chromium
+ * is still closing does. Every other route is a 404.
  */
 const devtools = () => {
   const pages = new Map<string, string>()
+  const lingering = new Set<string>()
   const state = { lists: 0, closed: [] as Array<string> }
   const client = HttpClient.make((request, url) => {
     const respond = (status: number, body: string) =>
@@ -40,16 +42,17 @@ const devtools = () => {
       return respond(200, JSON.stringify(targets))
     }
     const close = /^\/json\/close\/(.+)$/.exec(url.pathname)?.[1]
-    if (close !== undefined && pages.delete(close)) {
+    if (close !== undefined && pages.has(close)) {
+      if (!lingering.has(close)) pages.delete(close)
       state.closed.push(close)
       return respond(200, "Target is closing")
     }
     return respond(404, `No such target id: ${close}`)
   })
-  return { pages, state, client }
+  return { pages, lingering, state, client }
 }
 
-test("a tab whose URL has not changed for longer than maxAge is closed, one that changed inside it is kept, and when every tab is stale the one that changed last stays open", async () => {
+test("a tab whose URL has not changed for longer than maxAge is closed, one that changed inside it is kept, when every tab is stale the one that changed last stays open, and a tab still closing is never the one left open", async () => {
   const browser = devtools()
   const clock = AdjustableClock.make()
   const plugin = Plugin.make(
@@ -107,16 +110,30 @@ test("a tab whose URL has not changed for longer than maxAge is closed, one that
   // At 13 hours a is past the 12 hour default, and b and c are two hours old.
   clock.advance("2 hours")
   await swept()
+  // a's record stays, marked as closing, until a list shows it gone.
   expect(browser.state.closed).toEqual(["a"])
-  expect(remembered()).toEqual(["tab/b", "tab/c"])
+  expect(remembered()).toEqual(["tab/a", "tab/b", "tab/c"])
 
-  // b changes once more, and 13 hours later both tabs are stale. The one that changed last is left open.
+  // b changes once more, and 13 hours later both tabs are stale. The one that changed last is left open, and c, which
+  // Chromium is slow to close, is still listed at the next sweep. It is sent its close again, and b is never closed.
   browser.pages.set("b", "https://b.example/again")
+  browser.lingering.add("c")
   clock.advance("1 hour")
   await swept()
   clock.advance("13 hours")
   await swept()
   expect(browser.state.closed).toEqual(["a", "c"])
+  clock.advance("5 minutes")
+  await swept()
+  expect(browser.state.closed).toEqual(["a", "c", "c"])
+  expect(remembered()).toEqual(["tab/b", "tab/c"])
+
+  // Once c is gone, the plugin forgets it.
+  browser.lingering.delete("c")
+  browser.pages.delete("c")
+  clock.advance("5 minutes")
+  await swept()
+  expect(browser.state.closed).toEqual(["a", "c", "c"])
   expect([...browser.pages.keys()]).toEqual(["b"])
   expect(remembered()).toEqual(["tab/b"])
 })

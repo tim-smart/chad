@@ -1,7 +1,13 @@
 // The bundled plugin `stale-tabs`: closes the tabs of a shared Chromium that have sat on one URL for too long. Every
 // few minutes it lists the browser's pages through the DevTools HTTP endpoint, notes in its store when each page's URL
-// last changed, and closes each page whose URL has not changed for longer than `maxAge`. It always leaves one page
-// open. It is off until `chad.json` turns it on with `"enabled": true` and the DevTools `url`.
+// last changed, and closes each page whose URL has not changed for longer than `maxAge`. It keeps one page open,
+// because the deploy's Chromium restarts when its last page closes. It is off until `chad.json` turns it on with
+// `"enabled": true` and the DevTools `url`.
+//
+// A close is a separate request from the list it was decided on, and the owner shares the browser, so the plugin
+// lists the pages again before each close and closes a page only while it is on the same URL and another page that is
+// not closing stays open. That narrows the race and does not remove it: an owner who closes that other page between
+// the list and the close still leaves no page, and Chromium restarts.
 //
 // It cannot tell chad's tabs from the owner's, because the browser does not record who opened a tab, so the age of a
 // tab's URL is all it goes by. It speaks plain HTTP to DevTools and never runs `agent-browser`, so it works with any
@@ -33,8 +39,16 @@ const Target = Schema.Struct({
 })
 const Targets = Schema.Array(Target)
 
-/** What the store keeps for a page: its URL and when the plugin first saw it there, in epoch millis. */
-const Seen = Schema.Struct({ url: Schema.String, since: Schema.Number })
+/**
+ * What the store keeps for a page: its URL, when the plugin first saw it there, in epoch millis, and whether a close
+ * was sent for it. Chromium answers a close before the page is gone, and a close that timed out may have worked, so a
+ * page with a close sent never counts as the one left open, until a list shows it gone or on another URL.
+ */
+const Seen = Schema.Struct({
+  url: Schema.String,
+  since: Schema.Number,
+  closing: Schema.optionalKey(Schema.Boolean),
+})
 const SeenJson = Schema.fromJsonString(Seen)
 const decodeSeen = Schema.decodeUnknownOption(SeenJson)
 const encodeSeen = Schema.encodeSync(SeenJson)
@@ -81,20 +95,17 @@ const sweeper = Effect.gen(function* () {
     )
   })
 
-  /**
-   * Closes one page. Chromium answers 404 for a page that is already gone, which counts as closed. Any other failure
-   * leaves the page for the next sweep.
-   */
+  /** Closes one page, and gives whether Chromium took the close. A 404 is a page that is already gone. */
   const close = (id: string) =>
     http.get(`${base}/json/close/${encodeURIComponent(id)}`).pipe(
       Effect.timeout(requestTimeout),
-      Effect.as(true),
+      Effect.as("closing" as const),
       Effect.catch((error) =>
         error._tag === "HttpClientError" && error.response?.status === 404
-          ? Effect.succeed(true)
+          ? Effect.succeed("gone" as const)
           : Effect.as(
               Effect.logWarning(`${name}: could not close a tab`, error),
-              false,
+              "unknown" as const,
             ),
       ),
     )
@@ -105,8 +116,17 @@ const sweeper = Effect.gen(function* () {
     const now = yield* Clock.currentTimeMillis
     const open = new Set(listed.value.map((page) => page.id))
 
-    // A page the store does not know, or one whose URL changed, starts its age now.
-    const stale: Array<{ readonly id: string; readonly since: number }> = []
+    // The store has no expiry, so the plugin forgets each page that is gone.
+    for (const key of yield* seen.keys) {
+      if (!open.has(key)) yield* seen.remove(key)
+    }
+
+    // A page the store does not know, or one whose URL changed, starts its age now, and one with a close sent is
+    // sent it again.
+    type Known = typeof Seen.Type & { readonly id: string }
+    const stale: Array<Known> = []
+    const closing: Array<Known> = []
+    let live = 0
     for (const page of listed.value) {
       const known = Option.flatMap(
         Option.fromUndefinedOr(yield* seen.get(page.id)),
@@ -114,28 +134,43 @@ const sweeper = Effect.gen(function* () {
       )
       if (Option.isNone(known) || known.value.url !== page.url) {
         yield* seen.set(page.id, encodeSeen({ url: page.url, since: now }))
-      } else if (now - known.value.since > maxAgeMillis) {
-        stale.push({ id: page.id, since: known.value.since })
+        live++
+      } else if (known.value.closing === true) {
+        closing.push({ ...known.value, id: page.id })
+      } else {
+        live++
+        if (now - known.value.since > maxAgeMillis) {
+          stale.push({ ...known.value, id: page.id })
+        }
       }
     }
+    const sent = new Set(closing.map((page) => page.id))
 
-    // The store has no expiry, so the plugin forgets each page that is gone.
-    for (const key of yield* seen.keys) {
-      if (!open.has(key)) yield* seen.remove(key)
-    }
-
-    // One page always stays: with none left, the deploy's Chromium restarts. When every page is stale, the one whose
-    // URL changed last is kept.
-    const closing =
-      stale.length === open.size
+    // When every page that is not closing is stale, the one whose URL changed last is kept.
+    const candidates = [
+      ...closing,
+      ...(stale.length === live
         ? stale.toSorted((a, b) => b.since - a.since).slice(1)
-        : stale
+        : stale),
+    ]
     let closed = 0
-    for (const { id } of closing) {
-      if (yield* close(id)) {
-        yield* seen.remove(id)
-        closed++
+    for (const candidate of candidates) {
+      // The browser as it is now. A list that fails ends the sweep, and a page that is gone or on another URL is
+      // left to the next sweep.
+      const current = yield* pages
+      if (Option.isNone(current)) break
+      const page = current.value.find(({ id }) => id === candidate.id)
+      if (page === undefined || page.url !== candidate.url) continue
+      if (!current.value.some(({ id }) => id !== page.id && !sent.has(id))) {
+        break
       }
+      // The mark goes in before the request, so a close that times out, or a chad killed mid-request, leaves it.
+      sent.add(page.id)
+      const { id, ...record } = candidate
+      yield* seen.set(id, encodeSeen({ ...record, closing: true }))
+      const outcome = yield* close(id)
+      if (outcome === "gone") yield* seen.remove(id)
+      if (outcome === "closing") closed++
     }
     if (closed > 0) {
       yield* Effect.logInfo(

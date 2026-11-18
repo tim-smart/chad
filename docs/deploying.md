@@ -199,9 +199,14 @@ If the installer said the desktop is not on the tailnet, see "Troubleshooting".
 The bundled plugin `stale-tabs` closes the tabs in this Chromium that have sat on one address for 12 hours. Every five
 minutes it lists the open tabs through Chromium's DevTools port and notes when each tab's address last changed. A tab
 whose address has not changed for longer than 12 hours is closed, whoever opened it: Chromium does not record whether
-chad or you opened a tab, so the age of its address is all the plugin can go by. One tab is always left open, because
-Compose starts Chromium again when its last window closes. While Chromium is down the plugin does nothing, and it
-carries on when Chromium is back.
+chad or you opened a tab, so the age of its address is all the plugin can go by. It leaves one tab open, because
+Compose starts Chromium again when its last window closes. A tab it has asked Chromium to close never counts as that
+one, until Chromium lists it gone. While Chromium is down the plugin does nothing, and it carries on when Chromium is
+back.
+
+Before each close the plugin lists the tabs again, and closes the tab only if it is still on the same address and
+another tab stays open. That is a check and not a lock: if you close that other tab at the same moment, both can go,
+and Chromium starts again with no tab of yours. Sites stay signed in, since the profile is on its volume.
 
 A tab that stays on one address while you use it, such as a dashboard you keep open or a long form on one page, is
 closed too once it has sat 12 hours. To keep a page past that, open it again, or set a longer `maxAge`.
