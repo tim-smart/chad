@@ -27,7 +27,9 @@ The server is kept private in four ways:
 - `deploy/cloud-init.yaml` holds no secret. The server joins your tailnet when you sign in at a link the installer
   prints, so no Tailscale key is in the Droplet's user data, which everything running on a Droplet can read back.
 - asphodel's dashboard and the browser's desktop are bound to the server's loopback. Tailscale serves them on your
-  tailnet, the desktop at port 8443 and the dashboard at port 9443, and on no public address.
+  tailnet, the desktop at port 8443 and the dashboard at port 9443, and on no public address. asphodel's first-run
+  setup takes no token, so the dashboard goes on the tailnet only once that setup is done, and you do it over SSH.
+  The browser shares no network with asphodel, so the desktop does not reach it either.
 - The Discord token and the model login are typed into `chad setup` over SSH and stored on chad's volume. asphodel's
   token is made on the server, in `/opt/chad/.env`, which only root reads.
 - Once you have connected over Tailscale, `install.sh lockdown` closes every public port, SSH included. chad needs
@@ -82,7 +84,8 @@ The server is kept private in four ways:
 
    The installer prints a link. Open it and sign in to Tailscale, and the server joins your tailnet as `chad`. Only
    then does it start the containers. It waits ten minutes for you, and starts nothing if the server has not joined.
-   At the end it puts the browser's desktop and asphodel's dashboard on your tailnet and prints their addresses.
+   At the end it puts the browser's desktop on your tailnet and prints its address. asphodel's dashboard follows
+   once asphodel is set up, as "Set asphodel up" says.
 
 3. On the "Machines" page of the Tailscale admin console, open the menu of the machine `chad` and choose "Disable
    key expiry". Without that the server drops off your tailnet when its key expires, after 180 days by default.
@@ -149,8 +152,24 @@ Every other chad command runs the same way, as `docker compose exec chad chad <c
 
 ## Set asphodel up
 
-asphodel waits for its first-run setup, which is a page on its dashboard. Open the dashboard from a computer on your
-tailnet:
+asphodel waits for its first-run setup, which is a page on its dashboard. The setup takes no token, and whoever
+finishes it chooses where asphodel sends what chad remembers, so until then the installer keeps the dashboard off
+your tailnet. Forward the port from your own computer and open `http://localhost:7720/dashboard`:
+
+```sh
+ssh -L 7720:127.0.0.1:7720 root@chad
+```
+
+Choose the LLM asphodel extracts memories with and click "Finish setup". chad's plugin is already on and holds the
+token, so memory starts with chad's next message. `chad status` shows the plugin as `plugin: asphodel`.
+
+Then run the installer again, which now puts the dashboard on your tailnet:
+
+```sh
+bash /opt/chad/install.sh
+```
+
+From then on it is at this address, from a computer on your tailnet:
 
 ```
 https://chad.<your tailnet's name>.ts.net:9443/dashboard
@@ -159,16 +178,10 @@ https://chad.<your tailnet's name>.ts.net:9443/dashboard
 The installer prints the address in full, and `tailscale serve status` on the server prints it again. If the
 installer said the dashboard is not on the tailnet, see "Troubleshooting".
 
-Choose the LLM asphodel extracts memories with and click "Finish setup". chad's plugin is already on and holds the
-token, so memory starts with chad's next message. `chad status` shows the plugin as `plugin: asphodel`.
-
-After setup the dashboard asks for asphodel's token. On the server, `sed -n 's/^ASPHODEL_TOKEN=//p' /opt/chad/.env`
-prints it.
-
-- Until setup is done, anyone your tailnet's access rules let reach port 9443 of the server can do it, and so choose
-  where asphodel sends what chad remembers. On a tailnet of your own that is you. Finish setup as soon as the
-  installer is done.
-- After setup, everything past the dashboard's page needs the token.
+- The dashboard asks for asphodel's token. On the server, `sed -n 's/^ASPHODEL_TOKEN=//p' /opt/chad/.env` prints it.
+  asphodel's memory and settings need the token. Its health check and the state of setup answer without it.
+- An asphodel on a new volume waits for setup again, and the next run of the installer takes the dashboard off the
+  tailnet until it is done.
 - `tailscale serve --https=9443 off` on the server takes the dashboard off the tailnet, and the next run of the
   installer puts it back.
 
@@ -205,7 +218,8 @@ If the installer said the desktop is not on the tailnet, see "Troubleshooting".
   sandbox of its own, because a container cannot give it one without more privileges. The desktop's menu has a
   terminal, which is a shell in that container.
 - A file Chromium downloads stays on its volume, and it cannot upload a file from chad's.
-- Chromium's DevTools port, which `agent-browser` uses, is open to the other two containers and to nothing else.
+- Chromium's DevTools port, which `agent-browser` uses, is open to chad's container and to nothing else. Chromium
+  shares no network with asphodel, so neither the desktop nor a page it opens reaches asphodel.
 
 ## What is kept, and backups
 
@@ -378,6 +392,8 @@ not that, and this guide does not cover it.
 - If the installer exits non-zero, its last lines say why. Run it again once that is fixed, until it prints "Done".
   `docker compose ps` and `docker compose logs chad` in `/opt/chad` show a container that did not come up, and
   `docker compose exec chad chad status` shows what chad itself finds wrong.
+- If the installer said asphodel is waiting for its first-run setup, do the setup as "Set asphodel up" says, and run
+  the installer again. If it said asphodel did not answer, `docker compose logs asphodel` in `/opt/chad` says why.
 - If the installer said the desktop or the dashboard is not on the tailnet, `tailscale serve` failed or did not
   answer within a minute. What it printed is just above that line. HTTPS certificates that are off for your tailnet
   are one cause. Fix what it names and run the installer again. Until then, forward the port from your own computer

@@ -151,9 +151,29 @@ install() {
 
   # The desktop and asphodel's dashboard are bound to the server's loopback. This puts each on the tailnet over
   # HTTPS, which the desktop's page needs to show video, and on no public address.
-  step "Putting the browser's desktop and asphodel's dashboard on your tailnet"
+  step "Putting the browser's desktop on your tailnet"
   on_tailnet_https "the browser's desktop" 8443 3000 / "$hostname"
-  on_tailnet_https "asphodel's dashboard" 9443 7720 /dashboard "$hostname"
+
+  # asphodel's first-run setup takes no token, and whoever finishes it chooses where asphodel sends what chad
+  # remembers. So the dashboard goes on the tailnet only once asphodel says it is set up, and comes off it when an
+  # asphodel on a new volume waits for setup again.
+  step "Putting asphodel's dashboard on your tailnet"
+  case $(asphodel_state) in
+    ready)
+      on_tailnet_https "asphodel's dashboard" 9443 7720 /dashboard "$hostname"
+      ;;
+    setup)
+      off_tailnet 9443
+      echo "asphodel is waiting for its first-run setup, which takes no token, so its dashboard is not on the tailnet."
+      echo "Set it up through SSH from your own computer: ssh -L 7720:127.0.0.1:7720 root@$hostname, then open"
+      echo "http://localhost:7720/dashboard. Then run this script again to put the dashboard on the tailnet."
+      ;;
+    *)
+      off_tailnet 9443
+      echo "install.sh: asphodel did not answer in two minutes, so its dashboard is not on the tailnet."
+      echo "See: cd $dir && docker compose logs asphodel. Then run this script again."
+      ;;
+  esac
 
   step "Done"
   docker compose ps
@@ -227,8 +247,39 @@ on_tailnet_https() {
   fi
 }
 
+# Takes a port off the tailnet when `tailscale serve` has it there. A port that stays on fails the install.
+off_tailnet() {
+  local https=$1
+  if timeout 60 tailscale serve status --json 2>/dev/null | grep -q "\"$https\""; then
+    if ! timeout 60 tailscale serve --https="$https" off; then
+      echo "install.sh: port $https is still on the tailnet: tailscale serve --https=$https off failed." >&2
+      exit 1
+    fi
+  fi
+}
+
 on_tailnet() {
   tailscale ip -4 >/dev/null 2>&1
+}
+
+# What asphodel's health check says, which needs no token: `ready` once it is set up and has started, `setup` while
+# it waits for its first-run setup, and nothing when it has said neither in two minutes.
+asphodel_state() {
+  local health
+  for _ in $(seq 60); do
+    health=$(curl -fsS --max-time 5 http://127.0.0.1:7720/v1/health 2>/dev/null || true)
+    case $health in
+      *'"ready":true'*)
+        echo ready
+        return
+        ;;
+      *'"setup":true'*)
+        echo setup
+        return
+        ;;
+    esac
+    sleep 2
+  done
 }
 
 # A command in chad's container. One that reads nothing is given no input, so it cannot take this script's.

@@ -92,7 +92,7 @@ const server = () => {
   }
 }
 
-it("an install whose seed fails part way fails, and the next run finishes it, puts the desktop and the dashboard on the tailnet alone and leaves the firewall alone", () => {
+it("an install whose seed fails part way fails, and the next run finishes it, puts the dashboard on the tailnet only once asphodel is set up and leaves the firewall alone", () => {
   const { fake, git, install, calls } = server()
   const marker = join(fake, "data/home/.deploy-seeded")
   // The server is on a tailnet already, which alone closes nothing.
@@ -103,6 +103,9 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
   expect(existsSync(marker)).toBe(false)
 
   rmSync(join(fake, "fail-apply"))
+  // asphodel waits for its first-run setup, on a server where an earlier install put the dashboard on the tailnet.
+  writeFileSync(join(fake, "health"), '{"ready":false,"setup":true}')
+  writeFileSync(join(fake, "serve-status"), '{"TCP":{"9443":{"HTTPS":true}}}')
   expect(install([]).status).toBe(0)
   expect(existsSync(marker)).toBe(true)
   expect(existsSync(join(fake, "opt/compose.yaml"))).toBe(true)
@@ -115,17 +118,44 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
   expect(readFileSync(join(fake, "secrets"), "utf8")).toBe("ASPHODEL_TOKEN\n")
   expect(calls().filter((call) => call.startsWith("ufw "))).toEqual([])
 
-  // Compose publishes the desktop and the dashboard on the server's loopback alone, and `tailscale serve` takes those
-  // two ports to the tailnet. Nothing calls `tailscale funnel`, which would take them to the internet.
+  // Compose publishes the desktop and the dashboard on the server's loopback alone, and the browser shares no
+  // network with asphodel. `tailscale serve` takes the desktop to the tailnet, and the dashboard only once asphodel
+  // is set up, since its setup takes no token. Nothing calls `tailscale funnel`, which would reach the internet.
   const compose = parse(
     readFileSync(join(root, "deploy/compose.yaml"), "utf8"),
-  ) as { services: Record<string, { ports?: ReadonlyArray<string> }> }
+  ) as {
+    services: Record<
+      string,
+      {
+        ports?: ReadonlyArray<string>
+        networks?: ReadonlyArray<string> | Record<string, unknown>
+      }
+    >
+  }
+  const { services } = compose
   expect(
-    Object.values(compose.services).flatMap((service) => service.ports ?? []),
+    Object.values(services).flatMap((service) => service.ports ?? []),
   ).toEqual(["127.0.0.1:7720:7720", "127.0.0.1:3000:3000"])
+  const networks = (name: string) => {
+    const listed = services[name]?.networks ?? []
+    return Array.isArray(listed) ? listed : Object.keys(listed)
+  }
   expect(
-    calls().filter((call) => /^tailscale (serve|funnel)\b/.test(call)),
-  ).toEqual([
+    networks("chromium").filter((network) =>
+      networks("asphodel").includes(network),
+    ),
+  ).toEqual([])
+  const served = () =>
+    calls().filter((call) => /^tailscale (serve|funnel)\b/.test(call))
+  expect(served()).toEqual([
+    "tailscale serve --bg --https=8443 http://127.0.0.1:3000",
+    "tailscale serve status --json",
+    "tailscale serve --https=9443 off",
+  ])
+
+  writeFileSync(join(fake, "health"), '{"ready":true,"setup":false}')
+  expect(install([]).status).toBe(0)
+  expect(served().slice(3)).toEqual([
     "tailscale serve --bg --https=8443 http://127.0.0.1:3000",
     "tailscale serve --bg --https=9443 http://127.0.0.1:7720",
   ])

@@ -3,4 +3,5 @@ echo "tailscale $*" >>"$FAKE/calls"
 case "$1" in
   ip) cat "$FAKE/tailnet" 2>/dev/null ;;
   up) [ ! -e "$FAKE/fail-join" ] && echo 100.64.0.7 >"$FAKE/tailnet" ;;
+  serve) [ "$2 $3" != "status --json" ] || cat "$FAKE/serve-status" 2>/dev/null ;;
 esac
