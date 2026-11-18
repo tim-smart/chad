@@ -6,7 +6,9 @@
 // restart forgets everything.
 //
 // The mask is a match of the exact value, nothing more: a script that encodes the value, splits it with other text,
-// writes it to a file or sends it somewhere gets past it.
+// writes it to a file or sends it somewhere gets past it. A value that is an address, such as the one a browser ended
+// on after an OAuth approval, also masks each of its query and fragment parameters' values, as they are written in the
+// address and decoded, so the `code` a script pulls out of it stays masked.
 import { randomUUID } from "node:crypto"
 import { Deferred, type Duration, Exit } from "effect"
 import type { Store } from "../plugins/request-secret/Once.ts"
@@ -34,6 +36,31 @@ export interface Daemon extends Store {
   readonly holds: (session: string) => boolean
   /** Forgets the values a session was given. The end of each of its turns calls this. */
   readonly forget: (session: string) => void
+}
+
+/** The shortest parameter value of an address that is masked on its own, so a value such as `0` masks nothing else. */
+const partLength = 8
+
+/** The values of the query and fragment parameters of a value that parses as an address, raw and decoded. */
+const parts = (value: string): ReadonlyArray<string> => {
+  if (!URL.canParse(value)) return []
+  const url = new URL(value)
+  const found = new Set<string>()
+  for (const params of [url.search.slice(1), url.hash.slice(1)]) {
+    for (const pair of params.split("&")) {
+      const equals = pair.indexOf("=")
+      if (equals === -1) continue
+      const raw = pair.slice(equals + 1)
+      found.add(raw)
+      try {
+        found.add(decodeURIComponent(raw))
+        found.add(decodeURIComponent(raw.replaceAll("+", " ")))
+      } catch {
+        // A malformed escape keeps the raw value alone.
+      }
+    }
+  }
+  return [...found].filter((part) => part.length >= partLength)
 }
 
 /** One request that waits for the owner's form. */
@@ -104,7 +131,9 @@ export const make = (deadline: Duration.Duration): Daemon => {
       // The value is masked from here on, before the script that asked can print it.
       if (value !== "") {
         const values = given.get(request.session) ?? []
-        if (!values.includes(value)) values.push(value)
+        for (const masked of [value, ...parts(value)]) {
+          if (!values.includes(masked)) values.push(masked)
+        }
         values.sort((a, b) => b.length - a.length)
         given.set(request.session, values)
       }

@@ -640,8 +640,15 @@ const onceRequest = async (running: Scenario, thread: ChatThread.ChatThread) =>
     )
   ).find((message) => message.text.includes("one-off value"))!
 
-test("the agent's requestOnce waits in its turn for the owner's form, a stranger's click opens no form, and only the calling script gets the owner's value: a traced command, a print, a command's output saved to a temporary file and a thrown error carry a mask, a command that prints it or a signal ends after the turn has ended carries the mask still, a later turn reads no copy from the tasks, and the value is nowhere on the volume, in the chat or in what the model is sent", async () => {
-  const value = "once-7c3e9a41d2"
+test("the agent's requestOnce waits in its turn for the owner's form, a stranger's click opens no form, and only the calling script gets the owner's value, an OAuth callback address of a few hundred characters: a traced command, a print, the address's code pulled out of it raw and decoded, a command's output saved to a temporary file and a thrown error carry a mask, a command that prints it or a signal ends after the turn has ended carries the mask still, a later turn reads no copy from the tasks, and neither the value nor its code is on the volume, in the chat or in what the model is sent", async () => {
+  // The code as the address carries it, percent-encoded, and as a script decodes it.
+  const raw = "4%2F0Ab7c3e9a41d2once"
+  const decoded = "4/0Ab7c3e9a41d2once"
+  const scopes = ["calendar.events", "calendar.readonly", "userinfo.email"]
+    .map((scope) => `https://www.googleapis.com/auth/${scope}`)
+    .join(" ")
+  const value = `http://localhost/oauth/callback?state=st-9f2b6d81c4a7e035&iss=https%3A%2F%2Faccounts.google.com&code=${raw}&scope=${encodeURIComponent(scopes)}&authuser=0&prompt=consent`
+  expect(value.length).toBeGreaterThan(250)
   const running = await scenario({
     plugins: [{ name: "request-secret", plugin: requestSecret }],
   })
@@ -651,8 +658,11 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
   await fakes.model.script([
     runs(
       [
-        `const code = await requestOnce({ name: "SMS_CODE", reason: "example.com sent a login code by SMS to your phone." })`,
+        `const code = await requestOnce({ name: "OAUTH_CALLBACK", reason: "the address your browser ended on after you approved the sign-in." })`,
         `console.log(await run("test -n " + JSON.stringify(code) + " && echo nonempty"))`,
+        // An OAuth script's first step: the code out of the address, decoded and as written.
+        `const param = code.split("code=")[1].split("&")[0]`,
+        `console.log("param " + decodeURIComponent(param) + " raw " + param)`,
         // A command's output is kept with its task, which a later turn can read.
         `await run("printf 'code=%s' " + JSON.stringify(code))`,
         `await bash({ command: "while [ ! -e " + ${JSON.stringify(go)} + " ]; do sleep 0.05; done; printf 'late=%s' " + JSON.stringify(code), description: "a late print", background: true })`,
@@ -680,7 +690,7 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
   const thread = await fakes.chat.makeThread("direct")
   await says(running, thread, "log in to example.com")
   const request = await onceRequest(running, thread)
-  expect(request.text).toContain("SMS_CODE")
+  expect(request.text).toContain("OAUTH_CALLBACK")
   expect(await fakes.model.calls()).toHaveLength(1)
 
   const stranger = await Effect.runPromise(
@@ -710,6 +720,7 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
   const output = results(returned[1]).at(-1) ?? ""
   expect(output).toContain("nonempty")
   expect(output).toContain(`got ${Once.mask}`)
+  expect(output).toContain(`param ${Once.mask} raw ${Once.mask}`)
   expect(output).toContain(`the site refused ${Once.mask}`)
   // The temporary file holds the mask, and not the value.
   const spooled = /Saved to: (\S+)/.exec(output)?.[1]
@@ -740,7 +751,9 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
   expect(read).toContain(reverse(`late=${Once.mask}`))
   expect(read).toContain(reverse("a late print"))
   expect(read).toContain(reverse("receipt of signal: 'SIGTERM'"))
-  expect(JSON.stringify(later[3])).not.toContain(reverse(value))
+  for (const secret of [value, raw, decoded]) {
+    expect(JSON.stringify(later[3])).not.toContain(reverse(secret))
+  }
   // The traced command line was logged with the mask.
   expect(
     running
@@ -750,14 +763,17 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
 
   // The daemon's log, its database and the session's directory are on the volume, and the chat and the model are not.
   await running.stop()
-  expect(
-    files(running.data).filter((path) =>
-      readFileSync(join(running.data, path), "utf8").includes(value),
-    ),
-  ).toEqual([])
-  const chat = await Effect.runPromise(running.chat.calls)
-  expect(JSON.stringify(chat)).not.toContain(value)
-  expect(JSON.stringify(await fakes.model.calls())).not.toContain(value)
+  const chat = JSON.stringify(await Effect.runPromise(running.chat.calls))
+  const model = JSON.stringify(await fakes.model.calls())
+  for (const secret of [value, raw, decoded]) {
+    expect(
+      files(running.data).filter((path) =>
+        readFileSync(join(running.data, path), "utf8").includes(secret),
+      ),
+    ).toEqual([])
+    expect(chat).not.toContain(secret)
+    expect(model).not.toContain(secret)
+  }
   // The executor took its temporary file with it when it closed.
   expect(existsSync(spooled!)).toBe(false)
   expect(await running.chad(["secret", "list"])).toMatchObject({

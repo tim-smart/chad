@@ -47,12 +47,16 @@ export const OnceButton = ChatInteraction.button("once", {
   value: RequestId,
 })
 
-/** The form a click on a one-off request opens. Its metadata is the request's id, and it has no note. */
+/**
+ * The form a click on a one-off request opens. Its metadata is the request's id, and it has no note. The field is
+ * multiline, as the MCP sign-in's is, so an address of a few hundred characters shows whole on a phone. It sets no
+ * maximum, which leaves Discord's 4000 characters.
+ */
 export const OnceForm = ChatInteraction.modal("once-form", {
   title: "Enter a one-off value",
   submitLabel: "Send",
   metadata: RequestId,
   fields: {
-    value: ChatInteraction.textInput({ label: "Value" }),
+    value: ChatInteraction.textInput({ label: "Value", multiline: true }),
   },
 })
