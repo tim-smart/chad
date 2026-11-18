@@ -54,11 +54,9 @@ The server is kept private in four ways:
    "Advanced Options" tick "Add Initialization scripts" and paste `deploy/cloud-init.yaml` as it is. Turn on backups
    here if you want DigitalOcean's.
 
-   [This link](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3) is
-   meant to open the create page with that image and size chosen, in the region `nyc3`. It has not been tried: its
-   parameters are the ones DigitalOcean's Marketplace links use, and nothing says they hold for a plain Ubuntu image.
-   Check the page against the settings above. The link cannot carry the initialization script, so you paste that
-   either way.
+   [This link](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3)
+   opens the create page with that image and size chosen, in the region `nyc3`. It carries neither your SSH key nor
+   the initialization script, so you choose the one and paste the other either way.
 
    With `doctl`, the same Droplet is one command:
 
@@ -381,9 +379,9 @@ restart was lost.
 A seed that fails part way was run against the real chad image: the installer failed, and the next run finished the
 volume. `test/unit/deploy.test.ts` holds that, the key that joins nothing and the lockdown's refusals.
 
-No part of it has run on DigitalOcean or on a real tailnet, because neither was available without paying for one or
-joining someone's. `docs/live-checks.md`, check D5, is the list of what is still to see: the link to the create page,
-the Droplet's first boot, the sign-in at the installer's link, the desktop at its `https` address and what a tailnet
-with HTTPS off does there, that a Tailscale SSH session is one the lockdown accepts, the closed ports as the internet
-sees them, chad on Discord with its model, and a restore that recalls a memory. asphodel's ChatGPT login after a
-restore has not been run either.
+The link to DigitalOcean's create page was opened by the repository's owner, who confirmed that it works. No other
+part has run on DigitalOcean or on a real tailnet, because neither was available without paying for one or joining
+someone's. `docs/live-checks.md`, check D5, is the list of what is still to see: the Droplet's first boot, the
+sign-in at the installer's link, the desktop at its `https` address and what a tailnet with HTTPS off does there,
+that a Tailscale SSH session is one the lockdown accepts, the closed ports as the internet sees them, chad on Discord
+with its model, and a restore that recalls a memory. asphodel's ChatGPT login after a restore has not been run either.

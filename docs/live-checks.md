@@ -31,7 +31,8 @@ A check with no recorded result has not run.
 | D5. The cloud deployment                                      | `deploy/install.sh` puts a Droplet on your tailnet with the three containers, and `install.sh lockdown` closes it.               | not run |
 
 Checks 1 to 12 are the hand checks and the Codex checks. D1 to D5 are deployment checks. None of them has been run
-yet, and the automated suite only runs fakes of Discord, Codex, asphodel and an OAuth MCP server.
+yet, and the automated suite only runs fakes of Discord, Codex, asphodel and an OAuth MCP server. One step of D5 has
+been seen, the link in its step 1, and D5 says so.
 
 ## Before you start
 
@@ -408,9 +409,12 @@ docker start asphodel chad
 `docs/deploying.md` has only been run in a local virtual machine, with no tailnet. This runs it on a real Droplet.
 You need what its "What you need" lists.
 
-1. Open the link in "Create the server". Note whether the page has Ubuntu 24.04 x64, the 2 vCPU and 4 GB size and the
-   region `nyc3` chosen, since the link's parameters have never been tried. Set whatever it left out by hand, paste
-   `deploy/cloud-init.yaml` unchanged, and create the Droplet. Note its public address.
+One part has a result. On 2026-11-18 the repository's owner opened the link in step 1 and confirmed that it works.
+That is the link alone: no Droplet was reported made from it, and every other step below is not run.
+
+1. Open the link in "Create the server". The page has Ubuntu 24.04 x64, the 2 vCPU and 4 GB size and the region
+   `nyc3` chosen. Choose your SSH key, paste `deploy/cloud-init.yaml` unchanged, and create the Droplet. Note its
+   public address.
 2. Run `ssh root@<the public address>`, and there `cloud-init status --wait` and then `docker ps` and
    `tailscale status`. The first boot is done, no container is listed, and Tailscale says it is logged out.
 3. In that session, run `bash /opt/chad/install.sh`. It prints a link and starts nothing. In a second session,
@@ -437,7 +441,6 @@ You need what its "What you need" lists.
     on this server. `chad status` shows no problem and `asphodel status` exits 0. In the DM, send `/new` and ask
     for what you told chad in step 9. The new session has no history, so the answer comes from asphodel.
 
-Passes when every step shows what it says. Record what step 1 found either way: a link that chooses nothing costs
-only the clicks, and the guide then says so. If the installer in step 3 says the desktop is not on the tailnet, record
+Passes when every step shows what it says. If the installer in step 3 says the desktop is not on the tailnet, record
 what `tailscale serve` printed above it. Fix what it names, such as HTTPS certificates that are off for the
 tailnet, run the installer again, and record that path too.
