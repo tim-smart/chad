@@ -105,5 +105,8 @@ networks:
 
 volumes:
   chad-data:
+    # A restore goes onto a volume of another name, which CHAD_VOLUME in .env then names, so the old one is kept
+    # until the restored chad has been checked.
+    name: ${CHAD_VOLUME:-chad_chad-data}
   asphodel-data:
   chromium-profile:

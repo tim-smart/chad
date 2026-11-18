@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# `docker compose exec -T chad <command>` runs the command on the stand-in volume, with chad's tools on PATH.
+echo "docker $*" >>"$FAKE/calls"
+[ "$1 $2" = "compose exec" ] || exit 0
+shift 4
+PATH="$FAKE/container:$PATH" exec "${@//\/data\//$FAKE/data/}"

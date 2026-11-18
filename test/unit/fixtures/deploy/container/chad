@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+case "$1 $2" in
+  "secret list") cat "$FAKE/secrets" 2>/dev/null || true ;;
+  "secret set") cat >/dev/null && echo "$3" >>"$FAKE/secrets" ;;
+  "apply -m")
+    [ ! -e "$FAKE/fail-apply" ] || exit 1
+    git -C "$FAKE/data/repo/work" add -A
+    git -C "$FAKE/data/repo/work" -c user.name=chad -c user.email=chad@localhost commit -qm "$3"
+    echo "chad apply" >>"$FAKE/calls"
+    ;;
+esac

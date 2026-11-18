@@ -28,7 +28,7 @@ A check with no recorded result has not run.
 | D2. The volume's filesystem                                   | The volume's filesystem is one chad's lock and SQLite are safe on.                                                               | not run |
 | D3. asphodel for real                                         | The asphodel plugin talks to a real asphodel daemon with its token.                                                              | not run |
 | D4. Backup and restore                                        | chad's tar and asphodel's backup restore onto two fresh volumes, and the restored pair recalls a memory saved before the backup. | not run |
-| D5. The cloud deployment                                      | `deploy/cloud-init.yaml` makes a Droplet that is on your tailnet, closed to the internet, and runs the three containers.         | not run |
+| D5. The cloud deployment                                      | `deploy/cloud-init.yaml` makes a Droplet on your tailnet with the three containers, and `install.sh lockdown` closes it.         | not run |
 
 Checks 1 to 12 are the hand checks and the Codex checks. D1 to D5 are deployment checks. None of them has been run
 yet, and the automated suite only runs fakes of Discord, Codex, asphodel and an OAuth MCP server.
@@ -410,19 +410,28 @@ You need what its "What you need" lists.
 
 1. Create the Droplet as "Create the server" says, with a Tailscale auth key for one use in the user data. Note the
    Droplet's public address.
-2. Wait for the machine `chad` on the "Machines" page of the Tailscale admin console, then run `ssh root@chad`.
-3. On the server, run `tail -n 12 /var/log/cloud-init-output.log`. It lists the containers `chad`, `asphodel` and
-   `chromium` as up, and says `Its public ports are closed.`
-4. On the server, run `ufw status`. It is active and allows `tailscale0` and `41641/udp`, and nothing else.
-5. From your own computer, run `nc -vz -w 5 <the public address> 22`. It times out.
-6. Run `chad setup` as "Set chad up" says, then send chad a direct message: "Open example.com in the browser and
+2. Wait for the machine `chad` on the "Machines" page of the Tailscale admin console. On the "Keys" page the key no
+   longer shows as usable.
+3. Run `ssh root@<the public address>`, and there `bash /opt/chad/install.sh lockdown`. It says the session did not
+   come in over Tailscale and exits non-zero, and `ufw status` says `inactive`.
+4. Run `ssh root@chad`, and there `tail -n 12 /var/log/cloud-init-output.log`. It lists the containers `chad`,
+   `asphodel` and `chromium` as up, and says the public ports are as they were.
+5. In that session, run `bash /opt/chad/install.sh lockdown` and then `ufw status`. It is active and allows
+   `tailscale0` and `41641/udp`, and nothing else.
+6. From your own computer, run `nc -vz -w 5 <the public address> 22`. It times out. A new `ssh root@chad` connects.
+7. Run `chad setup` as "Set chad up" says, then send chad a direct message: "Open example.com in the browser and
    tell me the page's title." It answers `Example Domain`.
-7. Finish asphodel's setup as "Set asphodel up" says, with an LLM chosen. Send chad two more messages, then run
-   `docker compose exec asphodel asphodel bank list` in `/opt/chad`. It shows the bank `chad` with your turns.
-8. Forward the DevTools port as "The browser" says and open `chrome://inspect`. The tab from step 6 is listed, and
+8. Finish asphodel's setup as "Set asphodel up" says, with an LLM chosen. Send chad two more messages, one of them
+   something to recall later, then run `docker compose exec asphodel asphodel bank list` in `/opt/chad`. It shows the
+   bank `chad` with your turns.
+9. Forward the DevTools port as "The browser" says and open `chrome://inspect`. The tab from step 7 is listed, and
    "inspect" shows the page.
-9. Run `reboot` on the server. A minute later `ssh root@chad` works again, and `docker compose ps` in `/opt/chad`
-   shows the three containers up.
+10. Run `reboot` on the server. A minute later `ssh root@chad` works again, and `docker compose ps` in `/opt/chad`
+    shows the three containers up.
+11. Take the four copies as "What is kept, and backups" says, then follow "Restoring chad" and "Restoring asphodel"
+    on this server. `chad status` shows no problem and `asphodel status` exits 0. In the DM, send `/new` and ask
+    for what you told chad in step 8. The new session has no history, so the answer comes from asphodel.
 
-Passes when every step shows what it says. If step 2 never happens, the key was refused: `docs/deploying.md`,
-"Create the server", says how to get in and finish by hand, and that path is worth recording too.
+Passes when every step shows what it says. If step 2 never happens, the join failed. `docs/deploying.md`, "Create
+the server", says how to get in and finish by hand. `docker ps` then lists no container until the installer has run
+again, and that path is worth recording too.

@@ -3,7 +3,8 @@
 # boot. `docs/deploying.md` is the guide.
 #
 # Put a Tailscale auth key in place of the one below before you use this. Make the key for one use, because the
-# server keeps this file where everything that runs on it can read it.
+# server keeps this file where everything that runs on it can read it. The installer joins the tailnet with it before
+# it starts any container, and starts nothing when the join fails.
 runcmd:
   - |
     set -eu

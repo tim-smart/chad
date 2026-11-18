@@ -1,23 +1,43 @@
 #!/usr/bin/env bash
 # Puts chad, asphodel and a headless Chromium on one Ubuntu or Debian server, and Tailscale on the server itself.
-# `docs/deploying.md` is the guide. Run it as root. A second run updates the files and the images and keeps the data.
+# `docs/deploying.md` is the guide. Run it as root.
 #
-#   TS_AUTHKEY   A Tailscale auth key. With it the server joins your tailnet, and the firewall then closes every
-#                public port, SSH included. Without it nothing about SSH or the firewall changes.
+#   install.sh           Installs, and on a later run updates the files and the images. The data is kept. It never
+#                        touches the firewall.
+#   install.sh lockdown  Closes every public port, SSH included. It only does so in an SSH session that came in over
+#                        Tailscale, which shows that way in works before the other one closes.
+#
+#   TS_AUTHKEY   A Tailscale auth key. With it the server joins your tailnet before any container starts. Without it
+#                nothing joins, and `tailscale up` is yours to run.
 #   TS_HOSTNAME  The server's name on the tailnet. The default is chad.
 #   CHAD_REF     The branch, tag or commit of tim-smart/chad that deploy/ is taken from. The default is main.
 #   CHAD_DIR     Where the files go on the server. The default is /opt/chad.
 set -euo pipefail
 
-main() {
-  local dir=${CHAD_DIR:-/opt/chad}
-  local ref=${CHAD_REF:-main}
-  local hostname=${TS_HOSTNAME:-chad}
+# What says a chad volume was given asphodel and the browser. It is on the volume, so it goes where the volume goes:
+# a new volume has none, and a restored one has its own.
+marker=/data/home/.deploy-seeded
 
+main() {
   if [ "$(id -u)" != 0 ]; then
     echo "install.sh: run this as root" >&2
     exit 1
   fi
+  case ${1:-install} in
+    install) install ;;
+    lockdown) lockdown ;;
+    *)
+      echo "usage: install.sh [lockdown]" >&2
+      exit 2
+      ;;
+  esac
+}
+
+install() {
+  local dir=${CHAD_DIR:-/opt/chad}
+  local ref=${CHAD_REF:-main}
+  local hostname=${TS_HOSTNAME:-chad}
+
   if ! command -v apt-get >/dev/null; then
     echo "install.sh: this needs apt-get, so Ubuntu or Debian" >&2
     exit 1
@@ -52,88 +72,148 @@ main() {
     )
   fi
 
+  # The join comes before any container, so a key for one use is used up before anything that runs here could read
+  # it out of the server's user data. A join that fails starts nothing, because the key may still work.
+  if [ -n "${TS_AUTHKEY:-}" ] && ! on_tailnet; then
+    step "Joining the tailnet as $hostname"
+    # The key goes in a file only root can read, so it is on no command line.
+    local key joined=yes
+    key=$(mktemp)
+    printf %s "$TS_AUTHKEY" >"$key"
+    tailscale up --auth-key="file:$key" --ssh --hostname="$hostname" --timeout=60s || joined=no
+    rm -f "$key"
+    if [ "$joined" = no ]; then
+      {
+        echo "install.sh: tailscale up failed, so nothing was started."
+        echo "Revoke the key in the Tailscale admin console unless you know it was used or has expired."
+        echo "Then run: tailscale up --ssh --hostname=$hostname, and this script again."
+      } >&2
+      exit 1
+    fi
+  fi
+
   step "Starting chad, asphodel and Chromium"
   docker compose pull -q
   docker compose up -d --remove-orphans
 
-  if [ ! -e .seeded ]; then
+  if ! healthy; then
+    echo "install.sh: chad did not come up. See: cd $dir && docker compose logs chad" >&2
+    exit 1
+  fi
+
+  if ! in_chad test -e "$marker" </dev/null; then
     step "Giving chad asphodel's token and the browser"
-    if seed; then
-      touch .seeded
-    else
-      echo "install.sh: chad was not given asphodel and the browser. Run install.sh again once chad is up." >&2
+    # A function called as a condition runs with `set -e` off, and would go on past a step that failed. The subshell
+    # is no condition, so the first step that fails ends it.
+    set +e
+    (
+      set -e
+      seed
+    )
+    local seeded=$?
+    set -e
+    if [ "$seeded" != 0 ]; then
+      echo "install.sh: chad was not given all of asphodel and the browser. Run this script again to finish." >&2
+      exit 1
     fi
-  fi
-
-  local tailnet=no
-  if tailscale ip -4 >/dev/null 2>&1; then
-    tailnet=yes
-  elif [ -n "${TS_AUTHKEY:-}" ]; then
-    step "Joining the tailnet as $hostname"
-    # The key goes in a file only root can read, so it is on no command line.
-    local key
-    key=$(mktemp)
-    printf %s "$TS_AUTHKEY" >"$key"
-    if tailscale up --auth-key="file:$key" --ssh --hostname="$hostname" --timeout=60s; then
-      tailnet=yes
-    else
-      echo "install.sh: tailscale up failed, so the firewall is left as it was" >&2
-    fi
-    rm -f "$key"
-  fi
-
-  # Only a server that is on the tailnet loses its public SSH port, so a bad key never locks you out.
-  if [ "$tailnet" = yes ]; then
-    step "Closing every public port"
-    ufw default deny incoming
-    ufw default allow outgoing
-    ufw allow in on tailscale0
-    # Tailscale's own port, which lets two machines talk directly and not through a relay.
-    ufw allow 41641/udp
-    ufw --force enable
   fi
 
   step "Done"
   docker compose ps
-  if [ "$tailnet" = yes ]; then
-    echo "The server is on your tailnet as $(tailscale status --self --peers=false | awk 'NR==1 {print $2}')."
-    echo "Its public ports are closed. Reach it with: ssh root@$hostname"
+  if on_tailnet; then
+    echo "The server is on your tailnet. Its public ports are as they were, SSH included."
+    echo "Once ssh root@$hostname works, close them from that session: bash $dir/install.sh lockdown"
   else
-    echo "The server is not on a tailnet, and its SSH port and firewall are as they were."
-    echo "To join one, run: tailscale up --ssh --hostname=$hostname, then run this script again."
+    echo "The server is not on a tailnet. To join one, run: tailscale up --ssh --hostname=$hostname"
   fi
   echo "Next: cd $dir && docker compose exec chad chad setup"
+}
+
+# Closes every public port. A Tailscale address alone does not show that you can get in over it, since your tailnet's
+# policy decides that, so this asks for the proof: the session it runs in arrived at one of this server's Tailscale
+# addresses. Nothing changes before both checks pass.
+lockdown() {
+  local arrived addresses others
+  arrived=$(awk '{print $3}' <<<"${SSH_CONNECTION:-}")
+  addresses=$(tailscale ip 2>/dev/null || true)
+  if [ -z "$arrived" ] || ! grep -Fxq -- "$arrived" <<<"$addresses"; then
+    {
+      echo "install.sh: this is not an SSH session that came in over Tailscale, so nothing was closed."
+      echo "Connect to the server by its name on your tailnet, as root, and run this again from there."
+    } >&2
+    exit 1
+  fi
+
+  # A rule that lets connections in outlives `default deny`. One that is not this script's is the owner's, and it is
+  # neither kept in silence nor deleted.
+  others=$(
+    ufw show added |
+      grep -E '^ufw (allow|limit) ' |
+      grep -Fxv -e 'ufw allow in on tailscale0' -e 'ufw allow 41641/udp' || true
+  )
+  if [ -n "$others" ]; then
+    {
+      echo "install.sh: these firewall rules would still let connections in, so nothing was closed:"
+      echo "$others"
+      echo "Delete each one, as in: ufw delete allow 22/tcp, and run this again."
+    } >&2
+    exit 1
+  fi
+
+  step "Closing every public port"
+  ufw default deny incoming
+  ufw default allow outgoing
+  ufw allow in on tailscale0
+  # Tailscale's own port, the one thing left open. With it two machines reach each other directly, and without it
+  # they may fall back to a slower relay. It answers nothing that does not hold a key of your tailnet.
+  ufw allow 41641/udp
+  ufw --force enable
+  echo "Every incoming connection is now refused unless it comes over Tailscale, SSH included."
+  echo "41641/udp is open on purpose: it is Tailscale's own port."
 }
 
 step() {
   printf '\n==> %s\n' "$*"
 }
 
-# What a new chad volume is given, once: asphodel's token in the secret store, the asphodel plugin turned on, the
-# `browser` skill and agent-browser. Each part is skipped when the volume already has it, so a volume that was
-# restored or changed by hand is left alone.
-seed() {
-  local chad=(docker compose exec -T chad)
-  local token ready=no changed=no
-  token=$(sed -n 's/^ASPHODEL_TOKEN=//p' .env)
+on_tailnet() {
+  tailscale ip -4 >/dev/null 2>&1
+}
 
+# A command in chad's container. One that reads nothing is given no input, so it cannot take this script's.
+in_chad() {
+  docker compose exec -T chad "$@"
+}
+
+healthy() {
   for _ in $(seq 60); do
-    if "${chad[@]}" chad health >/dev/null 2>&1; then
-      ready=yes
-      break
+    if in_chad chad health >/dev/null 2>&1 </dev/null; then
+      return 0
     fi
     sleep 2
   done
-  [ "$ready" = yes ] || return 1
+  return 1
+}
 
-  if ! "${chad[@]}" chad secret list | grep -q '^ASPHODEL_TOKEN\b'; then
+# What a chad volume is given, once: asphodel's token in the secret store, the asphodel plugin turned on, the `browser`
+# skill and agent-browser. Each part is skipped when the volume already has it, so a run that was cut is finished by
+# the next, and what the owner changed is left alone. The marker is written last.
+seed() {
+  local token listed json pending wrote=no
+  local new=/data/home/.deploy-seed.new
+  token=$(sed -n 's/^ASPHODEL_TOKEN=//p' .env)
+
+  listed=$(in_chad chad secret list </dev/null)
+  if ! grep -q '^ASPHODEL_TOKEN\b' <<<"$listed"; then
     printf %s "$token" |
-      "${chad[@]}" chad secret set ASPHODEL_TOKEN --note "asphodel's bearer token, from deploy/install.sh"
+      in_chad chad secret set ASPHODEL_TOKEN --note "asphodel's bearer token, from deploy/install.sh"
   fi
 
-  # chad.json on a new volume holds no plugin. One that holds anything else is the owner's.
-  if [ "$("${chad[@]}" cat /data/repo/work/chad.json | tr -d ' \n\t')" = '{"plugins":{}}' ]; then
-    "${chad[@]}" sh -c 'cat > /data/repo/work/chad.json' <<'EOF'
+  # chad.json on a new volume holds no plugin. One that holds anything else is the owner's. A file is written beside
+  # the repo and moved in, so a write that is cut leaves no half of a file.
+  json=$(in_chad cat /data/repo/work/chad.json </dev/null)
+  if [ "$(tr -d ' \n\t' <<<"$json")" = '{"plugins":{}}' ]; then
+    in_chad sh -c "cat > $new && mv $new /data/repo/work/chad.json" <<'EOF'
 {
   "plugins": {
     "asphodel": {
@@ -146,22 +226,26 @@ seed() {
   }
 }
 EOF
-    changed=yes
+    wrote=yes
   fi
 
-  if ! "${chad[@]}" test -e /data/repo/work/skills/browser; then
-    "${chad[@]}" mkdir -p /data/repo/work/skills/browser
-    "${chad[@]}" sh -c 'cat > /data/repo/work/skills/browser/SKILL.md' <browser/SKILL.md
-    changed=yes
+  if ! in_chad test -s /data/repo/work/skills/browser/SKILL.md </dev/null; then
+    in_chad sh -c "mkdir -p /data/repo/work/skills/browser && cat > $new &&
+      mv $new /data/repo/work/skills/browser/SKILL.md" <browser/SKILL.md
+    wrote=yes
   fi
 
-  if [ "$changed" = yes ]; then
-    "${chad[@]}" chad apply -m "Turn asphodel on and add the browser skill"
+  # An apply is due for what this run wrote, and for what an earlier run wrote and was cut before applying.
+  pending=$(in_chad git -C /data/repo/work status --porcelain -- chad.json skills/browser </dev/null)
+  if [ "$wrote" = yes ] || [ -n "$pending" ]; then
+    in_chad chad apply -m "Turn asphodel on and add the browser skill" </dev/null
   fi
 
-  if ! "${chad[@]}" sh -c 'command -v agent-browser' >/dev/null; then
-    "${chad[@]}" npm install -g --no-audit --no-fund agent-browser
+  if ! in_chad sh -c 'command -v agent-browser' >/dev/null </dev/null; then
+    in_chad npm install -g --no-audit --no-fund agent-browser </dev/null
   fi
+
+  in_chad touch "$marker" </dev/null
 }
 
 main "$@"
