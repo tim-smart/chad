@@ -8,7 +8,8 @@
 // The mask is a match of the exact value, nothing more: a script that encodes the value, splits it with other text,
 // writes it to a file or sends it somewhere gets past it. A value that is an address, such as the one a browser ended
 // on after an OAuth approval, also masks each of its query and fragment parameters' values, as they are written in the
-// address and decoded, so the `code` a script pulls out of it stays masked.
+// address and decoded, so the `code` a script pulls out of it stays masked. Each of these is also masked as a command
+// line spells it in single quotes.
 import { randomUUID } from "node:crypto"
 import { Deferred, type Duration, Exit } from "effect"
 import type { Store } from "../plugins/request-secret/Once.ts"
@@ -66,6 +67,12 @@ const parts = (value: string): ReadonlyArray<string> => {
   }
   return [...found].filter((part) => part.length >= partLength)
 }
+
+/**
+ * A value as a shell command line spells it in single quotes, each `'` written `'\''`, which is how the `credentials`
+ * skill hands a value to a command. The traced command line then holds this spelling and not the value.
+ */
+const quoted = (value: string) => value.replaceAll("'", "'\\''")
 
 /** One request that waits for the owner's form. */
 interface Pending {
@@ -156,8 +163,10 @@ export const make = (deadline: Duration.Duration): Daemon => {
       // The value is masked from here on, before the script that asked can print it.
       if (value !== "") {
         const values = given.get(request.session) ?? []
-        for (const masked of [value, ...parts(value)]) {
-          if (!values.includes(masked)) values.push(masked)
+        for (const part of [value, ...parts(value)]) {
+          for (const masked of new Set([part, quoted(part)])) {
+            if (!values.includes(masked)) values.push(masked)
+          }
         }
         values.sort((a, b) => b.length - a.length)
         given.set(request.session, values)

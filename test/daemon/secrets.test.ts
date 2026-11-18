@@ -647,11 +647,13 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
   const scopes = ["calendar.events", "calendar.readonly", "userinfo.email"]
     .map((scope) => `https://www.googleapis.com/auth/${scope}`)
     .join(" ")
-  // A parameter with a malformed escape, which a URL parser decodes in part, and one in the fragment.
+  // A parameter with a malformed escape, which a URL parser decodes in part, one in the fragment, and an apostrophe,
+  // which a single-quoted command line spells another way.
   const nonce = "n%ZZ-4c1a/9e7b"
   const fragment = "fr-8d1e5a2c7b904f36"
-  const value = `http://localhost/oauth/callback?state=st-9f2b6d81c4a7e035&iss=https%3A%2F%2Faccounts.google.com&code=${raw}&scope=${encodeURIComponent(scopes)}&nonce=n%ZZ-4c1a%2F9e7b&authuser=0&prompt=consent#session_state=${fragment}`
-  const secrets = [value, raw, decoded, nonce, fragment]
+  const value = `http://localhost/oauth/callback?state=st-9f2b6d81c4a7e035&iss=https%3A%2F%2Faccounts.google.com&code=${raw}&scope=${encodeURIComponent(scopes)}&nonce=n%ZZ-4c1a%2F9e7b&hint=owner's-calendar&authuser=0&prompt=consent#session_state=${fragment}`
+  const quoted = value.replaceAll("'", "'\\''")
+  const secrets = [value, quoted, raw, decoded, nonce, fragment]
   expect(value.length).toBeGreaterThan(250)
   const running = await scenario({
     plugins: [{ name: "request-secret", plugin: requestSecret }],
@@ -669,9 +671,9 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
         `console.log("param " + decodeURIComponent(param) + " raw " + param)`,
         // A helper that parses the address as a URL, which decodes as a form does.
         `console.log(await run("node -e 'const u = new URL(process.argv[1]); console.log(\\"parsed\\", u.searchParams.get(\\"code\\"), u.searchParams.get(\\"nonce\\"), new URLSearchParams(u.hash.slice(1)).get(\\"session_state\\"))' " + JSON.stringify(code)))`,
-        // The address written in two chunks, cut after its code, which is masked whole all the same.
-        `const cut = code.indexOf("&scope=")`,
-        `console.log(await run("printf 'split=%s' " + JSON.stringify(code.slice(0, cut)) + "; sleep 0.2; printf '%s=end' " + JSON.stringify(code.slice(cut))))`,
+        // The value handed to a command in single quotes, as the credentials skill does.
+        `const sh = (text) => "'" + text.replaceAll("'", "'\\\\''") + "'"`,
+        `console.log(await run("test -n " + sh(code) + " && echo quoted"))`,
         // A command's output is kept with its task, which a later turn can read.
         `await run("printf 'code=%s' " + JSON.stringify(code))`,
         `await bash({ command: "while [ ! -e " + ${JSON.stringify(go)} + " ]; do sleep 0.05; done; printf 'late=%s' " + JSON.stringify(code), description: "a late print", background: true })`,
@@ -731,7 +733,8 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
   expect(output).toContain(`got ${Once.mask}`)
   expect(output).toContain(`param ${Once.mask} raw ${Once.mask}`)
   expect(output).toContain(`parsed ${Once.mask} ${Once.mask} ${Once.mask}`)
-  expect(output).toContain(`split=${Once.mask}=end`)
+  expect(output).toContain(`test -n '${Once.mask}' && echo quoted`)
+  expect(output).toContain("\nquoted")
   expect(output).toContain(`the site refused ${Once.mask}`)
   // The temporary file holds the mask, and not the value.
   const spooled = /Saved to: (\S+)/.exec(output)?.[1]
@@ -770,6 +773,13 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
     running
       .log()
       .some((line) => JSON.stringify(line).includes(`test -n \\"${Once.mask}`)),
+  ).toBe(true)
+  expect(
+    running
+      .log()
+      .some((line) =>
+        JSON.stringify(line).includes(`test -n '${Once.mask}' && echo quoted`),
+      ),
   ).toBe(true)
 
   // The daemon's log, its database and the session's directory are on the volume, and the chat and the model are not.

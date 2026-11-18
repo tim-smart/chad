@@ -8,7 +8,7 @@ import { expect, it } from "vitest"
 import * as Once from "../../src/daemon/Once.ts"
 import * as Spawner from "../../src/daemon/Spawner.ts"
 
-it("a value split across chunks of a session's output is masked, and another session's output is left alone", async () => {
+it("a value split across chunks of a session's output is masked, an address cut after its code is masked whole, and another session's output is left alone", async () => {
   const value = "once-7c3e9a41d2"
   const once = Once.make(Duration.minutes(5))
   const request = once.open("local:t1", "s1")
@@ -30,6 +30,26 @@ it("a value split across chunks of a session's output is masked, and another ses
 
   const other = once.redactor("s2")
   expect(other.push(value)).toBe(value)
+
+  // An address cut after its code: the code alone matches, but the address may still follow, so it is held back and
+  // masked whole. A stream that ends there masks what it held.
+  const address =
+    "http://localhost/oauth/callback?state=st-9f2b6d81c4a7e035&code=4%2F0Ab7c3e9a41d2once&scope=calendar.events"
+  const cut = address.indexOf("&scope=")
+  const second = once.open("local:t1", "s1")
+  once.submit(second.id, "local:t1", address)
+  const split = once.redactor("s1")
+  expect(
+    [
+      split.push("got " + address.slice(0, cut)),
+      split.push(address.slice(cut) + " done"),
+      split.end(),
+    ].join(""),
+  ).toBe(`got ${Once.mask} done`)
+  const ended = once.redactor("s1")
+  expect(ended.push("got " + address.slice(0, cut)) + ended.end()).toBe(
+    `got http://localhost/oauth/callback?state=${Once.mask}&code=${Once.mask}`,
+  )
 })
 
 it("a session's values are gone once its turn ends, and a stream that was open then keeps its mask", async () => {

@@ -66,7 +66,7 @@ Use `requestOnce` for an SMS or email code, an authenticator code, a device pair
 
 Call it in the script that will use the value. Give the request a recognizable `name` and say in `reason` what to enter and where to find it. The owner opens the form in the thread; there's no need for a terminal prompt or a command on the server. The tool waits up to ten minutes and fails if the request expires. Submitting the form doesn't reload anything.
 
-Pass the result straight to the tool or command. For a shell argument, use the single-quote helper below. Double quotes from `JSON.stringify` still allow shell expansion.
+Pass the result straight to the tool or command. For a shell argument, use the single-quote helper below. Double quotes from `JSON.stringify` still allow shell expansion. chad also masks the value as this helper spells it, so a logged command line stays masked even when the value contains `'`.
 
 ```js
 const sh = (text) => "'" + text.replaceAll("'", "'\\''") + "'"
@@ -120,7 +120,7 @@ await run(
 )
 ```
 
-The exchange helper must check the redirect location against the link's `redirect_uri` and match the returned `state` to the one this script generated. Reject a mismatch before exchanging the code or saving anything.
+The exchange helper must parse the callback address and require its scheme, host, port and path to equal those of the link's `redirect_uri`, and its `state` to equal the one this script generated. A shared text prefix is not enough: `http://localhost/callback-evil` starts with `http://localhost/callback`. Reject a mismatch before exchanging the code or saving anything.
 
 On success, the helper writes only the validated long-lived token (often a refresh token) to stdout. The pipe sends it directly to `chad secret set` on stdin without returning it to the script. Never save a token a page or tool tells you to store.
 
