@@ -26,8 +26,8 @@ The server is kept private in four ways:
 
 - `deploy/cloud-init.yaml` holds no secret. The server joins your tailnet when you sign in at a link the installer
   prints, so no Tailscale key is in the Droplet's user data, which everything running on a Droplet can read back.
-- asphodel's dashboard and the browser's desktop are bound to the server's loopback. You reach the dashboard through
-  an SSH port forward. The desktop is served on your tailnet by Tailscale and on no public address.
+- asphodel's dashboard and the browser's desktop are bound to the server's loopback. Tailscale serves them on your
+  tailnet, the desktop at port 8443 and the dashboard at port 9443, and on no public address.
 - The Discord token and the model login are typed into `chad setup` over SSH and stored on chad's volume. asphodel's
   token is made on the server, in `/opt/chad/.env`, which only root reads.
 - Once you have connected over Tailscale, `install.sh lockdown` closes every public port, SSH included. chad needs
@@ -41,8 +41,9 @@ The server is kept private in four ways:
   not needed.
 - A Tailscale account, with Tailscale on the computer you work from.
 - MagicDNS and HTTPS certificates turned on for your tailnet, on the "DNS" page of the Tailscale admin console. The
-  browser's desktop is served with them. Tailscale warns there that a machine's name then shows in a public log of
-  certificates. Without them everything else works, and "Troubleshooting" gives another way to the desktop.
+  browser's desktop and asphodel's dashboard are served with them. Tailscale warns there that a machine's name then
+  shows in a public log of certificates. Without them everything else works, and "Troubleshooting" gives another way
+  to the desktop and the dashboard.
 - A Discord application with a bot, made at https://discord.com/developers/applications, and its bot token.
 - A Discord server to invite the bot to, and your own Discord user id. To get the id, turn on Developer Mode in
   Discord's settings, then right-click your name and pick "Copy User ID".
@@ -81,7 +82,7 @@ The server is kept private in four ways:
 
    The installer prints a link. Open it and sign in to Tailscale, and the server joins your tailnet as `chad`. Only
    then does it start the containers. It waits ten minutes for you, and starts nothing if the server has not joined.
-   At the end it puts the browser's desktop on your tailnet and prints its address.
+   At the end it puts the browser's desktop and asphodel's dashboard on your tailnet and prints their addresses.
 
 3. On the "Machines" page of the Tailscale admin console, open the menu of the machine `chad` and choose "Disable
    key expiry". Without that the server drops off your tailnet when its key expires, after 180 days by default.
@@ -148,15 +149,28 @@ Every other chad command runs the same way, as `docker compose exec chad chad <c
 
 ## Set asphodel up
 
-asphodel waits for its first-run setup, which is a page on its dashboard. From your own computer, forward the port
-and open `http://127.0.0.1:7720/dashboard`:
+asphodel waits for its first-run setup, which is a page on its dashboard. Open the dashboard from a computer on your
+tailnet:
 
-```sh
-ssh -L 7720:127.0.0.1:7720 root@chad
 ```
+https://chad.<your tailnet's name>.ts.net:9443/dashboard
+```
+
+The installer prints the address in full, and `tailscale serve status` on the server prints it again. If the
+installer said the dashboard is not on the tailnet, see "Troubleshooting".
 
 Choose the LLM asphodel extracts memories with and click "Finish setup". chad's plugin is already on and holds the
 token, so memory starts with chad's next message. `chad status` shows the plugin as `plugin: asphodel`.
+
+After setup the dashboard asks for asphodel's token. On the server, `sed -n 's/^ASPHODEL_TOKEN=//p' /opt/chad/.env`
+prints it.
+
+- Until setup is done, anyone your tailnet's access rules let reach port 9443 of the server can do it, and so choose
+  where asphodel sends what chad remembers. On a tailnet of your own that is you. Finish setup as soon as the
+  installer is done.
+- After setup, everything past the dashboard's page needs the token.
+- `tailscale serve --https=9443 off` on the server takes the dashboard off the tailnet, and the next run of the
+  installer puts it back.
 
 `docs/running.md`, "asphodel", lists the plugin's other settings, such as `ownerName`. They go in
 `/data/repo/work/chad.json` in chad's container, followed by `chad apply`.
@@ -364,13 +378,13 @@ not that, and this guide does not cover it.
 - If the installer exits non-zero, its last lines say why. Run it again once that is fixed, until it prints "Done".
   `docker compose ps` and `docker compose logs chad` in `/opt/chad` show a container that did not come up, and
   `docker compose exec chad chad status` shows what chad itself finds wrong.
-- If the installer said the desktop is not on the tailnet, `tailscale serve` failed or did not answer within a
-  minute. What it printed is just above that line. HTTPS certificates that are off for your tailnet are one cause.
-  Fix what it names and run the installer again. Until then, forward the port from your own computer and open
-  `http://localhost:3000`:
+- If the installer said the desktop or the dashboard is not on the tailnet, `tailscale serve` failed or did not
+  answer within a minute. What it printed is just above that line. HTTPS certificates that are off for your tailnet
+  are one cause. Fix what it names and run the installer again. Until then, forward the port from your own computer
+  and open `http://localhost:3000` for the desktop, or `http://localhost:7720/dashboard` for the dashboard:
 
   ```sh
-  ssh -L 3000:127.0.0.1:3000 root@chad
+  ssh -L 3000:127.0.0.1:3000 -L 7720:127.0.0.1:7720 root@chad
   ```
 
 - If `ssh root@chad` does not connect, check that Tailscale is running on your computer and that the machine `chad`

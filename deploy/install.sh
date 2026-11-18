@@ -149,16 +149,11 @@ install() {
     fi
   fi
 
-  # The desktop is bound to the server's loopback. This puts it on the tailnet over HTTPS, which the desktop's page
-  # needs to show video, and on no public address. It can fail, or wait for an answer, for more than one reason, and
-  # a tailnet with HTTPS certificates off is one. So it gets a minute, and its failure does not fail the install.
-  step "Putting the browser's desktop on your tailnet"
-  if ! timeout 60 tailscale serve --bg --https=8443 http://127.0.0.1:3000; then
-    echo "install.sh: the desktop is not on the tailnet: tailscale serve failed or did not answer in a minute."
-    echo "What it printed is above. HTTPS certificates that are off for your tailnet are one cause. Fix it and run this"
-    echo "script again. Either way you can reach the desktop with:"
-    echo "  ssh -L 3000:127.0.0.1:3000 root@$hostname, then http://localhost:3000"
-  fi
+  # The desktop and asphodel's dashboard are bound to the server's loopback. This puts each on the tailnet over
+  # HTTPS, which the desktop's page needs to show video, and on no public address.
+  step "Putting the browser's desktop and asphodel's dashboard on your tailnet"
+  on_tailnet_https "the browser's desktop" 8443 3000 / "$hostname"
+  on_tailnet_https "asphodel's dashboard" 9443 7720 /dashboard "$hostname"
 
   step "Done"
   docker compose ps
@@ -216,6 +211,20 @@ lockdown() {
 
 step() {
   printf '\n==> %s\n' "$*"
+}
+
+# Serves a port of the server's loopback on the tailnet, over HTTPS, at another port. `tailscale serve` reaches the
+# tailnet and nothing else, where `tailscale funnel` would reach the internet, so this never calls that. It can fail,
+# or wait for an answer, for more than one reason, and a tailnet with HTTPS certificates off is one. So it gets a
+# minute, and its failure does not fail the install.
+on_tailnet_https() {
+  local what=$1 https=$2 port=$3 path=$4 hostname=$5
+  if ! timeout 60 tailscale serve --bg --https="$https" "http://127.0.0.1:$port"; then
+    echo "install.sh: $what is not on the tailnet: tailscale serve failed or did not answer in a minute."
+    echo "What it printed is above. HTTPS certificates that are off for your tailnet are one cause. Fix it and run this"
+    echo "script again. Either way you can reach it with:"
+    echo "  ssh -L $port:127.0.0.1:$port root@$hostname, then http://localhost:$port$path"
+  fi
 }
 
 on_tailnet() {
