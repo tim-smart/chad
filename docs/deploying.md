@@ -300,12 +300,26 @@ virtual machine.
 ## What has been run, and what has not
 
 The files were run in a local virtual machine, booted from Ubuntu's 24.04 cloud image with `deploy/cloud-init.yaml` as
-its user data. There the installer finished in two minutes, the three containers came up, chad opened a page through
-Chromium, the asphodel plugin loaded with its token, the same firewall rules left the containers able to reach the
-internet, everything came back after a reboot, both port forwards worked over SSH, Chromium kept a cookie across a
-restart, a second run of the installer changed nothing, and a backup restored into a new volume. With a key that
-Tailscale refused, the installer left SSH and the firewall as they were.
+its user data, and on no tailnet. There:
+
+- With a key that Tailscale refused, the installer stopped before it started a container and left the firewall as it
+  was.
+- Without a key, the installer finished in two minutes and the three containers came up. chad opened a page through
+  Chromium, and the asphodel plugin loaded with its token. A second run changed nothing. Everything came back after a
+  reboot, and Chromium kept a cookie across a restart.
+- `install.sh lockdown` refused a session on the server's public address, and refused again while a rule allowed
+  port 22. With a stand-in for `tailscale ip` that named the machine's own address, it closed the ports: a new SSH
+  connection from outside timed out, and the containers still reached the internet.
+- The backups were taken over SSH as written, `secrets.toml` included. asphodel was restored onto a new volume with
+  its two files, and chad onto a new volume, after which the old one was removed.
+- Through the DevTools port forward, a script listed Chromium's tab and read the page's title from it, which is what
+  `chrome://inspect` does.
+
+A seed that fails part way was run against the real chad image: the installer failed, and the next run finished the
+volume. `test/unit/deploy.test.ts` holds that, the failed join and the lockdown's two refusals.
 
 No part of it has run on DigitalOcean or on a real tailnet, because neither was available without paying for one or
 joining someone's. `docs/live-checks.md`, check D5, is the list of what is still to see: the Droplet's first boot,
-the join with an auth key, Tailscale SSH, the closed public ports, and `chrome://inspect` by hand.
+the join with an auth key, that a Tailscale SSH session is one the lockdown accepts, the closed ports as the internet
+sees them, `chrome://inspect` by hand, chad on Discord with its model, and a restore that recalls a memory. asphodel's
+ChatGPT login after a restore has not been run either.
