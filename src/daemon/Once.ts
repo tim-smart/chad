@@ -42,15 +42,31 @@ export interface Daemon extends Store {
 /** The shortest parameter value of an address that is masked on its own, so a value such as `0` masks nothing else. */
 const partLength = 8
 
+/** The query and the fragment of an address as the owner wrote it, before a URL parser re-encodes either. */
+const written = (value: string): ReadonlyArray<string> => {
+  const hash = value.indexOf("#")
+  const before = hash === -1 ? value : value.slice(0, hash)
+  const query = before.indexOf("?")
+  return [
+    query === -1 ? "" : before.slice(query + 1),
+    hash === -1 ? "" : value.slice(hash + 1),
+  ]
+}
+
 /**
- * The values of the query and fragment parameters of a value that parses as an address: as written, as a form decodes
- * them, which is what `URLSearchParams` gives, and as `decodeURIComponent` decodes them where it can.
+ * The values of the query and fragment parameters of a value that parses as an address: as the owner wrote them, as
+ * the URL parser writes them, which percent-encodes characters such as `'`, as a form decodes them, which is what
+ * `URLSearchParams` gives, and as `decodeURIComponent` decodes them where it can.
  */
 const parts = (value: string): ReadonlyArray<string> => {
   if (!URL.canParse(value)) return []
   const url = new URL(value)
   const found = new Set<string>()
-  for (const params of [url.search.slice(1), url.hash.slice(1)]) {
+  for (const params of [
+    ...written(value),
+    url.search.slice(1),
+    url.hash.slice(1),
+  ]) {
     for (const pair of params.split("&")) {
       const equals = pair.indexOf("=")
       if (equals === -1) continue

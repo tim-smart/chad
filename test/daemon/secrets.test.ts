@@ -641,19 +641,27 @@ const onceRequest = async (running: Scenario, thread: ChatThread.ChatThread) =>
   ).find((message) => message.text.includes("one-off value"))!
 
 test("the agent's requestOnce waits in its turn for the owner's form, a stranger's click opens no form, and only the calling script gets the owner's value, an OAuth callback address of a few hundred characters: a traced command, a print, the address's code pulled out of it raw and decoded, a command's output saved to a temporary file and a thrown error carry a mask, a command that prints it or a signal ends after the turn has ended carries the mask still, a later turn reads no copy from the tasks, and neither the value nor its code is on the volume, in the chat or in what the model is sent", async () => {
-  // The code as the address carries it, percent-encoded, and as a script decodes it.
-  const raw = "4%2F0Ab7c3e9a41d2once"
-  const decoded = "4/0Ab7c3e9a41d2once"
+  // The code as the address carries it, percent-encoded, and as a script decodes it. Its apostrophe is one a URL
+  // parser re-encodes, and one a single-quoted command line spells another way.
+  const raw = "4%2F0Ab'7c3e9a41d2once"
+  const decoded = "4/0Ab'7c3e9a41d2once"
   const scopes = ["calendar.events", "calendar.readonly", "userinfo.email"]
     .map((scope) => `https://www.googleapis.com/auth/${scope}`)
     .join(" ")
-  // A parameter with a malformed escape, which a URL parser decodes in part, one in the fragment, and an apostrophe,
-  // which a single-quoted command line spells another way.
+  // A parameter with a malformed escape, which a URL parser decodes in part, and one in the fragment.
   const nonce = "n%ZZ-4c1a/9e7b"
   const fragment = "fr-8d1e5a2c7b904f36"
-  const value = `http://localhost/oauth/callback?state=st-9f2b6d81c4a7e035&iss=https%3A%2F%2Faccounts.google.com&code=${raw}&scope=${encodeURIComponent(scopes)}&nonce=n%ZZ-4c1a%2F9e7b&hint=owner's-calendar&authuser=0&prompt=consent#session_state=${fragment}`
-  const quoted = value.replaceAll("'", "'\\''")
-  const secrets = [value, quoted, raw, decoded, nonce, fragment]
+  const value = `http://localhost/oauth/callback?state=st-9f2b6d81c4a7e035&iss=https%3A%2F%2Faccounts.google.com&code=${raw}&scope=${encodeURIComponent(scopes)}&nonce=n%ZZ-4c1a%2F9e7b&authuser=0&prompt=consent#session_state=${fragment}`
+  const shell = (text: string) => text.replaceAll("'", "'\\''")
+  const secrets = [
+    value,
+    shell(value),
+    raw,
+    shell(raw),
+    decoded,
+    nonce,
+    fragment,
+  ]
   expect(value.length).toBeGreaterThan(250)
   const running = await scenario({
     plugins: [{ name: "request-secret", plugin: requestSecret }],
@@ -674,6 +682,7 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
         // The value handed to a command in single quotes, as the credentials skill does.
         `const sh = (text) => "'" + text.replaceAll("'", "'\\\\''") + "'"`,
         `console.log(await run("test -n " + sh(code) + " && echo quoted"))`,
+        `console.log(await run("test -n " + sh(param) + " && echo rawquoted"))`,
         // A command's output is kept with its task, which a later turn can read.
         `await run("printf 'code=%s' " + JSON.stringify(code))`,
         `await bash({ command: "while [ ! -e " + ${JSON.stringify(go)} + " ]; do sleep 0.05; done; printf 'late=%s' " + JSON.stringify(code), description: "a late print", background: true })`,
@@ -734,6 +743,7 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
   expect(output).toContain(`param ${Once.mask} raw ${Once.mask}`)
   expect(output).toContain(`parsed ${Once.mask} ${Once.mask} ${Once.mask}`)
   expect(output).toContain(`test -n '${Once.mask}' && echo quoted`)
+  expect(output).toContain(`test -n '${Once.mask}' && echo rawquoted`)
   expect(output).toContain("\nquoted")
   expect(output).toContain(`the site refused ${Once.mask}`)
   // The temporary file holds the mask, and not the value.
@@ -779,6 +789,15 @@ test("the agent's requestOnce waits in its turn for the owner's form, a stranger
       .log()
       .some((line) =>
         JSON.stringify(line).includes(`test -n '${Once.mask}' && echo quoted`),
+      ),
+  ).toBe(true)
+  expect(
+    running
+      .log()
+      .some((line) =>
+        JSON.stringify(line).includes(
+          `test -n '${Once.mask}' && echo rawquoted`,
+        ),
       ),
   ).toBe(true)
 
