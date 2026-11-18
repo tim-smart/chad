@@ -8,7 +8,7 @@ chad has one owner. It ships as one Docker image with one data volume, and it ch
 
 `docs/running.md` says how to run the image, with Docker or on Kubernetes, and how to back it up and restore it. After the first start, `chad setup` inside the container connects Discord, names the owner and can log chad in to Codex.
 
-`docs/deploying.md` is the short path to a server of your own: one cloud server with chad, asphodel, a headless Chromium and Tailscale, set up by one script.
+`docs/deploying.md` is the short path to a server of your own: one cloud server with chad, asphodel, a Chromium you can open in your own browser and Tailscale, set up by one script. [This link](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3) is meant to open DigitalOcean's create page with the guide's image and size chosen. It has not been tried, so check the page against the guide, which also has the script to paste.
 
 ## Docs
 

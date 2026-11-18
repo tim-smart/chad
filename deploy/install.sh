@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
-# Puts chad, asphodel and a headless Chromium on one Ubuntu or Debian server, and Tailscale on the server itself.
+# Puts chad, asphodel and Chromium on one Ubuntu or Debian server, and Tailscale on the server itself.
 # `docs/deploying.md` is the guide. Run it as root.
 #
-#   install.sh           Installs, and on a later run updates the files and the images. The data is kept. It never
-#                        touches the firewall.
+#   install.sh           Installs, and on a later run updates the files and the images. The data is kept. It joins
+#                        your tailnet first and starts no container until the server is on it. It never touches the
+#                        firewall.
+#   install.sh prepare   Installs Docker and Tailscale and fetches the files, and nothing more: it joins nothing and
+#                        starts no container. `deploy/cloud-init.yaml` runs it on a server's first boot.
 #   install.sh lockdown  Closes every public port, SSH included. It only does so in an SSH session that came in over
 #                        Tailscale, which shows that way in works before the other one closes.
 #
-#   TS_AUTHKEY   A Tailscale auth key. With it the server joins your tailnet before any container starts. Without it
-#                nothing joins, and `tailscale up` is yours to run. A server that is already on a tailnet refuses it.
+#   TS_AUTHKEY   A Tailscale auth key, for a join with nobody at the terminal. Without it the join prints a link to
+#                sign in at. A server that is already on a tailnet refuses a key.
 #   TS_HOSTNAME  The server's name on the tailnet. The default is chad.
 #   CHAD_REF     The branch, tag or commit of tim-smart/chad that deploy/ is taken from. The default is main.
 #   CHAD_DIR     Where the files go on the server. The default is /opt/chad.
@@ -25,18 +28,19 @@ main() {
   fi
   case ${1:-install} in
     install) install ;;
+    prepare) prepare ;;
     lockdown) lockdown ;;
     *)
-      echo "usage: install.sh [lockdown]" >&2
+      echo "usage: install.sh [prepare|lockdown]" >&2
       exit 2
       ;;
   esac
 }
 
-install() {
+# What a server needs before it joins: the packages and the files. It holds no secret and starts nothing.
+prepare() {
   local dir=${CHAD_DIR:-/opt/chad}
   local ref=${CHAD_REF:-main}
-  local hostname=${TS_HOSTNAME:-chad}
 
   if ! command -v apt-get >/dev/null; then
     echo "install.sh: this needs apt-get, so Ubuntu or Debian" >&2
@@ -64,6 +68,13 @@ install() {
   # deeper in the tree.
   curl -fsSL "https://codeload.github.com/tim-smart/chad/tar.gz/$ref" |
     tar -xz -C "$dir" --strip-components=2 --no-same-owner --wildcards --no-wildcards-match-slash '*/deploy'
+}
+
+install() {
+  local dir=${CHAD_DIR:-/opt/chad}
+  local hostname=${TS_HOSTNAME:-chad}
+
+  prepare
   cd "$dir"
 
   # asphodel's token is made once and kept. The file is read by Compose and by root, and by nothing else.
@@ -74,8 +85,8 @@ install() {
     )
   fi
 
-  # The join comes before any container, so a key for one use is used up before anything that runs here could read
-  # it out of the server's user data. A key that joins nothing may still work, so nothing is started then.
+  # The join comes before any container, so nothing runs on a server you cannot reach privately, and a key is used up
+  # before anything that runs here could read it. A key that joins nothing may still work, so nothing is started then.
   if [ -n "${TS_AUTHKEY:-}" ]; then
     # A server that is already on a tailnet would leave the key unused, and nothing here can tell whose tailnet it
     # is on.
@@ -101,6 +112,13 @@ install() {
         echo "Revoke the key in the Tailscale admin console unless you know it was used or has expired."
         echo "Then run: tailscale up --ssh --hostname=$hostname, and this script again."
       } >&2
+      exit 1
+    fi
+  elif ! on_tailnet; then
+    step "Joining the tailnet as $hostname"
+    echo "Open the link below and sign in to Tailscale. This waits ten minutes for you."
+    if ! tailscale up --ssh --hostname="$hostname" --timeout=10m || ! on_tailnet; then
+      echo "install.sh: the server did not join a tailnet, so nothing was started. Run this script again." >&2
       exit 1
     fi
   fi
@@ -131,14 +149,18 @@ install() {
     fi
   fi
 
+  # The desktop is bound to the server's loopback. This puts it on the tailnet over HTTPS, which the desktop's page
+  # needs to show video, and on no public address. A tailnet with HTTPS off prints a link to turn it on and waits.
+  step "Putting the browser's desktop on your tailnet"
+  if ! timeout 60 tailscale serve --bg --https=8443 http://127.0.0.1:3000; then
+    echo "install.sh: the desktop is not on the tailnet. Turn HTTPS certificates on for your tailnet and run this"
+    echo "script again, or reach it now with: ssh -L 3000:127.0.0.1:3000 root@$hostname, then http://localhost:3000"
+  fi
+
   step "Done"
   docker compose ps
-  if on_tailnet; then
-    echo "The server is on your tailnet. Its public ports are as they were, SSH included."
-    echo "Once ssh root@$hostname works, close them from that session: bash $dir/install.sh lockdown"
-  else
-    echo "The server is not on a tailnet. To join one, run: tailscale up --ssh --hostname=$hostname"
-  fi
+  echo "The server is on your tailnet. Its public ports are as they were, SSH included."
+  echo "Once ssh root@$hostname works, close them from that session: bash $dir/install.sh lockdown"
   echo "Next: cd $dir && docker compose exec chad chad setup"
 }
 

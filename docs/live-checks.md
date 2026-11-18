@@ -28,7 +28,7 @@ A check with no recorded result has not run.
 | D2. The volume's filesystem                                   | The volume's filesystem is one chad's lock and SQLite are safe on.                                                               | not run |
 | D3. asphodel for real                                         | The asphodel plugin talks to a real asphodel daemon with its token.                                                              | not run |
 | D4. Backup and restore                                        | chad's tar and asphodel's backup restore onto two fresh volumes, and the restored pair recalls a memory saved before the backup. | not run |
-| D5. The cloud deployment                                      | `deploy/cloud-init.yaml` makes a Droplet on your tailnet with the three containers, and `install.sh lockdown` closes it.         | not run |
+| D5. The cloud deployment                                      | `deploy/install.sh` puts a Droplet on your tailnet with the three containers, and `install.sh lockdown` closes it.               | not run |
 
 Checks 1 to 12 are the hand checks and the Codex checks. D1 to D5 are deployment checks. None of them has been run
 yet, and the automated suite only runs fakes of Discord, Codex, asphodel and an OAuth MCP server.
@@ -408,30 +408,35 @@ docker start asphodel chad
 `docs/deploying.md` has only been run in a local virtual machine, with no tailnet. This runs it on a real Droplet.
 You need what its "What you need" lists.
 
-1. Create the Droplet as "Create the server" says, with a Tailscale auth key for one use in the user data. Note the
-   Droplet's public address.
-2. Wait for the machine `chad` on the "Machines" page of the Tailscale admin console. On the "Keys" page the key no
-   longer shows as usable.
-3. Run `ssh root@<the public address>`, and there `bash /opt/chad/install.sh lockdown`. It says the session did not
-   come in over Tailscale and exits non-zero, and `ufw status` says `inactive`.
-4. Run `ssh root@chad`, and there `tail -n 12 /var/log/cloud-init-output.log`. It lists the containers `chad`,
-   `asphodel` and `chromium` as up, and says the public ports are as they were.
-5. In that session, run `bash /opt/chad/install.sh lockdown` and then `ufw status`. It is active and allows
-   `tailscale0` and `41641/udp`, and nothing else.
-6. From your own computer, run `nc -vz -w 5 <the public address> 22`. It times out. A new `ssh root@chad` connects.
-7. Run `chad setup` as "Set chad up" says, then send chad a direct message: "Open example.com in the browser and
-   tell me the page's title." It answers `Example Domain`.
-8. Finish asphodel's setup as "Set asphodel up" says, with an LLM chosen. Send chad two more messages, one of them
+1. Open the link in "Create the server". Note whether the page has Ubuntu 24.04 x64, the 2 vCPU and 4 GB size and the
+   region `nyc3` chosen, since the link's parameters have never been tried. Set whatever it left out by hand, paste
+   `deploy/cloud-init.yaml` unchanged, and create the Droplet. Note its public address.
+2. Run `ssh root@<the public address>`, and there `cloud-init status --wait` and then `docker ps` and
+   `tailscale status`. The first boot is done, no container is listed, and Tailscale says it is logged out.
+3. In that session, run `bash /opt/chad/install.sh`. It prints a link and starts nothing. In a second session,
+   `docker ps` still lists no container. Open the link and sign in. The installer goes on, lists the containers
+   `chad`, `asphodel` and `chromium` as up, prints the desktop's `https` address and says the public ports are as
+   they were. The machine `chad` is on the "Machines" page of the Tailscale admin console.
+4. In that session, run `bash /opt/chad/install.sh lockdown`. It says the session did not come in over Tailscale and
+   exits non-zero, and `ufw status` says `inactive`.
+5. Run `ssh root@chad`. In that session, run `bash /opt/chad/install.sh lockdown` and then `ufw status`. It is
+   active and allows `tailscale0` and `41641/udp`, and nothing else.
+6. From your own computer, run `nc -vz -w 5 <the public address> 22` and the same for ports 3000 and 8443. Each
+   times out. A new `ssh root@chad` connects.
+7. Run `chad setup` as "Set chad up" says. Open the desktop's address from step 3 in your own browser: it shows
+   Chromium, and you can click and type in it. Send chad a direct message: "Open example.com in the browser and tell
+   me the page's title." The page opens in the desktop as chad works, and chad answers `Example Domain`.
+8. In the desktop, open a new tab on `https://example.org`. Ask chad: "Which tabs are open in the browser?" Its
+   answer names `example.org`. From a device that is not on your tailnet, the desktop's address does not load.
+9. Finish asphodel's setup as "Set asphodel up" says, with an LLM chosen. Send chad two more messages, one of them
    something to recall later, then run `docker compose exec asphodel asphodel bank list` in `/opt/chad`. It shows the
    bank `chad` with your turns.
-9. Forward the DevTools port as "The browser" says and open `chrome://inspect`. The tab from step 7 is listed, and
-   "inspect" shows the page.
-10. Run `reboot` on the server. A minute later `ssh root@chad` works again, and `docker compose ps` in `/opt/chad`
-    shows the three containers up.
+10. Run `reboot` on the server. A minute later `ssh root@chad` works again, `docker compose ps` in `/opt/chad`
+    shows the three containers up, and the desktop's address loads.
 11. Take a backup as "What is kept, and backups" says, then follow "Restoring chad" and "Restoring asphodel"
     on this server. `chad status` shows no problem and `asphodel status` exits 0. In the DM, send `/new` and ask
-    for what you told chad in step 8. The new session has no history, so the answer comes from asphodel.
+    for what you told chad in step 9. The new session has no history, so the answer comes from asphodel.
 
-Passes when every step shows what it says. If step 2 never happens, the join failed. `docs/deploying.md`, "Create
-the server", says how to get in and finish by hand. `docker ps` then lists no container until the installer has run
-again, and that path is worth recording too.
+Passes when every step shows what it says. Record what step 1 found either way: a link that chooses nothing costs
+only the clicks, and the guide then says so. If the installer in step 3 says the desktop is not on the tailnet, HTTPS
+certificates are off for the tailnet. Turn them on, run the installer again, and record that path too.

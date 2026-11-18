@@ -1,8 +1,8 @@
-# chad with what it needs next to it: asphodel for long-term memory and a headless Chromium to browse with.
-# `docs/deploying.md` says how to put this on a server, and `deploy/install.sh` does it.
+# chad with what it needs next to it: asphodel for long-term memory and a Chromium to browse with, on a desktop you
+# can open in your own browser. `docs/deploying.md` says how to put this on a server, and `deploy/install.sh` does it.
 #
-# Nothing here is published on a public address. asphodel's dashboard and Chromium's DevTools port are bound to the
-# host's loopback, so they are reached through SSH or Tailscale and by nothing else.
+# Nothing here is published on a public address. asphodel's dashboard and the browser's desktop are bound to the host's
+# loopback, so they are reached through SSH or Tailscale and by nothing else.
 name: chad
 
 x-logging: &logging
@@ -19,19 +19,17 @@ services:
     # A stop waits up to 60 seconds for a turn to finish.
     stop_grace_period: 90s
     environment:
-      # Points agent-browser at the Chromium below, so a session runs it with no flag.
-      AGENT_BROWSER_CONFIG: /etc/agent-browser.json
-    configs:
-      - source: agent-browser
-        target: /etc/agent-browser.json
+      # agent-browser attaches to the Chromium below from this alone, so a session runs it with no flag. The address
+      # is a number because Chromium answers DevTools requests only when the Host header is an IP address or localhost.
+      AGENT_BROWSER_CDP: http://172.30.72.10:9223
     volumes:
       - chad-data:/data
     networks:
       - chad
     logging: *logging
 
-  # A named volume starts out owned by root. asphodel runs as 65532 and Chromium as 1000, so each is given its volume
-  # before it starts. The asphodel image is used because it has a shell and is pulled anyway.
+  # A named volume starts out owned by root, and asphodel runs as 65532, so it is given its volume before it starts.
+  # The asphodel image is used because it has a shell and is pulled anyway.
   volumes:
     image: ghcr.io/tim-smart/asphodel:latest
     restart: "no"
@@ -40,10 +38,9 @@ services:
     entrypoint:
       - /bin/sh
       - -c
-      - chown 65532:65532 /asphodel && chown 1000:1000 /chromium
+      - chown 65532:65532 /asphodel
     volumes:
       - asphodel-data:/asphodel
-      - chromium-profile:/chromium
     logging: *logging
 
   asphodel:
@@ -66,36 +63,60 @@ services:
     logging: *logging
 
   chromium:
-    # Chromium's stable channel, so each run of `deploy/install.sh` brings the browser up to date. This was last run on
-    # 158.0.8127.37.
-    image: docker.io/chromedp/headless-shell:stable
+    # Chromium on a desktop that a web page shows, so you can watch and use the browser chad drives. The tag follows
+    # the image, so each run of `deploy/install.sh` brings the browser up to date.
+    image: lscr.io/linuxserver/chromium:latest
     restart: unless-stopped
-    depends_on:
-      volumes:
-        condition: service_completed_successfully
-    # The image starts Chromium with no sandbox and as root. It keeps no sandbox, which a container cannot give it
-    # without more privileges, and runs as an ordinary user.
-    user: "1000:1000"
-    init: true
-    # The profile is on a volume, so a site chad signed in to stays signed in across restarts.
-    command: ["--user-data-dir=/profile"]
+    # Chromium locks its profile under the hostname. With one that changed, a lock left by a container that was killed
+    # would keep the next container's Chromium from starting.
+    hostname: chromium
+    environment:
+      # The image sets itself up as root, and runs the desktop and Chromium as this user.
+      PUID: "1000"
+      PGID: "1000"
+      # DevTools, which chad drives the browser through. Chromium refuses it on its default profile, so the profile is
+      # named. It is on the volume, so a site chad signed in to stays signed in across restarts.
+      CHROME_CLI: >-
+        --user-data-dir=/config/profile --remote-debugging-port=9222 --no-first-run --no-default-browser-check
+      # Chromium is started again when its window is closed, so chad is not left without a browser.
+      RESTART_APP: "true"
+    # Nothing in the container gains root, the desktop's terminal included. Chromium keeps no sandbox of its own,
+    # which a container cannot give it without more privileges.
+    security_opt:
+      - no-new-privileges:true
     shm_size: 1gb
-    # DevTools, for watching or driving a page from your own Chrome. It has no password, so it stays on loopback.
+    configs:
+      - source: devtools
+        target: /etc/nginx/conf.d/devtools.conf
+    # The desktop. It has no password and whoever reaches it uses the browser, so it stays on loopback.
+    # `deploy/install.sh` puts it on the tailnet with `tailscale serve`.
     ports:
-      - 127.0.0.1:9222:9222
+      - 127.0.0.1:3000:3000
     volumes:
-      - chromium-profile:/profile
+      - chromium-profile:/config
     networks:
       chad:
-        # Chromium answers DevTools requests only when the Host header is an IP address or localhost, so chad reaches
-        # it by this address and not by name.
         ipv4_address: 172.30.72.10
     logging: *logging
 
 configs:
-  agent-browser:
+  # Chromium's DevTools listens on its container's loopback and nowhere else. The image's nginx, which serves the
+  # desktop, passes it on to the Compose network, where chad reaches it. No port of the host leads to it.
+  devtools:
     content: |
-      { "cdp": "http://172.30.72.10:9222" }
+      server {
+        listen 9223;
+        location / {
+          proxy_pass http://127.0.0.1:9222;
+          proxy_http_version 1.1;
+          proxy_set_header Host $$http_host;
+          proxy_set_header Upgrade $$http_upgrade;
+          proxy_set_header Connection "upgrade";
+          proxy_read_timeout 7d;
+          proxy_send_timeout 7d;
+          proxy_buffering off;
+        }
+      }
 
 networks:
   chad:

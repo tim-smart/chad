@@ -1,8 +1,8 @@
 # Deploying chad to a cloud server
 
-This puts chad on one small server with what it needs next to it: asphodel for long-term memory, a headless Chromium
-to browse with, and Tailscale as the only way in. The guide uses a DigitalOcean Droplet. The same files work on any
-Ubuntu 24.04 or Debian server that can run Docker, and "Another host" says how.
+This puts chad on one small server with what it needs next to it: asphodel for long-term memory, a Chromium to browse
+with that you can open in your own browser, and Tailscale as the only way in. The guide uses a DigitalOcean Droplet.
+The same files work on any Ubuntu 24.04 or Debian server that can run Docker, and "Another host" says how.
 
 `docs/running.md` describes the image, the volume and every command in full. This file is the short path to a
 running chad.
@@ -15,30 +15,33 @@ containers:
 - `chad`, from `ghcr.io/tim-smart/chad:main`.
 - `asphodel`, from `ghcr.io/tim-smart/asphodel:latest`. The installer makes its token, gives it to chad's secret
   store and turns chad's `asphodel` plugin on.
-- `chromium`, a headless Chromium from `chromedp/headless-shell`. The installer puts `agent-browser` on chad's volume
-  and gives chad a `browser` skill, so chad can open pages, fill forms and take screenshots.
+- `chromium`, from `lscr.io/linuxserver/chromium`: Chromium on a desktop that a web page shows. chad drives it with
+  `agent-browser`, and you watch and use the same browser from your own. The installer puts `agent-browser` on chad's
+  volume and gives chad a `browser` skill, so chad can open pages, fill forms and take screenshots.
 
 Tailscale runs on the server itself and not in a container, so you reach the server over SSH whatever state the
 containers are in.
 
-The server is kept private in three ways:
+The server is kept private in four ways:
 
-- asphodel's dashboard and Chromium's DevTools port are bound to the server's loopback. You reach them through an SSH
-  port forward, and nothing else does.
-- The Discord token and the model login are typed into `chad setup` over SSH and stored on chad's volume. They are
-  never in the server's user data. asphodel's token is made on the server, in `/opt/chad/.env`, which only root reads.
+- `deploy/cloud-init.yaml` holds no secret. The server joins your tailnet when you sign in at a link the installer
+  prints, so no Tailscale key is in the Droplet's user data, which everything running on a Droplet can read back.
+- asphodel's dashboard and the browser's desktop are bound to the server's loopback. You reach the dashboard through
+  an SSH port forward. The desktop is served on your tailnet by Tailscale and on no public address.
+- The Discord token and the model login are typed into `chad setup` over SSH and stored on chad's volume. asphodel's
+  token is made on the server, in `/opt/chad/.env`, which only root reads.
 - Once you have connected over Tailscale, `install.sh lockdown` closes every public port, SSH included. chad needs
   none: it connects out to Discord. The installer itself never changes the firewall, so until you run that step the
   server's SSH port is as your provider left it.
 
 ## What you need
 
-- A DigitalOcean account, with an SSH key added to it. The key is the way back in if Tailscale does not come up.
+- A DigitalOcean account, with an SSH key added to it. The key is how you first connect, and the way back in if
+  Tailscale does not come up.
 - A Tailscale account, with Tailscale on the computer you work from.
-- A Tailscale auth key, from "Settings", "Keys", "Generate auth key" in the admin console. Leave "Reusable" and
-  "Ephemeral" off and give it a short expiry. The key ends up in the Droplet's user data, which everything running on
-  the Droplet can read back from DigitalOcean's metadata service, chad's own shell included. A key for one use is
-  worth nothing once the server has joined, and the installer joins before it starts any container.
+- MagicDNS and HTTPS certificates turned on for your tailnet, on the "DNS" page of the Tailscale admin console. The
+  browser's desktop is served with them. Tailscale warns there that a machine's name then shows in a public log of
+  certificates. Without them everything else works, and "The browser" gives another way to the desktop.
 - A Discord application with a bot and its token, a Discord server to invite it to, and your own Discord user id.
   `docs/live-checks.md`, "Before you start", says where each comes from.
 - A ChatGPT account that can use Codex, for chad's model.
@@ -47,10 +50,15 @@ The server is kept private in three ways:
 
 ## Create the server
 
-1. Copy `deploy/cloud-init.yaml` and put your Tailscale auth key in place of `tskey-auth-REPLACE-ME`.
-2. In DigitalOcean, create a Droplet: Ubuntu 24.04 (LTS) x64, 2 vCPUs and 4 GB of memory, your SSH key, and under
-   "Advanced Options" tick "Add Initialization scripts" and paste the file. Turn on backups here if you want
-   DigitalOcean's.
+1. In DigitalOcean, create a Droplet: Ubuntu 24.04 (LTS) x64, 2 vCPUs and 4 GB of memory, and your SSH key. Under
+   "Advanced Options" tick "Add Initialization scripts" and paste `deploy/cloud-init.yaml` as it is. Turn on backups
+   here if you want DigitalOcean's.
+
+   [This link](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3) is
+   meant to open the create page with that image and size chosen, in the region `nyc3`. It has not been tried: its
+   parameters are the ones DigitalOcean's Marketplace links use, and nothing says they hold for a plain Ubuntu image.
+   Check the page against the settings above. The link cannot carry the initialization script, so you paste that
+   either way.
 
    With `doctl`, the same Droplet is one command:
 
@@ -58,13 +66,27 @@ The server is kept private in three ways:
    doctl compute droplet create chad \
      --image ubuntu-24-04-x64 --size s-2vcpu-4gb --region nyc3 \
      --ssh-keys <your key's fingerprint> \
-     --user-data-file cloud-init.yaml
+     --user-data-file deploy/cloud-init.yaml
    ```
 
-3. Wait for the machine `chad` to appear on the "Machines" page of the Tailscale admin console. The first boot
-   took two minutes in a local virtual machine. Open the machine's menu there and choose "Disable key expiry".
-   Without that the server drops off your tailnet when its key expires, after 180 days by default.
-4. Connect:
+   The first boot installs Docker and Tailscale and fetches the files into `/opt/chad`. It joins nothing and starts
+   no container.
+
+2. Connect to the Droplet's public address with your SSH key, wait for the first boot to end, and run the installer:
+
+   ```sh
+   ssh root@<the Droplet's public address>
+   cloud-init status --wait
+   bash /opt/chad/install.sh
+   ```
+
+   The installer prints a link. Open it and sign in to Tailscale, and the server joins your tailnet as `chad`. Only
+   then does it start the containers. It waits ten minutes for you, and starts nothing if the server has not joined.
+   At the end it puts the browser's desktop on your tailnet and prints its address.
+
+3. On the "Machines" page of the Tailscale admin console, open the menu of the machine `chad` and choose "Disable
+   key expiry". Without that the server drops off your tailnet when its key expires, after 180 days by default.
+4. Connect again, over Tailscale this time:
 
    ```sh
    ssh root@chad
@@ -91,11 +113,9 @@ The server is kept private in three ways:
      them, as in `ufw delete allow 22/tcp`, and run it again. To keep one, set the firewall yourself in place of
      this step. It also stops when `ufw` cannot list its rules.
 
-The installer writes what it did to `/var/log/cloud-init-output.log`. If the machine never appears in Tailscale, the
-join failed, and the installer stopped before it started a container. The key is still in the Droplet's user data, so
-revoke it in the admin console unless it shows there as used or expired. Then connect with
-`ssh root@<the Droplet's public address>`, run `tailscale up --ssh --hostname=chad`, which prints a link to sign in
-with, and run `bash /opt/chad/install.sh`.
+The first boot writes what it did to `/var/log/cloud-init-output.log`. If `/opt/chad/install.sh` is not there, the
+first boot failed or the Droplet was made without the script, and the two commands under "Another host" do the whole
+install.
 
 After the lockdown, a server that drops off your tailnet has no SSH port to reach. The console in DigitalOcean's
 control panel is then the way in, and `ufw allow 22/tcp` there opens SSH again.
@@ -134,27 +154,40 @@ token, so memory starts with chad's next message. `chad status` shows the plugin
 
 ## The browser
 
-chad drives Chromium with `agent-browser`, which the installer put on chad's volume. The `browser` skill, which the
-installer added to chad's repo as `work/skills/browser/SKILL.md`, tells the model how. Ask chad to open a page to try
-it.
+chad drives Chromium with `agent-browser`, which the installer put on chad's volume. Compose sets
+`AGENT_BROWSER_CDP` in chad's container, and every command a session runs has it, so `agent-browser` attaches to
+this Chromium with no flag and no connect step. The `browser` skill, which the installer added to chad's repo as
+`work/skills/browser/SKILL.md`, tells the model how. Ask chad to open a page to try it.
 
-- Chromium keeps its profile on a volume, so a site chad signed in to stays signed in across restarts. There is one
-  profile, and every session shares it.
-- Chromium runs in its own container as an ordinary user. It has no sandbox of its own, because a container cannot
-  give it one without more privileges.
-- The image has the DejaVu fonts and no others, so a screenshot of a page in Chinese, Japanese or Korean, or of emoji,
-  shows boxes.
-- A file Chromium downloads stays in its container, and it cannot upload a file from chad's.
+To watch a page, or to sign in to a site by hand, open the desktop from a computer on your tailnet:
 
-To watch a page, or to sign in to a site by hand, forward the DevTools port from your own computer:
-
-```sh
-ssh -L 9222:127.0.0.1:9222 root@chad
+```
+https://chad.<your tailnet's name>.ts.net:8443/
 ```
 
-Then open `chrome://inspect` in Chrome on your computer, click "Configure", add `localhost:9222`, and click "inspect"
-under a tab. The DevTools port has no password. Whoever reaches it controls the browser and every site it is signed
-in to, which is why it is bound to loopback.
+The installer prints the address in full, and `tailscale serve status` on the server prints it again. The page shows
+the one Chromium there is. A tab chad opens appears in it as chad works, a tab you open is one chad can use, and a
+site you sign in to is signed in for chad.
+
+If the installer said the desktop is not on the tailnet, HTTPS certificates are off for your tailnet. Turn them on and
+run the installer again. Or forward the port from your own computer and open `http://localhost:3000`:
+
+```sh
+ssh -L 3000:127.0.0.1:3000 root@chad
+```
+
+- The desktop has no password. Anyone your tailnet's access rules let reach port 8443 of the server uses the browser
+  and every site it is signed in to. On a tailnet of your own that is you. `tailscale serve --https=8443 off` on the
+  server takes it off the tailnet, and the next run of the installer puts it back.
+- Chromium keeps its profile on a volume, so a site chad signed in to stays signed in across restarts. There is one
+  profile, and every session shares it. Chromium writes cookies to the disk a little after they are set, so a sign-in
+  made just before a restart can be lost.
+- Closing Chromium's window does not leave chad without a browser. It starts again in a moment.
+- Chromium and the desktop run in their own container as an ordinary user that cannot become root. Chromium has no
+  sandbox of its own, because a container cannot give it one without more privileges. The desktop's menu has a
+  terminal, which is a shell in that container.
+- A file Chromium downloads stays on its volume, and it cannot upload a file from chad's.
+- Chromium's DevTools port, which `agent-browser` uses, is open to the other two containers and to nothing else.
 
 ## What is kept, and backups
 
@@ -162,7 +195,7 @@ Everything lives in three Docker volumes on the Droplet's own disk, under `/var/
 
 - `chad_chad-data`: chad's database, repo, secrets, logins and home directory.
 - `chad_asphodel-data`: asphodel's store and its settings.
-- `chad_chromium-profile`: Chromium's cookies and site data.
+- `chad_chromium-profile`: Chromium's cookies and site data, and its desktop's settings.
 
 They outlive a restart, a reboot, a new image and another run of the installer. Destroying the Droplet destroys them,
 and so does `docker compose down -v`.
@@ -292,18 +325,24 @@ The installer needs root and `apt-get`, and nothing of DigitalOcean. On any Ubun
 
 ```sh
 curl -fsSL -o install-chad.sh https://raw.githubusercontent.com/tim-smart/chad/main/deploy/install.sh
+sudo bash install-chad.sh
+```
+
+It prints a link to sign in to Tailscale at, joins the tailnet, and only then starts the containers. On a server
+that is already on a tailnet it goes straight on. The firewall is as it was until you run `install.sh lockdown` from
+a session that came in over Tailscale.
+
+To join with nobody at the terminal, give it a Tailscale auth key in `TS_AUTHKEY`. Make the key for one use, and
+keep it out of your shell's history:
+
+```sh
 printf 'Tailscale auth key: ' && read -rs TS_AUTHKEY && export TS_AUTHKEY
 sudo --preserve-env=TS_AUTHKEY bash install-chad.sh
 unset TS_AUTHKEY
 ```
 
-`read -rs` takes the key without showing it, so it is not in your shell's history. The installer joins the tailnet
-first, and when the join fails it starts nothing. It also starts nothing when it is given a key on a server that is
+When the join fails the installer starts nothing. It also starts nothing when it is given a key on a server that is
 already on a tailnet, because the key would be left usable. Revoke that key and run the installer without one.
-
-Without `TS_AUTHKEY` it starts the containers and joins nothing. Run `tailscale up --ssh` yourself, or keep the
-server's own SSH and skip Tailscale. Either way the firewall is as it was until you run `install.sh lockdown` from a
-session that came in over Tailscale.
 
 `deploy/compose.yaml` also runs by itself on a machine that has Docker already. It needs `ASPHODEL_TOKEN` in a
 `.env` file next to it, and `docs/running.md`, "asphodel", says how to give chad the token and turn the plugin on.
