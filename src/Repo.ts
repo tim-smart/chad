@@ -596,23 +596,37 @@ export const log = Effect.fnUntraced(function* (repo: string, limit: number) {
     })
 })
 
+/** Where a starter skill is copied before it is renamed into `work/skills/`, so a stopped copy never lands there. */
+const staging = (repo: string) => join(repo, "starters.tmp")
+
 /**
- * Copies each skill under `starters` that `work/skills/` does not have a directory for. A skill already there, the
- * owner's own included, is kept as it is, and a starter that fails the checks is left out.
+ * Copies each skill under `starters` that `work/skills/` does not have an entry for. A skill already there, the owner's
+ * own included, is kept as it is, and so is a link of a skill's name. A starter that fails the checks is left out. A
+ * `skills` that is a link or a file is left alone with nothing copied, so no copy writes outside `work/`. Each skill is
+ * copied whole beside `work/` and then renamed in, so a start stopped partway leaves no half-copied skill.
  */
 const seedSkills = Effect.fnUntraced(function* (
-  work: string,
+  repo: string,
   starters: string | undefined,
 ) {
   if (starters === undefined) return
   const fs = yield* FileSystem.FileSystem
-  const { skills } = yield* Skills.scan(starters)
-  for (const { name } of skills) {
-    const target = join(work, "skills", name)
-    if (yield* fs.exists(target)) continue
-    yield* fs.makeDirectory(join(work, "skills"), { recursive: true })
-    yield* fs.copy(join(starters, name), target)
+  const linked = (path: string) => Effect.isSuccess(fs.readLink(path))
+  const skills = join(paths(repo).work, "skills")
+  if (yield* linked(skills)) return
+  const info = yield* Effect.option(fs.stat(skills))
+  if (info._tag === "Some" && info.value.type !== "Directory") return
+  const found = yield* Skills.scan(starters)
+  const stage = staging(repo)
+  yield* fs.remove(stage, { recursive: true, force: true })
+  for (const { name } of found.skills) {
+    const target = join(skills, name)
+    if ((yield* fs.exists(target)) || (yield* linked(target))) continue
+    yield* fs.copy(join(starters, name), join(stage, name))
+    yield* fs.makeDirectory(skills, { recursive: true })
+    yield* fs.rename(join(stage, name), target)
   }
+  yield* fs.remove(stage, { recursive: true, force: true })
 })
 
 /** What a new repo starts with besides `chad.json` and `persona.md`. */
@@ -622,19 +636,17 @@ export interface Seed {
 }
 
 /**
- * Makes the repo when `work/` has none: `git init` on the branch `main`, chad's identity in the repo's own config,
- * and a first commit of `chad.json` as `{ "plugins": {} }`, an empty `persona.md` and the starter skills, which is also
- * the head of `applied`. None of them replaces a file or a skill that `work/` already holds. A repo that has `work/`
- * but no `applied` branch gets one at its own first commit of the files it holds, with nothing added.
+ * Makes the repo when `work/` has none: `chad.json` as `{ "plugins": {} }`, an empty `persona.md` and the starter
+ * skills, then `git init` on the branch `main` with chad's identity in the repo's own config, and a first commit of
+ * them, which is also the head of `applied`. None of them replaces a file or a skill that `work/` already holds. The
+ * repo is made last, so a start stopped before it writes what is missing again. A repo that has `work/` but no
+ * `applied` branch gets one at its own first commit of the files it holds, with nothing added.
  */
 const create = Effect.fnUntraced(function* (repo: string, seed: Seed) {
   const fs = yield* FileSystem.FileSystem
   const { work } = paths(repo)
   yield* fs.makeDirectory(work, { recursive: true })
   if (!(yield* fs.exists(join(work, ".git")))) {
-    yield* git(work, ["init", "-q", "-b", main])
-    yield* git(work, ["config", "user.name", identity.name])
-    yield* git(work, ["config", "user.email", identity.email])
     if (!(yield* fs.exists(join(work, "chad.json")))) {
       yield* fs.writeFileString(
         join(work, "chad.json"),
@@ -644,7 +656,10 @@ const create = Effect.fnUntraced(function* (repo: string, seed: Seed) {
     if (!(yield* fs.exists(join(work, "persona.md")))) {
       yield* fs.writeFileString(join(work, "persona.md"), "")
     }
-    yield* seedSkills(work, seed.starters)
+    yield* seedSkills(repo, seed.starters)
+    yield* git(work, ["init", "-q", "-b", main])
+    yield* git(work, ["config", "user.name", identity.name])
+    yield* git(work, ["config", "user.email", identity.email])
   }
   const tree = yield* snapshot(repo)
   const sha = yield* commit(repo, {

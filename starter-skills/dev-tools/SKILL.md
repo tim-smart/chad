@@ -97,9 +97,10 @@ uv python install 3.12
 
 ## Other languages
 
-A language that has an installer for one user goes in your home directory, with its commands linked into `~/.local/bin`, which is on PATH. Ask the owner before you install one, as each takes hundreds of megabytes on the volume.
+A language that has an installer for one user goes in your home directory, with its commands linked into `~/.local/bin`, which is on PATH. A new volume does not have that directory until something makes it. Ask the owner before you install one, as each takes hundreds of megabytes on the volume.
 
 ```sh
+mkdir -p ~/.local/bin
 # Go: the release for this machine, unpacked into ~/.local/go
 mkdir -p ~/.local && curl -fsSL "https://go.dev/dl/$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n 1).linux-$(dpkg --print-architecture).tar.gz" | tar -xz -C ~/.local
 ln -sf ~/.local/go/bin/go ~/.local/go/bin/gofmt ~/.local/bin/
@@ -120,7 +121,7 @@ Many tools publish a prebuilt binary with each release. Read the release page fo
 # amd64 or arm64, which a file name may call x86_64 or aarch64
 dpkg --print-architecture
 mkdir -p /tmp/tool && curl -fsSL https://github.com/owner/tool/releases/latest/download/tool-linux-amd64.tar.gz | tar -xz -C /tmp/tool
-install -m 755 /tmp/tool/tool ~/.local/bin/
+mkdir -p ~/.local/bin && install -m 755 /tmp/tool/tool ~/.local/bin/
 ```
 
 Check what you installed runs with `<tool> --version`.
