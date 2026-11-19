@@ -169,7 +169,7 @@ test("a saved or removed secret reloads the plugins whose settings name it and n
   expect(refused.code).toBe(1)
   expect(refused.stdout).toBe(Messages.secretSaved("KEY", true, []) + "\n")
   expect(refused.stderr).toContain("keyed: ")
-  expect(refused.stderr).toContain("the token was refused")
+  expect(refused.stderr).toContain(`the token was ${Once.mask}`)
   expect(store(running.data)["KEY"]?.value).toBe("refused")
   expect(keyed.state.token).toBe("second-5d2a")
   const mark = Messages.runningPrevious("secret", "").split(":")[0]
