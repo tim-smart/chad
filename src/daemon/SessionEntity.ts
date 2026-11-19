@@ -482,29 +482,9 @@ export const layer = Layer.unwrap(
         /** Posts in the thread, and says whether the post reached it, or found the thread gone. */
         const post = (
           chat: ChatService,
-          format: Format,
           markdown: string,
           options?: Post.Options,
-        ) => Post.post(chat, format, thread, markdown, options)
-
-        /**
-         * The owner's message that the answer, the failed-turn message and the give-up message of a turn reply to: the
-         * one that started the turn, also when others steered it. A DM gets plain posts, and
-         * so does a turn whose message is in the channel that chad opened the thread from. A kind that cannot
-         * be read counts as a server thread's, which keeps the ping.
-         */
-        const replyTo = (request: Request) => {
-          const message = request.message
-          return message === undefined ||
-            ChatThread.toString(message.thread) !== key
-            ? Effect.succeed(undefined)
-            : Sessions.kindOf(key).pipe(
-                Effect.orElseSucceed(() => undefined),
-                Effect.map((kind) =>
-                  kind === "direct" ? undefined : message.id,
-                ),
-              )
-        }
+        ) => Post.post(chat, thread, markdown, options)
 
         /**
          * The mention a plugin-started turn's posts start with: only in a server thread or channel, and only of an
@@ -527,14 +507,13 @@ export const layer = Layer.unwrap(
         /** Posts with a mention in front, which notifies only that user. */
         const mentioned = (
           chat: ChatService,
-          format: Format,
           mention: string | undefined,
           markdown: string,
           options?: Post.Options,
         ) =>
           mention === undefined
-            ? post(chat, format, markdown, options)
-            : post(chat, format, `<@${mention}> ${markdown}`, options).pipe(
+            ? post(chat, markdown, options)
+            : post(chat, `<@${mention}> ${markdown}`, options).pipe(
                 DiscordChat.withPostOptions({ notify: { users: [mention] } }),
               )
 
@@ -558,13 +537,12 @@ export const layer = Layer.unwrap(
         const told = new Set<string>()
         const tell = Effect.fnUntraced(function* (
           chat: ChatService,
-          format: Format,
           request: Request,
           read: Attachments.Read,
         ) {
           if (read.notices.length === 0 || told.has(request.key)) return
           told.add(request.key)
-          for (const notice of read.notices) yield* post(chat, format, notice)
+          for (const notice of read.notices) yield* post(chat, notice)
         })
 
         /**
@@ -1064,7 +1042,7 @@ export const layer = Layer.unwrap(
                   directory: live.directory,
                   asImages: true,
                 })
-          if (read !== undefined) yield* tell(chat, format, request, read)
+          if (read !== undefined) yield* tell(chat, request, read)
           // The turn's own message: the owner's with the lines for its files, or the plugin's prompt, to which chad's
           // core adds no line.
           const own = held
@@ -1281,7 +1259,7 @@ export const layer = Layer.unwrap(
             Effect.suspend(() =>
               asking === undefined
                 ? Effect.void
-                : post(asking.chat, asking.format, markdown(asking.format)),
+                : post(asking.chat, markdown(asking.format)),
             ).pipe(Effect.asVoid)
           const ref: Login.SessionRef = {
             id: live.id,
@@ -1517,21 +1495,17 @@ export const layer = Layer.unwrap(
             // The status message goes however the turn ends, and a turn whose end is not written finds it gone
             // when it is delivered again.
             if (turn.status !== undefined) yield* turn.status.remove
-            // In a server thread it replies to the owner's message, which pings them.
             if (posted(reason, request)) {
               yield* Effect.all([
                 chats.get(connection),
                 chats.format(connection),
-                replyTo(request),
                 mentionOf(request),
               ]).pipe(
-                Effect.flatMap(([chat, format, reply, mention]) =>
+                Effect.flatMap(([chat, format, mention]) =>
                   mentioned(
                     chat,
-                    format,
                     mention,
                     Messages.failedTurn(format, at - turn.at, reason, turn.id),
-                    { replyTo: reply },
                   ),
                 ),
                 Effect.catchCause((cause) =>
@@ -1564,7 +1538,6 @@ export const layer = Layer.unwrap(
         ) {
           const chat = yield* chats.get(request.connection)
           const format = yield* chats.format(request.connection)
-          const reply = yield* replyTo(request)
           if (own.ready !== undefined) yield* Deferred.await(own.ready)
           // The plugins are loaded before a turn starts, and the hooks a compaction queued have run.
           yield* plugins.ready
@@ -1662,12 +1635,8 @@ export const layer = Layer.unwrap(
             }
             yield* mentioned(
               chat,
-              format,
               yield* mentionOf(request),
               Messages.gaveUp(format, turn.id),
-              {
-                replyTo: reply,
-              },
             )
             yield* TurnLog.failed(
               {
@@ -1849,7 +1818,6 @@ export const layer = Layer.unwrap(
             if (posted(outcome.reason, request)) {
               yield* mentioned(
                 chat,
-                format,
                 yield* mentionOf(request),
                 Messages.failedTurn(
                   format,
@@ -1857,7 +1825,6 @@ export const layer = Layer.unwrap(
                   outcome.reason,
                   turn.id,
                 ),
-                { replyTo: reply },
               )
             }
             yield* TurnLog.failed(
@@ -1871,25 +1838,17 @@ export const layer = Layer.unwrap(
             )
             return outcome
           }
-          // The answer goes out through the connection the message arrived on, as a reply to the owner's message in a
-          // server thread. An answer that could not be posted, also the second time, leaves the turn
+          // The answer goes out through the connection the message arrived on. A second posting failure leaves the turn
           // `Answered`, because the history holds it, and the model is told that the owner has not read it.
           // A plugin-started turn's answer that is exactly `[SILENT]` is not posted. Its answer starts with
           // the mention it asked for.
           const delivered = yield* outcome._tag === "Answered"
             ? request.plugin !== undefined && outcome.text.trim() === silent
               ? Effect.succeed("posted" as const)
-              : mentioned(
-                  chat,
-                  format,
-                  yield* mentionOf(request),
-                  outcome.text,
-                  {
-                    replyTo: reply,
-                    answer: ids,
-                  },
-                )
-            : post(chat, format, Messages.stopped(format, at - turn.at))
+              : mentioned(chat, yield* mentionOf(request), outcome.text, {
+                  answer: ids,
+                })
+            : post(chat, Messages.stopped(format, at - turn.at))
           // An answer for a thread that no longer exists ends the turn `ThreadGone`, which posts nothing.
           if (delivered === "gone" && outcome._tag === "Answered") {
             const reason: Failed.Reason = { _tag: "ThreadGone" }
@@ -1959,7 +1918,7 @@ export const layer = Layer.unwrap(
             directory: live.directory,
             asImages: false,
           })
-          yield* tell(chat, format, request, read)
+          yield* tell(chat, request, read)
           if (turn.closing) return yield* missed
           const entry: Steer = {
             key: request.key,
@@ -2015,7 +1974,7 @@ export const layer = Layer.unwrap(
             id: payload.message,
             at: payload.at,
           })
-          yield* post(chat, format, Messages.newSession(format))
+          yield* post(chat, Messages.newSession(format))
           // The new session's first turn waits for the hooks each plugin queued ahead of `Reset`, and for `Reset`
           // itself, each inside its budget.
           if (previous !== undefined) {
@@ -2074,7 +2033,6 @@ export const layer = Layer.unwrap(
             }
             yield* post(
               chat,
-              format,
               Messages.failedTurn(format, 0, reason, ended.turn),
             )
             yield* TurnLog.failed(
@@ -2331,7 +2289,6 @@ export const layer = Layer.unwrap(
               const format = yield* chats.format(payload.connection)
               yield* post(
                 yield* chats.get(payload.connection),
-                format,
                 Messages.nothingRunning(format),
               )
               return { stopped: false }

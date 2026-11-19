@@ -1,5 +1,3 @@
-import { Effect } from "effect"
-import { ChatError } from "effect/chat"
 import { expect, test } from "vitest"
 import * as Format from "../../dist/daemon/Format.js"
 import * as Messages from "../../dist/Messages.js"
@@ -7,21 +5,12 @@ import * as Failed from "../../dist/daemon/Failed.js"
 import { scenario } from "../support/driver.ts"
 import { lines, rows, says } from "../support/owner.ts"
 
-test("in a server thread the answer replies to the owner's message, and a failed-turn message whose owner's message is gone goes out as a plain post", async () => {
+test("a failed turn posts its reason in the server thread", async () => {
   const running = await scenario()
-  const { fakes, chat } = running
-  await fakes.model.script([{ status: 400, hold: true }, { text: "answered" }])
+  const { fakes } = running
+  await fakes.model.script([{ status: 400 }])
   const thread = await fakes.chat.makeThread("thread")
   await says(running, thread, "hello", { mention: true })
-  await fakes.model.received(1)
-  // The failed-turn message replies to a message that the platform no longer has.
-  await Effect.runPromise(
-    chat.failNext(
-      "post",
-      new ChatError.NotFound({ detail: "message_not_found" }),
-    ),
-  )
-  await fakes.model.release(0)
   const [failed] = await fakes.chat.answers(thread, 1)
   const [line] = await lines(running, "turn.failed", 1)
   const reason = Failed.fromRow(
@@ -40,10 +29,4 @@ test("in a server thread the answer replies to the owner's message, and a failed
     ),
   )
   expect(failed!.replyTo).toBeUndefined()
-
-  const again = await says(running, thread, "again")
-  const [, answer] = await fakes.chat.answers(thread, 2)
-  expect(answer!.text).toBe("answered")
-  if (again.message === undefined) throw new Error("no message")
-  expect(answer!.replyTo?.messageId).toBe(again.message.id)
 })
