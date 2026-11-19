@@ -1,5 +1,6 @@
 // The starter skills a new repo's first commit copies: a start stopped partway through a copy leaves no repo, so the
-// next start copies every starter whole, and a `skills` that is a link is left alone so nothing lands outside work/.
+// next start copies every starter whole, nothing of the owner's under repo/ is removed, and a `skills` that is a link
+// is left alone so nothing lands outside work/.
 import { execFileSync } from "node:child_process"
 import {
   existsSync,
@@ -51,10 +52,14 @@ const committed = (repo: string) =>
     .trim()
     .split("\n")
 
-it("a first start stopped partway through copying a starter leaves no repo, and the next start commits every starter whole", async () => {
+it("a first start stopped partway through copying a starter leaves no repo, the next start commits every starter whole, and a directory of the owner's under repo/ survives both", async () => {
   const root = mkdtempSync(join(tmpdir(), "chad-seed-"))
   const repo = join(root, "repo")
   const from = starters(root)
+  // A directory chad did not make, under the name an earlier version staged in.
+  const note = join(repo, "starters.tmp/owner-note.txt")
+  mkdirSync(join(repo, "starters.tmp"), { recursive: true })
+  writeFileSync(note, "the owner's\n")
   const fs = await Effect.runPromise(
     FileSystem.FileSystem.pipe(Effect.provide(NodeServices.layer)),
   )
@@ -75,6 +80,7 @@ it("a first start stopped partway through copying a starter leaves no repo, and 
   })
   expect(Exit.isFailure(await prepare(repo, from, stopping))).toBe(true)
   expect(existsSync(join(repo, "work/.git"))).toBe(false)
+  expect(readFileSync(note, "utf8")).toBe("the owner's\n")
 
   expect(Exit.isSuccess(await prepare(repo, from))).toBe(true)
   expect(committed(repo)).toEqual([
@@ -85,7 +91,11 @@ it("a first start stopped partway through copying a starter leaves no repo, and 
   expect(readFileSync(join(repo, "work/skills/beta/SKILL.md"), "utf8")).toBe(
     skill("beta"),
   )
-  expect(existsSync(join(repo, "starters.tmp"))).toBe(false)
+  expect(readFileSync(note, "utf8")).toBe("the owner's\n")
+  // The staging directory each run made is gone.
+  expect(
+    readdirSync(repo).filter((name) => name.startsWith("starters-")),
+  ).toEqual([])
 })
 
 it("a skills entry that is a link is committed as the link, and no starter is written where it points", async () => {

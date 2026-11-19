@@ -596,14 +596,12 @@ export const log = Effect.fnUntraced(function* (repo: string, limit: number) {
     })
 })
 
-/** Where a starter skill is copied before it is renamed into `work/skills/`, so a stopped copy never lands there. */
-const staging = (repo: string) => join(repo, "starters.tmp")
-
 /**
  * Copies each skill under `starters` that `work/skills/` does not have an entry for. A skill already there, the owner's
  * own included, is kept as it is, and so is a link of a skill's name. A starter that fails the checks is left out. A
  * `skills` that is a link or a file is left alone with nothing copied, so no copy writes outside `work/`. Each skill is
- * copied whole beside `work/` and then renamed in, so a start stopped partway leaves no half-copied skill.
+ * copied whole into a directory beside `work/` that this run made, and then renamed in, so a start stopped partway
+ * leaves no half-copied skill. Only that directory is removed, so nothing else under `repo/` is ever touched.
  */
 const seedSkills = Effect.fnUntraced(function* (
   repo: string,
@@ -617,16 +615,21 @@ const seedSkills = Effect.fnUntraced(function* (
   const info = yield* Effect.option(fs.stat(skills))
   if (info._tag === "Some" && info.value.type !== "Directory") return
   const found = yield* Skills.scan(starters)
-  const stage = staging(repo)
-  yield* fs.remove(stage, { recursive: true, force: true })
-  for (const { name } of found.skills) {
-    const target = join(skills, name)
-    if ((yield* fs.exists(target)) || (yield* linked(target))) continue
-    yield* fs.copy(join(starters, name), join(stage, name))
-    yield* fs.makeDirectory(skills, { recursive: true })
-    yield* fs.rename(join(stage, name), target)
-  }
-  yield* fs.remove(stage, { recursive: true, force: true })
+  yield* Effect.scoped(
+    Effect.gen(function* () {
+      const stage = yield* fs.makeTempDirectoryScoped({
+        directory: repo,
+        prefix: "starters-",
+      })
+      for (const { name } of found.skills) {
+        const target = join(skills, name)
+        if ((yield* fs.exists(target)) || (yield* linked(target))) continue
+        yield* fs.copy(join(starters, name), join(stage, name))
+        yield* fs.makeDirectory(skills, { recursive: true })
+        yield* fs.rename(join(stage, name), target)
+      }
+    }),
+  )
 })
 
 /** What a new repo starts with besides `chad.json` and `persona.md`. */
