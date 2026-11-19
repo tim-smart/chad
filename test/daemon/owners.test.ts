@@ -34,11 +34,13 @@ test("a stranger's direct message, mention, Stop click and each chat command, ty
     "/status",
     "/safe on",
     "/model openai-compat/other",
+    "/mention off",
   ]
   for (const command of commands) await stranger(direct, command)
   await stranger(direct, "open sesame")
   await stranger(channel, "open sesame", true)
   await stranger(channel, "/new", true)
+  await stranger(channel, "/mention off")
   // The one button is Stop, and a stranger's click gets the plain acknowledgement in time and stops nothing.
   const click = await Effect.runPromise(
     running.click(status!, "stop-turn", "mallory"),
@@ -51,6 +53,7 @@ test("a stranger's direct message, mention, Stop click and each chat command, ty
     ["status", ""],
     ["safe", "on"],
     ["model", "openai-compat/other"],
+    ["mention", "off"],
   ] as const) {
     expect(
       await Effect.runPromise(running.command(direct, id, "mallory", text)),
@@ -60,13 +63,13 @@ test("a stranger's direct message, mention, Stop click and each chat command, ty
       visibility: "ephemeral",
     })
   }
-  const ignored = await lines(running, "message.ignored", commands.length + 3)
+  const ignored = await lines(running, "message.ignored", commands.length + 4)
   expect(
     ignored.map((line) => [
       line.annotations["reason"],
       line.annotations["author"],
     ]),
-  ).toEqual(Array(commands.length + 3).fill(["not-owner", "mallory"]))
+  ).toEqual(Array(commands.length + 4).fill(["not-owner", "mallory"]))
 
   // The owner's turn ran to its answer in the one session, and nothing else was posted or changed.
   await fakes.model.release(0)
@@ -78,6 +81,9 @@ test("a stranger's direct message, mention, Stop click and each chat command, ty
     { outcome: "answered" },
   ])
   expect(await fakes.model.calls()).toHaveLength(1)
+  expect(await running.chad(["connection", "list"])).toMatchObject({
+    stdout: Messages.connectionLine("local", "local", ["owner"]) + "\n",
+  })
   expect((await running.chad(["safe"])).stdout).toBe(
     Messages.safeState("off") + "\n",
   )

@@ -128,8 +128,11 @@ Passes when the turn ends with a `Stopped after <time>.` line, and chad answers 
 4. Copy the text channel's id, run `chad channel add discord <channel-id>`, and send a message with no mention in the
    text channel. chad opens a thread on it and answers there.
 5. Run `chad channel remove discord <channel-id>` and send another message with no mention in the text channel.
+6. Run `/mention off` in the text channel, send a message with no mention there, then run `/mention on` and send
+   another.
 
-Passes when chad answers the second message in the thread and the message of step 4, and ignores the message of step 5.
+Passes when chad answers the second message in the thread, the message of step 4 and the first message of step 6, and
+ignores the message of step 5 and the second message of step 6.
 If the thread keeps the message's text as its name, `chad logs` has a `thread.untitled` line with the reason. If it
 answers the first and ignores the second, the message content intent is off. If no thread opens, the bot lacks Create
 Public Threads in that channel. The invite asks for View Channel, Send Messages, Send Messages in Threads, Create

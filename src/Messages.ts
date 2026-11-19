@@ -260,6 +260,23 @@ export const channelRemoved = (id: string, connection: string) =>
 export const channelUnlisted = (id: string, connection: string) =>
   `channel ${id} on ${connection} is not on the list of channels that need no mention`
 
+/** What `/mention` with no `off` or `on` posts: whether an owner's message in the channel needs a mention. */
+export const mentionState = (needed: boolean) =>
+  needed ? "This channel needs a mention." : "This channel needs no mention."
+
+/** What `/mention off` and `/mention on` post, by whether the channel needs a mention now and whether that changed. */
+export const mentionChanged = (needed: boolean, changed: boolean) =>
+  needed
+    ? changed
+      ? "This channel needs a mention again."
+      : "This channel already needs a mention."
+    : changed
+      ? "This channel needs no mention now. An owner's message here reaches me without one."
+      : "This channel already needs no mention."
+
+/** `/mention` in a direct message, which needs no mention anyway. */
+export const mentionDirect = "A direct message needs no mention."
+
 /** One line of `chad connection list`. A connection with channels that need no mention names them too. */
 export const connectionLine = (
   name: string,
@@ -545,12 +562,14 @@ export const commandDescriptions = {
   status: "Show chad's status",
   model: "Show the model, or change it",
   safe: "Show safe mode, or turn it on or off",
+  mention: "Show whether this channel needs a mention, or turn that off or on",
 } as const
 
 /** The descriptions of the slash commands' one argument each. */
 export const commandArguments = {
   model: "A model, and --subagent, --summarizer or --fast with their values",
   safe: "on or off",
+  mention: "off or on",
 } as const
 
 /** A slash command from someone who is not an owner. Only they see it. */

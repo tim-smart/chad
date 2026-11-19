@@ -564,6 +564,62 @@ test("a channel added with chad channel add takes an owner's message without a m
   expect(await fakes.model.calls()).toHaveLength(1)
 })
 
+test("an owner's /mention off makes only the channel it ran in need no mention, a stranger's message there is still ignored, and a typed /mention on there makes it need one again", async () => {
+  const running = await scenario({ env: { CHAD_LOG_LEVEL: "debug" } })
+  const { fakes } = running
+  await fakes.model.script([{ text: "one" }])
+  const open = await fakes.chat.makeThread("channel")
+  const other = await fakes.chat.makeThread("channel")
+  const reasons = () =>
+    running
+      .log()
+      .filter((line) => line.annotations["event"] === "message.ignored")
+      .map((line) => line.annotations["reason"])
+  await running.logged("boot.ready")
+
+  expect(
+    await Effect.runPromise(running.command(open, "mention", "owner", "off")),
+  ).toMatchObject({
+    _tag: "Respond",
+    markdown: Messages.commandTaken("mention"),
+    visibility: "ephemeral",
+  })
+  const [off] = await fakes.chat.answers(open, 1)
+  expect(off?.text).toBe(Messages.mentionChanged(false, true))
+  expect(await running.chad(["connection", "list"])).toEqual(
+    done([Messages.connectionLine("local", "local", ["owner"], [open.id])]),
+  )
+
+  // The owner list still decides who is answered, and the other channel still needs a mention.
+  expect(
+    await fakes.chat.deliver(
+      await fakes.chat.userPosts(open, { text: "hi", authorId: "stranger" }),
+    ),
+  ).toBe(true)
+  await says(running, other, "hello")
+  await lines(running, "message.ignored", 2)
+  expect(reasons()).toEqual(["not-owner", "not-mentioned"])
+
+  await says(running, open, "hello")
+  await running.logged("turn.ended")
+  const opened = (await Effect.runPromise(running.chat.calls)).filter(
+    (call) => call.op === "startThread",
+  )
+  expect(opened.map((call) => call.thread)).toEqual([open])
+
+  // The channel needs no mention yet, so the typed command reaches chad without one.
+  await says(running, open, "/mention on")
+  const [, on] = await fakes.chat.answers(open, 2)
+  expect(on?.text).toBe(Messages.mentionChanged(true, true))
+  await says(running, open, "again")
+  await lines(running, "message.ignored", 3)
+  expect(reasons()).toEqual(["not-owner", "not-mentioned", "not-mentioned"])
+  expect(await fakes.model.calls()).toHaveLength(1)
+  expect(await running.chad(["connection", "list"])).toEqual(
+    done([Messages.connectionLine("local", "local", ["owner"])]),
+  )
+})
+
 /** Calls the daemon of a scenario as a client of another process does, with the headers given. */
 const makeClient = RpcClient.make(Rpcs)
 const call = <A>(

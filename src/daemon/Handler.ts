@@ -25,6 +25,7 @@ import {
   MessageStorage,
   Sharding,
 } from "effect/cluster"
+import type * as Connections from "../Connections.ts"
 import * as Messages from "../Messages.ts"
 import {
   McpLoginButton,
@@ -87,6 +88,21 @@ export const SafeCommand = Context.Reference<{
 })
 
 /**
+ * Makes a change to the connection's list of channels that need no mention, as `chad channel add` and
+ * `chad channel remove` do through the daemon's queue. `/mention` uses it.
+ */
+export const ChannelChange = Context.Reference<{
+  readonly run: (
+    change: Extract<
+      Connections.Change,
+      { readonly _tag: "ChannelAdd" | "ChannelRemove" }
+    >,
+  ) => Effect.Effect<Connections.Changed, Connections.Rejected>
+}>("chad/Handler/ChannelChange", {
+  defaultValue: () => ({ run: () => Effect.succeed({ changed: false }) }),
+})
+
+/**
  * Saves a secret that an owner submitted in a request's form, as `chad secret set` does through the daemon's queue,
  * and reports what that command prints, marking only a successful final result as saved.
  * Nothing it posts or logs carries the value.
@@ -121,6 +137,46 @@ export const McpLogin = Context.Reference<{
     finish: () => Effect.void,
   }),
 })
+
+/**
+ * `/mention`, typed or slash, in the channel or thread `where`. With `off` an owner's message there needs no mention
+ * from then on, with `on` it needs one again, and with neither it posts which holds. Only that channel or thread
+ * changes, and who chad answers stays the owner list. A direct message needs no mention, so nothing changes there.
+ */
+const mention = (
+  connection: Live,
+  where: ChatThread.ChatThread,
+  direct: boolean,
+  to: string | undefined,
+  post: (markdown: string) => Effect.Effect<void>,
+) =>
+  Effect.gen(function* () {
+    if (direct) return yield* post(Messages.mentionDirect)
+    if (to !== "off" && to !== "on") {
+      return yield* post(
+        Messages.mentionState(!connection.channels().includes(where.id)),
+      )
+    }
+    const change = {
+      _tag: to === "off" ? "ChannelAdd" : "ChannelRemove",
+      name: connection.name,
+      id: where.id,
+    } as const
+    const text = yield* Effect.flatMap(ChannelChange, (service) =>
+      service.run(change),
+    ).pipe(
+      Effect.match({
+        onFailure: (error) =>
+          Messages.connectionRejected(
+            to === "off" ? "channel add" : "channel remove",
+            error,
+          ),
+        onSuccess: ({ changed }) =>
+          Messages.mentionChanged(to === "on", changed),
+      }),
+    )
+    yield* post(text)
+  })
 
 /** The longest URL Discord takes on a link button. A longer link goes in the message. */
 const linkButtonLength = 512
@@ -201,6 +257,7 @@ const commands = {
   "/status": "status",
   "/model": "model",
   "/safe": "safe",
+  "/mention": "mention",
 } as const
 
 /** The text of a message with the mention of chad stripped, trimmed. */
@@ -312,6 +369,17 @@ export const layer = (connection: Live) =>
             )
           })
 
+        // `/mention` is answered where it was typed, as `/safe` is, and changes the channel or thread it was typed in.
+        const mentionHere = (where: ChatThread.ChatThread) =>
+          mention(
+            connection,
+            where,
+            event.kind === "direct",
+            words(message)[1]?.toLowerCase(),
+            (markdown) =>
+              say(where, markdown).pipe(Effect.provideService(Chat.Chat, chat)),
+          )
+
         let thread = event.thread
         if (event.kind === "channel") {
           if (!mentioned) return yield* ignored("not-mentioned")
@@ -325,6 +393,7 @@ export const layer = (connection: Live) =>
           }
           if (word === "model") return yield* model(thread)
           if (word === "safe") return yield* safe(thread)
+          if (word === "mention") return yield* mentionHere(thread)
           if (word !== undefined)
             return yield* say(thread, Messages.noSession(connection.format))
           // The thread is opened before the save, so an event that is delivered again lands on the same thread.
@@ -398,6 +467,10 @@ export const layer = (connection: Live) =>
         }
         if (word === "safe") {
           yield* safe(thread)
+          return yield* Sessions.mark(key, mark)
+        }
+        if (word === "mention") {
+          yield* mentionHere(thread)
           return yield* Sessions.mark(key, mark)
         }
         if (word === "stop") {
@@ -850,6 +923,23 @@ export const interactions = (connection: Live, once?: Once.Daemon) =>
                   post(command.thread),
                 )
               }),
+            ),
+          mention: (command) =>
+            anywhere(
+              command,
+              chat.getThread(command.thread).pipe(
+                Effect.map((info) => info.kind === "direct"),
+                Effect.orElseSucceed(() => false),
+                Effect.flatMap((direct) =>
+                  mention(
+                    connection,
+                    command.thread,
+                    direct,
+                    command.text.trim().toLowerCase(),
+                    post(command.thread),
+                  ),
+                ),
+              ),
             ),
         }
       }),
