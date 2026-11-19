@@ -955,9 +955,9 @@ export const make = Effect.fnUntraced(function* (options: {
           yield* result.dispose
           failed.push({
             name: result.plugin.name,
-            error: Messages.toolTaken(
-              clash.tool,
-              `the plugin ${clash.holder.name}`,
+            error: yield* options.scrubBuildError(
+              [result.plugin.entry.settings, clash.holder.entry.settings],
+              Messages.toolTaken(clash.tool, `the plugin ${clash.holder.name}`),
             ),
           })
           clashed = true
@@ -978,7 +978,15 @@ export const make = Effect.fnUntraced(function* (options: {
         if (tools !== undefined) {
           const trial = yield* Effect.result(options.trial(tools))
           if (trial._tag === "Failure")
-            failed.push({ name: "", error: trial.failure })
+            failed.push({
+              name: "",
+              error: Messages.firstLine(
+                yield* options.scrubBuildError(
+                  others().map(({ entry }) => entry.settings),
+                  trial.failure,
+                ),
+              ),
+            })
         }
       }
       const nothing: Swapped = {

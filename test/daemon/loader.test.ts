@@ -14,12 +14,14 @@ import { Data, Deferred, Effect, Layer } from "effect"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
+import { mask } from "../../dist/daemon/Once.js"
 import sendFile from "../../dist/plugins/send-file.js"
 import { fresh, scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
 import { path } from "../support/repo.ts"
 import { applied } from "../support/applied.ts"
 import { rows, says } from "../support/owner.ts"
+import * as Cli from "../support/cli.ts"
 
 class NoBuild extends Data.TaggedError("NoBuild") {}
 
@@ -154,6 +156,38 @@ export default Plugin.make(Layer.empty)
     running.log().filter((line) => line.message.includes("examples")),
   ).toEqual([])
 })
+
+test("module load failures mask stored and settings-referenced values at boot, reload and apply", async () => {
+  const directory = fresh()
+  const data = join(directory, "data")
+  const repo = join(data, "repo")
+  const stored = "loader-secret-a772"
+  const site = "loader-site-18c4"
+  mkdirSync(data, { recursive: true })
+  expect(
+    (await Cli.chad(["secret", "set", "KEY"], { CHAD_DATA: data }, stored))
+      .code,
+  ).toBe(0)
+  const plugin = (stage: string) =>
+    `throw new Error("${stage} refused " + ["loader", "secret", "a772"].join("-") + " for " + ["loader", "site", "18c4"].join("-"))`
+  applied(repo, {
+    "plugins/broken.ts": plugin("live"),
+    "chad.json": JSON.stringify({
+      plugins: { broken: { settings: { url: "${SITE}" } } },
+    }),
+  })
+  const running = await scenario({ directory, env: { SITE: site } })
+  await running.logged("boot.ready")
+  const status = await running.chad(["status"])
+  const reload = await running.chad(["plugin", "reload", "broken"])
+  writeFileSync(join(repo, "work/plugins/broken.ts"), plugin("candidate"))
+  const apply = await running.chad(["apply", "-m", "Change broken plugin"])
+  expect(status.stdout).toContain(`live refused ${mask} for ${mask}`)
+  expect(reload.stderr).toContain(`live refused ${mask} for ${mask}`)
+  expect(apply.stderr).toContain(`candidate refused ${mask} for ${mask}`)
+  const outputs = JSON.stringify([running.log(), status, reload, apply])
+  for (const value of [stored, site]) expect(outputs).not.toContain(value)
+}, 60_000)
 
 test("a Layer build that cannot be interrupted, and a failed build whose finalizer never ends, are skipped at the deadline, the boot goes on, and nothing the build acquired is released until it ends", async () => {
   const release = Deferred.makeUnsafe<void>()

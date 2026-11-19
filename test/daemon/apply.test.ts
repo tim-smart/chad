@@ -642,6 +642,16 @@ test("an owner change rebuilds the plugins with the new owners, a removed connec
   // would take the tool of the version that stays, so it keeps its running version too.
   build = "fails"
   taking = true
+  // The store value happens to be the contested tool name.
+  expect(
+    (
+      await Cli.chad(
+        ["secret", "set", "TOOL"],
+        { CHAD_DATA: running.data },
+        "owners",
+      )
+    ).code,
+  ).toBe(0)
   expect((await running.chad(["owner", "add", "local", "bob"])).code).toBe(0)
   const kept = await owners("who with bob")
   expect(kept).toContain("ada")
@@ -650,6 +660,9 @@ test("an owner change rebuilds the plugins with the new owners, a removed connec
   const marked = (await running.chad(["status"])).stdout
   expect(marked).toContain(`plugin: guard, ${mark}:`)
   expect(marked).toContain(`plugin: taker, ${mark}:`)
+  expect(marked).toContain(
+    Messages.toolTaken("[one-off value]", "the plugin guard"),
+  )
   taking = false
 
   // The removal comes with a build that fails, and the version that still knows ada goes. The CLI is killed while

@@ -362,6 +362,20 @@ const boot = Effect.fnUntraced(function* (
     deadline: inputs.timings.packageInstall,
     stop: inputs.timings.packageStop,
   })
+  const scrubBuildError = PluginSettings.scrubBuildError(
+    volume.data,
+    environment.variables,
+    fs,
+  )
+  const scrubLoadError: Loader.Scrub = (tree, message) =>
+    Settings.read(tree).pipe(
+      Effect.flatMap((read) =>
+        scrubBuildError(
+          read._tag === "Text" ? Settings.lenient(read.text).file : undefined,
+          message,
+        ),
+      ),
+    )
   const fromRepo =
     // Safe mode loads nothing from the repo, installs no package and never starts esbuild.
     safe !== "off" || Option.isNone(applied)
@@ -378,7 +392,12 @@ const boot = Effect.fnUntraced(function* (
           )
           if (ready.missing === undefined) yield* packages.prune(ready.hash)
           // A repo plugin with a bundled plugin's name is skipped before it runs, since the two would share one table.
-          return yield* Loader.load(directory, bundledNames, ready.missing)
+          return yield* Loader.load(
+            directory,
+            bundledNames,
+            scrubLoadError,
+            ready.missing,
+          )
         })
   // The token store and the one Codex login of the process, which every session's model layer is built over. clanka's
   // login reads the stored token once, as it is built.
@@ -789,11 +808,7 @@ const boot = Effect.fnUntraced(function* (
     }),
     unloadable: fromRepo.skipped.filter(({ name }) => !off.has(name)),
     lookup: PluginSettings.lookup(volume.data, environment.variables, fs),
-    scrubBuildError: PluginSettings.scrubBuildError(
-      volume.data,
-      environment.variables,
-      fs,
-    ),
+    scrubBuildError,
     owners: () =>
       running
         .list()
@@ -817,11 +832,7 @@ const boot = Effect.fnUntraced(function* (
         Effect.scoped,
         Effect.provideContext(world),
         Effect.asVoid,
-        Effect.catchCause((cause) =>
-          Effect.fail(
-            Messages.firstLine(Cause.pretty(Cause.squash(cause) as never)),
-          ),
-        ),
+        Effect.catchCause((cause) => Effect.fail(Cause.pretty(cause))),
       ) as Effect.Effect<void, string>,
     turns: PluginTurns.make(options),
   }).pipe(
@@ -839,6 +850,7 @@ const boot = Effect.fnUntraced(function* (
   yield* Deferred.succeed(state.queue, queue)
   const announce = PluginTurns.chat(running.chats, running.list)
   repository = yield* Apply.make({
+    scrubLoadError,
     repo: volume.repo,
     formatDeadline: inputs.timings.prettierFormat,
     data: volume.data,

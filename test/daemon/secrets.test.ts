@@ -585,7 +585,10 @@ export default Plugin.make(Layer.effectDiscard(Effect.gen(function* () {
   expect(reloaded.code).toBe(1)
 
   const { fakes } = running
+  const bin = Skills.toolbox(join(directory, "bin"), [])
+  const reload = `CHAD_DATA="${data}" "${bin}/chad" plugin reload keyed`
   await fakes.model.script([
+    runs(`await run(${JSON.stringify(reload)})`),
     runs(
       `console.log(await requestSecret({ name: "KEY", reason: "replace the test token" }))`,
     ),
@@ -593,7 +596,7 @@ export default Plugin.make(Layer.effectDiscard(Effect.gen(function* () {
   ])
   const thread = await fakes.chat.makeThread("direct")
   await says(running, thread, "replace the token")
-  await fakes.model.received(2)
+  await fakes.model.received(3)
   const request = (await fakes.chat.messages(thread)).find((message) =>
     message.text.includes("I need the secret `KEY`"),
   )!
@@ -623,6 +626,7 @@ export default Plugin.make(Layer.effectDiscard(Effect.gen(function* () {
   await running.stop()
   const masked = `token ${Once.mask} for ${Once.mask}`
   const refused = `refused ${masked}`
+  expect(results((await fakes.model.calls())[1]).join("\n")).toContain(refused)
   expect(status.stdout).toContain("plugin: keyed, skipped")
   expect(status.stdout).toContain(refused)
   expect(reloaded.stderr).toContain("keyed")
