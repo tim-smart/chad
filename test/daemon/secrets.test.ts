@@ -717,7 +717,7 @@ test("the agent's requestSecret posts a button whose form saves the secret as ch
   // The save starts a turn that tells the agent the name, and the agent's answer is posted in the thread.
   await fakes.model.received(3)
   expect(JSON.stringify((await fakes.model.calls())[2])).toContain(
-    SecretMessages.secretSavedPrompt("WEATHER_TOKEN"),
+    SecretMessages.secretSavedPrompt("WEATHER_TOKEN", true),
   )
   await eventually(
     () => fakes.chat.messages(thread),
@@ -743,6 +743,83 @@ test("the agent's requestSecret posts a button whose form saves the secret as ch
   const chat = await Effect.runPromise(running.chat.calls)
   expect(JSON.stringify(chat)).not.toContain(value)
   expect(JSON.stringify(await fakes.model.calls())).not.toContain(value)
+})
+
+test("a requestSecret form submitted after a /new saves the secret and starts no turn in the new session, and one whose plugin does not reload with the value still starts the turn and says so", async () => {
+  const directory = await volume()
+  const { plugin } = keyed()
+  const running = await scenario({
+    directory,
+    plugins: [
+      { name: "keyed", plugin },
+      { name: "request-secret", plugin: requestSecret },
+    ],
+  })
+  const { fakes } = running
+  const asks = runs(
+    `console.log(await requestSecret({ name: "KEY", reason: "the API needs it." }))`,
+  )
+  await fakes.model.script([
+    asks,
+    { text: "Click the button." },
+    asks,
+    { text: "Click the button." },
+    { text: "Got it." },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  /** The request for KEY that chad posted, other than the one `not` names. */
+  const request = async (not?: string) => {
+    const unsaved = (message: { readonly id: string; readonly text: string }) =>
+      message.id !== not && message.text.includes("I need the secret `KEY`")
+    return (
+      await eventually(
+        () => fakes.chat.messages(thread),
+        (messages) => messages.some(unsaved),
+      )
+    ).find(unsaved)!
+  }
+
+  await says(running, thread, "call the API")
+  await fakes.model.received(2)
+  const first = await request()
+  await says(running, thread, "/new")
+  await eventually(
+    () => fakes.chat.messages(thread),
+    (messages) =>
+      messages.some(
+        (message) => message.text === Messages.newSession(Format.local),
+      ),
+  )
+  await Effect.runPromise(
+    running.submit(
+      first.id,
+      "secret",
+      { clicker: owner, submitter: owner },
+      { value: "after-new-3b7c" },
+    ),
+  )
+  await running.logged("turn.dropped")
+  expect(store(running.data)["KEY"]?.value).toBe("after-new-3b7c")
+
+  // In the new session, a value the plugin refuses is stored and the command exits 1, and the turn still starts.
+  await says(running, thread, "call the API")
+  await fakes.model.received(4)
+  const second = await request(first.id)
+  await Effect.runPromise(
+    running.submit(
+      second.id,
+      "secret",
+      { clicker: owner, submitter: owner },
+      { value: "refused" },
+    ),
+  )
+  await fakes.model.received(5)
+  const calls = await fakes.model.calls()
+  expect(JSON.stringify(calls[4])).toContain(
+    SecretMessages.secretSavedPrompt("KEY", false),
+  )
+  expect(store(running.data)["KEY"]?.value).toBe("refused")
+  expect(JSON.stringify(calls)).not.toContain("after-new-3b7c")
 })
 
 const requestOnce = (name: string) =>

@@ -33,6 +33,11 @@ export interface Output {
   readonly stdout: ReadonlyArray<string>
   readonly stderr: ReadonlyArray<string>
   readonly code: 0 | 1
+  /**
+   * Set by `chad secret set` once the store holds the value, which a plugin that does not reload with it, and so exit
+   * code 1, does not undo.
+   */
+  readonly stored?: boolean
 }
 
 /**
@@ -1123,6 +1128,7 @@ export const make = Effect.fnUntraced(function* (options: {
             Messages.keptPrevious(name, error),
           ),
           code: kept.length === 0 ? (0 as const) : (1 as const),
+          stored: set,
           mcp: yield* rebuildIf(mcp),
         } satisfies Performed as Performed
       }),

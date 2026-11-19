@@ -30,9 +30,12 @@ export const secretPosted = (name: string) =>
 /** The label of the turn a saved secret starts, which hooks see on `origin.label`. */
 export const savedLabel = "secret saved"
 
-/** The prompt of the turn a saved secret starts. It names the secret and never carries its value. */
-export const secretSavedPrompt = (name: string) =>
-  `The owner saved the secret \`${name}\` from the button you posted, and chad started this turn to tell you. Its value is in chad's secret store and not here: use it by its name. Carry on with what you needed it for.`
+/**
+ * The prompt of the turn a saved secret starts. It names the secret and never carries its value, and says when a plugin
+ * that uses the secret did not reload with it.
+ */
+export const secretSavedPrompt = (name: string, reloaded: boolean) =>
+  `The owner saved the secret \`${name}\` from the button you posted, and chad started this turn to tell you. Its value is in chad's secret store and not here: use it by its name.${reloaded ? "" : " A plugin whose settings name it did not reload with the new value and keeps its previous version: chad posted which one and why in this thread."} Carry on with what you needed it for.`
 
 export const onceDescription =
   "Ask the owner for a value they hand over that is used once and stops working soon after, which chad must not store: a code a site sent by SMS or email, an authenticator code, a device pairing code, or the address the browser ended on after the owner approved an OAuth sign-in. Use it for any such value in place of asking the owner to run a command on the server. Call it when the value is needed, not before. It posts a button in this session's thread and waits, for a few minutes at most, for the owner to enter the value in a form. name labels the request, and reason says what the value is and where the owner finds it; the owner reads both. It returns the value to the calling script only: use it in that same script, by handing it to the command or tool that needs it, and never print it. chad replaces the exact value with a mask in the session's log and in what the script prints, which is all you see of it, and for an address also each value of its query and fragment parameters that is 8 characters or longer, such as its code, as written and decoded. Hand the value to a command in single quotes, never in the double quotes JSON.stringify makes, where the shell expands it. The mask misses a value once it is encoded another way, cut up or written to a file. The value is never saved. Never use this for a password, a key or anything else that stays valid: use requestSecret for a secret chad will need again."
