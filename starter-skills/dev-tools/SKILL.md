@@ -34,27 +34,20 @@ let task = await bash({
   background: true,
 })
 const pattern = /[A-Z0-9]{4}-[A-Z0-9]{4}/
-try {
-  for (
-    let waited = 0;
-    task.status === "running" && !pattern.test(task.output);
-    waited += 1000
-  ) {
-    if (waited >= 60_000) throw new Error("no code")
-    await sleep(1000)
-    task = await taskOutput(task.id)
-  }
-  const code = pattern.exec(task.output)?.[0]
-  if (code !== undefined)
-    await sendMessage(
-      `Open https://github.com/login/device, enter ${code} and approve. The code expires in 15 minutes.`,
-    )
-} catch {
-  await stopTask(task.id).catch(() => {})
-  throw new Error(
-    "The GitHub sign-in could not give the owner its code, so it was stopped.",
-  )
+for (
+  let waited = 0;
+  task.status === "running" && !pattern.test(task.output);
+  waited += 1000
+) {
+  if (waited >= 60_000) throw new Error("no code")
+  await sleep(1000)
+  task = await taskOutput(task.id)
 }
+const code = pattern.exec(task.output)?.[0]
+if (code !== undefined)
+  await sendMessage(
+    `Open https://github.com/login/device, enter ${code} and approve. The code expires in 15 minutes.`,
+  )
 while (task.status === "running")
   task = (await waitTasks({ ids: [task.id] }))[0]
 console.log(task.status, task.exitCode, task.output)
