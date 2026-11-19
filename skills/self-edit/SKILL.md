@@ -85,6 +85,7 @@ A skill is `skills/<name>/SKILL.md` with `name` and `description` in its front m
 
 - A check or an apply fails on a skill with no front matter, a missing or empty `name` or `description`, a name that differs from its directory, or two skills in the repo with one name.
 - A skill with a bundled skill's name replaces the bundled one, and that includes this skill. Do not copy this skill to change it. Write the owner's conventions as a separate skill.
+- The repo started with the skills `images`, `pdfs`, `documents` and `dev-tools`, copied from `/opt/chad/starter-skills`. They are repo skills like any other: change them to fit the owner, and add what you learn about a tool. A later image does not update them. To bring one back, or to add one to a repo made before they existed, copy its directory from `/opt/chad/starter-skills/<name>` to `work/skills/` and apply.
 
 ## Command line tools
 

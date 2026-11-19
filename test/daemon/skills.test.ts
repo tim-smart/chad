@@ -1,6 +1,7 @@
 // Skills as the owner and the agent reach them: `skills/<name>/SKILL.md` reaches a session's prompt and `readSkill` once
 // it is applied, a repo skill hides a bundled one of the same name, safe mode lists the bundled ones alone, a boot
-// skips a malformed skill, and a bundled skill that changed under a repo skill is announced once.
+// skips a malformed skill, a bundled skill that changed under a repo skill is announced once, and a new repo starts
+// with the starter skills.
 // The last test covers clanka's own walk.
 import {
   mkdirSync,
@@ -19,7 +20,7 @@ import { skill as skillCommand } from "../../dist/cli/commands/skill.js"
 import { Environment } from "../../dist/cli/Environment.js"
 import * as Messages from "../../dist/Messages.js"
 import * as Skills from "../../dist/Skills.js"
-import { applied, write } from "../support/applied.ts"
+import { applied, git, write } from "../support/applied.ts"
 import { fresh, scenario, type Scenario } from "../support/driver.ts"
 import { type Call, results, runs } from "../support/model.ts"
 import { lines, rows, says } from "../support/owner.ts"
@@ -321,4 +322,52 @@ test("an applied skill reaches the next turn's prompt and readSkill, hides a bun
   expect((await third.chad(["apply", "-m", "No broken"])).code).toBe(0)
   expect((await third.chad(["status"])).stdout).not.toContain(skipped)
   expect(await third.stop()).toBe(0)
+})
+
+test("a new repo's first commit holds the starter skills, keeps a skill the owner put in work/ first, and a later boot adds back none the owner removed", async () => {
+  const directory = fresh()
+  const work = join(directory, "data/repo/work")
+  const mine = skill("pdfs", "Mine.", "my pdfs body")
+  write(work, { "skills/pdfs/SKILL.md": mine })
+  const first = await scenario({
+    directory,
+    starters: Skills.starterDirectory,
+  })
+  const thread = await first.fakes.chat.makeThread("direct")
+
+  // Every shipped starter passes the checks and reaches the prompt, and the owner's pdfs stays theirs.
+  const start = await turn(first, thread)
+  expect(git(work, ["ls-tree", "-r", "--name-only", "applied", "skills"])).toBe(
+    [
+      "skills/dev-tools/SKILL.md",
+      "skills/documents/SKILL.md",
+      "skills/images/SKILL.md",
+      "skills/pdfs/SKILL.md",
+    ].join("\n"),
+  )
+  expect(readFileSync(join(work, "skills/pdfs/SKILL.md"), "utf8")).toBe(mine)
+  expect(readFileSync(join(work, "skills/images/SKILL.md"), "utf8")).toBe(
+    readFileSync(join(Skills.starterDirectory, "images/SKILL.md"), "utf8"),
+  )
+  for (const name of ["dev-tools", "documents", "images"])
+    expect(start.system).toContain(`- ${name}: Read before`)
+  expect(start.system).toContain("- pdfs: Mine.")
+
+  // A starter the owner removed stays removed across a restart.
+  rmSync(join(work, "skills/images"), { recursive: true })
+  expect((await first.chad(["apply", "-m", "No images"])).code).toBe(0)
+  expect(await first.stop()).toBe(0)
+  const second = await scenario({
+    directory,
+    starters: Skills.starterDirectory,
+  })
+  // A thread of its own, as the platform starts again with no memory of the message ids the first boot took.
+  await second.fakes.chat.makeThread("direct")
+  const booted = await turn(
+    second,
+    await second.fakes.chat.makeThread("direct"),
+  )
+  expect(booted.system).not.toContain("- images:")
+  expect(git(work, ["status", "--porcelain"])).toBe("")
+  expect(await second.stop()).toBe(0)
 })

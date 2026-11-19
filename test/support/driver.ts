@@ -82,6 +82,8 @@ export interface Options {
   readonly plugins?: DaemonInputs["plugins"]
   /** The bundled skills directory handed to `runDaemon`, none by default. */
   readonly skills?: string
+  /** The starter skills directory handed to `runDaemon`, none by default. */
+  readonly starters?: string
   /** A finalizer for the chat layer of a connection, by its name, which runs when the daemon tears the connection down. */
   readonly closing?: Readonly<Record<string, Effect.Effect<void>>>
 }
@@ -335,6 +337,7 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
       ),
       ...(options.plugins === undefined ? {} : { plugins: options.plugins }),
       ...(options.skills === undefined ? {} : { skills: options.skills }),
+      ...(options.starters === undefined ? {} : { starters: options.starters }),
     },
     options.timings,
   )

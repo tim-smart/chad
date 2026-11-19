@@ -107,12 +107,17 @@ describe("the image booted on an empty named volume, and then stopped", () => {
   let processes: ReadonlyArray<string>
   let directories: ReadonlyArray<string>
   let version: string
+  let skills: string
   let stdout: string
   let exitCode: number
 
   beforeAll(async () => {
     const container = start("--volume", volume() + ":/data")
     await ready(container)
+    skills = exec(
+      container,
+      "git -C /data/repo/work ls-tree --name-only applied skills/",
+    )
     processes = exec(container, "ps -e -o pid=,uid=,args=")
       .split("\n")
       .map((line) => line.trim().replace(/ +/, " ").replace(/ +/, " "))
@@ -149,6 +154,15 @@ describe("the image booted on an empty named volume, and then stopped", () => {
     )
     expect(version).toBe(manifest.version)
     expect(exitCode).toBe(0)
+  })
+
+  it("the repo's first commit holds the image's starter skills", () => {
+    expect(skills.split("\n")).toEqual([
+      "skills/dev-tools",
+      "skills/documents",
+      "skills/images",
+      "skills/pdfs",
+    ])
   })
 })
 

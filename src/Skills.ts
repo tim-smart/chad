@@ -14,6 +14,14 @@ export const bundledDirectory = fileURLToPath(
   new URL("../skills", import.meta.url),
 )
 
+/**
+ * The starter skills, `starter-skills/` at the root of the package: `/opt/chad/starter-skills` in the image. A new repo's
+ * first commit copies them into `work/skills/`, where they are the owner's to change like any repo skill.
+ */
+export const starterDirectory = fileURLToPath(
+  new URL("../starter-skills", import.meta.url),
+)
+
 /** The skill file in a skill's directory. */
 export const fileName = "SKILL.md"
 
