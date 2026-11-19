@@ -32,7 +32,8 @@ connection's list, `/mention on` takes it off again, and `/mention` alone says w
 and typed. Typed in a channel that still needs a mention, it needs one itself, as in `@chad /mention off`. It changes
 only that channel, and only on the connection it came in on. In a direct message it changes nothing, because a direct
 message needs no mention. In a thread that has a session `/mention on` takes the thread off the list, but the thread
-still needs no mention, and chad says so.
+still needs no mention, and chad says so. A `/mention` that is still waiting when its connection is swapped, by a
+token change or a remove and add, or when its sender stops being an owner, changes nothing.
 
 The list is off by default, and it changes nothing about who chad answers: a message from someone who is not an owner
 is still ignored with the reason `not-owner`, in a listed channel too. The change applies at the next message, with no

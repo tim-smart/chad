@@ -29,7 +29,7 @@ import {
   type Scenario,
   scenario,
 } from "../support/driver.ts"
-import { lines, posted, says } from "../support/owner.ts"
+import { eventually, lines, posted, says } from "../support/owner.ts"
 
 const owner = "700000000000000001"
 const home = {
@@ -639,6 +639,45 @@ test("an owner's /mention off makes only the channel it ran in need no mention, 
   await Effect.runPromise(running.command(direct, "mention", "owner", "off"))
   const [unchecked] = await fakes.chat.answers(direct, 1)
   expect(unchecked?.text).toBe(Messages.mentionUnchecked)
+  expect(await running.chad(["connection", "list"])).toEqual(
+    done([Messages.connectionLine("local", "local", ["owner"])]),
+  )
+})
+
+test("a /mention off that waits while its connection is swapped for another of the same name leaves the new connection's list alone", async () => {
+  const running = await scenario()
+  const channel = await running.fakes.chat.makeThread("channel")
+  await running.logged("boot.ready")
+
+  // The command waits on the platform's answer to which kind of channel it is in.
+  const held = running.holdThreads()
+  await Effect.runPromise(running.command(channel, "mention", "owner", "off"))
+  expect(
+    await running.chad(["connection", "remove", "local", "--force"]),
+  ).toEqual(done([Messages.connectionRemoved("local")]))
+  expect(await running.chad(["connection", "add", "local"])).toEqual(
+    done([Messages.connectionAdded("local", "local")]),
+  )
+  expect(await running.chad(["owner", "add", "local", "owner"])).toEqual(
+    done([Messages.ownerAdded("owner", "local")]),
+  )
+  held.release()
+
+  await eventually(
+    () => ran(running).filter(({ command }) => command === "channel add"),
+    (lines) => lines.length > 0,
+  )
+  expect(
+    ran(running).filter(({ command }) => command === "channel add"),
+  ).toEqual([
+    {
+      command: "channel add",
+      caller: "owner",
+      outcome: "refused",
+      connection: "local",
+      reason: "stale",
+    },
+  ])
   expect(await running.chad(["connection", "list"])).toEqual(
     done([Messages.connectionLine("local", "local", ["owner"])]),
   )

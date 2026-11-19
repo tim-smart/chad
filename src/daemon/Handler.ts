@@ -39,6 +39,7 @@ import {
   SecretForm,
 } from "../plugins/request-secret/Form.ts"
 import type { Live } from "./Chats.ts"
+import type * as DaemonConnections from "./Connections.ts"
 import * as Disk from "./Disk.ts"
 import * as Logger from "./Logger.ts"
 import * as Model from "./Model.ts"
@@ -89,7 +90,8 @@ export const SafeCommand = Context.Reference<{
 
 /**
  * Makes a change to the connection's list of channels that need no mention, as `chad channel add` and
- * `chad channel remove` do through the daemon's queue. `/mention` uses it.
+ * `chad channel remove` do through the daemon's queue, if `guard` still holds when its turn in the queue comes. It fails
+ * with `Stale` when it does not. `/mention` uses it.
  */
 export const ChannelChange = Context.Reference<{
   readonly run: (
@@ -97,7 +99,11 @@ export const ChannelChange = Context.Reference<{
       Connections.Change,
       { readonly _tag: "ChannelAdd" | "ChannelRemove" }
     >,
-  ) => Effect.Effect<Connections.Changed, Connections.Rejected>
+    guard: () => boolean,
+  ) => Effect.Effect<
+    Connections.Changed,
+    Connections.Rejected | DaemonConnections.Stale
+  >
 }>("chad/Handler/ChannelChange", {
   defaultValue: () => ({ run: () => Effect.succeed({ changed: false }) }),
 })
@@ -150,6 +156,7 @@ const mention = (
   where: ChatThread.ChatThread,
   kind: Effect.Effect<ChatEvent.ThreadKind, unknown>,
   to: string | undefined,
+  sender: string,
   post: (markdown: string) => Effect.Effect<void>,
 ) =>
   Effect.gen(function* () {
@@ -181,15 +188,22 @@ const mention = (
       name: connection.name,
       id: where.id,
     } as const
+    // The change is made only if the connection that took the command still runs under its name and the sender is still
+    // one of its owners, which a swap or an owner change while the command waited would undo.
     const text = yield* Effect.flatMap(ChannelChange, (service) =>
-      service.run(change),
+      service.run(
+        change,
+        () => connection.current() && connection.owners().includes(sender),
+      ),
     ).pipe(
       Effect.match({
         onFailure: (error) =>
-          Messages.connectionRejected(
-            to === "off" ? "channel add" : "channel remove",
-            error,
-          ),
+          error._tag === "Stale"
+            ? Messages.mentionStale
+            : Messages.connectionRejected(
+                to === "off" ? "channel add" : "channel remove",
+                error,
+              ),
         onSuccess: ({ changed }) =>
           to === "on" && session
             ? Messages.mentionSessionKept(changed)
@@ -397,6 +411,7 @@ export const layer = (connection: Live) =>
             where,
             Effect.succeed(event.kind),
             words(message)[1]?.toLowerCase(),
+            author.id,
             (markdown) =>
               say(where, markdown).pipe(Effect.provideService(Chat.Chat, chat)),
           )
@@ -955,6 +970,7 @@ export const interactions = (connection: Live, once?: Once.Daemon) =>
                   .getThread(command.thread)
                   .pipe(Effect.map((info) => info.kind)),
                 command.text.trim().toLowerCase(),
+                command.userId,
                 post(command.thread),
               ),
             ),

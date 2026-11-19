@@ -288,6 +288,10 @@ export const mentionSessionKept = (changed: boolean) =>
 export const mentionUnchecked =
   "I couldn't check this channel, so nothing changed. Try again."
 
+/** `/mention off` or `on` whose connection was swapped or whose sender stopped being an owner while it waited. */
+export const mentionStale =
+  "This connection changed while the command waited, so nothing changed."
+
 /** `/mention` in a direct message, which needs no mention anyway. */
 export const mentionDirect = "A direct message needs no mention."
 
