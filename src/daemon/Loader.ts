@@ -58,6 +58,12 @@ export interface Skipped {
   readonly message: string
 }
 
+/** Masks a diagnostic against the secret store and references in the tree being loaded. */
+export type Scrub = (
+  tree: string,
+  message: string,
+) => Effect.Effect<string, never, FileSystem.FileSystem>
+
 /** The text of a load's failure. */
 const messageOf = (cause: Cause.Cause<unknown>) => {
   const error = Cause.squash(cause)
@@ -457,7 +463,8 @@ export interface Loaded {
  */
 export const load = Effect.fnUntraced(function* (
   tree: string,
-  bundled: ReadonlySet<string> = new Set(),
+  bundled: ReadonlySet<string>,
+  scrub: Scrub,
   missing?: string,
 ) {
   const { found, problems } = yield* discover(tree)
@@ -482,7 +489,12 @@ export const load = Effect.fnUntraced(function* (
     if (exit._tag === "Success") loaded.push(exit.value)
     else skipped.push({ name: plugin.name, message: messageOf(exit.cause) })
   }
-  return { loaded, skipped }
+  return {
+    loaded,
+    skipped: yield* Effect.forEach(skipped, ({ name, message }) =>
+      Effect.map(scrub(tree, message), (message) => ({ name, message })),
+    ),
+  }
 })
 
 /**
@@ -493,7 +505,8 @@ export const load = Effect.fnUntraced(function* (
 export const check = Effect.fnUntraced(function* (
   repo: string,
   tree: string,
-  bundled: ReadonlySet<string> = new Set(),
+  bundled: ReadonlySet<string>,
+  scrub: Scrub,
 ) {
   const { found, problems } = yield* discover(tree)
   const named = [
@@ -503,9 +516,14 @@ export const check = Effect.fnUntraced(function* (
       .map(({ name }) => Messages.bundledNameRefused(name)),
   ]
   const loaded: Array<Loaded> = []
-  if (named.length > 0) return { errors: named, loaded }
+  if (named.length > 0)
+    return {
+      errors: yield* Effect.forEach(named, (message) => scrub(tree, message)),
+      loaded,
+    }
   const typed = yield* typecheck(repo, tree)
-  if (typed !== undefined) return { errors: [typed], loaded }
+  if (typed !== undefined)
+    return { errors: [yield* scrub(tree, typed)], loaded }
   const errors: Array<string> = []
   for (const plugin of found) {
     const exit = yield* Effect.exit(
@@ -517,7 +535,8 @@ export const check = Effect.fnUntraced(function* (
         })),
       ),
     )
-    if (exit._tag === "Failure") errors.push(messageOf(exit.cause))
+    if (exit._tag === "Failure")
+      errors.push(yield* scrub(tree, messageOf(exit.cause)))
     else loaded.push(exit.value)
   }
   return { errors, loaded }

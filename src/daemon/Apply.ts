@@ -150,6 +150,7 @@ type Services =
   FileSystem.FileSystem | ChildProcessSpawner.ChildProcessSpawner | Path.Path
 
 export const make = Effect.fnUntraced(function* (options: {
+  readonly scrubLoadError: Loader.Scrub
   readonly repo: string
   /** How long the Prettier format before a check or an apply may take. */
   readonly formatDeadline: Duration.Duration
@@ -313,6 +314,7 @@ export const make = Effect.fnUntraced(function* (options: {
       repo,
       directory,
       bundledNames,
+      options.scrubLoadError,
     )
     // A malformed skill fails the check as a plugin does.
     const checked = yield* Skills.check(directory)
@@ -860,7 +862,12 @@ export const make = Effect.fnUntraced(function* (options: {
       const found =
         tree === undefined
           ? { loaded: [], skipped: [] }
-          : yield* Loader.load(tree, bundledNames, yield* readyLive(tree))
+          : yield* Loader.load(
+              tree,
+              bundledNames,
+              options.scrubLoadError,
+              yield* readyLive(tree),
+            )
       applied = yield* PluginSettings.atBoot({
         tree,
         known: new Set([
@@ -937,7 +944,12 @@ export const make = Effect.fnUntraced(function* (options: {
       return refused(Messages.reloadUnknown(name))
     }
     const tree = yield* fs.realPath(live)
-    const found = yield* Loader.load(tree, bundledNames, yield* readyLive(tree))
+    const found = yield* Loader.load(
+      tree,
+      bundledNames,
+      options.scrubLoadError,
+      yield* readyLive(tree),
+    )
     const loaded = withSettings(found.loaded)
     if (loaded !== undefined) return loaded
     const problem = found.skipped.find((plugin) => plugin.name === name)

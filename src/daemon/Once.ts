@@ -145,6 +145,17 @@ const scan = (
   return { out: out + text.slice(from), rest: "" }
 }
 
+/** Masks whole values in a diagnostic, matching the longest value first as a session's redactor does. */
+export const scrubValues = (
+  text: string,
+  values: ReadonlyArray<string>,
+): string => {
+  const sorted = [...new Set(values)]
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length)
+  return sorted.length === 0 ? text : scan(text, sorted, true).out
+}
+
 export const make = (deadline: Duration.Duration): Daemon => {
   const pending = new Map<string, Pending>()
   /** The values each session was given, the longest first. */
