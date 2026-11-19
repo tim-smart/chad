@@ -789,6 +789,11 @@ const boot = Effect.fnUntraced(function* (
     }),
     unloadable: fromRepo.skipped.filter(({ name }) => !off.has(name)),
     lookup: PluginSettings.lookup(volume.data, environment.variables, fs),
+    scrubBuildError: PluginSettings.scrubBuildError(
+      volume.data,
+      environment.variables,
+      fs,
+    ),
     owners: () =>
       running
         .list()

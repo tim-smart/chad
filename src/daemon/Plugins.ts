@@ -344,6 +344,10 @@ export const make = Effect.fnUntraced(function* (options: {
    * a name resolves nowhere.
    */
   readonly lookup?: Settings.Lookup<{ readonly message: string }, never>
+  readonly scrubBuildError: (
+    settings: unknown,
+    error: string,
+  ) => Effect.Effect<string>
   /** The trial `Agent.makeWith` with a set of plugin tools, which fails with clanka's error. */
   readonly trial?: (
     tools: NonNullable<ReturnType<Plugins["Service"]["tools"]>>,
@@ -421,19 +425,17 @@ export const make = Effect.fnUntraced(function* (options: {
     name: string,
     error: string,
     repo: boolean,
-    cause?: Cause.Cause<unknown>,
   ) {
     const reason = Messages.firstLine(error)
     skipped = [
       ...skipped.filter((other) => other.name !== name),
       { name, reason, repo },
     ].sort(byName)
-    yield* Logger.event(
-      "plugin.skipped",
-      "A plugin was skipped",
-      { plugin: name, reason, ...(cause === undefined ? { error } : {}) },
-      cause,
-    )
+    yield* Logger.event("plugin.skipped", "A plugin was skipped", {
+      plugin: name,
+      reason,
+      error,
+    })
     yield* options.notices.raise({
       key: skippedKey(name),
       text: Messages.pluginSkipped(name, reason),
@@ -648,8 +650,11 @@ export const make = Effect.fnUntraced(function* (options: {
       Settings.expand(entry.settings, lookup),
     )
     if (expanded._tag === "Failure") {
-      const error = expanded.failure.message
-      return { _tag: "Failed", error, cause: Cause.fail(error) } as const
+      const error = yield* options.scrubBuildError(
+        entry.settings,
+        expanded.failure.message,
+      )
+      return { _tag: "Failed", error } as const
     }
     const own = yield* Scope.fork(scope)
     // The build's fiber and the closing of its scope belong to the plugins' scope, so a stop waits for both, up to
@@ -772,8 +777,10 @@ export const make = Effect.fnUntraced(function* (options: {
       }
       return {
         _tag: "Failed",
-        error: Cause.pretty(built.cause),
-        cause: built.cause,
+        error: yield* options.scrubBuildError(
+          entry.settings,
+          Cause.pretty(built.cause),
+        ),
       } as const
     }
     // A read from here on is a read at call time.
@@ -919,12 +926,7 @@ export const make = Effect.fnUntraced(function* (options: {
         }
         failed.push({ name: entry.name, error: result.error })
         if (plan.failures === "skip") {
-          yield* skip(
-            entry.name,
-            result.error,
-            entry.bundle !== undefined,
-            result.cause,
-          )
+          yield* skip(entry.name, result.error, entry.bundle !== undefined)
         }
         if (plan.failures === "refuse") break
       }
@@ -1179,12 +1181,7 @@ export const make = Effect.fnUntraced(function* (options: {
       current.set(entry.name, result.plugin)
       yield* options.notices.clear(skippedKey(entry.name))
     } else {
-      yield* skip(
-        entry.name,
-        result.error,
-        entry.bundle !== undefined,
-        result.cause,
-      )
+      yield* skip(entry.name, result.error, entry.bundle !== undefined)
     }
   }
   for (const { name, message } of options.unloadable ?? []) {

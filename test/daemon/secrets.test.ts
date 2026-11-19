@@ -544,6 +544,110 @@ const files = (root: string, under = ""): ReadonlyArray<string> =>
     return entry.isFile() ? [path] : []
   })
 
+test("a canary quoted in a plugin build error stays in the secret store at start, on CLI and form saves, and on apply", async () => {
+  const canary = "canary-87c35ef9b102"
+  const envCanary = "env-canary-79c10a42c6"
+  const directory = fresh()
+  const data = join(directory, "data")
+  mkdirSync(data, { recursive: true })
+  const saved = await Cli.chad(
+    ["secret", "set", "KEY"],
+    { CHAD_DATA: data },
+    canary,
+  )
+  expect(saved.code).toBe(0)
+  const settings = (reason: string) =>
+    chadJson({
+      keyed: { settings: { token: "${KEY}", site: "${TEST_SITE}", reason } },
+    })
+  applied(join(data, "repo"), {
+    "chad.json": settings("refused"),
+    "persona.md": "",
+    "plugins/keyed.ts": `import { Config, Effect, Layer, Redacted } from "effect"
+import { Plugin } from "chad"
+
+export default Plugin.make(Layer.effectDiscard(Effect.gen(function* () {
+  const token = Redacted.value(yield* Config.Redacted("token"))
+  const site = Redacted.value(yield* Config.Redacted("site"))
+  const reason = yield* Config.String("reason")
+  return yield* Effect.die(new Error(reason + " token " + token + " for " + site))
+})))
+`,
+  })
+  const running = await scenario({
+    directory,
+    env: { TEST_SITE: envCanary },
+    plugins: [{ name: "request-secret", plugin: requestSecret }],
+  })
+  await running.logged("boot.ready")
+  const status = await running.chad(["status"])
+  const reloaded = await set(running, "KEY", canary)
+  expect(reloaded.code).toBe(1)
+
+  const { fakes } = running
+  await fakes.model.script([
+    runs(
+      `console.log(await requestSecret({ name: "KEY", reason: "replace the test token" }))`,
+    ),
+    { text: "Enter the replacement." },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "replace the token")
+  await fakes.model.received(2)
+  const request = (await fakes.chat.messages(thread)).find((message) =>
+    message.text.includes("I need the secret `KEY`"),
+  )!
+  await Effect.runPromise(
+    running.submit(
+      request.id,
+      "secret",
+      { clicker: owner, submitter: owner },
+      { value: canary },
+    ),
+  )
+  const form = await eventually(
+    async () =>
+      (await posted(running, thread)).find((text) =>
+        text.includes(Messages.secretSaved("KEY", true, [])),
+      ),
+    (text) => text !== undefined,
+  )
+
+  writeFileSync(join(data, "repo/work/chad.json"), settings("rejected"))
+  const applying = await running.chad([
+    "apply",
+    "-m",
+    "Change rejection reason",
+  ])
+  expect(applying.code).toBe(1)
+  await running.stop()
+  const masked = `token ${Once.mask} for ${Once.mask}`
+  const refused = `refused ${masked}`
+  expect(status.stdout).toContain("plugin: keyed, skipped")
+  expect(status.stdout).toContain(refused)
+  expect(reloaded.stderr).toContain("keyed")
+  expect(reloaded.stderr).toContain(refused)
+  expect(form).toContain(refused)
+  expect(applying.stderr).toContain("keyed")
+  expect(applying.stderr).toContain(`rejected ${masked}`)
+  const outputs = [saved, status, reloaded, applying].flatMap(
+    ({ stdout, stderr }) => [stdout, stderr],
+  )
+  outputs.push(
+    JSON.stringify(await Effect.runPromise(running.chat.calls)),
+    JSON.stringify(await fakes.model.calls()),
+    JSON.stringify(running.log()),
+  )
+  for (const value of [canary, envCanary]) {
+    for (const output of outputs) expect(output).not.toContain(value)
+    expect(
+      files(data).filter((path) =>
+        readFileSync(join(data, path)).includes(value),
+      ),
+    ).toEqual(value === canary ? ["secrets/secrets.json"] : [])
+  }
+}, 60_000)
+
 test("the agent's requestSecret posts a button whose form saves the secret as chad secret set does, a stranger's click opens no form, and the value is in no file on the volume but the store", async () => {
   const value = "canary-5f1d2a9e7b"
   const running = await scenario({

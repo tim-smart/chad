@@ -9,6 +9,7 @@ import * as Settings from "../Settings.ts"
 import type * as Loader from "./Loader.ts"
 import * as Logger from "./Logger.ts"
 import type * as Notices from "./Notices.ts"
+import { scrubValues } from "./Once.ts"
 import type * as Plugins from "./Plugins.ts"
 
 /** The notice keys of a file a boot could not parse and of what a boot ignored. */
@@ -132,6 +133,26 @@ export const lookup =
       data,
       env,
     )(variable).pipe(Effect.provideService(FileSystem.FileSystem, fs))
+
+/** Only a failed build needs the whole store. If it cannot be read, withhold the diagnostic. */
+export const scrubBuildError =
+  (
+    data: string,
+    env: Readonly<Record<string, string | undefined>>,
+    fs: FileSystem.FileSystem,
+  ) =>
+  (settings: unknown, error: string) =>
+    Secrets.read(data).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.match({
+        onFailure: (failure) => failure.message,
+        onSuccess: (store) =>
+          scrubValues(error, [
+            ...Object.values(store).map(({ value }) => value),
+            ...Array.from(Settings.names(settings), (name) => env[name] ?? ""),
+          ]),
+      }),
+    )
 
 /**
  * The plugins whose settings in a file name a secret, before expansion, which a secret change reloads. A plugin that
