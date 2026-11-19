@@ -340,6 +340,7 @@ test("a new repo's first commit holds the starter skills, keeps a skill the owne
   expect(git(work, ["ls-tree", "-r", "--name-only", "applied", "skills"])).toBe(
     [
       "skills/dev-tools/SKILL.md",
+      "skills/dev-tools/github-login.sh",
       "skills/documents/SKILL.md",
       "skills/images/SKILL.md",
       "skills/pdfs/SKILL.md",

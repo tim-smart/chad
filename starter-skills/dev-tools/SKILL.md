@@ -48,4 +48,33 @@ chad secret run --env GH_TOKEN=GITHUB_TOKEN -- gh pr list --repo owner/project
 chad secret run --env GH_TOKEN=GITHUB_TOKEN -- git -C ~/src/project -c credential.https://github.com.helper= -c 'credential.https://github.com.helper=!gh auth git-credential' push
 ```
 
-This puts no token in git's or gh's config, and changes neither. Don't run `gh auth login` or `gh auth setup-git` unless the owner asks: with no keyring here, a login is kept in plain text in `~/.config/gh/hosts.yml`, and `setup-git` replaces git's helpers for github.com. Use `https://github.com/...` remotes, never print a token, and never put one in a remote URL.
+This puts no token in git's or gh's config, and changes neither. Don't run `gh auth login` or `gh auth setup-git` yourself, apart from the sign-in below: with no keyring here, a login is kept in plain text in `~/.config/gh/hosts.yml`, and `setup-git` replaces git's helpers for github.com. Use `https://github.com/...` remotes, never print a token, and never put one in a remote URL.
+
+### When the owner would rather approve a sign-in
+
+The owner can approve a sign-in on github.com from any browser, their phone included, instead of making a token. `github-login.sh`, next to this file, runs gh's device flow and saves the token as `GITHUB_TOKEN`, which is then used as above. Ask the owner first, and say that this token reaches every repo their account can, where a token they make can be limited to a few. In one script:
+
+```js
+const job = await bash({
+  description: "GitHub sign-in",
+  command: "sh /data/repo/live/skills/dev-tools/github-login.sh",
+  background: true,
+})
+let task = await taskOutput(job.id)
+while (
+  task.status === "running" &&
+  !/[A-Z0-9]{4}-[A-Z0-9]{4}/.test(task.output)
+) {
+  await sleep(1000)
+  task = await taskOutput(job.id)
+}
+const code = /[A-Z0-9]{4}-[A-Z0-9]{4}/.exec(task.output)?.[0]
+if (code === undefined) throw new Error(task.output)
+await sendMessage(
+  `Open https://github.com/login/device, enter ${code} and approve. The code expires in 15 minutes.`,
+)
+while (task.status === "running") task = (await waitTasks({ ids: [job.id] }))[0]
+console.log(task.status, task.exitCode)
+```
+
+Exit code 0 means the token is saved. A message the owner sends while it waits joins this turn, and the sign-in goes on. If the turn ends first, the sign-in still runs, and the next turn is told how it ended. Anything else means it failed or the code expired: say so, and start again if the owner wants. A `/new` or a restart of chad stops it.
