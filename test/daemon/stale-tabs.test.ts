@@ -71,7 +71,7 @@ test("a tab whose URL has not changed for longer than maxAge is closed, one that
       plugins: {
         "stale-tabs": {
           enabled: true,
-          settings: { url: "http://172.30.72.10:9223" },
+          settings: { url: "http://172.30.72.10:9223", maxAge: "12 hours" },
         },
       },
     }),
@@ -107,7 +107,7 @@ test("a tab whose URL has not changed for longer than maxAge is closed, one that
   clock.advance("11 hours")
   await swept()
 
-  // At 13 hours a is past the 12 hour default, and b and c are two hours old.
+  // At 13 hours a is past the 12 hour maxAge, and b and c are two hours old.
   clock.advance("2 hours")
   await swept()
   // a's record stays, marked as closing, until a list shows it gone.
