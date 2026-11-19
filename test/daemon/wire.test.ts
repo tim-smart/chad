@@ -50,7 +50,7 @@ const direct = (s: number, id: string, content: string, author = owner) =>
 const answers = async (chad: Scenario, count: number, channel = dm) =>
   (await chad.discord.rest.answers(channel, count)).map((call) => call.body)
 
-test("in a server thread the answer replies to the owner's message with the reply ping on, pings nobody else, and lets Discord post it plain if that message is gone, and the connection sets its slash commands when it starts", async () => {
+test("in a server thread the answer is a plain post with no pings, and the connection sets its slash commands when it starts", async () => {
   const thread = "810000000000000002"
   const chad = await scenario({ connections: [home] })
   chad.discord.rest.channel(thread, 11)
@@ -70,9 +70,13 @@ test("in a server thread the answer replies to the owner's message with the repl
   expect(await answers(chad, 1, thread)).toEqual([
     {
       content: "in the thread",
-      allowed_mentions: { parse: [], users: [], roles: [], replied_user: true },
+      allowed_mentions: {
+        parse: [],
+        users: [],
+        roles: [],
+        replied_user: false,
+      },
       flags: 4,
-      message_reference: { message_id: "3", fail_if_not_exists: false },
     },
   ])
   // The whole list at once, which replaces what Discord held for the application.

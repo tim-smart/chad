@@ -1,7 +1,6 @@
 import { Duration, Effect, Layer } from "effect"
 import { Chat, ChatError, ChatTest, ChatThread } from "effect/chat"
 import { expect, test } from "vitest"
-import * as Format from "../../src/daemon/Format.ts"
 import * as Post from "../../src/daemon/Post.ts"
 import { discordDescriptor } from "../support/platform.ts"
 
@@ -61,7 +60,7 @@ test("an answer longer than five messages goes out in five and answer.md, with n
               )
             : chat.post(where, content),
       }
-      const posting = yield* Post.post(failing, Format.local, thread, answer, {
+      const posting = yield* Post.post(failing, thread, answer, {
         answer: {},
       })
       const calls = (yield* test.calls).filter(
@@ -132,7 +131,7 @@ test("a part that may have landed is not sent again and still uses one of the fi
                 )
               : chat.post(where, content),
         }
-        const posting = yield* Post.post(lost, Format.local, thread, answer, {
+        const posting = yield* Post.post(lost, thread, answer, {
           answer: {},
         })
         expect(posting).toBe("posted")

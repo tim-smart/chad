@@ -7,13 +7,7 @@ import {
   type ChatThread,
 } from "effect/chat"
 import type { ChatService } from "./Chats.ts"
-import type { Format } from "./Format.ts"
 import * as Logger from "./Logger.ts"
-
-/**
- * How chad posts in a session's thread: the split of long Markdown, the reply to the owner's message and the second
- * try of an answer.
- */
 
 /** The most messages a post goes out in. Whatever is left after them is one file. */
 export const maxParts = 5
@@ -25,11 +19,6 @@ export const overflowFile = "answer.md"
 export type Posting = "posted" | "gone" | "failed"
 
 export interface Options {
-  /**
-   * The owner's message the post replies to, under the formatter's reply options: the reply ping on, and a plain post
-   * when that message is gone.
-   */
-  readonly replyTo?: string | undefined
   /**
    * Set for an answer, with the ids its log line carries. A failed answer has its unsent remainder tried once more,
    * and a second failure is logged as `turn.answer-unposted`.
@@ -54,46 +43,31 @@ export const notFound = (cause: Cause.Cause<unknown>) => {
 
 const markdown = (
   chat: ChatService,
-  format: Format,
   thread: ChatThread.ChatThread,
   text: string,
   parts: number,
-  replyTo: string | undefined,
 ) =>
   ChatMarkdown.post(thread, text, {
     maxParts: parts,
     overflow: { file: { name: overflowFile } },
-    ...(replyTo === undefined ? {} : { replyTo: { messageId: replyTo } }),
-  }).pipe(Effect.provideService(Chat.Chat, chat), (effect) =>
-    replyTo === undefined ? effect : format.reply(effect),
-  )
+  }).pipe(Effect.provideService(Chat.Chat, chat))
 
 /**
  * Posts Markdown in the thread, in up to `maxParts` messages and then the file, and says what became of it.
- * A failed post that left its reply unsent, and a failed answer, try what was not sent once more. That try is a plain
- * post, except after a failure that was worth a retry, so that a reply the platform refused does not make the post
- * fail. Its first part is a reply only when nothing was posted before it.
+ * An answer gets one more attempt at its unsent remainder.
  */
 export const post = Effect.fnUntraced(function* (
   chat: ChatService,
-  format: Format,
   thread: ChatThread.ChatThread,
   text: string,
   options: Options = {},
 ): Effect.fn.Return<Posting> {
-  const first = yield* Effect.exit(
-    markdown(chat, format, thread, text, maxParts, options.replyTo),
-  )
+  const first = yield* Effect.exit(markdown(chat, thread, text, maxParts))
   if (Exit.isSuccess(first)) return "posted"
   const error = failure(first.cause)
-  const sent =
-    error instanceof ChatMarkdown.ChatMarkdownError
-      ? error.posted.filter((part) => part.kind === "text").length
-      : 0
   if (
     !(error instanceof ChatMarkdown.ChatMarkdownError) ||
-    (options.answer === undefined &&
-      (options.replyTo === undefined || sent > 0))
+    options.answer === undefined
   ) {
     yield* Effect.logError("A message could not be posted", first.cause)
     return notFound(first.cause) ? "gone" : "failed"
@@ -111,19 +85,14 @@ export const post = Effect.fnUntraced(function* (
     "A message could not be posted, trying again",
     first.cause,
   )
-  const again =
-    sent === 0 &&
-    error.cause._tag === "Chat" &&
-    error.cause.error.reason.retry === "retry"
-      ? options.replyTo
-      : undefined
+  const sent = error.posted.filter((part) => part.kind === "text").length
   // A part that may have landed is not sent again, and it still takes one of the messages. A post sends each
   // part once, so what is uncertain is the one part whose write failed.
   const slots = maxParts - sent - ((error.uncertain ?? "") === "" ? 0 : 1)
   // `ChatMarkdown` posts at least one part, so with no slot left the rest goes out as the file alone.
   const retry: Effect.Effect<void, unknown> =
     slots > 0
-      ? markdown(chat, format, thread, rest, slots, again)
+      ? markdown(chat, thread, rest, slots)
       : chat.post(thread, { markdown: "", files: [file(rest)] })
   const second = yield* Effect.exit(retry)
   if (Exit.isSuccess(second)) return "posted"
@@ -131,16 +100,12 @@ export const post = Effect.fnUntraced(function* (
     yield* Effect.logError("A message could not be posted", second.cause)
     return "gone"
   }
-  if (options.answer === undefined) {
-    yield* Effect.logError("A message could not be posted", second.cause)
-  } else {
-    yield* Logger.event(
-      "turn.answer-unposted",
-      "The answer could not be posted",
-      options.answer,
-      second.cause,
-    )
-  }
+  yield* Logger.event(
+    "turn.answer-unposted",
+    "The answer could not be posted",
+    options.answer,
+    second.cause,
+  )
   return "failed"
 })
 
