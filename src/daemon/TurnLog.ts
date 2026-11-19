@@ -461,17 +461,16 @@ const watch = (
  * for such an agent, so the line has neither. Its status line is added with it, as every compaction's is. The
  * other agents' compactions are logged by `step`.
  */
-export const compacted = (
+export const compacted = Effect.fnUntraced(function* (
   ids: Logger.SessionLogIds,
   reset: boolean,
   status: Lines,
-) =>
-  Effect.gen(function* () {
-    if (!reset) return
-    const agent = yield* hidden
-    if (agent === undefined) return
-    yield* compaction(status, scriptIds(ids, agent.id)).pipe(Logger.ownConsole)
-  })
+) {
+  if (!reset) return
+  const agent = yield* hidden
+  if (agent === undefined) return
+  yield* compaction(status, scriptIds(ids, agent.id)).pipe(Logger.ownConsole)
+})
 
 /**
  * The ids of a script's lines. chad logs a script where the executor runs it, which sees every agent's scripts, as the

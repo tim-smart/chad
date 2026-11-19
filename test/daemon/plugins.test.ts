@@ -39,13 +39,12 @@ test("a plugin has its own store and no SqlClient, its tool sees the session and
             )
             yield* Effect.orDie(store.set("k", "alpha"))
             return recall.of({
-              recall: () =>
-                Effect.gen(function* () {
-                  const current = yield* Session.CurrentSession
-                  const turn = yield* current.turn
-                  const value = yield* Effect.orDie(store.get("k"))
-                  return `${value ?? "none"} ${current.session.kind} ${Option.isSome(turn)}`
-                }),
+              recall: Effect.fnUntraced(function* () {
+                const current = yield* Session.CurrentSession
+                const turn = yield* current.turn
+                const value = yield* Effect.orDie(store.get("k"))
+                return `${value ?? "none"} ${current.session.kind} ${Option.isSome(turn)}`
+              }),
             })
           }),
         ),
@@ -104,28 +103,27 @@ test("a plugin's turn runs in another thread with the plugin as its origin, a [S
           Effect.gen(function* () {
             const turns = yield* Turns
             return kick.of({
-              kick: () =>
-                Effect.gen(function* () {
-                  const { session } = yield* Session.CurrentSession
-                  const own = yield* Effect.exit(
-                    turns.start({
-                      thread: session.thread,
-                      prompt: "never",
-                      label: "own",
-                    }),
-                  )
-                  const first = yield* turns.start({
-                    thread: other!,
-                    prompt: "ping one",
-                    label: "kick",
-                  })
-                  const second = yield* turns.start({
-                    thread: other!,
-                    prompt: "ping two",
-                    label: "kick",
-                  })
-                  return [own._tag, first._tag, second._tag].join(" ")
-                }),
+              kick: Effect.fnUntraced(function* () {
+                const { session } = yield* Session.CurrentSession
+                const own = yield* Effect.exit(
+                  turns.start({
+                    thread: session.thread,
+                    prompt: "never",
+                    label: "own",
+                  }),
+                )
+                const first = yield* turns.start({
+                  thread: other!,
+                  prompt: "ping one",
+                  label: "kick",
+                })
+                const second = yield* turns.start({
+                  thread: other!,
+                  prompt: "ping two",
+                  label: "kick",
+                })
+                return [own._tag, first._tag, second._tag].join(" ")
+              }),
             })
           }),
         ),

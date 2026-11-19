@@ -25,7 +25,7 @@ export const writable = Effect.fn("Files.writable")(function* (
     new Failure({ code: ExitCode.failed, message })
   const present = yield* fs
     .exists(environment.data)
-    .pipe(Effect.catch(() => Effect.succeed(false)))
+    .pipe(Effect.orElseSucceed(() => false))
   if (!present) {
     return yield* failed(Messages.volumeMissing(command, environment.data))
   }
@@ -38,7 +38,7 @@ export const writable = Effect.fn("Files.writable")(function* (
     .pipe(
       Effect.catchTag("PlatformError", (error) =>
         error.reason._tag === "NotFound"
-          ? Effect.succeed(undefined)
+          ? Effect.undefined
           : Effect.fail(
               failed(Messages.unreadable(command, path, Errno.code(error))),
             ),

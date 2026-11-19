@@ -63,9 +63,9 @@ export const terminal = Effect.fnUntraced(function* (command: string) {
     fs.makeDirectory(dirname(environment.lock), { recursive: true }),
   )
   const store = yield* Effect.orDie(
-    Effect.gen(function* () {
-      return yield* KeyValueStore.KeyValueStore
-    }).pipe(Effect.provide(TokenStore.layer(environment.data))),
+    KeyValueStore.KeyValueStore.pipe(
+      Effect.provide(TokenStore.layer(environment.data)),
+    ),
   )
   // clanka stores with `orDie`, so a refusal is a defect that `run` turns back into the command's failure.
   const guarded = TokenStore.guarded(
@@ -100,26 +100,25 @@ export const terminal = Effect.fnUntraced(function* (command: string) {
  * The login on `terminal`'s login, with the daemon's timeout from `Timings`. It fails with the command's
  * failure for the reason the login did not complete.
  */
-export const run = <E>(
+export const run = Effect.fnUntraced(function* <E>(
   auth: CodexAuth["Service"],
   failed: (reason: string) => E,
-) =>
-  Effect.gen(function* () {
-    const timings = yield* Timings
-    return yield* auth.get.pipe(
-      Effect.catchTag("CodexAuthError", (error) =>
-        Effect.fail(failed(error.reason)),
-      ),
-      Effect.timeoutOrElse({
-        duration: timings.modelLogin,
-        orElse: () => Effect.fail(failed("TimedOut")),
-      }),
-      // The lock taken when the token is stored dies inside clanka, which stores with `orDie`.
-      Effect.catchDefect((defect) =>
-        defect instanceof Failure ? Effect.fail(defect) : Effect.die(defect),
-      ),
-    )
-  })
+) {
+  const timings = yield* Timings
+  return yield* auth.get.pipe(
+    Effect.catchTag("CodexAuthError", (error) =>
+      Effect.fail(failed(error.reason)),
+    ),
+    Effect.timeoutOrElse({
+      duration: timings.modelLogin,
+      orElse: () => Effect.fail(failed("TimedOut")),
+    }),
+    // The lock taken when the token is stored dies inside clanka, which stores with `orDie`.
+    Effect.catchDefect((defect) =>
+      defect instanceof Failure ? Effect.fail(defect) : Effect.die(defect),
+    ),
+  )
+})
 
 /** The login with no daemon, which the CLI runs itself on `terminal`. */
 export const alone = Effect.gen(function* () {

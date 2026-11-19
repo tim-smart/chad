@@ -39,21 +39,20 @@ export const ended = (waiting: Waiting, key: string, outcome: Outcome) => {
  * The connection whose platform has a thread: the first running connection whose `Chat` has an adapter for the
  * thread's platform. One owner on one server has one connection of each platform.
  */
-const connectionOf = (
+const connectionOf = Effect.fnUntraced(function* (
   chats: Chats["Service"],
   connections: () => ReadonlyArray<Connection>,
   platform: string,
-) =>
-  Effect.gen(function* () {
-    for (const connection of connections()) {
-      // A timer released as the daemon boots can run before the connection's adapter registers.
-      yield* chats.ready(connection.name)
-      const chat = yield* chats.get(connection.name)
-      const found = yield* Effect.exit(chat.descriptor(platform))
-      if (found._tag === "Success") return connection.name
-    }
-    return undefined
-  })
+) {
+  for (const connection of connections()) {
+    // A timer released as the daemon boots can run before the connection's adapter registers.
+    yield* chats.ready(connection.name)
+    const chat = yield* chats.get(connection.name)
+    const found = yield* Effect.exit(chat.descriptor(platform))
+    if (found._tag === "Success") return connection.name
+  }
+  return undefined
+})
 
 /** The client of the `Session` entity, as `Session.client` gives it. */
 export type Client = Effect.Success<typeof Session.client>
@@ -85,7 +84,7 @@ export interface Options {
 }
 
 /** The request of a plugin's turn and the session entity it goes to. */
-const request = (
+const request = Effect.fnUntraced(function* (
   options: Options,
   plugin: string,
   what: "started" | "queued",
@@ -93,37 +92,36 @@ const request = (
   key: string,
   timer?: { readonly name: string; readonly scheduledAt: number },
   queuedFor?: string,
-) =>
-  Effect.gen(function* () {
-    const connection = yield* connectionOf(
-      options.chats,
-      options.connections,
-      turn.thread.platform,
-    )
-    if (connection === undefined) {
-      return yield* Effect.die(
-        new Error(
-          Messages.turnNotSaved(
-            what,
-            `no chat connection has the platform ${turn.thread.platform}`,
-          ),
+) {
+  const connection = yield* connectionOf(
+    options.chats,
+    options.connections,
+    turn.thread.platform,
+  )
+  if (connection === undefined) {
+    return yield* Effect.die(
+      new Error(
+        Messages.turnNotSaved(
+          what,
+          `no chat connection has the platform ${turn.thread.platform}`,
         ),
-      )
-    }
-    return {
-      entity: options.client(ChatThread.toString(turn.thread)),
-      payload: new PluginTurn({
-        key,
-        connection,
-        plugin,
-        label: turn.label,
-        prompt: turn.prompt,
-        ...(turn.mention === undefined ? {} : { mention: turn.mention }),
-        ...(timer === undefined ? {} : { timer }),
-        ...(queuedFor === undefined ? {} : { queuedFor }),
-      }),
-    }
-  })
+      ),
+    )
+  }
+  return {
+    entity: options.client(ChatThread.toString(turn.thread)),
+    payload: new PluginTurn({
+      key,
+      connection,
+      plugin,
+      label: turn.label,
+      prompt: turn.prompt,
+      ...(turn.mention === undefined ? {} : { mention: turn.mention }),
+      ...(timer === undefined ? {} : { timer }),
+      ...(queuedFor === undefined ? {} : { queuedFor }),
+    }),
+  }
+})
 
 const unsaved = (what: "started" | "queued") => (cause: Cause.Cause<unknown>) =>
   Effect.die(
@@ -138,37 +136,36 @@ const unsaved = (what: "started" | "queued") => (cause: Cause.Cause<unknown>) =>
  * fiber is left to finish, because interrupting it would interrupt the request. A request whose turn has already ended
  * is answered from its row, which a timer's wake-up delivered again after a kill relies on.
  */
-const run = (
+const run = Effect.fnUntraced(function* (
   options: Options,
   plugin: string,
   turn: Asked,
   key: string,
   timer?: { readonly name: string; readonly scheduledAt: number },
   queuedFor?: string,
-) =>
-  Effect.gen(function* () {
-    const { entity, payload } = yield* request(
-      options,
-      plugin,
-      "started",
-      turn,
-      key,
-      timer,
-      queuedFor,
-    )
-    const waiter = Deferred.makeUnsafe<Outcome>()
-    options.waiting.set(payload.key, waiter)
-    const call = yield* entity.plugin(payload).pipe(
-      Effect.catchCause(unsaved("started")),
-      Effect.exit,
-      Effect.flatMap((exit) => Deferred.done(waiter, exit)),
-      Effect.forkIn(options.scope),
-    )
-    return yield* Deferred.await(waiter).pipe(
-      Effect.onInterrupt(() => Fiber.interrupt(call)),
-      Effect.ensuring(Effect.sync(() => options.waiting.delete(payload.key))),
-    )
-  })
+) {
+  const { entity, payload } = yield* request(
+    options,
+    plugin,
+    "started",
+    turn,
+    key,
+    timer,
+    queuedFor,
+  )
+  const waiter = Deferred.makeUnsafe<Outcome>()
+  options.waiting.set(payload.key, waiter)
+  const call = yield* entity.plugin(payload).pipe(
+    Effect.catchCause(unsaved("started")),
+    Effect.exit,
+    Effect.flatMap((exit) => Deferred.done(waiter, exit)),
+    Effect.forkIn(options.scope),
+  )
+  return yield* Deferred.await(waiter).pipe(
+    Effect.onInterrupt(() => Fiber.interrupt(call)),
+    Effect.ensuring(Effect.sync(() => options.waiting.delete(payload.key))),
+  )
+})
 
 /**
  * Runs one of a timer's runs, as the `TimerRuns` entity's handler asks: a scheduled run with the timer on the turn's
@@ -213,83 +210,80 @@ export const make =
   (options: Options) =>
   (plugin: string): Turns["Service"] =>
     Turns.of({
-      start: (turn) =>
-        Effect.gen(function* () {
-          // A tool's own turn would wait for the turn it asks for, so the call fails at once.
-          const current = yield* Effect.serviceOption(CurrentSession)
-          if (
-            Option.isSome(current) &&
-            ChatThread.equals(current.value.session.thread, turn.thread) &&
-            Option.isSome(yield* current.value.turn)
-          ) {
-            return yield* Effect.die(new Error(Messages.startInOwnThread))
-          }
-          // Every call is a turn of its own.
-          const outcome = yield* run(
-            options,
-            plugin,
-            turn,
-            `start/${randomUUID()}`,
+      start: Effect.fnUntraced(function* (turn) {
+        // A tool's own turn would wait for the turn it asks for, so the call fails at once.
+        const current = yield* Effect.serviceOption(CurrentSession)
+        if (
+          Option.isSome(current) &&
+          ChatThread.equals(current.value.session.thread, turn.thread) &&
+          Option.isSome(yield* current.value.turn)
+        ) {
+          return yield* Effect.die(new Error(Messages.startInOwnThread))
+        }
+        // Every call is a turn of its own.
+        const outcome = yield* run(
+          options,
+          plugin,
+          turn,
+          `start/${randomUUID()}`,
+        )
+        return publicOutcome(outcome)
+      }),
+      queue: Effect.fnUntraced(function* (turn) {
+        const { entity, payload } = yield* request(
+          options,
+          plugin,
+          "queued",
+          turn,
+          `start/${randomUUID()}`,
+        )
+        // A turn queued for a timer is one request at the timer's runs, which run one at a time.
+        const saved =
+          turn.timer === undefined
+            ? entity.plugin(payload, { discard: true })
+            : options.runs(Timers.entityId(plugin, turn.timer)).run(
+                new Timers.Queued({
+                  key: payload.key,
+                  plugin,
+                  name: turn.timer,
+                  thread: ChatThread.toString(turn.thread),
+                  prompt: turn.prompt,
+                  label: turn.label,
+                  ...(turn.mention === undefined
+                    ? {}
+                    : { mention: turn.mention }),
+                }),
+                { discard: true },
+              )
+        yield* saved.pipe(Effect.catchCause(unsaved("queued")))
+      }),
+      schedule: Effect.fnUntraced(function* (timer) {
+        const now = Date.now()
+        const recurring = "cron" in timer
+        const nextRun = recurring
+          ? Timers.next(timer.cron, timer.timezone, now)
+          : Result.succeed(DateTime.toEpochMillis(timer.at))
+        if (Result.isFailure(nextRun)) {
+          return yield* Effect.die(
+            new Error(Messages.timerInvalid(nextRun.failure)),
           )
-          return publicOutcome(outcome)
-        }),
-      queue: (turn) =>
-        Effect.gen(function* () {
-          const { entity, payload } = yield* request(
-            options,
-            plugin,
-            "queued",
-            turn,
-            `start/${randomUUID()}`,
+        }
+        yield* options
+          .database(
+            options.timers.save({
+              plugin,
+              name: timer.name,
+              cron: recurring ? timer.cron : null,
+              timezone: recurring ? timer.timezone : null,
+              thread: ChatThread.toString(timer.thread),
+              prompt: timer.prompt,
+              label: timer.label,
+              mention: timer.mention ?? null,
+              next_run: nextRun.success,
+            }),
           )
-          // A turn queued for a timer is one request at the timer's runs, which run one at a time.
-          const saved =
-            turn.timer === undefined
-              ? entity.plugin(payload, { discard: true })
-              : options.runs(Timers.entityId(plugin, turn.timer)).run(
-                  new Timers.Queued({
-                    key: payload.key,
-                    plugin,
-                    name: turn.timer,
-                    thread: ChatThread.toString(turn.thread),
-                    prompt: turn.prompt,
-                    label: turn.label,
-                    ...(turn.mention === undefined
-                      ? {}
-                      : { mention: turn.mention }),
-                  }),
-                  { discard: true },
-                )
-          yield* saved.pipe(Effect.catchCause(unsaved("queued")))
-        }),
-      schedule: (timer) =>
-        Effect.gen(function* () {
-          const now = Date.now()
-          const recurring = "cron" in timer
-          const nextRun = recurring
-            ? Timers.next(timer.cron, timer.timezone, now)
-            : Result.succeed(DateTime.toEpochMillis(timer.at))
-          if (Result.isFailure(nextRun)) {
-            return yield* Effect.die(
-              new Error(Messages.timerInvalid(nextRun.failure)),
-            )
-          }
-          yield* options
-            .database(
-              options.timers.save({
-                plugin,
-                name: timer.name,
-                cron: recurring ? timer.cron : null,
-                timezone: recurring ? timer.timezone : null,
-                thread: ChatThread.toString(timer.thread),
-                prompt: timer.prompt,
-                label: timer.label,
-                mention: timer.mention ?? null,
-                next_run: nextRun.success,
-              }),
-            )
-            .pipe(Effect.catchCause(timerUnsaved))
-        }),
+          .pipe(Effect.catchCause(timerUnsaved))
+      }),
       cancel: (name) =>
         options
           .database(options.timers.remove(plugin, name))
@@ -312,25 +306,24 @@ export const chat = (
   chats: Chats["Service"],
   connections: () => ReadonlyArray<Connection>,
 ): ChatService => {
-  const pick = (first: unknown) =>
-    Effect.gen(function* () {
-      const platform =
-        typeof first === "string"
-          ? first
-          : ((
-              first as {
-                readonly platform?: string
-                readonly thread?: { readonly platform: string }
-              }
-            ).platform ??
-            (first as { readonly thread?: { readonly platform: string } })
-              .thread?.platform)
-      const name =
-        platform === undefined
-          ? undefined
-          : yield* connectionOf(chats, connections, platform)
-      return yield* chats.get(name ?? connections()[0]?.name ?? "")
-    })
+  const pick = Effect.fnUntraced(function* (first: unknown) {
+    const platform =
+      typeof first === "string"
+        ? first
+        : ((
+            first as {
+              readonly platform?: string
+              readonly thread?: { readonly platform: string }
+            }
+          ).platform ??
+          (first as { readonly thread?: { readonly platform: string } }).thread
+            ?.platform)
+    const name =
+      platform === undefined
+        ? undefined
+        : yield* connectionOf(chats, connections, platform)
+    return yield* chats.get(name ?? connections()[0]?.name ?? "")
+  })
   const streams = new Set(["history", "download"])
   return new Proxy({} as ChatService, {
     get: (_, method) => {

@@ -197,9 +197,7 @@ export const make = Effect.fnUntraced(function* (options: {
   }
 
   const text = yield* fs.readFileString(path).pipe(
-    Effect.catchReason("PlatformError", "NotFound", () =>
-      Effect.succeed(undefined),
-    ),
+    Effect.catchReason("PlatformError", "NotFound", () => Effect.undefined),
     Effect.catch((error) =>
       Effect.as(
         Logger.event(
@@ -230,8 +228,8 @@ export const make = Effect.fnUntraced(function* (options: {
    * writes the store less that name, and drops the name from memory only once the file no longer holds it. It fails
    * with the errno code, after logging it.
    */
-  const write = (without?: string) =>
-    Effect.gen(function* () {
+  const write = Effect.fnUntraced(
+    function* (without: string | undefined) {
       const directory = dirname(path)
       yield* fs.makeDirectory(directory, { recursive: true })
       yield* fs.chmod(directory, 0o700)
@@ -245,25 +243,25 @@ export const make = Effect.fnUntraced(function* (options: {
       yield* fs.chmod(temporary, 0o600)
       yield* fs.rename(temporary, path)
       if (without !== undefined) entries.delete(without)
-    }).pipe(
-      Effect.catch((error) => {
-        const code = Errno.code(error)
-        return Effect.andThen(
-          Logger.event(
-            "mcp.oauth-unwritable",
-            "The MCP sign-ins could not be written",
-            { error: code },
-          ),
-          Effect.fail(code),
-        )
-      }),
-      (effect) => semaphore.withPermit(effect),
-    )
+    },
+    Effect.catch((error) => {
+      const code = Errno.code(error)
+      return Effect.andThen(
+        Logger.event(
+          "mcp.oauth-unwritable",
+          "The MCP sign-ins could not be written",
+          { error: code },
+        ),
+        Effect.fail(code),
+      )
+    }),
+    (effect) => semaphore.withPermit(effect),
+  )
   /**
    * A write of what a sign-in or a refresh changed. When it fails the daemon keeps what it holds in memory, so a
    * refreshed token still serves until the next start.
    */
-  const persist = Effect.ignore(write())
+  const persist = Effect.ignore(write(undefined))
   const context = yield* Effect.context<never>()
   const runFork = Effect.runForkWith(context)
   /** A change the SDK makes through the provider, which it waits for. */
@@ -651,12 +649,10 @@ export const make = Effect.fnUntraced(function* (options: {
       const pending = own(target)?.pending
       if (pending?.verifier === undefined)
         return yield* Effect.fail(Messages.mcpLoginNotStarted(target.name))
-      let params: URLSearchParams
-      try {
-        params = new URL(address.trim()).searchParams
-      } catch {
-        return yield* Effect.fail(Messages.mcpLoginNotAddress(target.name))
-      }
+      const params = yield* Effect.try({
+        try: () => new URL(address.trim()).searchParams,
+        catch: () => Messages.mcpLoginNotAddress(target.name),
+      })
       // Nothing of an address is believed before its state is this sign-in's own, a refusal included.
       if (params.get("state") !== pending.state)
         return yield* Effect.fail(Messages.mcpLoginOtherState(target.name))

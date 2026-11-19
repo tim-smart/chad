@@ -73,6 +73,8 @@ const holdQueue = Effect.fnUntraced(function* (
   )
   while (true) {
     for (const event of yield* next) {
+      // The effect that fails once the place is lost is the result, for the caller to race the tar against.
+      // @effect-diagnostics-next-line returnEffectInGen:off
       if (event._tag === "Held") return Effect.forever(next)
       yield* Console.error(event.text)
     }
@@ -164,12 +166,10 @@ const used = Effect.fnUntraced(function* (data: string) {
         .length > 0
         ? "the database holds sessions"
         : undefined,
-    catch: (error) => error,
+    catch: (error) => (error instanceof Error ? error.message : String(error)),
   }).pipe(
-    Effect.catch((error) =>
-      Effect.succeed(
-        `the database cannot be read (${error instanceof Error ? error.message : String(error)})`,
-      ),
+    Effect.catch((reason) =>
+      Effect.succeed(`the database cannot be read (${reason})`),
     ),
   )
 })
@@ -291,14 +291,14 @@ export const restore = Command.make(
         }
         const source = tar === "-" ? (yield* Stdio.Stdio).stdin : fs.stream(tar)
         const { manifest, whole } = yield* Archive.open(source).pipe(
-          Effect.catchTag("NotBackup", (error) =>
-            Effect.fail(failed(Messages.restoreNotBackup(tar, error.why))),
-          ),
-          Effect.catchTag("Newer", (error) =>
-            Effect.fail(
-              failed(Messages.restoreNewer(error.made, Archive.ownVersion)),
-            ),
-          ),
+          Effect.catchTags({
+            NotBackup: (error) =>
+              Effect.fail(failed(Messages.restoreNotBackup(tar, error.why))),
+            Newer: (error) =>
+              Effect.fail(
+                failed(Messages.restoreNewer(error.made, Archive.ownVersion)),
+              ),
+          }),
         )
         // From its first write on, the restore holds the restore lock too. A command that writes repo/work, with a daemon
         // running or not, takes it around its check of restore.installing and its write. The volume check above

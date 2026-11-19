@@ -44,55 +44,50 @@ const handlers = tools.toLayer(
     const path = yield* Path.Path
     const chat = yield* Chat.Chat
     return tools.of({
-      sendFile: ({ path: given, caption }) =>
-        Effect.gen(function* () {
-          const { session } = yield* CurrentSession
-          // Any path the agent can read, a relative one from the directory its scripts run in.
-          const file = path.resolve(session.directory, given)
-          const info = yield* fs
-            .stat(file)
-            .pipe(
-              Effect.mapError(
-                (error) => `cannot read ${file}: ${error.message}`,
-              ),
-            )
-          if (info.type !== "File") {
-            return yield* Effect.fail(`${file} is not a file`)
-          }
-          if (Number(info.size) > limit) {
-            return yield* Effect.fail(
-              `${file} is ${Number(info.size)} bytes, and a file over 10 MiB cannot be sent`,
-            )
-          }
-          const content = yield* fs
-            .readFile(file)
-            .pipe(
-              Effect.mapError(
-                (error) => `cannot read ${file}: ${error.message}`,
-              ),
-            )
-          const name = path.basename(file)
-          // The file is its own message, posted now, and the answer comes later.
-          yield* chat
-            .post(session.thread, {
-              markdown: caption ?? "",
-              files: [
-                {
-                  name,
-                  contentType:
-                    types[path.extname(name).toLowerCase()] ??
-                    "application/octet-stream",
-                  content,
-                },
-              ],
-            })
-            .pipe(
-              Effect.mapError(
-                (error) => `the chat refused ${name}: ${error.message}`,
-              ),
-            )
-          return `sent ${name}`
-        }),
+      sendFile: Effect.fnUntraced(function* ({ path: given, caption }) {
+        const { session } = yield* CurrentSession
+        // Any path the agent can read, a relative one from the directory its scripts run in.
+        const file = path.resolve(session.directory, given)
+        const info = yield* fs
+          .stat(file)
+          .pipe(
+            Effect.mapError((error) => `cannot read ${file}: ${error.message}`),
+          )
+        if (info.type !== "File") {
+          return yield* Effect.fail(`${file} is not a file`)
+        }
+        if (Number(info.size) > limit) {
+          return yield* Effect.fail(
+            `${file} is ${Number(info.size)} bytes, and a file over 10 MiB cannot be sent`,
+          )
+        }
+        const content = yield* fs
+          .readFile(file)
+          .pipe(
+            Effect.mapError((error) => `cannot read ${file}: ${error.message}`),
+          )
+        const name = path.basename(file)
+        // The file is its own message, posted now, and the answer comes later.
+        yield* chat
+          .post(session.thread, {
+            markdown: caption ?? "",
+            files: [
+              {
+                name,
+                contentType:
+                  types[path.extname(name).toLowerCase()] ??
+                  "application/octet-stream",
+                content,
+              },
+            ],
+          })
+          .pipe(
+            Effect.mapError(
+              (error) => `the chat refused ${name}: ${error.message}`,
+            ),
+          )
+        return `sent ${name}`
+      }),
     })
   }),
 )

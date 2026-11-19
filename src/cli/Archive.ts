@@ -132,13 +132,13 @@ const copyDatabase = (from: string, to: string) =>
  * it is complete, and removed when it is not. GNU tar's exit code 1 is a file that changed while it was read, as a
  * running session's may.
  */
-export const create = (options: {
-  readonly data: string
-  readonly to: string | undefined
-  readonly home: boolean
-  readonly sessions: boolean
-}) =>
-  Effect.gen(function* () {
+export const create = Effect.fnUntraced(
+  function* (options: {
+    readonly data: string
+    readonly to: string | undefined
+    readonly home: boolean
+    readonly sessions: boolean
+  }) {
     const fs = yield* FileSystem.FileSystem
     const cache = join(options.data, "cache")
     yield* fs.makeDirectory(cache, { recursive: true })
@@ -187,12 +187,12 @@ export const create = (options: {
     )
     if (target !== undefined) yield* fs.rename(partial, target)
     return target
-  }).pipe(
-    Effect.scoped,
-    Effect.catchTag("PlatformError", (error) =>
-      Effect.fail(new ArchiveError({ message: error.message })),
-    ),
-  )
+  },
+  Effect.scoped,
+  Effect.catchTag("PlatformError", (error) =>
+    Effect.fail(new ArchiveError({ message: error.message })),
+  ),
+)
 
 const text = (bytes: Uint8Array) =>
   Buffer.from(bytes).toString("utf8").replace(/\0.*$/s, "").trim()
@@ -201,57 +201,56 @@ const text = (bytes: Uint8Array) =>
  * Reads the manifest off the front of the tar and gives it with the whole tar as a stream, so a tar that arrives on a
  * pipe is checked before anything else is read and before anything is written.
  */
-export const open = <E>(source: Stream.Stream<Uint8Array, E>) =>
-  Effect.gen(function* () {
-    const pull = yield* Stream.toPull(source)
-    const chunks: Array<Uint8Array> = []
-    let length = 0
-    let ended = false
-    const fill = Effect.fnUntraced(function* (wanted: number) {
-      while (length < wanted && !ended) {
-        const next = yield* pull.pipe(
-          Pull.catchDone(() => Effect.succeed(undefined)),
-        )
-        if (next === undefined) {
-          ended = true
-          break
-        }
-        for (const chunk of next) {
-          chunks.push(chunk)
-          length += chunk.length
-        }
+export const open = Effect.fnUntraced(function* <E>(
+  source: Stream.Stream<Uint8Array, E>,
+) {
+  const pull = yield* Stream.toPull(source)
+  const chunks: Array<Uint8Array> = []
+  let length = 0
+  let ended = false
+  const fill = Effect.fnUntraced(function* (wanted: number) {
+    while (length < wanted && !ended) {
+      const next = yield* pull.pipe(Pull.catchDone(() => Effect.undefined))
+      if (next === undefined) {
+        ended = true
+        break
       }
-      return Buffer.concat(chunks)
-    })
-    const header = yield* fill(512)
-    if (header.length < 512 || text(header.subarray(0, 100)) !== manifestName) {
-      return yield* new NotBackup({
-        why: `its first entry is not ${manifestName}`,
-      })
+      for (const chunk of next) {
+        chunks.push(chunk)
+        length += chunk.length
+      }
     }
-    const size = Number.parseInt(text(header.subarray(124, 136)), 8)
-    const head = yield* fill(512 + size)
-    const decoded = decodeManifest(
-      Buffer.from(head.subarray(512, 512 + size)).toString("utf8"),
-    )
-    if (!Number.isSafeInteger(size) || Result.isFailure(decoded)) {
-      return yield* new NotBackup({ why: `${manifestName} cannot be read` })
-    }
-    const manifest = decoded.success
-    const made = SemVer.parse(manifest.version)
-    if (
-      manifest.format > format ||
-      Result.isFailure(made) ||
-      SemVer.isGreaterThan(made.success, SemVer.parseUnsafe(version))
-    ) {
-      return yield* new Newer({ made: manifest.version })
-    }
-    const whole: Stream.Stream<Uint8Array, E> = Stream.concat(
-      Stream.make(head),
-      Stream.fromPull(Effect.succeed(pull)),
-    )
-    return { manifest, whole }
+    return Buffer.concat(chunks)
   })
+  const header = yield* fill(512)
+  if (header.length < 512 || text(header.subarray(0, 100)) !== manifestName) {
+    return yield* new NotBackup({
+      why: `its first entry is not ${manifestName}`,
+    })
+  }
+  const size = Number.parseInt(text(header.subarray(124, 136)), 8)
+  const head = yield* fill(512 + size)
+  const decoded = decodeManifest(
+    Buffer.from(head.subarray(512, 512 + size)).toString("utf8"),
+  )
+  if (!Number.isSafeInteger(size) || Result.isFailure(decoded)) {
+    return yield* new NotBackup({ why: `${manifestName} cannot be read` })
+  }
+  const manifest = decoded.success
+  const made = SemVer.parse(manifest.version)
+  if (
+    manifest.format > format ||
+    Result.isFailure(made) ||
+    SemVer.isGreaterThan(made.success, SemVer.parseUnsafe(version))
+  ) {
+    return yield* new Newer({ made: manifest.version })
+  }
+  const whole: Stream.Stream<Uint8Array, E> = Stream.concat(
+    Stream.make(head),
+    Stream.fromPull(Effect.succeed(pull)),
+  )
+  return { manifest, whole }
+})
 
 /** Unpacks the tar into `directory`. */
 export const extract = (

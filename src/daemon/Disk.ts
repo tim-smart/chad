@@ -19,11 +19,8 @@ export const freeSpace = (path: string): Effect.Effect<number, unknown> =>
 export type Condition = Pick<Notices.Notices["Service"], "raise" | "clear">
 
 /** One run of the free space check. A read that fails changes nothing and is logged. */
-export const check = (
-  free: Effect.Effect<number, unknown>,
-  condition: Condition,
-) =>
-  Effect.gen(function* () {
+export const check = Effect.fnUntraced(
+  function* (free: Effect.Effect<number, unknown>, condition: Condition) {
     const bytes = yield* free
     if (bytes >= threshold) return yield* condition.clear("disk-low")
     yield* Logger.event(
@@ -34,14 +31,11 @@ export const check = (
       },
     )
     yield* condition.raise(Notices.diskLow(bytes))
-  }).pipe(
-    Effect.catchCause((cause) =>
-      Effect.logWarning(
-        "The free space check could not read free space",
-        cause,
-      ),
-    ),
-  )
+  },
+  Effect.catchCause((cause) =>
+    Effect.logWarning("The free space check could not read free space", cause),
+  ),
+)
 
 /**
  * The free space check at boot and then at every interval, a plain timer kept off `ClusterCron`. It

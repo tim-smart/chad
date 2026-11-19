@@ -163,7 +163,7 @@ export const served = async (): Promise<Served> => {
   const changes = new Changes()
   const sockets: Array<GatewaySocket> = []
   const asked: Array<string> = []
-  const scope = Effect.runSync(Scope.make())
+  const scope = Scope.makeUnsafe()
   const server = await Effect.runPromise(
     NodeSocketServer.makeWebSocket({
       host: "127.0.0.1",
@@ -177,40 +177,40 @@ export const served = async (): Promise<Served> => {
   )
   const address = server.address
   const port = address._tag === "UnixPathAddress" ? 0 : address.port
-  const connection = (socket: Socket.Socket) =>
-    Effect.gen(function* () {
-      const gateway = new GatewaySocket(asked.shift() ?? "", changes)
-      sockets.push(gateway)
-      changes.changed()
-      const { write } = yield* socket.writer
-      gateway.addEventListener("message", (event) => {
-        Effect.runFork(write(String((event as MessageEvent).data)))
-      })
-      gateway.addEventListener("close", (event) => {
-        if (gateway.closed?.by !== "discord") return
-        Effect.runFork(write(new Socket.CloseEvent((event as CloseEvent).code)))
-      })
-      const pull = yield* Socket.readerString(socket)
-      const ended = yield* Effect.exit(
-        Effect.forever(
-          Effect.flatMap(pull, (frames) =>
-            Effect.sync(() => {
-              for (const frame of frames) gateway.send(frame)
-            }),
-          ),
+  const connection = Effect.fnUntraced(function* (socket: Socket.Socket) {
+    const gateway = new GatewaySocket(asked.shift() ?? "", changes)
+    sockets.push(gateway)
+    changes.changed()
+    const { write } = yield* socket.writer
+    const fork = Effect.runForkWith(yield* Effect.context<never>())
+    gateway.addEventListener("message", (event) => {
+      fork(write(String((event as MessageEvent).data)))
+    })
+    gateway.addEventListener("close", (event) => {
+      if (gateway.closed?.by !== "discord") return
+      fork(write(new Socket.CloseEvent((event as CloseEvent).code)))
+    })
+    const pull = yield* Socket.readerString(socket)
+    const ended = yield* Effect.exit(
+      Effect.forever(
+        Effect.flatMap(pull, (frames) =>
+          Effect.sync(() => {
+            for (const frame of frames) gateway.send(frame)
+          }),
         ),
-      )
-      // The daemon's end closed the socket, or the process holding it died.
-      const reason = Exit.isFailure(ended)
-        ? ended.cause.reasons.find((part) => part._tag === "Fail")
-        : undefined
-      const error = reason?._tag === "Fail" ? reason.error : undefined
-      gateway.close(
-        error !== undefined && error.reason._tag === "SocketCloseError"
-          ? error.reason.code
-          : 1006,
-      )
-    }).pipe(Effect.scoped)
+      ),
+    )
+    // The daemon's end closed the socket, or the process holding it died.
+    const reason = Exit.isFailure(ended)
+      ? ended.cause.reasons.find((part) => part._tag === "Fail")
+      : undefined
+    const error = reason?._tag === "Fail" ? reason.error : undefined
+    gateway.close(
+      error !== undefined && error.reason._tag === "SocketCloseError"
+        ? error.reason.code
+        : 1006,
+    )
+  }, Effect.scoped)
   Effect.runFork(
     server.run(connection).pipe(Effect.ignore, Scope.provide(scope)),
   )

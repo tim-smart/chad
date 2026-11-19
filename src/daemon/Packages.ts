@@ -122,7 +122,7 @@ const hostVersions = Effect.gen(function* () {
     )
     if (Option.isNone(text)) continue
     const version = Option.getOrUndefined(
-      Schema.decodeUnknownOption(
+      Schema.decodeOption(
         Schema.fromJsonString(Schema.Struct({ version: Schema.String })),
       )(text.value),
     )?.version
@@ -193,7 +193,7 @@ const conflicts = Effect.fnUntraced(function* (packages: Lock["packages"]) {
 const optionalText = Effect.fnUntraced(function* (path: string) {
   const fs = yield* FileSystem.FileSystem
   return yield* fs.readFileString(path).pipe(
-    Effect.map(Option.some),
+    Effect.asSome,
     Effect.catchTag("PlatformError", (error) =>
       error.reason._tag === "NotFound"
         ? Effect.succeed(Option.none<string>())
@@ -482,19 +482,18 @@ export const make = (options: {
       ),
     )
 
-  const prune = (keep: string | undefined) =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem
-      const entries = yield* fs
-        .readDirectory(root)
-        .pipe(Effect.orElseSucceed((): ReadonlyArray<string> => []))
-      for (const entry of entries) {
-        if (entry === keep) continue
-        yield* Effect.ignore(
-          fs.remove(join(root, entry), { recursive: true, force: true }),
-        )
-      }
-    })
+  const prune = Effect.fnUntraced(function* (keep: string | undefined) {
+    const fs = yield* FileSystem.FileSystem
+    const entries = yield* fs
+      .readDirectory(root)
+      .pipe(Effect.orElseSucceed((): ReadonlyArray<string> => []))
+    for (const entry of entries) {
+      if (entry === keep) continue
+      yield* Effect.ignore(
+        fs.remove(join(root, entry), { recursive: true, force: true }),
+      )
+    }
+  })
 
   return { ready, prune }
 }

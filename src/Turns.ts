@@ -48,6 +48,8 @@ export interface Timer {
  * activation. A call that the Layer build itself waits on therefore never
  * returns, and the load fails. Such a call belongs in `Plugin.background`.
  */
+// `scheduled` stays a call, not an Effect, because plugins already call it and a change would break them.
+// @effect-diagnostics-next-line lazyEffect:off
 export class Turns extends Context.Service<
   Turns,
   {

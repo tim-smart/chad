@@ -55,7 +55,7 @@ export const read = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem
     const text = yield* fs.readFileString(file(data)).pipe(
-      Effect.map(Option.some),
+      Effect.asSome,
       Effect.catch((error) =>
         Errno.code(error) === "ENOENT"
           ? Effect.succeed(Option.none<string>())
@@ -173,9 +173,11 @@ export const remove = (store: Store, name: string): Changed => {
  * Reads the store, applies a change and writes it when something changed. A store that cannot be read or holds no
  * store fails, and nothing is written over it.
  */
-export const change = (data: string, f: (store: Store) => Changed) =>
-  Effect.gen(function* () {
-    const changed = f(yield* read(data))
-    if (changed._tag !== "Missing") yield* write(data, changed.store)
-    return changed
-  })
+export const change = Effect.fnUntraced(function* (
+  data: string,
+  f: (store: Store) => Changed,
+) {
+  const changed = f(yield* read(data))
+  if (changed._tag !== "Missing") yield* write(data, changed.store)
+  return changed
+})

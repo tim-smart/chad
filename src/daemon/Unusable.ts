@@ -107,54 +107,55 @@ export const run = Effect.fnUntraced(function* (options: {
  * restarts included: `state/db-unusable` marks the send, and only when it cannot be written is the notice sent again
  * at the next boot.
  */
-const notify = (data: string, text: string, running: Chats.Running<unknown>) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem
-    const mark = Paths.dbUnusable(data)
-    if (yield* fs.exists(mark).pipe(Effect.orElseSucceed(() => false))) return
-    const destination = yield* Notices.readDestination(data)
-    if (destination === undefined) {
-      return yield* Logger.event(
-        "notice.undelivered",
-        "A notice could not be posted, because no session is known",
-        { key, text },
-      )
-    }
-    const where = {
-      connection: destination.connection,
-      thread: destination.thread,
-    }
-    // A destination whose kind is unknown is posted in as a server's, as the notices do.
-    const direct =
-      (yield* Notices.directMessage(
-        running.chats,
-        running.list,
-      )(destination)) ?? false
-    const post = Notices.post(running.chats, running.list)
-    const posted = yield* Effect.exit(
-      Effect.suspend(() => post(destination, direct, text)).pipe(
-        Effect.sandbox,
-        Effect.retry({ times: 1 }),
-      ),
+const notify = Effect.fnUntraced(function* (
+  data: string,
+  text: string,
+  running: Chats.Running<unknown>,
+) {
+  const fs = yield* FileSystem.FileSystem
+  const mark = Paths.dbUnusable(data)
+  if (yield* fs.exists(mark).pipe(Effect.orElseSucceed(() => false))) return
+  const destination = yield* Notices.readDestination(data)
+  if (destination === undefined) {
+    return yield* Logger.event(
+      "notice.undelivered",
+      "A notice could not be posted, because no session is known",
+      { key, text },
     )
-    if (Exit.isFailure(posted)) {
-      return yield* Logger.event(
-        "notice.undelivered",
-        "A notice could not be posted, because the post failed twice",
-        { key, ...where, text },
-        posted.cause,
-      )
-    }
-    yield* Logger.event("notice.sent", "A notice was posted", {
-      key,
-      ...where,
-      text,
-    })
-    const wrote = yield* Effect.exit(fs.writeFileString(mark, text + "\n"))
-    if (Exit.isFailure(wrote)) {
-      yield* Effect.logWarning(
-        "state/db-unusable could not be written, so the next boot sends the notice again",
-        wrote.cause,
-      )
-    }
+  }
+  const where = {
+    connection: destination.connection,
+    thread: destination.thread,
+  }
+  // A destination whose kind is unknown is posted in as a server's, as the notices do.
+  const direct =
+    (yield* Notices.directMessage(running.chats, running.list)(destination)) ??
+    false
+  const post = Notices.post(running.chats, running.list)
+  const posted = yield* Effect.exit(
+    Effect.suspend(() => post(destination, direct, text)).pipe(
+      Effect.sandbox,
+      Effect.retry({ times: 1 }),
+    ),
+  )
+  if (Exit.isFailure(posted)) {
+    return yield* Logger.event(
+      "notice.undelivered",
+      "A notice could not be posted, because the post failed twice",
+      { key, ...where, text },
+      posted.cause,
+    )
+  }
+  yield* Logger.event("notice.sent", "A notice was posted", {
+    key,
+    ...where,
+    text,
   })
+  const wrote = yield* Effect.exit(fs.writeFileString(mark, text + "\n"))
+  if (Exit.isFailure(wrote)) {
+    yield* Effect.logWarning(
+      "state/db-unusable could not be written, so the next boot sends the notice again",
+      wrote.cause,
+    )
+  }
+})

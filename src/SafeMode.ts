@@ -16,12 +16,14 @@ export const forced = (env: Readonly<Record<string, string | undefined>>) =>
   env["CHAD_SAFE_MODE"] === "1"
 
 /** Whether the toggle is stored as on. A file that cannot be read is off, so a boot never stops on it. */
-export const stored = (data: string) =>
-  Effect.gen(function* () {
+export const stored = Effect.fnUntraced(
+  function* (data: string) {
     const fs = yield* FileSystem.FileSystem
     const text = yield* fs.readFileString(file(data))
     return text.trim() === "on"
-  }).pipe(Effect.orElseSucceed(() => false))
+  },
+  Effect.orElseSucceed(() => false),
+)
 
 /** The state from the variable and the file. The variable wins. */
 export const read = (

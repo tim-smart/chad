@@ -837,7 +837,7 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
 
   // The Codex model endpoint over WebSocket. The opening request carries the headers, and every `response.create`
   // message on the socket is a call with them. A refusal is an `error` frame, as Codex sends one.
-  const scope = Effect.runSync(Scope.make())
+  const scope = Scope.makeUnsafe()
   const sockets = await Effect.runPromise(
     NodeSocketServer.makeWebSocket({
       host,
@@ -849,16 +849,17 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
     }).pipe(Scope.provide(scope)),
   )
   let count = 0
-  const connection = (socket: Socket.Socket) =>
-    Effect.gen(function* () {
+  const connection = Effect.fnUntraced(
+    function* (socket: Socket.Socket) {
       const opening = opened[count++]!
       const writer = yield* socket.writer
+      const context = yield* Effect.context<never>()
       const send = (frame: object) =>
-        Effect.runPromise(
+        Effect.runPromiseWith(context)(
           writer.write(JSON.stringify(frame)).pipe(Effect.ignore),
         )
       const pull = yield* Socket.readerString(socket)
-      yield* Effect.forever(
+      return yield* Effect.forever(
         Effect.flatMap(pull, (frames) =>
           Effect.sync(() => {
             for (const frame of frames) {
@@ -882,7 +883,10 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
           }),
         ),
       )
-    }).pipe(Effect.scoped, Effect.ignore)
+    },
+    Effect.scoped,
+    Effect.ignore(),
+  )
   Effect.runFork(
     sockets.run(connection).pipe(Effect.ignore, Scope.provide(scope)),
   )

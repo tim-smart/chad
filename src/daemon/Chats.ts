@@ -128,122 +128,121 @@ const announcing = (entry: Entry, connected: Effect.Effect<void>) =>
  * `layer` gives the Layer of one connection's chat platform. It is built with a `Chat` and an adapter registry that
  * no other connection shares, in a scope that lives until the connection is removed or swapped, or the daemon stops.
  */
-export const make = <R>(
+export const make = Effect.fnUntraced(function* <R>(
   layer: (
     connection: Connection,
     live: Live,
   ) => Layer.Layer<never, never, R | Layer.Success<typeof Chat.layer>>,
-) =>
-  Effect.gen(function* () {
-    // The connections' scope is taken now, before the sessions are built, so that it closes after them: a graceful
-    // stop waits for the turns in flight, and they still post through their connection meanwhile.
-    const parent = yield* Scope.fork(yield* Effect.scope)
-    const entries = new Map<string, Entry>()
-    const first = yield* Deferred.make<void>()
-    const connected = Effect.asVoid(Deferred.succeed(first, undefined))
+) {
+  // The connections' scope is taken now, before the sessions are built, so that it closes after them: a graceful
+  // stop waits for the turns in flight, and they still post through their connection meanwhile.
+  const parent = yield* Scope.fork(yield* Effect.scope)
+  const entries = new Map<string, Entry>()
+  const first = yield* Deferred.make<void>()
+  const connected = Effect.asVoid(Deferred.succeed(first, undefined))
 
-    // The entry is in place before the platform is built, so a session that answers meanwhile waits for it.
-    const place = Effect.fnUntraced(function* (connection: Connection) {
-      const entry: Entry = {
-        connection,
-        chat: yield* Deferred.make<ChatService>(),
-        registered: yield* Deferred.make<void>(),
-        scope: yield* Scope.fork(parent),
-        rename: undefined,
-      }
-      entries.set(connection.name, entry)
-      return entry
-    })
-
-    const build = (entry: Entry) => {
-      const registered = Layer.effectDiscard(
-        Effect.flatMap(Chat.Chat, (chat) => Deferred.succeed(entry.chat, chat)),
-      )
-      const live: Live = {
-        name: entry.connection.name,
-        owners: () => entry.connection.owners,
-        channels: () => entry.connection.channels ?? [],
-        format: Format.of(entry.connection.kind),
-        rename: () => entry.rename,
-        current: () => entries.get(entry.connection.name) === entry,
-      }
-      const renames = (rename: Rename) =>
-        Effect.acquireRelease(
-          Effect.sync(() => {
-            entry.rename = rename
-          }),
-          () =>
-            Effect.sync(() => {
-              entry.rename = undefined
-            }),
-        )
-      return Layer.buildWithScope(
-        Layer.mergeAll(registered, layer(entry.connection, live)).pipe(
-          Layer.provide(announcing(entry, connected)),
-          Layer.provide(Layer.fresh(Chat.layer)),
-          Layer.provide(Layer.succeed(Connected, connected)),
-          Layer.provide(Layer.succeed(Renames, renames)),
-        ),
-        entry.scope,
-      )
+  // The entry is in place before the platform is built, so a session that answers meanwhile waits for it.
+  const place = Effect.fnUntraced(function* (connection: Connection) {
+    const entry: Entry = {
+      connection,
+      chat: yield* Deferred.make<ChatService>(),
+      registered: yield* Deferred.make<void>(),
+      scope: yield* Scope.fork(parent),
+      rename: undefined,
     }
-
-    const running: Running<R> = {
-      chats: {
-        get: (connection) => {
-          const entry = entries.get(connection)
-          return entry === undefined
-            ? Effect.die(new Error(`there is no chat connection ${connection}`))
-            : Deferred.await(entry.chat)
-        },
-        format: (connection) => {
-          const entry = entries.get(connection)
-          return entry === undefined
-            ? Effect.die(new Error(`there is no chat connection ${connection}`))
-            : Effect.succeed(Format.of(entry.connection.kind))
-        },
-        ready: (connection) => {
-          const entry = entries.get(connection)
-          return entry === undefined
-            ? Effect.die(new Error(`there is no chat connection ${connection}`))
-            : Deferred.await(entry.registered)
-        },
-        connected: Deferred.await(first),
-      },
-      list: () => [...entries.values()].map((entry) => entry.connection),
-      set: Effect.fnUntraced(function* (connections) {
-        const stale: Array<Entry> = []
-        const fresh: Array<Entry> = []
-        for (const entry of entries.values()) {
-          const next = connections.find(
-            ({ name }) => name === entry.connection.name,
-          )
-          if (next === undefined) {
-            entries.delete(entry.connection.name)
-            stale.push(entry)
-          } else if (
-            next.kind !== entry.connection.kind ||
-            next.token !== entry.connection.token
-          ) {
-            // The new entry takes the old one's place first, so the connection is never unknown in between.
-            stale.push(entry)
-            fresh.push(yield* place(next))
-          } else {
-            entry.connection = next
-          }
-        }
-        for (const connection of connections) {
-          if (!entries.has(connection.name)) {
-            fresh.push(yield* place(connection))
-          }
-        }
-        // What is taken down is down before its successor comes up: a bot has one gateway session at a time.
-        for (const entry of stale) yield* Scope.close(entry.scope, Exit.void)
-        yield* Effect.forEach(fresh, build, {
-          concurrency: "unbounded",
-          discard: true,
-        })
-      }),
-    }
-    return running
+    entries.set(connection.name, entry)
+    return entry
   })
+
+  const build = (entry: Entry) => {
+    const registered = Layer.effectDiscard(
+      Effect.flatMap(Chat.Chat, (chat) => Deferred.succeed(entry.chat, chat)),
+    )
+    const live: Live = {
+      name: entry.connection.name,
+      owners: () => entry.connection.owners,
+      channels: () => entry.connection.channels ?? [],
+      format: Format.of(entry.connection.kind),
+      rename: () => entry.rename,
+      current: () => entries.get(entry.connection.name) === entry,
+    }
+    const renames = (rename: Rename) =>
+      Effect.acquireRelease(
+        Effect.sync(() => {
+          entry.rename = rename
+        }),
+        () =>
+          Effect.sync(() => {
+            entry.rename = undefined
+          }),
+      )
+    return Layer.buildWithScope(
+      Layer.mergeAll(registered, layer(entry.connection, live)).pipe(
+        Layer.provide(announcing(entry, connected)),
+        Layer.provide(Layer.fresh(Chat.layer)),
+        Layer.provide(Layer.succeed(Connected, connected)),
+        Layer.provide(Layer.succeed(Renames, renames)),
+      ),
+      entry.scope,
+    )
+  }
+
+  const running: Running<R> = {
+    chats: {
+      get: (connection) => {
+        const entry = entries.get(connection)
+        return entry === undefined
+          ? Effect.die(new Error(`there is no chat connection ${connection}`))
+          : Deferred.await(entry.chat)
+      },
+      format: (connection) => {
+        const entry = entries.get(connection)
+        return entry === undefined
+          ? Effect.die(new Error(`there is no chat connection ${connection}`))
+          : Effect.succeed(Format.of(entry.connection.kind))
+      },
+      ready: (connection) => {
+        const entry = entries.get(connection)
+        return entry === undefined
+          ? Effect.die(new Error(`there is no chat connection ${connection}`))
+          : Deferred.await(entry.registered)
+      },
+      connected: Deferred.await(first),
+    },
+    list: () => [...entries.values()].map((entry) => entry.connection),
+    set: Effect.fnUntraced(function* (connections) {
+      const stale: Array<Entry> = []
+      const fresh: Array<Entry> = []
+      for (const entry of entries.values()) {
+        const next = connections.find(
+          ({ name }) => name === entry.connection.name,
+        )
+        if (next === undefined) {
+          entries.delete(entry.connection.name)
+          stale.push(entry)
+        } else if (
+          next.kind !== entry.connection.kind ||
+          next.token !== entry.connection.token
+        ) {
+          // The new entry takes the old one's place first, so the connection is never unknown in between.
+          stale.push(entry)
+          fresh.push(yield* place(next))
+        } else {
+          entry.connection = next
+        }
+      }
+      for (const connection of connections) {
+        if (!entries.has(connection.name)) {
+          fresh.push(yield* place(connection))
+        }
+      }
+      // What is taken down is down before its successor comes up: a bot has one gateway session at a time.
+      for (const entry of stale) yield* Scope.close(entry.scope, Exit.void)
+      yield* Effect.forEach(fresh, build, {
+        concurrency: "unbounded",
+        discard: true,
+      })
+    }),
+  }
+  return running
+})

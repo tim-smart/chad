@@ -253,7 +253,7 @@ const modelPort = 8080
 
 let bundled: Promise<string> | undefined
 let bundleDirectory: string | undefined
-const scope = Effect.runSync(Scope.make())
+const scope = Scope.makeUnsafe()
 
 /**
  * The one file of the repository that the second container is given (`Bundle.bundleFakes`). It is bundled once, into a

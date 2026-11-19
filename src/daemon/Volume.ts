@@ -87,7 +87,7 @@ export const check = Effect.fnUntraced(function* (
     .pipe(
       Effect.catchTag("PlatformError", (error) =>
         error.reason._tag === "NotFound"
-          ? Effect.succeed(undefined)
+          ? Effect.undefined
           : Effect.fail(error),
       ),
     )

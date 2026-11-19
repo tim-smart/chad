@@ -72,19 +72,19 @@ export const layer = (options: {
       }),
     ).pipe(
       Effect.andThen(options.notices.clear(failedKey)),
-      Effect.catchCause((cause) =>
-        Cause.hasInterruptsOnly(cause)
-          ? Effect.failCause(cause)
-          : Logger.event("prune.failed", "The nightly prune failed", {
-              error: Messages.firstLine(Cause.pretty(cause)),
-            }).pipe(
-              Effect.andThen(
-                options.notices.raise({
-                  key: failedKey,
-                  text: Messages.pruneFailed(Cause.pretty(cause)),
-                }),
-              ),
+      Effect.catchCauseIf(
+        (cause) => !Cause.hasInterruptsOnly(cause),
+        (cause) =>
+          Logger.event("prune.failed", "The nightly prune failed", {
+            error: Messages.firstLine(Cause.pretty(cause)),
+          }).pipe(
+            Effect.andThen(
+              options.notices.raise({
+                key: failedKey,
+                text: Messages.pruneFailed(Cause.pretty(cause)),
+              }),
             ),
+          ),
       ),
     ),
   })

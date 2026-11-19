@@ -288,50 +288,47 @@ export const make = (
       holdThreads,
       statuses: () => [...statuses],
       links: () => links,
-      click: (messageId, id, userId) =>
-        Effect.gen(function* () {
-          const event = yield* chat.click(messageId, id, { userId })
-          if (event._tag !== "ButtonClicked" || interactions === undefined) {
-            return yield* Effect.die(new Error("no daemon takes the click"))
-          }
-          return yield* chat
-            .interact(event)
-            .pipe(Effect.provideService(ChatInteraction.Handler, interactions))
-        }),
-      submit: (messageId, id, users, values) =>
-        Effect.gen(function* () {
-          const handler = interactions
-          const event = yield* chat.click(messageId, id, {
-            userId: users.clicker,
-          })
-          if (event._tag !== "ButtonClicked" || handler === undefined) {
-            return yield* Effect.die(new Error("no daemon takes the click"))
-          }
-          const clicked = yield* chat
-            .interact(event)
-            .pipe(Effect.provideService(ChatInteraction.Handler, handler))
-          if (clicked._tag !== "OpenModal") {
-            return { clicked, submitted: undefined }
-          }
-          const submit = yield* chat.submit(event, clicked, values, {
-            userId: users.submitter,
-          })
-          const submitted = yield* chat
-            .interact(submit)
-            .pipe(Effect.provideService(ChatInteraction.Handler, handler))
-          return { clicked, submitted }
-        }),
-      command: (thread, id, userId, text) =>
-        Effect.gen(function* () {
-          const handler = interactions
-          if (handler === undefined) {
-            return yield* Effect.die(new Error("no daemon takes the command"))
-          }
-          const event = yield* chat.command(thread, id, { userId, text })
-          return yield* chat
-            .interact(event)
-            .pipe(Effect.provideService(ChatInteraction.Handler, handler))
-        }),
+      click: Effect.fnUntraced(function* (messageId, id, userId) {
+        const event = yield* chat.click(messageId, id, { userId })
+        if (event._tag !== "ButtonClicked" || interactions === undefined) {
+          return yield* Effect.die(new Error("no daemon takes the click"))
+        }
+        return yield* chat
+          .interact(event)
+          .pipe(Effect.provideService(ChatInteraction.Handler, interactions))
+      }),
+      submit: Effect.fnUntraced(function* (messageId, id, users, values) {
+        const handler = interactions
+        const event = yield* chat.click(messageId, id, {
+          userId: users.clicker,
+        })
+        if (event._tag !== "ButtonClicked" || handler === undefined) {
+          return yield* Effect.die(new Error("no daemon takes the click"))
+        }
+        const clicked = yield* chat
+          .interact(event)
+          .pipe(Effect.provideService(ChatInteraction.Handler, handler))
+        if (clicked._tag !== "OpenModal") {
+          return { clicked, submitted: undefined }
+        }
+        const submit = yield* chat.submit(event, clicked, values, {
+          userId: users.submitter,
+        })
+        const submitted = yield* chat
+          .interact(submit)
+          .pipe(Effect.provideService(ChatInteraction.Handler, handler))
+        return { clicked, submitted }
+      }),
+      command: Effect.fnUntraced(function* (thread, id, userId, text) {
+        const handler = interactions
+        if (handler === undefined) {
+          return yield* Effect.die(new Error("no daemon takes the command"))
+        }
+        const event = yield* chat.command(thread, id, { userId, text })
+        return yield* chat
+          .interact(event)
+          .pipe(Effect.provideService(ChatInteraction.Handler, handler))
+      }),
       writes: () => writes,
       written: (seen) =>
         Effect.callback<void>((resume) => {
@@ -387,24 +384,23 @@ export const make = (
                 Deferred.succeed(gone, undefined),
               )
               yield* attach({
-                handle: (event) =>
-                  Effect.gen(function* () {
-                    const id = String(++events)
-                    const accepted = yield* Deferred.make<boolean>()
-                    pending.set(id, accepted)
-                    yield* Queue.offer(queue, { id, event })
-                    const answer = yield* Deferred.await(accepted).pipe(
-                      Effect.raceFirst(
-                        Effect.as(Deferred.await(gone), "gone" as const),
-                      ),
-                    )
-                    if (answer === "gone") {
-                      pending.delete(id)
-                      record("redeliver", { event: event._tag })
-                      return yield* (yield* current).handle(event)
-                    }
-                    if (!answer) return yield* new ChatHandler.NotAccepted()
-                  }),
+                handle: Effect.fnUntraced(function* (event) {
+                  const id = String(++events)
+                  const accepted = yield* Deferred.make<boolean>()
+                  pending.set(id, accepted)
+                  yield* Queue.offer(queue, { id, event })
+                  const answer = yield* Deferred.await(accepted).pipe(
+                    Effect.raceFirst(
+                      Effect.as(Deferred.await(gone), "gone" as const),
+                    ),
+                  )
+                  if (answer === "gone") {
+                    pending.delete(id)
+                    record("redeliver", { event: event._tag })
+                    return yield* (yield* current).handle(event)
+                  }
+                  if (!answer) return yield* new ChatHandler.NotAccepted()
+                }),
               })
               return Stream.fromQueue(queue)
             }),

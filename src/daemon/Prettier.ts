@@ -180,7 +180,7 @@ export const plugins = Effect.fnUntraced(function* (
     }),
     Effect.flatMap(([results, stderr, code]) =>
       code === 0
-        ? Schema.decodeUnknownEffect(Results)(results).pipe(
+        ? Schema.decodeEffect(Results)(results).pipe(
             Effect.mapError(() => stderr.trim() || "no results"),
           )
         : Effect.fail(stderr.trim() || `exit code ${code}`),

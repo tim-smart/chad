@@ -35,8 +35,8 @@ const listed = Effect.gen(function* () {
 }).pipe(Effect.mapError(Change.rejected(command)))
 
 /** The name of the bot a stored token belongs to, by the check `chad connection check` makes, or nothing. */
-const storedBot = (name: string) =>
-  Effect.gen(function* () {
+const storedBot = Effect.fnUntraced(
+  function* (name: string) {
     const environment = yield* Environment
     const lines =
       (yield* Daemon.lock) === "held"
@@ -50,7 +50,9 @@ const storedBot = (name: string) =>
             name,
           )
     return lines[0]?.bot
-  }).pipe(Effect.orElseSucceed(() => undefined))
+  },
+  Effect.orElseSucceed(() => undefined),
+)
 
 /**
  * `chad setup`: a wizard over `connection add discord` or `connection token`, `owner add`, `timezone` and `login`.

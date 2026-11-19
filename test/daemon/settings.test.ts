@@ -38,14 +38,13 @@ const probe = () => {
         return Plugin.toolkit(Probes).pipe(
           Layer.provide(
             Probes.toLayer({
-              probe: () =>
-                Effect.gen(function* () {
-                  const url = yield* Config.String("url").pipe(
-                    Config.withDefault("none"),
-                  )
-                  const home = yield* Config.option(Config.String("HOME"))
-                  return `url=${url} token=${Option.isSome(token) && Redacted.value(token.value) === secret} home=${Option.isSome(home)}`
-                }).pipe(Effect.orDie),
+              probe: Effect.fnUntraced(function* () {
+                const url = yield* Config.String("url").pipe(
+                  Config.withDefault("none"),
+                )
+                const home = yield* Config.option(Config.String("HOME"))
+                return `url=${url} token=${Option.isSome(token) && Redacted.value(token.value) === secret} home=${Option.isSome(home)}`
+              }, Effect.orDie),
             }),
           ),
         )

@@ -71,11 +71,13 @@ export const codexFile = (data: string): string =>
   join(Paths.auth(data), encodeURIComponent("codex.auth/token"))
 
 /** Whether a Codex token is stored, which is what `chad status` calls logged in. It opens no store. */
-export const codexStored = (data: string) =>
-  Effect.gen(function* () {
+export const codexStored = Effect.fnUntraced(
+  function* (data: string) {
     const fs = yield* FileSystem.FileSystem
     return yield* fs.exists(codexFile(data))
-  }).pipe(Effect.orElseSucceed(() => false))
+  },
+  Effect.orElseSucceed(() => false),
+)
 
 /**
  * The store over another whose every write first runs `before`, as a login with no daemon takes the lock only when

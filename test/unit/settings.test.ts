@@ -26,9 +26,7 @@ it("the provider records each key, where its value came from and when it was rea
   const recorder = Settings.recorder(expanded)
   const read = <A>(config: Config.Config<A>) =>
     Effect.runPromise(
-      Effect.gen(function* () {
-        return yield* config
-      }).pipe(
+      config.pipe(
         Effect.provideService(ConfigProvider.ConfigProvider, recorder.provider),
       ),
     )

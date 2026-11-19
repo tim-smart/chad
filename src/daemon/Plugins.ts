@@ -417,29 +417,28 @@ export const make = Effect.fnUntraced(function* (options: {
    * A plugin that is skipped at boot: a log line with the error, a line in `chad status`, and a notice to the owner
    * under its key, which a plugin skipped at every boot sends once.
    */
-  const skip = (
+  const skip = Effect.fnUntraced(function* (
     name: string,
     error: string,
     repo: boolean,
     cause?: Cause.Cause<unknown>,
-  ) =>
-    Effect.gen(function* () {
-      const reason = Messages.firstLine(error)
-      skipped = [
-        ...skipped.filter((other) => other.name !== name),
-        { name, reason, repo },
-      ].sort(byName)
-      yield* Logger.event(
-        "plugin.skipped",
-        "A plugin was skipped",
-        { plugin: name, reason, ...(cause === undefined ? { error } : {}) },
-        cause,
-      )
-      yield* options.notices.raise({
-        key: skippedKey(name),
-        text: Messages.pluginSkipped(name, reason),
-      })
+  ) {
+    const reason = Messages.firstLine(error)
+    skipped = [
+      ...skipped.filter((other) => other.name !== name),
+      { name, reason, repo },
+    ].sort(byName)
+    yield* Logger.event(
+      "plugin.skipped",
+      "A plugin was skipped",
+      { plugin: name, reason, ...(cause === undefined ? { error } : {}) },
+      cause,
+    )
+    yield* options.notices.raise({
+      key: skippedKey(name),
+      text: Messages.pluginSkipped(name, reason),
     })
+  })
 
   /**
    * Runs an effect as the plugin's: its name on every line, its settings for every `Config` read, and no `SqlClient`
@@ -549,11 +548,7 @@ export const make = Effect.fnUntraced(function* (options: {
       Effect.flatMap((job) =>
         perform(name, job).pipe(
           // A call interrupted by its version's close ends that job and not the queue, which outlives the version.
-          Effect.catchCause((cause) =>
-            Cause.hasInterruptsOnly(cause)
-              ? Effect.void
-              : Effect.failCause(cause),
-          ),
+          Effect.catchCauseIf(Cause.hasInterruptsOnly, () => Effect.void),
           Effect.ensuring(
             Effect.sync(() => {
               pending--
@@ -567,12 +562,11 @@ export const make = Effect.fnUntraced(function* (options: {
     )
     return queue
   })
-  const enqueue = (name: string, job: Job) =>
-    Effect.gen(function* () {
-      const queue = yield* queueOf(name)
-      pending++
-      yield* Queue.offer(queue, job)
-    })
+  const enqueue = Effect.fnUntraced(function* (name: string, job: Job) {
+    const queue = yield* queueOf(name)
+    pending++
+    yield* Queue.offer(queue, job)
+  })
 
   /**
    * Runs one hook inside its budget. A hook that fails, dies or runs past it is logged and skipped. The
@@ -643,235 +637,232 @@ export const make = Effect.fnUntraced(function* (options: {
    * `others` holds fails the build. A failure closes its scope and gives the error.
    */
   const lookup: Settings.Lookup<{ readonly message: string }, never> =
-    options.lookup ?? (() => Effect.succeed(Option.none()))
+    options.lookup ?? (() => Effect.succeedNone)
 
-  const build = (entry: Entry, others: () => Iterable<Loaded>) =>
-    Effect.gen(function* () {
-      // `${NAME}` is expanded before the provider is built, and a name that resolves nowhere fails the load.
-      const expanded = yield* Effect.result(
-        Settings.expand(entry.settings, lookup),
-      )
-      if (expanded._tag === "Failure") {
-        const error = expanded.failure.message
-        return { _tag: "Failed", error, cause: Cause.fail(error) } as const
-      }
-      const own = yield* Scope.fork(scope)
-      // The build's fiber and the closing of its scope belong to the plugins' scope, so a stop waits for both, up to
-      // the stop's deadline. The scope closes only once the build has ended, so nothing it acquired is
-      // released while it still runs, and the closing cannot be interrupted.
-      let building: Fiber.Fiber<unknown, unknown> | undefined
-      const dispose = Effect.suspend(() =>
-        building === undefined ? Effect.void : Fiber.interrupt(building),
-      ).pipe(
-        Effect.andThen(Scope.close(own, Exit.void)),
-        Effect.uninterruptible,
-        Effect.forkIn(scope),
-      )
-      let timedOut = false
-      if (entry.bundle !== undefined) yield* Loader.register(entry.bundle, own)
-      const plugin: Loaded = {
-        name: entry.name,
-        scope: own,
-        contributions: Contributions.empty(),
-        recorder: Settings.recorder(expanded.success),
-        counts: { warnings: 0, errors: 0, latest: undefined },
-        failures: new Map(),
-        active: Deferred.makeUnsafe(),
-        entry,
-        retired: undefined,
-        calls: new Set(),
-      }
-      const built = yield* Effect.exit(
-        Effect.gen(function* () {
-          // The table is named after the plugin and quoted by `layerSql`.
-          const store = yield* Layer.buildWithScope(
-            KeyValueStore.layerSql({ table: `plugin_kv_${entry.name}` }),
-            own,
-          ).pipe(Effect.provideContext(supplied))
-          const context = {
-            name: entry.name,
-            store: Context.get(store, KeyValueStore.KeyValueStore),
-            owners: options.owners(),
-            [Contributions.key]: plugin.contributions,
-          }
-          const turns = options.turns(entry.name)
-          const waiting = <A>(effect: Effect.Effect<A>) =>
-            Effect.andThen(Deferred.await(plugin.active), effect)
-          // A plugin gets only the services of its API. The daemon's own, `SqlClient` among them, stay out of reach.
-          const services = Context.mergeAll(
-            Context.pick(
-              Chat.Chat,
-              HttpClient.HttpClient,
-              FileSystem.FileSystem,
-              Path.Path,
-            )(supplied),
-            Context.make(Plugin.PluginContext, context),
-            Context.make(
-              Turns,
-              Turns.of({
-                start: (options) => waiting(turns.start(options)),
-                queue: (options) => waiting(turns.queue(options)),
-                schedule: (options) => waiting(turns.schedule(options)),
-                cancel: (name) => waiting(turns.cancel(name)),
-                scheduled: () => waiting(turns.scheduled()),
-              }),
-            ),
-            Context.make(
-              DateTime.CurrentTimeZone,
-              DateTime.zoneMakeNamedUnsafe(options.timezone()),
-            ),
-            // A plugin from the repo has a bundle, and is not given the `requestOnce` requests.
-            Context.make(
-              Once,
-              entry.bundle === undefined ? options.once : undefined,
-            ),
-          )
-          // The daemon owns the deadline of the build. A `Turns` call the build waits on never returns, and the deadline
-          // ends it. The build runs on a fiber of its own, so a part of it that cannot be interrupted,
-          // such as an `acquireRelease` acquisition, holds only that fiber and not the boot.
-          const fiber = yield* Layer.buildWithScope(entry.plugin, own).pipe(
-            Effect.provideContext(services),
-            as(plugin),
-            Logger.ownConsole,
-            Effect.forkIn(scope),
-          )
-          building = fiber
-          const ended = yield* Fiber.await(fiber).pipe(
-            Effect.timeoutOption(timings.pluginBuild),
-            Effect.onInterrupt(() => dispose),
-          )
-          if (Option.isNone(ended)) {
-            timedOut = true
-            return yield* Effect.fail(
-              Messages.buildTimedOut(Duration.toSeconds(timings.pluginBuild)),
-            )
-          }
-          yield* ended.value
-          // A tool name that clanka or a plugin loaded before already has fails the load, and names who has it.
-          for (const { toolkit } of plugin.contributions.toolkits) {
-            for (const name of Object.keys(toolkit.tools)) {
-              if (clankaTools.has(name)) {
-                return yield* Effect.fail(Messages.toolTaken(name, "clanka"))
-              }
-              const holder = [...others()].find((other) =>
-                other.contributions.toolkits.some(({ toolkit }) =>
-                  Object.hasOwn(toolkit.tools, name),
-                ),
-              )
-              if (holder !== undefined) {
-                return yield* Effect.fail(
-                  Messages.toolTaken(name, `the plugin ${holder.name}`),
-                )
-              }
-            }
-          }
-        }),
-      )
-      if (Exit.isFailure(built)) {
-        // The finalizers of a failed build get the same deadline. A build past its deadline is not waited for again.
-        // Either goes on in the plugins' scope after that.
-        const disposing = yield* dispose
-        if (!timedOut) {
-          yield* Effect.timeoutOption(
-            Fiber.await(disposing),
-            timings.pluginBuild,
-          )
+  const build = Effect.fnUntraced(function* (
+    entry: Entry,
+    others: () => Iterable<Loaded>,
+  ) {
+    // `${NAME}` is expanded before the provider is built, and a name that resolves nowhere fails the load.
+    const expanded = yield* Effect.result(
+      Settings.expand(entry.settings, lookup),
+    )
+    if (expanded._tag === "Failure") {
+      const error = expanded.failure.message
+      return { _tag: "Failed", error, cause: Cause.fail(error) } as const
+    }
+    const own = yield* Scope.fork(scope)
+    // The build's fiber and the closing of its scope belong to the plugins' scope, so a stop waits for both, up to
+    // the stop's deadline. The scope closes only once the build has ended, so nothing it acquired is
+    // released while it still runs, and the closing cannot be interrupted.
+    let building: Fiber.Fiber<unknown, unknown> | undefined
+    const dispose = Effect.suspend(() =>
+      building === undefined ? Effect.void : Fiber.interrupt(building),
+    ).pipe(
+      Effect.andThen(Scope.close(own, Exit.void)),
+      Effect.uninterruptible,
+      Effect.forkIn(scope),
+    )
+    let timedOut = false
+    if (entry.bundle !== undefined) yield* Loader.register(entry.bundle, own)
+    const plugin: Loaded = {
+      name: entry.name,
+      scope: own,
+      contributions: Contributions.empty(),
+      recorder: Settings.recorder(expanded.success),
+      counts: { warnings: 0, errors: 0, latest: undefined },
+      failures: new Map(),
+      active: Deferred.makeUnsafe(),
+      entry,
+      retired: undefined,
+      calls: new Set(),
+    }
+    const built = yield* Effect.exit(
+      Effect.gen(function* () {
+        // The table is named after the plugin and quoted by `layerSql`.
+        const store = yield* Layer.buildWithScope(
+          KeyValueStore.layerSql({ table: `plugin_kv_${entry.name}` }),
+          own,
+        ).pipe(Effect.provideContext(supplied))
+        const context = {
+          name: entry.name,
+          store: Context.get(store, KeyValueStore.KeyValueStore),
+          owners: options.owners(),
+          [Contributions.key]: plugin.contributions,
         }
-        return {
-          _tag: "Failed",
-          error: Cause.pretty(built.cause),
-          cause: built.cause,
-        } as const
-      }
-      // A read from here on is a read at call time.
-      plugin.recorder.loaded()
-      return { _tag: "Built", plugin, dispose } as const
-    })
-
-  /** Starts a version's background fibers and lets its `Turns` calls through. */
-  const activate = (plugin: Loaded) =>
-    Effect.gen(function* () {
-      for (const background of plugin.contributions.background) {
-        yield* background(plugin.scope).pipe(
+        const turns = options.turns(entry.name)
+        const waiting = <A>(effect: Effect.Effect<A>) =>
+          Effect.andThen(Deferred.await(plugin.active), effect)
+        // A plugin gets only the services of its API. The daemon's own, `SqlClient` among them, stay out of reach.
+        const services = Context.mergeAll(
+          Context.pick(
+            Chat.Chat,
+            HttpClient.HttpClient,
+            FileSystem.FileSystem,
+            Path.Path,
+          )(supplied),
+          Context.make(Plugin.PluginContext, context),
+          Context.make(
+            Turns,
+            Turns.of({
+              start: (options) => waiting(turns.start(options)),
+              queue: (options) => waiting(turns.queue(options)),
+              schedule: (options) => waiting(turns.schedule(options)),
+              cancel: (name) => waiting(turns.cancel(name)),
+              scheduled: () => waiting(turns.scheduled()),
+            }),
+          ),
+          Context.make(
+            DateTime.CurrentTimeZone,
+            DateTime.zoneMakeNamedUnsafe(options.timezone()),
+          ),
+          // A plugin from the repo has a bundle, and is not given the `requestOnce` requests.
+          Context.make(
+            Once,
+            entry.bundle === undefined ? options.once : undefined,
+          ),
+        )
+        // The daemon owns the deadline of the build. A `Turns` call the build waits on never returns, and the deadline
+        // ends it. The build runs on a fiber of its own, so a part of it that cannot be interrupted,
+        // such as an `acquireRelease` acquisition, holds only that fiber and not the boot.
+        const fiber = yield* Layer.buildWithScope(entry.plugin, own).pipe(
+          Effect.provideContext(services),
           as(plugin),
           Logger.ownConsole,
-          // A fiber that fails or dies is one error under the plugin's name. One that returns or is interrupted logs
-          // nothing, and none is started again.
-          Effect.catchCause((cause) =>
-            Cause.hasInterruptsOnly(cause)
-              ? Effect.void
-              : Effect.logError(
-                  "A background fiber of the plugin failed",
-                  cause,
-                ).pipe(as(plugin), Logger.ownConsole),
-          ),
-          Effect.forkIn(plugin.scope),
+          Effect.forkIn(scope),
         )
+        building = fiber
+        const ended = yield* Fiber.await(fiber).pipe(
+          Effect.timeoutOption(timings.pluginBuild),
+          Effect.onInterrupt(() => dispose),
+        )
+        if (Option.isNone(ended)) {
+          timedOut = true
+          return yield* Effect.fail(
+            Messages.buildTimedOut(Duration.toSeconds(timings.pluginBuild)),
+          )
+        }
+        yield* ended.value
+        // A tool name that clanka or a plugin loaded before already has fails the load, and names who has it.
+        for (const { toolkit } of plugin.contributions.toolkits) {
+          for (const name of Object.keys(toolkit.tools)) {
+            if (clankaTools.has(name)) {
+              return yield* Effect.fail(Messages.toolTaken(name, "clanka"))
+            }
+            const holder = [...others()].find((other) =>
+              other.contributions.toolkits.some(({ toolkit }) =>
+                Object.hasOwn(toolkit.tools, name),
+              ),
+            )
+            if (holder !== undefined) {
+              return yield* Effect.fail(
+                Messages.toolTaken(name, `the plugin ${holder.name}`),
+              )
+            }
+          }
+        }
+      }),
+    )
+    if (Exit.isFailure(built)) {
+      // The finalizers of a failed build get the same deadline. A build past its deadline is not waited for again.
+      // Either goes on in the plugins' scope after that.
+      const disposing = yield* dispose
+      if (!timedOut) {
+        yield* Effect.timeoutOption(Fiber.await(disposing), timings.pluginBuild)
       }
-      yield* Deferred.succeed(plugin.active, undefined)
-      change()
-    })
+      return {
+        _tag: "Failed",
+        error: Cause.pretty(built.cause),
+        cause: built.cause,
+      } as const
+    }
+    // A read from here on is a read at call time.
+    plugin.recorder.loaded()
+    return { _tag: "Built", plugin, dispose } as const
+  })
+
+  /** Starts a version's background fibers and lets its `Turns` calls through. */
+  const activate = Effect.fnUntraced(function* (plugin: Loaded) {
+    for (const background of plugin.contributions.background) {
+      yield* background(plugin.scope).pipe(
+        as(plugin),
+        Logger.ownConsole,
+        // A fiber that fails or dies is one error under the plugin's name. One that returns or is interrupted logs
+        // nothing, and none is started again.
+        Effect.catchCause((cause) =>
+          Cause.hasInterruptsOnly(cause)
+            ? Effect.void
+            : Effect.logError(
+                "A background fiber of the plugin failed",
+                cause,
+              ).pipe(as(plugin), Logger.ownConsole),
+        ),
+        Effect.forkIn(plugin.scope),
+      )
+    }
+    yield* Deferred.succeed(plugin.active, undefined)
+    change()
+  })
 
   /**
    * The drain of a swap: the calls running on the old versions get until the drain deadline to end. Those still
    * running are interrupted and get the interrupt wait to stop, and the caller of each is answered then. One that did
    * not stop is logged now and again when it ends.
    */
-  const drain = (olds: ReadonlyArray<Loaded>) =>
-    Effect.gen(function* () {
-      const began = Date.now()
-      const open = () =>
-        olds.flatMap((plugin) =>
-          [...plugin.calls].map((call) => ({ plugin, call })),
-        )
-      yield* Effect.forEach(open(), ({ call }) => Fiber.await(call.fiber), {
-        concurrency: "unbounded",
-        discard: true,
-      }).pipe(Effect.timeoutOption(timings.swapDrain))
-      const left = open().filter(
-        ({ call }) => call.fiber.pollUnsafe() === undefined,
+  const drain = Effect.fnUntraced(function* (olds: ReadonlyArray<Loaded>) {
+    const began = Date.now()
+    const open = () =>
+      olds.flatMap((plugin) =>
+        [...plugin.calls].map((call) => ({ plugin, call })),
       )
-      for (const { call } of left) {
-        call.cut = true
-        call.fiber.interruptUnsafe()
+    yield* Effect.forEach(open(), ({ call }) => Fiber.await(call.fiber), {
+      concurrency: "unbounded",
+      discard: true,
+    }).pipe(Effect.timeoutOption(timings.swapDrain))
+    const left = open().filter(
+      ({ call }) => call.fiber.pollUnsafe() === undefined,
+    )
+    for (const { call } of left) {
+      call.cut = true
+      call.fiber.interruptUnsafe()
+    }
+    yield* Effect.forEach(left, ({ call }) => Fiber.await(call.fiber), {
+      concurrency: "unbounded",
+      discard: true,
+    }).pipe(Effect.timeoutOption(timings.swapInterruptWait))
+    for (const { plugin, call } of left) {
+      if (call.fiber.pollUnsafe() !== undefined) continue
+      Deferred.doneUnsafe(call.abandoned, Exit.void)
+      const fields = {
+        plugin: plugin.name,
+        kind: call.kind,
+        name: call.label,
       }
-      yield* Effect.forEach(left, ({ call }) => Fiber.await(call.fiber), {
-        concurrency: "unbounded",
-        discard: true,
-      }).pipe(Effect.timeoutOption(timings.swapInterruptWait))
-      for (const { plugin, call } of left) {
-        if (call.fiber.pollUnsafe() !== undefined) continue
-        Deferred.doneUnsafe(call.abandoned, Exit.void)
-        const fields = {
-          plugin: plugin.name,
-          kind: call.kind,
-          name: call.label,
-        }
-        yield* Logger.event(
-          "swap.overrun",
-          call.kind === "tool"
-            ? Messages.overrunTool(plugin.name, call.label)
-            : Messages.overrunHook(plugin.name, call.label),
-          fields,
-        )
-        yield* Fiber.await(call.fiber).pipe(
-          Effect.andThen(
-            Logger.event(
-              "swap.overrun-ended",
-              Messages.overrunEnded(plugin.name, call.label),
-              fields,
-            ),
+      yield* Logger.event(
+        "swap.overrun",
+        call.kind === "tool"
+          ? Messages.overrunTool(plugin.name, call.label)
+          : Messages.overrunHook(plugin.name, call.label),
+        fields,
+      )
+      yield* Fiber.await(call.fiber).pipe(
+        Effect.andThen(
+          Logger.event(
+            "swap.overrun-ended",
+            Messages.overrunEnded(plugin.name, call.label),
+            fields,
           ),
-          Effect.forkIn(scope),
-        )
-      }
-      return {
-        waited: Date.now() - began,
-        interrupted: left.map(
-          ({ plugin, call }) => `${plugin.name} ${call.kind} ${call.label}`,
         ),
-      }
-    })
+        Effect.forkIn(scope),
+      )
+    }
+    return {
+      waited: Date.now() - began,
+      interrupted: left.map(
+        ({ plugin, call }) => `${plugin.name} ${call.kind} ${call.label}`,
+      ),
+    }
+  })
 
   /**
    * Closes old versions, with the close deadline less what the interrupt wait used. A close past it is abandoned and
@@ -1276,8 +1267,8 @@ export const make = Effect.fnUntraced(function* (options: {
     }
   }
 
-  const chunks: Plugins["Service"]["chunks"] = (session) =>
-    Effect.gen(function* () {
+  const chunks: Plugins["Service"]["chunks"] = Effect.fnUntraced(
+    function* (session) {
       const texts = new Map<string, string | undefined>()
       for (const plugin of loaded()) {
         if (plugin.contributions.prompts.length === 0) continue
@@ -1297,10 +1288,11 @@ export const make = Effect.fnUntraced(function* (options: {
         texts.set(plugin.name, failed ? undefined : parts.join("\n\n"))
       }
       return texts
-    })
+    },
+  )
 
-  const beforeTurn: Plugins["Service"]["beforeTurn"] = (turn) =>
-    Effect.gen(function* () {
+  const beforeTurn: Plugins["Service"]["beforeTurn"] = Effect.fnUntraced(
+    function* (turn) {
       const texts: Array<{ readonly plugin: string; readonly text: string }> =
         []
       for (const plugin of loaded()) {
@@ -1318,27 +1310,29 @@ export const make = Effect.fnUntraced(function* (options: {
         }
       }
       return texts
-    })
+    },
+  )
 
   /** Queues one call of each of a plugin's hooks of a kind, and gives a wait for each plugin's call. */
-  const queued = <A>(
+  const queued = Effect.fnUntraced(function* <A>(
     hook: "afterTurn" | "onSession",
     input: A,
     budget: Duration.Duration,
-  ) =>
-    Effect.gen(function* () {
-      const waits: Array<Effect.Effect<void>> = []
-      for (const plugin of loaded()) {
-        const hooks = plugin.contributions[hook] as ReadonlyArray<
-          Contributions.Hook<A, void>
-        >
-        if (hooks.length === 0) continue
-        const done = Deferred.makeUnsafe<void>()
-        waits.push(Deferred.await(done))
-        yield* enqueue(plugin.name, { hook, input, budget, done })
-      }
-      return Effect.all(waits, { concurrency: "unbounded", discard: true })
-    })
+  ) {
+    const waits: Array<Effect.Effect<void>> = []
+    for (const plugin of loaded()) {
+      const hooks = plugin.contributions[hook] as ReadonlyArray<
+        Contributions.Hook<A, void>
+      >
+      if (hooks.length === 0) continue
+      const done = Deferred.makeUnsafe<void>()
+      waits.push(Deferred.await(done))
+      yield* enqueue(plugin.name, { hook, input, budget, done })
+    }
+    // The wait is the value, which the caller runs when it chooses.
+    // @effect-diagnostics-next-line returnEffectInGen:off
+    return Effect.all(waits, { concurrency: "unbounded", discard: true })
+  })
 
   // A turn that starts while a swap runs waits for the activation, at most the drain and close deadlines.
   const waitSwap = Effect.suspend(() =>

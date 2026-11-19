@@ -151,14 +151,13 @@ const unreadable = (path: string) => (error: PlatformError.PlatformError) =>
   })
 
 /** The text of a file, or nothing when it is not there. */
-const readText = (path: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem
-    return yield* fs.readFileString(path).pipe(
-      Effect.catchIf(isNotFound, () => Effect.succeed("")),
-      Effect.mapError(unreadable(path)),
-    )
-  })
+const readText = Effect.fnUntraced(function* (path: string) {
+  const fs = yield* FileSystem.FileSystem
+  return yield* fs.readFileString(path).pipe(
+    Effect.catchIf(isNotFound, () => Effect.succeed("")),
+    Effect.mapError(unreadable(path)),
+  )
+})
 
 const lines = (text: string) => text.split("\n").filter((line) => line !== "")
 

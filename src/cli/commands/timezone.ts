@@ -12,27 +12,26 @@ import * as Repository from "../Repository.ts"
  * Stores a zone that is already known to be valid. With a daemon it stores it and reloads every plugin in its queue;
  * with none the CLI writes `state/timezone` under the lock, which the next start reads.
  */
-export const store = (zone: string) =>
-  Effect.gen(function* () {
-    if ((yield* Daemon.lock) === "held") {
-      return yield* Repository.through("timezone", { _tag: "Timezone", zone })
-    }
-    const environment = yield* Environment
-    yield* Files.writable("timezone")
-    yield* Files.locked(
-      "timezone",
-      Effect.gen(function* () {
-        yield* Files.writable("timezone")
-        yield* Timezone.write(environment.data, zone).pipe(
-          Effect.mapError(
-            (error) =>
-              new Failure({ code: ExitCode.failed, message: error.message }),
-          ),
-        )
-      }),
-    )
-    yield* Console.log(Messages.timezoneSet(zone))
-  })
+export const store = Effect.fnUntraced(function* (zone: string) {
+  if ((yield* Daemon.lock) === "held") {
+    return yield* Repository.through("timezone", { _tag: "Timezone", zone })
+  }
+  const environment = yield* Environment
+  yield* Files.writable("timezone")
+  yield* Files.locked(
+    "timezone",
+    Effect.gen(function* () {
+      yield* Files.writable("timezone")
+      yield* Timezone.write(environment.data, zone).pipe(
+        Effect.mapError(
+          (error) =>
+            new Failure({ code: ExitCode.failed, message: error.message }),
+        ),
+      )
+    }),
+  )
+  yield* Console.log(Messages.timezoneSet(zone))
+})
 
 /** The zone `chad timezone` takes, by the name `Intl` resolves it to. Anything else exits 2. */
 export const parse = (zone: string) => {

@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs"
 import { join } from "node:path"
-import { Deferred, Effect, Layer } from "effect"
+import { Data, Deferred, Effect, Layer } from "effect"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
@@ -20,6 +20,8 @@ import { results, runs } from "../support/model.ts"
 import { path } from "../support/repo.ts"
 import { applied } from "../support/applied.ts"
 import { rows, says } from "../support/owner.ts"
+
+class NoBuild extends Data.TaggedError("NoBuild") {}
 
 const dice = `import { Effect, Layer, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
@@ -178,7 +180,7 @@ test("a Layer build that cannot be interrupted, and a failed build whose finaliz
     Layer.effectDiscard(
       Effect.gen(function* () {
         yield* Effect.addFinalizer(() => Deferred.await(release))
-        return yield* Effect.fail(new Error("no build"))
+        return yield* new NoBuild()
       }),
     ),
   )

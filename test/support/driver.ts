@@ -266,7 +266,7 @@ export const scenario = async (options: Options = {}): Promise<Scenario> => {
       mode: 0o644,
     })
   }
-  const scope = Effect.runSync(Scope.make())
+  const scope = Scope.makeUnsafe()
   const platform = await Effect.runPromise(
     Platform.make(record).pipe(Scope.provide(scope)),
   )

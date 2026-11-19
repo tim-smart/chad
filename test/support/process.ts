@@ -134,7 +134,7 @@ export const daemon = async (options: Options = {}): Promise<Process> => {
     )
 
   const model = await Model.start()
-  const scope = Effect.runSync(Scope.make())
+  const scope = Scope.makeUnsafe()
   const platform = await Effect.runPromise(
     Platform.make(record).pipe(Scope.provide(scope)),
   )

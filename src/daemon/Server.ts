@@ -199,7 +199,7 @@ export const makeState = (): State => ({
   hiding: () => [],
   mcp: Effect.succeed([]),
   open: () => [],
-  repositoryState: Effect.succeed(undefined),
+  repositoryState: Effect.undefined,
 })
 
 /**
@@ -233,7 +233,7 @@ const held = (state: State): Effect.Effect<ReadonlyArray<string>> =>
 const model = (state: State): Effect.Effect<ModelState | undefined> =>
   Deferred.isDoneUnsafe(state.account)
     ? Effect.flatMap(Deferred.await(state.account), modelState)
-    : Effect.succeed(undefined)
+    : Effect.undefined
 
 const report = (state: State): Effect.Effect<Report> =>
   Effect.map(
@@ -491,7 +491,7 @@ const handlers = (state: State) => {
                 text: Messages.queueWaiting(busy),
               })
             }
-            yield* queue.run(
+            return yield* queue.run(
               Effect.andThen(
                 Mailbox.offer(events, { _tag: "Held" }),
                 Effect.never,

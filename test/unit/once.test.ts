@@ -86,7 +86,7 @@ it("a command's spawn error is made again with the value masked, and keeps no ra
       ),
     ),
   )
-  const exit = await Effect.runPromise(
+  const exit = await Effect.runPromiseExit(
     Effect.gen(function* () {
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner
       return yield* spawner.spawn(ChildProcess.make("bash", ["-c", "true"]))
@@ -97,7 +97,6 @@ it("a command's spawn error is made again with the value masked, and keeps no ra
           once.redactor("s1"),
         ).pipe(Layer.provide(failing)),
       ),
-      Effect.exit,
     ),
   )
   expect(Exit.isFailure(exit)).toBe(true)

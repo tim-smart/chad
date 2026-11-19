@@ -8,6 +8,7 @@ import {
 } from "clanka/CodexAuth"
 import {
   Context,
+  Data,
   type Duration,
   Effect,
   Exit,
@@ -97,6 +98,11 @@ export const session = (
   )
 }
 
+/** A model setting that cannot run, with its refusal as the message. */
+export class ModelRefused extends Data.TaggedError("ModelRefused")<{
+  readonly message: string
+}> {}
+
 /** The models of the daemon: the settings in force, and what a turn and a change ask of them. */
 export class Models extends Context.Service<
   Models,
@@ -149,34 +155,33 @@ export const make = (options: {
   const changes = Semaphore.makeUnsafe(1)
   return {
     settings: () => current,
-    prepare: (id, settings) =>
-      Effect.gen(function* () {
-        const { main } = settings
-        if (Result.isFailure(main)) {
-          return yield* Effect.die(new Error(main.failure.error))
-        }
-        // The WebSocket transport asks for a token as its layer is built, so the check comes before the build.
-        if (needsLogin(main.success)) yield* Effect.orDie(auth.get)
-        return {
-          generation: settings.generation,
-          layer: session({ ...settings, main }, id, inputs).pipe(
-            Layer.provide(Layer.succeedContext(requirements)),
-          ),
-        }
-      }),
-    title: (message) =>
-      Effect.gen(function* () {
+    prepare: Effect.fnUntraced(function* (id, settings) {
+      const { main } = settings
+      if (Result.isFailure(main)) {
+        return yield* Effect.die(new Error(main.failure.error))
+      }
+      // The WebSocket transport asks for a token as its layer is built, so the check comes before the build.
+      if (needsLogin(main.success)) yield* Effect.orDie(auth.get)
+      return {
+        generation: settings.generation,
+        layer: session({ ...settings, main }, id, inputs).pipe(
+          Layer.provide(Layer.succeedContext(requirements)),
+        ),
+      }
+    }),
+    title: Effect.fnUntraced(
+      function* (message) {
         const { main, subagent } = current
         if (Result.isFailure(main)) {
-          return yield* Effect.fail(new Error(main.failure.error))
+          return yield* new ModelRefused({ message: main.failure.error })
         }
         const spec = subagent ?? main.success
         if (needsLogin(spec)) yield* auth.get
         return yield* title(spec, inputs, message)
-      }).pipe(
-        Effect.provideService(Login.Unattended, true),
-        Effect.provideContext(requirements),
-      ),
+      },
+      Effect.provideService(Login.Unattended, true),
+      Effect.provideContext(requirements),
+    ),
     change: (request, login) =>
       changes.withPermit(
         Effect.gen(function* () {

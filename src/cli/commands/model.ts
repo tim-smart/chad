@@ -26,35 +26,34 @@ const unchanged = (error: { readonly text: string }) =>
  * `chad model` through a running daemon, which runs the change and prints what `/model` would post. The code of a login
  * the change needs is printed as `chad login` prints it. A killed CLI ends the change before its store.
  */
-const throughDaemon = (request: typeof ModelRequest.Type) =>
-  Effect.gen(function* () {
-    const client = yield* Daemon.reach("model")
-    yield* Daemon.call(
-      "model",
-      client
-        .Model({ request })
-        .pipe(
-          Stream.runForEach((event) =>
-            Console.log(
-              event._tag === "Code"
-                ? Messages.loginPrompt(event.verifyUrl, event.code)
-                : event.text,
-            ),
+const throughDaemon = Effect.fnUntraced(function* (
+  request: typeof ModelRequest.Type,
+) {
+  const client = yield* Daemon.reach("model")
+  yield* Daemon.call(
+    "model",
+    client
+      .Model({ request })
+      .pipe(
+        Stream.runForEach((event) =>
+          Console.log(
+            event._tag === "Code"
+              ? Messages.loginPrompt(event.verifyUrl, event.code)
+              : event.text,
           ),
         ),
-    ).pipe(
-      Effect.catchTag("ModelUnchanged", (error) =>
-        Effect.fail(unchanged(error)),
       ),
-    )
-  })
+  ).pipe(
+    Effect.catchTag("ModelUnchanged", (error) => Effect.fail(unchanged(error))),
+  )
+})
 
 /**
  * `chad model` with no daemon: the settings from the files, and a change that the CLI tries itself before it stores it
  * under the daemon's lock. A login it needs runs in the terminal as `chad login` runs it.
  */
-const alone = (request: ModelSpec.Request) =>
-  Effect.gen(function* () {
+const alone = Effect.fnUntraced(
+  function* (request: ModelSpec.Request) {
     // The model layer is loaded here and nowhere else in the CLI, so that no other command pays for it at its start.
     const Spec = yield* Effect.promise(() => import("../../ModelSpec.ts"))
     const environment = yield* Environment
@@ -129,9 +128,9 @@ const alone = (request: ModelSpec.Request) =>
       if (stored === undefined) yield* prepare(yield* settings)
     }
     yield* Console.log(stored.text)
-  }).pipe(
-    Effect.catchTag("ModelUnchanged", (error) => Effect.fail(unchanged(error))),
-  )
+  },
+  Effect.catchTag("ModelUnchanged", (error) => Effect.fail(unchanged(error))),
+)
 
 const spec = Argument.String("spec").pipe(
   Argument.withDescription("The model, as <provider>/<model>[/<effort>]"),

@@ -165,7 +165,7 @@ test("with no daemon the connection and owner commands write secrets/connections
       1,
       Messages.connectionRejected("connection add", {
         reason,
-        name,
+        subject: name,
         detail: "",
       }),
     )
@@ -390,7 +390,7 @@ test("with the daemon running the daemon checks a token against Discord and swap
       1,
       Messages.connectionRejected("connection token", {
         reason: "token-refused",
-        name: "home",
+        subject: "home",
         detail: "401",
       }),
     ),
@@ -404,7 +404,7 @@ test("with the daemon running the daemon checks a token against Discord and swap
       1,
       Messages.connectionRejected("connection token", {
         reason: "token-unchecked",
-        name: "home",
+        subject: "home",
         detail: "503",
       }),
     ),
@@ -485,7 +485,7 @@ test("an owner added to a local connection with chad owner add is answered at on
       1,
       Messages.connectionRejected("owner remove", {
         reason: "last-owner",
-        name: "local",
+        subject: "local",
         detail: "owner",
       }),
     ),
@@ -495,7 +495,7 @@ test("an owner added to a local connection with chad owner add is answered at on
       1,
       Messages.connectionRejected("connection remove", {
         reason: "last-connection",
-        name: "local",
+        subject: "local",
         detail: "",
       }),
     ),

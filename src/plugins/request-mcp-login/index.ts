@@ -26,28 +26,27 @@ const handlers = tools.toLayer(
   Effect.gen(function* () {
     const chat = yield* Chat.Chat
     return tools.of({
-      requestMcpLogin: ({ server }) =>
-        Effect.gen(function* () {
-          if (!isServer(server)) {
-            return yield* Effect.fail(
-              `${JSON.stringify(server)} is too long a name for a button, or empty. Ask the owner to run: chad mcp login ${server}`,
-            )
-          }
-          const { session } = yield* CurrentSession
-          yield* chat
-            .post(session.thread, {
-              markdown: `The MCP server \`${server}\` needs you to sign in. The button starts the sign-in and posts its link here.`,
-              actions: [
-                McpLoginButton.of(server, { label: `Sign in to ${server}` }),
-              ],
-            })
-            .pipe(
-              Effect.mapError(
-                (error) => `the chat refused the request: ${error.message}`,
-              ),
-            )
-          return `Posted a sign-in button for ${server}. Nobody is signed in yet: end your turn and wait for the owner.`
-        }),
+      requestMcpLogin: Effect.fnUntraced(function* ({ server }) {
+        if (!isServer(server)) {
+          return yield* Effect.fail(
+            `${JSON.stringify(server)} is too long a name for a button, or empty. Ask the owner to run: chad mcp login ${server}`,
+          )
+        }
+        const { session } = yield* CurrentSession
+        yield* chat
+          .post(session.thread, {
+            markdown: `The MCP server \`${server}\` needs you to sign in. The button starts the sign-in and posts its link here.`,
+            actions: [
+              McpLoginButton.of(server, { label: `Sign in to ${server}` }),
+            ],
+          })
+          .pipe(
+            Effect.mapError(
+              (error) => `the chat refused the request: ${error.message}`,
+            ),
+          )
+        return `Posted a sign-in button for ${server}. Nobody is signed in yet: end your turn and wait for the owner.`
+      }),
     })
   }),
 )

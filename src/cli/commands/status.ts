@@ -20,7 +20,7 @@ const volumeVersion = Effect.fnUntraced(function* (data: string) {
   const fs = yield* FileSystem.FileSystem
   return yield* fs.readFileString(Paths.version(data)).pipe(
     Effect.map((text) => text.trim()),
-    Effect.catch(() => Effect.succeed(undefined)),
+    Effect.orElseSucceed(() => undefined),
   )
 })
 

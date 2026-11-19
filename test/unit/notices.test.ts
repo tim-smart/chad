@@ -52,7 +52,7 @@ const boot = async (
     destination: Notices.Destination,
   ) => Effect.Effect<boolean | undefined> = () => Effect.sync(kind),
 ) => {
-  const scope = Effect.runSync(Scope.make())
+  const scope = Scope.makeUnsafe()
   onTestFinished(() => Effect.runPromise(Scope.close(scope, Exit.void)))
   const context = await Effect.runPromise(
     Layer.buildWithScope(

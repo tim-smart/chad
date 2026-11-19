@@ -219,32 +219,31 @@ export const make = Effect.fnUntraced(function* (options: {
    * polls for approval once it returns, so it waits on none of them.
    */
   const handler = DeviceCodeHandler.of({
-    onCode: ({ verifyUrl, deviceCode }) =>
-      Effect.gen(function* () {
-        const current = flow
-        if (current === undefined) return
-        current.prompt = { verifyUrl, code: deviceCode }
-        const text = Messages.loginPrompt(verifyUrl, deviceCode)
-        const leader = current.leader
-        if (leader !== undefined) current.noticed.add(leader.id)
-        for (const waiter of current.waiters) yield* greet(current, waiter)
-        yield* deliver(
-          current,
-          Effect.gen(function* () {
-            if (leader === undefined) {
-              current.link = yield* options.announce(text)
-            } else {
-              yield* leader.post(text)
-              current.link = leader.link
+    onCode: Effect.fnUntraced(function* ({ verifyUrl, deviceCode }) {
+      const current = flow
+      if (current === undefined) return
+      current.prompt = { verifyUrl, code: deviceCode }
+      const text = Messages.loginPrompt(verifyUrl, deviceCode)
+      const leader = current.leader
+      if (leader !== undefined) current.noticed.add(leader.id)
+      for (const waiter of current.waiters) yield* greet(current, waiter)
+      yield* deliver(
+        current,
+        Effect.gen(function* () {
+          if (leader === undefined) {
+            current.link = yield* options.announce(text)
+          } else {
+            yield* leader.post(text)
+            current.link = leader.link
+          }
+          for (const waiter of current.waiters) {
+            if (waiter.told && waiter.session !== undefined) {
+              yield* deliver(current, notify(current, waiter.session))
             }
-            for (const waiter of current.waiters) {
-              if (waiter.told && waiter.session !== undefined) {
-                yield* deliver(current, notify(current, waiter.session))
-              }
-            }
-          }),
-        )
-      }),
+          }
+        }),
+      )
+    }),
   })
 
   const inner = yield* CodexAuth.make.pipe(
@@ -305,16 +304,18 @@ export const make = Effect.fnUntraced(function* (options: {
       Effect.ensuring(Effect.sync(() => current.waiters.delete(waiter))),
     )
 
-  const wait = (waiter: Waiter, leader = waiter.session) =>
-    Effect.gen(function* () {
-      const [current, fresh] = yield* take(leader)
-      // The leader's thread gets the code of a login that this call starts, so the call prints nothing.
-      if (fresh && leader !== undefined && leader !== waiter.session) {
-        waiter.print = undefined
-      }
-      if (fresh) yield* run(current)
-      return yield* join(current, waiter)
-    })
+  const wait = Effect.fnUntraced(function* (
+    waiter: Waiter,
+    leader = waiter.session,
+  ) {
+    const [current, fresh] = yield* take(leader)
+    // The leader's thread gets the code of a login that this call starts, so the call prints nothing.
+    if (fresh && leader !== undefined && leader !== waiter.session) {
+      waiter.print = undefined
+    }
+    if (fresh) yield* run(current)
+    return yield* join(current, waiter)
+  })
 
   const get: CodexAuth["Service"]["get"] = Effect.gen(function* () {
     if (token !== undefined && !token.isExpired()) return token
@@ -348,12 +349,11 @@ export const make = Effect.fnUntraced(function* (options: {
       authenticate: get,
       logout: logout,
     }),
-    login: (print, leader) =>
-      Effect.gen(function* () {
-        const waiter: Waiter = { session: undefined, print, told: false }
-        yield* wait(waiter, leader)
-        return waiter.told ? "logged-in" : "already"
-      }),
+    login: Effect.fnUntraced(function* (print, leader) {
+      const waiter: Waiter = { session: undefined, print, told: false }
+      yield* wait(waiter, leader)
+      return waiter.told ? "logged-in" : "already"
+    }),
     logout: logout,
     pendingFor: (session) =>
       flow?.prompt !== undefined && flow.sessions.has(session),

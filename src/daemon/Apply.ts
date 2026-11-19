@@ -275,7 +275,7 @@ export const make = Effect.fnUntraced(function* (options: {
    * queue.
    */
   const rebuildIf = (needed: boolean) =>
-    needed ? options.mcp.rebuild : Effect.succeed(undefined)
+    needed ? options.mcp.rebuild : Effect.undefined
 
   /**
    * Makes the packages of the tree `live` names ready before it loads, and gives why they are not when they are not, so
@@ -296,34 +296,33 @@ export const make = Effect.fnUntraced(function* (options: {
     }).pipe(Effect.as(failed(...errorLines(errors))))
 
   /** Every repo plugin of a tree, checked and run, before any Layer is built. */
-  const checkTree = (directory: string) =>
-    Effect.gen(function* () {
-      const found = [
-        ...(yield* Loader.instructions(directory)),
-        ...(yield* Loader.instructions(work)),
-      ]
-      if (found.length > 0) {
-        return {
-          stage: "names",
-          errors: [Messages.instructionsRefused([...new Set(found)])],
-          loaded: [],
-          skills: Skills.none,
-        }
-      }
-      const { errors, loaded } = yield* Loader.check(
-        repo,
-        directory,
-        bundledNames,
-      )
-      // A malformed skill fails the check as a plugin does.
-      const checked = yield* Skills.check(directory)
+  const checkTree = Effect.fnUntraced(function* (directory: string) {
+    const found = [
+      ...(yield* Loader.instructions(directory)),
+      ...(yield* Loader.instructions(work)),
+    ]
+    if (found.length > 0) {
       return {
-        stage: "check",
-        errors: [...errors, ...checked.errors],
-        loaded,
-        skills: checked.found,
+        stage: "names",
+        errors: [Messages.instructionsRefused([...new Set(found)])],
+        loaded: [],
+        skills: Skills.none,
       }
-    })
+    }
+    const { errors, loaded } = yield* Loader.check(
+      repo,
+      directory,
+      bundledNames,
+    )
+    // A malformed skill fails the check as a plugin does.
+    const checked = yield* Skills.check(directory)
+    return {
+      stage: "check",
+      errors: [...errors, ...checked.errors],
+      loaded,
+      skills: checked.found,
+    }
+  })
 
   /**
    * What to build and what to unload so that the running plugins are `desired`. A running plugin is built again when
@@ -412,349 +411,341 @@ export const make = Effect.fnUntraced(function* (options: {
    * An apply or a revert of a tree: the export, the checks and the builds, and then, unless it is only a check, the
    * commit and everything after it.
    */
-  const change = (options_: {
+  const change = Effect.fnUntraced(function* (options_: {
     readonly kind: "apply" | "revert" | "check"
     readonly tree: string
     readonly head: string
     readonly message: string
     readonly caller: Caller
-  }) =>
-    Effect.gen(function* () {
-      const { kind, tree, head, caller } = options_
-      const exported = yield* Repo.exportTree(repo, tree)
-      const cleanup = exported.fresh
-        ? Effect.ignore(
-            fs.remove(exported.directory, { recursive: true, force: true }),
+  }) {
+    const { kind, tree, head, caller } = options_
+    const exported = yield* Repo.exportTree(repo, tree)
+    const cleanup = exported.fresh
+      ? Effect.ignore(
+          fs.remove(exported.directory, { recursive: true, force: true }),
+        )
+      : Effect.void
+    // The tree's packages are installed and linked before its type-check, which reads them.
+    const readied = yield* options.packages.ready(exported.directory).pipe(
+      Effect.map((ready) => ({ ready, error: undefined })),
+      Effect.catchTag("PackagesError", (error) =>
+        Effect.succeed({ ready: undefined, error: error.message }),
+      ),
+      Effect.onError(() => cleanup),
+    )
+    if (readied.ready === undefined) {
+      yield* cleanup
+      return yield* refused("packages", [readied.error])
+    }
+    const ready = readied.ready
+    const packageLines = Packages.changes(
+      yield* Packages.listed(
+        (yield* fs.exists(live)) ? yield* fs.realPath(live) : undefined,
+      ),
+      ready.packages,
+    )
+    const checked = yield* checkTree(exported.directory).pipe(
+      Effect.onError(() => cleanup),
+    )
+    if (checked.errors.length > 0) {
+      yield* cleanup
+      return yield* refused(checked.stage, checked.errors)
+    }
+    // `chad.json` is checked against every plugin's name, bundled or in the tree.
+    const text = yield* Settings.read(exported.directory)
+    const validated =
+      text._tag === "Text"
+        ? Settings.validate(
+            text.text,
+            new Set([
+              ...bundledNames,
+              ...checked.loaded.map(({ name }) => name),
+            ]),
           )
-        : Effect.void
-      // The tree's packages are installed and linked before its type-check, which reads them.
-      const readied = yield* options.packages.ready(exported.directory).pipe(
-        Effect.map((ready) => ({ ready, error: undefined })),
-        Effect.catchTag("PackagesError", (error) =>
-          Effect.succeed({ ready: undefined, error: error.message }),
+        : {
+            file: Settings.empty,
+            errors: [Messages.settingsNotJson(text.error)],
+          }
+    if (validated.errors.length > 0) {
+      yield* cleanup
+      return yield* refused("settings", validated.errors)
+    }
+    const file = validated.file
+    // `mcp.json` is read from the tree the change exported. A malformed file and a relative `cwd` fail the change,
+    // and a name that resolves nowhere leaves that server unavailable.
+    const mcpRead = yield* McpFile.read(exported.directory)
+    if (mcpRead._tag === "Malformed") {
+      yield* cleanup
+      return yield* refused("mcp", [Messages.mcpRefused(mcpRead.error)])
+    }
+    const mcpResolved = [...(yield* options.mcp.resolve(mcpRead.file))]
+    const relative = mcpResolved.flatMap(([name, { relative }]) =>
+      relative === undefined
+        ? []
+        : [Messages.mcpRelativeCwdRefused(name, relative)],
+    )
+    if (relative.length > 0) {
+      yield* cleanup
+      return yield* refused("mcp", relative)
+    }
+    const mcpWarnings = mcpResolved.flatMap(([name, { missing }]) =>
+      missing === undefined ? [] : [Messages.mcpCheckUnresolved(name, missing)],
+    )
+    // The persona is read from the tree the change exported, never from work/.
+    const nextPersona = yield* Persona.read(exported.directory)
+    const { build, remove } = planOf(checked.loaded, file)
+    const prepared = yield* plugins.prepare({
+      build,
+      remove,
+      reason: "removed",
+      failures: "refuse",
+      trial: true,
+    })
+    const replaceMe = prepared.replaceMe
+    const abandon = Effect.andThen(prepared.discard, cleanup)
+    if (prepared.failed.length > 0) {
+      yield* abandon
+      return yield* refused(
+        "build",
+        prepared.failed.map(({ name, error }) =>
+          name === "" ? error : Messages.couldNotLoad(name, error),
         ),
-        Effect.onError(() => cleanup),
       )
-      if (readied.ready === undefined) {
-        yield* cleanup
-        return yield* refused("packages", [readied.error])
-      }
-      const ready = readied.ready
-      const packageLines = Packages.changes(
-        yield* Packages.listed(
-          (yield* fs.exists(live)) ? yield* fs.realPath(live) : undefined,
-        ),
-        ready.packages,
+    }
+    // The keys each plugin built read while loading, and those it did not read, which never fail it.
+    const listing = prepared.settings.flatMap(({ name, items, unread }) =>
+      Messages.settingsListing(name, items, unread),
+    )
+    if (kind === "check") {
+      yield* abandon
+      // The servers an apply would add, remove or change, against the applied tree. Nothing connects.
+      const before = yield* McpFile.read(
+        (yield* fs.exists(live)) ? yield* fs.realPath(live) : undefined,
       )
-      const checked = yield* checkTree(exported.directory).pipe(
-        Effect.onError(() => cleanup),
+      const diff = McpFile.diff(
+        before._tag === "File" ? before.file : McpFile.empty,
+        mcpRead.file,
       )
-      if (checked.errors.length > 0) {
-        yield* cleanup
-        return yield* refused(checked.stage, checked.errors)
-      }
-      // `chad.json` is checked against every plugin's name, bundled or in the tree.
-      const text = yield* Settings.read(exported.directory)
-      const validated =
-        text._tag === "Text"
-          ? Settings.validate(
-              text.text,
-              new Set([
-                ...bundledNames,
-                ...checked.loaded.map(({ name }) => name),
-              ]),
-            )
-          : {
-              file: Settings.empty,
-              errors: [Messages.settingsNotJson(text.error)],
-            }
-      if (validated.errors.length > 0) {
-        yield* cleanup
-        return yield* refused("settings", validated.errors)
-      }
-      const file = validated.file
-      // `mcp.json` is read from the tree the change exported. A malformed file and a relative `cwd` fail the change,
-      // and a name that resolves nowhere leaves that server unavailable.
-      const mcpRead = yield* McpFile.read(exported.directory)
-      if (mcpRead._tag === "Malformed") {
-        yield* cleanup
-        return yield* refused("mcp", [Messages.mcpRefused(mcpRead.error)])
-      }
-      const mcpResolved = [...(yield* options.mcp.resolve(mcpRead.file))]
-      const relative = mcpResolved.flatMap(([name, { relative }]) =>
-        relative === undefined
-          ? []
-          : [Messages.mcpRelativeCwdRefused(name, relative)],
+      const mcpChanged =
+        diff.added.length + diff.removed.length + diff.changed.length > 0
+      // "Replace me" is the one finding a check passes with.
+      return done(
+        ...packageLines,
+        ...listing,
+        ...replaceMe.map(Messages.replaceMeCheck),
+        ...(mcpChanged ? Messages.mcpCheckLines(diff) : []),
+        ...mcpWarnings,
+        Messages.checkPassed,
       )
-      if (relative.length > 0) {
-        yield* cleanup
-        return yield* refused("mcp", relative)
-      }
-      const mcpWarnings = mcpResolved.flatMap(([name, { missing }]) =>
-        missing === undefined
-          ? []
-          : [Messages.mcpCheckUnresolved(name, missing)],
+    }
+    if (replaceMe.length > 0) {
+      yield* abandon
+      return yield* refused("check", replaceMe.map(Messages.replaceMeRefused))
+    }
+    const changes = yield* Repo.changed(
+      repo,
+      yield* Repo.treeOf(work, head),
+      tree,
+    ).pipe(Effect.onError(() => abandon))
+    // A revert saves what `work/` holds before anything moves, and is refused when it would write over something the
+    // save did not capture.
+    const saved =
+      kind === "revert"
+        ? yield* Repo.save(repo).pipe(Effect.onError(() => abandon))
+        : undefined
+    if (saved !== undefined) {
+      const blocked = yield* Repo.obstructed(repo, saved.tree, tree).pipe(
+        Effect.onError(() => abandon),
       )
-      // The persona is read from the tree the change exported, never from work/.
-      const nextPersona = yield* Persona.read(exported.directory)
-      const { build, remove } = planOf(checked.loaded, file)
-      const prepared = yield* plugins.prepare({
-        build,
-        remove,
-        reason: "removed",
-        failures: "refuse",
-        trial: true,
-      })
-      const replaceMe = prepared.replaceMe
-      const abandon = Effect.andThen(prepared.discard, cleanup)
-      if (prepared.failed.length > 0) {
+      if (blocked.length > 0) {
         yield* abandon
-        return yield* refused(
-          "build",
-          prepared.failed.map(({ name, error }) =>
-            name === "" ? error : Messages.couldNotLoad(name, error),
-          ),
-        )
+        return yield* refused("revert", [
+          Messages.revertObstructed(blocked, saved.ref),
+        ])
       }
-      // The keys each plugin built read while loading, and those it did not read, which never fail it.
-      const listing = prepared.settings.flatMap(({ name, items, unread }) =>
-        Messages.settingsListing(name, items, unread),
-      )
-      if (kind === "check") {
-        yield* abandon
-        // The servers an apply would add, remove or change, against the applied tree. Nothing connects.
-        const before = yield* McpFile.read(
-          (yield* fs.exists(live)) ? yield* fs.realPath(live) : undefined,
+    }
+    // From the commit on the apply finishes even when its client has gone, so the commit itself runs where a client
+    // cannot cut it. A graceful stop abandons the swap, and the next boot loads the commit.
+    const after = (sha: string) =>
+      Effect.gen(function* () {
+        yield* Repo.point(repo, tree)
+        const restored =
+          saved === undefined
+            ? yield* Effect.as(Repo.reset(repo, sha), undefined)
+            : yield* Repo.restore(repo, {
+                saved: saved.commit,
+                name: saved.ref.split("/").pop()!,
+                sha,
+              })
+        // The persona is in place before the swap's generation bump, which is its one path to a session.
+        persona = nextPersona
+        const skillChanges = Skills.changes(
+          skills,
+          checked.skills,
+          changes.map(({ path }) => path),
         )
-        const diff = McpFile.diff(
-          before._tag === "File" ? before.file : McpFile.empty,
-          mcpRead.file,
-        )
-        const mcpChanged =
-          diff.added.length + diff.removed.length + diff.changed.length > 0
-        // "Replace me" is the one finding a check passes with.
-        return done(
-          ...packageLines,
-          ...listing,
-          ...replaceMe.map(Messages.replaceMeCheck),
-          ...(mcpChanged ? Messages.mcpCheckLines(diff) : []),
-          ...mcpWarnings,
-          Messages.checkPassed,
-        )
-      }
-      if (replaceMe.length > 0) {
-        yield* abandon
-        return yield* refused("check", replaceMe.map(Messages.replaceMeRefused))
-      }
-      const changes = yield* Repo.changed(
-        repo,
-        yield* Repo.treeOf(work, head),
-        tree,
-      ).pipe(Effect.onError(() => abandon))
-      // A revert saves what `work/` holds before anything moves, and is refused when it would write over something the
-      // save did not capture.
-      const saved =
-        kind === "revert"
-          ? yield* Repo.save(repo).pipe(Effect.onError(() => abandon))
-          : undefined
-      if (saved !== undefined) {
-        const blocked = yield* Repo.obstructed(repo, saved.tree, tree).pipe(
-          Effect.onError(() => abandon),
-        )
-        if (blocked.length > 0) {
-          yield* abandon
-          return yield* refused("revert", [
-            Messages.revertObstructed(blocked, saved.ref),
-          ])
+        skills = checked.skills
+        for (const name of skipped) {
+          yield* options.notices.clear(Skills.skippedKey(name))
         }
-      }
-      // From the commit on the apply finishes even when its client has gone, so the commit itself runs where a client
-      // cannot cut it. A graceful stop abandons the swap, and the next boot loads the commit.
-      const after = (sha: string) =>
-        Effect.gen(function* () {
-          yield* Repo.point(repo, tree)
-          const restored =
-            saved === undefined
-              ? yield* Effect.as(Repo.reset(repo, sha), undefined)
-              : yield* Repo.restore(repo, {
-                  saved: saved.commit,
-                  name: saved.ref.split("/").pop()!,
-                  sha,
+        skipped = new Set()
+        // Timers held before the swap fire once each when their plugin loads.
+        const heldBefore = (yield* options.timers).filter(
+          ({ plugin }) => !plugins.active(plugin),
+        )
+        const swapped =
+          safe === "off"
+            ? yield* prepared.swap
+            : yield* Effect.as(prepared.discard, undefined)
+        // In safe mode a bundled plugin's `enabled` flipped by the change takes effect now.
+        const flipped =
+          safe === "off"
+            ? undefined
+            : yield* Effect.gen(function* () {
+                const plan = flips(file)
+                if (plan.build.length === 0 && plan.remove.length === 0)
+                  return undefined
+                const prepared = yield* plugins.prepare({
+                  ...plan,
+                  reason: "removed",
+                  failures: "skip",
+                  trial: false,
                 })
-          // The persona is in place before the swap's generation bump, which is its one path to a session.
-          persona = nextPersona
-          const skillChanges = Skills.changes(
-            skills,
-            checked.skills,
-            changes.map(({ path }) => path),
-          )
-          skills = checked.skills
-          for (const name of skipped) {
-            yield* options.notices.clear(Skills.skippedKey(name))
-          }
-          skipped = new Set()
-          // Timers held before the swap fire once each when their plugin loads.
-          const heldBefore = (yield* options.timers).filter(
-            ({ plugin }) => !plugins.active(plugin),
-          )
-          const swapped =
-            safe === "off"
-              ? yield* prepared.swap
-              : yield* Effect.as(prepared.discard, undefined)
-          // In safe mode a bundled plugin's `enabled` flipped by the change takes effect now.
-          const flipped =
-            safe === "off"
-              ? undefined
-              : yield* Effect.gen(function* () {
-                  const plan = flips(file)
-                  if (plan.build.length === 0 && plan.remove.length === 0)
-                    return undefined
-                  const prepared = yield* plugins.prepare({
-                    ...plan,
-                    reason: "removed",
-                    failures: "skip",
-                    trial: false,
-                  })
-                  const done = yield* prepared.swap
-                  return {
-                    on: done.swapped,
-                    off: done.removed,
-                    failed: prepared.failed,
-                  }
-                })
-          applied = file
-          const loadedNow = new Set(swapped?.swapped ?? flipped?.on ?? [])
-          const unloadedNow = new Set(swapped?.removed ?? flipped?.off ?? [])
-          const timerLines = [
-            ...heldBefore
-              .filter(
-                ({ plugin, overdue }) => loadedNow.has(plugin) && overdue > 0,
-              )
-              .map(({ plugin, overdue }) =>
-                Messages.timersWillFire(plugin, overdue),
-              ),
-            ...(unloadedNow.size === 0 ? [] : yield* options.timers)
-              .filter(({ plugin }) => unloadedNow.has(plugin))
-              .map(({ plugin, count }) =>
-                Messages.timersHeldLine(plugin, count),
-              ),
-          ]
-          yield* PluginSettings.announce(options.notices, {
-            unparsable: undefined,
-            ignored: [],
-          })
-          // A changed `mcp.json` rebuilds the MCP layer once the queue is released, and the plugins do not wait for it.
-          // So does a changed lockfile while a server is configured, because a stdio server can be a command of a
-          // package, and the install it was started from has just been replaced. In safe mode it loads when safe mode
-          // goes off.
-          const mcpChanged =
-            safe === "off" &&
-            changes.some(
-              ({ path }) =>
-                path === McpFile.fileName ||
-                (path === Packages.lockName && mcpRead.file.size > 0),
+                const done = yield* prepared.swap
+                return {
+                  on: done.swapped,
+                  off: done.removed,
+                  failed: prepared.failed,
+                }
+              })
+        applied = file
+        const loadedNow = new Set(swapped?.swapped ?? flipped?.on ?? [])
+        const unloadedNow = new Set(swapped?.removed ?? flipped?.off ?? [])
+        const timerLines = [
+          ...heldBefore
+            .filter(
+              ({ plugin, overdue }) => loadedNow.has(plugin) && overdue > 0,
             )
-          if (mcpChanged) {
-            options.mcp.set(mcpRead.file)
-            yield* options.notices.clear(Mcp.unreadableKey)
-          }
-          yield* Repo.prune(repo, tree)
-          yield* options.packages.prune(ready.hash)
-          yield* Logger.event("apply.done", "An apply finished", {
-            kind,
-            commit: sha,
-            caller: Queue.caller(caller.session),
-            ...(swapped === undefined
-              ? {}
-              : {
-                  swapped: swapped.swapped.join(","),
-                  removed: swapped.removed.join(","),
-                }),
-          })
-          yield* Queue.ran(kind, Queue.caller(caller.session), "changed", {
-            commit: sha,
-          })
-          yield* announce(
-            caller,
-            kind === "revert"
-              ? Messages.revertedLine(sha.slice(0, 7), head.slice(0, 7))
-              : Messages.appliedLine(
-                  sha.slice(0, 7),
-                  Messages.firstLine(options_.message),
-                ),
-          )
-          return {
-            mcp: yield* rebuildIf(mcpChanged),
-            ...done(
-              ...Messages.appliedOutput({
-                kind,
-                commit: sha.slice(0, 7),
-                files: changes.map(({ status, path }) => `${status} ${path}`),
-                safe: safe !== "off",
-                saved: saved?.ref,
-                restored,
-                swapped,
-                flipped,
-                settings: [...packageLines, ...listing, ...timerLines],
-                skills: [
-                  ...Messages.skillChanges(skillChanges),
-                  ...Skills.hiding(skills, options.skills.bundled).map(
-                    Messages.skillHides,
-                  ),
-                ],
-              }),
+            .map(({ plugin, overdue }) =>
+              Messages.timersWillFire(plugin, overdue),
             ),
-          } satisfies Performed as Performed
-        }).pipe(
-          Effect.catchCause((cause) =>
-            Cause.hasInterruptsOnly(cause)
-              ? Effect.interrupt
-              : Logger.event(
-                  "apply.failed",
-                  "An apply failed after its commit",
-                  {
-                    stage: "after-commit",
-                    commit: sha,
-                    error: Messages.firstLine(Cause.pretty(cause)),
-                  },
-                ).pipe(
-                  Effect.as(
-                    failed(
-                      Messages.failedAfterCommit(
-                        sha.slice(0, 7),
-                        Messages.firstLine(Cause.pretty(cause)),
-                      ),
+          ...(unloadedNow.size === 0 ? [] : yield* options.timers)
+            .filter(({ plugin }) => unloadedNow.has(plugin))
+            .map(({ plugin, count }) => Messages.timersHeldLine(plugin, count)),
+        ]
+        yield* PluginSettings.announce(options.notices, {
+          unparsable: undefined,
+          ignored: [],
+        })
+        // A changed `mcp.json` rebuilds the MCP layer once the queue is released, and the plugins do not wait for it.
+        // So does a changed lockfile while a server is configured, because a stdio server can be a command of a
+        // package, and the install it was started from has just been replaced. In safe mode it loads when safe mode
+        // goes off.
+        const mcpChanged =
+          safe === "off" &&
+          changes.some(
+            ({ path }) =>
+              path === McpFile.fileName ||
+              (path === Packages.lockName && mcpRead.file.size > 0),
+          )
+        if (mcpChanged) {
+          options.mcp.set(mcpRead.file)
+          yield* options.notices.clear(Mcp.unreadableKey)
+        }
+        yield* Repo.prune(repo, tree)
+        yield* options.packages.prune(ready.hash)
+        yield* Logger.event("apply.done", "An apply finished", {
+          kind,
+          commit: sha,
+          caller: Queue.caller(caller.session),
+          ...(swapped === undefined
+            ? {}
+            : {
+                swapped: swapped.swapped.join(","),
+                removed: swapped.removed.join(","),
+              }),
+        })
+        yield* Queue.ran(kind, Queue.caller(caller.session), "changed", {
+          commit: sha,
+        })
+        yield* announce(
+          caller,
+          kind === "revert"
+            ? Messages.revertedLine(sha.slice(0, 7), head.slice(0, 7))
+            : Messages.appliedLine(
+                sha.slice(0, 7),
+                Messages.firstLine(options_.message),
+              ),
+        )
+        return {
+          mcp: yield* rebuildIf(mcpChanged),
+          ...done(
+            ...Messages.appliedOutput({
+              kind,
+              commit: sha.slice(0, 7),
+              files: changes.map(({ status, path }) => `${status} ${path}`),
+              safe: safe !== "off",
+              saved: saved?.ref,
+              restored,
+              swapped,
+              flipped,
+              settings: [...packageLines, ...listing, ...timerLines],
+              skills: [
+                ...Messages.skillChanges(skillChanges),
+                ...Skills.hiding(skills, options.skills.bundled).map(
+                  Messages.skillHides,
+                ),
+              ],
+            }),
+          ),
+        } satisfies Performed as Performed
+      }).pipe(
+        Effect.catchCause((cause) =>
+          Cause.hasInterruptsOnly(cause)
+            ? Effect.interrupt
+            : Logger.event("apply.failed", "An apply failed after its commit", {
+                stage: "after-commit",
+                commit: sha,
+                error: Messages.firstLine(Cause.pretty(cause)),
+              }).pipe(
+                Effect.as(
+                  failed(
+                    Messages.failedAfterCommit(
+                      sha.slice(0, 7),
+                      Messages.firstLine(Cause.pretty(cause)),
                     ),
                   ),
                 ),
-          ),
-        )
-      return yield* owned(
-        Repo.commit(repo, {
-          tree,
-          parent: head,
-          message: options_.message,
-          session: caller.session,
-        }).pipe(
-          Effect.onError(() => abandon),
-          Effect.flatMap(after),
+              ),
         ),
       )
-    })
+    return yield* owned(
+      Repo.commit(repo, {
+        tree,
+        parent: head,
+        message: options_.message,
+        session: caller.session,
+      }).pipe(
+        Effect.onError(() => abandon),
+        Effect.flatMap(after),
+      ),
+    )
+  })
 
   /**
    * Formats the plugin code in `work/` before a check or an apply snapshots it, and puts what the format did before
    * what the command prints.
    */
-  const formatted = <E, R>(command: Effect.Effect<Performed, E, R>) =>
-    Effect.gen(function* () {
-      const format = yield* Prettier.plugins(work, options.formatDeadline)
-      const performed = yield* command
-      return {
-        ...performed,
-        stdout: [...Prettier.lines(format), ...performed.stdout],
-      } satisfies Performed as Performed
-    })
+  const formatted = Effect.fnUntraced(function* <E, R>(
+    command: Effect.Effect<Performed, E, R>,
+  ) {
+    const format = yield* Prettier.plugins(work, options.formatDeadline)
+    const performed = yield* command
+    return {
+      ...performed,
+      stdout: [...Prettier.lines(format), ...performed.stdout],
+    } satisfies Performed as Performed
+  })
 
   const apply = (message: string, caller: Caller) =>
     formatted(
@@ -790,125 +781,131 @@ export const make = Effect.fnUntraced(function* (options: {
       }),
     )
 
-  const revert = (commit: string | undefined, caller: Caller) =>
-    Effect.gen(function* () {
-      const head = yield* Repo.head(work)
-      const target =
-        head === undefined ? undefined : yield* Repo.target(repo, head, commit)
-      if (head === undefined || target === undefined) {
-        return failed(
-          commit === undefined
-            ? Messages.revertNoEarlier
-            : Messages.revertNotApplied(commit),
-        )
-      }
-      const tree = yield* Repo.treeOf(work, target)
-      // A target with the tree that is applied now changes nothing, as an apply with nothing changed.
-      if (tree === (yield* Repo.treeOf(work, head)))
-        return done(Messages.nothingChanged)
-      return yield* change({
-        kind: "revert",
-        tree,
-        head,
-        message: Messages.revertMessage(target.slice(0, 7)),
-        caller,
-      })
+  const revert = Effect.fnUntraced(function* (
+    commit: string | undefined,
+    caller: Caller,
+  ) {
+    const head = yield* Repo.head(work)
+    const target =
+      head === undefined ? undefined : yield* Repo.target(repo, head, commit)
+    if (head === undefined || target === undefined) {
+      return failed(
+        commit === undefined
+          ? Messages.revertNoEarlier
+          : Messages.revertNotApplied(commit),
+      )
+    }
+    const tree = yield* Repo.treeOf(work, target)
+    // A target with the tree that is applied now changes nothing, as an apply with nothing changed.
+    if (tree === (yield* Repo.treeOf(work, head)))
+      return done(Messages.nothingChanged)
+    return yield* change({
+      kind: "revert",
+      tree,
+      head,
+      message: Messages.revertMessage(target.slice(0, 7)),
+      caller,
     })
+  })
 
   /**
    * `chad safe on` is a swap to nothing of everything from the repo, and `chad safe off` loads `live` as a boot
    * does, skipping and naming what fails. The toggle is stored first. While `CHAD_SAFE_MODE=1` is set, `off` changes
    * nothing and exits 1.
    */
-  const toggle = (to: "on" | "off" | undefined, caller: Caller) =>
-    Effect.gen(function* () {
-      if (to === undefined) return done(Messages.safeState(safe))
-      if (to === "off" && options.forced) return failed(Messages.safeForced)
-      if ((to === "on") === (safe !== "off"))
-        return done(Messages.safeState(safe))
-      // Once the toggle is stored the plugins follow it, so a client that goes away does not leave the two apart.
-      return yield* owned(switched(to, caller))
-    })
+  const toggle = Effect.fnUntraced(function* (
+    to: "on" | "off" | undefined,
+    caller: Caller,
+  ) {
+    if (to === undefined) return done(Messages.safeState(safe))
+    if (to === "off" && options.forced) return failed(Messages.safeForced)
+    if ((to === "on") === (safe !== "off"))
+      return done(Messages.safeState(safe))
+    // Once the toggle is stored the plugins follow it, so a client that goes away does not leave the two apart.
+    return yield* owned(switched(to, caller))
+  })
 
-  const switched = (to: "on" | "off", caller: Caller) =>
-    Effect.gen(function* () {
-      const servers = options.mcp.file()?.size ?? 0
-      yield* SafeMode.write(options.data, to === "on")
-      if (to === "on") {
-        // Everything from the repo goes, and a bundled plugin with settings is built again on its defaults.
-        const plan = planFor(
-          PluginSettings.entries({
-            file: applied,
-            bundled: options.bundled,
-            repo: [],
-            safe: true,
-          }),
-          () => false,
-        )
-        const prepared = yield* plugins.prepare({
-          ...plan,
-          reason: "safe",
-          failures: "keep",
-          trial: false,
-        })
-        safe = "toggle"
-        yield* prepared.swap
-        // Safe mode loads no MCP servers.
-        options.mcp.set(undefined)
-      } else {
-        // `live` loads as a boot loads it, `chad.json` included.
-        const tree = (yield* fs.exists(live))
-          ? yield* fs.realPath(live)
-          : undefined
-        const found =
-          tree === undefined
-            ? { loaded: [], skipped: [] }
-            : yield* Loader.load(tree, bundledNames, yield* readyLive(tree))
-        applied = yield* PluginSettings.atBoot({
-          tree,
-          known: new Set([
-            ...bundledNames,
-            ...found.loaded.map(({ name }) => name),
-            ...found.skipped.map(({ name }) => name),
-          ]),
+  const switched = Effect.fnUntraced(function* (
+    to: "on" | "off",
+    caller: Caller,
+  ) {
+    const servers = options.mcp.file()?.size ?? 0
+    yield* SafeMode.write(options.data, to === "on")
+    if (to === "on") {
+      // Everything from the repo goes, and a bundled plugin with settings is built again on its defaults.
+      const plan = planFor(
+        PluginSettings.entries({
+          file: applied,
+          bundled: options.bundled,
+          repo: [],
+          safe: true,
+        }),
+        () => false,
+      )
+      const prepared = yield* plugins.prepare({
+        ...plan,
+        reason: "safe",
+        failures: "keep",
+        trial: false,
+      })
+      safe = "toggle"
+      yield* prepared.swap
+      // Safe mode loads no MCP servers.
+      options.mcp.set(undefined)
+    } else {
+      // `live` loads as a boot loads it, `chad.json` included.
+      const tree = (yield* fs.exists(live))
+        ? yield* fs.realPath(live)
+        : undefined
+      const found =
+        tree === undefined
+          ? { loaded: [], skipped: [] }
+          : yield* Loader.load(tree, bundledNames, yield* readyLive(tree))
+      applied = yield* PluginSettings.atBoot({
+        tree,
+        known: new Set([
+          ...bundledNames,
+          ...found.loaded.map(({ name }) => name),
+          ...found.skipped.map(({ name }) => name),
+        ]),
+        safe: false,
+        notices: options.notices,
+      })
+      persona = yield* Persona.read(tree)
+      skills = yield* Skills.scan(
+        tree === undefined ? undefined : join(tree, "skills"),
+      )
+      yield* skipSkills(options.notices, skills)
+      skipped = new Set(skills.bad.map(({ name }) => name))
+      options.mcp.set(yield* Mcp.atBoot(tree, options.notices))
+      const off = Settings.off(applied)
+      const plan = planFor(
+        PluginSettings.entries({
+          file: applied,
+          bundled: options.bundled,
+          repo: found.loaded,
           safe: false,
-          notices: options.notices,
-        })
-        persona = yield* Persona.read(tree)
-        skills = yield* Skills.scan(
-          tree === undefined ? undefined : join(tree, "skills"),
-        )
-        yield* skipSkills(options.notices, skills)
-        skipped = new Set(skills.bad.map(({ name }) => name))
-        options.mcp.set(yield* Mcp.atBoot(tree, options.notices))
-        const off = Settings.off(applied)
-        const plan = planFor(
-          PluginSettings.entries({
-            file: applied,
-            bundled: options.bundled,
-            repo: found.loaded,
-            safe: false,
-          }),
-          () => true,
-        )
-        const prepared = yield* plugins.prepare({
-          ...plan,
-          reason: "removed",
-          failures: "skip",
-          trial: false,
-          unloadable: found.skipped.filter(({ name }) => !off.has(name)),
-        })
-        safe = "off"
-        yield* prepared.swap
-      }
-      yield* Queue.ran(`safe ${to}`, Queue.caller(caller.session), "changed")
-      yield* announce(caller, Messages.safeLine(to === "on"))
-      // The MCP layer follows when there were servers before or are now.
-      return {
-        ...done(Messages.safeState(safe)),
-        mcp: yield* rebuildIf(servers + (options.mcp.file()?.size ?? 0) > 0),
-      } satisfies Performed as Performed
-    })
+        }),
+        () => true,
+      )
+      const prepared = yield* plugins.prepare({
+        ...plan,
+        reason: "removed",
+        failures: "skip",
+        trial: false,
+        unloadable: found.skipped.filter(({ name }) => !off.has(name)),
+      })
+      safe = "off"
+      yield* prepared.swap
+    }
+    yield* Queue.ran(`safe ${to}`, Queue.caller(caller.session), "changed")
+    yield* announce(caller, Messages.safeLine(to === "on"))
+    // The MCP layer follows when there were servers before or are now.
+    return {
+      ...done(Messages.safeState(safe)),
+      mcp: yield* rebuildIf(servers + (options.mcp.file()?.size ?? 0) > 0),
+    } satisfies Performed as Performed
+  })
 
   /**
    * The entry a reload builds for one plugin: the running version's, or for one that is not running, the bundled one or
@@ -916,114 +913,102 @@ export const make = Effect.fnUntraced(function* (options: {
    * set when the plugin is in `live` and its module could not be loaded, which is a failure of the reload and not a
    * plugin it leaves out on purpose, as it leaves out one that is off, unknown or from the repo in safe mode.
    */
-  const entryOf = (name: string) =>
-    Effect.gen(function* () {
-      const refused = (text: string): NoEntry => ({ refused: text })
-      // A plugin that is off is not loaded, since the applied file says it is off.
-      if (Settings.off(applied).has(name))
-        return refused(Messages.reloadOff(name))
-      const running = plugins
-        .versions()
-        .find((version) => version.name === name)
-      if (running !== undefined) return running.entry
-      const withSettings = (repo: ReadonlyArray<Loader.Loaded>) =>
-        PluginSettings.entries({
-          file: applied,
-          bundled: options.bundled,
-          repo,
-          safe: safe !== "off",
-        }).find((entry) => entry.name === name)
-      const bundled = withSettings([])
-      if (bundled !== undefined) return bundled
-      if (safe !== "off") return refused(Messages.reloadSafe(name))
-      if (
-        !plugins.skipped().some((skipped) => skipped.name === name) ||
-        !(yield* fs.exists(live))
-      ) {
-        return refused(Messages.reloadUnknown(name))
-      }
-      const tree = yield* fs.realPath(live)
-      const found = yield* Loader.load(
-        tree,
-        bundledNames,
-        yield* readyLive(tree),
-      )
-      const loaded = withSettings(found.loaded)
-      if (loaded !== undefined) return loaded
-      const problem = found.skipped.find((plugin) => plugin.name === name)
-      return problem === undefined
-        ? refused(Messages.reloadUnknown(name))
-        : ({
-            refused: Messages.couldNotLoad(name, problem.message),
-            unloadable: problem.message,
-          } satisfies NoEntry as NoEntry)
-    })
+  const entryOf = Effect.fnUntraced(function* (name: string) {
+    const refused = (text: string): NoEntry => ({ refused: text })
+    // A plugin that is off is not loaded, since the applied file says it is off.
+    if (Settings.off(applied).has(name))
+      return refused(Messages.reloadOff(name))
+    const running = plugins.versions().find((version) => version.name === name)
+    if (running !== undefined) return running.entry
+    const withSettings = (repo: ReadonlyArray<Loader.Loaded>) =>
+      PluginSettings.entries({
+        file: applied,
+        bundled: options.bundled,
+        repo,
+        safe: safe !== "off",
+      }).find((entry) => entry.name === name)
+    const bundled = withSettings([])
+    if (bundled !== undefined) return bundled
+    if (safe !== "off") return refused(Messages.reloadSafe(name))
+    if (
+      !plugins.skipped().some((skipped) => skipped.name === name) ||
+      !(yield* fs.exists(live))
+    ) {
+      return refused(Messages.reloadUnknown(name))
+    }
+    const tree = yield* fs.realPath(live)
+    const found = yield* Loader.load(tree, bundledNames, yield* readyLive(tree))
+    const loaded = withSettings(found.loaded)
+    if (loaded !== undefined) return loaded
+    const problem = found.skipped.find((plugin) => plugin.name === name)
+    return problem === undefined
+      ? refused(Messages.reloadUnknown(name))
+      : ({
+          refused: Messages.couldNotLoad(name, problem.message),
+          unloadable: problem.message,
+        } satisfies NoEntry as NoEntry)
+  })
 
   /**
    * `chad plugin reload <name>` builds one plugin again, a skipped one included, and swaps it when the build succeeds.
    * A failed build keeps the running version and exits 1 with the error.
    */
-  const reload = (name: string) =>
-    Effect.gen(function* () {
-      const entry = yield* entryOf(name)
-      if ("refused" in entry) return failed(entry.refused)
-      const prepared = yield* plugins.prepare({
-        build: [entry],
-        remove: [],
-        reason: "removed",
-        failures: "keep",
-        kept: "instance",
-        trial: false,
-      })
-      const failure = prepared.failed[0]
-      if (failure !== undefined)
-        return failed(Messages.couldNotLoad(name, failure.error))
-      yield* prepared.swap
-      return done(Messages.reloaded(name))
+  const reload = Effect.fnUntraced(function* (name: string) {
+    const entry = yield* entryOf(name)
+    if ("refused" in entry) return failed(entry.refused)
+    const prepared = yield* plugins.prepare({
+      build: [entry],
+      remove: [],
+      reason: "removed",
+      failures: "keep",
+      kept: "instance",
+      trial: false,
     })
+    const failure = prepared.failed[0]
+    if (failure !== undefined)
+      return failed(Messages.couldNotLoad(name, failure.error))
+    yield* prepared.swap
+    return done(Messages.reloaded(name))
+  })
 
   /**
    * `chad timezone <zone>` stores the zone, then builds every loaded plugin again with it and swaps them in one swap. A
    * plugin whose build fails keeps its old version and the command exits 1 naming it, with the change kept. The line
    * in the session's thread names the plugins that were kept.
    */
-  const timezone = (zone: string, caller: Caller) =>
-    Effect.gen(function* () {
-      const canonical = Timezone.canonical(zone)
-      if (canonical === undefined) return failed(Messages.timezoneInvalid(zone))
-      return yield* owned(
-        Effect.gen(function* () {
-          yield* Timezone.write(options.data, canonical)
-          options.zoned(canonical)
-          const prepared = yield* plugins.prepare({
-            build: plugins.versions().map(({ entry }) => entry),
-            remove: [],
-            reason: "removed",
-            failures: "keep",
-            kept: "timezone",
-            trial: false,
-          })
-          yield* prepared.swap
-          const kept = prepared.failed.map(({ name }) => name)
-          yield* Queue.ran(
-            "timezone",
-            Queue.caller(caller.session),
-            "changed",
-            { zone: canonical },
-          )
-          yield* announce(caller, Messages.timezoneLine(canonical, kept))
-          return prepared.failed.length === 0
-            ? done(Messages.timezoneSet(canonical))
-            : {
-                stdout: [Messages.timezoneSet(canonical)],
-                stderr: prepared.failed.map(({ name, error }) =>
-                  Messages.keptPrevious(name, error),
-                ),
-                code: 1 as const,
-              }
-        }),
-      )
-    })
+  const timezone = Effect.fnUntraced(function* (zone: string, caller: Caller) {
+    const canonical = Timezone.canonical(zone)
+    if (canonical === undefined) return failed(Messages.timezoneInvalid(zone))
+    return yield* owned(
+      Effect.gen(function* () {
+        yield* Timezone.write(options.data, canonical)
+        options.zoned(canonical)
+        const prepared = yield* plugins.prepare({
+          build: plugins.versions().map(({ entry }) => entry),
+          remove: [],
+          reason: "removed",
+          failures: "keep",
+          kept: "timezone",
+          trial: false,
+        })
+        yield* prepared.swap
+        const kept = prepared.failed.map(({ name }) => name)
+        yield* Queue.ran("timezone", Queue.caller(caller.session), "changed", {
+          zone: canonical,
+        })
+        yield* announce(caller, Messages.timezoneLine(canonical, kept))
+        return prepared.failed.length === 0
+          ? done(Messages.timezoneSet(canonical))
+          : {
+              stdout: [Messages.timezoneSet(canonical)],
+              stderr: prepared.failed.map(({ name, error }) =>
+                Messages.keptPrevious(name, error),
+              ),
+              code: 1 as const,
+            }
+      }),
+    )
+  })
 
   /** See `Commands.rebuild`. */
   const rebuild: Commands["rebuild"] = (names, kept) =>
@@ -1061,83 +1046,76 @@ export const make = Effect.fnUntraced(function* (options: {
    * from a session posts its line there. What comes back holds names and never the value, and so does the
    * `command.ran` line.
    */
-  const secret = (
+  const secret = Effect.fnUntraced(function* (
     request: Extract<Request, { readonly _tag: "SecretSet" | "SecretRm" }>,
     caller: Caller,
-  ) =>
-    Effect.gen(function* () {
-      const set = request._tag === "SecretSet"
-      const command = set ? "secret set" : "secret rm"
-      const who = Queue.caller(caller.session)
-      const { name } = request
-      if (set && !Secrets.valid(name))
-        return failed(
-          name === Secrets.RESERVED
-            ? Messages.secretNameReserved()
-            : Messages.secretNameInvalid(),
-        )
-      if (set && request.value === "") return failed(Messages.secretNoValue())
-      return yield* owned(
-        Effect.gen(function* () {
-          const changed = yield* Secrets.change(options.data, (store) =>
-            set
-              ? Secrets.save(
-                  store,
-                  name,
-                  request.value,
-                  request.note,
-                  new Date(),
-                )
-              : Secrets.remove(store, name),
-          ).pipe(
-            Effect.mapError((error) =>
-              Messages.secretStoreBroken(
-                set ? "set" : "rm",
-                error._tag === "SecretsError"
-                  ? error.message
-                  : `secrets/secrets.json cannot be written (${Errno.code(error)})`,
-              ),
-            ),
-            Effect.result,
-          )
-          if (changed._tag === "Failure") {
-            yield* Queue.ran(command, who, "refused", { name })
-            return failed(changed.failure)
-          }
-          if (changed.success._tag === "Missing") {
-            yield* Queue.ran(command, who, "unchanged", { name })
-            return failed(Messages.secretMissing("rm", name))
-          }
-          const { swapped, failed: kept } = yield* rebuild(
-            PluginSettings.users(applied, name),
-            "secret",
-          )
-          yield* Queue.ran(command, who, "changed", { name })
-          // The MCP layer is rebuilt when `mcp.json` names the secret, and only then.
-          const mcp = McpFile.names(options.mcp.file()).has(name)
-          const line =
-            changed.success._tag === "Saved"
-              ? Messages.secretSaved(name, changed.success.replaced, swapped)
-              : Messages.secretRemoved(name, swapped)
-          if (!set)
-            yield* announce(
-              caller,
-              Messages.secretLine(
-                name,
-                kept.map(({ name }) => name),
-              ),
-            )
-          return {
-            stdout: [line],
-            stderr: kept.map(({ name, error }) =>
-              Messages.keptPrevious(name, error),
-            ),
-            code: kept.length === 0 ? (0 as const) : (1 as const),
-            mcp: yield* rebuildIf(mcp),
-          } satisfies Performed as Performed
-        }),
+  ) {
+    const set = request._tag === "SecretSet"
+    const command = set ? "secret set" : "secret rm"
+    const who = Queue.caller(caller.session)
+    const { name } = request
+    if (set && !Secrets.valid(name))
+      return failed(
+        name === Secrets.RESERVED
+          ? Messages.secretNameReserved()
+          : Messages.secretNameInvalid(),
       )
-    })
+    if (set && request.value === "") return failed(Messages.secretNoValue())
+    return yield* owned(
+      Effect.gen(function* () {
+        const changed = yield* Secrets.change(options.data, (store) =>
+          set
+            ? Secrets.save(store, name, request.value, request.note, new Date())
+            : Secrets.remove(store, name),
+        ).pipe(
+          Effect.mapError((error) =>
+            Messages.secretStoreBroken(
+              set ? "set" : "rm",
+              error._tag === "SecretsError"
+                ? error.message
+                : `secrets/secrets.json cannot be written (${Errno.code(error)})`,
+            ),
+          ),
+          Effect.result,
+        )
+        if (changed._tag === "Failure") {
+          yield* Queue.ran(command, who, "refused", { name })
+          return failed(changed.failure)
+        }
+        if (changed.success._tag === "Missing") {
+          yield* Queue.ran(command, who, "unchanged", { name })
+          return failed(Messages.secretMissing("rm", name))
+        }
+        const { swapped, failed: kept } = yield* rebuild(
+          PluginSettings.users(applied, name),
+          "secret",
+        )
+        yield* Queue.ran(command, who, "changed", { name })
+        // The MCP layer is rebuilt when `mcp.json` names the secret, and only then.
+        const mcp = McpFile.names(options.mcp.file()).has(name)
+        const line =
+          changed.success._tag === "Saved"
+            ? Messages.secretSaved(name, changed.success.replaced, swapped)
+            : Messages.secretRemoved(name, swapped)
+        if (!set)
+          yield* announce(
+            caller,
+            Messages.secretLine(
+              name,
+              kept.map(({ name }) => name),
+            ),
+          )
+        return {
+          stdout: [line],
+          stderr: kept.map(({ name, error }) =>
+            Messages.keptPrevious(name, error),
+          ),
+          code: kept.length === 0 ? (0 as const) : (1 as const),
+          mcp: yield* rebuildIf(mcp),
+        } satisfies Performed as Performed
+      }),
+    )
+  })
 
   /**
    * `chad plugin purge <name>` drops the key-value table of a plugin that is gone. It refuses a plugin that is still in
@@ -1145,42 +1123,36 @@ export const make = Effect.fnUntraced(function* (options: {
    * plugin never loses its data underneath it. A plugin with no table changes nothing and
    * posts nothing.
    */
-  const purge = (name: string, caller: Caller) =>
-    Effect.gen(function* () {
-      if (bundledNames.has(name)) {
-        if (!Settings.off(applied).has(name))
-          return failed(Messages.purgeBundledOn(name))
-      } else {
-        const tree = (yield* fs.exists(live))
-          ? yield* fs.realPath(live)
-          : undefined
-        const { found, problems } =
-          tree === undefined
-            ? { found: [], problems: [] }
-            : yield* Loader.discover(tree)
-        if ([...found, ...problems].some((plugin) => plugin.name === name))
-          return failed(Messages.purgeInRepo(name))
-      }
-      const keys = yield* owned(options.drop(name))
-      // A plugin's timers go with its table, and with nothing else.
-      const timers = yield* owned(options.purgeTimers(name))
-      if (keys === undefined && timers === 0)
-        return done(Messages.purgeNothing(name))
-      yield* Queue.ran(
-        "plugin purge",
-        Queue.caller(caller.session),
-        "changed",
-        {
-          plugin: name,
-        },
-      )
-      yield* announce(caller, Messages.purgedLine(name))
-      return done(
-        keys === undefined
-          ? Messages.purgedTimers(name, timers)
-          : Messages.purged(name, keys, timers),
-      )
+  const purge = Effect.fnUntraced(function* (name: string, caller: Caller) {
+    if (bundledNames.has(name)) {
+      if (!Settings.off(applied).has(name))
+        return failed(Messages.purgeBundledOn(name))
+    } else {
+      const tree = (yield* fs.exists(live))
+        ? yield* fs.realPath(live)
+        : undefined
+      const { found, problems } =
+        tree === undefined
+          ? { found: [], problems: [] }
+          : yield* Loader.discover(tree)
+      if ([...found, ...problems].some((plugin) => plugin.name === name))
+        return failed(Messages.purgeInRepo(name))
+    }
+    const keys = yield* owned(options.drop(name))
+    // A plugin's timers go with its table, and with nothing else.
+    const timers = yield* owned(options.purgeTimers(name))
+    if (keys === undefined && timers === 0)
+      return done(Messages.purgeNothing(name))
+    yield* Queue.ran("plugin purge", Queue.caller(caller.session), "changed", {
+      plugin: name,
     })
+    yield* announce(caller, Messages.purgedLine(name))
+    return done(
+      keys === undefined
+        ? Messages.purgedTimers(name, timers)
+        : Messages.purged(name, keys, timers),
+    )
+  })
 
   const labels: Record<Request["_tag"], string> = {
     Apply: "chad apply",
@@ -1297,49 +1269,48 @@ export const make = Effect.fnUntraced(function* (options: {
   }
 
   const commands: Commands = {
-    run: (request, caller, waiting, print) =>
-      Effect.gen(function* () {
-        // `chad safe` with no argument only reads.
-        if (request._tag === "Safe" && request.to === undefined)
-          return done(Messages.safeState(safe))
-        const busy = options.queue.busy()
-        if (busy !== undefined) yield* waiting(Messages.queueWaiting(busy))
-        const { mcp, ...output }: Performed = yield* options.queue.run(
-          perform(request, caller).pipe(
-            Effect.catchCause((cause) =>
-              Cause.hasInterruptsOnly(cause)
-                ? Effect.interrupt
-                : Logger.event("apply.failed", "A command failed", {
-                    stage: request._tag.toLowerCase(),
-                    error: Messages.firstLine(Cause.pretty(cause)),
-                  }).pipe(
-                    Effect.as(failed(Messages.firstLine(Cause.pretty(cause)))),
-                  ),
-            ),
-            Effect.provideContext(context),
+    run: Effect.fnUntraced(function* (request, caller, waiting, print) {
+      // `chad safe` with no argument only reads.
+      if (request._tag === "Safe" && request.to === undefined)
+        return done(Messages.safeState(safe))
+      const busy = options.queue.busy()
+      if (busy !== undefined) yield* waiting(Messages.queueWaiting(busy))
+      const { mcp, ...output }: Performed = yield* options.queue.run(
+        perform(request, caller).pipe(
+          Effect.catchCause((cause) =>
+            Cause.hasInterruptsOnly(cause)
+              ? Effect.interrupt
+              : Logger.event("apply.failed", "A command failed", {
+                  stage: request._tag.toLowerCase(),
+                  error: Messages.firstLine(Cause.pretty(cause)),
+                }).pipe(
+                  Effect.as(failed(Messages.firstLine(Cause.pretty(cause)))),
+                ),
           ),
-          labels[request._tag],
-        )
-        if (mcp === undefined) return output
-        // What the command printed comes first, the commit line of an apply included, and the rebuild, which the
-        // command started in a fiber a CLI that goes away does not stop, is waited for once the queue is released. An
-        // apply's closing line stays last.
-        const closing = output.stdout.at(-1) === Messages.appliedClosing
-        const head = closing ? output.stdout.slice(0, -1) : output.stdout
-        const before =
-          print === undefined || head.length === 0
-            ? head
-            : yield* Effect.as(print(head), [])
-        const servers = yield* mcp
-        return {
-          ...output,
-          stdout: [
-            ...before,
-            ...Messages.mcpRebuilt(servers),
-            ...(closing ? [Messages.appliedClosing] : []),
-          ],
-        }
-      }),
+          Effect.provideContext(context),
+        ),
+        labels[request._tag],
+      )
+      if (mcp === undefined) return output
+      // What the command printed comes first, the commit line of an apply included, and the rebuild, which the
+      // command started in a fiber a CLI that goes away does not stop, is waited for once the queue is released. An
+      // apply's closing line stays last.
+      const closing = output.stdout.at(-1) === Messages.appliedClosing
+      const head = closing ? output.stdout.slice(0, -1) : output.stdout
+      const before =
+        print === undefined || head.length === 0
+          ? head
+          : yield* Effect.as(print(head), [])
+      const servers = yield* mcp
+      return {
+        ...output,
+        stdout: [
+          ...before,
+          ...Messages.mcpRebuilt(servers),
+          ...(closing ? [Messages.appliedClosing] : []),
+        ],
+      }
+    }),
     safe: () => safe,
     persona: () => persona,
     skills: () =>
@@ -1384,22 +1355,21 @@ export const make = Effect.fnUntraced(function* (options: {
  * Skips the malformed skills of a tree that a boot or `chad safe off` loads, each with a notice, and clears the notice
  * of each skill that loads.
  */
-export const skipSkills = (
+export const skipSkills = Effect.fnUntraced(function* (
   notices: Notices.Notices["Service"],
   found: Skills.Found,
-) =>
-  Effect.gen(function* () {
-    for (const { name, problem } of found.bad) {
-      yield* Logger.event("skill.skipped", "A skill was skipped", {
-        skill: name,
-        error: problem,
-      })
-      yield* notices.raise({
-        key: Skills.skippedKey(name),
-        text: Messages.skillSkipped(name, problem),
-      })
-    }
-    for (const { name } of found.skills) {
-      yield* notices.clear(Skills.skippedKey(name))
-    }
-  })
+) {
+  for (const { name, problem } of found.bad) {
+    yield* Logger.event("skill.skipped", "A skill was skipped", {
+      skill: name,
+      error: problem,
+    })
+    yield* notices.raise({
+      key: Skills.skippedKey(name),
+      text: Messages.skillSkipped(name, problem),
+    })
+  }
+  for (const { name } of found.skills) {
+    yield* notices.clear(Skills.skippedKey(name))
+  }
+})

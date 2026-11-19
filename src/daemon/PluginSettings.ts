@@ -43,41 +43,40 @@ export const atBoot = Effect.fnUntraced(function* (options: {
 })
 
 /** Raises or clears the two notices for what a boot made of the file. */
-export const announce = (
+export const announce = Effect.fnUntraced(function* (
   notices: Notices.Notices["Service"],
   result: {
     readonly unparsable: string | undefined
     readonly ignored: ReadonlyArray<string>
   },
-) =>
-  Effect.gen(function* () {
-    if (result.unparsable === undefined) {
-      yield* notices.clear(unparsableKey)
-    } else {
-      yield* Logger.event(
-        "settings.unparsable",
-        "chad.json could not be parsed at boot",
-        { error: result.unparsable },
-      )
-      yield* notices.raise({
-        key: unparsableKey,
-        text: Messages.settingsUnparsable(result.unparsable),
-      })
-    }
-    if (result.ignored.length === 0) {
-      yield* notices.clear(ignoredKey)
-    } else {
-      yield* Logger.event(
-        "settings.ignored",
-        "Entries in chad.json were ignored at boot",
-        { ignored: result.ignored.join(",") },
-      )
-      yield* notices.raise({
-        key: ignoredKey,
-        text: Messages.settingsIgnored(result.ignored),
-      })
-    }
-  })
+) {
+  if (result.unparsable === undefined) {
+    yield* notices.clear(unparsableKey)
+  } else {
+    yield* Logger.event(
+      "settings.unparsable",
+      "chad.json could not be parsed at boot",
+      { error: result.unparsable },
+    )
+    yield* notices.raise({
+      key: unparsableKey,
+      text: Messages.settingsUnparsable(result.unparsable),
+    })
+  }
+  if (result.ignored.length === 0) {
+    yield* notices.clear(ignoredKey)
+  } else {
+    yield* Logger.event(
+      "settings.ignored",
+      "Entries in chad.json were ignored at boot",
+      { ignored: result.ignored.join(",") },
+    )
+    yield* notices.raise({
+      key: ignoredKey,
+      text: Messages.settingsIgnored(result.ignored),
+    })
+  }
+})
 
 /**
  * The plugins that load, each with its settings from the file: the bundled ones and those of the tree, less those the

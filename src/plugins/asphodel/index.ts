@@ -130,8 +130,8 @@ class Asphodel extends Context.Service<Asphodel>()("asphodel/Asphodel", {
     // The spool: one entry per turn the daemon did not take, in the plugin's key-value store, so a restart keeps it.
     // The key sorts oldest first.
     const spool = KeyValueStore.prefix(store, "spool/")
-    const spoolTurn = (turn: Session.Turn, body: unknown) =>
-      Effect.gen(function* () {
+    const spoolTurn = Effect.fnUntraced(
+      function* (turn: Session.Turn, body: unknown) {
         const now = yield* Clock.currentTimeMillis
         yield* spool.set(
           `${String(now).padStart(15, "0")}-${turn.id}`,
@@ -146,11 +146,11 @@ class Asphodel extends Context.Service<Asphodel>()("asphodel/Asphodel", {
         yield* Effect.forEach(stale, (key) => spool.remove(key), {
           discard: true,
         })
-      }).pipe(
-        Effect.catch((error) =>
-          Effect.logWarning(`${name}: could not spool a turn`, error),
-        ),
-      )
+      },
+      Effect.catch((error) =>
+        Effect.logWarning(`${name}: could not spool a turn`, error),
+      ),
+    )
     // Sends the spooled turns oldest first. A 4xx drops the entry, since the daemon will never take it. A 5xx, no
     // answer or an answer that does not decode stops the replay and keeps the rest. An entry that is not JSON is dropped.
     const replaySpool: Effect.Effect<void> = Effect.gen(function* () {
@@ -286,51 +286,48 @@ const MemoryHandlers = Memory.toLayer(
     const asphodel = yield* Asphodel
 
     /** The checks every owner-only tool makes before it sends anything: an owner's turn, and 1 to 50 ids. */
-    const ownerCall = (
+    const ownerCall = Effect.fnUntraced(function* (
       tool: "memory_forget" | "memory_keep" | "memory_unkeep",
       ids: ReadonlyArray<string>,
-    ) =>
-      Effect.gen(function* () {
-        const current = yield* Session.CurrentSession
-        const turn = yield* current.turn
-        if (!asphodel.isOwnerTurn(turn))
-          return yield* Effect.fail(`Only the owner may call ${tool}.`)
-        if (ids.length < 1 || ids.length > maxIds)
-          return yield* Effect.fail(`${tool} needs 1 to ${maxIds} memory ids.`)
-        return { session: current.session, turn }
-      })
+    ) {
+      const current = yield* Session.CurrentSession
+      const turn = yield* current.turn
+      if (!asphodel.isOwnerTurn(turn))
+        return yield* Effect.fail(`Only the owner may call ${tool}.`)
+      if (ids.length < 1 || ids.length > maxIds)
+        return yield* Effect.fail(`${tool} needs 1 to ${maxIds} memory ids.`)
+      return { session: current.session, turn }
+    })
 
     return Memory.of({
-      memory_recall: (request) =>
-        Effect.gen(function* () {
-          const { session } = yield* Session.CurrentSession
-          if (!request.query.trim())
-            return yield* Effect.fail("memory_recall needs a non-empty query.")
-          const result = yield* asphodel
-            .bank("POST", "/recall", Client.Recall, {
-              body: { ...request, session_id: session.id },
-              timeout: "10 seconds",
-            })
-            .pipe(Effect.mapError(toolError("memory_recall")))
-          return result.text.trim() ? result.text : "No memories recalled."
-        }),
-      memory_forget: ({ ids }) =>
-        Effect.gen(function* () {
-          const { session, turn } = yield* ownerCall("memory_forget", ids)
-          const result = yield* asphodel
-            .bank("POST", "/forget", Client.Forgotten, {
-              body: { ids, session_id: session.id },
-              timeout: "10 seconds",
-            })
-            .pipe(Effect.mapError(toolError("memory_forget")))
-          if (Option.isSome(turn)) {
-            // The turn's ingest carries `forget_requested`, so the daemon stores it as a tombstone.
-            yield* Effect.orDie(asphodel.forgets.set(turn.value.id, "1"))
-            // The forget request is not sent again as the next prefetch's previous_query.
-            asphodel.last.delete(session.id)
-          }
-          return result
-        }),
+      memory_recall: Effect.fnUntraced(function* (request) {
+        const { session } = yield* Session.CurrentSession
+        if (!request.query.trim())
+          return yield* Effect.fail("memory_recall needs a non-empty query.")
+        const result = yield* asphodel
+          .bank("POST", "/recall", Client.Recall, {
+            body: { ...request, session_id: session.id },
+            timeout: "10 seconds",
+          })
+          .pipe(Effect.mapError(toolError("memory_recall")))
+        return result.text.trim() ? result.text : "No memories recalled."
+      }),
+      memory_forget: Effect.fnUntraced(function* ({ ids }) {
+        const { session, turn } = yield* ownerCall("memory_forget", ids)
+        const result = yield* asphodel
+          .bank("POST", "/forget", Client.Forgotten, {
+            body: { ids, session_id: session.id },
+            timeout: "10 seconds",
+          })
+          .pipe(Effect.mapError(toolError("memory_forget")))
+        if (Option.isSome(turn)) {
+          // The turn's ingest carries `forget_requested`, so the daemon stores it as a tombstone.
+          yield* Effect.orDie(asphodel.forgets.set(turn.value.id, "1"))
+          // The forget request is not sent again as the next prefetch's previous_query.
+          asphodel.last.delete(session.id)
+        }
+        return result
+      }),
       memory_keep: ({ ids }) =>
         ownerCall("memory_keep", ids).pipe(
           Effect.andThen(
@@ -385,7 +382,7 @@ const PromptChunk = Plugin.prompt(
             times: 1,
             while: (error) => error._tag === "DaemonUnavailable",
           }),
-          Effect.map(Option.some),
+          Effect.asSome,
           Effect.catch((error) =>
             Effect.as(
               Effect.logWarning(

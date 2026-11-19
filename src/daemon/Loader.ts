@@ -228,6 +228,11 @@ export interface Bundle {
   readonly filename: string
 }
 
+/** What esbuild threw, kept as it is for `bundleError` to read. */
+class BuildFailed extends Data.TaggedError("BuildFailed")<{
+  readonly error: unknown
+}> {}
+
 /**
  * The one call of the bundler, so it can be replaced alone. esbuild runs as a child process of the daemon and writes
  * nothing. An import of a host package, chad or one of chad's direct dependencies, stays a `require` call that the
@@ -257,7 +262,7 @@ const build = (tree: string, file: string) =>
         supported: { "dynamic-import": false },
         logLevel: "silent",
       }),
-    catch: (error) => error,
+    catch: (error) => new BuildFailed({ error }),
   }).pipe(
     Effect.map((result) => ({
       code: result.outputFiles.find((output) => output.path.endsWith(".js"))!
@@ -308,7 +313,8 @@ const bundleError = (found: Found, error: unknown, missing?: string) => {
 export const bundle = (tree: string, found: Found, missing?: string) =>
   build(tree, found.file).pipe(
     Effect.mapError(
-      (error) => new LoadError({ message: bundleError(found, error, missing) }),
+      (failed) =>
+        new LoadError({ message: bundleError(found, failed.error, missing) }),
     ),
     Effect.map(({ code, map }): Bundle => ({
       name: found.name,
@@ -372,18 +378,20 @@ export const remap = <E>(cause: Cause.Cause<E>): Cause.Cause<E> => {
 }
 
 /** Keeps a version's source map for as long as the scope it runs in is open. */
-export const register = (bundle: Bundle, scope: Scope.Scope) =>
-  Effect.gen(function* () {
-    running.set(bundle.filename, bundle)
-    yield* Scope.addFinalizer(
-      scope,
-      Effect.sync(() => {
-        if (running.get(bundle.filename) === bundle) {
-          running.delete(bundle.filename)
-        }
-      }),
-    )
-  })
+export const register = Effect.fnUntraced(function* (
+  bundle: Bundle,
+  scope: Scope.Scope,
+) {
+  running.set(bundle.filename, bundle)
+  yield* Scope.addFinalizer(
+    scope,
+    Effect.sync(() => {
+      if (running.get(bundle.filename) === bundle) {
+        running.delete(bundle.filename)
+      }
+    }),
+  )
+})
 
 const hostRequire = Module.createRequire(import.meta.url)
 
@@ -422,18 +430,16 @@ export const run = (bundle: Bundle) =>
         message: Messages.notLoaded(bundle.name, thrown(bundle, error)),
       }),
   }).pipe(
-    Effect.flatMap((value) =>
-      Plugin.isPlugin(value)
-        ? Effect.succeed(value)
-        : Effect.fail(
-            new LoadError({
-              message: Messages.notPlugin(
-                bundle.name,
-                `work/${bundle.file}`,
-                value === undefined && !bundle.file.endsWith("/index.ts"),
-              ),
-            }),
+    Effect.filterOrFail(
+      Plugin.isPlugin,
+      (value) =>
+        new LoadError({
+          message: Messages.notPlugin(
+            bundle.name,
+            `work/${bundle.file}`,
+            value === undefined && !bundle.file.endsWith("/index.ts"),
           ),
+        }),
     ),
   )
 

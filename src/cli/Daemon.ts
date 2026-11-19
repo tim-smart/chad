@@ -128,21 +128,19 @@ export const answer = <A>(
         duration: wait,
         orElse: () => Effect.fail(silent),
       }),
-      Effect.catch((error) =>
-        Effect.fail(
-          error instanceof Failure
-            ? error
-            : errno(error) === "EINVAL"
-              ? new Failure({
-                  code: ExitCode.daemon,
-                  message: Messages.socketPathTooLong(
-                    environment.socket,
-                    Buffer.byteLength(environment.socket),
-                    Paths.socketLimit(),
-                  ),
-                })
-              : silent,
-        ),
+      Effect.mapError((error) =>
+        error instanceof Failure
+          ? error
+          : errno(error) === "EINVAL"
+            ? new Failure({
+                code: ExitCode.daemon,
+                message: Messages.socketPathTooLong(
+                  environment.socket,
+                  Buffer.byteLength(environment.socket),
+                  Paths.socketLimit(),
+                ),
+              })
+            : silent,
       ),
     )
   })

@@ -88,13 +88,13 @@ export class Rejected extends Schema.TaggedError<Rejected>(
 )("Rejected", {
   reason: Reason,
   /** The connection the reason is about. */
-  name: Schema.String,
+  subject: Schema.String,
   /** The owner id, the format number or what went wrong, by the reason. */
   detail: Schema.String,
 }) {}
 
-const rejected = (reason: Reason, name: string, detail = "") =>
-  new Rejected({ reason, name, detail })
+const rejected = (reason: Reason, subject: string, detail = "") =>
+  new Rejected({ reason, subject, detail })
 
 /** What a `connection`, `owner` or `channel` command changes. */
 export const Change = Schema.Union([
@@ -179,24 +179,20 @@ export const read = Effect.fnUntraced(function* (
     .pipe(
       Effect.catchTag("PlatformError", (error) =>
         error.reason._tag === "NotFound"
-          ? Effect.succeed(undefined)
+          ? Effect.undefined
           : Effect.fail(rejected("unreadable", file, Errno.code(error))),
       ),
     )
   if (text === undefined) return []
-  let json: unknown
-  try {
-    json = JSON.parse(text)
-  } catch {
-    return yield* Effect.fail(rejected("malformed", file))
-  }
+  const json = yield* Effect.try({
+    try: (): unknown => JSON.parse(text),
+    catch: () => rejected("malformed", file),
+  })
   const found = Schema.decodeUnknownOption(
     Schema.Struct({ format: Schema.Number }),
   )(json)
   if (found._tag === "Some" && found.value.format > format) {
-    return yield* Effect.fail(
-      rejected("newer-format", file, String(found.value.format)),
-    )
+    return yield* rejected("newer-format", file, String(found.value.format))
   }
   return yield* Schema.decodeUnknownEffect(Stored)(json).pipe(
     Effect.map((stored) => stored.connections),
@@ -357,7 +353,7 @@ const accepts = (socket: string) =>
     const connection = createConnection({ path: socket })
     connection.once("connect", () => {
       connection.destroy()
-      resume(Effect.succeed(undefined))
+      resume(Effect.undefined)
     })
     connection.once("error", (error: NodeJS.ErrnoException) =>
       resume(Effect.succeed(error.code ?? "unknown")),

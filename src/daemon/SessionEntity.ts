@@ -491,18 +491,16 @@ export const layer = Layer.unwrap(
          * owner, so a plugin can ping no one else. Discord is the one platform with mentions. It is read when
          * the post is made, so an owner removed while the turn ran is not pinged.
          */
-        const mentionOf = (request: Request) =>
-          Effect.gen(function* () {
-            const id = request.plugin?.mention
-            if (id === undefined || thread.platform !== "discord")
-              return undefined
-            if (!support.owners(request.connection).includes(id))
-              return undefined
-            const kind = yield* Sessions.kindOf(key).pipe(
-              Effect.orElseSucceed(() => undefined),
-            )
-            return kind === "direct" ? undefined : id
-          })
+        const mentionOf = Effect.fnUntraced(function* (request: Request) {
+          const id = request.plugin?.mention
+          if (id === undefined || thread.platform !== "discord")
+            return undefined
+          if (!support.owners(request.connection).includes(id)) return undefined
+          const kind = yield* Sessions.kindOf(key).pipe(
+            Effect.orElseSucceed(() => undefined),
+          )
+          return kind === "direct" ? undefined : id
+        })
 
         /** Posts with a mention in front, which notifies only that user. */
         const mentioned = (
@@ -586,31 +584,30 @@ export const layer = Layer.unwrap(
             readonly handle: TaskHandle
             readonly task: Task
           }> = []
-          const track = (task: TaskHandle) =>
-            Effect.gen(function* () {
-              tasks.set(task.id, task.kind)
-              yield* record
-              yield* Entity.keepAlive(true)
-              yield* task.await.pipe(
-                Effect.tap((ended) =>
-                  Effect.sync(() => {
-                    endings.push({
-                      agent: starters.get(task.id) ?? agents.current,
-                      handle: task,
-                      task: ended,
-                    })
-                  }),
-                ),
-                Effect.andThen(
-                  Effect.gen(function* () {
-                    tasks.delete(task.id)
-                    yield* record
-                    if (tasks.size === 0) yield* Entity.keepAlive(false)
-                  }),
-                ),
-                Effect.forkIn(own),
-              )
-            }).pipe(Effect.provideContext(services))
+          const track = Effect.fnUntraced(function* (task: TaskHandle) {
+            tasks.set(task.id, task.kind)
+            yield* record
+            yield* Entity.keepAlive(true)
+            yield* task.await.pipe(
+              Effect.tap((ended) =>
+                Effect.sync(() => {
+                  endings.push({
+                    agent: starters.get(task.id) ?? agents.current,
+                    handle: task,
+                    task: ended,
+                  })
+                }),
+              ),
+              Effect.andThen(
+                Effect.gen(function* () {
+                  tasks.delete(task.id)
+                  yield* record
+                  if (tasks.size === 0) yield* Entity.keepAlive(false)
+                }),
+              ),
+              Effect.forkIn(own),
+            )
+          }, Effect.provideContext(services))
 
           // Every process the session starts carries the session id, through a spawner of the session's own. A tool
           // call runs on a fiber made from the context of this build, so the session's ids are provided to it.
@@ -1408,35 +1405,34 @@ export const layer = Layer.unwrap(
         })
 
         /** Ends a turn for the messages around it: the ones that waited to steer it, and the ones that wait for it. */
-        const close = (own: State, turn: Turn) =>
-          Effect.gen(function* () {
-            turn.closing = true
-            // The values `requestOnce` gave the turn go with it. The scripts have ended, and a command that still runs
-            // keeps the mask it had (`Once.ts`).
-            const asked = turn.public?.session.id ?? own.live?.id
-            if (asked !== undefined) support.once?.forget(asked)
-            Deferred.doneUnsafe(turn.open, Effect.succeed(undefined))
-            const waiting = turn.steers.splice(0)
-            // An interrupted `steer` takes its message back, so the next `send` does not read it as well.
-            for (const steer of waiting) {
-              if (steer.fiber !== undefined) yield* Fiber.interrupt(steer.fiber)
-            }
-            if (own.turn === turn) own.turn = undefined
-            if (own.live?.ids.turn === turn.id) own.live.ids.turn = undefined
-            if (own.live?.current.turn?.id === turn.id) {
-              own.live.current.turn = undefined
-              own.live.current.steps = undefined
-            }
-            if (own.live !== undefined && own.live.view.lines === turn.status) {
-              own.live.view.lines = StatusMessage.none
-            }
-            const reply: Outcome | "next" =
-              turn.stopped || turn.reset ? { _tag: "Dropped" } : "next"
-            for (const steer of waiting) {
-              Deferred.doneUnsafe(steer.done, Effect.succeed(reply))
-            }
-            Deferred.doneUnsafe(turn.ended, Effect.void)
-          })
+        const close = Effect.fnUntraced(function* (own: State, turn: Turn) {
+          turn.closing = true
+          // The values `requestOnce` gave the turn go with it. The scripts have ended, and a command that still runs
+          // keeps the mask it had (`Once.ts`).
+          const asked = turn.public?.session.id ?? own.live?.id
+          if (asked !== undefined) support.once?.forget(asked)
+          Deferred.doneUnsafe(turn.open, Effect.undefined)
+          const waiting = turn.steers.splice(0)
+          // An interrupted `steer` takes its message back, so the next `send` does not read it as well.
+          for (const steer of waiting) {
+            if (steer.fiber !== undefined) yield* Fiber.interrupt(steer.fiber)
+          }
+          if (own.turn === turn) own.turn = undefined
+          if (own.live?.ids.turn === turn.id) own.live.ids.turn = undefined
+          if (own.live?.current.turn?.id === turn.id) {
+            own.live.current.turn = undefined
+            own.live.current.steps = undefined
+          }
+          if (own.live !== undefined && own.live.view.lines === turn.status) {
+            own.live.view.lines = StatusMessage.none
+          }
+          const reply: Outcome | "next" =
+            turn.stopped || turn.reset ? { _tag: "Dropped" } : "next"
+          for (const steer of waiting) {
+            Deferred.doneUnsafe(steer.done, Effect.succeed(reply))
+          }
+          Deferred.doneUnsafe(turn.ended, Effect.void)
+        })
 
         /** Whether a reason's turn posts the failed-turn message. The others post a message of their own or nothing. */
         const posted = (
@@ -2283,35 +2279,33 @@ export const layer = Layer.unwrap(
               Effect.ensuring(take(payload.key)),
               Effect.orDie,
             ),
-          stop: ({ payload }) =>
-            Effect.gen(function* () {
-              if (yield* interrupt(state.turn)) return { stopped: true }
-              const format = yield* chats.format(payload.connection)
-              yield* post(
-                yield* chats.get(payload.connection),
-                Messages.nothingRunning(format),
-              )
-              return { stopped: false }
-            }),
-          reset: ({ payload }) =>
-            Effect.gen(function* () {
-              // From here on a message belongs to the new session, whatever is left to do for the old one.
-              const old = state
-              const ready = Deferred.makeUnsafe<void>()
-              state = {
-                live: undefined,
-                turn: undefined,
-                ready,
-                hooks: undefined,
-              }
-              yield* reset(old, payload).pipe(
-                Effect.catchCause((cause) =>
-                  Effect.logError("A reset could not be finished", cause),
-                ),
-                Effect.ensuring(Deferred.succeed(ready, undefined)),
-                Effect.forkIn(scope),
-              )
-            }),
+          stop: Effect.fnUntraced(function* ({ payload }) {
+            if (yield* interrupt(state.turn)) return { stopped: true }
+            const format = yield* chats.format(payload.connection)
+            yield* post(
+              yield* chats.get(payload.connection),
+              Messages.nothingRunning(format),
+            )
+            return { stopped: false }
+          }),
+          reset: Effect.fnUntraced(function* ({ payload }) {
+            // From here on a message belongs to the new session, whatever is left to do for the old one.
+            const old = state
+            const ready = Deferred.makeUnsafe<void>()
+            state = {
+              live: undefined,
+              turn: undefined,
+              ready,
+              hooks: undefined,
+            }
+            yield* reset(old, payload).pipe(
+              Effect.catchCause((cause) =>
+                Effect.logError("A reset could not be finished", cause),
+              ),
+              Effect.ensuring(Deferred.succeed(ready, undefined)),
+              Effect.forkIn(scope),
+            )
+          }),
         })
       }),
       {

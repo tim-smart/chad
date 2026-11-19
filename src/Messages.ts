@@ -166,18 +166,18 @@ export const tokenPrompt = () => "Discord bot token"
 
 /**
  * Why a `connection` or `owner` command changed nothing. The reason comes from the store, which the CLI
- * and the daemon share, so the line is the same whichever of them refused. For the two reasons about a file, `name`
+ * and the daemon share, so the line is the same whichever of them refused. For the two reasons about a file, `subject`
  * is the file's path.
  */
 export const connectionRejected = (
   command: string,
   rejected: {
     readonly reason: Connections.Reason
-    readonly name: string
+    readonly subject: string
     readonly detail: string
   },
 ): string => {
-  const { name, detail } = rejected
+  const { subject: name, detail } = rejected
   switch (rejected.reason) {
     case "name-invalid":
       return `chad ${command}: '${name}' is not a connection name. A name is made of lower-case letters, digits and hyphens.`
@@ -209,7 +209,7 @@ export const connectionRejected = (
 /** `chad serve` could not use the stored connections. */
 export const connectionsRefused = (rejected: {
   readonly reason: Connections.Reason
-  readonly name: string
+  readonly subject: string
   readonly detail: string
 }) => connectionRejected("serve", rejected)
 

@@ -40,7 +40,8 @@
     "check": "pnpm build && tsc --noEmit && oxlint && prettier --check .",
     "test": "node scripts/local.ts",
     "test:image": "node scripts/image.ts",
-    "vendor": "node scripts/vendor.ts"
+    "vendor": "node scripts/vendor.ts",
+    "prepare": "effect-tsgo patch --typescript --no-oxlint"
   },
   "dependencies": {
     "@effect/ai-openai": "catalog:",
@@ -58,6 +59,7 @@
     "typescript": "7.0.2"
   },
   "devDependencies": {
+    "@effect/tsgo": "0.70.0",
     "@effect/vitest": "catalog:",
     "@types/node": "26.6.6",
     "@types/semver": "7.8.0",

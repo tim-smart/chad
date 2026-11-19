@@ -46,7 +46,7 @@ const create = Command.make(
     const repo = Repository.repoOf(environment.data)
     const work = join(repo, "work")
     const exists = (path: string) =>
-      fs.exists(path).pipe(Effect.catch(() => Effect.succeed(false)))
+      fs.exists(path).pipe(Effect.orElseSucceed(() => false))
     if (!(yield* exists(work))) {
       return yield* failed(ExitCode.daemon, Messages.workMissing(work))
     }

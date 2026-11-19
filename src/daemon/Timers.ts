@@ -270,20 +270,19 @@ const wantedAt =
     row !== undefined && row.next_run === at
 
 /** Holds a run while its plugin is not loaded, is off or is in a swap. */
-const hold = (
+const hold = Effect.fnUntraced(function* (
   support: Context.Service.Shape<typeof Support>,
   plugin: string,
   name: string,
-) =>
-  Effect.gen(function* () {
-    if (support.active(plugin)) return
-    yield* Logger.event(
-      "timer.held",
-      "A timer came due for a plugin that is not loaded",
-      { plugin, timer: name },
-    )
-    yield* support.whenActive(plugin)
-  })
+) {
+  if (support.active(plugin)) return
+  yield* Logger.event(
+    "timer.held",
+    "A timer came due for a plugin that is not loaded",
+    { plugin, timer: name },
+  )
+  yield* support.whenActive(plugin)
+})
 
 /**
  * The handler of a wake-up. It reads the row, waits while the plugin is not loaded, runs the turn and waits for its end,
@@ -343,12 +342,12 @@ const timerLayer = (ends: Ends) =>
             // A run that dies is logged and not run again, and the chain goes on, so one bad run never ends a recurring
             // timer.
             yield* Deferred.await(end).pipe(
-              Effect.catchCause((cause) =>
-                Cause.hasInterruptsOnly(cause)
-                  ? Effect.failCause(cause)
-                  : Effect.logError("A timer's run failed", cause).pipe(
-                      Effect.annotateLogs({ plugin, timer: name }),
-                    ),
+              Effect.catchCauseIf(
+                (cause) => !Cause.hasInterruptsOnly(cause),
+                (cause) =>
+                  Effect.logError("A timer's run failed", cause).pipe(
+                    Effect.annotateLogs({ plugin, timer: name }),
+                  ),
               ),
             )
             // A cancel or a replace during the run stays in force.
@@ -402,37 +401,35 @@ const runsLayer = (ends: Ends) =>
       const storage = yield* MessageStorage.MessageStorage
       const sharding = yield* Sharding.Sharding
       /** Whether the run's turn reached its session: the session has its request, or the turn has a row. */
-      const admitted = (run: Queued) =>
-        Effect.gen(function* () {
-          const id = EntityId.make(run.thread)
-          const request = yield* storage.requestIdForPrimaryKey({
-            address: EntityAddress.make({
-              entityType: Session.type,
-              entityId: id,
-              shardId: sharding.getShardId(id, Session.getShardGroup(id)),
-            }),
-            tag: "plugin",
-            id: run.key,
-          })
-          if (Option.isSome(request)) return true
-          const turn =
-            yield* sql`SELECT 1 FROM turns WHERE request_key = ${run.key}`
-          return turn.length > 0
+      const admitted = Effect.fnUntraced(function* (run: Queued) {
+        const id = EntityId.make(run.thread)
+        const request = yield* storage.requestIdForPrimaryKey({
+          address: EntityAddress.make({
+            entityType: Session.type,
+            entityId: id,
+            shardId: sharding.getShardId(id, Session.getShardGroup(id)),
+          }),
+          tag: "plugin",
+          id: run.key,
         })
-      const admit = (run: Queued) =>
-        Effect.gen(function* () {
-          const at = run.scheduledAt
-          if (at === undefined || (yield* admitted(run))) {
-            return yield* support.run(run)
-          }
-          const wanted = wantedAt(at)
-          if (!wanted(yield* read(run.plugin, run.name))) return stale
-          if (!support.active(run.plugin)) {
-            yield* hold(support, run.plugin, run.name)
-            if (!wanted(yield* read(run.plugin, run.name))) return stale
-          }
+        if (Option.isSome(request)) return true
+        const turn =
+          yield* sql`SELECT 1 FROM turns WHERE request_key = ${run.key}`
+        return turn.length > 0
+      })
+      const admit = Effect.fnUntraced(function* (run: Queued) {
+        const at = run.scheduledAt
+        if (at === undefined || (yield* admitted(run))) {
           return yield* support.run(run)
-        })
+        }
+        const wanted = wantedAt(at)
+        if (!wanted(yield* read(run.plugin, run.name))) return stale
+        if (!support.active(run.plugin)) {
+          yield* hold(support, run.plugin, run.name)
+          if (!wanted(yield* read(run.plugin, run.name))) return stale
+        }
+        return yield* support.run(run)
+      })
       return TimerRuns.of({
         run: ({ payload }) =>
           admit(payload).pipe(

@@ -36,37 +36,36 @@ const broken = (command: string) => (error: Secrets.SecretsError) =>
  * The value, from stdin when it is not a terminal and from a prompt that echoes nothing otherwise, and never from an
  * argument. One line ending at the end is dropped, which `echo` adds, and nothing else.
  */
-const value = (name: string) =>
-  Effect.gen(function* () {
-    const stdio = yield* Stdio.Stdio
-    const read = (yield* stdio.stdinIsTerminal)
-      ? yield* Prompt.run(
-          Prompt.Hidden({ message: Messages.secretPrompt(name) }),
-        ).pipe(
-          Effect.map(Redacted.value),
-          // Ctrl-C at the prompt ends the command as a signal does.
-          Effect.mapError(() => new Failure({ code: ExitCode.interrupted })),
-        )
-      : yield* stdio.stdin.pipe(
-          Stream.decodeText(),
-          Stream.mkString,
-          Effect.orDie,
-        )
-    const text = read.replace(/\r?\n$/, "")
-    if (text === "")
-      return yield* new Failure({
-        code: ExitCode.usage,
-        message: Messages.secretNoValue(),
-      })
-    return text
-  })
+const value = Effect.fnUntraced(function* (name: string) {
+  const stdio = yield* Stdio.Stdio
+  const read = (yield* stdio.stdinIsTerminal)
+    ? yield* Prompt.run(
+        Prompt.Hidden({ message: Messages.secretPrompt(name) }),
+      ).pipe(
+        Effect.map(Redacted.value),
+        // Ctrl-C at the prompt ends the command as a signal does.
+        Effect.mapError(() => new Failure({ code: ExitCode.interrupted })),
+      )
+    : yield* stdio.stdin.pipe(
+        Stream.decodeText(),
+        Stream.mkString,
+        Effect.orDie,
+      )
+  const text = read.replace(/\r?\n$/, "")
+  if (text === "")
+    return yield* new Failure({
+      code: ExitCode.usage,
+      message: Messages.secretNoValue(),
+    })
+  return text
+})
 
 /**
  * A change to the store. With a daemon it goes through the daemon's queue, which reloads the plugins that name the
  * secret. With none the CLI writes the file itself under the lock, by temporary file and rename, and
  * the next start reads it. With no daemon nothing writes a `command.ran` line.
  */
-const change = (
+const change = Effect.fnUntraced(function* (
   command: "set" | "rm",
   request: Extract<
     Parameters<typeof Repository.through>[1],
@@ -75,46 +74,45 @@ const change = (
   printed: (
     changed: Exclude<Secrets.Changed, { readonly _tag: "Missing" }>,
   ) => string,
-) =>
-  Effect.gen(function* () {
-    const label = `secret ${command}`
-    if ((yield* Daemon.lock) === "held")
-      return yield* Repository.through(label, request)
-    const environment = yield* Environment
-    yield* Files.writable(label)
-    const changed = yield* Files.locked(
-      label,
-      Effect.gen(function* () {
-        yield* Files.writable(label)
-        return yield* Secrets.change(environment.data, (store) =>
-          request._tag === "SecretSet"
-            ? Secrets.save(
-                store,
-                request.name,
-                request.value,
-                request.note,
-                new Date(),
-              )
-            : Secrets.remove(store, request.name),
-        ).pipe(
-          Effect.catchTag("PlatformError", (error) =>
-            Effect.fail(
-              new Secrets.SecretsError({
-                message: `secrets/secrets.json cannot be written (${Errno.code(error)})`,
-              }),
-            ),
+) {
+  const label = `secret ${command}`
+  if ((yield* Daemon.lock) === "held")
+    return yield* Repository.through(label, request)
+  const environment = yield* Environment
+  yield* Files.writable(label)
+  const changed = yield* Files.locked(
+    label,
+    Effect.gen(function* () {
+      yield* Files.writable(label)
+      return yield* Secrets.change(environment.data, (store) =>
+        request._tag === "SecretSet"
+          ? Secrets.save(
+              store,
+              request.name,
+              request.value,
+              request.note,
+              new Date(),
+            )
+          : Secrets.remove(store, request.name),
+      ).pipe(
+        Effect.catchTag("PlatformError", (error) =>
+          Effect.fail(
+            new Secrets.SecretsError({
+              message: `secrets/secrets.json cannot be written (${Errno.code(error)})`,
+            }),
           ),
-          Effect.mapError(broken(command)),
-        )
-      }),
-    )
-    if (changed._tag === "Missing")
-      return yield* new Failure({
-        code: ExitCode.failed,
-        message: Messages.secretMissing("rm", request.name),
-      })
-    yield* Console.log(printed(changed))
-  })
+        ),
+        Effect.mapError(broken(command)),
+      )
+    }),
+  )
+  if (changed._tag === "Missing")
+    return yield* new Failure({
+      code: ExitCode.failed,
+      message: Messages.secretMissing("rm", request.name),
+    })
+  yield* Console.log(printed(changed))
+})
 
 /** `chad secret set <NAME> [--note <text>]`. */
 const set = Command.make(

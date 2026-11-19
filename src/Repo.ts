@@ -381,8 +381,8 @@ export const restore = Effect.fnUntraced(function* (
   let moved = 0
 
   /** Whether a moved file holds the bytes git writes out for the save, or is the link the save holds. */
-  const same = (path: string) =>
-    Effect.gen(function* () {
+  const same = Effect.fnUntraced(
+    function* (path: string) {
       const file = join(kept, path)
       const saved = join(before, path)
       const [info, expected] = yield* Effect.all([
@@ -404,7 +404,9 @@ export const restore = Effect.fnUntraced(function* (
         saved,
       ])).split("\n")
       return a !== undefined && a === b
-    }).pipe(Effect.orElseSucceed(() => false))
+    },
+    Effect.orElseSucceed(() => false),
+  )
 
   yield* Effect.gen(function* () {
     // Nothing in work/ changes until both are written, so a failure here leaves it as it was.
@@ -479,19 +481,16 @@ export const restore = Effect.fnUntraced(function* (
 })
 
 /** Removes a directory and the directories under it with `rmdir`, so a directory that holds a file stays. */
-const removeEmpty = (directory: string) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem
-    const entries = yield* fs
-      .readDirectory(directory, { recursive: true })
-      .pipe(Effect.orElseSucceed((): ReadonlyArray<string> => []))
-    for (const entry of [...entries].sort((a, b) => b.length - a.length)) {
-      yield* Effect.ignore(
-        Effect.tryPromise(() => rmdir(join(directory, entry))),
-      )
-    }
-    yield* Effect.ignore(Effect.tryPromise(() => rmdir(directory)))
-  })
+const removeEmpty = Effect.fnUntraced(function* (directory: string) {
+  const fs = yield* FileSystem.FileSystem
+  const entries = yield* fs
+    .readDirectory(directory, { recursive: true })
+    .pipe(Effect.orElseSucceed((): ReadonlyArray<string> => []))
+  for (const entry of [...entries].sort((a, b) => b.length - a.length)) {
+    yield* Effect.ignore(Effect.tryPromise(() => rmdir(join(directory, entry))))
+  }
+  yield* Effect.ignore(Effect.tryPromise(() => rmdir(directory)))
+})
 
 /**
  * Saves what `work/` holds as a commit under `refs/chad/saved/<timestamp>`, from the same snapshot an apply takes, so
@@ -697,8 +696,8 @@ export const prepare = Effect.fnUntraced(function* (
  * What `chad status` shows of the repo, read from it alone: the applied commit, and whether `work/` holds a draft,
  * which is a file that differs from the applied commit. A repo that cannot be read gives neither.
  */
-export const state = (repo: string) =>
-  Effect.gen(function* () {
+export const state = Effect.fnUntraced(
+  function* (repo: string) {
     const { work } = paths(repo)
     const sha = yield* head(work)
     if (sha === undefined) return { applied: undefined, draft: undefined }
@@ -716,6 +715,6 @@ export const state = (repo: string) =>
       applied: { commit: sha.slice(0, 7), message },
       draft: changed !== "" || untracked !== "",
     }
-  }).pipe(
-    Effect.orElseSucceed(() => ({ applied: undefined, draft: undefined })),
-  )
+  },
+  Effect.orElseSucceed(() => ({ applied: undefined, draft: undefined })),
+)

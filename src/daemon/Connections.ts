@@ -52,15 +52,16 @@ const shardKeys = Effect.gen(function* () {
 })
 
 /** Deletes the rows of shard state that belong to a connection `gone` says is gone. */
-const deleteShardState = (gone: (connection: string) => boolean) =>
-  Effect.gen(function* () {
-    const sql = yield* SqlClient.SqlClient
-    for (const key of yield* shardKeys) {
-      if (gone(ownerOf(key))) {
-        yield* sql`DELETE FROM ${sql(shardTable)} WHERE id = ${key}`
-      }
+const deleteShardState = Effect.fnUntraced(function* (
+  gone: (connection: string) => boolean,
+) {
+  const sql = yield* SqlClient.SqlClient
+  for (const key of yield* shardKeys) {
+    if (gone(ownerOf(key))) {
+      yield* sql`DELETE FROM ${sql(shardTable)} WHERE id = ${key}`
     }
-  }).pipe(Effect.orDie)
+  }
+}, Effect.orDie)
 
 /** The boot's cleanup: the rows of every connection that is no longer stored go. */
 export const forget = (stored: ReadonlyArray<Connections.Connection>) =>
@@ -88,40 +89,39 @@ export const make = Effect.fnUntraced(function* <R>(
   >()
   let connections = running.list()
 
-  const made = (
+  const made = Effect.fnUntraced(function* (
     change: Connections.Change,
     application: string | undefined,
     guard: () => boolean,
-  ) =>
-    Effect.gen(function* () {
-      if (!guard()) return yield* new Stale()
-      // The list may have moved while the platform was asked, so the change is made on the list as it stands now.
-      const next = yield* Connections.apply(connections, change)
-      if (next.changed) {
-        // A client that goes away now does not leave the file, the running connections and the plugins' owners apart.
-        // The rebuild runs on a fiber of the daemon's scope, which a stop still interrupts.
-        yield* Effect.gen(function* () {
-          yield* Effect.orDie(Connections.write(volume.data, next.connections))
-          connections = next.connections
-          state.connections = Connections.listed(connections)
-          yield* running.set(next.connections)
-          if (change._tag === "Remove") {
-            yield* deleteShardState((name) => name === change.name)
-          }
-          // A channel list changes no one's access, so only a change to who the owners are rebuilds the plugins.
-          if (
-            change._tag === "Remove" ||
-            change._tag === "OwnerAdd" ||
-            change._tag === "OwnerRemove"
-          ) {
-            yield* owners(change._tag !== "OwnerAdd")
-          }
-        }).pipe(Effect.uninterruptible)
-      }
-      return application === undefined
-        ? { changed: next.changed }
-        : { changed: next.changed, application }
-    })
+  ) {
+    if (!guard()) return yield* new Stale()
+    // The list may have moved while the platform was asked, so the change is made on the list as it stands now.
+    const next = yield* Connections.apply(connections, change)
+    if (next.changed) {
+      // A client that goes away now does not leave the file, the running connections and the plugins' owners apart.
+      // The rebuild runs on a fiber of the daemon's scope, which a stop still interrupts.
+      yield* Effect.gen(function* () {
+        yield* Effect.orDie(Connections.write(volume.data, next.connections))
+        connections = next.connections
+        state.connections = Connections.listed(connections)
+        yield* running.set(next.connections)
+        if (change._tag === "Remove") {
+          yield* deleteShardState((name) => name === change.name)
+        }
+        // A channel list changes no one's access, so only a change to who the owners are rebuilds the plugins.
+        if (
+          change._tag === "Remove" ||
+          change._tag === "OwnerAdd" ||
+          change._tag === "OwnerRemove"
+        ) {
+          yield* owners(change._tag !== "OwnerAdd")
+        }
+      }).pipe(Effect.uninterruptible)
+    }
+    return application === undefined
+      ? { changed: next.changed }
+      : { changed: next.changed, application }
+  })
 
   const run = (
     change: Connections.Change,

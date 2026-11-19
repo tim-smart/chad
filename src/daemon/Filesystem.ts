@@ -113,7 +113,7 @@ export const real: (
     const fs = yield* FileSystem.FileSystem
     const found = yield* fs
       .realPath(path)
-      .pipe(Effect.catch(() => Effect.succeed(undefined)))
+      .pipe(Effect.orElseSucceed(() => undefined))
     if (found !== undefined) return found
     const parent = dirname(path)
     return parent === path ? path : join(yield* real(parent), basename(path))
@@ -125,7 +125,7 @@ const mountinfo = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem
   return yield* fs
     .readFileString("/proc/self/mountinfo")
-    .pipe(Effect.catch(() => Effect.succeed("")))
+    .pipe(Effect.orElseSucceed(() => ""))
 })
 
 /** The filesystem check as `chad serve` runs it. It reads and writes nothing on the volume. */

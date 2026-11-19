@@ -19,9 +19,7 @@ const readText = (fs: FileSystem.FileSystem, path: string) =>
   fs.readFileString(path).pipe(
     Effect.map((text): string | undefined => text.trim()),
     Effect.catchTag("PlatformError", (error) =>
-      error.reason._tag === "NotFound"
-        ? Effect.succeed(undefined)
-        : Effect.fail(error),
+      error.reason._tag === "NotFound" ? Effect.undefined : Effect.fail(error),
     ),
   )
 

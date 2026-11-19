@@ -270,7 +270,7 @@ const resolveWith = <E, R>(
       Effect.map(Settings.expandString(value, lookup), ({ text }) => text)
     const record = (value: Readonly<Record<string, string>> | undefined) =>
       value === undefined
-        ? Effect.succeed(undefined)
+        ? Effect.undefined
         : Effect.map(
             Effect.forEach(Object.entries(value), ([key, item]) =>
               Effect.map(

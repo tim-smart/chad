@@ -206,7 +206,7 @@ const boot = Effect.fnUntraced(function* (
 
   // The stored connections are read before the socket listens, so that status names them from its first answer.
   const stored = yield* StoredConnections.read(volume.data).pipe(
-    Effect.map(Option.some),
+    Effect.asSome,
     Effect.catch((error) =>
       Logger.event("boot.refused", Messages.connectionsRefused(error), {
         reason: "connections",
@@ -227,9 +227,7 @@ const boot = Effect.fnUntraced(function* (
     scope,
   ).pipe(
     Effect.as(Option.none<Server.SocketRefused>()),
-    Effect.catchTag("SocketRefused", (error) =>
-      Effect.succeed(Option.some(error)),
-    ),
+    Effect.catchTag("SocketRefused", (error) => Effect.succeedSome(error)),
   )
   if (Option.isSome(socket)) {
     yield* Logger.event("boot.refused", socket.value.message, {
@@ -272,10 +270,9 @@ const boot = Effect.fnUntraced(function* (
     Effect.catchTag("ShardCountChanged", (error) =>
       Effect.succeed({ _tag: "Changed" as const, error }),
     ),
-    Effect.catchCause((cause) =>
-      Cause.hasInterruptsOnly(cause)
-        ? Effect.failCause(cause)
-        : Effect.succeed({ _tag: "Unusable" as const, cause }),
+    Effect.catchCauseIf(
+      (cause) => !Cause.hasInterruptsOnly(cause),
+      (cause) => Effect.succeed({ _tag: "Unusable" as const, cause }),
     ),
   )
   if (opened._tag === "Changed") {
@@ -506,7 +503,7 @@ const boot = Effect.fnUntraced(function* (
       notices.announce(text).pipe(
         Effect.flatMap((destination) =>
           destination === undefined
-            ? Effect.succeed(undefined)
+            ? Effect.undefined
             : Effect.map(
                 running.chats.format(destination.connection),
                 (format) =>
@@ -871,16 +868,15 @@ const boot = Effect.fnUntraced(function* (
       zone = next
     },
     // A command's line goes to the thread of the session that ran it, as subtext.
-    announce: (session, line) =>
-      Effect.gen(function* () {
-        const thread = yield* Sessions.threadOf(session)
-        if (thread === undefined) return
-        const parsed = ChatThread.fromString(thread)
-        if (Option.isNone(parsed)) return
-        yield* ChatMarkdown.post(parsed.value, `-# ${line}`).pipe(
-          Effect.provideService(Chat.Chat, announce),
-        )
-      }).pipe(Effect.provideContext(base)),
+    announce: Effect.fnUntraced(function* (session, line) {
+      const thread = yield* Sessions.threadOf(session)
+      if (thread === undefined) return
+      const parsed = ChatThread.fromString(thread)
+      if (Option.isNone(parsed)) return
+      yield* ChatMarkdown.post(parsed.value, `-# ${line}`).pipe(
+        Effect.provideService(Chat.Chat, announce),
+      )
+    }, Effect.provideContext(base)),
   }).pipe(Effect.provideContext(world))
   yield* Deferred.succeed(state.repository, repository)
   const commands = repository
@@ -1004,8 +1000,9 @@ export const runDaemon = (inputs: DaemonInputs): Promise<number> => {
     }
     // From here the stop has until the deadline. Then the `stop.cut` line, naming what is still open, is written to both
     // sinks before the process exits with 1, since both write synchronously.
+    const context = yield* Effect.context<never>()
     const deadline = setTimeout(() => {
-      Effect.runSync(
+      Effect.runSyncWith(context)(
         Logger.event("stop.cut", "The stop's deadline cut it", {
           open: state.open().join(","),
           duration_ms: Date.now() - at,

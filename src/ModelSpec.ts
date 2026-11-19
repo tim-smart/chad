@@ -406,10 +406,15 @@ export const title = (
     Effect.flatMap((answer) => {
       const title = titleOf(answer)
       return title === undefined
-        ? Effect.fail(new Error(Messages.titleEmpty))
+        ? Effect.fail(new NoTitle({ message: Messages.titleEmpty }))
         : Effect.succeed(title)
     }),
   )
+
+/** The model's answer to the title prompt held no title. */
+export class NoTitle extends Data.TaggedError("NoTitle")<{
+  readonly message: string
+}> {}
 
 /**
  * A change that `chad model` and `/model` ask for. A missing field is left as it is,

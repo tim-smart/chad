@@ -1,6 +1,7 @@
 import {
   Cause,
   Context,
+  Data,
   DateTime,
   Effect,
   Exit,
@@ -151,67 +152,66 @@ export const McpLogin = Context.Reference<{
  * a thread with a session needs none whatever the list says, so the answer says so. When the kind of `where` or whether
  * it has a session cannot be read, nothing changes either, so a direct message never lands on the list.
  */
-const mention = (
+const mention = Effect.fnUntraced(function* (
   connection: Live,
   where: ChatThread.ChatThread,
   kind: Effect.Effect<ChatEvent.ThreadKind, unknown>,
   to: string | undefined,
   sender: string,
   post: (markdown: string) => Effect.Effect<void>,
-) =>
-  Effect.gen(function* () {
-    const facts = yield* Effect.all([
-      kind,
-      Sessions.known(ChatThread.toString(where)),
-    ]).pipe(
-      Effect.tapCause((cause) =>
-        Effect.logWarning("A /mention could not check its channel", cause),
+) {
+  const facts = yield* Effect.all([
+    kind,
+    Sessions.known(ChatThread.toString(where)),
+  ]).pipe(
+    Effect.tapCause((cause) =>
+      Effect.logWarning("A /mention could not check its channel", cause),
+    ),
+    Effect.option,
+  )
+  if (Option.isNone(facts)) return yield* post(Messages.mentionUnchecked)
+  const [found, session] = facts.value
+  if (found === "direct") return yield* post(Messages.mentionDirect)
+  if (to !== "off" && to !== "on") {
+    return yield* post(
+      Messages.mentionState(
+        connection.channels().includes(where.id)
+          ? "listed"
+          : session
+            ? "session"
+            : "needed",
       ),
-      Effect.option,
     )
-    if (Option.isNone(facts)) return yield* post(Messages.mentionUnchecked)
-    const [found, session] = facts.value
-    if (found === "direct") return yield* post(Messages.mentionDirect)
-    if (to !== "off" && to !== "on") {
-      return yield* post(
-        Messages.mentionState(
-          connection.channels().includes(where.id)
-            ? "listed"
-            : session
-              ? "session"
-              : "needed",
-        ),
-      )
-    }
-    const change = {
-      _tag: to === "off" ? "ChannelAdd" : "ChannelRemove",
-      name: connection.name,
-      id: where.id,
-    } as const
-    // The change is made only if the connection that took the command still runs under its name and the sender is still
-    // one of its owners, which a swap or an owner change while the command waited would undo.
-    const text = yield* Effect.flatMap(ChannelChange, (service) =>
-      service.run(
-        change,
-        () => connection.current() && connection.owners().includes(sender),
-      ),
-    ).pipe(
-      Effect.match({
-        onFailure: (error) =>
-          error._tag === "Stale"
-            ? Messages.mentionStale
-            : Messages.connectionRejected(
-                to === "off" ? "channel add" : "channel remove",
-                error,
-              ),
-        onSuccess: ({ changed }) =>
-          to === "on" && session
-            ? Messages.mentionSessionKept(changed)
-            : Messages.mentionChanged(to === "on", changed),
-      }),
-    )
-    yield* post(text)
-  })
+  }
+  const change = {
+    _tag: to === "off" ? "ChannelAdd" : "ChannelRemove",
+    name: connection.name,
+    id: where.id,
+  } as const
+  // The change is made only if the connection that took the command still runs under its name and the sender is still
+  // one of its owners, which a swap or an owner change while the command waited would undo.
+  const text = yield* Effect.flatMap(ChannelChange, (service) =>
+    service.run(
+      change,
+      () => connection.current() && connection.owners().includes(sender),
+    ),
+  ).pipe(
+    Effect.match({
+      onFailure: (error) =>
+        error._tag === "Stale"
+          ? Messages.mentionStale
+          : Messages.connectionRejected(
+              to === "off" ? "channel add" : "channel remove",
+              error,
+            ),
+      onSuccess: ({ changed }) =>
+        to === "on" && session
+          ? Messages.mentionSessionKept(changed)
+          : Messages.mentionChanged(to === "on", changed),
+    }),
+  )
+  yield* post(text)
+})
 
 /** The longest URL Discord takes on a link button. A longer link goes in the message. */
 const linkButtonLength = 512
@@ -236,54 +236,59 @@ class TitleTasks extends Context.Service<TitleTasks, FiberSet.FiberSet<void>>()(
   "chad/Handler/TitleTasks",
 ) {}
 
+/** Why a thread could not be titled. */
+class TitleFailed extends Data.TaggedError("TitleFailed")<{
+  readonly message: string
+}> {}
+
 /**
  * Titles a new thread from the message that opened it, as one job with one deadline: the model's token, its layer, its
  * answer and the rename. The rename is read when it runs, so a connection that is being taken down renames nothing.
  * Until the rename, and for good when the job fails, the thread keeps the name the platform gave it.
  */
-const titled = (
+const titled = Effect.fnUntraced(function* (
   connection: Live,
   thread: ChatThread.ChatThread,
   text: string,
-) =>
-  Effect.gen(function* () {
-    const fields = {
-      connection: connection.name,
-      thread: ChatThread.toString(thread),
+) {
+  const fields = {
+    connection: connection.name,
+    thread: ChatThread.toString(thread),
+  }
+  const timings = yield* Timings
+  const job = Effect.gen(function* () {
+    const title = yield* (yield* Model.Models).title(text)
+    const rename = connection.rename()
+    if (rename === undefined) {
+      return yield* new TitleFailed({ message: Messages.titleNoRename })
     }
-    const timings = yield* Timings
-    const job = Effect.gen(function* () {
-      const title = yield* (yield* Model.Models).title(text)
-      const rename = connection.rename()
-      if (rename === undefined) {
-        return yield* Effect.fail(new Error(Messages.titleNoRename))
-      }
-      yield* rename(thread, title)
-      return title
-    }).pipe(
-      Effect.timeoutOrElse({
-        duration: timings.threadTitle,
-        orElse: () => Effect.fail(new Error(Messages.modelTrialTimedOut)),
+    yield* rename(thread, title)
+    return title
+  }).pipe(
+    Effect.timeoutOrElse({
+      duration: timings.threadTitle,
+      orElse: () =>
+        Effect.fail(new TitleFailed({ message: Messages.modelTrialTimedOut })),
+    }),
+  )
+  yield* job.pipe(
+    Effect.flatMap((title) =>
+      Logger.event("thread.titled", "A thread was titled", {
+        ...fields,
+        title,
       }),
-    )
-    yield* job.pipe(
-      Effect.flatMap((title) =>
-        Logger.event("thread.titled", "A thread was titled", {
-          ...fields,
-          title,
-        }),
+    ),
+    Effect.catchCause((cause) =>
+      Logger.event(
+        "thread.untitled",
+        "A thread could not be titled",
+        fields,
+        cause,
       ),
-      Effect.catchCause((cause) =>
-        Logger.event(
-          "thread.untitled",
-          "A thread could not be titled",
-          fields,
-          cause,
-        ),
-      ),
-      FiberSet.run(yield* TitleTasks),
-    )
-  })
+    ),
+    FiberSet.run(yield* TitleTasks),
+  )
+})
 
 /** The chat commands, by their first word. They are plain text, and none of them reaches the model. */
 const commands = {
@@ -484,7 +489,7 @@ export const layer = (connection: Live) =>
         // channel has the kind of the channel. A session that an owner's message opens in a server is a thread.
         const kind = chat.getThread(thread).pipe(
           Effect.map((info) => info.kind),
-          Effect.catch(() => Effect.succeed(event.kind)),
+          Effect.orElseSucceed(() => event.kind),
           Effect.map((kind) => (kind === "direct" ? "direct" : "thread")),
         )
         const mark = {
@@ -690,26 +695,25 @@ export const interactions = (connection: Live, once?: Once.Daemon) =>
             ChatInteraction.respond({ markdown, visibility: "ephemeral" }),
           )
         /** A slash command that needs the thread's session: `/new` and `/stop`. */
-        const inSession = <R>(
+        const inSession = Effect.fnUntraced(function* <R>(
           command: ChatInteraction.CommandInvoked,
           work: (
             key: string,
             session: Sessions.Session,
           ) => Effect.Effect<void, unknown, R>,
-        ) =>
-          Effect.gen(function* () {
-            if (!owner(command.userId)) {
-              return yield* refused(Messages.commandNotOwner)
-            }
-            const key = ChatThread.toString(command.thread)
-            const session = yield* Sessions.current(key).pipe(
-              Effect.orElseSucceed(() => undefined),
-            )
-            if (session === undefined) {
-              return yield* refused(Messages.noSession(connection.format))
-            }
-            return yield* taken(command, work(key, session))
-          })
+        ) {
+          if (!owner(command.userId)) {
+            return yield* refused(Messages.commandNotOwner)
+          }
+          const key = ChatThread.toString(command.thread)
+          const session = yield* Sessions.current(key).pipe(
+            Effect.orElseSucceed(() => undefined),
+          )
+          if (session === undefined) {
+            return yield* refused(Messages.noSession(connection.format))
+          }
+          return yield* taken(command, work(key, session))
+        })
         const anywhere = <R>(
           command: ChatInteraction.CommandInvoked,
           work: Effect.Effect<void, unknown, R>,
@@ -719,187 +723,178 @@ export const interactions = (connection: Live, once?: Once.Daemon) =>
             : refused(Messages.commandNotOwner)
         const client = yield* Session.client
         return {
-          "stop-turn": (click) =>
-            Effect.gen(function* () {
-              if (!owner(click.userId)) return ChatInteraction.ack
-              yield* client(ChatThread.toString(click.thread))
-                .stop(sender(click.userId))
-                .pipe(
-                  Effect.catchCause((cause) =>
-                    Effect.logError("A stop could not be delivered", cause),
-                  ),
-                  Effect.forkDetach,
-                )
-              return ChatInteraction.ack
-            }),
+          "stop-turn": Effect.fnUntraced(function* (click) {
+            if (!owner(click.userId)) return ChatInteraction.ack
+            yield* client(ChatThread.toString(click.thread))
+              .stop(sender(click.userId))
+              .pipe(
+                Effect.catchCause((cause) =>
+                  Effect.logError("A stop could not be delivered", cause),
+                ),
+                Effect.forkDetach,
+              )
+            return ChatInteraction.ack
+          }),
           secret: (click) =>
             Effect.succeed(
               owner(click.userId)
                 ? SecretForm.open({ metadata: click.value })
                 : ChatInteraction.ack,
             ),
-          "secret-form": (submit) =>
-            Effect.gen(function* () {
-              if (!owner(submit.userId)) return ChatInteraction.close
-              const say = post(submit.thread)
-              yield* Effect.flatMap(SecretSave, (service) =>
-                service.run(
-                  {
-                    name: submit.metadata,
-                    value: submit.values.value,
-                    note: submit.values.note,
-                  },
-                  (markdown, saved) => {
-                    const text = markdown
-                      .split("\n")
-                      .map(connection.format.subtext)
-                      .join("\n")
-                    if (!saved || submit.messageId === undefined)
-                      return say(text)
-                    return chat
-                      .edit(submit.thread, submit.messageId, {
-                        markdown: text,
-                        actions: [],
-                      })
-                      .pipe(
-                        Effect.catchCause(() => say(text)),
-                        Effect.asVoid,
-                      )
-                  },
-                ),
-              ).pipe(
-                // The value is in the submit, which the cause does not carry.
-                Effect.catchCause((cause) =>
-                  Effect.logError("A secret could not be saved", cause),
-                ),
-                Effect.forkDetach,
-              )
-              return ChatInteraction.close
-            }),
+          "secret-form": Effect.fnUntraced(function* (submit) {
+            if (!owner(submit.userId)) return ChatInteraction.close
+            const say = post(submit.thread)
+            yield* Effect.flatMap(SecretSave, (service) =>
+              service.run(
+                {
+                  name: submit.metadata,
+                  value: submit.values.value,
+                  note: submit.values.note,
+                },
+                (markdown, saved) => {
+                  const text = markdown
+                    .split("\n")
+                    .map(connection.format.subtext)
+                    .join("\n")
+                  if (!saved || submit.messageId === undefined) return say(text)
+                  return chat
+                    .edit(submit.thread, submit.messageId, {
+                      markdown: text,
+                      actions: [],
+                    })
+                    .pipe(
+                      Effect.catchCause(() => say(text)),
+                      Effect.asVoid,
+                    )
+                },
+              ),
+            ).pipe(
+              // The value is in the submit, which the cause does not carry.
+              Effect.catchCause((cause) =>
+                Effect.logError("A secret could not be saved", cause),
+              ),
+              Effect.forkDetach,
+            )
+            return ChatInteraction.close
+          }),
           once: (click) =>
             Effect.succeed(
               owner(click.userId) && once?.waiting(click.value) === true
                 ? OnceForm.open({ metadata: click.value })
                 : ChatInteraction.ack,
             ),
-          "once-form": (submit) =>
-            Effect.gen(function* () {
-              if (!owner(submit.userId)) return ChatInteraction.close
-              // The field is multiline, and a stray newline kept in the value would stop the mask matching what a
-              // script that trims it prints.
-              const taken =
-                once?.submit(
-                  submit.metadata,
-                  ChatThread.toString(submit.thread),
-                  submit.values.value.trim(),
-                ) === true
-              if (!taken) {
-                yield* post(submit.thread)(
-                  connection.format.subtext(Messages.onceLate),
-                ).pipe(Effect.forkDetach)
-              }
-              return ChatInteraction.close
-            }),
-          "mcp-login": (click) =>
-            Effect.gen(function* () {
-              if (!owner(click.userId)) return ChatInteraction.ack
-              const server = click.value
-              const say = post(click.thread)
-              // The link takes requests to the server, which do not fit in the click's deadline.
-              yield* Effect.flatMap(McpLogin, (service) =>
-                service.begin(server),
-              ).pipe(
-                Effect.matchEffect({
-                  onFailure: say,
-                  onSuccess: (url) =>
-                    Effect.gen(function* () {
-                      const button = url.length <= linkButtonLength
-                      const message = {
-                        markdown: [
-                          Messages.mcpLoginSteps(server),
-                          ...(button ? [] : [Messages.mcpLoginLink(url)]),
-                        ].join("\n"),
-                        actions: [
-                          ...(button
-                            ? [
-                                ChatUi.linkButton({
-                                  label: Messages.mcpLoginOpenLabel,
-                                  url,
-                                }),
-                              ]
-                            : []),
-                          McpLoginPaste.of(server, {
-                            label: Messages.mcpLoginPasteLabel,
-                          }),
-                        ],
-                      }
-                      // A link cannot be cut in two, so one that fits in no message is not posted, and the owner is
-                      // told the way in that has no limit. The same goes for a message the platform did not take.
-                      const { limits, measure } = yield* chat.descriptor(
-                        click.thread.platform,
-                      )
-                      const long =
-                        measure(message.markdown, message.actions) >
-                        limits.messageLength
-                      if (long)
-                        return yield* say(
-                          Messages.mcpLoginUnposted(server, true),
-                        )
-                      yield* chat
-                        .post(click.thread, message)
-                        .pipe(
-                          Effect.catchCause((cause) =>
-                            Effect.andThen(
-                              Effect.logError(
-                                "An MCP sign-in's link could not be posted",
-                                cause,
-                              ),
-                              say(Messages.mcpLoginUnposted(server, false)),
-                            ),
+          "once-form": Effect.fnUntraced(function* (submit) {
+            if (!owner(submit.userId)) return ChatInteraction.close
+            // The field is multiline, and a stray newline kept in the value would stop the mask matching what a
+            // script that trims it prints.
+            const taken =
+              once?.submit(
+                submit.metadata,
+                ChatThread.toString(submit.thread),
+                submit.values.value.trim(),
+              ) === true
+            if (!taken) {
+              yield* post(submit.thread)(
+                connection.format.subtext(Messages.onceLate),
+              ).pipe(Effect.forkDetach)
+            }
+            return ChatInteraction.close
+          }),
+          "mcp-login": Effect.fnUntraced(function* (click) {
+            if (!owner(click.userId)) return ChatInteraction.ack
+            const server = click.value
+            const say = post(click.thread)
+            // The link takes requests to the server, which do not fit in the click's deadline.
+            yield* Effect.flatMap(McpLogin, (service) =>
+              service.begin(server),
+            ).pipe(
+              Effect.matchEffect({
+                onFailure: say,
+                onSuccess: Effect.fnUntraced(function* (url) {
+                  const button = url.length <= linkButtonLength
+                  const message = {
+                    markdown: [
+                      Messages.mcpLoginSteps(server),
+                      ...(button ? [] : [Messages.mcpLoginLink(url)]),
+                    ].join("\n"),
+                    actions: [
+                      ...(button
+                        ? [
+                            ChatUi.linkButton({
+                              label: Messages.mcpLoginOpenLabel,
+                              url,
+                            }),
+                          ]
+                        : []),
+                      McpLoginPaste.of(server, {
+                        label: Messages.mcpLoginPasteLabel,
+                      }),
+                    ],
+                  }
+                  // A link cannot be cut in two, so one that fits in no message is not posted, and the owner is
+                  // told the way in that has no limit. The same goes for a message the platform did not take.
+                  const { limits, measure } = yield* chat.descriptor(
+                    click.thread.platform,
+                  )
+                  const long =
+                    measure(message.markdown, message.actions) >
+                    limits.messageLength
+                  if (long)
+                    return yield* say(Messages.mcpLoginUnposted(server, true))
+                  yield* chat
+                    .post(click.thread, message)
+                    .pipe(
+                      Effect.catchCause((cause) =>
+                        Effect.andThen(
+                          Effect.logError(
+                            "An MCP sign-in's link could not be posted",
+                            cause,
                           ),
-                        )
-                    }),
+                          say(Messages.mcpLoginUnposted(server, false)),
+                        ),
+                      ),
+                    )
                 }),
-                Effect.catchCause((cause) =>
-                  Effect.logError("An MCP sign-in could not begin", cause),
-                ),
-                Effect.forkDetach,
-              )
-              return ChatInteraction.ack
-            }),
+              }),
+              Effect.catchCause((cause) =>
+                Effect.logError("An MCP sign-in could not begin", cause),
+              ),
+              Effect.forkDetach,
+            )
+            return ChatInteraction.ack
+          }),
           "mcp-login-paste": (click) =>
             Effect.succeed(
               owner(click.userId)
                 ? McpLoginForm.open({ metadata: click.value })
                 : ChatInteraction.ack,
             ),
-          "mcp-login-form": (submit) =>
-            Effect.gen(function* () {
-              if (!owner(submit.userId)) return ChatInteraction.close
-              const say = post(submit.thread)
-              yield* Effect.flatMap(McpLogin, (service) =>
-                service.finish(
-                  {
-                    server: submit.metadata,
-                    address: submit.values.address,
-                  },
-                  (markdown) =>
-                    say(
-                      markdown
-                        .split("\n")
-                        .map(connection.format.subtext)
-                        .join("\n"),
-                    ),
-                ),
-              ).pipe(
-                // The address is in the submit, which the cause does not carry.
-                Effect.catchCause((cause) =>
-                  Effect.logError("An MCP sign-in could not finish", cause),
-                ),
-                Effect.forkDetach,
-              )
-              return ChatInteraction.close
-            }),
+          "mcp-login-form": Effect.fnUntraced(function* (submit) {
+            if (!owner(submit.userId)) return ChatInteraction.close
+            const say = post(submit.thread)
+            yield* Effect.flatMap(McpLogin, (service) =>
+              service.finish(
+                {
+                  server: submit.metadata,
+                  address: submit.values.address,
+                },
+                (markdown) =>
+                  say(
+                    markdown
+                      .split("\n")
+                      .map(connection.format.subtext)
+                      .join("\n"),
+                  ),
+              ),
+            ).pipe(
+              // The address is in the submit, which the cause does not carry.
+              Effect.catchCause((cause) =>
+                Effect.logError("An MCP sign-in could not finish", cause),
+              ),
+              Effect.forkDetach,
+            )
+            return ChatInteraction.close
+          }),
           stop: (command) =>
             inSession(command, (key) =>
               client(key).stop(sender(command.userId)),
