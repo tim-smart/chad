@@ -32,7 +32,8 @@
     "bin",
     "dist",
     "plugins",
-    "skills"
+    "skills",
+    "starter-skills"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json && tsdown && node scripts/examples.ts",

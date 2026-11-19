@@ -72,6 +72,18 @@ What needs root to install is in the image already:
 The image has no OCR, no Ghostscript, no LibreOffice, no LaTeX and no ffmpeg. A Python library, such as pypdf or
 Pillow, comes with `uv run --with`.
 
+A new volume's repo starts with four skills that tell the model how to use these tools: `images`, `pdfs`, `documents`
+and `dev-tools`. The first start copies them from `/opt/chad/starter-skills` into `/data/repo/work/skills/` and
+commits them with `chad.json` and `persona.md`. From then on they are the repo's own, so chad or you can change or
+delete them like any skill, and a later image does not touch them. A skill that `work/skills/` already holds under one
+of those names is kept as it is. A repo made by an older image has none of them. Copy one in and apply it, here
+`pdfs`. The second `mkdir` fails when the repo already has a skill of that name, and then nothing is copied:
+
+```sh
+mkdir -p /data/repo/work/skills
+mkdir /data/repo/work/skills/pdfs && cp -R /opt/chad/starter-skills/pdfs/. /data/repo/work/skills/pdfs/ && chad apply -m "Add the pdfs skill"
+```
+
 A tool you want kept goes in `work/package.json` in the repo, as a plugin's package does. The commands of those packages
 are on PATH, from `/data/repo/live/node_modules/.bin`, which follows the applied tree: an apply puts a command there and
 a revert takes it away, with no restart. That directory comes last on PATH, after the volume's other bin directories,

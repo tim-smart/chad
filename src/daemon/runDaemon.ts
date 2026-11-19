@@ -107,6 +107,11 @@ export interface DaemonInputs {
   readonly plugins?: ReadonlyArray<Plugins.Entry> | undefined
   /** The directory of the bundled skills, which `chad serve` gives as the image's. None by default. */
   readonly skills?: string | undefined
+  /**
+   * The directory of the skills a new repo's first commit holds, which `chad serve` gives as the image's. None by
+   * default.
+   */
+  readonly starters?: string | undefined
 }
 
 /** Resolves on the first SIGTERM or SIGINT, and takes its handlers off the process when it is done with. */
@@ -340,9 +345,11 @@ const boot = Effect.fnUntraced(function* (
   yield* RepoLinks.prepare(volume.repo)
   // Safe mode is read from its file and the variable, never from the database.
   const safe = yield* SafeMode.read(volume.data, environment.safeMode)
-  // The repo with its first commit when there is none, and `live` on the head of `applied`, which wins over what
-  // `live` named. No file in the repo stops a boot, so a repo that cannot be readied loads nothing.
-  const applied = yield* Repo.prepare(volume.repo).pipe(
+  // The repo with its first commit, starter skills included, when there is none, and `live` on the head of `applied`,
+  // which wins over what `live` named. No file in the repo stops a boot, so a repo that cannot be readied loads nothing.
+  const applied = yield* Repo.prepare(volume.repo, {
+    starters: inputs.starters,
+  }).pipe(
     Effect.tapCause((cause) =>
       Effect.logWarning(
         "The repo could not be readied, so nothing loads from it",

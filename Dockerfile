@@ -95,6 +95,8 @@ COPY --from=build /opt/chad/bin /opt/chad/bin
 COPY --from=build /opt/chad/plugins /opt/chad/plugins
 # The bundled skills, which nothing builds.
 COPY skills /opt/chad/skills
+# The starter skills, which a new repo's first commit copies into work/skills/.
+COPY starter-skills /opt/chad/starter-skills
 RUN ln -s /opt/chad/bin/chad.js /usr/local/bin/chad && install -d -o node -g node /data
 # A login shell resets PATH from /etc/profile. This puts the volume's bin directories back, last, and only once.
 RUN printf '%s\n' 'for d in /data/home/.npm-global/bin /data/home/.local/bin /data/repo/live/node_modules/.bin; do case ":$PATH:" in *":$d:"*) ;; *) PATH="$PATH:$d" ;; esac; done; export PATH' > /etc/profile.d/chad.sh

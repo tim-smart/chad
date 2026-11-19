@@ -8,6 +8,7 @@ import { rmdir } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { Data, Effect, FileSystem, Option, Stream } from "effect"
 import { ChildProcess, ChildProcessSpawner } from "effect/process"
+import * as Skills from "./Skills.ts"
 
 /** A git command that failed, with what it printed. */
 export class GitError extends Data.TaggedError("GitError")<{
@@ -596,19 +597,59 @@ export const log = Effect.fnUntraced(function* (repo: string, limit: number) {
 })
 
 /**
- * Makes the repo when `work/` has none: `git init` on the branch `main`, chad's identity in the repo's own config,
- * and a first commit of `chad.json` as `{ "plugins": {} }` and an empty `persona.md`, which is also the head of
- * `applied`. A repo that has `work/` but no `applied` branch gets one at its own
- * first commit of the files it holds.
+ * Copies each skill under `starters` that `work/skills/` does not have an entry for. A skill already there, the owner's
+ * own included, is kept as it is, and so is a link of a skill's name. A starter that fails the checks is left out. A
+ * `skills` that is a link or a file is left alone with nothing copied, so no copy writes outside `work/`. Each skill is
+ * copied whole into a directory beside `work/` that this run made, and then renamed in, so a start stopped partway
+ * leaves no half-copied skill. Only that directory is removed, so nothing else under `repo/` is ever touched.
  */
-const create = Effect.fnUntraced(function* (repo: string) {
+const seedSkills = Effect.fnUntraced(function* (
+  repo: string,
+  starters: string | undefined,
+) {
+  if (starters === undefined) return
+  const fs = yield* FileSystem.FileSystem
+  const linked = (path: string) => Effect.isSuccess(fs.readLink(path))
+  const skills = join(paths(repo).work, "skills")
+  if (yield* linked(skills)) return
+  const info = yield* Effect.option(fs.stat(skills))
+  if (info._tag === "Some" && info.value.type !== "Directory") return
+  const found = yield* Skills.scan(starters)
+  yield* Effect.scoped(
+    Effect.gen(function* () {
+      const stage = yield* fs.makeTempDirectoryScoped({
+        directory: repo,
+        prefix: "starters-",
+      })
+      for (const { name } of found.skills) {
+        const target = join(skills, name)
+        if ((yield* fs.exists(target)) || (yield* linked(target))) continue
+        yield* fs.copy(join(starters, name), join(stage, name))
+        yield* fs.makeDirectory(skills, { recursive: true })
+        yield* fs.rename(join(stage, name), target)
+      }
+    }),
+  )
+})
+
+/** What a new repo starts with besides `chad.json` and `persona.md`. */
+export interface Seed {
+  /** A `skills/` directory whose skills the first commit holds: the image's starter skills. None by default. */
+  readonly starters?: string | undefined
+}
+
+/**
+ * Makes the repo when `work/` has none: `chad.json` as `{ "plugins": {} }`, an empty `persona.md` and the starter
+ * skills, then `git init` on the branch `main` with chad's identity in the repo's own config, and a first commit of
+ * them, which is also the head of `applied`. None of them replaces a file or a skill that `work/` already holds. The
+ * repo is made last, so a start stopped before it writes what is missing again. A repo that has `work/` but no
+ * `applied` branch gets one at its own first commit of the files it holds, with nothing added.
+ */
+const create = Effect.fnUntraced(function* (repo: string, seed: Seed) {
   const fs = yield* FileSystem.FileSystem
   const { work } = paths(repo)
   yield* fs.makeDirectory(work, { recursive: true })
   if (!(yield* fs.exists(join(work, ".git")))) {
-    yield* git(work, ["init", "-q", "-b", main])
-    yield* git(work, ["config", "user.name", identity.name])
-    yield* git(work, ["config", "user.email", identity.email])
     if (!(yield* fs.exists(join(work, "chad.json")))) {
       yield* fs.writeFileString(
         join(work, "chad.json"),
@@ -618,6 +659,10 @@ const create = Effect.fnUntraced(function* (repo: string) {
     if (!(yield* fs.exists(join(work, "persona.md")))) {
       yield* fs.writeFileString(join(work, "persona.md"), "")
     }
+    yield* seedSkills(repo, seed.starters)
+    yield* git(work, ["init", "-q", "-b", main])
+    yield* git(work, ["config", "user.name", identity.name])
+    yield* git(work, ["config", "user.email", identity.email])
   }
   const tree = yield* snapshot(repo)
   const sha = yield* commit(repo, {
@@ -631,13 +676,16 @@ const create = Effect.fnUntraced(function* (repo: string) {
 })
 
 /**
- * The repo as a boot needs it: the repo with its first commit when there is none,
+ * The repo as a boot needs it: the repo with its first commit when there is none, seeded from `seed`,
  * and `live` naming the tree of the head of `applied`, exported first when `versions/` does not hold it. The head of
  * `applied` wins over what `live` named, and the other entries of `versions/` go. It gives the loaded tree.
  */
-export const prepare = Effect.fnUntraced(function* (repo: string) {
+export const prepare = Effect.fnUntraced(function* (
+  repo: string,
+  seed: Seed = {},
+) {
   const { work } = paths(repo)
-  const sha = (yield* head(work)) ?? (yield* create(repo))
+  const sha = (yield* head(work)) ?? (yield* create(repo, seed))
   const tree = yield* treeOf(work, sha)
   const { directory } = yield* exportTree(repo, tree)
   if ((yield* pointed(repo)) !== tree) yield* point(repo, tree)
