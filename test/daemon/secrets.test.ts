@@ -28,6 +28,7 @@ import * as Skills from "../support/skills.ts"
 import {
   eventually,
   posted,
+  rows,
   says,
   sessions,
   threadOf,
@@ -820,6 +821,56 @@ test("a requestSecret form submitted after a /new saves the secret and starts no
   )
   expect(store(running.data)["KEY"]?.value).toBe("refused")
   expect(JSON.stringify(calls)).not.toContain("after-new-3b7c")
+})
+
+test("a requestSecret form submitted while a /new is still closing the session that asked saves the secret and starts no turn in the new session", async () => {
+  const running = await scenario({
+    plugins: [{ name: "request-secret", plugin: requestSecret }],
+  })
+  const { fakes } = running
+  // The background command holds the reset open once it gets its SIGTERM: the thread's new state is idle, and the row
+  // is still the old session's, until the test lets it end.
+  const termed = join(running.data, "termed")
+  const go = join(running.data, "go")
+  const holds = `trap 'touch ${termed}; while [ ! -e ${go} ]; do sleep 0.05; done; exit 0' TERM; while :; do sleep 0.05; done`
+  await fakes.model.script([
+    runs(
+      `console.log(await requestSecret({ name: "HELD_TOKEN", reason: "the API needs it." })); await bash({ command: ${JSON.stringify(holds)}, description: "holds", background: true })`,
+    ),
+    { text: "Click the button." },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "call the API")
+  const request = (
+    await eventually(
+      () => fakes.chat.messages(thread),
+      (messages) =>
+        messages.some((message) => message.text === "Click the button."),
+    )
+  ).find((message) => message.text.includes("I need the secret `HELD_TOKEN`"))!
+
+  await says(running, thread, "/new")
+  await eventually(
+    () => existsSync(termed),
+    (found) => found,
+  )
+  await Effect.runPromise(
+    running.submit(
+      request.id,
+      "secret",
+      { clicker: owner, submitter: owner },
+      { value: "held-9e4f" },
+    ),
+  )
+  await eventually(
+    () => rows(running, "SELECT id FROM cluster_messages WHERE tag = 'plugin'"),
+    (found) => found.length === 1,
+  )
+  writeFileSync(go, "")
+
+  await running.logged("turn.dropped")
+  expect(store(running.data)["HELD_TOKEN"]?.value).toBe("held-9e4f")
+  expect(await fakes.model.calls()).toHaveLength(2)
 })
 
 const requestOnce = (name: string) =>

@@ -146,6 +146,8 @@ interface Request {
         readonly timer:
           { readonly name: string; readonly scheduledAt: number } | undefined
         readonly queuedFor: string | undefined
+        /** The session the turn belongs to, if it is held to one. */
+        readonly session: string | undefined
       }
     | undefined
 }
@@ -1559,6 +1561,10 @@ export const layer = Layer.unwrap(
               if (session === undefined) {
                 return yield* Effect.die(new Error(`no session row for ${key}`))
               }
+              // A turn held to a session starts only in that session. The session is read after a `/new` that was
+              // under way has renewed the row, so a turn that waited across one sees the new session and is dropped.
+              const held = request.plugin?.session
+              if (held !== undefined && held !== session) return undefined
               const started = yield* Sessions.started({
                 key: turn.key,
                 turn: turn.id,
@@ -1615,6 +1621,18 @@ export const layer = Layer.unwrap(
           )
           if (Exit.isFailure(counted)) {
             return yield* failed(turn, own, request)(counted.cause)
+          }
+          if (counted.value === undefined) {
+            yield* Logger.event(
+              "turn.dropped",
+              "A plugin's turn was dropped, because its session ended",
+              {
+                session: request.plugin?.session,
+                plugin: request.plugin?.name,
+                label: request.plugin?.label,
+              },
+            )
+            return { _tag: "Dropped" } as const
           }
           const { session, started } = counted.value
           const ids = { session, turn: turn.id }
@@ -2235,6 +2253,7 @@ export const layer = Layer.unwrap(
                   mention: payload.mention,
                   timer: payload.timer,
                   queuedFor: payload.queuedFor,
+                  session: payload.session,
                 },
               }
               if (first !== undefined && first.key !== payload.key) {
@@ -2270,22 +2289,6 @@ export const layer = Layer.unwrap(
                   continue
                 }
                 if (stopping.stopping()) return yield* Effect.never
-                // A turn held to a session that is no longer the thread's starts nothing.
-                if (
-                  payload.session !== undefined &&
-                  (yield* Sessions.current(key))?.id !== payload.session
-                ) {
-                  yield* Logger.event(
-                    "turn.dropped",
-                    "A plugin's turn was dropped, because its session ended",
-                    {
-                      session: payload.session,
-                      plugin: payload.plugin,
-                      label: payload.label,
-                    },
-                  )
-                  return { _tag: "Dropped" } as const
-                }
                 const outcome = yield* runTurn(own, request)
                 if (outcome === unrecorded) return yield* Effect.never
                 return outcome
