@@ -738,7 +738,7 @@ const boot = Effect.fnUntraced(function* (
                   post(
                     [...output.stdout, ...output.stderr].join("\n"),
                     output.code === 0,
-                  ),
+                  ).pipe(Effect.as(output.code === 0)),
                 ),
               ),
           }),

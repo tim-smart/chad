@@ -19,6 +19,7 @@ import * as Once from "../../dist/daemon/Once.js"
 import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
 import requestSecret from "../../dist/plugins/request-secret/index.js"
+import * as SecretMessages from "../../dist/plugins/request-secret/Messages.js"
 import { applied } from "../support/applied.ts"
 import * as Cli from "../support/cli.ts"
 import { fresh, owner, scenario, type Scenario } from "../support/driver.ts"
@@ -652,7 +653,7 @@ export default Plugin.make(Layer.effectDiscard(Effect.gen(function* () {
   }
 }, 60_000)
 
-test("the agent's requestSecret posts a button whose form saves the secret as chad secret set does, a stranger's click opens no form, and the value is in no file on the volume but the store", async () => {
+test("the agent's requestSecret posts a button whose form saves the secret as chad secret set does and starts a turn that names it, a stranger's click opens no form, and the value is in no file on the volume but the store", async () => {
   const value = "canary-5f1d2a9e7b"
   const running = await scenario({
     plugins: [{ name: "request-secret", plugin: requestSecret }],
@@ -663,6 +664,7 @@ test("the agent's requestSecret posts a button whose form saves the secret as ch
       `console.log(await requestSecret({ name: "WEATHER_TOKEN", reason: "the forecast API needs it." }))`,
     ),
     { text: "Click the button." },
+    { text: "The forecast is sunny." },
   ])
   const thread = await fakes.chat.makeThread("direct")
   await says(running, thread, "get the forecast")
@@ -712,6 +714,16 @@ test("the agent's requestSecret posts a button whose form saves the secret as ch
       date: expect.any(String),
     },
   })
+  // The save starts a turn that tells the agent the name, and the agent's answer is posted in the thread.
+  await fakes.model.received(3)
+  expect(JSON.stringify((await fakes.model.calls())[2])).toContain(
+    SecretMessages.secretSavedPrompt("WEATHER_TOKEN"),
+  )
+  await eventually(
+    () => fakes.chat.messages(thread),
+    (messages) =>
+      messages.some((message) => message.text === "The forecast is sunny."),
+  )
 
   const click = await Effect.runPromise(
     running.chat.click(request!.id, "secret").pipe(Effect.result),

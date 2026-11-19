@@ -26,6 +26,7 @@ import {
   MessageStorage,
   Sharding,
 } from "effect/cluster"
+import { randomUUID } from "node:crypto"
 import type * as Connections from "../Connections.ts"
 import * as Messages from "../Messages.ts"
 import {
@@ -39,13 +40,14 @@ import {
   SecretButton,
   SecretForm,
 } from "../plugins/request-secret/Form.ts"
+import * as SecretMessages from "../plugins/request-secret/Messages.ts"
 import type { Live } from "./Chats.ts"
 import type * as DaemonConnections from "./Connections.ts"
 import * as Disk from "./Disk.ts"
 import * as Logger from "./Logger.ts"
 import * as Model from "./Model.ts"
 import type * as Once from "./Once.ts"
-import { Message, Session } from "./SessionEntity.ts"
+import { Message, PluginTurn, Session } from "./SessionEntity.ts"
 import * as Notices from "./Notices.ts"
 import { Timings } from "../Timings.ts"
 import * as Sessions from "./Sessions.ts"
@@ -111,8 +113,8 @@ export const ChannelChange = Context.Reference<{
 
 /**
  * Saves a secret that an owner submitted in a request's form, as `chad secret set` does through the daemon's queue,
- * and reports what that command prints, marking only a successful final result as saved.
- * Nothing it posts or logs carries the value.
+ * and reports what that command prints, marking only a successful final result as saved. It gives whether the secret
+ * was saved. Nothing it posts or logs carries the value.
  */
 export const SecretSave = Context.Reference<{
   readonly run: (
@@ -122,9 +124,9 @@ export const SecretSave = Context.Reference<{
       readonly note: string | undefined
     },
     post: (markdown: string, saved?: boolean) => Effect.Effect<void>,
-  ) => Effect.Effect<void>
+  ) => Effect.Effect<boolean>
 }>("chad/Handler/SecretSave", {
-  defaultValue: () => ({ run: () => Effect.void }),
+  defaultValue: () => ({ run: () => Effect.succeed(false) }),
 })
 
 /**
@@ -637,7 +639,8 @@ export const unusable = (
  *
  * - A click on Stop goes to the session of its thread as the `stop` request that `/stop` sends.
  * - A click on a secret request's button opens its form, and the form's submit saves the secret as `chad secret set`
- *   does. The value goes from the submit to the store: no message, log line or session gets it.
+ *   does. The value goes from the submit to the store: no message, log line or session gets it. A secret that is saved
+ *   queues a turn in the thread's session that tells the agent its name, so the agent carries on.
  * - A click on a one-off request's button opens its form while the request waits, and the form's submit hands the value
  *   to the `requestOnce` call that waits for it (`Once.ts`), which returns it to the agent. A submit that comes after
  *   the request ended is discarded, and a line says so. Nothing on the way from the submit to the call logs or posts it.
@@ -769,6 +772,24 @@ export const interactions = (connection: Live, once?: Once.Daemon) =>
                 },
               ),
             ).pipe(
+              // A saved secret starts a turn in the session that asked for it, so the agent carries on without the
+              // owner saying so. The turn's prompt has the name and never the value.
+              Effect.flatMap((saved) =>
+                saved
+                  ? client(ChatThread.toString(submit.thread)).plugin(
+                      new PluginTurn({
+                        key: `secret/${randomUUID()}`,
+                        connection: connection.name,
+                        plugin: "request-secret",
+                        label: SecretMessages.savedLabel,
+                        prompt: SecretMessages.secretSavedPrompt(
+                          submit.metadata,
+                        ),
+                      }),
+                      { discard: true },
+                    )
+                  : Effect.void,
+              ),
               // The value is in the submit, which the cause does not carry.
               Effect.catchCause((cause) =>
                 Effect.logError("A secret could not be saved", cause),
