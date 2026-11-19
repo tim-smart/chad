@@ -33,12 +33,12 @@ git clone https://github.com/owner/project.git ~/src/project
 # The name and email a commit in the project gets, from every config file and the files they include
 git -C ~/src/project config user.name
 git -C ~/src/project config user.email
-# Only when one is missing, with what the owner gives you. Each line sets its value only when no global file has one
-git config --global --includes user.name >/dev/null || git config --global user.name "<name>"
-git config --global --includes user.email >/dev/null || git config --global user.email "<email>"
+# Only when one is missing, with what the owner gives you. Each writes to that project alone, and only when it has none
+git -C ~/src/project config user.name >/dev/null || git -C ~/src/project config --local user.name "<name>"
+git -C ~/src/project config user.email >/dev/null || git -C ~/src/project config --local user.email "<email>"
 ```
 
-Ask the owner for the name and email, and never make one up. A GitHub account's no-reply address keeps their real email out of public commits.
+Ask the owner for the name and email, and never make one up. Use the same ones in their next project. A GitHub account's no-reply address keeps their real email out of public commits.
 
 When `gh auth status` shows a login, or git already pushes to GitHub, use that as it is. Otherwise the owner saves a token in chad's secret store, as the `credentials` skill says, here as `GITHUB_TOKEN`, and each command that needs it gets it for that command alone:
 
