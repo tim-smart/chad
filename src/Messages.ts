@@ -261,8 +261,12 @@ export const channelUnlisted = (id: string, connection: string) =>
   `channel ${id} on ${connection} is not on the list of channels that need no mention`
 
 /** What `/mention` with no `off` or `on` posts: whether an owner's message in the channel needs a mention. */
-export const mentionState = (needed: boolean) =>
-  needed ? "This channel needs a mention." : "This channel needs no mention."
+export const mentionState = (state: "needed" | "listed" | "session") =>
+  state === "needed"
+    ? "This channel needs a mention."
+    : state === "listed"
+      ? "This channel needs no mention."
+      : "This thread has a session, so it needs no mention."
 
 /** What `/mention off` and `/mention on` post, by whether the channel needs a mention now and whether that changed. */
 export const mentionChanged = (needed: boolean, changed: boolean) =>
@@ -273,6 +277,16 @@ export const mentionChanged = (needed: boolean, changed: boolean) =>
     : changed
       ? "This channel needs no mention now. An owner's message here reaches me without one."
       : "This channel already needs no mention."
+
+/** `/mention on` in a thread with a session, which needs no mention whatever the list says. */
+export const mentionSessionKept = (changed: boolean) =>
+  changed
+    ? "This thread is off the list now, but it has a session, so it still needs no mention."
+    : "This thread is not on the list, but it has a session, so it needs no mention."
+
+/** `/mention` where chad could not tell the kind of the channel or whether it has a session. */
+export const mentionUnchecked =
+  "I couldn't check this channel, so nothing changed. Try again."
 
 /** `/mention` in a direct message, which needs no mention anyway. */
 export const mentionDirect = "A direct message needs no mention."

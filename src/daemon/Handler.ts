@@ -141,20 +141,39 @@ export const McpLogin = Context.Reference<{
 /**
  * `/mention`, typed or slash, in the channel or thread `where`. With `off` an owner's message there needs no mention
  * from then on, with `on` it needs one again, and with neither it posts which holds. Only that channel or thread
- * changes, and who chad answers stays the owner list. A direct message needs no mention, so nothing changes there.
+ * changes, and who chad answers stays the owner list. A direct message needs no mention, so nothing changes there, and
+ * a thread with a session needs none whatever the list says, so the answer says so. When the kind of `where` or whether
+ * it has a session cannot be read, nothing changes either, so a direct message never lands on the list.
  */
 const mention = (
   connection: Live,
   where: ChatThread.ChatThread,
-  direct: boolean,
+  kind: Effect.Effect<ChatEvent.ThreadKind, unknown>,
   to: string | undefined,
   post: (markdown: string) => Effect.Effect<void>,
 ) =>
   Effect.gen(function* () {
-    if (direct) return yield* post(Messages.mentionDirect)
+    const facts = yield* Effect.all([
+      kind,
+      Sessions.known(ChatThread.toString(where)),
+    ]).pipe(
+      Effect.tapCause((cause) =>
+        Effect.logWarning("A /mention could not check its channel", cause),
+      ),
+      Effect.option,
+    )
+    if (Option.isNone(facts)) return yield* post(Messages.mentionUnchecked)
+    const [found, session] = facts.value
+    if (found === "direct") return yield* post(Messages.mentionDirect)
     if (to !== "off" && to !== "on") {
       return yield* post(
-        Messages.mentionState(!connection.channels().includes(where.id)),
+        Messages.mentionState(
+          connection.channels().includes(where.id)
+            ? "listed"
+            : session
+              ? "session"
+              : "needed",
+        ),
       )
     }
     const change = {
@@ -172,7 +191,9 @@ const mention = (
             error,
           ),
         onSuccess: ({ changed }) =>
-          Messages.mentionChanged(to === "on", changed),
+          to === "on" && session
+            ? Messages.mentionSessionKept(changed)
+            : Messages.mentionChanged(to === "on", changed),
       }),
     )
     yield* post(text)
@@ -374,7 +395,7 @@ export const layer = (connection: Live) =>
           mention(
             connection,
             where,
-            event.kind === "direct",
+            Effect.succeed(event.kind),
             words(message)[1]?.toLowerCase(),
             (markdown) =>
               say(where, markdown).pipe(Effect.provideService(Chat.Chat, chat)),
@@ -927,18 +948,14 @@ export const interactions = (connection: Live, once?: Once.Daemon) =>
           mention: (command) =>
             anywhere(
               command,
-              chat.getThread(command.thread).pipe(
-                Effect.map((info) => info.kind === "direct"),
-                Effect.orElseSucceed(() => false),
-                Effect.flatMap((direct) =>
-                  mention(
-                    connection,
-                    command.thread,
-                    direct,
-                    command.text.trim().toLowerCase(),
-                    post(command.thread),
-                  ),
-                ),
+              mention(
+                connection,
+                command.thread,
+                chat
+                  .getThread(command.thread)
+                  .pipe(Effect.map((info) => info.kind)),
+                command.text.trim().toLowerCase(),
+                post(command.thread),
               ),
             ),
         }
