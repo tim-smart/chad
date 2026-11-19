@@ -693,6 +693,14 @@ const boot = Effect.fnUntraced(function* (
                 ),
               ),
           }),
+          Layer.succeed(Handler.ChannelChange, {
+            run: (change, guard) =>
+              Deferred.await(state.commands).pipe(
+                Effect.flatMap((commands) =>
+                  commands.guarded(change, Queue.caller(undefined), guard),
+                ),
+              ),
+          }),
           Layer.succeed(Handler.SecretSave, {
             run: (secret, post) =>
               Deferred.await(state.repository).pipe(

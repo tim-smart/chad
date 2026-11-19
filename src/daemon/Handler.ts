@@ -25,6 +25,7 @@ import {
   MessageStorage,
   Sharding,
 } from "effect/cluster"
+import type * as Connections from "../Connections.ts"
 import * as Messages from "../Messages.ts"
 import {
   McpLoginButton,
@@ -38,6 +39,7 @@ import {
   SecretForm,
 } from "../plugins/request-secret/Form.ts"
 import type { Live } from "./Chats.ts"
+import type * as DaemonConnections from "./Connections.ts"
 import * as Disk from "./Disk.ts"
 import * as Logger from "./Logger.ts"
 import * as Model from "./Model.ts"
@@ -87,6 +89,26 @@ export const SafeCommand = Context.Reference<{
 })
 
 /**
+ * Makes a change to the connection's list of channels that need no mention, as `chad channel add` and
+ * `chad channel remove` do through the daemon's queue, if `guard` still holds when its turn in the queue comes. It fails
+ * with `Stale` when it does not. `/mention` uses it.
+ */
+export const ChannelChange = Context.Reference<{
+  readonly run: (
+    change: Extract<
+      Connections.Change,
+      { readonly _tag: "ChannelAdd" | "ChannelRemove" }
+    >,
+    guard: () => boolean,
+  ) => Effect.Effect<
+    Connections.Changed,
+    Connections.Rejected | DaemonConnections.Stale
+  >
+}>("chad/Handler/ChannelChange", {
+  defaultValue: () => ({ run: () => Effect.succeed({ changed: false }) }),
+})
+
+/**
  * Saves a secret that an owner submitted in a request's form, as `chad secret set` does through the daemon's queue,
  * and reports what that command prints, marking only a successful final result as saved.
  * Nothing it posts or logs carries the value.
@@ -121,6 +143,75 @@ export const McpLogin = Context.Reference<{
     finish: () => Effect.void,
   }),
 })
+
+/**
+ * `/mention`, typed or slash, in the channel or thread `where`. With `off` an owner's message there needs no mention
+ * from then on, with `on` it needs one again, and with neither it posts which holds. Only that channel or thread
+ * changes, and who chad answers stays the owner list. A direct message needs no mention, so nothing changes there, and
+ * a thread with a session needs none whatever the list says, so the answer says so. When the kind of `where` or whether
+ * it has a session cannot be read, nothing changes either, so a direct message never lands on the list.
+ */
+const mention = (
+  connection: Live,
+  where: ChatThread.ChatThread,
+  kind: Effect.Effect<ChatEvent.ThreadKind, unknown>,
+  to: string | undefined,
+  sender: string,
+  post: (markdown: string) => Effect.Effect<void>,
+) =>
+  Effect.gen(function* () {
+    const facts = yield* Effect.all([
+      kind,
+      Sessions.known(ChatThread.toString(where)),
+    ]).pipe(
+      Effect.tapCause((cause) =>
+        Effect.logWarning("A /mention could not check its channel", cause),
+      ),
+      Effect.option,
+    )
+    if (Option.isNone(facts)) return yield* post(Messages.mentionUnchecked)
+    const [found, session] = facts.value
+    if (found === "direct") return yield* post(Messages.mentionDirect)
+    if (to !== "off" && to !== "on") {
+      return yield* post(
+        Messages.mentionState(
+          connection.channels().includes(where.id)
+            ? "listed"
+            : session
+              ? "session"
+              : "needed",
+        ),
+      )
+    }
+    const change = {
+      _tag: to === "off" ? "ChannelAdd" : "ChannelRemove",
+      name: connection.name,
+      id: where.id,
+    } as const
+    // The change is made only if the connection that took the command still runs under its name and the sender is still
+    // one of its owners, which a swap or an owner change while the command waited would undo.
+    const text = yield* Effect.flatMap(ChannelChange, (service) =>
+      service.run(
+        change,
+        () => connection.current() && connection.owners().includes(sender),
+      ),
+    ).pipe(
+      Effect.match({
+        onFailure: (error) =>
+          error._tag === "Stale"
+            ? Messages.mentionStale
+            : Messages.connectionRejected(
+                to === "off" ? "channel add" : "channel remove",
+                error,
+              ),
+        onSuccess: ({ changed }) =>
+          to === "on" && session
+            ? Messages.mentionSessionKept(changed)
+            : Messages.mentionChanged(to === "on", changed),
+      }),
+    )
+    yield* post(text)
+  })
 
 /** The longest URL Discord takes on a link button. A longer link goes in the message. */
 const linkButtonLength = 512
@@ -201,6 +292,7 @@ const commands = {
   "/status": "status",
   "/model": "model",
   "/safe": "safe",
+  "/mention": "mention",
 } as const
 
 /** The text of a message with the mention of chad stripped, trimmed. */
@@ -312,6 +404,18 @@ export const layer = (connection: Live) =>
             )
           })
 
+        // `/mention` is answered where it was typed, as `/safe` is, and changes the channel or thread it was typed in.
+        const mentionHere = (where: ChatThread.ChatThread) =>
+          mention(
+            connection,
+            where,
+            Effect.succeed(event.kind),
+            words(message)[1]?.toLowerCase(),
+            author.id,
+            (markdown) =>
+              say(where, markdown).pipe(Effect.provideService(Chat.Chat, chat)),
+          )
+
         let thread = event.thread
         if (event.kind === "channel") {
           if (!mentioned) return yield* ignored("not-mentioned")
@@ -325,6 +429,7 @@ export const layer = (connection: Live) =>
           }
           if (word === "model") return yield* model(thread)
           if (word === "safe") return yield* safe(thread)
+          if (word === "mention") return yield* mentionHere(thread)
           if (word !== undefined)
             return yield* say(thread, Messages.noSession(connection.format))
           // The thread is opened before the save, so an event that is delivered again lands on the same thread.
@@ -398,6 +503,10 @@ export const layer = (connection: Live) =>
         }
         if (word === "safe") {
           yield* safe(thread)
+          return yield* Sessions.mark(key, mark)
+        }
+        if (word === "mention") {
+          yield* mentionHere(thread)
           return yield* Sessions.mark(key, mark)
         }
         if (word === "stop") {
@@ -850,6 +959,20 @@ export const interactions = (connection: Live, once?: Once.Daemon) =>
                   post(command.thread),
                 )
               }),
+            ),
+          mention: (command) =>
+            anywhere(
+              command,
+              mention(
+                connection,
+                command.thread,
+                chat
+                  .getThread(command.thread)
+                  .pipe(Effect.map((info) => info.kind)),
+                command.text.trim().toLowerCase(),
+                command.userId,
+                post(command.thread),
+              ),
             ),
         }
       }),

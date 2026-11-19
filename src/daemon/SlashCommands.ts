@@ -28,5 +28,17 @@ export const Safe = ChatInteraction.command("safe", {
   argument: { name: "mode", description: Messages.commandArguments.safe },
 })
 
+export const Mention = ChatInteraction.command("mention", {
+  description: Messages.commandDescriptions.mention,
+  argument: { name: "mode", description: Messages.commandArguments.mention },
+})
+
 /** Every slash command, in the order the platform lists them. */
-export const all = ChatInteraction.group(New, Stop, Status, Model, Safe)
+export const all = ChatInteraction.group(
+  New,
+  Stop,
+  Status,
+  Model,
+  Safe,
+  Mention,
+)

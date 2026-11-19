@@ -71,6 +71,11 @@ export interface Live {
   readonly format: Format.Format
   /** How the platform renames a thread, or nothing for a platform that has not set how or is being taken down. */
   readonly rename: () => Rename | undefined
+  /**
+   * Whether this is still the connection that runs under its name. A change of token or kind swaps in another one, and
+   * a removal takes it away. Owner and channel changes keep it.
+   */
+  readonly current: () => boolean
 }
 
 /**
@@ -160,6 +165,7 @@ export const make = <R>(
         channels: () => entry.connection.channels ?? [],
         format: Format.of(entry.connection.kind),
         rename: () => entry.rename,
+        current: () => entries.get(entry.connection.name) === entry,
       }
       const renames = (rename: Rename) =>
         Effect.acquireRelease(

@@ -12,6 +12,7 @@ import {
 import { join } from "node:path"
 import * as NodeSocket from "@effect/platform-node/NodeSocket"
 import { Duration, Effect, Layer } from "effect"
+import { ChatError } from "effect/chat"
 import { RpcClient, RpcSerialization } from "effect/rpc"
 import { expect, onTestFinished, test } from "vitest"
 import * as Constants from "../../dist/Discord.js"
@@ -28,7 +29,7 @@ import {
   type Scenario,
   scenario,
 } from "../support/driver.ts"
-import { lines, posted, says } from "../support/owner.ts"
+import { eventually, lines, posted, says } from "../support/owner.ts"
 
 const owner = "700000000000000001"
 const home = {
@@ -562,6 +563,124 @@ test("a channel added with chad channel add takes an owner's message without a m
   expect(reasons()).toEqual(["not-owner", "not-mentioned", "not-mentioned"])
   expect(await posted(running, open)).toEqual([])
   expect(await fakes.model.calls()).toHaveLength(1)
+})
+
+test("an owner's /mention off makes only the channel it ran in need no mention, a stranger's message there is still ignored, a typed /mention on there makes it need one again, a thread with a session is said to need none, and a channel whose kind cannot be read is left off the list", async () => {
+  const running = await scenario({ env: { CHAD_LOG_LEVEL: "debug" } })
+  const { fakes } = running
+  await fakes.model.script([{ text: "one" }, { text: "two" }])
+  const open = await fakes.chat.makeThread("channel")
+  const other = await fakes.chat.makeThread("channel")
+  const reasons = () =>
+    running
+      .log()
+      .filter((line) => line.annotations["event"] === "message.ignored")
+      .map((line) => line.annotations["reason"])
+  await running.logged("boot.ready")
+
+  expect(
+    await Effect.runPromise(running.command(open, "mention", "owner", "off")),
+  ).toMatchObject({
+    _tag: "Respond",
+    markdown: Messages.commandTaken("mention"),
+    visibility: "ephemeral",
+  })
+  const [off] = await fakes.chat.answers(open, 1)
+  expect(off?.text).toBe(Messages.mentionChanged(false, true))
+  expect(await running.chad(["connection", "list"])).toEqual(
+    done([Messages.connectionLine("local", "local", ["owner"], [open.id])]),
+  )
+
+  // The owner list still decides who is answered, and the other channel still needs a mention.
+  expect(
+    await fakes.chat.deliver(
+      await fakes.chat.userPosts(open, { text: "hi", authorId: "stranger" }),
+    ),
+  ).toBe(true)
+  await says(running, other, "hello")
+  await lines(running, "message.ignored", 2)
+  expect(reasons()).toEqual(["not-owner", "not-mentioned"])
+
+  await says(running, open, "hello")
+  await running.logged("turn.ended")
+  const opened = (await Effect.runPromise(running.chat.calls)).filter(
+    (call) => call.op === "startThread",
+  )
+  expect(opened.map((call) => call.thread)).toEqual([open])
+
+  // The channel needs no mention yet, so the typed command reaches chad without one.
+  await says(running, open, "/mention on")
+  const [, on] = await fakes.chat.answers(open, 2)
+  expect(on?.text).toBe(Messages.mentionChanged(true, true))
+  await says(running, open, "again")
+  await lines(running, "message.ignored", 3)
+  expect(reasons()).toEqual(["not-owner", "not-mentioned", "not-mentioned"])
+  expect(await fakes.model.calls()).toHaveLength(1)
+
+  // A thread with a session takes an owner's message without a mention whatever the list says, and /mention says so.
+  const thread = await fakes.chat.makeThread("thread")
+  await says(running, thread, "hi", { mention: true })
+  await fakes.chat.answers(thread, 1)
+  await Effect.runPromise(running.command(thread, "mention", "owner"))
+  const [, state] = await fakes.chat.answers(thread, 2)
+  expect(state?.text).toBe(Messages.mentionState("session"))
+  await says(running, thread, "/mention on")
+  const [, , kept] = await fakes.chat.answers(thread, 3)
+  expect(kept?.text).toBe(Messages.mentionSessionKept(false))
+
+  // A direct message whose kind the platform does not give never lands on the list.
+  const direct = await fakes.chat.makeThread("direct")
+  await Effect.runPromise(
+    running.chat.failNext(
+      "getThread",
+      new ChatError.Forbidden({ detail: "down" }),
+    ),
+  )
+  await Effect.runPromise(running.command(direct, "mention", "owner", "off"))
+  const [unchecked] = await fakes.chat.answers(direct, 1)
+  expect(unchecked?.text).toBe(Messages.mentionUnchecked)
+  expect(await running.chad(["connection", "list"])).toEqual(
+    done([Messages.connectionLine("local", "local", ["owner"])]),
+  )
+})
+
+test("a /mention off that waits while its connection is swapped for another of the same name leaves the new connection's list alone", async () => {
+  const running = await scenario()
+  const channel = await running.fakes.chat.makeThread("channel")
+  await running.logged("boot.ready")
+
+  // The command waits on the platform's answer to which kind of channel it is in.
+  const held = running.holdThreads()
+  await Effect.runPromise(running.command(channel, "mention", "owner", "off"))
+  expect(
+    await running.chad(["connection", "remove", "local", "--force"]),
+  ).toEqual(done([Messages.connectionRemoved("local")]))
+  expect(await running.chad(["connection", "add", "local"])).toEqual(
+    done([Messages.connectionAdded("local", "local")]),
+  )
+  expect(await running.chad(["owner", "add", "local", "owner"])).toEqual(
+    done([Messages.ownerAdded("owner", "local")]),
+  )
+  held.release()
+
+  await eventually(
+    () => ran(running).filter(({ command }) => command === "channel add"),
+    (lines) => lines.length > 0,
+  )
+  expect(
+    ran(running).filter(({ command }) => command === "channel add"),
+  ).toEqual([
+    {
+      command: "channel add",
+      caller: "owner",
+      outcome: "refused",
+      connection: "local",
+      reason: "stale",
+    },
+  ])
+  expect(await running.chad(["connection", "list"])).toEqual(
+    done([Messages.connectionLine("local", "local", ["owner"])]),
+  )
 })
 
 /** Calls the daemon of a scenario as a client of another process does, with the headers given. */

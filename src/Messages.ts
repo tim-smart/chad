@@ -260,6 +260,41 @@ export const channelRemoved = (id: string, connection: string) =>
 export const channelUnlisted = (id: string, connection: string) =>
   `channel ${id} on ${connection} is not on the list of channels that need no mention`
 
+/** What `/mention` with no `off` or `on` posts: whether an owner's message in the channel needs a mention. */
+export const mentionState = (state: "needed" | "listed" | "session") =>
+  state === "needed"
+    ? "This channel needs a mention."
+    : state === "listed"
+      ? "This channel needs no mention."
+      : "This thread has a session, so it needs no mention."
+
+/** What `/mention off` and `/mention on` post, by whether the channel needs a mention now and whether that changed. */
+export const mentionChanged = (needed: boolean, changed: boolean) =>
+  needed
+    ? changed
+      ? "This channel needs a mention again."
+      : "This channel already needs a mention."
+    : changed
+      ? "This channel needs no mention now. An owner's message here reaches me without one."
+      : "This channel already needs no mention."
+
+/** `/mention on` in a thread with a session, which needs no mention whatever the list says. */
+export const mentionSessionKept = (changed: boolean) =>
+  changed
+    ? "This thread is off the list now, but it has a session, so it still needs no mention."
+    : "This thread is not on the list, but it has a session, so it needs no mention."
+
+/** `/mention` where chad could not tell the kind of the channel or whether it has a session. */
+export const mentionUnchecked =
+  "I couldn't check this channel, so nothing changed. Try again."
+
+/** `/mention off` or `on` whose connection was swapped or whose sender stopped being an owner while it waited. */
+export const mentionStale =
+  "This connection changed while the command waited, so nothing changed."
+
+/** `/mention` in a direct message, which needs no mention anyway. */
+export const mentionDirect = "A direct message needs no mention."
+
 /** One line of `chad connection list`. A connection with channels that need no mention names them too. */
 export const connectionLine = (
   name: string,
@@ -545,12 +580,14 @@ export const commandDescriptions = {
   status: "Show chad's status",
   model: "Show the model, or change it",
   safe: "Show safe mode, or turn it on or off",
+  mention: "Show whether this channel needs a mention, or turn that off or on",
 } as const
 
 /** The descriptions of the slash commands' one argument each. */
 export const commandArguments = {
   model: "A model, and --subagent, --summarizer or --fast with their values",
   safe: "on or off",
+  mention: "off or on",
 } as const
 
 /** A slash command from someone who is not an owner. Only they see it. */

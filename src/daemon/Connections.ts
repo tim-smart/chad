@@ -1,4 +1,4 @@
-import { Effect, Exit, FileSystem } from "effect"
+import { Data, Effect, Exit, FileSystem } from "effect"
 import type { HttpClient } from "effect/http"
 import { SqlClient } from "effect/sql"
 import * as Connections from "../Connections.ts"
@@ -17,11 +17,24 @@ export interface Commands {
     change: Connections.Change,
     caller: string,
   ) => Effect.Effect<Connections.Changed, Connections.Rejected>
+  /**
+   * Makes a change from chat, as `change` does, if `guard` still holds when its turn in the queue comes. The guard is
+   * read right before the change is made, after every change queued before it, so a connection that was swapped or an
+   * owner who was removed while the command waited changes nothing.
+   */
+  readonly guarded: (
+    change: Connections.Change,
+    caller: string,
+    guard: () => boolean,
+  ) => Effect.Effect<Connections.Changed, Connections.Rejected | Stale>
   readonly list: Effect.Effect<ReadonlyArray<Connections.Listed>>
   readonly check: (
     name: string | undefined,
   ) => Effect.Effect<ReadonlyArray<Connections.Checked>, Connections.Rejected>
 }
+
+/** A guarded change whose guard no longer held when its turn in the queue came. Nothing was changed. */
+export class Stale extends Data.TaggedError("Stale")<{}> {}
 
 /** The name of the connection a row of shard state belongs to, which is its key up to the first `/`. */
 const ownerOf = (key: string): string => key.slice(0, key.indexOf("/"))
@@ -75,8 +88,13 @@ export const make = Effect.fnUntraced(function* <R>(
   >()
   let connections = running.list()
 
-  const made = (change: Connections.Change, application: string | undefined) =>
+  const made = (
+    change: Connections.Change,
+    application: string | undefined,
+    guard: () => boolean,
+  ) =>
     Effect.gen(function* () {
+      if (!guard()) return yield* new Stale()
       // The list may have moved while the platform was asked, so the change is made on the list as it stands now.
       const next = yield* Connections.apply(connections, change)
       if (next.changed) {
@@ -105,34 +123,46 @@ export const make = Effect.fnUntraced(function* <R>(
         : { changed: next.changed, application }
     })
 
+  const run = (
+    change: Connections.Change,
+    caller: string,
+    guard: () => boolean,
+  ) =>
+    Effect.gen(function* () {
+      // The platform is asked before the change takes its place, so the queue is never held while chad waits on it.
+      const checked = yield* Connections.prepare(connections, change)
+      return yield* queue.run(made(change, checked.application, guard))
+    }).pipe(
+      Effect.onExit((exit) => {
+        const command = Connections.commandOf(change)
+        const fields = { connection: change.name }
+        if (Exit.isSuccess(exit)) {
+          return Queue.ran(
+            command,
+            caller,
+            exit.value.changed ? "changed" : "unchanged",
+            fields,
+          )
+        }
+        const error = Exit.findErrorOption(exit)
+        return error._tag === "Some"
+          ? Queue.ran(command, caller, "refused", {
+              ...fields,
+              reason:
+                error.value._tag === "Stale" ? "stale" : error.value.reason,
+            })
+          : Effect.void
+      }),
+      Effect.provide(context),
+    )
+
   const commands: Commands = {
+    // A change with no guard is never stale.
     change: (change, caller) =>
-      Effect.gen(function* () {
-        // The platform is asked before the change takes its place, so the queue is never held while chad waits on it.
-        const checked = yield* Connections.prepare(connections, change)
-        return yield* queue.run(made(change, checked.application))
-      }).pipe(
-        Effect.onExit((exit) => {
-          const command = Connections.commandOf(change)
-          const fields = { connection: change.name }
-          if (Exit.isSuccess(exit)) {
-            return Queue.ran(
-              command,
-              caller,
-              exit.value.changed ? "changed" : "unchanged",
-              fields,
-            )
-          }
-          const error = Exit.findErrorOption(exit)
-          return error._tag === "Some"
-            ? Queue.ran(command, caller, "refused", {
-                ...fields,
-                reason: error.value.reason,
-              })
-            : Effect.void
-        }),
-        Effect.provide(context),
+      run(change, caller, () => true).pipe(
+        Effect.catchTag("Stale", (stale) => Effect.die(stale)),
       ),
+    guarded: run,
     list: Effect.sync(() => Connections.listed(connections)),
     check: (name) =>
       Connections.check(connections, volume.data, name).pipe(

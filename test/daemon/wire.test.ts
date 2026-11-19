@@ -92,6 +92,7 @@ test("in a server thread the answer is a plain post with no pings, and the conne
     "status",
     "model",
     "safe",
+    "mention",
   ])
 })
 
