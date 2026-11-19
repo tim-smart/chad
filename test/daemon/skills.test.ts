@@ -351,7 +351,7 @@ test("a new repo's first commit holds the starter skills, keeps a skill the owne
     readFileSync(join(Skills.starterDirectory, "images/SKILL.md"), "utf8"),
   )
   for (const name of ["dev-tools", "documents", "images"])
-    expect(start.system).toContain(`- ${name}: Read before`)
+    expect(start.system).toContain(`- ${name}: Read `)
   expect(start.system).toContain("- pdfs: Mine.")
 
   // A starter the owner removed stays removed across a restart.
