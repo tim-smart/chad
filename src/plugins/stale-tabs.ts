@@ -63,7 +63,7 @@ const sweeper = Effect.gen(function* () {
   const config = yield* Config.all({
     url: Config.String("url"),
     maxAge: Config.Duration("maxAge").pipe(
-      Config.withDefault(Duration.hours(12)),
+      Config.withDefault(Duration.hours(1)),
     ),
   })
   const base = config.url.replace(/\/+$/, "")

@@ -181,7 +181,7 @@ An HTTP server that signs in with OAuth needs an `oauth` key. Without the key ch
 
 - `"enabled": false` turns a plugin off and keeps its data and timers, which are held. This works for bundled plugins too. Turning a plugin back on fires each overdue held timer once, and the apply says how many.
 - The bundled plugin `asphodel`, chad's long-term memory, is off until its entry says `"enabled": true`. Its `settings` are the asphodel daemon's `url` and `"token": "${ASPHODEL_TOKEN}"`, with the token saved as the secret `ASPHODEL_TOKEN`.
-- The bundled plugin `stale-tabs` is also off until its entry says `"enabled": true`. It closes the tabs of the shared Chromium whose URL has not changed for `maxAge` (default `"12 hours"`), and always leaves one open. Its `url` setting is Chromium's DevTools address, `http://172.30.72.10:9223` in the Compose deploy.
+- The bundled plugin `stale-tabs` is also off until its entry says `"enabled": true`. It closes the tabs of the shared Chromium whose URL has not changed for `maxAge` (default `"1 hour"`), and always leaves one open. Its `url` setting is Chromium's DevTools address, `http://172.30.72.10:9223` in the Compose deploy.
 - An unknown key or an entry that names no plugin fails the apply.
 - An empty string reads as missing. A `${NAME}` found nowhere fails the plugin's load with an error that names it.
 - `${NAME:-default}` gives a default. To write a literal `${X}`, write `${CHAD_DOLLAR:-$}{X}`.
