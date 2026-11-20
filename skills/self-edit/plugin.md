@@ -29,7 +29,7 @@ A plugin is one TypeScript file, `plugins/<name>.ts`, or a directory with `plugi
 // plugins/notes.ts
 //
 // Settings (under plugins.notes.settings in chad.json):
-//   url   string   the notes service's base URL, required
+//   url   string   the notes service's search URL, required
 import { Plugin } from "chad"
 import { Config, Context, Effect, Layer, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
@@ -44,7 +44,6 @@ class Api extends Context.Service<
   Api,
   {
     search(query: string): Effect.Effect<string, NotesError>
-    recent: Effect.Effect<string, NotesError>
   }
 >()("plugins/notes/Api") {
   static readonly layer = Layer.effect(
@@ -53,23 +52,15 @@ class Api extends Context.Service<
       const url = yield* Config.String("url")
       const client = yield* HttpClient.HttpClient
 
-      const toError = (cause: unknown) =>
-        new NotesError({ message: String(cause) })
-
-      const search = Effect.fn("Api.search")(function* (query: string) {
-        const response = yield* client.get(`${url}/search`, {
-          urlParams: { q: query },
-        })
-        return yield* response.text
-      }, Effect.mapError(toError))
-
-      // The titles of the notes edited today, one per line.
-      const recent = client.get(`${url}/recent`).pipe(
-        Effect.flatMap((response) => response.text),
-        Effect.mapError(toError),
+      const search = Effect.fn("Api.search")(
+        function* (query: string) {
+          const response = yield* client.get(url, { urlParams: { q: query } })
+          return yield* response.text
+        },
+        Effect.mapError((cause) => new NotesError({ message: String(cause) })),
       )
 
-      return Api.of({ search, recent })
+      return Api.of({ search })
     }),
   )
 }
@@ -96,16 +87,7 @@ const NotesTools = Plugin.toolkit(Notes).pipe(
   Layer.provide(Api.layer),
 )
 
-// The chunk is state that changes between turns. How to use notesSearch is in its description.
-const Chunk = Plugin.prompt(() =>
-  Effect.gen(function* () {
-    const api = yield* Api
-    const titles = yield* api.recent
-    return titles === "" ? "" : `Notes the owner edited today:\n${titles}`
-  }),
-).pipe(Layer.provide(Api.layer))
-
-export default Plugin.make(NotesTools, Chunk)
+export default Plugin.make(NotesTools)
 ```
 
 - Every contribution function returns a Layer. Give it what it needs with `Layer.provide`, then hand every Layer to `Plugin.make`.
@@ -142,9 +124,9 @@ export default Plugin.make(NotesTools, Chunk)
 
 ## Prompt chunks
 
-- A chunk is sent in every turn of every session, so it is for text that changes between turns or sessions, such as state the plugin fetches. Fixed text on how to use the plugin's tools goes in the tools' descriptions, and longer reference in a skill.
+- A chunk is sent in every turn of every session, so it is for state every turn needs. Fixed text on how to use the plugin's tools goes in the tools' descriptions, and longer reference in a skill.
 - `Plugin.prompt(render)` is rendered before every turn, inside 2 seconds. An empty string means no chunk. A render that fails leaves the session with the text it last saw.
-- If a chunk has to stay the same for a whole session, keep the text in the store and return what you kept.
+- If a chunk has to stay the same for a whole session, keep the text in the store and return what you kept, as `/data/repo/examples/asphodel/` does.
 - A chunk that changes during a session reaches it as an update message.
 
 ## Hooks
@@ -264,7 +246,7 @@ The list below names where to look. It is not a source of rules. A finding has t
 6. Effect's modules in place of their plain JavaScript versions: HttpClient, not fetch; FileSystem, not node:fs; DateTime and Clock, not Date; Effect.sleep and Schedule, not setTimeout; no async functions or Promises where an Effect does.
 7. Effect 4 names only. An import from @effect/platform or another Effect 3 name is a finding, checked against the .d.ts files.
 8. Settings are read with Config, a secret with Config.Redacted. A setting has a default where one makes sense, and the comment at the top of the file lists every setting.
-9. The rules of plugin.md: a tool's description says what it does and when to call it; a tool with side effects is short or safe to repeat; what must last goes in the store, decoded with a schema that accepts the old shape, and old keys are pruned; hooks fit their time budgets; a prompt chunk renders text that changes, and fixed text on how to use the tools is in their descriptions or a skill; a prompt for a turn the plugin starts says what started it and that nobody is there to answer questions.
+9. The rules of plugin.md: a tool's description says what it does and when to call it; a tool with side effects is short or safe to repeat; what must last goes in the store, decoded with a schema that accepts the old shape, and old keys are pruned; hooks fit their time budgets; a prompt chunk holds state every turn needs, not fixed text on how to use the tools; a prompt for a turn the plugin starts says what started it and that nobody is there to answer questions.
 Report anything else you see that is a bug, too.
 
 Report each finding on its own, as:
