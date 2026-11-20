@@ -1,4 +1,4 @@
-// One of the six deliberate mistakes a plugin can make. It must fail to compile.
+// A deliberate mistake a plugin can make. It must fail to compile.
 import { ChatInteraction } from "effect/chat"
 import { Effect } from "effect"
 import { Plugin } from "chad"

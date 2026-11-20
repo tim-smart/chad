@@ -13,7 +13,7 @@ import sendMessage from "../../dist/plugins/send-message.js"
 import * as Discord from "../support/discord.ts"
 import { owner, scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
-import { eventually, posted, prompted, rows, says } from "../support/owner.ts"
+import { posted, prompted, rows, says } from "../support/owner.ts"
 
 const tool = <const Name extends string>(name: Name) =>
   Toolkit.make(
@@ -339,12 +339,8 @@ test("a plugin's button runs its handler for an owner's click and not for anyone
     ),
   )
   const running = await scenario({ plugins: [{ name: "deploy", plugin }] })
+  await running.logged("boot.ready")
   const thread = await running.fakes.chat.makeThread("direct")
-  // The plugin's `Chat` answers every property, `then` too, so the wait reads whether it is set and not the value.
-  await eventually(
-    () => chat !== undefined,
-    (built) => built,
-  )
   const message = await Effect.runPromise(
     chat!.post(thread, {
       markdown: "Deploy 42 is ready.",
