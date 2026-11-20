@@ -24,13 +24,14 @@ A check with no recorded result has not run.
 | 10. OAuth sign-in to an MCP server that registers chad itself | A server with `"oauth": {}` needs login, the owner signs in from Discord, and the sign-in outlives a restart.                              | not run |
 | 11. OAuth sign-in with a client you registered                | `chad mcp login` signs in with your client id, secret, redirect URL and scopes, and registers no client.                                   | not run |
 | 12. A one-off value through a form                            | Only the script that called `requestOnce` gets the owner's value, and the log and the chat show a mask.                                    | not run |
+| 13. Antigravity sign-in (optional)                            | `chad login antigravity` signs in with a real Google account, lists its models, and a turn answers on one of them.                         | not run |
 | D1. Publish the image                                         | The image builds and pushes to `ghcr.io/tim-smart/chad`.                                                                                   | not run |
 | D2. The volume's filesystem                                   | The volume's filesystem is one chad's lock and SQLite are safe on.                                                                         | not run |
 | D3. asphodel for real                                         | The asphodel plugin talks to a real asphodel daemon with its token.                                                                        | not run |
 | D4. Backup and restore                                        | chad's tar and asphodel's backup restore onto two fresh volumes, and the restored pair recalls a memory saved before the backup.           | not run |
 | D5. The cloud deployment                                      | [`deploy/install.sh`](../deploy/install.sh) puts a Droplet on your tailnet with the three containers, and `install.sh lockdown` closes it. | not run |
 
-Checks 1 to 12 are the hand checks and the Codex checks. D1 to D5 are deployment checks. None of them has been run
+Checks 1 to 13 are the hand checks and the Codex checks. D1 to D5 are deployment checks. None of them has been run
 yet, and the automated suite only runs fakes of Discord, Codex, asphodel and an OAuth MCP server. Part of D5's
 step 1 has been seen, and D5 says which.
 
@@ -239,6 +240,20 @@ It goes only into the form, never into a message or a command.
 Passes when the field takes the whole address, the request changes to `Got LIVE_ONCE` and its button disappears,
 chad's answer gives the address's length and shows `[one-off value]` where the address and its code were printed,
 `chad secret list` does not list `LIVE_ONCE`, the grep prints `0`, and no message in the DM shows your value.
+
+## 13. Antigravity sign-in (optional)
+
+Needs a Google account with an Antigravity subscription.
+
+1. Run `chad login antigravity`. Open the link it prints, approve, and paste the code Google shows at the prompt.
+2. Run `chad model antigravity/<model>/low` with one of the model ids step 1 printed.
+3. Send chad a direct message.
+4. Run `chad logs | grep -c -F '<code>'` with the code from step 1, typed in a shell whose history you do not keep.
+5. Run `chad model <the model you had>` and `chad logout antigravity` afterwards, or keep them.
+
+Passes when step 1 prints `chad is signed in to Antigravity.` and at least one model id, step 2 prints that the model
+is now in force, the turn answers with no model error, `chad status` shows the model as logged in, and the grep prints
+`0`.
 
 ## D1. Publish the image
 

@@ -1,3 +1,4 @@
+import { AntigravityAuth } from "clanka/AntigravityAuth"
 import { CodexAuth } from "clanka/CodexAuth"
 import { DeviceCodeHandler } from "clanka/DeviceCodeHandler"
 import { Console, Context, Effect, Option, Result, Stream } from "effect"
@@ -82,7 +83,7 @@ const alone = Effect.fnUntraced(
     }
     yield* Files.writable("model")
     const timings = yield* Timings
-    const { auth, store, handler } = yield* Login.terminal("model")
+    const { auth, antigravity, store, handler } = yield* Login.terminal("model")
     const tried = new Set<string>()
     const prepare = (current: ModelSpec.Settings) =>
       Spec.prepare({
@@ -103,6 +104,7 @@ const alone = Effect.fnUntraced(
       }).pipe(
         Effect.provideContext(
           Context.make(CodexAuth, auth).pipe(
+            Context.add(AntigravityAuth, antigravity),
             Context.add(KeyValueStore.KeyValueStore, store),
             Context.add(DeviceCodeHandler, handler),
           ),

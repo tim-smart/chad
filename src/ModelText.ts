@@ -32,9 +32,19 @@ export const main = (data: string, model: string | undefined) =>
     (stored) => stored ?? model ?? fallback,
   )
 
-/** Whether a setting's provider needs the Codex login: `openai` with no API key. */
-export const needsLogin = (text: string, apiKey: string | undefined) =>
-  text.split("/", 1)[0] === "openai" && apiKey === undefined
+/** The two model logins chad runs: Codex's device code and Antigravity's Google sign-in. */
+export type LoginKind = "codex" | "antigravity"
+
+/** The login a setting's provider needs: Codex for `openai` with no API key, Antigravity for `antigravity`. */
+export const loginOf = (
+  text: string,
+  apiKey: string | undefined,
+): LoginKind | undefined => {
+  const provider = text.split("/", 1)[0]
+  if (provider === "openai" && apiKey === undefined) return "codex"
+  if (provider === "antigravity") return "antigravity"
+  return undefined
+}
 
 /** The word of a flag of `chad model` and `/model` that clears its override. */
 export const clear = "none"

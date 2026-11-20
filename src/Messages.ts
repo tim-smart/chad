@@ -6,6 +6,7 @@ import * as BundledNames from "./BundledNames.ts"
 import * as Connections from "./Connections.ts"
 import type * as Failed from "./daemon/Failed.ts"
 import type { Format } from "./daemon/Format.ts"
+import type { LoginKind } from "./ModelText.ts"
 import type * as Repo from "./Repo.ts"
 
 /** The start-up check found no data directory. */
@@ -467,7 +468,9 @@ export const failedTurn = (
     : reason._tag === "LoginFailed"
       ? reason.reason === "TimedOut"
         ? loginTimedOut
-        : loginFailed(reason.reason)
+        : reason.reason === "SignInNeeded"
+          ? antigravitySignInNeeded
+          : loginFailed(reason.reason)
       : `That turn failed after ${duration(milliseconds)}: ${failedReason(reason)}. The conversation is intact, send a message to carry on.\n${turnLine(format, turn)}`
 
 /** One line of `session_updates`, as the update message reads it. */
@@ -803,16 +806,68 @@ export const loginCliFailed = (reason: string) =>
     ? "chad login: the login timed out, run chad login again"
     : `chad login: the login failed (${reason}), run chad login again`
 
-/** `chad login` once the login completed. */
-export const loggedIn = "chad is logged in to Codex."
+/** `chad login` once the login completed, and `chad setup` with a login stored. */
+export const loggedIn = (login: LoginKind) =>
+  login === "codex"
+    ? "chad is logged in to Codex."
+    : "chad is signed in to Antigravity."
 
 /** `chad login` when the stored token is good, which a new login does not replace. */
 export const alreadyLoggedIn =
   "chad is already logged in to Codex. To log in with another account, run chad logout and then chad login."
 
 /** `chad logout`, which stops no running turn. */
-export const loggedOut =
-  "chad is logged out of Codex. A turn that is running is not stopped: it finishes on the connection it has, and the next one asks for a login."
+export const loggedOut = (login: LoginKind) =>
+  login === "codex"
+    ? "chad is logged out of Codex. A turn that is running is not stopped: it finishes on the connection it has, and the next one asks for a login."
+    : "chad is signed out of Antigravity. A turn that is running is not stopped, and the next one fails until you run chad login antigravity."
+
+/** A model call needed the Antigravity sign-in while chad has none, which only `chad login antigravity` makes. */
+export const antigravityNotSignedIn =
+  "chad is not signed in to Antigravity. Run chad login antigravity in a terminal."
+
+/** A turn's message when it needed the Antigravity sign-in and chad has none. */
+export const antigravitySignInNeeded =
+  "chad is not signed in to Antigravity. Run `chad login antigravity` in a terminal, then send a message to try again."
+
+/** What `chad login antigravity` prints before it reads the code. */
+export const antigravityLoginOpen = (url: string) =>
+  `To sign chad in to Antigravity, open this link and approve with your Google account:\n${url}\nGoogle then shows a code. Paste it below. The link is good for 15 minutes.`
+
+/** The prompt `chad login antigravity` reads the code at. */
+export const antigravityLoginPrompt = "Paste the code (it is not shown)"
+
+/** `chad login antigravity` given no code. */
+export const antigravityLoginNoCode = "chad login: no code on stdin"
+
+/** An Antigravity sign-in that Google or Cloud Code refused. */
+export const antigravityLoginFailed = (reason: string) =>
+  `chad login: the Antigravity sign-in failed (${firstLine(reason)}), run chad login antigravity again`
+
+/** An Antigravity sign-in whose time ran out. */
+export const antigravityLoginTimedOut =
+  "chad login: the Antigravity sign-in timed out, run chad login antigravity again"
+
+/** An Antigravity sign-in that a newer one or `chad logout` ended. */
+export const antigravityLoginReplaced =
+  "chad login: this Antigravity sign-in was replaced by a newer one or ended by chad logout. Run chad login antigravity again."
+
+/** A code with no Antigravity sign-in waiting for it. */
+export const antigravityLoginNotStarted =
+  "chad login: no Antigravity sign-in is waiting for a code. Run chad login antigravity again."
+
+/** `chad login antigravity` once it completed, with the account's models, which only the account knows. */
+export const antigravitySignedIn = (
+  models: ReadonlyArray<string> | undefined,
+) =>
+  [
+    "chad is signed in to Antigravity.",
+    models === undefined
+      ? "Its models could not be listed. Run chad login antigravity again to see them."
+      : models.length === 0
+        ? "The account has no models."
+        : `The account's models, for chad model antigravity/<model>:\n${models.map((model) => `  ${model}`).join("\n")}`,
+  ].join("\n")
 
 /** A hook ran past its budget, as the first line of its failure. */
 export const hookTimedOut = "ran past its budget"
@@ -1754,12 +1809,15 @@ export const setupOwnersKept = (
 export const setupTimezonePrompt = (zone: string) =>
   `Your timezone (press Enter to keep ${zone})`
 
-export const setupLoginOffer = "Log chad in to Codex now?"
+export const setupLoginOffer = (login: LoginKind) =>
+  login === "codex"
+    ? "Log chad in to Codex now?"
+    : "Sign chad in to Antigravity now?"
 
-export const setupLoginSkipped =
-  "The Codex login is skipped. Run chad login when you want it."
-
-export const setupLoggedIn = "chad is logged in to Codex."
+export const setupLoginSkipped = (login: LoginKind) =>
+  login === "codex"
+    ? "The Codex login is skipped. Run chad login when you want it."
+    : "The Antigravity sign-in is skipped. Run chad login antigravity when you want it."
 
 export const setupNeeded =
   "chad has no chat connection. Add one with chad connection add."

@@ -99,6 +99,7 @@ export const setup = Command.make(
     if ((yield* Daemon.lock) === "free") yield* Files.writable(command)
     const current = (yield* listed).find(({ kind }) => kind === "discord")
     const login = yield* Account.fromFiles
+    const kind = (yield* Account.model).login ?? "codex"
 
     // With no terminal, an answer that is neither given nor stored fails before anything changes.
     if (!terminal) {
@@ -232,18 +233,19 @@ export const setup = Command.make(
     }
 
     // The model login, which `--skip-login` skips.
-    if (skipLogin) return yield* Console.log(Messages.setupLoginSkipped)
+    if (skipLogin) return yield* Console.log(Messages.setupLoginSkipped(kind))
     if (login.login === "not-needed")
       return yield* Console.log(Messages.loginNotNeeded(login.spec))
     if (login.login === "logged-in")
-      return yield* Console.log(Messages.setupLoggedIn)
+      return yield* Console.log(Messages.loggedIn(kind))
     const now = yield* ask(
-      Prompt.Confirm({ message: Messages.setupLoginOffer, initial: true }),
+      Prompt.Confirm({
+        message: Messages.setupLoginOffer(kind),
+        initial: true,
+      }),
     )
-    if (!now) return yield* Console.log(Messages.setupLoginSkipped)
-    return yield* (yield* Daemon.lock) === "held"
-      ? Login.throughDaemon
-      : Login.alone
+    if (!now) return yield* Console.log(Messages.setupLoginSkipped(kind))
+    return yield* Login.loginTo(kind)
   }),
 ).pipe(
   Command.withDescription(

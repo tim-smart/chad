@@ -21,7 +21,9 @@ import { SocketServer } from "effect/socket"
 import * as Messages from "../Messages.ts"
 import * as ModelSpec from "../ModelSpec.ts"
 import * as Paths from "../Paths.ts"
+import type { LoginKind } from "../ModelText.ts"
 import {
+  AntigravityLoginFailed,
   type HoldEvent,
   type LoginEvent,
   type RepoEvent,
@@ -39,6 +41,7 @@ import {
 } from "../Rpcs.ts"
 import * as Status from "../Status.ts"
 import * as Version from "../Version.ts"
+import type { AntigravityLogin } from "./AntigravityLogin.ts"
 import type * as Apply from "./Apply.ts"
 import type { Commands } from "./Connections.ts"
 import * as Filesystem from "./Filesystem.ts"
@@ -114,22 +117,30 @@ export interface State {
 /** What `chad login`, `chad logout` and `chad status` reach of the model in the daemon. */
 export interface Account {
   readonly login: Login.Login["Service"]
+  readonly antigravity: AntigravityLogin["Service"]
   readonly models: Model.Models["Service"]
-  /** The main setting in force, and whether its provider needs the Codex login. */
-  readonly model: () => { readonly spec: string; readonly needsLogin: boolean }
-  /** Whether a Codex token is stored. */
-  readonly stored: Effect.Effect<boolean>
+  /** The main setting in force, and the login its provider needs. */
+  readonly model: () => {
+    readonly spec: string
+    readonly login: LoginKind | undefined
+  }
+  /** Whether a login's token is stored. */
+  readonly stored: (login: LoginKind) => Effect.Effect<boolean>
 }
+
+/** Whether a login waits on the owner. */
+export const pending = (account: Account, login: LoginKind) =>
+  login === "codex" ? account.login.pending() : account.antigravity.pending()
 
 /** The model and its login state, as `chad status` shows them. */
 export const modelState = (account: Account): Effect.Effect<ModelState> =>
   Effect.gen(function* () {
-    const { spec, needsLogin } = account.model()
-    if (!needsLogin) return { spec, login: "not-needed" } as const
-    if (account.login.pending()) return { spec, login: "pending" } as const
+    const { spec, login } = account.model()
+    if (login === undefined) return { spec, login: "not-needed" } as const
+    if (pending(account, login)) return { spec, login: "pending" } as const
     return {
       spec,
-      login: (yield* account.stored) ? "logged-in" : "logged-out",
+      login: (yield* account.stored(login)) ? "logged-in" : "logged-out",
     } as const
   })
 
@@ -427,21 +438,18 @@ const handlers = (state: State) => {
       Stream.callback<LoginEvent, LoginFailed>((queue) =>
         tracked(
           Effect.gen(function* () {
-            const { login, model } = yield* account
-            const { spec, needsLogin } = model()
-            const outcome = needsLogin
-              ? yield* login.login((prompt) =>
-                  Mailbox.offer(queue, { _tag: "Code", ...prompt }).pipe(
-                    Effect.asVoid,
-                  ),
-                )
-              : "not-needed"
+            const { login } = yield* account
+            const outcome = yield* login.login((prompt) =>
+              Mailbox.offer(queue, { _tag: "Code", ...prompt }).pipe(
+                Effect.asVoid,
+              ),
+            )
             yield* Queue.ran(
               "login",
               Queue.caller(headers[sessionHeader]),
               outcome === "logged-in" ? "changed" : "unchanged",
             )
-            yield* Mailbox.offer(queue, { _tag: "Ended", outcome, spec })
+            yield* Mailbox.offer(queue, { _tag: "Ended", outcome })
             yield* Mailbox.end(queue)
           }).pipe(
             Effect.catch((error) =>
@@ -506,18 +514,63 @@ const handlers = (state: State) => {
         error,
         caller: Queue.caller(headers[sessionHeader]),
       }),
-    Logout: (_, { headers }) =>
+    // A sign-in that a CLI killed after this call leaves waiting runs on until a newer one or the timeout ends it.
+    AntigravityLoginStart: () =>
       tracked(
         Effect.gen(function* () {
-          const { login, model } = yield* account
+          const { antigravity } = yield* account
+          return { url: yield* antigravity.start }
+        }).pipe(
+          Effect.mapError(
+            (error) => new AntigravityLoginFailed({ message: error.message }),
+          ),
+        ),
+      ),
+    AntigravityLoginFinish: ({ code }, { headers }) =>
+      tracked(
+        Effect.gen(function* () {
+          const { antigravity } = yield* account
+          const models = yield* antigravity
+            .finish(code)
+            .pipe(
+              Effect.tapError(() =>
+                Queue.ran(
+                  "login",
+                  Queue.caller(headers[sessionHeader]),
+                  "refused",
+                  { login: "antigravity" },
+                ),
+              ),
+            )
+          yield* Queue.ran(
+            "login",
+            Queue.caller(headers[sessionHeader]),
+            "changed",
+            { login: "antigravity" },
+          )
+          return { models }
+        }).pipe(
+          Effect.mapError(
+            (error) => new AntigravityLoginFailed({ message: error.message }),
+          ),
+        ),
+      ),
+    ModelLogin: () =>
+      tracked(Effect.map(account, (current) => current.model())),
+    Logout: ({ login }, { headers }) =>
+      tracked(
+        Effect.gen(function* () {
+          const current = yield* account
           // A stored token is cleared whatever the model in force is.
-          yield* login.logout
+          yield* login === "codex"
+            ? current.login.logout
+            : current.antigravity.logout
           yield* Queue.ran(
             "logout",
             Queue.caller(headers[sessionHeader]),
             "changed",
+            { login },
           )
-          return { spec: model().spec }
         }),
       ),
     // A killed CLI ends this stream, and a change that has not reached its store with it. A login it started runs on

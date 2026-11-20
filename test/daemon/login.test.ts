@@ -84,7 +84,7 @@ test("a turn with no login posts one code in its own thread, another thread's tu
   ])
   const ended = await joined.done
   expect(ended.code).toBe(0)
-  expect(ended.stdout).toBe(`${prompt(1)}\n${Messages.loggedIn}\n`)
+  expect(ended.stdout).toBe(`${prompt(1)}\n${Messages.loggedIn("codex")}\n`)
   // One code for both turns and both CLIs, and no thread but the first saw it.
   expect(model.deviceCodes()).toBe(1)
   await lines(running, "model.logged-in", 1)
@@ -164,7 +164,7 @@ test("with no daemon chad login runs the device flow itself and stores a private
   model.approve()
   expect(await login).toEqual({
     code: 0,
-    stdout: `${prompt(1)}\n${Messages.loggedIn}\n`,
+    stdout: `${prompt(1)}\n${Messages.loggedIn("codex")}\n`,
     stderr: "",
   })
   expect(statSync(tokenFile(data)).mode & 0o777).toBe(0o600)

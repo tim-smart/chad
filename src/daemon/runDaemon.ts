@@ -4,6 +4,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Agent from "clanka/Agent"
 import * as AgentExecutor from "clanka/AgentExecutor"
 import * as McpServers from "clanka/McpServers"
+import { AntigravityAuth } from "clanka/AntigravityAuth"
 import { CodexAuth } from "clanka/CodexAuth"
 import { DeviceCodeHandler } from "clanka/DeviceCodeHandler"
 import {
@@ -52,6 +53,7 @@ import * as Apply from "./Apply.ts"
 import * as Loader from "./Loader.ts"
 import * as Handler from "./Handler.ts"
 import * as Logger from "./Logger.ts"
+import * as AntigravityLogin from "./AntigravityLogin.ts"
 import * as Login from "./Login.ts"
 import * as Mcp from "./Mcp.ts"
 import * as McpOAuth from "./McpOAuth.ts"
@@ -539,10 +541,20 @@ const boot = Effect.fnUntraced(function* (
       notices.clear(Notices.loggedOutKey),
     ),
   }).pipe(Effect.provide(Context.merge(world, tokens)))
+  // The one Antigravity sign-in, which only `chad login antigravity` starts.
+  const antigravity = yield* AntigravityLogin.make({
+    timeout: inputs.timings.modelLogin,
+    listing: inputs.timings.modelTrial,
+    signedIn: Effect.andThen(
+      notices.clear(Notices.usageLimitKey),
+      notices.clear(Notices.loggedOutKey),
+    ),
+  }).pipe(Effect.provide(Context.merge(world, tokens)))
   const requirements = Context.mergeAll(
     world,
     tokens,
     Context.make(CodexAuth, login.auth),
+    Context.make(AntigravityAuth, antigravity.auth),
     Context.make(DeviceCodeHandler, Login.otherLogins),
   )
   const models = Model.make({
@@ -555,19 +567,19 @@ const boot = Effect.fnUntraced(function* (
   })
   const account: Server.Account = {
     login,
+    antigravity,
     models,
     model: () => {
       const current = models.settings()
       return {
         spec: Model.text(current),
-        needsLogin:
-          Result.isSuccess(current.main) &&
-          Model.needsLogin(current.main.success),
+        login: Result.isSuccess(current.main)
+          ? Model.loginOf(current.main.success)
+          : undefined,
       }
     },
-    stored: TokenStore.codexStored(volume.data).pipe(
-      Effect.provideContext(world),
-    ),
+    stored: (kind) =>
+      TokenStore.stored(volume.data, kind).pipe(Effect.provideContext(world)),
   }
   yield* Deferred.succeed(state.account, account)
   state.held = notices.held
@@ -669,8 +681,12 @@ const boot = Effect.fnUntraced(function* (
           Layer.succeed(Plugins.Plugins, plugins),
           Layer.succeed(SessionEntity.Support, {
             loggedOut: Effect.gen(function* () {
-              const { needsLogin } = account.model()
-              return needsLogin && !login.pending() && !(yield* account.stored)
+              const kind = account.model().login
+              return (
+                kind !== undefined &&
+                !Server.pending(account, kind) &&
+                !(yield* account.stored(kind))
+              )
             }),
             owners: (connection) =>
               running.list().find(({ name }) => name === connection)?.owners ??

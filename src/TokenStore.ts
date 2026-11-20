@@ -2,12 +2,14 @@ import { join } from "node:path"
 import { Effect, FileSystem, Layer, Path } from "effect"
 import { KeyValueStore } from "effect/persistence"
 import type { PlatformError } from "effect/PlatformError"
+import type { LoginKind } from "./ModelText.ts"
 import * as Paths from "./Paths.ts"
 
 /**
  * The token store of the model logins: Effect's file system `KeyValueStore` in `secrets/auth/`, one file per key.
  * The daemon and the CLI both open it, so a login with no daemon
- * writes the same files. clanka's Codex login keeps its token under `codex.auth/`.
+ * writes the same files. clanka's Codex login keeps its token under `codex.auth/`, and its Antigravity sign-in under
+ * `antigravity.auth/`.
  *
  * The store writes a file with the process umask, which leaves a token readable by others under 022. Each write is
  * followed by a chmod to 0600 and the directory gets 0700, and the umask is never changed, because it is also the
@@ -66,15 +68,15 @@ export const layer = (
     }),
   )
 
-/** The file that holds the Codex login's token, under clanka's key `codex.auth/token`. */
-export const codexFile = (data: string): string =>
-  join(Paths.auth(data), encodeURIComponent("codex.auth/token"))
+/** The file that holds a login's token, under clanka's key `codex.auth/token` or `antigravity.auth/token`. */
+export const file = (data: string, login: LoginKind): string =>
+  join(Paths.auth(data), encodeURIComponent(`${login}.auth/token`))
 
-/** Whether a Codex token is stored, which is what `chad status` calls logged in. It opens no store. */
-export const codexStored = Effect.fnUntraced(
-  function* (data: string) {
+/** Whether a login's token is stored, which is what `chad status` calls logged in. It opens no store. */
+export const stored = Effect.fnUntraced(
+  function* (data: string, login: LoginKind) {
     const fs = yield* FileSystem.FileSystem
-    return yield* fs.exists(codexFile(data))
+    return yield* fs.exists(file(data, login))
   },
   Effect.orElseSucceed(() => false),
 )
