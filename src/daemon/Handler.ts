@@ -50,6 +50,7 @@ import * as Model from "./Model.ts"
 import type * as Once from "./Once.ts"
 import { Message, PluginTurn, Session } from "./SessionEntity.ts"
 import * as Notices from "./Notices.ts"
+import * as Plugins from "./Plugins.ts"
 import { Timings } from "../Timings.ts"
 import * as Sessions from "./Sessions.ts"
 import * as SlashCommands from "./SlashCommands.ts"
@@ -653,19 +654,53 @@ export const unusable = (
  * - A slash command does what the typed command of its name does, and gets a private answer that only says it runs.
  *   `/new` and `/stop` need the thread to have a session, and `/new` starts the new one at the thread's newest
  *   message.
+ * - Any other click or submit goes to the plugin that registered its id with `Plugin.interactions`, and only when an
+ *   owner sent it. An id no one holds is answered and logged.
  */
 export const interactions = (connection: Live, once?: Once.Daemon) =>
-  ChatInteraction.group(
-    StopButton,
-    SecretButton,
-    SecretForm,
-    OnceButton,
-    OnceForm,
-    McpLoginButton,
-    McpLoginPaste,
-    McpLoginForm,
-  )
-    .merge(SlashCommands.all)
+  Layer.effect(
+    ChatInteraction.Handler,
+    Effect.gen(function* () {
+      const chad = yield* ChatInteraction.Handler
+      const plugins = (yield* Plugins.Plugins).interactions
+      const routed =
+        <E extends { readonly id: string; readonly userId: string }, A>(
+          own: (event: E) => Effect.Effect<A>,
+          plugin: (event: E) => Effect.Effect<A>,
+          notOwner: A,
+        ) =>
+        (event: E) =>
+          ownIds.has(event.id)
+            ? own(event)
+            : connection.owners().includes(event.userId)
+              ? plugin(event)
+              : Effect.succeed(notOwner)
+      return ChatInteraction.Handler.of({
+        ...chad,
+        click: routed(chad.click, plugins.click, ChatInteraction.ack),
+        submit: routed(chad.submit, plugins.submit, ChatInteraction.close),
+      })
+    }),
+  ).pipe(Layer.provide(own(connection, once)))
+
+/** chad's own clicks, forms and slash commands. */
+const ownGroup = ChatInteraction.group(
+  StopButton,
+  SecretButton,
+  SecretForm,
+  OnceButton,
+  OnceForm,
+  McpLoginButton,
+  McpLoginPaste,
+  McpLoginForm,
+).merge(SlashCommands.all)
+
+/** The ids chad's own clicks, forms and slash commands hold, which no plugin may take. */
+export const ownIds: ReadonlySet<string> = new Set(ownGroup.definitions.keys())
+
+/** The handlers of chad's own clicks, forms and slash commands, behind the router of `interactions`. */
+const own = (connection: Live, once?: Once.Daemon) =>
+  ownGroup
     .toLayer(
       Effect.gen(function* () {
         const chat = yield* Chat.Chat

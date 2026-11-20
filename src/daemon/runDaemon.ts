@@ -631,6 +631,17 @@ const boot = Effect.fnUntraced(function* (
     active: (name) => host?.active(name) ?? false,
     whenActive: (name) =>
       Effect.flatMap(Deferred.await(loaded), (host) => host.whenActive(name)),
+    // A click for a plugin that comes before the plugins are up waits for them.
+    interactions: {
+      click: (event) =>
+        Effect.flatMap(Deferred.await(loaded), (host) =>
+          host.interactions.click(event),
+        ),
+      submit: (event) =>
+        Effect.flatMap(Deferred.await(loaded), (host) =>
+          host.interactions.submit(event),
+        ),
+    },
   }
   // A stop abandons a swap and an MCP rebuild in progress.
   state.abandon = Effect.andThen(plugins.abandon, mcp.abandon)
@@ -814,6 +825,7 @@ const boot = Effect.fnUntraced(function* (
     unloadable: fromRepo.skipped.filter(({ name }) => !off.has(name)),
     lookup: PluginSettings.lookup(volume.data, environment.variables, fs),
     scrubBuildError,
+    reserved: Handler.ownIds,
     owners: () =>
       running
         .list()
