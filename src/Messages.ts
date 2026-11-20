@@ -825,6 +825,10 @@ export const hookFailing = (plugin: string, hook: string, first: string) =>
 export const toolTaken = (name: string, holder: string) =>
   `The tool name "${name}" is already used by ${holder}.`
 
+/** The load error of a plugin whose button, select or form id another holds. */
+export const interactionTaken = (id: string, holder: string) =>
+  `The interaction id "${id}" is already used by ${holder}.`
+
 /** A plugin-started turn whose thread is gone. */
 export const threadGone = (plugin: string, label: string) =>
   `\`${plugin}\` could not run \`${label}\` because its thread is gone.`

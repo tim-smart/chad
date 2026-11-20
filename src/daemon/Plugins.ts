@@ -17,7 +17,7 @@ import {
   Scope,
 } from "effect"
 import { Toolkit } from "effect/ai"
-import { Chat } from "effect/chat"
+import { Chat, ChatInteraction } from "effect/chat"
 import { HttpClient } from "effect/http"
 import { KeyValueStore } from "effect/persistence"
 import { SqlClient } from "effect/sql"
@@ -106,7 +106,7 @@ export type Retired = "changed" | "removed" | "safe"
 interface Call {
   readonly fiber: Fiber.Fiber<unknown, unknown>
   /** What it is, for the log line of one that does not stop. */
-  readonly kind: "tool" | "hook"
+  readonly kind: "tool" | "hook" | "interaction"
   readonly label: string
   /** Set once the drain interrupted it. */
   cut: boolean
@@ -267,8 +267,29 @@ export class Plugins extends Context.Service<
      * is in the middle of a swap waits here, inside its request.
      */
     readonly whenActive: (name: string) => Effect.Effect<void>
+    /**
+     * Runs the handler a plugin registered for the click's or submit's id, on the version loaded when it arrives,
+     * and gives its answer. The caller checks that an owner sent it. Before the plugins are up, or while a swap of the
+     * plugin runs, it waits for the new version. An id no plugin holds, a handler that fails and a value that no longer
+     * decodes are answered `ack`, or `close` for a submit.
+     */
+    readonly interaction: (
+      event:
+        | ChatInteraction.ButtonClicked
+        | ChatInteraction.SelectChanged
+        | ChatInteraction.ModalSubmitted,
+    ) => Effect.Effect<ChatInteraction.ClickReply | ChatInteraction.SubmitReply>
   }
 >()("chad/Plugins") {}
+
+/** The answer to a click or a submit that runs no handler. */
+export const unanswered = (
+  event:
+    | ChatInteraction.ButtonClicked
+    | ChatInteraction.SelectChanged
+    | ChatInteraction.ModalSubmitted,
+): ChatInteraction.ClickReply | ChatInteraction.SubmitReply =>
+  event._tag === "ModalSubmitted" ? ChatInteraction.close : ChatInteraction.ack
 
 /** The host with no plugin, for a daemon that is given none. */
 export const empty: Plugins["Service"] = {
@@ -300,6 +321,7 @@ export const empty: Plugins["Service"] = {
   abandon: Effect.void,
   active: () => false,
   whenActive: () => Effect.never,
+  interaction: (event) => Effect.succeed(unanswered(event)),
 }
 
 /** The services the host supplies to every plugin, apart from its own `PluginContext` and `Turns`. */
@@ -329,6 +351,8 @@ export const make = Effect.fnUntraced(function* (options: {
   /** The plugins from the repo that could not be bundled or run, which are skipped as one whose Layer fails is. */
   readonly unloadable?: ReadonlyArray<Loader.Skipped>
   readonly owners: () => ReadonlyArray<string>
+  /** The button, select, form and slash command ids chad holds itself, which no plugin may take. */
+  readonly reserved?: ReadonlySet<string>
   /** The owner's timezone, which a plugin reads as `DateTime.CurrentTimeZone` and gets at load. */
   readonly timezone: () => string
   readonly timings: Timings
@@ -641,6 +665,46 @@ export const make = Effect.fnUntraced(function* (options: {
   const lookup: Settings.Lookup<{ readonly message: string }, never> =
     options.lookup ?? (() => Effect.succeedNone)
 
+  /**
+   * The first of a version's tool names and interaction ids that one of `others` holds, with the holder and the load
+   * error that names it.
+   */
+  const taken = (plugin: Loaded, others: Iterable<Loaded>) => {
+    const list = [...others]
+    for (const { toolkit } of plugin.contributions.toolkits) {
+      for (const name of Object.keys(toolkit.tools)) {
+        const holder = list.find((other) =>
+          other.contributions.toolkits.some(({ toolkit }) =>
+            Object.hasOwn(toolkit.tools, name),
+          ),
+        )
+        if (holder !== undefined) {
+          return {
+            holder,
+            error: Messages.toolTaken(name, `the plugin ${holder.name}`),
+          }
+        }
+      }
+    }
+    for (const { definition } of plugin.contributions.interactions) {
+      const holder = list.find((other) =>
+        other.contributions.interactions.some(
+          (entry) => entry.definition.id === definition.id,
+        ),
+      )
+      if (holder !== undefined) {
+        return {
+          holder,
+          error: Messages.interactionTaken(
+            definition.id,
+            `the plugin ${holder.name}`,
+          ),
+        }
+      }
+    }
+    return undefined
+  }
+
   const build = Effect.fnUntraced(function* (
     entry: Entry,
     others: () => Iterable<Loaded>,
@@ -748,24 +812,34 @@ export const make = Effect.fnUntraced(function* (options: {
           )
         }
         yield* ended.value
-        // A tool name that clanka or a plugin loaded before already has fails the load, and names who has it.
+        // A tool name that clanka holds, or an interaction id that chad holds or the plugin registered twice, fails the
+        // load, as does either name held by a plugin loaded before. The error names who has it.
         for (const { toolkit } of plugin.contributions.toolkits) {
           for (const name of Object.keys(toolkit.tools)) {
             if (clankaTools.has(name)) {
               return yield* Effect.fail(Messages.toolTaken(name, "clanka"))
             }
-            const holder = [...others()].find((other) =>
-              other.contributions.toolkits.some(({ toolkit }) =>
-                Object.hasOwn(toolkit.tools, name),
-              ),
-            )
-            if (holder !== undefined) {
-              return yield* Effect.fail(
-                Messages.toolTaken(name, `the plugin ${holder.name}`),
-              )
-            }
           }
         }
+        const ids = new Set<string>()
+        for (const { definition } of plugin.contributions.interactions) {
+          if (options.reserved?.has(definition.id) === true) {
+            return yield* Effect.fail(
+              Messages.interactionTaken(definition.id, "chad"),
+            )
+          }
+          if (ids.has(definition.id)) {
+            return yield* Effect.fail(
+              Messages.interactionTaken(
+                definition.id,
+                `the plugin ${entry.name}`,
+              ),
+            )
+          }
+          ids.add(definition.id)
+        }
+        const clash = taken(plugin, others())
+        if (clash !== undefined) return yield* Effect.fail(clash.error)
       }),
     )
     if (Exit.isFailure(built)) {
@@ -847,7 +921,7 @@ export const make = Effect.fnUntraced(function* (options: {
       }
       yield* Logger.event(
         "swap.overrun",
-        call.kind === "tool"
+        call.kind !== "hook"
           ? Messages.overrunTool(plugin.name, call.label)
           : Messages.overrunHook(plugin.name, call.label),
         fields,
@@ -931,7 +1005,7 @@ export const make = Effect.fnUntraced(function* (options: {
         if (plan.failures === "refuse") break
       }
       // With `keep` the running version of a plugin that failed to rebuild stays, so a new version that took one of its
-      // tool names would shadow it. That new version fails as well, and the check runs again for the version it keeps.
+      // tool names or interaction ids would shadow it. That new version fails as well, and the check runs again for the version it keeps.
       for (let clashed = plan.failures === "keep"; clashed;) {
         clashed = false
         const failedNames = new Set(failed.map(({ name }) => name))
@@ -939,17 +1013,7 @@ export const make = Effect.fnUntraced(function* (options: {
           ({ name }) => !replaced.has(name) || failedNames.has(name),
         )
         for (const result of built) {
-          const clash = result.plugin.contributions.toolkits
-            .flatMap(({ toolkit }) => Object.keys(toolkit.tools))
-            .flatMap((tool) =>
-              kept
-                .filter((other) =>
-                  other.contributions.toolkits.some(({ toolkit }) =>
-                    Object.hasOwn(toolkit.tools, tool),
-                  ),
-                )
-                .map((holder) => ({ tool, holder })),
-            )[0]
+          const clash = taken(result.plugin, kept)
           if (clash === undefined) continue
           built.splice(built.indexOf(result), 1)
           yield* result.dispose
@@ -957,7 +1021,7 @@ export const make = Effect.fnUntraced(function* (options: {
             name: result.plugin.name,
             error: yield* options.scrubBuildError(
               [result.plugin.entry.settings, clash.holder.entry.settings],
-              Messages.toolTaken(clash.tool, `the plugin ${clash.holder.name}`),
+              clash.error,
             ),
           })
           clashed = true
@@ -1351,6 +1415,64 @@ export const make = Effect.fnUntraced(function* (options: {
         ),
   )
 
+  const interaction: Plugins["Service"]["interaction"] = Effect.fnUntraced(
+    function* (event) {
+      yield* Deferred.await(ready)
+      const holderOf = () =>
+        loaded().find((plugin) =>
+          plugin.contributions.interactions.some(
+            ({ definition }) => definition.id === event.id,
+          ),
+        )
+      let plugin = holderOf()
+      // A swap that may change who holds the id runs to its end first, and the click goes to the version it leaves.
+      const swap = swapping
+      if (
+        swap !== undefined &&
+        (plugin === undefined || swap.names.has(plugin.name))
+      ) {
+        yield* Deferred.await(swap.gate)
+        plugin = holderOf()
+      }
+      const registered = plugin?.contributions.interactions.find(
+        ({ definition }) => definition.id === event.id,
+      )
+      if (
+        plugin === undefined ||
+        registered === undefined ||
+        plugin.retired !== undefined
+      ) {
+        yield* Effect.logWarning("No plugin holds the id of a click").pipe(
+          Effect.annotateLogs({ interaction: event.id }),
+        )
+        return unanswered(event)
+      }
+      const holder = plugin
+      const outcome = yield* track(
+        holder,
+        "interaction",
+        event.id,
+        registered.handle(event).pipe(as(holder), Logger.ownConsole),
+      )
+      const exit = outcome._tag === "Ended" ? outcome.exit : undefined
+      if (exit !== undefined && Exit.isSuccess(exit)) {
+        return exit.value as
+          ChatInteraction.ClickReply | ChatInteraction.SubmitReply
+      }
+      if (exit !== undefined && !Cause.hasInterruptsOnly(exit.cause)) {
+        yield* Effect.logError(
+          "A click handler of the plugin failed",
+          exit.cause,
+        ).pipe(
+          Effect.annotateLogs({ interaction: event.id }),
+          as(holder),
+          Logger.ownConsole,
+        )
+      }
+      return unanswered(event)
+    },
+  )
+
   return Plugins.of({
     ready: Deferred.await(ready).pipe(Effect.andThen(waitSwap)),
     tools: (session, subagents = () => 0, tasks = () => 0) => {
@@ -1389,5 +1511,6 @@ export const make = Effect.fnUntraced(function* (options: {
     }),
     active,
     whenActive,
+    interaction,
   })
 })

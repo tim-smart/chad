@@ -2,7 +2,7 @@
 // turns it starts, and its hooks' budgets.
 import { Deferred, Effect, Layer, Option, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
-import { ChatThread } from "effect/chat"
+import { Chat, ChatInteraction, ChatThread } from "effect/chat"
 import { SqlClient } from "effect/sql"
 import { expect, test } from "vitest"
 import * as Plugin from "../../dist/Plugin.js"
@@ -11,9 +11,9 @@ import { Turns } from "../../dist/Turns.js"
 import sendFile from "../../dist/plugins/send-file.js"
 import sendMessage from "../../dist/plugins/send-message.js"
 import * as Discord from "../support/discord.ts"
-import { scenario } from "../support/driver.ts"
+import { owner, scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
-import { posted, prompted, rows, says } from "../support/owner.ts"
+import { eventually, posted, prompted, rows, says } from "../support/owner.ts"
 
 const tool = <const Name extends string>(name: Name) =>
   Toolkit.make(
@@ -311,4 +311,54 @@ test("an owner removed while a plugin's turn runs is not mentioned in its answer
   const [answer] = await running.discord.rest.answers(channel, 1)
   expect(answer?.body?.content).toBe("plugin answer")
   expect(answer?.body?.allowed_mentions).toMatchObject({ users: [] })
+})
+
+test("a plugin's button runs its handler for an owner's click and not for anyone else's, and a click after a reload reaches the new version", async () => {
+  const Approve = ChatInteraction.button("deploy-approve", {
+    label: "Approve",
+    value: Schema.String,
+  })
+  let chat: Chat.Chat["Service"] | undefined
+  let version = 0
+  const clicks: Array<string> = []
+  const group = ChatInteraction.group(Approve)
+  const plugin = Plugin.make(
+    Plugin.interactions(
+      group,
+      Effect.gen(function* () {
+        chat = yield* Chat.Chat
+        const built = ++version
+        return group.of({
+          "deploy-approve": (click) =>
+            Effect.sync(() => {
+              clicks.push(`${built} ${click.value} ${click.userId}`)
+              return ChatInteraction.ack
+            }),
+        })
+      }),
+    ),
+  )
+  const running = await scenario({ plugins: [{ name: "deploy", plugin }] })
+  const thread = await running.fakes.chat.makeThread("direct")
+  // The plugin's `Chat` answers every property, `then` too, so the wait reads whether it is set and not the value.
+  await eventually(
+    () => chat !== undefined,
+    (built) => built,
+  )
+  const message = await Effect.runPromise(
+    chat!.post(thread, {
+      markdown: "Deploy 42 is ready.",
+      actions: [Approve.of("42")],
+    }),
+  )
+  const click = (userId: string) =>
+    Effect.runPromise(running.click(message.id, "deploy-approve", userId))
+
+  expect((await click("mallory"))._tag).toBe("Ack")
+  expect(clicks).toEqual([])
+  expect((await click(owner))._tag).toBe("Ack")
+  expect(clicks).toEqual(["1 42 owner"])
+  expect((await running.chad(["plugin", "reload", "deploy"])).code).toBe(0)
+  await click(owner)
+  expect(clicks).toEqual(["1 42 owner", "2 42 owner"])
 })

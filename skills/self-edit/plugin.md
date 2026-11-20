@@ -167,6 +167,51 @@ export default Plugin.make(NotesTools, Chunk)
 - A plugin-started turn whose answer is exactly `[SILENT]` posts nothing.
 - To post without the agent, use `Chat`.
 
+## Buttons
+
+```ts
+import { Plugin, Turns } from "chad"
+import { Effect, Schema } from "effect"
+import { ChatInteraction } from "effect/chat"
+
+const Approve = ChatInteraction.button("deploy-approve", {
+  label: "Approve",
+  value: Schema.String, // a key into the store, not the state
+})
+const Group = ChatInteraction.group(Approve)
+
+const Buttons = Plugin.interactions(
+  Group,
+  Effect.gen(function* () {
+    const turns = yield* Turns.Turns
+    // `Group.of` types the handlers. Returned bare from `Effect.gen`, `click` is an implicit `any`.
+    return Group.of({
+      "deploy-approve": (click) =>
+        turns
+          .queue({
+            thread: click.thread,
+            label: "deploy approved",
+            prompt: `The owner approved deploy ${click.value} with a button. Nobody is here to answer questions. Roll it out.`,
+          })
+          .pipe(Effect.ignore, Effect.as(ChatInteraction.ack)),
+    })
+  }),
+)
+
+// Posted with Chat, from a tool or a background fiber:
+// chat.post(thread, { markdown: "Deploy 42 is ready.", actions: [Approve.of("42")] })
+```
+
+- `Plugin.interactions(group, handlers)` registers the handlers of buttons, selects and forms (`ChatInteraction.modal`). It takes what `group.toLayer` takes. Slash commands do not compile.
+- The plugin posts its buttons itself, with `Chat`, as a message's `actions`.
+- A handler runs only for a click from an owner of the connection. Anyone else's click is answered and the handler is not called.
+- Ids are shared with chad's own buttons and every other plugin's. A taken id fails the load, and the error names who holds it.
+- A button outlives the version that posted it, and a restart. A click goes by its id to the version loaded when it arrives, so treat an id and its value schema as a stored format. A value that no longer decodes is answered and the handler is not called.
+- Keep a key in the value and the state in the store. Discord gives the id and the encoded value about 100 characters together.
+- A click on a button whose plugin is not loaded does nothing. Remove buttons that are done with: `chat.edit(thread, messageId, { markdown, actions: [] })`.
+- Answer inside 3 seconds. Queue a turn or fork into the plugin's scope for slow work, and answer first. A late click keeps running but a form it opens is dropped, and a late submit is interrupted.
+- A handler that fails is logged as an error under the plugin's name and the click is answered.
+
 ## The owner
 
 - `PluginContext.owners` holds the owner ids as `<platform>:<id>`.

@@ -13,7 +13,7 @@ import {
   Scope,
 } from "effect"
 import type { Tool, Toolkit } from "effect/ai"
-import type { Chat } from "effect/chat"
+import { type Chat, ChatInteraction } from "effect/chat"
 import type { HttpClient } from "effect/http"
 import type { KeyValueStore } from "effect/persistence"
 import * as Contributions from "./daemon/Contributions.ts"
@@ -169,6 +169,77 @@ export const toolkit = <Tools extends Record<string, Tool.Any>>(
       const context = yield* Effect.context<never>()
       into.toolkits.push({ toolkit, context })
     }),
+  )
+
+/**
+ * Registers the handlers of a group of buttons, selects and forms (modals),
+ * as `group.toLayer` takes them. The plugin posts the buttons itself, with
+ * `Chat`, as the `actions` of a message: `Approve.of("42")`.
+ *
+ * - A click reaches the handler only when it comes from an owner of the
+ *   connection the message is on. Anyone else's click is answered and the
+ *   handler is not called.
+ * - The ids share one space with chad's own and every other plugin's. An id
+ *   that is taken fails the load and names who has it.
+ * - A button outlives the version that posted it, and a restart. A click goes
+ *   by its id to the version loaded when it arrives, so an id and its value
+ *   schema are a stored format. A value that no longer decodes is answered
+ *   and the handler is not called. Keep a key in the value and the state in
+ *   the store: Discord gives the id and the encoded value about 100
+ *   characters together.
+ * - A click on a button whose plugin is not loaded is answered and does
+ *   nothing. A plugin removes its buttons with
+ *   `chat.edit(thread, messageId, { markdown, actions: [] })` once they are
+ *   done with. A click during a swap of its plugin, or before the plugins are
+ *   up, waits for the new version.
+ * - A handler answers inside the platform's 3 seconds. Slow work goes in a
+ *   turn (`Turns.queue`) or a fiber forked into the plugin's scope, after the
+ *   answer. A late click keeps running but a form it opens is dropped, and a
+ *   late submit is interrupted.
+ * - A handler that fails or dies is logged as an error under the plugin's
+ *   name, and the click is answered. A swap waits for a running handler as for
+ *   a tool call.
+ *
+ * Slash commands do not compile in the group. Return the handlers through
+ * `group.of`, which types each one's click.
+ */
+export const interactions = <
+  D extends Exclude<
+    ChatInteraction.Definition,
+    ChatInteraction.Command<string>
+  >,
+  Handlers extends ChatInteraction.HandlersFrom<D>,
+  EX = never,
+  RX = never,
+>(
+  group: ChatInteraction.Group<D>,
+  build: Handlers | Effect.Effect<Handlers, EX, RX>,
+): Layer.Layer<
+  never,
+  EX,
+  | PluginContext
+  | Exclude<RX, Scope.Scope>
+  | ChatInteraction.HandlersServices<Handlers>
+> =>
+  group.toLayer(build).pipe(
+    Layer.provide(
+      Layer.effect(
+        ChatInteraction.Registry,
+        Effect.gen(function* () {
+          const into = yield* contributions
+          return ChatInteraction.Registry.of({
+            register: (entries) =>
+              Effect.sync(() => {
+                into.interactions.push(...entries)
+              }),
+            get: (id) =>
+              Effect.sync(() =>
+                into.interactions.find((entry) => entry.definition.id === id),
+              ),
+          })
+        }),
+      ),
+    ),
   )
 
 /**

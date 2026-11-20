@@ -1,5 +1,6 @@
 import type { Context, Duration, Effect, Scope } from "effect"
 import type { Toolkit } from "effect/ai"
+import type { ChatInteraction } from "effect/chat"
 import type { Session, SessionEvent, Turn, TurnEnded } from "../Session.ts"
 
 /**
@@ -13,6 +14,8 @@ export interface Contributions {
     /** The context the contribution was built in, which holds the toolkit's handlers. */
     readonly context: Context.Context<never>
   }>
+  /** The `Plugin.interactions` handlers, each with its services provided and its value decoded. */
+  readonly interactions: Array<ChatInteraction.Registered>
   readonly prompts: Array<Hook<Session, string>>
   readonly beforeTurn: Array<Hook<Turn, string | void>>
   readonly afterTurn: Array<Hook<TurnEnded, void>>
@@ -35,6 +38,7 @@ export const key: unique symbol = Symbol.for(
 
 export const empty = (): Contributions => ({
   toolkits: [],
+  interactions: [],
   prompts: [],
   beforeTurn: [],
   afterTurn: [],
