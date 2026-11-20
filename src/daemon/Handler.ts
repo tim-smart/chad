@@ -655,37 +655,30 @@ export const unusable = (
  *   `/new` and `/stop` need the thread to have a session, and `/new` starts the new one at the thread's newest
  *   message.
  * - Any other click or submit goes to the plugin that registered its id with `Plugin.interactions`, and only when an
- *   owner sent it (`plugin`). Without `plugin`, or for an id no one holds, it is answered and logged.
+ *   owner sent it. An id no one holds is answered and logged.
  */
-export const interactions = (
-  connection: Live,
-  once?: Once.Daemon,
-  plugin?: Plugins.Plugins["Service"]["interaction"],
-) =>
+export const interactions = (connection: Live, once?: Once.Daemon) =>
   Layer.effect(
     ChatInteraction.Handler,
     Effect.gen(function* () {
       const chad = yield* ChatInteraction.Handler
-      if (plugin === undefined) return chad
-      const routed = <
-        E extends
-          | ChatInteraction.ButtonClicked
-          | ChatInteraction.SelectChanged
-          | ChatInteraction.ModalSubmitted,
-        A,
-      >(
-        event: E,
-        own: (event: E) => Effect.Effect<A>,
-      ) =>
-        ownIds.has(event.id)
-          ? own(event)
-          : connection.owners().includes(event.userId)
-            ? (plugin(event) as Effect.Effect<A>)
-            : Effect.succeed(Plugins.unanswered(event) as A)
+      const plugins = (yield* Plugins.Plugins).interactions
+      const routed =
+        <E extends { readonly id: string; readonly userId: string }, A>(
+          own: (event: E) => Effect.Effect<A>,
+          plugin: (event: E) => Effect.Effect<A>,
+          notOwner: A,
+        ) =>
+        (event: E) =>
+          ownIds.has(event.id)
+            ? own(event)
+            : connection.owners().includes(event.userId)
+              ? plugin(event)
+              : Effect.succeed(notOwner)
       return ChatInteraction.Handler.of({
         ...chad,
-        click: (event) => routed(event, chad.click),
-        submit: (event) => routed(event, chad.submit),
+        click: routed(chad.click, plugins.click, ChatInteraction.ack),
+        submit: routed(chad.submit, plugins.submit, ChatInteraction.close),
       })
     }),
   ).pipe(Layer.provide(own(connection, once)))

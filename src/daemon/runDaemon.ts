@@ -420,20 +420,11 @@ const boot = Effect.fnUntraced(function* (
   // two connections can share one. A session finds the `Chat` of a connection by the connection's name.
   // The requests of `requestOnce`, which a form's submit answers. They live as long as this daemon, and no longer.
   const once = Once.make(inputs.timings.onceWait)
-  // The plugin host, made once the boot reaches the plugins. A click for a plugin that comes before waits for it.
-  let host: Plugins.Plugins["Service"] | undefined
-  const loaded = yield* Deferred.make<Plugins.Plugins["Service"]>()
-  const pluginInteraction: Plugins.Plugins["Service"]["interaction"] = (
-    event,
-  ) => Effect.flatMap(Deferred.await(loaded), (host) => host.interaction(event))
   const running = yield* Chats.make((connection, live) =>
     inputs
       .chat(connection)
       .pipe(
-        Layer.provide([
-          Handler.layer(live),
-          Handler.interactions(live, once, pluginInteraction),
-        ]),
+        Layer.provide([Handler.layer(live), Handler.interactions(live, once)]),
       ),
   )
   // The notices outside a turn post through the connections, and "Problems" lists their keys from here on.
@@ -616,6 +607,8 @@ const boot = Effect.fnUntraced(function* (
       Duration.minutes(1),
     ),
   })
+  let host: Plugins.Plugins["Service"] | undefined
+  const loaded = yield* Deferred.make<Plugins.Plugins["Service"]>()
   const plugins: Plugins.Plugins["Service"] = {
     ready: Effect.flatMap(Deferred.await(loaded), (host) => host.ready),
     tools: (current) => host?.tools(current),
@@ -638,7 +631,17 @@ const boot = Effect.fnUntraced(function* (
     active: (name) => host?.active(name) ?? false,
     whenActive: (name) =>
       Effect.flatMap(Deferred.await(loaded), (host) => host.whenActive(name)),
-    interaction: pluginInteraction,
+    // A click for a plugin that comes before the plugins are up waits for them.
+    interactions: {
+      click: (event) =>
+        Effect.flatMap(Deferred.await(loaded), (host) =>
+          host.interactions.click(event),
+        ),
+      submit: (event) =>
+        Effect.flatMap(Deferred.await(loaded), (host) =>
+          host.interactions.submit(event),
+        ),
+    },
   }
   // A stop abandons a swap and an MCP rebuild in progress.
   state.abandon = Effect.andThen(plugins.abandon, mcp.abandon)
