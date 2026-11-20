@@ -313,7 +313,7 @@ test("an owner removed while a plugin's turn runs is not mentioned in its answer
   expect(answer?.body?.allowed_mentions).toMatchObject({ users: [] })
 })
 
-test("a plugin's button runs its handler for an owner's click and not for anyone else's, and a click after a reload reaches the new version", async () => {
+test("a plugin's button runs its handler for an owner's click and not for anyone else's, a handler that throws is answered, and a click after a reload reaches the new version", async () => {
   const Approve = ChatInteraction.button("deploy-approve", {
     label: "Approve",
     value: Schema.String,
@@ -329,11 +329,14 @@ test("a plugin's button runs its handler for an owner's click and not for anyone
         chat = yield* Chat.Chat
         const built = ++version
         return group.of({
-          "deploy-approve": (click) =>
-            Effect.sync(() => {
+          "deploy-approve": (click) => {
+            // A handler that throws before it returns its Effect.
+            if (click.value === "broken") throw new Error("broken handler")
+            return Effect.sync(() => {
               clicks.push(`${built} ${click.value} ${click.userId}`)
               return ChatInteraction.ack
-            }),
+            })
+          },
         })
       }),
     ),
@@ -347,13 +350,21 @@ test("a plugin's button runs its handler for an owner's click and not for anyone
       actions: [Approve.of("42")],
     }),
   )
-  const click = (userId: string) =>
-    Effect.runPromise(running.click(message.id, "deploy-approve", userId))
+  const broken = await Effect.runPromise(
+    chat!.post(thread, {
+      markdown: "Deploy broken is ready.",
+      actions: [Approve.of("broken")],
+    }),
+  )
+  const click = (userId: string, on = message.id) =>
+    Effect.runPromise(running.click(on, "deploy-approve", userId))
 
   expect((await click("mallory"))._tag).toBe("Ack")
   expect(clicks).toEqual([])
   expect((await click(owner))._tag).toBe("Ack")
   expect(clicks).toEqual(["1 42 owner"])
+  // A handler that throws before it returns its Effect is answered, and the click does not fail.
+  expect((await click(owner, broken.id))._tag).toBe("Ack")
   expect((await running.chad(["plugin", "reload", "deploy"])).code).toBe(0)
   await click(owner)
   expect(clicks).toEqual(["1 42 owner", "2 42 owner"])

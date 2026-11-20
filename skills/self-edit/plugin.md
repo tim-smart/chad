@@ -208,7 +208,7 @@ const Buttons = Plugin.interactions(
 - Ids are shared with chad's own buttons and every other plugin's. A taken id fails the load, and the error names who holds it.
 - A button outlives the version that posted it, and a restart. A click goes by its id to the version loaded when it arrives, so treat an id and its value schema as a stored format. A value that no longer decodes is answered and the handler is not called.
 - Keep a key in the value and the state in the store. Discord gives the id and the encoded value about 100 characters together.
-- A click on a button whose plugin is not loaded does nothing. Remove buttons that are done with: `chat.edit(thread, messageId, { markdown, actions: [] })`.
+- A click on a button whose plugin is not loaded, is off or is held out by safe mode does nothing. A click while chad boots, or while the plugin is being reloaded or applied, waits for the new version and runs on it. Remove buttons that are done with: `chat.edit(thread, messageId, { markdown, actions: [] })`.
 - Answer inside 3 seconds. Queue a turn or fork into the plugin's scope for slow work, and answer first. A late click keeps running but a form it opens is dropped, and a late submit is interrupted.
 - A handler that fails is logged as an error under the plugin's name and the click is answered.
 

@@ -1434,7 +1434,11 @@ export const make = Effect.fnUntraced(function* (options: {
         plugin,
         "interaction",
         event.id,
-        registered.handle(event).pipe(as(plugin), Logger.ownConsole),
+        // Suspended, so a handler that throws before it returns its Effect fails here and is logged like any other.
+        Effect.suspend(() => registered.handle(event)).pipe(
+          as(plugin),
+          Logger.ownConsole,
+        ),
       )
       if (outcome._tag === "Cut") return unanswered
       if (Exit.isSuccess(outcome.exit)) return outcome.exit.value as A
