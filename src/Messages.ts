@@ -1091,7 +1091,7 @@ export const bundledNameRefused = (name: string) =>
 
 /** The refusal of `AGENTS.md`, `.agents` and `.kiro` in the repo, which names where their content goes. */
 export const instructionsRefused = (paths: ReadonlyArray<string>) =>
-  `The repo holds ${paths.map((path) => `work/${path}`).join(", ")}. chad refuses AGENTS.md, .agents and .kiro in the repo, because clanka would read them without an apply. Put a skill under skills/<name>/SKILL.md and standing instructions in persona.md, then delete these.`
+  `The repo holds ${paths.map((path) => `work/${path}`).join(", ")}. chad refuses AGENTS.md, .agents and .kiro in the repo, because clanka would read them without an apply. Move what they say into skills under skills/<name>/SKILL.md, and into persona.md only what every turn needs, then delete these.`
 
 // Skills. A check names the file as `work/skills/<dir>/SKILL.md`, the file the agent edits, and a boot's notice names
 // the skill by its directory.
