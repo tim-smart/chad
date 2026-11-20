@@ -781,8 +781,8 @@ export const interactions = (connection: Live, once?: Once.Daemon) =>
               // without the owner saying so. The turn is held to that session, and a `/new` before it starts drops
               // it. A request with no session's tag, posted before requests carried one, starts none. The turn's
               // prompt has the name and never the value.
-              Effect.flatMap(({ stored, reloaded }) =>
-                Effect.gen(function* () {
+              Effect.flatMap(
+                Effect.fnUntraced(function* ({ stored, reloaded }) {
                   if (!stored || tag === undefined) return
                   const session = yield* Sessions.tagged(key, tag)
                   if (session === undefined) return
