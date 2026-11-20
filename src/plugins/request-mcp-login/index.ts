@@ -10,7 +10,7 @@ import { McpLoginButton, Server } from "./Form.ts"
 const tools = Toolkit.make(
   Tool.make("requestMcpLogin", {
     description:
-      "Ask the owner to sign chad in to an MCP server that needs login: an HTTP server with an \"oauth\" key in mcp.json. server is its name there. It posts a button in this session's thread. The owner presses it, approves in a browser, and gives chad the address the browser ended on through a form, so no token and no address goes into the chat or your context. It returns once the button is posted, before anyone signed in: end your turn, and use the server's tools once the owner says it is signed in. Only the owner can sign in, so in a session with no owner to press the button, say what is needed and stop.",
+      "Post an owner-only sign-in button for an HTTP server named in mcp.json with an oauth key. End your turn after posting. Use the server once the owner confirms sign-in; never ask for tokens or redirect URLs in chat. If the owner is absent, explain what is needed and stop.",
     parameters: Schema.Struct({
       server: Schema.String,
     }),

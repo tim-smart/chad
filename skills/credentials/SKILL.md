@@ -27,7 +27,7 @@ Call `requestSecret` with the name your command will use and a reason the owner 
 
 `await requestSecret({ name: "EXAMPLE_PASSWORD", reason: "to sign in to example.com. Put the site and your username in the note." })`
 
-End your turn when the tool returns. That means it posted the button, not that the secret is ready. The owner opens the form and saves the value. The button then disappears and the request shows a confirmation. Use the name once the owner says the secret is saved.
+End your turn when the tool returns. That means it posted the button, not that the secret is ready. The owner opens the form and saves the value. The button then disappears and the request shows a confirmation. Saving starts a new turn. Use the secret by name in that turn.
 
 If the tool isn't available, ask the owner to run this on the server. It accepts a hidden prompt or a value piped on stdin. Never ask for the value in a chat message.
 

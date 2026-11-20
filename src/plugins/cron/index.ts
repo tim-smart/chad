@@ -136,12 +136,11 @@ const name = Schema.String.annotate({ description: "The job's name." })
 const tools = Toolkit.make(
   Tool.make("cronCreate", {
     description:
-      "Create a scheduled job that runs a prompt in this thread's session and posts the answer here. Give exactly one of at, in and cron. The name is unique across all jobs and cannot be changed.",
+      "Schedule a prompt in this thread's session and post its answer here. Choose exactly one of at, in, or cron. Job names must be unique and cannot change.",
     parameters: Schema.Struct({
       name,
       prompt: Schema.String.annotate({
-        description:
-          "What to do on each run. Nobody is there to answer questions during a run.",
+        description: "Instructions for each unattended run.",
       }),
       ...scheduleFields,
     }),
@@ -150,14 +149,13 @@ const tools = Toolkit.make(
     dependencies: [CurrentSession],
   }),
   Tool.make("cronList", {
-    description:
-      "List every scheduled job, with its next run and whether cron paused it.",
+    description: "List each job, its next run, and whether cron paused it.",
     success: Schema.Array(Listed),
     dependencies: [CurrentSession],
   }),
   Tool.make("cronUpdate", {
     description:
-      "Change a job from the next run on. Fields left out keep their value. The job moves to the thread this is called from. enabled: false pauses it, enabled: true resumes it and resets its failure count.",
+      "Move the job to this thread and apply changes from its next run. Omitted fields stay unchanged. Set enabled to false to pause, or true to resume and reset failures.",
     parameters: Schema.Struct({
       name,
       prompt: Schema.optionalKey(Schema.String),
@@ -169,7 +167,7 @@ const tools = Toolkit.make(
     dependencies: [CurrentSession],
   }),
   Tool.make("cronRemove", {
-    description: "Delete a job. A run already in progress finishes.",
+    description: "Delete a job without stopping a run in progress.",
     parameters: Schema.Struct({ name }),
     success: Schema.String,
     failure: Schema.String,
@@ -177,7 +175,7 @@ const tools = Toolkit.make(
   }),
   Tool.make("cronRun", {
     description:
-      "Run a job now, paused or not, without changing its schedule. Returns once the run is queued. A run in this thread starts after the current turn ends.",
+      "Queue a run even if paused, without changing the schedule. Runs in this thread start after the current turn.",
     parameters: Schema.Struct({ name }),
     success: Schema.String,
     failure: Schema.String,
