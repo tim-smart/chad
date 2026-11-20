@@ -174,12 +174,15 @@ const readCode = Effect.gen(function* () {
  */
 const antigravityThroughDaemon = Effect.gen(function* () {
   const client = yield* Daemon.reach("login")
-  const { url } = yield* Daemon.call("login", client.AntigravityLoginStart())
+  const { id, url } = yield* Daemon.call(
+    "login",
+    client.AntigravityLoginStart(),
+  )
   yield* Console.log(Messages.antigravityLoginOpen(url))
   const code = yield* readCode
   const { models } = yield* Daemon.call(
     "login",
-    client.AntigravityLoginFinish({ code }),
+    client.AntigravityLoginFinish({ id, code }),
   )
   yield* Console.log(Messages.antigravitySignedIn(models))
 }).pipe(
@@ -240,9 +243,12 @@ export const loginTo = Effect.fnUntraced(function* (kind: LoginKind) {
       : antigravityAlone
 })
 
-/** The main model in force and the login it needs: the daemon's when one runs, and the files' otherwise. */
+/**
+ * The main model in force, the login it needs and that login's state: the daemon's when one runs, and the files'
+ * otherwise.
+ */
 export const inForce = Effect.fnUntraced(function* (command: string) {
-  if ((yield* Daemon.lock) === "free") return yield* Account.model
+  if ((yield* Daemon.lock) === "free") return yield* Account.loginFromFiles
   const client = yield* Daemon.reach(command)
   return yield* Daemon.call(command, client.ModelLogin())
 })

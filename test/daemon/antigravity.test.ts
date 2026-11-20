@@ -2,6 +2,7 @@ import { statSync } from "node:fs"
 import { join } from "node:path"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
+import * as Cli from "../support/cli.ts"
 import { scenario } from "../support/driver.ts"
 import { antigravityCode, antigravityModel } from "../support/model.ts"
 import { says } from "../support/owner.ts"
@@ -39,12 +40,21 @@ test("with no sign-in a turn on an Antigravity model fails at once and chad mode
   expect(wrong.stdout).toContain("https://accounts.google.com/o/oauth2/auth?")
   expect(() => statSync(tokenFile(data))).toThrow()
 
+  // A newer chad login replaces one that waits for its code. The older code is refused before it reaches the newer
+  // sign-in, which still takes its own.
+  const link = "https://accounts.google.com/o/oauth2/auth?"
+  const older = Cli.start(["login", "antigravity"], { CHAD_DATA: data }, false)
+  await older.printed(link)
+  const newer = Cli.start(["login", "antigravity"], { CHAD_DATA: data }, false)
+  await newer.printed(link)
+  older.child.stdin!.end(`${antigravityCode}\n`)
+  const replaced = await older.done
+  expect(replaced.code).toBe(1)
+  expect(replaced.stderr).toContain(Messages.antigravityLoginReplaced)
+
   // The valid code signs in through the daemon, keeps the token private and never echoes the code.
-  const login = await running.chad(
-    ["login", "antigravity"],
-    {},
-    `${antigravityCode}\n`,
-  )
+  newer.child.stdin!.end(`${antigravityCode}\n`)
+  const login = await newer.done
   expect(login.code).toBe(0)
   expect(login.stdout).toContain(
     Messages.antigravitySignedIn([antigravityModel]),

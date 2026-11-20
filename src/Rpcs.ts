@@ -332,22 +332,26 @@ const checked = RpcGroup.make(
    * daemon's timeout is its only one.
    */
   Rpc.make("AntigravityLoginStart", {
-    success: Schema.Struct({ url: Schema.String }),
+    success: Schema.Struct({ id: Schema.String, url: Schema.String }),
     error: AntigravityLoginFailed,
   }),
   /** The second half, with the code Google showed. It gives the account's model ids, or nothing when they could not be listed. */
   Rpc.make("AntigravityLoginFinish", {
-    payload: { code: Schema.String },
+    payload: { id: Schema.String, code: Schema.String },
     success: Schema.Struct({
       models: Schema.UndefinedOr(Schema.Array(Schema.String)),
     }),
     error: AntigravityLoginFailed,
   }),
-  /** The main model in force and the login it needs, which `chad login` and `chad logout` default to. */
+  /**
+   * The main model in force, the login it needs and that login's state, which `chad login` and `chad logout` default
+   * to and `chad setup` offers.
+   */
   Rpc.make("ModelLogin", {
     success: Schema.Struct({
       spec: Schema.String,
       login: Schema.UndefinedOr(LoginKind),
+      state: LoginState,
     }),
   }),
   /** `chad logout`, of one login. */

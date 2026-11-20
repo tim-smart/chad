@@ -528,17 +528,14 @@ const handlers = (state: State) => {
         caller: Queue.caller(headers[sessionHeader]),
       }),
     // A sign-in that a CLI killed after this call leaves waiting runs on until a newer one or the timeout ends it.
-    AntigravityLoginStart: () =>
-      signIn((antigravity) =>
-        Effect.map(antigravity.start, (url) => ({ url })),
-      ),
-    AntigravityLoginFinish: ({ code }, { headers }) => {
+    AntigravityLoginStart: () => signIn((antigravity) => antigravity.start),
+    AntigravityLoginFinish: ({ id, code }, { headers }) => {
       const ran = (outcome: "changed" | "refused") =>
         Queue.ran("login", Queue.caller(headers[sessionHeader]), outcome, {
           login: "antigravity",
         })
       return signIn((antigravity) =>
-        antigravity.finish(code).pipe(
+        antigravity.finish(id, code).pipe(
           Effect.tapError(() => ran("refused")),
           Effect.tap(() => ran("changed")),
           Effect.map((models) => ({ models })),
@@ -546,7 +543,13 @@ const handlers = (state: State) => {
       )
     },
     ModelLogin: () =>
-      tracked(Effect.map(account, (current) => current.model())),
+      tracked(
+        Effect.gen(function* () {
+          const current = yield* account
+          const { login: state } = yield* modelState(current)
+          return { ...current.model(), state }
+        }),
+      ),
     Logout: ({ login }, { headers }) =>
       tracked(
         Effect.gen(function* () {

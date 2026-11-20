@@ -16,15 +16,26 @@ export const model = Effect.gen(function* () {
   }
 })
 
-/** The model and the login state with no daemon to ask, which no login can be pending in. */
-export const fromFiles: Effect.Effect<
-  ModelState,
+/** The model, the login it needs and that login's state with no daemon to ask, which no login can be pending in. */
+export const loginFromFiles: Effect.Effect<
+  {
+    readonly spec: string
+    readonly login: ModelText.LoginKind | undefined
+    readonly state: ModelState["login"]
+  },
   never,
   Environment | FileSystem.FileSystem
 > = Effect.gen(function* () {
   const environment = yield* Environment
   const { spec, login } = yield* model
-  if (login === undefined) return { spec, login: "not-needed" } as const
+  if (login === undefined) return { spec, login, state: "not-needed" } as const
   const stored = yield* TokenStore.stored(environment.data, login)
-  return { spec, login: stored ? "logged-in" : "logged-out" } as const
+  return { spec, login, state: stored ? "logged-in" : "logged-out" } as const
 })
+
+/** The model and the login state with no daemon to ask. */
+export const fromFiles: Effect.Effect<
+  ModelState,
+  never,
+  Environment | FileSystem.FileSystem
+> = Effect.map(loginFromFiles, ({ spec, state }) => ({ spec, login: state }))

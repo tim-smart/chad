@@ -814,7 +814,7 @@ export const loggedIn = (login: LoginKind) =>
 
 /** `chad login` when the stored token is good, which a new login does not replace. */
 export const alreadyLoggedIn =
-  "chad is already logged in to Codex. To log in with another account, run chad logout and then chad login."
+  "chad is already logged in to Codex. To log in with another account, run chad logout codex and then chad login codex."
 
 /** `chad logout`, which stops no running turn. */
 export const loggedOut = (login: LoginKind) =>

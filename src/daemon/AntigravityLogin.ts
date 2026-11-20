@@ -32,6 +32,8 @@ export class SignInFailed extends Data.TaggedError("AntigravitySignInFailed")<{
 
 /** One sign-in that `start` began. */
 interface Flow {
+  /** Names the sign-in to the CLI that printed its link, which hands its code back under it. */
+  readonly id: string
   /** Google's link, once clanka has made it. */
   readonly url: Deferred.Deferred<string>
   /** The code the owner pastes, which `finish` hands over. */
@@ -51,10 +53,18 @@ export class AntigravityLogin extends Context.Service<
   {
     /** What chad provides as `AntigravityAuth` to every model layer. It never signs in. */
     readonly auth: AntigravityAuth["Service"]
-    /** Begins a sign-in, in place of one that is waiting, and gives Google's link. */
-    readonly start: Effect.Effect<string, SignInFailed>
-    /** Hands the code to the sign-in that is waiting and gives the account's model ids, or nothing when they could not be listed. */
+    /** Begins a sign-in, in place of one that is waiting, and gives Google's link and the sign-in's id. */
+    readonly start: Effect.Effect<
+      { readonly id: string; readonly url: string },
+      SignInFailed
+    >
+    /**
+     * Hands the code to the sign-in `id` names, while it is the one waiting, and gives the account's model ids, or
+     * nothing when they could not be listed. A code for a sign-in a newer one replaced is refused before it reaches
+     * the newer one, which then still takes its own code.
+     */
     readonly finish: (
+      id: string,
       code: string,
     ) => Effect.Effect<ReadonlyArray<string> | undefined, SignInFailed>
     readonly logout: Effect.Effect<void>
@@ -138,6 +148,7 @@ export const make = Effect.fnUntraced(function* (options: {
   const start = Effect.gen(function* () {
     yield* cancel
     const current: Flow = {
+      id: crypto.randomUUID(),
       url: Deferred.makeUnsafe(),
       code: Deferred.makeUnsafe(),
       done: Deferred.makeUnsafe(),
@@ -154,14 +165,20 @@ export const make = Effect.fnUntraced(function* (options: {
       Effect.forkIn(scope),
     )
     // The link, or how the sign-in ended before clanka made one.
-    return yield* Effect.raceFirst(
+    const url = yield* Effect.raceFirst(
       Deferred.await(current.url),
       Effect.andThen(Deferred.await(current.done), Effect.never),
     )
+    return { id: current.id, url }
   })
 
-  const finish = Effect.fnUntraced(function* (code: string) {
+  const finish = Effect.fnUntraced(function* (id: string, code: string) {
     const current = flow
+    if (current !== undefined && current.id !== id) {
+      return yield* new SignInFailed({
+        message: Messages.antigravityLoginReplaced,
+      })
+    }
     if (
       current === undefined ||
       !(yield* Deferred.isDone(current.url)) ||
