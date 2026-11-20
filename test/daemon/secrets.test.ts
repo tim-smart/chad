@@ -595,6 +595,7 @@ export default Plugin.make(Layer.effectDiscard(Effect.gen(function* () {
       `console.log(await requestSecret({ name: "KEY", reason: "replace the test token" }))`,
     ),
     { text: "Enter the replacement." },
+    { text: "Noted." },
   ])
   const thread = await fakes.chat.makeThread("direct")
   await says(running, thread, "replace the token")
@@ -617,6 +618,8 @@ export default Plugin.make(Layer.effectDiscard(Effect.gen(function* () {
       ),
     (text) => text !== undefined,
   )
+  // The store holds the value though the plugin refused it, so the save starts the turn that tells the agent.
+  await fakes.model.received(4)
 
   writeFileSync(join(data, "repo/work/chad.json"), settings("rejected"))
   const applying = await running.chad([
