@@ -27,7 +27,6 @@ import type { LanguageModel, Model as AiModel } from "effect/ai"
 import { KeyValueStore } from "effect/persistence"
 import * as Messages from "../Messages.ts"
 import {
-  antigravityStored,
   type Endpoint,
   type Inputs,
   loginOf,
@@ -291,14 +290,13 @@ export const check = Effect.fnUntraced(function* (options: {
     ]
     for (const spec of specs) {
       if (spec === undefined) continue
-      if (loginOf(spec) === "antigravity") {
-        // No stored sign-in skips the check, and so does a refresh that fails.
-        if (
-          !(yield* antigravityStored.pipe(Effect.provideContext(requirements)))
-        )
-          continue
-        if (Exit.isFailure(yield* Effect.exit(antigravity.get))) continue
-      }
+      // No usable sign-in skips the check: the daemon's `get` fails at once with none stored, and on a refresh that
+      // fails.
+      if (
+        loginOf(spec) === "antigravity" &&
+        Exit.isFailure(yield* Effect.exit(antigravity.get))
+      )
+        continue
       if (loginOf(spec) === "codex") {
         // No stored token skips the check. An expired one is refreshed through the shared login, on a fiber
         // that starts no device flow, and a refresh that fails skips the check too.

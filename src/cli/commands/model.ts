@@ -1,4 +1,5 @@
 import { AntigravityAuth } from "clanka/AntigravityAuth"
+import * as AuthCodeHandler from "clanka/AuthCodeHandler"
 import { CodexAuth } from "clanka/CodexAuth"
 import { DeviceCodeHandler } from "clanka/DeviceCodeHandler"
 import { Console, Context, Effect, Option, Result, Stream } from "effect"
@@ -83,7 +84,14 @@ const alone = Effect.fnUntraced(
     }
     yield* Files.writable("model")
     const timings = yield* Timings
-    const { auth, antigravity, store, handler } = yield* Login.terminal("model")
+    const { auth, store, handler } = yield* Login.terminal("model")
+    // An Antigravity model is tried on the stored sign-in, and the trial never signs in.
+    const antigravity = yield* AntigravityAuth.make.pipe(
+      Effect.provideService(KeyValueStore.KeyValueStore, store),
+      Effect.provide(
+        AuthCodeHandler.layerUnavailable(Messages.antigravityNotSignedIn),
+      ),
+    )
     const tried = new Set<string>()
     const prepare = (current: ModelSpec.Settings) =>
       Spec.prepare({

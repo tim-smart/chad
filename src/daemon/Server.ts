@@ -41,7 +41,7 @@ import {
 } from "../Rpcs.ts"
 import * as Status from "../Status.ts"
 import * as Version from "../Version.ts"
-import type { AntigravityLogin } from "./AntigravityLogin.ts"
+import type { AntigravityLogin, SignInFailed } from "./AntigravityLogin.ts"
 import type * as Apply from "./Apply.ts"
 import type { Commands } from "./Connections.ts"
 import * as Filesystem from "./Filesystem.ts"
@@ -431,6 +431,19 @@ const handlers = (state: State) => {
         Effect.ensuring(Effect.sync(() => state.calls.delete(fiber))),
       )
     })
+  /** A call on the Antigravity sign-in, whose failure is the text `chad login antigravity` prints. */
+  const signIn = <A>(
+    run: (
+      antigravity: AntigravityLogin["Service"],
+    ) => Effect.Effect<A, SignInFailed>,
+  ) =>
+    tracked(
+      Effect.flatMap(account, ({ antigravity }) => run(antigravity)).pipe(
+        Effect.mapError(
+          (error) => new AntigravityLoginFailed({ message: error.message }),
+        ),
+      ),
+    )
   return Rpcs.toLayer({
     Ping: () => Effect.succeed("pong"),
     // A killed CLI ends this stream and its wait with it, and the login runs on in the daemon.
@@ -516,45 +529,22 @@ const handlers = (state: State) => {
       }),
     // A sign-in that a CLI killed after this call leaves waiting runs on until a newer one or the timeout ends it.
     AntigravityLoginStart: () =>
-      tracked(
-        Effect.gen(function* () {
-          const { antigravity } = yield* account
-          return { url: yield* antigravity.start }
-        }).pipe(
-          Effect.mapError(
-            (error) => new AntigravityLoginFailed({ message: error.message }),
-          ),
-        ),
+      signIn((antigravity) =>
+        Effect.map(antigravity.start, (url) => ({ url })),
       ),
-    AntigravityLoginFinish: ({ code }, { headers }) =>
-      tracked(
-        Effect.gen(function* () {
-          const { antigravity } = yield* account
-          const models = yield* antigravity
-            .finish(code)
-            .pipe(
-              Effect.tapError(() =>
-                Queue.ran(
-                  "login",
-                  Queue.caller(headers[sessionHeader]),
-                  "refused",
-                  { login: "antigravity" },
-                ),
-              ),
-            )
-          yield* Queue.ran(
-            "login",
-            Queue.caller(headers[sessionHeader]),
-            "changed",
-            { login: "antigravity" },
-          )
-          return { models }
-        }).pipe(
-          Effect.mapError(
-            (error) => new AntigravityLoginFailed({ message: error.message }),
-          ),
+    AntigravityLoginFinish: ({ code }, { headers }) => {
+      const ran = (outcome: "changed" | "refused") =>
+        Queue.ran("login", Queue.caller(headers[sessionHeader]), outcome, {
+          login: "antigravity",
+        })
+      return signIn((antigravity) =>
+        antigravity.finish(code).pipe(
+          Effect.tapError(() => ran("refused")),
+          Effect.tap(() => ran("changed")),
+          Effect.map((models) => ({ models })),
         ),
-      ),
+      )
+    },
     ModelLogin: () =>
       tracked(Effect.map(account, (current) => current.model())),
     Logout: ({ login }, { headers }) =>

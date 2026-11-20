@@ -1,4 +1,3 @@
-import { AntigravityClient } from "clanka/Antigravity"
 import {
   AntigravityAuth,
   AntigravityAuthError,
@@ -17,6 +16,7 @@ import {
 } from "effect"
 import { HttpClient } from "effect/http"
 import * as Messages from "../Messages.ts"
+import { antigravityModelIds } from "../ModelSpec.ts"
 import * as Logger from "./Logger.ts"
 
 /**
@@ -62,22 +62,6 @@ export class AntigravityLogin extends Context.Service<
     readonly pending: () => boolean
   }
 >()("chad/AntigravityLogin") {}
-
-/** The model ids of the signed-in account, or nothing when the listing failed or took longer than `deadline`. */
-export const modelIds = (
-  auth: AntigravityAuth["Service"],
-  deadline: Duration.Duration,
-) =>
-  AntigravityClient.make.pipe(
-    Effect.flatMap((client) => client.models),
-    Effect.map((models) => models.map((model) => model.id)),
-    Effect.provideService(AntigravityAuth, auth),
-    Effect.timeout(deadline),
-    Effect.tapCause((cause) =>
-      Effect.logWarning("The Antigravity models could not be listed", cause),
-    ),
-    Effect.orElseSucceed(() => undefined),
-  )
 
 /**
  * The sign-in over the token store and the daemon's `HttpClient`. A sign-in runs in a fiber of the daemon's scope,
@@ -188,24 +172,26 @@ export const make = Effect.fnUntraced(function* (options: {
       })
     }
     yield* Deferred.await(current.done)
-    return yield* modelIds(auth, options.listing).pipe(
+    return yield* antigravityModelIds(auth, options.listing).pipe(
       Effect.provideService(HttpClient.HttpClient, http),
     )
   })
+
+  /** What a caller that would need a sign-in gets, since only `start` makes one. */
+  const notSignedIn = Effect.failSync(
+    () =>
+      new AntigravityAuthError({
+        reason: "LoginFailed",
+        message: Messages.antigravityNotSignedIn,
+      }),
+  )
 
   const auth = AntigravityAuth.of({
     get: Effect.suspend(() => {
       if (token !== undefined && !token.isExpired())
         return Effect.succeed(token)
       // The store's semaphore is the sign-in's until it ends, and a turn does not wait on the owner.
-      if (flow !== undefined) {
-        return Effect.fail(
-          new AntigravityAuthError({
-            reason: "LoginFailed",
-            message: Messages.antigravityNotSignedIn,
-          }),
-        )
-      }
+      if (flow !== undefined) return notSignedIn
       const started = epoch
       return inner.get.pipe(
         Effect.tap((got) =>
@@ -215,12 +201,7 @@ export const make = Effect.fnUntraced(function* (options: {
         ),
       )
     }),
-    authenticate: Effect.fail(
-      new AntigravityAuthError({
-        reason: "LoginFailed",
-        message: Messages.antigravityNotSignedIn,
-      }),
-    ),
+    authenticate: notSignedIn,
     logout: Effect.gen(function* () {
       epoch++
       token = undefined

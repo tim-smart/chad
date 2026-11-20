@@ -3,19 +3,11 @@ import { AntigravityAuth } from "clanka/AntigravityAuth"
 import { AuthCodeHandler } from "clanka/AuthCodeHandler"
 import { CodexAuth } from "clanka/CodexAuth"
 import { DeviceCodeHandler } from "clanka/DeviceCodeHandler"
-import {
-  Console,
-  Effect,
-  FileSystem,
-  Option,
-  Redacted,
-  Stdio,
-  Stream,
-} from "effect"
-import { Argument, Command, Prompt } from "effect/cli"
+import { Console, Effect, FileSystem, Option, Stream } from "effect"
+import { Argument, Command } from "effect/cli"
 import { KeyValueStore } from "effect/persistence"
 import * as Messages from "../../Messages.ts"
-import type { LoginKind } from "../../ModelText.ts"
+import { type LoginKind, loginKinds } from "../../ModelText.ts"
 import { Timings } from "../../Timings.ts"
 import * as TokenStore from "../../TokenStore.ts"
 import * as Account from "../Account.ts"
@@ -24,6 +16,7 @@ import { Environment } from "../Environment.ts"
 import { ExitCode, Failure } from "../Failure.ts"
 import * as Files from "../Files.ts"
 import * as Owner from "../Owner.ts"
+import * as Token from "../Token.ts"
 
 const failed = (reason: string) =>
   new Failure({
@@ -78,19 +71,8 @@ export const terminal = Effect.fnUntraced(function* (command: string) {
     Effect.provideService(KeyValueStore.KeyValueStore, guarded),
     Effect.provideService(DeviceCodeHandler, handler),
   )
-  // `chad model` with no daemon tries an Antigravity model on the stored sign-in, and never signs in.
-  const antigravity = yield* AntigravityAuth.make.pipe(
-    Effect.provideService(KeyValueStore.KeyValueStore, guarded),
-    Effect.provideService(
-      AuthCodeHandler,
-      AuthCodeHandler.of({
-        request: () => Effect.die(new Error(Messages.antigravityNotSignedIn)),
-      }),
-    ),
-  )
   return {
     auth,
-    antigravity,
     store: guarded,
     handler,
     /** Whether the login asked for a code. */
@@ -125,28 +107,38 @@ const tokenStore = Effect.fnUntraced(function* (command: string) {
 })
 
 /**
- * The login on `terminal`'s login, with the daemon's timeout from `Timings`. It fails with the command's
- * failure for the reason the login did not complete.
+ * A login with no daemon, under the daemon's timeout from `Timings`. The command's own failure comes back out of
+ * clanka, which the lock taken when the token is stored dies inside, since clanka stores with `orDie`.
  */
-export const run = Effect.fnUntraced(function* <E>(
-  auth: CodexAuth["Service"],
-  failed: (reason: string) => E,
+const bounded = Effect.fnUntraced(function* <A, E, R, E2>(
+  login: Effect.Effect<A, E, R>,
+  timedOut: () => E2,
 ) {
   const timings = yield* Timings
-  return yield* auth.get.pipe(
-    Effect.catchTag("CodexAuthError", (error) =>
-      Effect.fail(failed(error.reason)),
-    ),
+  return yield* login.pipe(
     Effect.timeoutOrElse({
       duration: timings.modelLogin,
-      orElse: () => Effect.fail(failed("TimedOut")),
+      orElse: () => Effect.fail(timedOut()),
     }),
-    // The lock taken when the token is stored dies inside clanka, which stores with `orDie`.
     Effect.catchDefect((defect) =>
       defect instanceof Failure ? Effect.fail(defect) : Effect.die(defect),
     ),
   )
 })
+
+/** The login on `terminal`'s login. It fails with the command's failure for the reason the login did not complete. */
+export const run = <E>(
+  auth: CodexAuth["Service"],
+  failed: (reason: string) => E,
+) =>
+  bounded(
+    auth.get.pipe(
+      Effect.catchTag("CodexAuthError", (error) =>
+        Effect.fail(failed(error.reason)),
+      ),
+    ),
+    () => failed("TimedOut"),
+  )
 
 /** The Codex login with no daemon, which the CLI runs itself on `terminal`. */
 export const alone = Effect.gen(function* () {
@@ -166,21 +158,7 @@ const signInFailed = (message: string) =>
  * terminal. It is never an argument, since it signs chad in.
  */
 const readCode = Effect.gen(function* () {
-  const stdio = yield* Stdio.Stdio
-  const read = (yield* stdio.stdinIsTerminal)
-    ? yield* Prompt.run(
-        Prompt.Hidden({ message: Messages.antigravityLoginPrompt }),
-      ).pipe(
-        Effect.map(Redacted.value),
-        // Ctrl-C at the prompt ends the command as a signal does.
-        Effect.mapError(() => new Failure({ code: ExitCode.interrupted })),
-      )
-    : yield* stdio.stdin.pipe(
-        Stream.decodeText(),
-        Stream.mkString,
-        Effect.orDie,
-      )
-  const code = read.trim()
+  const code = (yield* Token.entered(Messages.antigravityLoginPrompt)).trim()
   if (code === "") {
     return yield* new Failure({
       code: ExitCode.usage,
@@ -196,26 +174,19 @@ const readCode = Effect.gen(function* () {
  */
 const antigravityThroughDaemon = Effect.gen(function* () {
   const client = yield* Daemon.reach("login")
-  const { url } = yield* Daemon.call(
-    "login",
-    client.AntigravityLoginStart(),
-  ).pipe(
-    Effect.catchTag("AntigravityLoginFailed", (error) =>
-      Effect.fail(signInFailed(error.message)),
-    ),
-  )
+  const { url } = yield* Daemon.call("login", client.AntigravityLoginStart())
   yield* Console.log(Messages.antigravityLoginOpen(url))
   const code = yield* readCode
   const { models } = yield* Daemon.call(
     "login",
     client.AntigravityLoginFinish({ code }),
-  ).pipe(
-    Effect.catchTag("AntigravityLoginFailed", (error) =>
-      Effect.fail(signInFailed(error.message)),
-    ),
   )
   yield* Console.log(Messages.antigravitySignedIn(models))
-})
+}).pipe(
+  Effect.catchTag("AntigravityLoginFailed", (error) =>
+    Effect.fail(signInFailed(error.message)),
+  ),
+)
 
 /** The Antigravity sign-in with no daemon, over the token store, with the daemon's timeout from `Timings`. */
 const antigravityAlone = Effect.gen(function* () {
@@ -227,7 +198,7 @@ const antigravityAlone = Effect.gen(function* () {
     request: ({ url }) =>
       Console.log(Messages.antigravityLoginOpen(url)).pipe(
         Effect.andThen(readCode),
-        // The command's own failure, which `catchDefect` below gives back.
+        // The command's own failure, which `bounded` gives back.
         Effect.orDie,
         Effect.provideContext(context),
       ),
@@ -236,25 +207,24 @@ const antigravityAlone = Effect.gen(function* () {
     Effect.provideService(KeyValueStore.KeyValueStore, store),
     Effect.provideService(AuthCodeHandler, handler),
   )
-  yield* auth.authenticate.pipe(
-    Effect.catchTag("AntigravityAuthError", (error) =>
-      Effect.fail(signInFailed(Messages.antigravityLoginFailed(error.message))),
+  yield* bounded(
+    auth.authenticate.pipe(
+      Effect.catchTag("AntigravityAuthError", (error) =>
+        Effect.fail(
+          signInFailed(Messages.antigravityLoginFailed(error.message)),
+        ),
+      ),
     ),
-    Effect.timeoutOrElse({
-      duration: timings.modelLogin,
-      orElse: () =>
-        Effect.fail(signInFailed(Messages.antigravityLoginTimedOut)),
-    }),
-    Effect.catchDefect((defect) =>
-      defect instanceof Failure ? Effect.fail(defect) : Effect.die(defect),
-    ),
+    () => signInFailed(Messages.antigravityLoginTimedOut),
   )
-  // clanka's Antigravity models are loaded here, so that no other command pays for them at its start.
-  const { modelIds } = yield* Effect.promise(
-    () => import("../../daemon/AntigravityLogin.ts"),
+  // The model layer is loaded here, so that no other command pays for it at its start.
+  const { antigravityModelIds } = yield* Effect.promise(
+    () => import("../../ModelSpec.ts"),
   )
   yield* Console.log(
-    Messages.antigravitySignedIn(yield* modelIds(auth, timings.modelTrial)),
+    Messages.antigravitySignedIn(
+      yield* antigravityModelIds(auth, timings.modelTrial),
+    ),
   )
 })
 
@@ -278,7 +248,7 @@ export const inForce = Effect.fnUntraced(function* (command: string) {
 })
 
 /** The login `chad login` and `chad logout` name, which is the login of the model in force when none is named. */
-export const which = Argument.Literals("login", ["codex", "antigravity"]).pipe(
+export const which = Argument.Literals("login", loginKinds).pipe(
   Argument.withDescription(
     "codex or antigravity, the login of the model in force when left out",
   ),
@@ -291,11 +261,11 @@ export const login = Command.make(
   { which },
   Effect.fn("login")(function* ({ which }) {
     yield* Owner.only("login")
+    if (Option.isSome(which)) return yield* loginTo(which.value)
     const { spec, login } = yield* inForce("login")
-    const kind = Option.getOrUndefined(which) ?? login
-    if (kind === undefined) {
+    if (login === undefined) {
       return yield* Console.log(Messages.loginNotNeeded(spec))
     }
-    return yield* loginTo(kind)
+    return yield* loginTo(login)
   }),
 ).pipe(Command.withDescription("Log chad in to Codex or Antigravity"))

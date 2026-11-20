@@ -1,9 +1,10 @@
-import { Effect, Redacted, Stdio, Stream } from "effect"
-import { Argument, Command, Prompt } from "effect/cli"
+import { Effect } from "effect"
+import { Argument, Command } from "effect/cli"
 import * as Messages from "../../Messages.ts"
 import { ExitCode, Failure } from "../Failure.ts"
 import * as Owner from "../Owner.ts"
 import * as Repository from "../Repository.ts"
+import * as Token from "../Token.ts"
 
 /**
  * `chad mcp restart`: rebuilds the MCP layer, which restarts every server. It needs the daemon and takes its place in
@@ -34,21 +35,7 @@ const login = Command.make(
     const command = "mcp login"
     yield* Owner.only(command)
     yield* Repository.through(command, { _tag: "McpLoginStart", server })
-    const stdio = yield* Stdio.Stdio
-    const read = (yield* stdio.stdinIsTerminal)
-      ? yield* Prompt.run(
-          Prompt.Hidden({ message: Messages.mcpLoginPrompt }),
-        ).pipe(
-          Effect.map(Redacted.value),
-          // Ctrl-C at the prompt ends the command as a signal does.
-          Effect.mapError(() => new Failure({ code: ExitCode.interrupted })),
-        )
-      : yield* stdio.stdin.pipe(
-          Stream.decodeText(),
-          Stream.mkString,
-          Effect.orDie,
-        )
-    const address = read.trim()
+    const address = (yield* Token.entered(Messages.mcpLoginPrompt)).trim()
     if (address === "")
       return yield* new Failure({
         code: ExitCode.usage,

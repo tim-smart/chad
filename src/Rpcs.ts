@@ -1,6 +1,7 @@
 import { Effect, Layer, Schema } from "effect"
 import { Rpc, RpcGroup, RpcMiddleware } from "effect/rpc"
 import * as Connections from "./Connections.ts"
+import { loginKinds } from "./ModelText.ts"
 import { version } from "./Version.ts"
 
 /**
@@ -196,7 +197,7 @@ export const OpenRpcs = RpcGroup.make(
 )
 
 /** The two model logins, as `chad login` and `chad logout` name them. */
-export const LoginKind = Schema.Literals(["codex", "antigravity"])
+export const LoginKind = Schema.Literals(loginKinds)
 
 /** What a `chad login codex` through the daemon hears: the code to show, then how it ended. */
 export const LoginEvent = Schema.Union([

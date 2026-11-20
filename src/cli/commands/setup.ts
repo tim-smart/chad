@@ -3,6 +3,7 @@ import { Command, Flag, Prompt } from "effect/cli"
 import * as Connections from "../../Connections.ts"
 import * as Discord from "../../Discord.ts"
 import * as Messages from "../../Messages.ts"
+import * as ModelText from "../../ModelText.ts"
 import * as Timezone from "../../Timezone.ts"
 import * as Account from "../Account.ts"
 import * as Change from "../Change.ts"
@@ -99,7 +100,8 @@ export const setup = Command.make(
     if ((yield* Daemon.lock) === "free") yield* Files.writable(command)
     const current = (yield* listed).find(({ kind }) => kind === "discord")
     const login = yield* Account.fromFiles
-    const kind = (yield* Account.model).login ?? "codex"
+    const kind =
+      ModelText.loginOf(login.spec, environment.openaiApiKey) ?? "codex"
 
     // With no terminal, an answer that is neither given nor stored fails before anything changes.
     if (!terminal) {

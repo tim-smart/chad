@@ -861,7 +861,7 @@ export const antigravitySignedIn = (
   models: ReadonlyArray<string> | undefined,
 ) =>
   [
-    "chad is signed in to Antigravity.",
+    loggedIn("antigravity"),
     models === undefined
       ? "Its models could not be listed. Run chad login antigravity again to see them."
       : models.length === 0

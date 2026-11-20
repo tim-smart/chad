@@ -1,9 +1,8 @@
 import { dirname } from "node:path"
 import { OpenAiClient } from "@effect/ai-openai"
 import type { ThoughtLevel } from "clanka/AcpSessionStore"
-import { AntigravityClient } from "clanka/Antigravity"
 import * as Antigravity from "clanka/Antigravity"
-import { type AntigravityAuth, toTokenStore } from "clanka/AntigravityAuth"
+import { AntigravityAuth, toTokenStore } from "clanka/AntigravityAuth"
 import * as Codex from "clanka/Codex"
 import { CodexAuth } from "clanka/CodexAuth"
 import * as Copilot from "clanka/Copilot"
@@ -115,9 +114,6 @@ export const text = (settings: Settings) =>
 /** The login a setting's provider needs, or nothing. */
 export const loginOf = (spec: Spec): LoginKind | undefined =>
   spec.path === "codex" || spec.path === "antigravity" ? spec.path : undefined
-
-/** Whether a setting's provider needs the Codex login. */
-export const needsLogin = (spec: Spec) => spec.path === "codex"
 
 /**
  * Whether fast mode reaches a setting's requests, which clanka allows on OpenAI alone: the `codex` and `openai` paths.
@@ -342,7 +338,10 @@ export const sessionModels = (
     case "antigravity":
       // The client takes the shared `AntigravityAuth` from context, so it holds no sign-in of its own.
       return models(
-        Layer.effect(AntigravityClient, AntigravityClient.make),
+        Layer.effect(
+          Antigravity.AntigravityClient,
+          Antigravity.AntigravityClient.make,
+        ),
         (spec) => Antigravity.model(spec.model, effortOf(spec)),
       )
     case "other":
@@ -433,6 +432,25 @@ export const title = (
 export class NoTitle extends Data.TaggedError("NoTitle")<{
   readonly message: string
 }> {}
+
+/**
+ * The model ids of the signed-in Antigravity account, which only the account knows, or nothing when the listing
+ * failed or took longer than `deadline`.
+ */
+export const antigravityModelIds = (
+  auth: AntigravityAuth["Service"],
+  deadline: Duration.Duration,
+) =>
+  Antigravity.AntigravityClient.make.pipe(
+    Effect.flatMap((client) => client.models),
+    Effect.map((models) => models.map((model) => model.id)),
+    Effect.provideService(AntigravityAuth, auth),
+    Effect.timeout(deadline),
+    Effect.tapCause((cause) =>
+      Effect.logWarning("The Antigravity models could not be listed", cause),
+    ),
+    Effect.orElseSucceed(() => undefined),
+  )
 
 /**
  * A change that `chad model` and `/model` ask for. A missing field is left as it is,
@@ -621,15 +639,13 @@ export const untried = (planned: Plan, tried: ReadonlySet<string>) =>
   )
 
 /** Whether an Antigravity sign-in is stored. A store that cannot be read counts as none. */
-export const antigravityStored = Effect.flatMap(
-  KeyValueStore.KeyValueStore,
-  (store) =>
-    toTokenStore(store)
-      .get("token")
-      .pipe(
-        Effect.map(Option.isSome),
-        Effect.orElseSucceed(() => false),
-      ),
+const antigravityStored = Effect.flatMap(KeyValueStore.KeyValueStore, (store) =>
+  toTokenStore(store)
+    .get("token")
+    .pipe(
+      Effect.map(Option.isSome),
+      Effect.orElseSucceed(() => false),
+    ),
 )
 
 /**
@@ -652,15 +668,13 @@ export const prepare = Effect.fnUntraced(function* <E>(options: {
   const tried = options.tried ?? new Set<string>()
   const { fast } = planned.success.settings
   const trials = untried(planned.success, tried)
-  if (
-    trials.some((spec) => loginOf(spec) === "antigravity") &&
-    !(yield* antigravityStored)
-  ) {
+  const logins = new Set(trials.map(loginOf))
+  if (logins.has("antigravity") && !(yield* antigravityStored)) {
     return yield* new Unchanged({
       text: Messages.modelRefused(Messages.antigravityNotSignedIn),
     })
   }
-  if (trials.some(needsLogin)) yield* options.login
+  if (logins.has("codex")) yield* options.login
   for (const spec of trials) {
     yield* trial(spec, options.endpoint, options.deadline, fast).pipe(
       Effect.mapError(

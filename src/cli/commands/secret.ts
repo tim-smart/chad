@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process"
 import { constants } from "node:os"
-import { Console, Effect, Option, Redacted, Stdio, Stream } from "effect"
-import { Argument, Command, Flag, Prompt } from "effect/cli"
+import { Console, Effect, Option } from "effect"
+import { Argument, Command, Flag } from "effect/cli"
 import * as Errno from "../../Errno.ts"
 import * as Messages from "../../Messages.ts"
 import * as Secrets from "../../Secrets.ts"
@@ -11,6 +11,7 @@ import { ExitCode, Failure } from "../Failure.ts"
 import * as Files from "../Files.ts"
 import * as Flags from "../Flags.ts"
 import * as Repository from "../Repository.ts"
+import * as Token from "../Token.ts"
 
 /**
  * `chad secret`: the named values in `secrets/secrets.json`. No command prints a stored value, and
@@ -37,20 +38,7 @@ const broken = (command: string) => (error: Secrets.SecretsError) =>
  * argument. One line ending at the end is dropped, which `echo` adds, and nothing else.
  */
 const value = Effect.fnUntraced(function* (name: string) {
-  const stdio = yield* Stdio.Stdio
-  const read = (yield* stdio.stdinIsTerminal)
-    ? yield* Prompt.run(
-        Prompt.Hidden({ message: Messages.secretPrompt(name) }),
-      ).pipe(
-        Effect.map(Redacted.value),
-        // Ctrl-C at the prompt ends the command as a signal does.
-        Effect.mapError(() => new Failure({ code: ExitCode.interrupted })),
-      )
-    : yield* stdio.stdin.pipe(
-        Stream.decodeText(),
-        Stream.mkString,
-        Effect.orDie,
-      )
+  const read = yield* Token.entered(Messages.secretPrompt(name))
   const text = read.replace(/\r?\n$/, "")
   if (text === "")
     return yield* new Failure({

@@ -33,7 +33,8 @@ export const main = (data: string, model: string | undefined) =>
   )
 
 /** The two model logins chad runs: Codex's device code and Antigravity's Google sign-in. */
-export type LoginKind = "codex" | "antigravity"
+export const loginKinds = ["codex", "antigravity"] as const
+export type LoginKind = (typeof loginKinds)[number]
 
 /** The login a setting's provider needs: Codex for `openai` with no API key, Antigravity for `antigravity`. */
 export const loginOf = (

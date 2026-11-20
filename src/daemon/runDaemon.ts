@@ -516,6 +516,11 @@ const boot = Effect.fnUntraced(function* (
       ),
     )
   }
+  /** What a login that completes clears: the usage limit's condition and the logged-out notice. */
+  const loggedIn = Effect.andThen(
+    notices.clear(Notices.usageLimitKey),
+    notices.clear(Notices.loggedOutKey),
+  )
   // The one Codex login of the process. Its code goes to the thread of the turn that asked, or by the notice route,
   // and its wait is the daemon's, so a turn or a CLI that goes does not end it.
   const login = yield* Login.make({
@@ -536,19 +541,13 @@ const boot = Effect.fnUntraced(function* (
         ),
         Effect.orElseSucceed(() => undefined),
       ),
-    loggedIn: Effect.andThen(
-      notices.clear(Notices.usageLimitKey),
-      notices.clear(Notices.loggedOutKey),
-    ),
+    loggedIn,
   }).pipe(Effect.provide(Context.merge(world, tokens)))
   // The one Antigravity sign-in, which only `chad login antigravity` starts.
   const antigravity = yield* AntigravityLogin.make({
     timeout: inputs.timings.modelLogin,
     listing: inputs.timings.modelTrial,
-    signedIn: Effect.andThen(
-      notices.clear(Notices.usageLimitKey),
-      notices.clear(Notices.loggedOutKey),
-    ),
+    signedIn: loggedIn,
   }).pipe(Effect.provide(Context.merge(world, tokens)))
   const requirements = Context.mergeAll(
     world,
