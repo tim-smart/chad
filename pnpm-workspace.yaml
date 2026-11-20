@@ -39,4 +39,4 @@ ignoredOptionalDependencies:
   - "@anthropic-ai/claude-agent-sdk-win32-arm64"
 
 minimumReleaseAgeExclude:
-  - clanka@0.28.3
+  - clanka@0.29.0

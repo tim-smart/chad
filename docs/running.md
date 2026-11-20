@@ -132,12 +132,35 @@ as in `/model openai/gpt-6-astra/high --fast on`, and `chad model` with no argum
 session uses the new setting from its next turn, with no restart.
 
 It applies to `openai` models, on the Codex login or with `CHAD_OPENAI_API_KEY`, and to the sub-agent and summarizer
-models with them. `openai-compat`, `copilot` and `xai` have no fast mode: chad keeps the setting and sends no tier, and
+models with them. `openai-compat`, `antigravity`, `copilot` and `xai` have no fast mode: chad keeps the setting and sends no tier, and
 `chad model` says it is ignored. It applies again when the main model moves back to `openai`.
 
 Turning it on makes a trial request with the tier set, and a model or an account that refuses it leaves the setting as
 it was. The tier is best effort on OpenAI's side: not every model, region or project serves it, and one that does not
 can answer on the default tier.
+
+### Antigravity
+
+chad can run on the Gemini, Claude and GPT-OSS models of a Google Antigravity subscription. Sign in once from a shell:
+
+```sh
+docker exec -it chad chad login antigravity
+```
+
+It prints a Google link. Open it, approve with the account that holds the subscription, and Google shows a code. Paste
+the code at the prompt, which does not show it. chad then lists the account's model ids. Pick one and its effort, for
+example:
+
+```sh
+docker exec -it chad chad model antigravity/gemini-3-flash/low
+```
+
+The sign-in is kept under `secrets/auth/` and refreshes by itself. A turn never starts a sign-in: with none stored, or
+once Google revokes it, the turn fails with a message that says to run `chad login antigravity` again. `chad logout
+antigravity` clears it. Antigravity models have no fast mode.
+
+This uses the Antigravity app's OAuth client and Cloud Code's internal API, which Google does not offer for other
+clients and could block on your account.
 
 ### When chad freezes
 

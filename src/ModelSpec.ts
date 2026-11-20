@@ -1,6 +1,8 @@
 import { dirname } from "node:path"
 import { OpenAiClient } from "@effect/ai-openai"
 import type { ThoughtLevel } from "clanka/AcpSessionStore"
+import * as Antigravity from "clanka/Antigravity"
+import { AntigravityAuth, toTokenStore } from "clanka/AntigravityAuth"
 import * as Codex from "clanka/Codex"
 import { CodexAuth } from "clanka/CodexAuth"
 import * as Copilot from "clanka/Copilot"
@@ -23,14 +25,14 @@ import {
   Stream,
 } from "effect"
 import { LanguageModel, type Model as AiModel } from "effect/ai"
-import type { KeyValueStore } from "effect/persistence"
+import { KeyValueStore } from "effect/persistence"
 import { HttpClient, HttpClientRequest } from "effect/http"
 import type { PlatformError } from "effect/PlatformError"
 import type { Socket } from "effect/socket"
 import * as Errno from "./Errno.ts"
 import * as Failed from "./daemon/Failed.ts"
 import * as Messages from "./Messages.ts"
-import { fallback, flagValue, readLine } from "./ModelText.ts"
+import { fallback, flagValue, type LoginKind, readLine } from "./ModelText.ts"
 
 export { clear, flagValue } from "./ModelText.ts"
 import * as Paths from "./Paths.ts"
@@ -45,6 +47,7 @@ import { titleOf } from "./Title.ts"
  * - `codex`: `openai` with no API key, over the one shared Codex login;
  * - `openai`: `openai` with `CHAD_OPENAI_API_KEY`, the plain OpenAI API;
  * - `compat`: `openai-compat`, the endpoint and the key from the environment;
+ * - `antigravity`: `antigravity`, over the one shared Antigravity sign-in;
  * - `other`: `copilot` and `xai`, which chad does not block and does not test.
  *
  * Every path is composed by hand in the same shape, with one client per session.
@@ -53,7 +56,7 @@ import { titleOf } from "./Title.ts"
 /** The URL of the Codex model endpoint. clanka hardcodes it, and a test rewrites its host. */
 export const codexUrl = "https://chatgpt.com/backend-api/codex"
 
-export type Path = "codex" | "openai" | "compat" | "other"
+export type Path = "codex" | "openai" | "compat" | "antigravity" | "other"
 
 /** A model setting that can run. */
 export interface Spec {
@@ -94,7 +97,10 @@ export const parse = (
         effort,
         path: endpoint.openaiApiKey === undefined ? "codex" : "openai",
       })
-    default:
+    case "antigravity":
+      return Result.succeed({ text, provider, model, effort, path: provider })
+    case "copilot":
+    case "xai":
       return Result.succeed({ text, provider, model, effort, path: "other" })
   }
 }
@@ -105,8 +111,9 @@ export const text = (settings: Settings) =>
     ? settings.main.success.text
     : settings.main.failure.text
 
-/** Whether a setting's provider needs the Codex login. */
-export const needsLogin = (spec: Spec) => spec.path === "codex"
+/** The login a setting's provider needs, or nothing. */
+export const loginOf = (spec: Spec): LoginKind | undefined =>
+  spec.path === "codex" || spec.path === "antigravity" ? spec.path : undefined
 
 /**
  * Whether fast mode reaches a setting's requests, which clanka allows on OpenAI alone: the `codex` and `openai` paths.
@@ -228,13 +235,14 @@ const checkOverride = (
   )
 
 /**
- * What every model layer is built over: the two transports, the one shared Codex login, and the token store and the
- * login handler that clanka's other logins take.
+ * What every model layer is built over: the two transports, the one shared Codex login, the one shared Antigravity
+ * sign-in, and the token store and the login handler that clanka's other logins take.
  */
 export type Requirements =
   | HttpClient.HttpClient
   | Socket.WebSocketConstructor
   | CodexAuth
+  | AntigravityAuth
   | KeyValueStore.KeyValueStore
   | DeviceCodeHandler
 
@@ -327,6 +335,15 @@ export const sessionModels = (
         OpenAiCompat.layerClient({ apiUrl: endpoint.openaiApiUrl, apiKey }),
         (spec) => OpenAiCompat.model(spec.model, effortOf(spec)),
       )
+    case "antigravity":
+      // The client takes the shared `AntigravityAuth` from context, so it holds no sign-in of its own.
+      return models(
+        Layer.effect(
+          Antigravity.AntigravityClient,
+          Antigravity.AntigravityClient.make,
+        ),
+        (spec) => Antigravity.model(spec.model, effortOf(spec)),
+      )
     case "other":
       // clanka's own clients, with their own logins over the token store and no key or header.
       return main.provider === "xai"
@@ -415,6 +432,25 @@ export const title = (
 export class NoTitle extends Data.TaggedError("NoTitle")<{
   readonly message: string
 }> {}
+
+/**
+ * The model ids of the signed-in Antigravity account, which only the account knows, or nothing when the listing
+ * failed or took longer than `deadline`.
+ */
+export const antigravityModelIds = (
+  auth: AntigravityAuth["Service"],
+  deadline: Duration.Duration,
+) =>
+  Antigravity.AntigravityClient.make.pipe(
+    Effect.flatMap((client) => client.models),
+    Effect.map((models) => models.map((model) => model.id)),
+    Effect.provideService(AntigravityAuth, auth),
+    Effect.timeout(deadline),
+    Effect.tapCause((cause) =>
+      Effect.logWarning("The Antigravity models could not be listed", cause),
+    ),
+    Effect.orElseSucceed(() => undefined),
+  )
 
 /**
  * A change that `chad model` and `/model` ask for. A missing field is left as it is,
@@ -602,9 +638,20 @@ export const untried = (planned: Plan, tried: ReadonlySet<string>) =>
     (spec) => !tried.has(proof(spec, planned.settings.fast)),
   )
 
+/** Whether an Antigravity sign-in is stored. A store that cannot be read counts as none. */
+const antigravityStored = Effect.flatMap(KeyValueStore.KeyValueStore, (store) =>
+  toTokenStore(store)
+    .get("token")
+    .pipe(
+      Effect.map(Option.isSome),
+      Effect.orElseSucceed(() => false),
+    ),
+)
+
 /**
- * Readies a change: the plan, then the login when a model to try needs one and none exists, then the trial
- * request of each model to try, one after another. The first that fails ends the change with nothing
+ * Readies a change: the plan, then the Codex login when a model to try needs one and none exists, then the trial
+ * request of each model to try, one after another. An Antigravity model with no stored sign-in is refused, since only
+ * `chad login antigravity` signs in. The first that fails ends the change with nothing
  * stored. A trial `tried` already proved is not made again, and each one that passes is added to it.
  */
 export const prepare = Effect.fnUntraced(function* <E>(options: {
@@ -621,7 +668,13 @@ export const prepare = Effect.fnUntraced(function* <E>(options: {
   const tried = options.tried ?? new Set<string>()
   const { fast } = planned.success.settings
   const trials = untried(planned.success, tried)
-  if (trials.some(needsLogin)) yield* options.login
+  const logins = new Set(trials.map(loginOf))
+  if (logins.has("antigravity") && !(yield* antigravityStored)) {
+    return yield* new Unchanged({
+      text: Messages.modelRefused(Messages.antigravityNotSignedIn),
+    })
+  }
+  if (logins.has("codex")) yield* options.login
   for (const spec of trials) {
     yield* trial(spec, options.endpoint, options.deadline, fast).pipe(
       Effect.mapError(

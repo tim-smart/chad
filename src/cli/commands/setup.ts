@@ -4,7 +4,6 @@ import * as Connections from "../../Connections.ts"
 import * as Discord from "../../Discord.ts"
 import * as Messages from "../../Messages.ts"
 import * as Timezone from "../../Timezone.ts"
-import * as Account from "../Account.ts"
 import * as Change from "../Change.ts"
 import * as Daemon from "../Daemon.ts"
 import { Environment } from "../Environment.ts"
@@ -98,7 +97,9 @@ export const setup = Command.make(
       : undefined
     if ((yield* Daemon.lock) === "free") yield* Files.writable(command)
     const current = (yield* listed).find(({ kind }) => kind === "discord")
-    const login = yield* Account.fromFiles
+    // The running daemon's model, whose environment can differ from this shell's, and the files' with none.
+    const login = yield* Login.inForce(command)
+    const kind = login.login ?? "codex"
 
     // With no terminal, an answer that is neither given nor stored fails before anything changes.
     if (!terminal) {
@@ -109,7 +110,7 @@ export const setup = Command.make(
         ...((current?.owners.length ?? 0) === 0 && Option.isNone(owner)
           ? ["--owner"]
           : []),
-        ...(login.login === "logged-out" && !skipLogin ? ["--skip-login"] : []),
+        ...(login.state === "logged-out" && !skipLogin ? ["--skip-login"] : []),
       ]
       if (missing.length > 0) {
         return yield* new Failure({
@@ -232,18 +233,22 @@ export const setup = Command.make(
     }
 
     // The model login, which `--skip-login` skips.
-    if (skipLogin) return yield* Console.log(Messages.setupLoginSkipped)
-    if (login.login === "not-needed")
+    if (skipLogin) return yield* Console.log(Messages.setupLoginSkipped(kind))
+    if (login.state === "not-needed")
       return yield* Console.log(Messages.loginNotNeeded(login.spec))
-    if (login.login === "logged-in")
-      return yield* Console.log(Messages.setupLoggedIn)
+    if (login.state === "logged-in")
+      return yield* Console.log(Messages.loggedIn(kind))
+    // A login another command started is left to finish there, and setup offers no second one.
+    if (login.state === "pending")
+      return yield* Console.log(Messages.setupLoginPending(kind))
     const now = yield* ask(
-      Prompt.Confirm({ message: Messages.setupLoginOffer, initial: true }),
+      Prompt.Confirm({
+        message: Messages.setupLoginOffer(kind),
+        initial: true,
+      }),
     )
-    if (!now) return yield* Console.log(Messages.setupLoginSkipped)
-    return yield* (yield* Daemon.lock) === "held"
-      ? Login.throughDaemon
-      : Login.alone
+    if (!now) return yield* Console.log(Messages.setupLoginSkipped(kind))
+    return yield* Login.loginTo(kind)
   }),
 ).pipe(
   Command.withDescription(

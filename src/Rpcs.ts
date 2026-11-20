@@ -1,6 +1,7 @@
 import { Effect, Layer, Schema } from "effect"
 import { Rpc, RpcGroup, RpcMiddleware } from "effect/rpc"
 import * as Connections from "./Connections.ts"
+import { loginKinds } from "./ModelText.ts"
 import { version } from "./Version.ts"
 
 /**
@@ -195,16 +196,17 @@ export const OpenRpcs = RpcGroup.make(
   Rpc.make("Status", { success: Report }),
 )
 
-/** What a `chad login` through the daemon hears: the code to show, then how it ended. */
+/** The two model logins, as `chad login` and `chad logout` name them. */
+export const LoginKind = Schema.Literals(loginKinds)
+
+/** What a `chad login codex` through the daemon hears: the code to show, then how it ended. */
 export const LoginEvent = Schema.Union([
   Schema.TaggedStruct("Code", {
     verifyUrl: Schema.String,
     code: Schema.String,
   }),
   Schema.TaggedStruct("Ended", {
-    outcome: Schema.Literals(["logged-in", "already", "not-needed"]),
-    /** The model in force. */
-    spec: Schema.String,
+    outcome: Schema.Literals(["logged-in", "already"]),
   }),
 ])
 export type LoginEvent = typeof LoginEvent.Type
@@ -220,6 +222,11 @@ export class LoginFailed extends Schema.TaggedError<LoginFailed>(
     "RefreshFailed",
   ]),
 }) {}
+
+/** An Antigravity sign-in the daemon did not complete, with what `chad login antigravity` prints. */
+export class AntigravityLoginFailed extends Schema.TaggedError<AntigravityLoginFailed>(
+  "chad/Rpcs/AntigravityLoginFailed",
+)("AntigravityLoginFailed", { message: Schema.String }) {}
 
 /** What `chad model` asks for: a missing field is left as it is, and `null` clears an override. */
 export const ModelRequest = Schema.Struct({
@@ -318,10 +325,37 @@ const checked = RpcGroup.make(
     success: Schema.Array(Connections.Checked),
     error: Connections.Rejected,
   }),
-  /** `chad login`. It takes no place in the queue, and the daemon's timeout is its only one. */
+  /** `chad login codex`. It takes no place in the queue, and the daemon's timeout is its only one. */
   Rpc.make("Login", { success: LoginEvent, error: LoginFailed, stream: true }),
-  /** `chad logout`, which says whether the model in force needs the login. */
-  Rpc.make("Logout", { success: Schema.Struct({ spec: Schema.String }) }),
+  /**
+   * The first half of `chad login antigravity`, which begins a sign-in in the daemon and gives Google's link. The
+   * daemon's timeout is its only one.
+   */
+  Rpc.make("AntigravityLoginStart", {
+    success: Schema.Struct({ id: Schema.String, url: Schema.String }),
+    error: AntigravityLoginFailed,
+  }),
+  /** The second half, with the code Google showed. It gives the account's model ids, or nothing when they could not be listed. */
+  Rpc.make("AntigravityLoginFinish", {
+    payload: { id: Schema.String, code: Schema.String },
+    success: Schema.Struct({
+      models: Schema.UndefinedOr(Schema.Array(Schema.String)),
+    }),
+    error: AntigravityLoginFailed,
+  }),
+  /**
+   * The main model in force, the login it needs and that login's state, which `chad login` and `chad logout` default
+   * to and `chad setup` offers.
+   */
+  Rpc.make("ModelLogin", {
+    success: Schema.Struct({
+      spec: Schema.String,
+      login: Schema.UndefinedOr(LoginKind),
+      state: LoginState,
+    }),
+  }),
+  /** `chad logout`, of one login. */
+  Rpc.make("Logout", { payload: { login: LoginKind } }),
   /** `chad model`. It takes no place in the queue, and a killed CLI ends its change before the store. */
   Rpc.make("Model", {
     payload: { request: ModelRequest },

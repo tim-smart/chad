@@ -91,7 +91,7 @@ test("with no terminal and no daemon, setup names every missing flag and changes
       Messages.setupIntent("on", Rest.application),
       Messages.ownerAdded(owner, "discord"),
       Messages.timezoneSet("Europe/Berlin"),
-      Messages.setupLoginSkipped,
+      Messages.setupLoginSkipped("codex"),
     ),
   })
   expect(connections()).toEqual([

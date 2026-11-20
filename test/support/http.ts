@@ -6,12 +6,17 @@ import { HttpClient, HttpClientRequest } from "effect/http"
 import { Socket } from "effect/socket"
 import * as Discord from "./discord.ts"
 
-/** The two Codex hosts that clanka hardcodes, and where on the fake model server each goes. */
+/**
+ * The two Codex hosts and the two of Antigravity's sign-in and Cloud Code that clanka hardcodes, and where on the fake
+ * model server each goes.
+ */
 export const codexHosts = (model: string) => {
   const origin = new URL(model).origin
   return [
     ["https://chatgpt.com/backend-api/codex", `${origin}/codex`],
     ["https://auth.openai.com", `${origin}/auth`],
+    ["https://oauth2.googleapis.com", `${origin}/google`],
+    ["https://daily-cloudcode-pa.googleapis.com", `${origin}/cloudcode`],
   ] as const
 }
 

@@ -75,6 +75,30 @@ export interface StoredToken {
   readonly accountId: string
 }
 
+/** The code the fake Google sign-in accepts, and the one model its Cloud Code serves. */
+export const antigravityCode = "fake-google-code"
+export const antigravityModel = "gemini-fake"
+
+/** Cloud Code's form of a call: `contents` of `user` and `model` parts, as the fake's other checks read messages. */
+const fromGemini = (body: unknown) => {
+  const value = body as {
+    model?: unknown
+    request?: {
+      contents?: ReadonlyArray<{
+        role?: string
+        parts?: ReadonlyArray<{ text?: string }>
+      }>
+    }
+  }
+  return {
+    model: value.model,
+    messages: (value.request?.contents ?? []).map((content) => ({
+      role: content.role === "model" ? "assistant" : "user",
+      content: (content.parts ?? []).map((part) => ({ text: part.text ?? "" })),
+    })),
+  }
+}
+
 /** The name of the token's file in `secrets/auth/`: clanka's key, `codex.auth/token`, as the file store encodes it. */
 export const tokenFileName = encodeURIComponent("codex.auth/token")
 
@@ -789,6 +813,73 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
     return json(response, 404, { error: { message: `no endpoint ${path}` } })
   }
 
+  /**
+   * Google's token endpoint and Cloud Code, for an Antigravity sign-in. The code grant takes `antigravityCode`, and
+   * Cloud Code takes only the access tokens it issued. A model call answers as the script says, with text alone.
+   */
+  const google = async (
+    path: string,
+    text: string,
+    headers: Record<string, string>,
+    response: import("node:http").ServerResponse,
+  ) => {
+    if (path === "/google/token") {
+      const form = new URLSearchParams(text)
+      if (
+        form.get("grant_type") !== "authorization_code" ||
+        form.get("code") !== antigravityCode ||
+        (form.get("code_verifier") ?? "") === ""
+      ) {
+        return json(response, 400, { error: "invalid_grant" })
+      }
+      const token = issue(false)
+      return json(response, 200, {
+        access_token: token.access,
+        refresh_token: token.refresh,
+        expires_in: 3600,
+      })
+    }
+    const bearer = (headers["authorization"] ?? "").replace(/^Bearer /, "")
+    if (!access.has(bearer)) {
+      return json(response, 401, { error: { message: "unauthenticated" } })
+    }
+    if (path === "/cloudcode/v1internal:loadCodeAssist") {
+      return json(response, 200, { cloudaicompanionProject: "fake-project" })
+    }
+    if (path === "/cloudcode/v1internal:fetchAvailableModels") {
+      return json(response, 200, {
+        models: { [antigravityModel]: { displayName: "Gemini Fake" } },
+      })
+    }
+    if (path === "/cloudcode/v1internal:streamGenerateContent?alt=sse") {
+      const body = fromGemini(text === "" ? null : JSON.parse(text))
+      const result =
+        body.model === antigravityModel
+          ? await answer({ path, headers, body }, false)
+          : {
+              status: 404,
+              error: { message: `no model ${String(body.model)}` },
+            }
+      if ("status" in result) {
+        return json(response, result.status, { error: result.error })
+      }
+      response.writeHead(200, { "content-type": "text/event-stream" })
+      const chunk = {
+        response: {
+          candidates: [
+            {
+              content: { parts: [{ text: result.reply.text ?? "" }] },
+              finishReason: "STOP",
+            },
+          ],
+          usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 },
+        },
+      }
+      return response.end(`data: ${JSON.stringify(chunk)}\n\n`)
+    }
+    return json(response, 404, { error: { message: `no endpoint ${path}` } })
+  }
+
   const server = createServer((request, response) => {
     const parts: Array<Buffer> = []
     request.on("data", (part: Buffer) => parts.push(part))
@@ -796,6 +887,9 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
       const path = request.url ?? ""
       const text = Buffer.concat(parts).toString("utf8")
       if (path.startsWith("/auth/")) return login(path, text, response)
+      if (path.startsWith("/google/") || path.startsWith("/cloudcode/")) {
+        return google(path, text, headersOf(request), response)
+      }
       const call = {
         path,
         headers: headersOf(request),

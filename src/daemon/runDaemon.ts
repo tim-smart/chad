@@ -4,6 +4,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices"
 import * as Agent from "clanka/Agent"
 import * as AgentExecutor from "clanka/AgentExecutor"
 import * as McpServers from "clanka/McpServers"
+import { AntigravityAuth } from "clanka/AntigravityAuth"
 import { CodexAuth } from "clanka/CodexAuth"
 import { DeviceCodeHandler } from "clanka/DeviceCodeHandler"
 import {
@@ -52,6 +53,7 @@ import * as Apply from "./Apply.ts"
 import * as Loader from "./Loader.ts"
 import * as Handler from "./Handler.ts"
 import * as Logger from "./Logger.ts"
+import * as AntigravityLogin from "./AntigravityLogin.ts"
 import * as Login from "./Login.ts"
 import * as Mcp from "./Mcp.ts"
 import * as McpOAuth from "./McpOAuth.ts"
@@ -514,6 +516,11 @@ const boot = Effect.fnUntraced(function* (
       ),
     )
   }
+  /** What a login that completes clears: the usage limit's condition and the logged-out notice. */
+  const loggedIn = Effect.andThen(
+    notices.clear(Notices.usageLimitKey),
+    notices.clear(Notices.loggedOutKey),
+  )
   // The one Codex login of the process. Its code goes to the thread of the turn that asked, or by the notice route,
   // and its wait is the daemon's, so a turn or a CLI that goes does not end it.
   const login = yield* Login.make({
@@ -534,15 +541,19 @@ const boot = Effect.fnUntraced(function* (
         ),
         Effect.orElseSucceed(() => undefined),
       ),
-    loggedIn: Effect.andThen(
-      notices.clear(Notices.usageLimitKey),
-      notices.clear(Notices.loggedOutKey),
-    ),
+    loggedIn,
+  }).pipe(Effect.provide(Context.merge(world, tokens)))
+  // The one Antigravity sign-in, which only `chad login antigravity` starts.
+  const antigravity = yield* AntigravityLogin.make({
+    timeout: inputs.timings.modelLogin,
+    listing: inputs.timings.modelTrial,
+    signedIn: loggedIn,
   }).pipe(Effect.provide(Context.merge(world, tokens)))
   const requirements = Context.mergeAll(
     world,
     tokens,
     Context.make(CodexAuth, login.auth),
+    Context.make(AntigravityAuth, antigravity.auth),
     Context.make(DeviceCodeHandler, Login.otherLogins),
   )
   const models = Model.make({
@@ -555,19 +566,19 @@ const boot = Effect.fnUntraced(function* (
   })
   const account: Server.Account = {
     login,
+    antigravity,
     models,
     model: () => {
       const current = models.settings()
       return {
         spec: Model.text(current),
-        needsLogin:
-          Result.isSuccess(current.main) &&
-          Model.needsLogin(current.main.success),
+        login: Result.isSuccess(current.main)
+          ? Model.loginOf(current.main.success)
+          : undefined,
       }
     },
-    stored: TokenStore.codexStored(volume.data).pipe(
-      Effect.provideContext(world),
-    ),
+    stored: (kind) =>
+      TokenStore.stored(volume.data, kind).pipe(Effect.provideContext(world)),
   }
   yield* Deferred.succeed(state.account, account)
   state.held = notices.held
@@ -669,8 +680,12 @@ const boot = Effect.fnUntraced(function* (
           Layer.succeed(Plugins.Plugins, plugins),
           Layer.succeed(SessionEntity.Support, {
             loggedOut: Effect.gen(function* () {
-              const { needsLogin } = account.model()
-              return needsLogin && !login.pending() && !(yield* account.stored)
+              const kind = account.model().login
+              return (
+                kind !== undefined &&
+                !Server.pending(account, kind) &&
+                !(yield* account.stored(kind))
+              )
             }),
             owners: (connection) =>
               running.list().find(({ name }) => name === connection)?.owners ??

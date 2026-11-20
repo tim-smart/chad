@@ -20,13 +20,14 @@ export const Reason = Schema.Union([
     /** Integer milliseconds since the epoch, like the times in the `turns` table. */
     resetsAt: Schema.optionalKey(Schema.Number),
   }),
-  // A login the turn needed did not complete.
+  // A login the turn needed did not complete, or the Antigravity sign-in it needed is missing.
   Schema.TaggedStruct("LoginFailed", {
     reason: Schema.Literals([
       "TimedOut",
       "DeviceFlowFailed",
       "TokenExchangeFailed",
       "RefreshFailed",
+      "SignInNeeded",
     ]),
   }),
   // A turn with no owner present on a chad that is logged out.
@@ -193,15 +194,20 @@ const messageOf = (value: unknown): string =>
 type LoginReason = Extract<Reason, { readonly _tag: "LoginFailed" }>["reason"]
 
 /**
- * The reason of a failed login that a defect carries, or nothing. clanka's client dies with its `CodexAuthError`, and
- * chad's own timeout dies with `LoginTimedOut`. A defect that wraps one in its `cause` counts
- * too.
+ * The reason of a failed login that a defect carries, or nothing. clanka's client dies with its `CodexAuthError`,
+ * chad's own timeout dies with `LoginTimedOut`, and a turn with no usable Antigravity sign-in dies with clanka's
+ * `AntigravityAuthError`: a refresh that failed keeps its reason, and anything else needs `chad login antigravity`. A
+ * defect that wraps one in its `cause` counts too.
  */
 const loginReason = (defect: unknown): LoginReason | undefined => {
   for (let value = defect, depth = 0; depth < 5; depth++) {
     if (typeof value !== "object" || value === null) return undefined
     const tag = (value as { readonly _tag?: unknown })._tag
     if (tag === "LoginTimedOut") return "TimedOut"
+    if (tag === "AntigravityAuthError") {
+      const reason = (value as { readonly reason?: unknown }).reason
+      return reason === "RefreshFailed" ? reason : "SignInNeeded"
+    }
     if (tag === "CodexAuthError") {
       const reason = (value as { readonly reason?: unknown }).reason
       if (

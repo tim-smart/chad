@@ -114,12 +114,16 @@ export type FailedReason =
   | {
       /** A model login that the turn started, or was waiting on, did not succeed. */
       readonly _tag: "LoginFailed"
-      /** `TimedOut`, or one of clanka's `CodexAuthError` reasons. */
+      /**
+       * `TimedOut`, one of clanka's `CodexAuthError` reasons, or `SignInNeeded` when the Antigravity sign-in is
+       * missing and only `chad login antigravity` makes one.
+       */
       readonly reason:
         | "TimedOut"
         | "DeviceFlowFailed"
         | "TokenExchangeFailed"
         | "RefreshFailed"
+        | "SignInNeeded"
     }
   | {
       /**

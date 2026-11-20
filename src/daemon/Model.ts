@@ -1,7 +1,12 @@
 import * as Agent from "clanka/Agent"
+import {
+  AntigravityAuth,
+  type AntigravityAuthError,
+} from "clanka/AntigravityAuth"
 import * as Compaction from "clanka/Compaction"
 import {
   CodexAuth,
+  type CodexAuthError,
   STORE_TOKEN_KEY,
   type TokenData,
   toTokenStore,
@@ -24,7 +29,7 @@ import * as Messages from "../Messages.ts"
 import {
   type Endpoint,
   type Inputs,
-  needsLogin,
+  loginOf,
   prepare,
   read,
   type Request,
@@ -51,7 +56,7 @@ import type { Notices } from "./Notices.ts"
 export {
   codexUrl,
   type Endpoint,
-  needsLogin,
+  loginOf,
   parse,
   type Path,
   read,
@@ -152,6 +157,20 @@ export const make = (options: {
   const { data, inputs, requirements, deadline } = options
   let current = options.initial
   const auth = Context.get(requirements, CodexAuth)
+  const antigravity = Context.get(requirements, AntigravityAuth)
+  /** The token check of a spec's login, which never starts an Antigravity sign-in. */
+  const token = (
+    spec: Spec,
+  ): Effect.Effect<void, CodexAuthError | AntigravityAuthError> => {
+    switch (loginOf(spec)) {
+      case "codex":
+        return Effect.asVoid(auth.get)
+      case "antigravity":
+        return Effect.asVoid(antigravity.get)
+      case undefined:
+        return Effect.void
+    }
+  }
   const changes = Semaphore.makeUnsafe(1)
   return {
     settings: () => current,
@@ -160,8 +179,9 @@ export const make = (options: {
       if (Result.isFailure(main)) {
         return yield* Effect.die(new Error(main.failure.error))
       }
-      // The WebSocket transport asks for a token as its layer is built, so the check comes before the build.
-      if (needsLogin(main.success)) yield* Effect.orDie(auth.get)
+      // The WebSocket transport asks for a token as its layer is built, so the check comes before the build. A turn
+      // with no Antigravity sign-in fails here, with no retry.
+      yield* Effect.orDie(token(main.success))
       return {
         generation: settings.generation,
         layer: session({ ...settings, main }, id, inputs).pipe(
@@ -176,7 +196,7 @@ export const make = (options: {
           return yield* new ModelRefused({ message: main.failure.error })
         }
         const spec = subagent ?? main.success
-        if (needsLogin(spec)) yield* auth.get
+        yield* token(spec)
         return yield* title(spec, inputs, message)
       },
       Effect.provideService(Login.Unattended, true),
@@ -229,8 +249,8 @@ export const make = (options: {
 
 /**
  * The check at start: one small request on each model chad will run, which is the main model and each override that
- * is set. A model on the Codex login is skipped when no token is stored, and when the token check fails, so the check
- * never waits on a login. A failure is logged and announced under one key, with a sentence for each failed model in
+ * is set. A model on the Codex login or the Antigravity sign-in is skipped when no token is stored, and when the token
+ * check fails, so the check never waits on a login. A failure is logged and announced under one key, with a sentence for each failed model in
  * the order main, sub-agent, summarizer, and chad runs on. A check that passes clears the key.
  */
 export const check = Effect.fnUntraced(function* (options: {
@@ -262,6 +282,7 @@ export const check = Effect.fnUntraced(function* (options: {
       Context.get(requirements, KeyValueStore.KeyValueStore),
     )
     const auth = Context.get(requirements, CodexAuth)
+    const antigravity = Context.get(requirements, AntigravityAuth)
     const specs = [
       settings.main.success,
       settings.subagent,
@@ -269,7 +290,14 @@ export const check = Effect.fnUntraced(function* (options: {
     ]
     for (const spec of specs) {
       if (spec === undefined) continue
-      if (needsLogin(spec)) {
+      // No usable sign-in skips the check: the daemon's `get` fails at once with none stored, and on a refresh that
+      // fails.
+      if (
+        loginOf(spec) === "antigravity" &&
+        Exit.isFailure(yield* Effect.exit(antigravity.get))
+      )
+        continue
+      if (loginOf(spec) === "codex") {
         // No stored token skips the check. An expired one is refreshed through the shared login, on a fiber
         // that starts no device flow, and a refresh that fails skips the check too.
         const stored = yield* tokens
