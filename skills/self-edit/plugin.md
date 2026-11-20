@@ -87,11 +87,7 @@ const NotesTools = Plugin.toolkit(Notes).pipe(
   Layer.provide(Api.layer),
 )
 
-const Chunk = Plugin.prompt(() =>
-  Effect.succeed("The owner keeps notes. Search them with notesSearch."),
-)
-
-export default Plugin.make(NotesTools, Chunk)
+export default Plugin.make(NotesTools)
 ```
 
 - Every contribution function returns a Layer. Give it what it needs with `Layer.provide`, then hand every Layer to `Plugin.make`.
@@ -128,8 +124,9 @@ export default Plugin.make(NotesTools, Chunk)
 
 ## Prompt chunks
 
+- A chunk is sent in every turn of every session, so it is for state every turn needs. Fixed text on how to use the plugin's tools goes in the tools' descriptions, and longer reference in a skill.
 - `Plugin.prompt(render)` is rendered before every turn, inside 2 seconds. An empty string means no chunk. A render that fails leaves the session with the text it last saw.
-- If a chunk has to stay the same for a whole session, keep the text in the store and return what you kept.
+- If a chunk has to stay the same for a whole session, keep the text in the store and return what you kept, as `/data/repo/examples/asphodel/` does.
 - A chunk that changes during a session reaches it as an update message.
 
 ## Hooks
@@ -249,7 +246,7 @@ The list below names where to look. It is not a source of rules. A finding has t
 6. Effect's modules in place of their plain JavaScript versions: HttpClient, not fetch; FileSystem, not node:fs; DateTime and Clock, not Date; Effect.sleep and Schedule, not setTimeout; no async functions or Promises where an Effect does.
 7. Effect 4 names only. An import from @effect/platform or another Effect 3 name is a finding, checked against the .d.ts files.
 8. Settings are read with Config, a secret with Config.Redacted. A setting has a default where one makes sense, and the comment at the top of the file lists every setting.
-9. The rules of plugin.md: a tool's description says what it does and when to call it; a tool with side effects is short or safe to repeat; what must last goes in the store, decoded with a schema that accepts the old shape, and old keys are pruned; hooks fit their time budgets; a prompt for a turn the plugin starts says what started it and that nobody is there to answer questions.
+9. The rules of plugin.md: a tool's description says what it does and when to call it; a tool with side effects is short or safe to repeat; what must last goes in the store, decoded with a schema that accepts the old shape, and old keys are pruned; hooks fit their time budgets; a prompt chunk holds state every turn needs, not fixed text on how to use the tools; a prompt for a turn the plugin starts says what started it and that nobody is there to answer questions.
 Report anything else you see that is a bug, too.
 
 Report each finding on its own, as:

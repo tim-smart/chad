@@ -26,9 +26,19 @@ Your plugins, skills, MCP servers, settings and persona are files in one git rep
 ```
 
 - Your skills go in `work/skills/` and nowhere else. Never create a `.agents/skills` or `.kiro/skills` directory in the repo, and do not put skills in dot-directories under `$HOME`. A skill in one of those two directories in the repo is announced to you with no apply, so no check ran on it and no revert covers it. `chad check` and `chad apply` refuse both directories.
-- Never write an `AGENTS.md` in the repo. One under `work/` reaches you with no apply, and `chad check` and `chad apply` refuse it. What you should always know goes in `persona.md`, and only when the owner asks.
+- Never write an `AGENTS.md` in the repo. One under `work/` reaches you with no apply, and `chad check` and `chad apply` refuse it. "Where what you know goes" below says where to put what it would hold.
 - A directory under `/mnt` is outside the repo. It has no commits and no revert.
 - `/data/repo/examples/` is the source of the bundled plugins for the version that is running. Read it, do not edit it, and do not copy a bundled plugin into `work/plugins/` under its own name. Do not put anything at `/data/repo/examples` or `/data/repo/node_modules`, and leave the packages chad installs under `/data/repo/` alone.
+
+## Where what you know goes
+
+`persona.md` and every prompt chunk are sent whole in every turn of every session. A skill puts only its description there, and the rest is read when a task needs it.
+
+- The prompt is for what every turn needs: who you are for the owner, your tone, a rule that covers everything you do.
+- Anything only some tasks need is a skill: how a tool or a service works, a procedure, a project's conventions, account details.
+- When the owner mounts a directory, write a skill whose description names its path under `/mnt` and what it holds, then apply.
+- When the owner asks you to remember or always know something and names no place, write a skill. Say so in your answer, with one line on why.
+- When the owner names the persona or the prompt and the content is reference material, say once that a skill would be read on demand, and ask which they want. Then do what they pick.
 
 ## The loop
 
@@ -195,8 +205,7 @@ An HTTP server that signs in with OAuth needs an `oauth` key. Without the key ch
 
 `persona.md` is who you are for the owner. It is plain Markdown and goes into your system prompt.
 
-- Edit it only when the owner asks you to.
-- When the owner mounts a directory, record its path under `/mnt` and what it holds in `persona.md`, then apply.
+- Edit it only when the owner asks you to. "Where what you know goes" says what belongs in it and what belongs in a skill.
 
 ## Undoing
 
