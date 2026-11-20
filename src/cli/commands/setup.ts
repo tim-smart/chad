@@ -238,6 +238,9 @@ export const setup = Command.make(
       return yield* Console.log(Messages.loginNotNeeded(login.spec))
     if (login.state === "logged-in")
       return yield* Console.log(Messages.loggedIn(kind))
+    // A login another command started is left to finish there, and setup offers no second one.
+    if (login.state === "pending")
+      return yield* Console.log(Messages.setupLoginPending(kind))
     const now = yield* ask(
       Prompt.Confirm({
         message: Messages.setupLoginOffer(kind),

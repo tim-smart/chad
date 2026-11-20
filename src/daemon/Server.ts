@@ -132,17 +132,33 @@ export interface Account {
 export const pending = (account: Account, login: LoginKind) =>
   login === "codex" ? account.login.pending() : account.antigravity.pending()
 
-/** The model and its login state, as `chad status` shows them. */
-export const modelState = (account: Account): Effect.Effect<ModelState> =>
+/**
+ * The model, the login it needs and that login's state, from one read of the model, so a change that lands while the
+ * token file is looked up cannot pair one model with another's state.
+ */
+export const modelLogin = (
+  account: Account,
+): Effect.Effect<{
+  readonly spec: string
+  readonly login: LoginKind | undefined
+  readonly state: ModelState["login"]
+}> =>
   Effect.gen(function* () {
     const { spec, login } = account.model()
-    if (login === undefined) return { spec, login: "not-needed" } as const
-    if (pending(account, login)) return { spec, login: "pending" } as const
-    return {
-      spec,
-      login: (yield* account.stored(login)) ? "logged-in" : "logged-out",
-    } as const
+    if (login === undefined)
+      return { spec, login, state: "not-needed" } as const
+    if (pending(account, login))
+      return { spec, login, state: "pending" } as const
+    const stored = yield* account.stored(login)
+    return { spec, login, state: stored ? "logged-in" : "logged-out" } as const
   })
+
+/** The model and its login state, as `chad status` shows them. */
+export const modelState = (account: Account): Effect.Effect<ModelState> =>
+  Effect.map(modelLogin(account), ({ spec, state }) => ({
+    spec,
+    login: state,
+  }))
 
 /** Where a login that `chad model` or `/model` needs tells its code, as `Login.login` takes it. */
 export interface LoginPrompt {
@@ -542,14 +558,7 @@ const handlers = (state: State) => {
         ),
       )
     },
-    ModelLogin: () =>
-      tracked(
-        Effect.gen(function* () {
-          const current = yield* account
-          const { login: state } = yield* modelState(current)
-          return { ...current.model(), state }
-        }),
-      ),
+    ModelLogin: () => tracked(Effect.flatMap(account, modelLogin)),
     Logout: ({ login }, { headers }) =>
       tracked(
         Effect.gen(function* () {

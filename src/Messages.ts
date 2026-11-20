@@ -1814,6 +1814,12 @@ export const setupLoginOffer = (login: LoginKind) =>
     ? "Log chad in to Codex now?"
     : "Sign chad in to Antigravity now?"
 
+/** `chad setup` while a login that another command started waits on the owner. */
+export const setupLoginPending = (login: LoginKind) =>
+  login === "codex"
+    ? "A Codex login is already waiting. Run chad login codex to see its code."
+    : "An Antigravity sign-in is already waiting for its code. Paste it where chad login antigravity asked, or run chad login antigravity to start again."
+
 export const setupLoginSkipped = (login: LoginKind) =>
   login === "codex"
     ? "The Codex login is skipped. Run chad login when you want it."
