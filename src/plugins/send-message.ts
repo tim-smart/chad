@@ -9,7 +9,7 @@ import { CurrentSession } from "../Session.ts"
 const tools = Toolkit.make(
   Tool.make("sendMessage", {
     description:
-      "Post Markdown to the owner now, as its own message in this session's thread, while you keep working. Use it for a progress note or an early finding during long work. It is not your answer: the turn still ends with your answer, which should not repeat what you already sent.",
+      "Post a Markdown update in this thread while you work. Finish the turn with a separate answer without repeating the update.",
     parameters: Schema.String.annotate({ identifier: "markdown" }),
     success: Schema.String,
     failure: Schema.String,

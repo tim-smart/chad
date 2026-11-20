@@ -17,7 +17,7 @@ export const refused = (message: string) =>
 export const buttonLabel = (name: string) => `Enter ${name}`
 
 export const secretDescription =
-  "Ask the owner for a secret that is not stored, such as a password or an API key. It posts a button in this session's thread, and the owner enters the value in a form. The value goes into chad's secret store under name, and never into the chat or your context. reason says what the secret is for, and the owner reads it. It returns once the button is posted, before anything is saved: end your turn. Once the owner saves it, chad starts a turn that says so, and you use the secret by its name."
+  "Ask the owner to save a missing reusable secret under name. Give an owner-facing reason. End your turn when the form button posts. Saving starts a new turn; use the secret by name, never by value."
 
 /** The request `requestSecret` posts. */
 export const secretRequest = (name: string, reason: string) =>
@@ -38,7 +38,7 @@ export const secretSavedPrompt = (name: string, reloaded: boolean) =>
   `The owner saved the secret \`${name}\` from the button you posted, and chad started this turn to tell you. Its value is in chad's secret store and not here: use it by its name.${reloaded ? "" : " A plugin whose settings name it did not reload with the new value and keeps its previous version: chad posted which one and why in this thread."} Carry on with what you needed it for.`
 
 export const onceDescription =
-  "Ask the owner for a value they hand over that is used once and stops working soon after, which chad must not store: a code a site sent by SMS or email, an authenticator code, a device pairing code, or the address the browser ended on after the owner approved an OAuth sign-in. Use it for any such value in place of asking the owner to run a command on the server. Call it when the value is needed, not before. It posts a button in this session's thread and waits, for a few minutes at most, for the owner to enter the value in a form. name labels the request, and reason says what the value is and where the owner finds it; the owner reads both. It returns the value to the calling script only: use it in that same script, by handing it to the command or tool that needs it, and never print it. chad replaces the exact value with a mask in the session's log and in what the script prints, which is all you see of it, and for an address also each value of its query and fragment parameters that is 8 characters or longer, such as its code, as written and decoded. Hand the value to a command in single quotes, never in the double quotes JSON.stringify makes, where the shell expands it. The mask misses a value once it is encoded another way, cut up or written to a file. The value is never saved. Never use this for a password, a key or anything else that stays valid: use requestSecret for a secret chad will need again."
+  "Request a short-lived code or OAuth redirect URL only when ready to use it. Use the form instead of asking the owner to run a server command. For reusable secrets, use requestSecret. Give the owner a label (name) and explain where to find the value (reason). The form waits a few minutes and returns the value only to the calling script. Pass it directly to the next tool in that script. For shell commands, use shell-safe single quoting, not JSON.stringify. Never print or save the value; masking cannot protect transformed values or files."
 
 /** `requestOnce` called where the daemon gives it no store, or outside a turn. */
 export const onceUnavailable = (why: "store" | "turn") =>

@@ -27,7 +27,7 @@ const types: Record<string, string> = {
 const tools = Toolkit.make(
   Tool.make("sendFile", {
     description:
-      "Send any file you can read to the owner, as its own message in this session's thread. A relative path is relative to your working directory. caption is the text of the message.",
+      "Post a readable file in this thread with an optional caption. Relative paths start in your working directory.",
     parameters: Schema.Struct({
       path: Schema.String,
       caption: Schema.optionalKey(Schema.String),

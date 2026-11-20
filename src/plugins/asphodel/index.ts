@@ -227,7 +227,7 @@ const ownerOnlyTool = <const Name extends string, S extends Schema.Top>(
   success: S,
 ) =>
   Tool.make(name, {
-    description: `${description} Only the owner may call it. Get ids from memory_recall; injected memories carry no ids.`,
+    description: `${description} Owner only. Use IDs from memory_recall, not injected memories.`,
     parameters: Ids,
     success,
     failure: Schema.String,
@@ -237,9 +237,7 @@ const ownerOnlyTool = <const Name extends string, S extends Schema.Top>(
 const Memory = Toolkit.make(
   Tool.make("memory_recall", {
     description:
-      "Search Asphodel's long-term memory for what the user has said or done. " +
-      "Use it for anything from an earlier conversation, and with phase 'upcoming' for what is coming up " +
-      "after the agenda in the system prompt was built. Results join the session's context.",
+      "Search long-term memory for what the user said or did. Use phase 'upcoming' for upcoming plans, including those missing from the agenda. Results join the session context.",
     parameters: Schema.Struct({
       query: Schema.String,
       from: Schema.optionalKey(Schema.String),
@@ -262,14 +260,10 @@ const Memory = Toolkit.make(
   }),
   ownerOnlyTool(
     "memory_forget",
-    "Irreversibly erase memories and every version of them. Only when the owner explicitly asks.",
+    "Permanently erase all versions of the selected memories only at the owner's explicit request.",
     Client.Forgotten,
   ),
-  ownerOnlyTool(
-    "memory_keep",
-    "Mark memories to keep so they never fade.",
-    Client.Kept,
-  ),
+  ownerOnlyTool("memory_keep", "Keep memories from fading.", Client.Kept),
   ownerOnlyTool("memory_unkeep", "Undo memory_keep.", Client.Unkept),
 )
 
