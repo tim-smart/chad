@@ -3,7 +3,7 @@ import { join } from "node:path"
 import { expect, test } from "vitest"
 import * as Messages from "../../dist/Messages.js"
 import * as Cli from "../support/cli.ts"
-import { scenario } from "../support/driver.ts"
+import { owner, scenario } from "../support/driver.ts"
 import { antigravityCode, antigravityModel } from "../support/model.ts"
 import { says } from "../support/owner.ts"
 
@@ -15,7 +15,19 @@ const tokenFile = (data: string) =>
   join(data, "secrets", "auth", encodeURIComponent("antigravity.auth/token"))
 
 test("with no sign-in a turn on an Antigravity model fails at once and chad model refuses it; chad login antigravity signs in through the daemon with the code Google showed and lists the account's models, after which chad model accepts the model and the next turn runs on Cloud Code", async () => {
-  const running = await scenario({ env: { CHAD_MODEL: spec } })
+  const running = await scenario({
+    env: { CHAD_MODEL: spec },
+    // A Discord connection with an owner, which setup with no terminal needs to ask nothing.
+    connections: [
+      { name: "local", kind: "local", owners: [owner] },
+      {
+        name: "discord",
+        kind: "discord",
+        token: "fake-token",
+        owners: ["700000000000000001"],
+      },
+    ],
+  })
   const { fakes, model, data } = running
 
   // No sign-in: the check at start skipped it, a turn fails at once without starting a sign-in, and chad model refuses.
@@ -47,6 +59,8 @@ test("with no sign-in a turn on an Antigravity model fails at once and chad mode
   await older.printed(link)
   const newer = Cli.start(["login", "antigravity"], { CHAD_DATA: data }, false)
   await newer.printed(link)
+  // Setup with no terminal and no --skip-login leaves the waiting sign-in to its own command.
+  expect((await running.chad(["setup"])).code).toBe(0)
   older.child.stdin!.end(`${antigravityCode}\n`)
   const replaced = await older.done
   expect(replaced.code).toBe(1)
