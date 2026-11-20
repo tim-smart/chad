@@ -86,38 +86,16 @@ const fromGemini = (body: unknown) => {
     request?: {
       contents?: ReadonlyArray<{
         role?: string
-        parts?: ReadonlyArray<{
-          text?: string
-          functionResponse?: { response?: { result?: string } }
-        }>
+        parts?: ReadonlyArray<{ text?: string }>
       }>
     }
   }
   return {
     model: value.model,
-    messages: (value.request?.contents ?? []).flatMap(
-      (content): ReadonlyArray<{ role: string; content: unknown }> => {
-        const parts = content.parts ?? []
-        const results = parts.flatMap((part) =>
-          part.functionResponse === undefined
-            ? []
-            : [
-                {
-                  role: "tool",
-                  content: part.functionResponse.response?.result,
-                },
-              ],
-        )
-        return results.length > 0
-          ? results
-          : [
-              {
-                role: content.role === "model" ? "assistant" : "user",
-                content: parts.map((part) => ({ text: part.text ?? "" })),
-              },
-            ]
-      },
-    ),
+    messages: (value.request?.contents ?? []).map((content) => ({
+      role: content.role === "model" ? "assistant" : "user",
+      content: (content.parts ?? []).map((part) => ({ text: part.text ?? "" })),
+    })),
   }
 }
 
@@ -187,8 +165,6 @@ export interface FakeModel {
    * is 8 seconds later: clanka reads the fake's interval of 0 as its default of 5 seconds and adds 3.
    */
   readonly holdPolls: () => void
-  /** How many Antigravity sign-ins exchanged their code. */
-  readonly signIns: () => number
   /** Sets the replies, by call index from 0, and forgets the calls received so far. */
   readonly script: (replies: ReadonlyArray<Reply>) => void
   /**
@@ -841,7 +817,6 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
    * Google's token endpoint and Cloud Code, for an Antigravity sign-in. The code grant takes `antigravityCode`, and
    * Cloud Code takes only the access tokens it issued. A model call answers as the script says, with text alone.
    */
-  let signIns = 0
   const google = async (
     path: string,
     text: string,
@@ -857,7 +832,6 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
       ) {
         return json(response, 400, { error: "invalid_grant" })
       }
-      signIns++
       const token = issue(false)
       return json(response, 200, {
         access_token: token.access,
@@ -1019,7 +993,6 @@ export const start = async (options: Options = {}): Promise<FakeModel> => {
     auth: `http://127.0.0.1:${port}/auth`,
     socket: `ws://127.0.0.1:${socketPort}/codex`,
     opened: () => opened,
-    signIns: () => signIns,
     checks: () => checks,
     holdChecks: (model) => {
       const reached = Promise.withResolvers<void>()
