@@ -30,3 +30,9 @@ agent-browser screenshot /data/home/page.png
 
 - `agent-browser: command not found`: install it with `npm install -g agent-browser`.
 - It cannot connect: Chromium is down. Tell the owner to run `docker compose restart chromium` in `/opt/chad` on the server.
+
+## Passwords and OTP codes
+
+Use the `requestSecret` and `requestOnce` functions to request passwords and
+single use secrets like OTP codes. Read the `credentials` skill for more
+information.
