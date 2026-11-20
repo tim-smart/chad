@@ -7,7 +7,7 @@ import { Tool, Toolkit } from "effect/ai"
 import { Chat, ChatThread } from "effect/chat"
 import * as Plugin from "../../Plugin.ts"
 import { CurrentSession } from "../../Session.ts"
-import { Name, OnceButton, SecretButton } from "./Form.ts"
+import { Name, OnceButton, SecretButton, secretRequest } from "./Form.ts"
 import * as Messages from "./Messages.ts"
 import { Once } from "./Once.ts"
 
@@ -51,7 +51,9 @@ const handlers = tools.toLayer(
           .post(session.thread, {
             markdown: Messages.secretRequest(name, reason),
             actions: [
-              SecretButton.of(name, { label: Messages.buttonLabel(name) }),
+              SecretButton.of(secretRequest(name, session.id), {
+                label: Messages.buttonLabel(name),
+              }),
             ],
           })
           .pipe(Effect.mapError((error) => Messages.refused(error.message)))

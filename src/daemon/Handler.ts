@@ -26,6 +26,7 @@ import {
   MessageStorage,
   Sharding,
 } from "effect/cluster"
+import { randomUUID } from "node:crypto"
 import type * as Connections from "../Connections.ts"
 import * as Messages from "../Messages.ts"
 import {
@@ -36,16 +37,18 @@ import {
 import {
   OnceButton,
   OnceForm,
+  parseSecretRequest,
   SecretButton,
   SecretForm,
 } from "../plugins/request-secret/Form.ts"
+import * as SecretMessages from "../plugins/request-secret/Messages.ts"
 import type { Live } from "./Chats.ts"
 import type * as DaemonConnections from "./Connections.ts"
 import * as Disk from "./Disk.ts"
 import * as Logger from "./Logger.ts"
 import * as Model from "./Model.ts"
 import type * as Once from "./Once.ts"
-import { Message, Session } from "./SessionEntity.ts"
+import { Message, PluginTurn, Session } from "./SessionEntity.ts"
 import * as Notices from "./Notices.ts"
 import { Timings } from "../Timings.ts"
 import * as Sessions from "./Sessions.ts"
@@ -111,8 +114,8 @@ export const ChannelChange = Context.Reference<{
 
 /**
  * Saves a secret that an owner submitted in a request's form, as `chad secret set` does through the daemon's queue,
- * and reports what that command prints, marking only a successful final result as saved.
- * Nothing it posts or logs carries the value.
+ * and reports what that command prints, marking only a successful final result as saved. It gives whether the store
+ * holds the value, and whether every plugin that uses it reloaded. Nothing it posts or logs carries the value.
  */
 export const SecretSave = Context.Reference<{
   readonly run: (
@@ -122,9 +125,11 @@ export const SecretSave = Context.Reference<{
       readonly note: string | undefined
     },
     post: (markdown: string, saved?: boolean) => Effect.Effect<void>,
-  ) => Effect.Effect<void>
+  ) => Effect.Effect<{ readonly stored: boolean; readonly reloaded: boolean }>
 }>("chad/Handler/SecretSave", {
-  defaultValue: () => ({ run: () => Effect.void }),
+  defaultValue: () => ({
+    run: () => Effect.succeed({ stored: false, reloaded: false }),
+  }),
 })
 
 /**
@@ -637,7 +642,8 @@ export const unusable = (
  *
  * - A click on Stop goes to the session of its thread as the `stop` request that `/stop` sends.
  * - A click on a secret request's button opens its form, and the form's submit saves the secret as `chad secret set`
- *   does. The value goes from the submit to the store: no message, log line or session gets it.
+ *   does. The value goes from the submit to the store: no message, log line or session gets it. A secret the store
+ *   holds queues a turn, held to the session that asked, that tells the agent its name, so the agent carries on.
  * - A click on a one-off request's button opens its form while the request waits, and the form's submit hands the value
  *   to the `requestOnce` call that waits for it (`Once.ts`), which returns it to the agent. A submit that comes after
  *   the request ended is discarded, and a line says so. Nothing on the way from the submit to the call logs or posts it.
@@ -744,10 +750,12 @@ export const interactions = (connection: Live, once?: Once.Daemon) =>
           "secret-form": Effect.fnUntraced(function* (submit) {
             if (!owner(submit.userId)) return ChatInteraction.close
             const say = post(submit.thread)
+            const key = ChatThread.toString(submit.thread)
+            const { name, tag } = parseSecretRequest(submit.metadata)
             yield* Effect.flatMap(SecretSave, (service) =>
               service.run(
                 {
-                  name: submit.metadata,
+                  name,
                   value: submit.values.value,
                   note: submit.values.note,
                 },
@@ -769,6 +777,28 @@ export const interactions = (connection: Live, once?: Once.Daemon) =>
                 },
               ),
             ).pipe(
+              // A secret the store holds starts a turn in the session that asked for it, so the agent carries on
+              // without the owner saying so. The turn is held to that session, and a `/new` before it starts drops
+              // it. A request with no session's tag, posted before requests carried one, starts none. The turn's
+              // prompt has the name and never the value.
+              Effect.flatMap(
+                Effect.fnUntraced(function* ({ stored, reloaded }) {
+                  if (!stored || tag === undefined) return
+                  const session = yield* Sessions.tagged(key, tag)
+                  if (session === undefined) return
+                  yield* client(key).plugin(
+                    new PluginTurn({
+                      key: `secret/${randomUUID()}`,
+                      connection: connection.name,
+                      plugin: "request-secret",
+                      label: SecretMessages.savedLabel,
+                      prompt: SecretMessages.secretSavedPrompt(name, reloaded),
+                      session,
+                    }),
+                    { discard: true },
+                  )
+                }),
+              ),
               // The value is in the submit, which the cause does not carry.
               Effect.catchCause((cause) =>
                 Effect.logError("A secret could not be saved", cause),

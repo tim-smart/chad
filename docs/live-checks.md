@@ -174,8 +174,9 @@ command that Discord answers with "The application did not respond" failed.
 3. A form titled "Save a secret" opens. Type `live-check-value` as the value and submit.
 4. Run `chad secret list`, then `chad logs | grep live-check-value` and `chad secret rm LIVE_CHECK`.
 
-Passes when the original request changes to `Saved LIVE_CHECK` as subtext and its button disappears, `chad secret list` lists `LIVE_CHECK`, the grep prints nothing,
-and no message in the DM shows the value.
+Passes when the original request changes to `Saved LIVE_CHECK` as subtext and its button disappears, chad answers in the DM
+on its own that the secret is saved, `chad secret list` lists `LIVE_CHECK`, the grep prints nothing, and no message in the
+DM shows the value.
 
 ## 10. OAuth sign-in to an MCP server that registers chad itself
 

@@ -86,6 +86,22 @@ export const current = Effect.fnUntraced(function* (thread: string) {
   return rows[0]
 })
 
+/**
+ * The id of the thread's session, ended by a `/new` or not, that `tag` names: the start of its id without its dashes,
+ * as a secret request carries it. `undefined` when no session or more than one has it.
+ */
+export const tagged = Effect.fnUntraced(function* (
+  thread: string,
+  tag: string,
+) {
+  const sql = yield* SqlClient.SqlClient
+  const rows = yield* sql<{ id: string }>`
+    SELECT id FROM sessions
+    WHERE thread = ${thread} AND substr(replace(id, '-', ''), 1, ${tag.length}) = ${tag}
+  `
+  return rows.length === 1 ? rows[0]!.id : undefined
+})
+
 /** The kind of the session a thread has now, or `undefined` when it has none. */
 export const kindOf = Effect.fnUntraced(function* (thread: string) {
   return (yield* current(thread))?.kind ?? undefined

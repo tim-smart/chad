@@ -106,6 +106,11 @@ export class PluginTurn extends Schema.Class<PluginTurn>(
   ),
   /** The timer whose runs the turn was queued among, by `Turns.queue` with `timer`. */
   queuedFor: Schema.optionalKey(Schema.String),
+  /**
+   * The session the turn belongs to, which a saved secret's turn names. A `/new` before the turn starts leaves the
+   * thread with another session, and the turn is dropped.
+   */
+  session: Schema.optionalKey(Schema.String),
 }) {
   [PrimaryKey.symbol]() {
     return this.key
@@ -114,8 +119,8 @@ export class PluginTurn extends Schema.Class<PluginTurn>(
 
 /**
  * How a request ended. The entity posts to chat itself, so `Answered` is the only reply that carries a text.
- * `Steered` and `Dropped` are replies that only an owner's message gets: it joined a running turn, or the turn it was
- * waiting to steer was stopped.
+ * `Steered` is a reply that only an owner's message gets: it joined a running turn. `Dropped` is an owner's message
+ * whose turn it waited to steer was stopped, or a plugin's turn held to a session that a `/new` ended.
  */
 export const Outcome = Schema.Union([
   Schema.TaggedStruct("Answered", { text: Schema.String }),
@@ -141,6 +146,8 @@ interface Request {
         readonly timer:
           { readonly name: string; readonly scheduledAt: number } | undefined
         readonly queuedFor: string | undefined
+        /** The session the turn belongs to, if it is held to one. */
+        readonly session: string | undefined
       }
     | undefined
 }
@@ -1554,6 +1561,10 @@ export const layer = Layer.unwrap(
               if (session === undefined) {
                 return yield* Effect.die(new Error(`no session row for ${key}`))
               }
+              // A turn held to a session starts only in that session. The session is read after a `/new` that was
+              // under way has renewed the row, so a turn that waited across one sees the new session and is dropped.
+              const held = request.plugin?.session
+              if (held !== undefined && held !== session) return undefined
               const started = yield* Sessions.started({
                 key: turn.key,
                 turn: turn.id,
@@ -1610,6 +1621,18 @@ export const layer = Layer.unwrap(
           )
           if (Exit.isFailure(counted)) {
             return yield* failed(turn, own, request)(counted.cause)
+          }
+          if (counted.value === undefined) {
+            yield* Logger.event(
+              "turn.dropped",
+              "A plugin's turn was dropped, because its session ended",
+              {
+                session: request.plugin?.session,
+                plugin: request.plugin?.name,
+                label: request.plugin?.label,
+              },
+            )
+            return { _tag: "Dropped" } as const
           }
           const { session, started } = counted.value
           const ids = { session, turn: turn.id }
@@ -2230,6 +2253,7 @@ export const layer = Layer.unwrap(
                   mention: payload.mention,
                   timer: payload.timer,
                   queuedFor: payload.queuedFor,
+                  session: payload.session,
                 },
               }
               if (first !== undefined && first.key !== payload.key) {

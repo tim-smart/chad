@@ -10,21 +10,49 @@ export const Name = Schema.String.check(
   Schema.isMaxLength(64),
 )
 
-/** The button on a request. Its value is the secret's name, which the click hands to the form. */
+/**
+ * The start of a session's id, without its dashes, that a request carries to name the session that asked. A whole id
+ * would not fit in the 100 characters Discord gives a button's or a form's id, and 12 random hex digits tell one
+ * thread's sessions apart.
+ */
+export const sessionTag = (session: string) =>
+  session.replaceAll("-", "").slice(0, 12)
+
+/**
+ * What a request's button and its form carry: the secret's name, a `/`, and the tag of the session that asked, which
+ * the turn a saved secret starts is held to. A button posted before requests carried the tag has the name alone.
+ */
+export const SecretRequest = Schema.String.check(
+  Schema.isPattern(/^[A-Z_][A-Z0-9_]{0,63}(?:\/[0-9a-f]{12})?$/),
+)
+
+/** What a request of a secret in a session carries. */
+export const secretRequest = (name: string, session: string) =>
+  `${name}/${sessionTag(session)}`
+
+/** The name and the session's tag, if any, of what a request carries. */
+export const parseSecretRequest = (value: string) => {
+  const at = value.indexOf("/")
+  return at === -1
+    ? { name: value, tag: undefined }
+    : { name: value.slice(0, at), tag: value.slice(at + 1) }
+}
+
+/** The button on a request. Its value is what the request carries, which the click hands to the form. */
 export const SecretButton = ChatInteraction.button("secret", {
   label: "Enter the secret",
   style: "primary",
-  value: Name,
+  value: SecretRequest,
 })
 
 /**
- * The form a click on the button opens. Its metadata is the name. The note is the one `chad secret set --note` takes,
- * and left empty it keeps the note of a secret that is already stored.
+ * The form a click on the button opens. Its metadata is what the request carries. The note is the one
+ * `chad secret set --note` takes, and left empty it keeps the note of a secret that is already stored.
  */
 export const SecretForm = ChatInteraction.modal("secret-form", {
   title: "Save a secret",
   submitLabel: "Save",
-  metadata: Name,
+  metadata: SecretRequest,
   fields: {
     value: ChatInteraction.textInput({ label: "Value" }),
     note: ChatInteraction.textInput({
