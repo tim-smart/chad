@@ -75,8 +75,7 @@ RUN apt-get update \
     # Images: ImageMagick for everything, HEIC and AVIF read included, rsvg-convert for SVG, and the three that
     # shrink a PNG, a JPEG and a GIF. The fonts stand in for Arial, Times New Roman and Courier New.
     fonts-liberation gifsicle imagemagick jpegoptim librsvg2-bin pngquant \
-    # Video and audio: ffmpeg and ffprobe, which take frames and the audio out of a video. yt-dlp is not here: YouTube
-    # breaks old versions, so it is installed with uv on the volume, where it can be upgraded.
+    # Video and audio: ffmpeg and ffprobe. yt-dlp is left to uv on the volume, where it can be upgraded.
     ffmpeg \
  # Debian names fd's command fdfind.
  && ln -s /usr/bin/fdfind /usr/local/bin/fd \

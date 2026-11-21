@@ -12,10 +12,10 @@ Write the result to a new file and keep the original. Pass `-nostdin` to every `
 ## Look before you change
 
 ```sh
-# Length, size, codecs and streams, in one line each
-ffprobe -v error -show_entries format=duration,size:stream=index,codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels -of compact input.mp4
+# The length, and each stream's codec, size, frame rate, sample rate and channels
+ffprobe -hide_banner input.mp4
 # The length in seconds, for a script
-ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 input.mp4
+ffprobe -v error -show_entries format=duration -of csv=p=0 input.mp4
 # Everything, as JSON
 ffprobe -v error -show_format -show_streams -of json input.mp4
 ```
@@ -53,10 +53,10 @@ There is no transcription in the image. Ask the owner before you install somethi
 ```sh
 # From 1:00 to 1:30, with no re-encoding. It starts at the keyframe before 1:00
 ffmpeg -nostdin -v error -y -ss 00:01:00 -to 00:01:30 -i input.mp4 -c copy clip.mp4
-# The same cut, exact to the frame, re-encoded
-ffmpeg -nostdin -v error -y -ss 00:01:00 -to 00:01:30 -i input.mp4 -c:v libx264 -crf 23 -c:a aac clip.mp4
+# The same cut, exact to the frame: without `-c copy` it re-encodes, to H.264 and AAC for an .mp4
+ffmpeg -nostdin -v error -y -ss 00:01:00 -to 00:01:30 -i input.mp4 clip.mp4
 # Smaller: 720 high at most, H.264, plays almost everywhere
-ffmpeg -nostdin -v error -y -i input.mp4 -vf "scale=-2:'min(720,ih)'" -c:v libx264 -crf 28 -preset veryfast -c:a aac -b:a 96k -movflags +faststart small.mp4
+ffmpeg -nostdin -v error -y -i input.mp4 -vf "scale=-2:'min(720,ih)'" -crf 28 -preset veryfast -b:a 96k -movflags +faststart small.mp4
 # A short GIF, 480 wide, 10 frames a second
 ffmpeg -nostdin -v error -y -ss 5 -t 4 -i input.mp4 -vf "fps=10,scale=480:-1:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse" clip.gif
 ```
@@ -71,12 +71,11 @@ command -v yt-dlp || uv tool install 'yt-dlp[default]'
 
 ```sh
 # The title, length and formats, with no download
-yt-dlp --js-runtimes node --no-playlist --print '%(title)s %(duration)ss' 'URL'
-yt-dlp --js-runtimes node --no-playlist -F 'URL'
-# The video, 720 high at most, as MP4
-yt-dlp --js-runtimes node --no-playlist -f 'bv*[height<=720]+ba/b[height<=720]/b' --merge-output-format mp4 -o 'video.%(ext)s' 'URL'
-# The audio only, as MP3
-yt-dlp --js-runtimes node --no-playlist -x --audio-format mp3 -o 'audio.%(ext)s' 'URL'
+yt-dlp --js-runtimes node --no-playlist --print '%(title)s %(duration)ss' -F 'URL'
+# The video, 720 high and MP4 when the site has them, and the nearest it has when it does not
+yt-dlp --js-runtimes node --no-playlist -S 'res:720,ext:mp4:m4a' -o 'video.%(ext)s' 'URL'
+# The audio only, as the site has it. Add `--audio-format mp3` when it has to be MP3
+yt-dlp --js-runtimes node --no-playlist -x -o 'audio.%(ext)s' 'URL'
 # The subtitles only, when the video has them, which can save you the audio
 yt-dlp --js-runtimes node --no-playlist --skip-download --write-subs --write-auto-subs --sub-langs 'en.*' --convert-subs srt -o 'subs' 'URL'
 ```

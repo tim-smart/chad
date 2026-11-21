@@ -72,11 +72,10 @@ What needs root to install is in the image already:
   `ffprobe`, which describes a file.
 
 The image has no OCR, no Ghostscript, no LibreOffice, no LaTeX and no transcription. A Python library, such as pypdf
-or Pillow, comes with `uv run --with`. `yt-dlp`, which downloads from YouTube and other sites, is not in the image,
-because YouTube breaks old versions often. The model installs it on the volume with `uv tool install 'yt-dlp[default]'`
-and upgrades it with `uv tool upgrade yt-dlp`.
+or Pillow, comes with `uv run --with`. `yt-dlp` is not in the image either, because YouTube breaks old versions often:
+the model installs it on the volume with uv and upgrades it there.
 
-A new volume's repo starts with five skills that tell the model how to use these tools: `images`, `pdfs`, `documents`,
+A new volume's repo starts with skills that tell the model how to use these tools: `images`, `pdfs`, `documents`,
 `video` and `dev-tools`. The first start copies them from `/opt/chad/starter-skills` into `/data/repo/work/skills/` and
 commits them with `chad.json` and `persona.md`. From then on they are the repo's own, so chad or you can change or
 delete them like any skill, and a later image does not touch them. A skill that `work/skills/` already holds under one
