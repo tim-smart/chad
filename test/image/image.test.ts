@@ -162,6 +162,7 @@ describe("the image booted on an empty named volume, and then stopped", () => {
       "skills/documents",
       "skills/images",
       "skills/pdfs",
+      "skills/video",
     ])
   })
 })

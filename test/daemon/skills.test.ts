@@ -344,13 +344,14 @@ test("a new repo's first commit holds the starter skills, keeps a skill the owne
       "skills/documents/SKILL.md",
       "skills/images/SKILL.md",
       "skills/pdfs/SKILL.md",
+      "skills/video/SKILL.md",
     ].join("\n"),
   )
   expect(readFileSync(join(work, "skills/pdfs/SKILL.md"), "utf8")).toBe(mine)
   expect(readFileSync(join(work, "skills/images/SKILL.md"), "utf8")).toBe(
     readFileSync(join(Skills.starterDirectory, "images/SKILL.md"), "utf8"),
   )
-  for (const name of ["dev-tools", "documents", "images"])
+  for (const name of ["dev-tools", "documents", "images", "video"])
     expect(start.system).toContain(`- ${name}: Read `)
   expect(start.system).toContain("- pdfs: Mine.")
 

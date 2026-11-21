@@ -68,12 +68,16 @@ What needs root to install is in the image already:
   `pdfinfo` among them, and `qpdf` merges, splits, rotates, encrypts and decrypts one.
 - For images: ImageMagick's `magick`, which also reads HEIC and AVIF, `rsvg-convert` for SVG, and `pngquant`,
   `jpegoptim` and `gifsicle`, which make a PNG, a JPEG and a GIF smaller.
+- For video and audio: `ffmpeg`, which takes frames and the audio out of a video and cuts and converts one, and
+  `ffprobe`, which describes a file.
 
-The image has no OCR, no Ghostscript, no LibreOffice, no LaTeX and no ffmpeg. A Python library, such as pypdf or
-Pillow, comes with `uv run --with`.
+The image has no OCR, no Ghostscript, no LibreOffice, no LaTeX and no transcription. A Python library, such as pypdf
+or Pillow, comes with `uv run --with`. `yt-dlp`, which downloads from YouTube and other sites, is not in the image,
+because YouTube breaks old versions often. The model installs it on the volume with `uv tool install 'yt-dlp[default]'`
+and upgrades it with `uv tool upgrade yt-dlp`.
 
-A new volume's repo starts with four skills that tell the model how to use these tools: `images`, `pdfs`, `documents`
-and `dev-tools`. The first start copies them from `/opt/chad/starter-skills` into `/data/repo/work/skills/` and
+A new volume's repo starts with five skills that tell the model how to use these tools: `images`, `pdfs`, `documents`,
+`video` and `dev-tools`. The first start copies them from `/opt/chad/starter-skills` into `/data/repo/work/skills/` and
 commits them with `chad.json` and `persona.md`. From then on they are the repo's own, so chad or you can change or
 delete them like any skill, and a later image does not touch them. A skill that `work/skills/` already holds under one
 of those names is kept as it is. A repo made by an older image has none of them. Copy one in and apply it, here
