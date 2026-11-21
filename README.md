@@ -28,7 +28,7 @@ The guide has each step in full, with asphodel's setup, the browser, backups and
 - [`docs/codex-capture.md`](./docs/codex-capture.md): how the recorded Codex frames the tests replay were made, and how to make them again.
 - [`skills/`](./skills/): the skills chad ships with, which the model reads.
 - [`starter-skills/`](./starter-skills/): the skills a new repo starts with, for the image's tools for images, PDFs,
-  documents and development.
+  documents, video and development.
 - [`AGENTS.md`](./AGENTS.md): the contract for whoever changes chad.
 
 The `prototypes` branch holds throwaway prototypes from before the build. It is never merged.
