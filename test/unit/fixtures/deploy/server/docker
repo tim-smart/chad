@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
-# `docker compose exec -T chad <command>` runs the command on the stand-in volume, with chad's tools on PATH.
+# `docker compose exec -T chad <command>` runs the command on the stand-in volume, with chad's tools on PATH. A path on
+# the volume that a command printed is the stand-in's already, and is passed on as it is.
 echo "docker $*" >>"$FAKE/calls"
 [ "$1 $2" = "compose exec" ] || exit 0
 shift 4
-PATH="$FAKE/container:$PATH" exec "${@//\/data\//$FAKE/data/}"
+args=()
+for arg in "$@"; do
+  arg=${arg//"$FAKE/data/"/$'\1'}
+  arg=${arg//\/data\//$FAKE/data/}
+  args+=("${arg//$'\1'/$FAKE/data/}")
+done
+PATH="$FAKE/container:$PATH" exec "${args[@]}"

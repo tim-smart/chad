@@ -1,2 +1,7 @@
 #!/usr/bin/env bash
-printf '#!/bin/sh\n' >"$FAKE/container/agent-browser" && chmod +x "$FAKE/container/agent-browser"
+# npm, as the installer asks it whether browse is on chad's volume and installs it there.
+if [ "$1" = ls ]; then
+  [ -e "$FAKE/container/browse" ]
+else
+  cp "$FAKE/browse" "$FAKE/container/browse"
+fi

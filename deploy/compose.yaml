@@ -19,14 +19,20 @@ services:
     # A stop waits up to 60 seconds for a turn to finish.
     stop_grace_period: 90s
     environment:
-      # agent-browser attaches to the Chromium below from this alone, so a session runs it with no flag. The address
-      # is a number because Chromium answers DevTools requests only when the Host header is an IP address or localhost.
-      AGENT_BROWSER_CDP: http://172.30.72.10:9223
+      # browse's relay runs in this container, started by its MCP server or by the first `browse` command, and takes
+      # these from it. Uploads may read chad's files, which browse copies into the browser, up to 50 MB a call.
+      OPENCODE_BROWSER_FILE_ROOTS: /data
+      # chad calls MCP tools from code, as OpenCode does, so it gets browse's tools one by one, in place of the single
+      # `execute` tool browse gives other clients.
+      OPENCODE_BROWSER_TOOLS: plain
     volumes:
       - chad-data:/data
     networks:
-      - chad
-      - memory
+      chad:
+        # The browse extension in Chromium reaches the relay here, through the nginx below. The address is fixed so
+        # nginx needs no name lookup when it starts.
+        ipv4_address: 172.30.72.20
+      memory:
     logging: *logging
 
   # A named volume starts out owned by root, and asphodel runs as 65532, so it is given its volume before it starts.
@@ -77,10 +83,10 @@ services:
       # The image sets itself up as root, and runs the desktop and Chromium as this user.
       PUID: "1000"
       PGID: "1000"
-      # DevTools, which chad drives the browser through. Chromium refuses it on its default profile, so the profile is
-      # named. It is on the volume, so a site chad signed in to stays signed in across restarts.
+      # The profile is on the volume, so a site chad signed in to stays signed in across restarts, and so does the
+      # browse extension's pairing. Its path is the one earlier deploys used, so their sign-ins carry over.
       CHROME_CLI: >-
-        --user-data-dir=/config/profile --remote-debugging-port=9222 --no-first-run --no-default-browser-check
+        --user-data-dir=/config/profile --no-first-run --no-default-browser-check
       # Chromium is started again when its window is closed, so chad is not left without a browser.
       RESTART_APP: "true"
     # Nothing in the container gains root, the desktop's terminal included. Chromium keeps no sandbox of its own,
@@ -89,8 +95,10 @@ services:
       - no-new-privileges:true
     shm_size: 1gb
     configs:
-      - source: devtools
-        target: /etc/nginx/conf.d/devtools.conf
+      - source: browse-policy
+        target: /etc/chromium/policies/managed/browse.json
+      - source: browse-relay
+        target: /etc/nginx/conf.d/browse.conf
     # The desktop. It has no password and whoever reaches it uses the browser, so it stays on loopback.
     # `deploy/install.sh` puts it on the tailnet with `tailscale serve`, at port 8443.
     ports:
@@ -103,16 +111,30 @@ services:
     logging: *logging
 
 configs:
-  # Chromium's DevTools listens on its container's loopback and nowhere else. The image's nginx, which serves the
-  # desktop, passes it on to the Compose network, where chad reaches it. No port of the host leads to it.
-  devtools:
+  # The browse extension, which chad drives the browser through. Chromium installs it from the Chrome Web Store on its
+  # next start and keeps it up to date, and it cannot be removed from the desktop.
+  browse-policy:
+    content: |
+      {
+        "ExtensionInstallForcelist": [
+          "mfnicocicmmlkpjnaffgihfjhdgjkdjg;https://clients2.google.com/service/update2/crx"
+        ]
+      }
+  # The extension connects to browse's relay at 127.0.0.1:19988 unless it is told otherwise. The image's nginx, which
+  # serves the desktop, listens there on this container's loopback and passes the connection on to the relay in chad's
+  # container, so the extension needs no address. It passes the extension's link and nothing else, so no update of the
+  # relay can open more of it to Chromium. The relay obeys only a browser that paired with it. No port of the host
+  # leads to it.
+  browse-relay:
     content: |
       server {
-        listen 9223;
+        listen 127.0.0.1:19988;
         location / {
-          proxy_pass http://127.0.0.1:9222;
+          return 404;
+        }
+        location = /extension {
+          proxy_pass http://172.30.72.20:19988;
           proxy_http_version 1.1;
-          proxy_set_header Host $$http_host;
           proxy_set_header Upgrade $$http_upgrade;
           proxy_set_header Connection "upgrade";
           proxy_read_timeout 7d;

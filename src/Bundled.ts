@@ -7,7 +7,6 @@ import requestMcpLogin from "./plugins/request-mcp-login/index.ts"
 import requestSecret from "./plugins/request-secret/index.ts"
 import sendFile from "./plugins/send-file.ts"
 import sendMessage from "./plugins/send-message.ts"
-import staleTabs from "./plugins/stale-tabs.ts"
 
 export const bundled: ReadonlyArray<
   Plugins.Entry & { readonly name: BundledNames.Plugin }
@@ -18,5 +17,4 @@ export const bundled: ReadonlyArray<
   { name: "asphodel", plugin: asphodel },
   { name: "request-secret", plugin: requestSecret },
   { name: "request-mcp-login", plugin: requestMcpLogin },
-  { name: "stale-tabs", plugin: staleTabs },
 ]

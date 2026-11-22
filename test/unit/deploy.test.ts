@@ -72,7 +72,7 @@ const server = () => {
       "user.email=chad@localhost",
       ...args,
     ])
-  git("init", "-q")
+  git("init", "-q", "-b", "applied")
   git("add", "-A")
   git("commit", "-qm", "First commit")
   return {
@@ -102,7 +102,17 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
   expect(install([]).status).not.toBe(0)
   expect(existsSync(marker)).toBe(false)
 
+  // A draft of the owner's that came in after the cut is not published with what the seed gives the repo, and is
+  // left as it is.
   rmSync(join(fake, "fail-apply"))
+  const draft = join(fake, "data/repo/work/draft.md")
+  writeFileSync(draft, "the owner's draft\n")
+  expect(install([]).status).toBe(0)
+  expect(readFileSync(draft, "utf8")).toBe("the owner's draft\n")
+  expect(git("ls-tree", "-r", "--name-only", "HEAD")).not.toContain("draft.md")
+  expect(existsSync(marker)).toBe(false)
+
+  rmSync(draft)
   expect(install([]).status).toBe(0)
   expect(existsSync(marker)).toBe(true)
   expect(existsSync(join(fake, "opt/compose.yaml"))).toBe(true)
@@ -110,10 +120,24 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
   expect(calls().filter((call) => call === "chad apply")).toHaveLength(1)
   const seeded = JSON.parse(git("show", "HEAD:chad.json"))
   expect(seeded.plugins.asphodel.settings.url).toBe("http://asphodel:7720")
-  expect(seeded.plugins["stale-tabs"]).toMatchObject({ enabled: true })
-  expect(git("ls-tree", "-r", "--name-only", "HEAD")).toContain(
-    "skills/browser/SKILL.md",
+  expect(seeded.plugins["stale-tabs"]).toBeUndefined()
+  expect(git("show", "HEAD:skills/browser/SKILL.md")).toBe(
+    readFileSync(join(root, "deploy/browser/SKILL.md"), "utf8"),
   )
+  expect(
+    JSON.parse(git("show", "HEAD:mcp.json")).mcpServers.browse,
+  ).toMatchObject({ command: "browse", args: ["mcp"] })
+  // browse is installed before the apply that adds its MCP server, so that apply connects it.
+  expect(calls().indexOf("browse set hostname 0.0.0.0")).toBeLessThan(
+    calls().indexOf("chad apply"),
+  )
+  // browse is installed, its relay opened to Chromium's container, and the extension paired.
+  expect(calls().filter((call) => call.startsWith("browse "))).toEqual([
+    "browse set hostname 0.0.0.0",
+    "browse pair --list",
+    "browse pair --wait-seconds 600",
+    "browse pair --list",
+  ])
   expect(readFileSync(join(fake, "secrets"), "utf8")).toBe("ASPHODEL_TOKEN\n")
   expect(calls().filter((call) => call.startsWith("ufw "))).toEqual([])
 
@@ -144,13 +168,165 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
       networks("asphodel").includes(network),
     ),
   ).toEqual([])
-  expect(
-    calls().filter((call) => /^tailscale (serve|funnel)\b/.test(call)),
-  ).toEqual([
+  expect([
+    ...new Set(
+      calls().filter((call) => /^tailscale (serve|funnel)\b/.test(call)),
+    ),
+  ]).toEqual([
     "tailscale serve --bg --https=8443 http://127.0.0.1:3000",
     "tailscale serve --bg --https=9443 http://127.0.0.1:7720",
   ])
 })
+
+it("an upgrade from before browse is applied once as the tree it worked out, keeps the owner's files, and never publishes or writes over a draft, when it is cut or raced too", () => {
+  const { fake, git, install, calls } = server()
+  writeFileSync(join(fake, "tailnet"), "100.64.0.7\n")
+  expect(install([]).status).toBe(0)
+  const applies = () => calls().filter((call) => call === "chad apply")
+  const work = join(fake, "data/repo/work")
+  const read = (path: string) => readFileSync(join(work, path), "utf8")
+  const write = (path: string, text: string) => {
+    mkdirSync(dirname(join(work, path)), { recursive: true })
+    writeFileSync(join(work, path), text)
+  }
+  const asphodel = JSON.parse(read("chad.json")).plugins.asphodel
+  const files = { command: "npx", args: ["-y", "files-server"] }
+  const withoutBrowse = JSON.stringify({ mcpServers: { files } }) + "\n"
+
+  // A volume an earlier install seeded: the stale-tabs entry, the owner's own MCP server and no browse, and an applied
+  // file of theirs at the name the installer once staged its rewrite under.
+  rmSync(join(fake, "data/home/.deploy-browse-mcp"))
+  write(
+    "chad.json",
+    JSON.stringify(
+      {
+        plugins: {
+          asphodel,
+          "stale-tabs": {
+            enabled: true,
+            settings: { url: "http://172.30.72.10:9223" },
+          },
+        },
+      },
+      null,
+      2,
+    ) + "\n",
+  )
+  write("mcp.json", withoutBrowse)
+  write("chad.json.new", "the owner's\n")
+  git("add", "-A")
+  git("commit", "-qm", "an earlier seed")
+  const before = git("rev-parse", "applied").trim()
+
+  // A draft of mcp.json that names browse is not the applied one: nothing is moved in or applied, and once discarded
+  // the upgrade still adds browse.
+  const draft = JSON.stringify({ mcpServers: { files, browse: files } }) + "\n"
+  write("mcp.json", draft)
+  expect(install([]).status).toBe(0)
+  expect(read("mcp.json")).toBe(draft)
+  expect(git("rev-parse", "applied").trim()).toBe(before)
+  git("checkout", "--", "mcp.json")
+
+  // A save of the owner's to mcp.json that comes in as the installer swaps its own in is put back, and the change it
+  // conflicts with is not published.
+  const saved = JSON.stringify({ mcpServers: { files, mine: files } }) + "\n"
+  const saveBeforeMv = () =>
+    writeFileSync(
+      join(fake, "before-mv"),
+      `[ "\${@: -1}" = mcp.json ] && printf %s '${saved}' > '${work}/mcp.json'\n`,
+    )
+  saveBeforeMv()
+  expect(install([]).status).toBe(0)
+  expect(read("mcp.json")).toBe(saved)
+  expect(git("rev-parse", "applied").trim()).toBe(before)
+  git("checkout", "--", "mcp.json")
+
+  // The same save, with the installer stopped just after its swap took the save out of work/: the next run puts the
+  // owner's bytes back before it looks at work/, and publishes nothing.
+  saveBeforeMv()
+  writeFileSync(
+    join(fake, "after-mv"),
+    `[ "$1" = --exchange ] && [ "\${@: -1}" = mcp.json ]\n`,
+  )
+  expect(install([]).status).not.toBe(0)
+  expect(read("mcp.json")).not.toBe(saved)
+  expect(install([]).status).toBe(0)
+  expect(read("mcp.json")).toBe(saved)
+  expect(git("rev-parse", "applied").trim()).toBe(before)
+  git("checkout", "--", "mcp.json")
+
+  // An edit of the owner's that comes in as the apply snapshots work/ is not published with it.
+  writeFileSync(
+    join(fake, "before-apply"),
+    `mkdir -p '${work}/skills/mine' && echo draft > '${work}/skills/mine/SKILL.md'\n`,
+  )
+  expect(install([]).status).not.toBe(0)
+  expect(git("rev-parse", "applied").trim()).toBe(before)
+  expect(read("skills/mine/SKILL.md")).toBe("draft\n")
+
+  // The next run sees the draft and leaves it, unpublished.
+  expect(install([]).status).toBe(0)
+  expect(git("rev-parse", "applied").trim()).toBe(before)
+  expect(read("skills/mine/SKILL.md")).toBe("draft\n")
+
+  // With the draft gone, a run cut part way through moving its files in is finished from git's copy of them.
+  rmSync(join(work, "skills/mine"), { recursive: true })
+  git("checkout", "--", "chad.json")
+  expect(install([]).status).toBe(0)
+  expect(applies()).toHaveLength(2)
+  expect(JSON.parse(git("show", "applied:chad.json")).plugins).toEqual({
+    asphodel,
+  })
+  expect(JSON.parse(git("show", "applied:mcp.json")).mcpServers).toEqual({
+    files,
+    browse: { command: "browse", args: ["mcp"], callTimeout: 660000 },
+  })
+  expect(git("show", "applied:chad.json.new")).toBe("the owner's\n")
+  expect(git("status", "--porcelain")).toBe("")
+  expect(install([]).status).toBe(0)
+  expect(applies()).toHaveLength(2)
+
+  // A stale-tabs entry the owner changed, and an mcp.json they took browse back out of, are theirs.
+  const owners =
+    JSON.stringify(
+      {
+        plugins: {
+          asphodel,
+          "stale-tabs": {
+            enabled: true,
+            settings: { url: "http://172.30.72.10:9223", maxAge: "12 hours" },
+          },
+        },
+      },
+      null,
+      2,
+    ) + "\n"
+  write("chad.json", owners)
+  write("mcp.json", withoutBrowse)
+  git("commit", "-qam", "the owner's config")
+  expect(install([]).status).toBe(0)
+  expect(read("chad.json")).toBe(owners)
+  expect(read("mcp.json")).toBe(withoutBrowse)
+  expect(git("status", "--porcelain")).toBe("")
+  expect(applies()).toHaveLength(2)
+
+  // A volume from before browse whose applied tree has no chad.json, which chad reads as no settings, is given browse
+  // and still has none.
+  rmSync(join(fake, "data/home/.deploy-browse-mcp"))
+  git("rm", "-q", "chad.json")
+  git("commit", "-qm", "no chad.json")
+  expect(install([]).status).toBe(0)
+  expect(existsSync(join(work, "chad.json"))).toBe(false)
+  expect(git("ls-tree", "--name-only", "applied").split("\n")).not.toContain(
+    "chad.json",
+  )
+  expect(
+    JSON.parse(git("show", "applied:mcp.json")).mcpServers.browse,
+  ).toMatchObject({ command: "browse", args: ["mcp"] })
+  expect(applies()).toHaveLength(3)
+  // It runs the installer ten times, each a few dozen processes, so its time limit, like a daemon
+  // scenario's, only bounds a hang.
+}, 20_000)
 
 it("a key that does not join the server starts no container", () => {
   const { fake, install, calls } = server()

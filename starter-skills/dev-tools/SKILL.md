@@ -1,30 +1,30 @@
 ---
 name: dev-tools
-description: Read when cloning or creating a code project. Covers where projects go, setting up git and gh the first time, and the tools the image has.
+description: Read when cloning or creating a code project. Covers where projects go, first-time git and gh setup, and the tools installed in the image.
 ---
 
 # Cloning or creating a code project
 
 ## Where projects go
 
-Put each project under `~/src/<name>`, which is `/data/home/src/<name>` on the volume and outlasts a restart and an image update. Never put one under `/data/repo`, which is chad's own repo. Use `https://github.com/...` addresses.
+Put projects under `~/src/<name>` (`/data/home/src/<name>` on the data volume), which persists across restarts and image updates. Never put a project under `/data/repo`, which is chad's own repo. Use `https://github.com/...` URLs.
 
 ```sh
 git clone https://github.com/owner/project.git ~/src/project
 git init ~/src/new-project
 ```
 
-## First use: git and gh
+## First-time git and gh setup
 
-Before the first clone, push or `gh` command, check that gh is signed in:
+Before your first clone, push, or `gh` command, check if `gh` is already signed in:
 
 ```sh
 gh auth status --hostname github.com
 ```
 
-If it exits 0, git and gh are set up. Go on.
+If it exits 0, `git` and `gh` are ready to go.
 
-If it does not, run `github-login.sh`, next to this file. It signs gh in with a code the owner approves on github.com from any browser, and sets git up to use that login. It also gives git a global name and email, the GitHub account's name and no-reply address, unless `~/.gitconfig` already has one. The setup stays on the volume, so later sessions pass the check. Tell the owner the login reaches every repo their account can. In one script:
+If not, run `github-login.sh` next to this file. It signs `gh` in with a device code that the owner approves on github.com from any browser, configures `git` to use that login, and sets a global git name and email (using the GitHub account's name and no-reply address) unless `~/.gitconfig` already has one. The setup persists on the volume for future sessions. Let the owner know this login grants access to every repo their account can access. Run it in one script:
 
 ```js
 let task = await bash({
@@ -53,16 +53,16 @@ while (task.status === "running")
 console.log(task.status, task.exitCode, task.output)
 ```
 
-Exit code 0 means it is done, and the output names the GitHub account. Tell the owner which account it is. A message the owner sends while it waits joins this turn, and the sign-in goes on. Anything else means it failed or the code expired: say so, and run it again if the owner wants. A `/new` or a restart of chad stops it. Never print a token or put one in an address.
+Exit code 0 means sign-in succeeded and the output names the GitHub account; tell the owner which account signed in. Messages the owner sends while it waits are folded into this turn without interrupting the login. Any nonzero exit means it failed or the code expired; tell the owner and offer to run it again. `/new` or a chad restart cancels it. Never print a token or embed one in a URL.
 
-## What the image has
+## Preinstalled tools
 
-- Version control and GitHub: `git`, `gh`, `ssh`.
-- Search and files: `rg` (ripgrep), `fd`, `tree`, `file`, `less`, `nvim`, `patch`, `rsync`.
-- Data: `jq` for JSON, `sqlite3`.
-- Fetching: `curl`, `wget`.
-- Archives: `tar`, `zip`, `unzip`, `gzip`, `bzip2`, `xz`, `zstd`.
-- Building: `make`.
-- Languages: `node` with `npm` and `npx`, `python3` with no packages and no pip, and `uv`, which installs Python packages, Python versions and Python tools.
+- **Version control and GitHub**: `git`, `gh`, `ssh`
+- **Search and files**: `rg` (ripgrep), `fd`, `tree`, `file`, `less`, `nvim`, `patch`, `rsync`
+- **Data**: `jq` (JSON), `sqlite3`
+- **Fetching**: `curl`, `wget`
+- **Archives**: `tar`, `zip`, `unzip`, `gzip`, `bzip2`, `xz`, `zstd`
+- **Building**: `make`
+- **Languages**: `node` (`npm`, `npx`), `python3` (stdlib only, no `pip`), and `uv` (installs Python versions, packages, and tools)
 
-There is no C compiler, no apt and no sudo. Run `command -v <tool>` to check for anything else.
+There is no C compiler, no `apt`, and no `sudo`. Check for anything else with `command -v <tool>`.

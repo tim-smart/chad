@@ -1274,6 +1274,10 @@ export const prettierFailed = (file: string, error: string) =>
 export const prettierTimedOut = (seconds: number) =>
   `Prettier did not finish within ${seconds} seconds and was stopped`
 
+/** An apply given `--expect` whose snapshot of `work/` is another tree. */
+export const applyNotExpected = (expected: string, found: string) =>
+  `work/ is tree ${found.slice(0, 7)}, not ${expected.slice(0, 7)} as --expect said, so nothing was applied.`
+
 /** An apply or a revert with nothing changed. */
 export const nothingChanged = "Nothing changed. No commit was made."
 

@@ -73,7 +73,11 @@ export interface Caller {
 
 /** The requests of the commands, as the CLI sends them. */
 export type Request =
-  | { readonly _tag: "Apply"; readonly message: string }
+  | {
+      readonly _tag: "Apply"
+      readonly message: string
+      readonly expect?: string | undefined
+    }
   | { readonly _tag: "Check" }
   | { readonly _tag: "Revert"; readonly commit: string | undefined }
   | { readonly _tag: "Safe"; readonly to: "on" | "off" | undefined }
@@ -754,11 +758,15 @@ export const make = Effect.fnUntraced(function* (options: {
     } satisfies Performed as Performed
   })
 
-  const apply = (message: string, caller: Caller) =>
+  const apply = (message: string, expect: string | undefined, caller: Caller) =>
     formatted(
       Effect.gen(function* () {
         const head = yield* Repo.head(work)
         const tree = yield* Repo.snapshot(repo)
+        // The snapshot is what gets published, so this is the one place a change made to `work/` meanwhile is seen.
+        if (expect !== undefined && tree !== expect) {
+          return failed(Messages.applyNotExpected(expect, tree))
+        }
         if (head !== undefined && tree === (yield* Repo.treeOf(work, head))) {
           // Nothing changed: no commit and no line in the session.
           return done(Messages.nothingChanged)
@@ -1252,7 +1260,7 @@ export const make = Effect.fnUntraced(function* (options: {
   ): Effect.Effect<Performed, unknown, Services> => {
     switch (request._tag) {
       case "Apply":
-        return apply(request.message, caller)
+        return apply(request.message, request.expect, caller)
       case "Check":
         return check(caller)
       case "Revert":

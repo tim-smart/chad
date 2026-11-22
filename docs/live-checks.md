@@ -438,8 +438,9 @@ steps, is the record of what was run without either.
 3. In that session, run `bash /opt/chad/install.sh`. It prints a link and starts nothing. In a second session,
    `docker ps` still lists no container. Open the link and sign in. The installer goes on, lists the containers
    `chad`, `asphodel` and `chromium` as up, prints the `https` addresses of the desktop and asphodel's dashboard,
-   and says the public ports are as they were. The machine `chad` is on the "Machines" page of the Tailscale admin
-   console.
+   and says the public ports are as they were. It then prints a pairing code and waits. Open the desktop's address,
+   enter the code under browse's Options in its Chromium, and the installer says it paired and prints "Done". The
+   machine `chad` is on the "Machines" page of the Tailscale admin console.
 4. In that session, run `bash /opt/chad/install.sh lockdown`. It says the session did not come in over Tailscale and
    exits non-zero, and `ufw status` says `inactive`.
 5. Run `ssh root@chad`. In that session, run `bash /opt/chad/install.sh lockdown` and then `ufw status`. It is
@@ -449,8 +450,8 @@ steps, is the record of what was run without either.
 7. Run `chad setup` as "Set chad up" says. Open the desktop's address from step 3 in your own browser: it shows
    Chromium, and you can click and type in it. Send chad a direct message: "Open example.com in the browser and tell
    me the page's title." The page opens in the desktop as chad works, and chad answers `Example Domain`.
-8. In the desktop, open a new tab on `https://example.org`. Ask chad: "Which tabs are open in the browser?" Its
-   answer names `example.org`. In the desktop, `http://asphodel:7720/dashboard` does not load. From a device that
+8. In the desktop, open a new tab on `https://example.org` and click the browse button on the toolbar to lend it.
+   Ask chad: "Which browser tabs can you use?" Its answer names `example.org`. In the desktop, `http://asphodel:7720/dashboard` does not load. From a device that
    is not on your tailnet, the desktop's address does not load.
 9. Open the dashboard's address from step 3 in your own browser: the certificate is valid and the setup page shows.
    Finish asphodel's setup there, with an LLM chosen, as "Set asphodel up" says. The dashboard then asks for the
@@ -462,7 +463,9 @@ steps, is the record of what was run without either.
     shows the three containers up, and the addresses of the desktop and the dashboard both load.
 11. Take a backup as "What is kept, and backups" says, then follow "Restoring chad" and "Restoring asphodel"
     on this server. `chad status` shows no problem and `asphodel status` exits 0. In the DM, send `/new` and ask
-    for what you told chad in step 9. The new session has no history, so the answer comes from asphodel.
+    for what you told chad in step 9. The new session has no history, so the answer comes from asphodel. Run
+    `bash /opt/chad/install.sh`: it says nothing needs pairing, since the restored volume holds the old pairing, and
+    chad still opens a page.
 
 Passes when every step shows what it says. If the installer in step 3 says the desktop or the dashboard is not on
 the tailnet, record what `tailscale serve` printed above it. Fix what it names, such as HTTPS certificates that are
@@ -504,6 +507,37 @@ restart was lost.
 
 A seed that fails part way was run against the real chad image: the installer failed, and the next run finished the
 volume. [`test/unit/deploy.test.ts`](../test/unit/deploy.test.ts) holds that, the key that joins nothing and the lockdown's refusals.
+
+The runs above were of the deploy from before browse, when chad drove Chromium through DevTools with `agent-browser`.
+On 2026-11-22 the browse setup was run under podman, with `ghcr.io/tim-smart/chad:main` and
+`lscr.io/linuxserver/chromium:latest` on the Compose network's addresses and with `compose.yaml`'s policy and nginx
+config. Chromium installed the extension from the Web Store on its first start. `browse` was installed on chad's
+volume with npm, and `browse set hostname 0.0.0.0` started the relay. `browse pair` in chad's container paired with
+the extension through the nginx on Chromium's loopback, and chad's container then opened `example.com`, read it and
+took a screenshot. After `podman restart` of Chromium the extension came back without a new pairing. With nginx
+passing `/extension` alone, the pairing went through as before and `/version` answered nginx's 404. chad's daemon
+ran there without a chat connection: an apply of the `mcp.json` the installer writes printed `MCP server browse:
+connected, 26 tools`, and an MCP client named as clanka names chad's opened `example.com`, read it, took a screenshot
+and closed the tab through `browse mcp`. No model turn was run.
+
+The installer itself was then run against those containers, with chad's image built from the branch and a stand-in
+`docker` that sends `docker compose exec` to podman, since Compose does not run under podman there. On a new volume
+it installed browse before the seed's apply, and that apply printed `MCP server browse: connected, 26 tools` with no
+restart. The volume was then made into one an earlier install had seeded, with an applied file of the owner's at
+`chad.json.new`. A run killed just before its `chad apply --expect` left its files moved in and nothing applied. With
+one of them undone and a draft skill of the owner's added, the next run applied nothing and left the draft as it was.
+With the draft gone, the run after that applied the tree the first run had worked out, `chad.json.new` included as it
+was, and `chad status` showed browse connected. `chad apply --expect` with a draft written after the tree was taken
+exited 1 and published nothing.
+
+Once the bundled `stale-tabs` plugin was taken out of chad, a volume was given an applied `chad.json` with a
+`stale-tabs` entry of the owner's, turned on and with a `maxAge`, and browse in `mcp.json`, by
+`ghcr.io/tim-smart/chad:main`, which still had the plugin. chad's image from the branch then started on that volume:
+`chad status` listed no `stale-tabs` plugin and no problem, and browse connected with 26 tools. An apply with the entry
+still there succeeded, and an MCP client named as clanka names chad's opened a page in the paired Chromium, read it
+and took a screenshot through `browse mcp`. The installer
+itself was not run there: its paths on a new volume and on a volume from before browse were run against the stand-ins
+of [`test/unit/deploy.test.ts`](../test/unit/deploy.test.ts).
 
 Nothing else has run on DigitalOcean or on a real tailnet, so every step above is still to see: the region the link
 shows and the create page's other sections, the Droplet's first boot, the sign-in at the installer's link, the

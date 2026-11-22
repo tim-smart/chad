@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# browse, as `npm install -g @opencode/browse` puts it on chad's volume. A pairing is taken as entered at once.
+echo "browse $*" >>"$FAKE/calls"
+case "$1 $2" in
+  "set hostname")
+    mkdir -p "$FAKE/data/home/.config/browse"
+    printf '{\n  "hostname": "%s"\n}\n' "$3" >"$FAKE/data/home/.config/browse/config.json"
+    ;;
+  "pair --list")
+    if [ -e "$FAKE/paired" ]; then
+      printf 'chrome-chromium\n  profile    1\n'
+    else
+      echo 'No paired browsers. Run `browse pair` for a code.'
+    fi
+    ;;
+  "pair --wait-seconds") echo "Pairing code: ABCD-EFGH" && touch "$FAKE/paired" ;;
+esac

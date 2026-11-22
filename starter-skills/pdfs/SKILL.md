@@ -1,116 +1,116 @@
 ---
 name: pdfs
-description: Read before you read, search, split, merge, rotate, compress, encrypt, decrypt or render a PDF, take its images or attachments out, or turn its pages into images.
+description: Read before inspecting, extracting text or images from, splitting, merging, rotating, decrypting, compressing, extracting attachments from, or rendering pages of a PDF.
 ---
 
 # Working with PDFs
 
-The image has poppler's commands, which read a PDF (`pdfinfo`, `pdftotext`, `pdftoppm`, `pdfimages`, `pdffonts`, `pdfdetach`, `pdfunite`, `pdfseparate`, `pdftocairo`), and `qpdf`, which rewrites one without changing its pages. ImageMagick's `magick` turns images into a PDF. To write a new PDF from text, read the `documents` skill.
+The image includes poppler's tools for reading and extracting from PDFs (`pdfinfo`, `pdftotext`, `pdftoppm`, `pdfimages`, `pdffonts`, `pdfdetach`, `pdfunite`, `pdfseparate`, `pdftocairo`), plus `qpdf` for lossless restructuring and encryption. ImageMagick's `magick` can combine images into a PDF. To create a new PDF from text, read the `documents` skill.
 
-Write the result to a new file and keep the original.
+Always write to a new file and keep the original.
 
 ## Reading
 
 ```sh
-# Pages, page size, title, producer and whether it is encrypted
+# Page count, page size, title, producer, and encryption status
 pdfinfo input.pdf
-# The text, keeping the layout of columns and tables
+# Extract text while preserving columns and table layout
 pdftotext -layout input.pdf output.txt
-# Pages 3 to 5 only, to standard output
+# Extract pages 3 to 5 to stdout
 pdftotext -layout -f 3 -l 5 input.pdf -
-# The fonts, and whether each is embedded
+# List fonts and whether they're embedded
 pdffonts input.pdf
 ```
 
-A PDF that gives no text from `pdftotext` is a scan. There is no OCR in the image. Render the pages as images and read them yourself, or tell the owner.
+If `pdftotext` returns no text, the PDF is a scan. There is no OCR installed, so render the pages as images and read them yourself, or tell the owner.
 
-## Pages as images
+## Rendering pages as images
 
 ```sh
-# Each page as a PNG at 150 dpi: page-1.png, page-2.png and so on
+# All pages as PNGs at 150 dpi (page-1.png, page-2.png, ...)
 pdftoppm -png -r 150 input.pdf page
-# Only page 2, as one JPEG named cover.jpg
+# Page 2 only as a single JPEG named cover.jpg
 pdftoppm -jpeg -r 150 -f 2 -l 2 -singlefile input.pdf cover
-# A page as SVG
+# Page 1 as SVG
 pdftocairo -svg -f 1 -l 1 input.pdf page-1.svg
 ```
 
-Render a page and look at it when its layout matters, such as a form, a chart or a table that `pdftotext` mangles.
+Render and inspect pages directly when visual layout matters, such as forms, charts, or tables that `pdftotext` scrambles.
 
-## What it embeds
+## Embedded images and attachments
 
 ```sh
-# The images, in their own formats, as img-000.jpg and so on
+# Extract embedded images in their original formats (img-000.jpg, ...)
 pdfimages -all input.pdf img
-# List the images first, with their pages and sizes
+# List embedded images with page numbers and sizes first
 pdfimages -list input.pdf
-# The attached files
+# List and extract attached files
 pdfdetach -list input.pdf
 pdfdetach -saveall -o attachments input.pdf
 ```
 
-## Splitting, merging and reordering
+## Splitting, merging, and reordering
 
 ```sh
-# Merge in order
+# Merge PDFs in order
 qpdf --empty --pages a.pdf b.pdf c.pdf -- merged.pdf
-# Pages 1 to 3 and 7, in that order
+# Keep pages 1-3 and 7 in that order
 qpdf input.pdf --pages . 1-3,7 -- output.pdf
-# Every page but the first, and the last page alone
+# Drop the first page, or extract just the last page
 qpdf input.pdf --pages . 2-z -- rest.pdf
 qpdf input.pdf --pages . z -- last.pdf
-# Reverse the pages
+# Reverse page order
 qpdf input.pdf --pages . z-1 -- reversed.pdf
-# Split into one file per page: page-01.pdf and so on
+# Split into one file per page (page-01.pdf, ...)
 qpdf input.pdf --split-pages page-%d.pdf
-# Odd pages of one and even of another, such as a two-sided scan
+# Interleave odd and even pages (for example, a two-sided scan)
 qpdf --empty --collate --pages front.pdf back.pdf z-1 -- both.pdf
 ```
 
-`pdfunite a.pdf b.pdf merged.pdf` merges too, and `pdfseparate -f 2 -l 4 input.pdf page-%d.pdf` splits a range.
+`pdfunite a.pdf b.pdf merged.pdf` also merges PDFs, and `pdfseparate -f 2 -l 4 input.pdf page-%d.pdf` splits a page range.
 
 ## Rotating
 
 ```sh
-# Turn every page a quarter turn clockwise
+# Rotate every page 90 degrees clockwise
 qpdf input.pdf --rotate=+90 -- output.pdf
-# Only pages 2 and 4
+# Rotate only pages 2 and 4 by 180 degrees
 qpdf input.pdf --rotate=+180:2,4 -- output.pdf
 ```
 
 ## Passwords and encryption
 
-A PDF's password is a secret. Ask the owner to save it with `requestSecret`, as the `credentials` skill says, and pass it to `qpdf` from `chad secret run`, never as a literal.
+Treat a PDF password as a secret. Ask the owner to store it with `requestSecret` (see the `credentials` skill) and pass it through `chad secret run`, never as a literal.
 
 ```sh
-# Remove the password, reading it on standard input
+# Decrypt using the password from stdin
 chad secret run --stdin PDF_PASSWORD -- qpdf --password-file=- --decrypt input.pdf output.pdf
 # Encrypt with AES-256
 chad secret run --env PASS=PDF_PASSWORD -- sh -c 'qpdf --encrypt --user-password="$PASS" --owner-password="$PASS" --bits=256 -- input.pdf output.pdf'
-# Check a file is well-formed
+# Verify PDF structure
 qpdf --check input.pdf
 ```
 
-## Smaller files
+## Compressing
 
 ```sh
-# Lossless: compress streams and pack objects
+# Lossless: recompress streams and pack object streams
 qpdf --recompress-flate --compression-level=9 --object-streams=generate input.pdf output.pdf
-# Linearize, which lets a browser show the first page while the rest downloads
+# Linearize for fast web viewing (first page loads while the rest downloads)
 qpdf --linearize input.pdf output.pdf
 ```
 
-A PDF that is large because of its scans gets smaller only by making the images smaller: render the pages with `pdftoppm -jpeg -r 120` and put them back together as below.
+If a PDF is huge because of scanned pages, lossless compression won't shrink it much. Render the pages with `pdftoppm -jpeg -r 120` and reassemble them with `magick` below.
 
-## Images to a PDF
+## Images to PDF
 
 ```sh
 # One page per image, in order
 magick page-*.jpg output.pdf
-# A4 pages at 150 dpi, each image fitted and centred
+# Fit and center each image on A4 at 150 dpi
 magick page-*.jpg -resize 1240x1754 -gravity center -background white -extent 1240x1754 -units PixelsPerInch -density 150 output.pdf
 ```
 
-## Checking the result
+## Checking the output
 
-Run `pdfinfo` on what you wrote, and for an edit that moved pages, render a page or two with `pdftoppm` and look. Send the file with `sendFile`.
+Run `pdfinfo` on the output file. If you reordered or modified pages, render a page or two with `pdftoppm` and check them visually. Send the file with `sendFile`.
