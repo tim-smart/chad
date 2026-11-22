@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
-# mv, with what runs just before a move into work/: a save of the owner's that comes in then. The hook is given mv's
-# arguments, and is gone once it exits 0.
+# mv, with a save of the owner's that comes in just before a move into work/, and a stop of the script that called it
+# just after, as a kill would, which runs none of its traps. Each hook is given mv's arguments, and is gone once it
+# exits 0.
 if [ -e "$FAKE/before-mv" ] && bash "$FAKE/before-mv" "$@"; then
   rm "$FAKE/before-mv"
 fi
-PATH=${PATH#"$FAKE/container:"} exec mv "$@"
+PATH=${PATH#"$FAKE/container:"} mv "$@" || exit
+if [ -e "$FAKE/after-mv" ] && bash "$FAKE/after-mv" "$@"; then
+  rm "$FAKE/after-mv"
+  kill -KILL "$PPID"
+  exit 137
+fi

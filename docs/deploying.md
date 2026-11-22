@@ -261,6 +261,8 @@ The next run of the installer moves such a server onto browse:
 - It works out what it changes from what is applied, and applies it once, with `chad apply --expect`, which publishes
   that tree or nothing. While `work/` holds changes of yours that are not applied, it moves nothing in and applies
   nothing, and says so: apply or undo yours and run it again. A run that was cut part way is finished by the next.
+  A file you save just as it moves one in, or that a cut run took out of `work/`, is put back. If it cannot be, it
+  is kept under `/data/home/.deploy-browse-saved/` in chad's container, and the installer says where.
 
 ## What is kept, and backups
 

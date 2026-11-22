@@ -231,6 +231,25 @@ it("an upgrade from before browse is applied once as the tree it worked out, kee
   expect(existsSync(mcpAdded)).toBe(false)
   git("checkout", "--", "mcp.json")
 
+  // The same save, with the installer stopped just after its swap took the save out of work/: the next run puts the
+  // owner's bytes back before it looks at work/, and publishes nothing.
+  writeFileSync(
+    join(fake, "before-mv"),
+    `[ "\${@: -1}" = mcp.json ] && printf %s '${saved}' > '${work}/mcp.json'\n`,
+  )
+  writeFileSync(
+    join(fake, "after-mv"),
+    `[ "$1" = --exchange ] && [ "\${@: -1}" = mcp.json ]\n`,
+  )
+  expect(install([]).status).not.toBe(0)
+  expect(existsSync(join(fake, "after-mv"))).toBe(false)
+  expect(read("mcp.json")).not.toBe(saved)
+  expect(install([]).status).toBe(0)
+  expect(read("mcp.json")).toBe(saved)
+  expect(git("rev-parse", "applied").trim()).toBe(before)
+  expect(existsSync(mcpAdded)).toBe(false)
+  git("checkout", "--", "mcp.json")
+
   // An edit of the owner's that comes in as the apply snapshots work/ is not published with it.
   writeFileSync(
     join(fake, "before-apply"),
@@ -285,7 +304,9 @@ it("an upgrade from before browse is applied once as the tree it worked out, kee
   expect(read("chad.json")).toBe(owners)
   expect(git("status", "--porcelain")).toBe("")
   expect(applies()).toHaveLength(2)
-})
+  // It runs the installer about twenty times, each a few dozen processes, so its time limit, like a daemon
+  // scenario's, only bounds a hang.
+}, 20_000)
 
 it("a key that does not join the server starts no container", () => {
   const { fake, install, calls } = server()
