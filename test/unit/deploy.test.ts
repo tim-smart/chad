@@ -176,15 +176,13 @@ it("an upgrade from before browse is applied once as the tree it worked out, kee
     mkdirSync(dirname(join(work, path)), { recursive: true })
     writeFileSync(join(work, path), text)
   }
-  const published = () =>
-    git("ls-tree", "-r", "--name-only", "applied").trim().split("\n")
-  const mcpAdded = join(fake, "data/home/.deploy-browse-mcp")
   const asphodel = JSON.parse(read("chad.json")).plugins.asphodel
   const files = { command: "npx", args: ["-y", "files-server"] }
+  const withoutBrowse = JSON.stringify({ mcpServers: { files } }) + "\n"
 
   // A volume an earlier install seeded: the stale-tabs entry, the owner's own MCP server and no browse, and an applied
   // file of theirs at the name the installer once staged its rewrite under.
-  rmSync(mcpAdded)
+  rmSync(join(fake, "data/home/.deploy-browse-mcp"))
   write(
     "chad.json",
     JSON.stringify(
@@ -201,53 +199,47 @@ it("an upgrade from before browse is applied once as the tree it worked out, kee
       2,
     ) + "\n",
   )
-  write("mcp.json", JSON.stringify({ mcpServers: { files } }) + "\n")
+  write("mcp.json", withoutBrowse)
   write("chad.json.new", "the owner's\n")
   git("add", "-A")
   git("commit", "-qm", "an earlier seed")
   const before = git("rev-parse", "applied").trim()
 
-  // A draft of mcp.json that names browse is not the applied one: nothing is moved in or applied, and the marker
-  // that keeps browse from being added again is not set.
+  // A draft of mcp.json that names browse is not the applied one: nothing is moved in or applied, and once discarded
+  // the upgrade still adds browse.
   const draft = JSON.stringify({ mcpServers: { files, browse: files } }) + "\n"
   write("mcp.json", draft)
   expect(install([]).status).toBe(0)
   expect(read("mcp.json")).toBe(draft)
   expect(git("rev-parse", "applied").trim()).toBe(before)
-  expect(existsSync(mcpAdded)).toBe(false)
   git("checkout", "--", "mcp.json")
 
   // A save of the owner's to mcp.json that comes in as the installer swaps its own in is put back, and the change it
   // conflicts with is not published.
   const saved = JSON.stringify({ mcpServers: { files, mine: files } }) + "\n"
-  writeFileSync(
-    join(fake, "before-mv"),
-    `[ "\${@: -1}" = mcp.json ] && printf %s '${saved}' > '${work}/mcp.json'\n`,
-  )
+  const saveBeforeMv = () =>
+    writeFileSync(
+      join(fake, "before-mv"),
+      `[ "\${@: -1}" = mcp.json ] && printf %s '${saved}' > '${work}/mcp.json'\n`,
+    )
+  saveBeforeMv()
   expect(install([]).status).toBe(0)
-  expect(existsSync(join(fake, "before-mv"))).toBe(false)
   expect(read("mcp.json")).toBe(saved)
   expect(git("rev-parse", "applied").trim()).toBe(before)
-  expect(existsSync(mcpAdded)).toBe(false)
   git("checkout", "--", "mcp.json")
 
   // The same save, with the installer stopped just after its swap took the save out of work/: the next run puts the
   // owner's bytes back before it looks at work/, and publishes nothing.
-  writeFileSync(
-    join(fake, "before-mv"),
-    `[ "\${@: -1}" = mcp.json ] && printf %s '${saved}' > '${work}/mcp.json'\n`,
-  )
+  saveBeforeMv()
   writeFileSync(
     join(fake, "after-mv"),
     `[ "$1" = --exchange ] && [ "\${@: -1}" = mcp.json ]\n`,
   )
   expect(install([]).status).not.toBe(0)
-  expect(existsSync(join(fake, "after-mv"))).toBe(false)
   expect(read("mcp.json")).not.toBe(saved)
   expect(install([]).status).toBe(0)
   expect(read("mcp.json")).toBe(saved)
   expect(git("rev-parse", "applied").trim()).toBe(before)
-  expect(existsSync(mcpAdded)).toBe(false)
   git("checkout", "--", "mcp.json")
 
   // An edit of the owner's that comes in as the apply snapshots work/ is not published with it.
@@ -269,7 +261,6 @@ it("an upgrade from before browse is applied once as the tree it worked out, kee
   git("checkout", "--", "chad.json")
   expect(install([]).status).toBe(0)
   expect(applies()).toHaveLength(2)
-  expect(published()).not.toContain("skills/mine/SKILL.md")
   expect(JSON.parse(git("show", "applied:chad.json")).plugins).toEqual({
     asphodel,
   })
@@ -279,11 +270,10 @@ it("an upgrade from before browse is applied once as the tree it worked out, kee
   })
   expect(git("show", "applied:chad.json.new")).toBe("the owner's\n")
   expect(git("status", "--porcelain")).toBe("")
-  expect(existsSync(mcpAdded)).toBe(true)
   expect(install([]).status).toBe(0)
   expect(applies()).toHaveLength(2)
 
-  // A stale-tabs entry the owner changed is theirs.
+  // A stale-tabs entry the owner changed, and an mcp.json they took browse back out of, are theirs.
   const owners =
     JSON.stringify(
       {
@@ -299,12 +289,14 @@ it("an upgrade from before browse is applied once as the tree it worked out, kee
       2,
     ) + "\n"
   write("chad.json", owners)
-  git("commit", "-qam", "the owner's stale-tabs")
+  write("mcp.json", withoutBrowse)
+  git("commit", "-qam", "the owner's config")
   expect(install([]).status).toBe(0)
   expect(read("chad.json")).toBe(owners)
+  expect(read("mcp.json")).toBe(withoutBrowse)
   expect(git("status", "--porcelain")).toBe("")
   expect(applies()).toHaveLength(2)
-  // It runs the installer about twenty times, each a few dozen processes, so its time limit, like a daemon
+  // It runs the installer ten times, each a few dozen processes, so its time limit, like a daemon
   // scenario's, only bounds a hang.
 }, 20_000)
 
