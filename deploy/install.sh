@@ -346,7 +346,8 @@ EOF
 # browse on chad's volume, with its relay open to the Chromium container. It comes before anything applies mcp.json,
 # so the apply that adds browse's MCP server finds the command and connects it.
 install_browse() {
-  if ! in_chad sh -c 'command -v browse' >/dev/null </dev/null; then
+  # Asked of npm, since another command can be named browse: xdg-utils puts one on Ubuntu.
+  if ! in_chad npm ls -g --depth=0 @opencode/browse >/dev/null </dev/null; then
     in_chad npm install -g --no-audit --no-fund --no-update-notifier @opencode/browse </dev/null
   fi
   # The extension reaches the relay from the Chromium container, so the relay listens beyond chad's loopback. Setting
@@ -367,7 +368,7 @@ install_browse() {
 # published with it. A run that was cut is finished by the next, from git's copy of the files.
 use_browse() {
   local work=/data/repo/work
-  local applied files="" stale sum mcp base expected ready out
+  local applied files="" stale sum mcp base expected state
 
   applied=$(in_chad git -C "$work" rev-parse 'applied^{tree}' </dev/null)
   if in_chad test -e "$browse_pending" </dev/null; then
@@ -378,10 +379,9 @@ use_browse() {
     fi
     # Something was applied since, so what it worked out is out of date. It starts over from what is applied now, once
     # what a cut run left in the swap directory is settled against what it worked out then.
-    out=$(settle_browse_swap "$base" "$expected")
-    if [ "$(browse_outcome "$out")" != clear ]; then
-      echo "chad's repo has changes that are not applied, so the move to browse was not applied: an apply would"
-      echo "publish them with it. Apply or undo yours, and run this script again."
+    state=$(settle_browse_swap "$base" "$expected")
+    if [ "$state" != clear ]; then
+      not_applied
       return 0
     fi
     in_chad rm -f "$browse_pending" </dev/null
@@ -492,49 +492,53 @@ EOF
   finish_browse "$applied" "$expected"
 }
 
-# Settles what a run that was cut left in the swap directory, before anything looks at work/. A file there is one this
-# script was moving in, or the one a swap took out of work/. One that is the applied file or the new one is dropped.
-# Any other came out of work/ and belongs to the owner: it goes back in place of the new file when that is still
-# there, and is otherwise kept under /data/home/.deploy-browse-saved/. Then nothing is applied this run. It prints
-# where it kept a file, and last `owner` or `clear`.
+# The shell the scripts that move files into work/ start with. A file in the swap directory is one this script was
+# moving in, or the one a swap took out of work/. settle judges each, given the applied tree a change was worked out
+# from and the tree it makes: one that is the applied file or the new one is dropped. Any other came out of work/ and
+# belongs to the owner. It goes back in place of the new file when that is still there, and is otherwise kept under
+# /data/home/.deploy-browse-saved/. settle prints `owner` when it met one, and `clear` when not.
+browse_sh='set -e
+cd /data/repo/work
+blob() { git rev-parse -q --verify "$1:$2" || true; }
+hash() { git hash-object "$1" 2>/dev/null || true; }
+settle() {
+  state=clear
+  if [ -d "$3" ]; then
+    for path in $(cd "$3" && find . -type f | sed "s|^[.]/||"); do
+      want=$(blob "$2" "$path")
+      got=$(hash "$3/$path")
+      if [ "$got" = "$(blob "$1" "$path")" ] || [ "$got" = "$want" ]; then
+        rm "$3/$path"
+        continue
+      fi
+      state=owner
+      if [ "$(hash "$path")" = "$want" ]; then
+        mv --exchange "$3/$path" "$path"
+      fi
+      # What the swap back brought out is the new file, unless the owner saved again in between.
+      if [ "$(hash "$3/$path")" = "$want" ]; then
+        rm "$3/$path"
+      else
+        kept=/data/home/.deploy-browse-saved/$path.$(date +%s)
+        mkdir -p "$(dirname "$kept")"
+        mv "$3/$path" "$kept"
+        echo "An edit of yours that came in as this script moved a file in is kept at $kept" >&2
+      fi
+    done
+    find "$3" -depth -type d -empty -delete
+  fi
+  echo $state
+}
+'
+
+# Settles what a run that was cut left in the swap directory, before anything looks at work/.
 settle_browse_swap() {
-  in_chad sh -c 'set -e
-    base=$1 expected=$2 swap=$3
-    cd /data/repo/work
-    blob() { git rev-parse -q --verify "$1:$2" || true; }
-    hash() { git hash-object "$1" 2>/dev/null || true; }
-    keep() {
-      kept=/data/home/.deploy-browse-saved/$2.$(date +%s)
-      mkdir -p "$(dirname "$kept")"
-      mv "$1" "$kept"
-      echo "saved $kept"
-    }
-    state=clear
-    if [ -d "$swap" ]; then
-      for path in $(cd "$swap" && find . -type f | sed "s|^[.]/||"); do
-        want=$(blob "$expected" "$path")
-        got=$(hash "$swap/$path")
-        if [ "$got" = "$(blob "$base" "$path")" ] || [ "$got" = "$want" ]; then
-          rm "$swap/$path"
-          continue
-        fi
-        state=owner
-        if [ "$(hash "$path")" = "$want" ]; then
-          mv --exchange "$swap/$path" "$path"
-          if [ "$(hash "$swap/$path")" = "$want" ]; then rm "$swap/$path"; else keep "$swap/$path" "$path"; fi
-        else
-          keep "$swap/$path" "$path"
-        fi
-      done
-      find "$swap" -depth -type d -empty -delete
-    fi
-    echo $state' sh "$1" "$2" "$browse_swap" </dev/null
+  in_chad sh -c "$browse_sh"'settle "$@"' sh "$1" "$2" "$browse_swap" </dev/null
 }
 
-# Prints where settle_browse_swap or finish_browse kept a file of the owner's, and gives back their last line.
-browse_outcome() {
-  grep "^saved " <<<"$1" | sed "s|^saved |An edit of yours that came in as this script moved a file in is kept at |" || true
-  tail -n 1 <<<"$1"
+not_applied() {
+  echo "chad's repo has changes that are not applied, so the move to browse was not applied: an apply would publish"
+  echo "them with it. Apply or undo yours, and run this script again."
 }
 
 # Puts what `expected` changes from `base` into work/ and applies it. work/ may differ from `base` only where
@@ -542,70 +546,47 @@ browse_outcome() {
 # Anything else is the owner's: then it applies nothing, and says so. Files it moved in before it met the owner's stay,
 # as a cut run's do, and the next run finishes from them.
 finish_browse() {
-  local base=$1 expected=$2 out ready changed
+  local base=$1 expected=$2 state changed
   # Each output is taken on its own, so a script that fails fails the run.
-  out=$(settle_browse_swap "$base" "$expected")
-  ready=$(browse_outcome "$out")
-  if [ "$ready" = clear ]; then
-    out=$(
-        in_chad sh -c 'set -e
-          base=$1 expected=$2 swap=$3
-          dir=$(mktemp -d /data/home/.deploy-finish.XXXXXX)
-          trap "rm -rf $dir" EXIT
-          cd /data/repo/work
-          blob() { git rev-parse -q --verify "$1:$2" || true; }
-          hash() { git hash-object "$1" 2>/dev/null || true; }
-          # work/ as `chad apply` snapshots it (src/Repo.ts).
-          export GIT_INDEX_FILE=$dir/index
-          git add -A -- . ":(exclude,glob)**/node_modules" ":(exclude,glob)**/node_modules/**"
-          draft=$(git write-tree)
-          ours=" $(git diff-tree -r --name-only "$base" "$expected" | tr "\n" " ")"
-          for path in $(git diff-tree -r --name-only "$base" "$draft"); do
-            case $ours in *" $path "*) ;; *) echo owner; exit 0 ;; esac
-            [ "$(blob "$draft" "$path")" = "$(blob "$expected" "$path")" ] || { echo owner; exit 0; }
-          done
-          # A file goes in only in place of the applied one, judged by what it actually displaced: a check before the
-          # move would leave the owner a moment to save the file in between. The new file waits in the swap directory,
-          # which outlives a cut run. A path the applied tree lacks is linked in, which fails when the path is there.
-          # One the applied tree has is swapped with the new file in one rename, so the file that comes out, into the
-          # swap directory, is the one that was there. When that is not the applied one it belongs to the owner, and it
-          # is swapped back. What that brings out is the new file, unless the owner saved again in between, and then
-          # it is kept. A file leaves the swap directory only once it has been judged.
-          for path in $ours; do
-            want=$(blob "$expected" "$path")
-            had=$(blob "$base" "$path")
-            [ "$(blob "$draft" "$path")" != "$want" ] || continue
-            new=$swap/$path
-            mkdir -p "$(dirname "$path")" "$(dirname "$new")"
-            git cat-file blob "$want" > "$new"
-            if [ -z "$had" ]; then
-              ln "$new" "$path" 2>/dev/null || { rm "$new"; echo owner; exit 0; }
-            else
-              mv --exchange "$new" "$path"
-              if [ "$(hash "$new")" != "$had" ]; then
-                mv --exchange "$new" "$path"
-                if [ "$(hash "$new")" != "$want" ]; then
-                  kept=/data/home/.deploy-browse-saved/$path.$(date +%s)
-                  mkdir -p "$(dirname "$kept")"
-                  mv "$new" "$kept"
-                  echo "saved $kept"
-                else
-                  rm "$new"
-                fi
-                echo owner
-                exit 0
-              fi
-            fi
-            rm "$new"
-          done
-          find "$swap" -depth -type d -empty -delete 2>/dev/null || true
-          echo ready' sh "$base" "$expected" "$browse_swap" </dev/null
+  state=$(settle_browse_swap "$base" "$expected")
+  if [ "$state" = clear ]; then
+    state=$(
+      in_chad sh -c "$browse_sh"'
+        base=$1 expected=$2 swap=$3
+        dir=$(mktemp -d /data/home/.deploy-finish.XXXXXX)
+        trap "rm -rf $dir" EXIT
+        # work/ as `chad apply` snapshots it (src/Repo.ts).
+        export GIT_INDEX_FILE=$dir/index
+        git add -A -- . ":(exclude,glob)**/node_modules" ":(exclude,glob)**/node_modules/**"
+        draft=$(git write-tree)
+        ours=" $(git diff-tree -r --name-only "$base" "$expected" | tr "\n" " ")"
+        for path in $(git diff-tree -r --name-only "$base" "$draft"); do
+          case $ours in *" $path "*) ;; *) echo owner; exit 0 ;; esac
+          [ "$(blob "$draft" "$path")" = "$(blob "$expected" "$path")" ] || { echo owner; exit 0; }
+        done
+        # A file goes in only in place of the applied one, judged by what it actually displaced: a check before the
+        # move would leave the owner a moment to save the file in between. The new file waits in the swap directory,
+        # which outlives a cut run. A path the applied tree lacks is linked in, which fails when the path is there.
+        # One the applied tree has is swapped with the new file in one rename, so the file that comes out, into the
+        # swap directory, is the one that was there, and settle judges it as it would after a cut.
+        for path in $ours; do
+          want=$(blob "$expected" "$path")
+          [ "$(blob "$draft" "$path")" != "$want" ] || continue
+          new=$swap/$path
+          mkdir -p "$(dirname "$path")" "$(dirname "$new")"
+          git cat-file blob "$want" > "$new"
+          if [ -z "$(blob "$base" "$path")" ]; then
+            ln "$new" "$path" 2>/dev/null || { rm "$new"; echo owner; exit 0; }
+          else
+            mv --exchange "$new" "$path"
+          fi
+          [ "$(settle "$base" "$expected" "$swap")" = clear ] || { echo owner; exit 0; }
+        done
+        echo ready' sh "$base" "$expected" "$browse_swap" </dev/null
     )
-    ready=$(browse_outcome "$out")
   fi
-  if [ "$ready" != ready ]; then
-    echo "chad's repo has changes that are not applied, so the move to browse was not applied: an apply would publish"
-    echo "them with it. Apply or undo yours, and run this script again."
+  if [ "$state" != ready ]; then
+    not_applied
     return 0
   fi
   in_chad chad apply -m "Browse with browse in place of agent-browser" --expect "$expected" </dev/null

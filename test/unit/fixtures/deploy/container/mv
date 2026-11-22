@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
 # mv, with a save of the owner's that comes in just before a move into work/, and a stop of the script that called it
 # just after, as a kill would, which runs none of its traps. Each hook is given mv's arguments, and is gone once it
-# exits 0.
+# exits 0. --exchange is done as three moves, since the host's coreutils may be older than 9.5, which has it, and the
+# image's is not.
+real() { PATH=${PATH#"$FAKE/container:"} mv "$@"; }
 if [ -e "$FAKE/before-mv" ] && bash "$FAKE/before-mv" "$@"; then
   rm "$FAKE/before-mv"
 fi
-PATH=${PATH#"$FAKE/container:"} mv "$@" || exit
+if [ "$1" = --exchange ]; then
+  real "$3" "$3.exchange" && real "$2" "$3" && real "$3.exchange" "$2" || exit
+else
+  real "$@" || exit
+fi
 if [ -e "$FAKE/after-mv" ] && bash "$FAKE/after-mv" "$@"; then
   rm "$FAKE/after-mv"
   kill -KILL "$PPID"

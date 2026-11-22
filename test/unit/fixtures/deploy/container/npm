@@ -1,2 +1,7 @@
 #!/usr/bin/env bash
-cp "$FAKE/browse" "$FAKE/container/browse"
+# npm, as the installer asks it whether browse is on chad's volume and installs it there.
+if [ "$1" = ls ]; then
+  [ -e "$FAKE/container/browse" ]
+else
+  cp "$FAKE/browse" "$FAKE/container/browse"
+fi
