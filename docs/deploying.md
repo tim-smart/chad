@@ -258,8 +258,9 @@ The next run of the installer moves such a server onto browse:
 - It replaces `work/skills/browser/SKILL.md` with the one for browse if it is still one the installer added. A skill
   you changed stays as it is, and the installer says so when it still names `agent-browser`. `/opt/chad/browser/SKILL.md`
   is the new one to merge yours with.
-- It applies what it changed with `chad apply`, once. An apply publishes everything in `work/`, so while `work/`
-  holds changes of yours that are not applied, it changes nothing and says so. Apply or undo yours and run it again.
+- It works out what it changes from what is applied, and applies it once, with `chad apply --expect`, which publishes
+  that tree or nothing. While `work/` holds changes of yours that are not applied, it moves nothing in and applies
+  nothing, and says so: apply or undo yours and run it again. A run that was cut part way is finished by the next.
 
 ## What is kept, and backups
 

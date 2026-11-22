@@ -20,8 +20,8 @@ set -euo pipefail
 # What says a chad volume was given asphodel and the browser. It is on the volume, so it goes where the volume goes:
 # a new volume has none, and a restored one has its own.
 marker=/data/home/.deploy-seeded
-# What says use_browse() is moving files into chad's repo and has not applied them yet. It holds the tree that work/
-# is once they are in, so a run that was cut is applied by the next only while work/ is still that.
+# What says use_browse() is moving the files of a change into chad's repo and has not applied them yet. It holds the
+# applied tree the change was worked out from and the tree it makes, so a run that was cut is finished by the next.
 browse_pending=/data/home/.deploy-browse-pending
 # browse's MCP server, as chad's mcp.json names it, and what says the installer added it once. Its calls may wait on
 # the owner for up to ten minutes, as a handoff does, so they get a little longer than that.
@@ -155,36 +155,17 @@ install() {
     exit 1
   fi
 
+  step "Installing browse on chad's volume"
+  part install_browse "browse was not installed on chad's volume."
+
   if ! in_chad test -e "$marker" </dev/null; then
     step "Giving chad asphodel's token and the browser"
-    # A function called as a condition runs with `set -e` off, and would go on past a step that failed. The subshell
-    # is no condition, so the first step that fails ends it.
-    set +e
-    (
-      set -e
-      seed
-    )
-    local seeded=$?
-    set -e
-    if [ "$seeded" != 0 ]; then
-      echo "install.sh: chad was not given all of asphodel and the browser. Run this script again to finish." >&2
-      exit 1
-    fi
+    part seed "chad was not given all of asphodel and the browser."
   fi
 
-  # Every run, so a volume seeded before chad used browse is moved onto it, and a new one gets it too.
-  step "Giving chad browse"
-  set +e
-  (
-    set -e
-    use_browse
-  )
-  local browsed=$?
-  set -e
-  if [ "$browsed" != 0 ]; then
-    echo "install.sh: chad was not given browse. Run this script again to finish." >&2
-    exit 1
-  fi
+  # Every run, so a volume seeded before chad used browse is moved onto it.
+  step "Moving chad's repo onto browse"
+  part use_browse "chad's repo was not moved onto browse."
 
   # The desktop and asphodel's dashboard are bound to the server's loopback. This puts each on the tailnet over
   # HTTPS, which the desktop's page needs to show video, and on no public address. The dashboard goes on before
@@ -252,6 +233,24 @@ lockdown() {
 
 step() {
   printf '\n==> %s\n' "$*"
+}
+
+# Runs one part of the install, and ends the install when it fails. A function called as a condition runs with
+# `set -e` off, and would go on past a step that failed. The subshell is no condition, so the first step that fails
+# ends it.
+part() {
+  local status
+  set +e
+  (
+    set -e
+    "$1"
+  )
+  status=$?
+  set -e
+  if [ "$status" != 0 ]; then
+    echo "install.sh: $2 Run this script again to finish." >&2
+    exit 1
+  fi
 }
 
 # Serves a port of the server's loopback on the tailnet, over HTTPS, at another port. `tailscale serve` reaches the
@@ -341,16 +340,11 @@ EOF
   in_chad touch "$marker" </dev/null
 }
 
-# browse on chad's volume with its relay open to the Chromium container, its MCP server in mcp.json, and what an
-# earlier seed gave chad for agent-browser taken out where it is still as seeded. It runs on every install and changes only what is not so
-# already. agent-browser stays on the volume, since a skill of the owner's may still run it.
-use_browse() {
-  local work=/data/repo/work
-  local skill=$work/skills/browser/SKILL.md
-  local stale sum mcp files="" path draft applied expected
-
+# browse on chad's volume, with its relay open to the Chromium container. It comes before anything applies mcp.json,
+# so the apply that adds browse's MCP server finds the command and connects it.
+install_browse() {
   if ! in_chad sh -c 'command -v browse' >/dev/null </dev/null; then
-    in_chad npm install -g --no-audit --no-fund @opencode/browse </dev/null
+    in_chad npm install -g --no-audit --no-fund --no-update-notifier @opencode/browse </dev/null
   fi
   # The extension reaches the relay from the Chromium container, so the relay listens beyond chad's loopback. Setting
   # this restarts a relay that runs, so it is set only when it is not so already. What it prints is for a browser on
@@ -358,17 +352,41 @@ use_browse() {
   if ! in_chad grep -qs '"hostname": *"0.0.0.0"' /data/home/.config/browse/config.json </dev/null; then
     in_chad browse set hostname 0.0.0.0 >/dev/null </dev/null
   fi
+}
 
-  # What this writes is staged under a directory of its own on the volume, outside work/, so nothing of the owner's is
-  # written over before it is moved in. A move within the volume is atomic. `tmp` is not local, so the trap still has
-  # it when the subshell this runs in exits.
+# Moves a volume onto browse: its MCP server added to mcp.json once, and what an earlier seed gave chad for
+# agent-browser taken out where it is still as seeded. It runs on every install and changes only what is not so
+# already.
+#
+# Every change is worked out from the applied tree, not from work/, and becomes one tree: the applied tree with the
+# changed files in it, whose files git holds from then on. The marker names the applied tree it started from and that
+# tree, and `chad apply --expect` publishes it or nothing, so a change the owner makes to work/ meanwhile is never
+# published with it. A run that was cut is finished by the next, from git's copy of the files.
+use_browse() {
+  local work=/data/repo/work
+  local applied files="" stale sum mcp base expected ready
+
+  applied=$(in_chad git -C "$work" rev-parse 'applied^{tree}' </dev/null)
+  if in_chad test -e "$browse_pending" </dev/null; then
+    read -r base expected < <(in_chad cat "$browse_pending" </dev/null)
+    if [ "$base" = "$applied" ]; then
+      finish_browse "$base" "$expected"
+      return 0
+    fi
+    # Something was applied since, so what it worked out is out of date. It starts over from what is applied now.
+    in_chad rm -f "$browse_pending" </dev/null
+  fi
+
+  # Not local, so the trap still has it when the subshell this runs in exits.
   tmp=$(in_chad mktemp -d /data/home/.deploy-browse.XXXXXX </dev/null)
   trap 'in_chad rm -rf "$tmp" </dev/null' EXIT
+  in_chad sh -c "cd $work && git show $applied:chad.json > $tmp/applied-chad.json &&
+    { git show $applied:mcp.json > $tmp/applied-mcp.json 2>/dev/null || rm -f $tmp/applied-mcp.json; }" </dev/null
 
   # The seeded stale-tabs entry points at Chromium's DevTools, which the deploy no longer opens, and browse closes the
   # idle tabs it opened. An entry the owner changed is theirs: it stays, and is reported when it points there too.
   stale=$(
-    in_chad node - "$work/chad.json" "$tmp/chad.json" "$old_stale_tabs" <<'EOF'
+    in_chad node - "$tmp/applied-chad.json" "$tmp/chad.json" "$old_stale_tabs" <<'EOF'
 const fs = require("node:fs")
 const [file, staged, seeded] = process.argv.slice(2)
 let json
@@ -396,20 +414,21 @@ EOF
   fi
 
   # A skill the owner changed is theirs too.
-  sum=$(in_chad sh -c "if [ -f $skill ]; then sha256sum < $skill; fi" </dev/null)
-  if [ -n "$sum" ] && grep -qx "${sum%% *}" <<<"$old_browser_skills"; then
+  sum=$(in_chad sh -c "git -C $work show $applied:skills/browser/SKILL.md 2>/dev/null | sha256sum" </dev/null)
+  if grep -qx "${sum%% *}" <<<"$old_browser_skills"; then
     in_chad sh -c "mkdir -p $tmp/skills/browser && cat > $tmp/skills/browser/SKILL.md" <browser/SKILL.md
     files="$files skills/browser/SKILL.md"
-  elif in_chad grep -qs agent-browser "$skill" </dev/null; then
+  elif in_chad sh -c "git -C $work show $applied:skills/browser/SKILL.md 2>/dev/null | grep -q agent-browser" \
+    </dev/null; then
     echo "work/skills/browser/SKILL.md is not the one this script added, so it was left as it is. It still says to use"
     echo "agent-browser, which no longer reaches Chromium. $PWD/browser/SKILL.md is the one for browse."
   fi
 
   # browse's MCP server, added once. A server of the owner's named browse is theirs, and one they take out later stays
-  # out: the marker says it was added.
+  # out: the marker says it was added, and is set only once the applied tree has it.
   if ! in_chad test -e "$browse_mcp_added" </dev/null; then
     mcp=$(
-      in_chad node - "$work/mcp.json" "$tmp/mcp.json" "$browse_server" <<'EOF'
+      in_chad node - "$tmp/applied-mcp.json" "$tmp/mcp.json" "$browse_server" <<'EOF'
 const fs = require("node:fs")
 const [file, staged, server] = process.argv.slice(2)
 let json = { mcpServers: {} }
@@ -439,77 +458,72 @@ EOF
     elif [ "$mcp" = present ]; then
       in_chad touch "$browse_mcp_added" </dev/null
     else
-      echo "work/mcp.json could not be read, so browse's MCP server was not added to it. Fix it, and run this script"
-      echo "again."
+      echo "mcp.json could not be read, so browse's MCP server was not added to it. Fix it, and run this script again."
     fi
   fi
 
-  # `chad apply` publishes the whole of work/, so this applies only when work/ holds nothing but what this script
-  # moved in. The marker holds the tree that is: a run cut after it went in applies it, unless work/ has changed
-  # since, and a draft of the owner's is never applied with it.
-  applied=$(in_chad git -C "$work" rev-parse 'applied^{tree}' </dev/null)
-  draft=$(draft_tree)
-  if in_chad test -e "$browse_pending" </dev/null; then
-    expected=$(in_chad cat "$browse_pending" </dev/null)
-    if [ "$draft" = "$expected" ]; then
-      in_chad chad apply -m "Browse with browse in place of agent-browser" </dev/null
-      in_chad touch "$browse_mcp_added" </dev/null
-      in_chad rm -f "$browse_pending" </dev/null
-      return 0
-    elif [ "$draft" != "$applied" ]; then
-      echo "chad's repo has changes that are not applied, besides the ones this script made for browse, so it applied"
-      echo "nothing. Apply or undo yours, and run this script again."
-      return 0
-    fi
-    # Cut before what it staged went in, or the owner applied or undid it since. Either way it starts over.
-    in_chad rm -f "$browse_pending" </dev/null
-  fi
   if [ -z "$files" ]; then
     return 0
   fi
-  if [ "$draft" != "$applied" ]; then
-    echo "chad's repo has changes that are not applied, so chad.json and the browser skill were not moved to browse:"
-    echo "an apply would publish yours with them. Apply or undo yours, and run this script again."
+  # The applied tree with the staged files in it, through an index of its own so work/'s is untouched.
+  expected=$(
+    in_chad sh -c 'set -e
+      applied=$1 tmp=$2
+      shift 2
+      export GIT_INDEX_FILE=$tmp/index
+      cd /data/repo/work
+      git read-tree "$applied"
+      for path in "$@"; do
+        git update-index --add --cacheinfo "100644,$(git hash-object -w "$tmp/$path"),$path"
+      done
+      git write-tree' sh "$applied" "$tmp" $files </dev/null
+  )
+  in_chad sh -c "echo $applied $expected > $tmp/pending && mv $tmp/pending $browse_pending" </dev/null
+  finish_browse "$applied" "$expected"
+}
+
+# Puts what `expected` changes from `base` into work/ and applies it. work/ may differ from `base` only where
+# `expected` does, and there only by holding what `expected` holds, which is what a run that was cut moved in already.
+# Anything else is the owner's: then it moves nothing in and applies nothing, and says so. A file is moved in only
+# over the applied one.
+finish_browse() {
+  local base=$1 expected=$2 ready changed
+  ready=$(
+    in_chad sh -c 'set -e
+      base=$1 expected=$2
+      dir=$(mktemp -d /data/home/.deploy-finish.XXXXXX)
+      trap "rm -rf $dir" EXIT
+      cd /data/repo/work
+      blob() { git rev-parse -q --verify "$1:$2" || true; }
+      # work/ as `chad apply` snapshots it (src/Repo.ts).
+      export GIT_INDEX_FILE=$dir/index
+      git add -A -- . ":(exclude,glob)**/node_modules" ":(exclude,glob)**/node_modules/**"
+      draft=$(git write-tree)
+      ours=" $(git diff-tree -r --name-only "$base" "$expected" | tr "\n" " ")"
+      for path in $(git diff-tree -r --name-only "$base" "$draft"); do
+        case $ours in *" $path "*) ;; *) echo owner; exit 0 ;; esac
+        [ "$(blob "$draft" "$path")" = "$(blob "$expected" "$path")" ] || { echo owner; exit 0; }
+      done
+      for path in $ours; do
+        [ "$(blob "$draft" "$path")" != "$(blob "$expected" "$path")" ] || continue
+        mkdir -p "$(dirname "$path")"
+        git cat-file blob "$(blob "$expected" "$path")" > "$dir/file"
+        [ "$(git hash-object "$path" 2>/dev/null || true)" = "$(blob "$base" "$path")" ] || { echo owner; exit 0; }
+        mv "$dir/file" "$path"
+      done
+      echo ready' sh "$base" "$expected" </dev/null
+  )
+  if [ "$ready" != ready ]; then
+    echo "chad's repo has changes that are not applied, so the move to browse was not applied: an apply would publish"
+    echo "them with it. Apply or undo yours, and run this script again."
     return 0
   fi
-
-  expected=$(staged_tree "$tmp" $files)
-  in_chad sh -c "printf '%s\n' $expected > $tmp/pending && mv $tmp/pending $browse_pending" </dev/null
-  for path in $files; do
-    in_chad mv "$tmp/$path" "$work/$path" </dev/null
-  done
-  in_chad chad apply -m "Browse with browse in place of agent-browser" </dev/null
-  in_chad touch "$browse_mcp_added" </dev/null
+  in_chad chad apply -m "Browse with browse in place of agent-browser" --expect "$expected" </dev/null
+  changed=$(in_chad git -C /data/repo/work diff-tree -r --name-only "$base" "$expected" </dev/null)
+  if grep -qx mcp.json <<<"$changed"; then
+    in_chad touch "$browse_mcp_added" </dev/null
+  fi
   in_chad rm -f "$browse_pending" </dev/null
-}
-
-# The tree `chad apply` would publish now: work/ as its snapshot takes it (src/Repo.ts), with node_modules left out,
-# through an index of its own so work/'s is untouched.
-draft_tree() {
-  in_chad sh -c 'set -e
-    d=$(mktemp -d /data/home/.deploy-index.XXXXXX)
-    trap "rm -rf $d" EXIT
-    export GIT_INDEX_FILE=$d/index
-    git -C /data/repo/work add -A -- . ":(exclude,glob)**/node_modules" ":(exclude,glob)**/node_modules/**"
-    git -C /data/repo/work write-tree' </dev/null
-}
-
-# The applied tree with the staged files in it: what work/ is once they are moved in, when it held no draft.
-staged_tree() {
-  local tmp=$1
-  shift
-  in_chad sh -c 'set -e
-    tmp=$1
-    shift
-    d=$(mktemp -d /data/home/.deploy-index.XXXXXX)
-    trap "rm -rf $d" EXIT
-    export GIT_INDEX_FILE=$d/index
-    cd /data/repo/work
-    git read-tree applied
-    for path in "$@"; do
-      git update-index --add --cacheinfo "100644,$(git hash-object -w "$tmp/$path"),$path"
-    done
-    git write-tree' sh "$tmp" "$@" </dev/null
 }
 
 # The browse extension in Chromium has to be paired with the relay in chad's container once, by hand: the relay prints

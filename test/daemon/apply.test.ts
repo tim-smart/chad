@@ -195,6 +195,17 @@ test("an apply commits work/ and loads it at the session's next turn, a failed a
   expect(await log()).toHaveLength(1)
 
   expect((await running.chad(["apply", "-m", "Add dice"])).code).toBe(0)
+
+  // With --expect, an apply publishes nothing unless what it snapshots is that tree, so an edit made after the caller
+  // looked at work/ is not published with its change.
+  const looked = git(work, ["rev-parse", "applied^{tree}"])
+  write(work, { "notes.md": "a draft\n" })
+  expect(
+    (await running.chad(["apply", "-m", "Expected", "--expect", looked])).code,
+  ).toBe(1)
+  expect(await log()).toHaveLength(2)
+  rmSync(join(work, "notes.md"))
+
   const thread = await running.fakes.chat.makeThread("direct")
   expect((await roll(running, thread, "roll")).output).toContain("face one")
 

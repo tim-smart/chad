@@ -4,7 +4,17 @@ case "$1 $2" in
   "secret set") cat >/dev/null && echo "$3" >>"$FAKE/secrets" ;;
   "apply -m")
     [ ! -e "$FAKE/fail-apply" ] || exit 1
+    # What runs as the daemon is about to snapshot work/, once: an edit of the owner's that comes in just then.
+    if [ -e "$FAKE/before-apply" ]; then
+      bash "$FAKE/before-apply"
+      rm "$FAKE/before-apply"
+    fi
     git -C "$FAKE/data/repo/work" add -A
+    # `--expect`: what work/ holds must be that tree, or nothing is applied.
+    if [ "$4" = --expect ] && [ "$(git -C "$FAKE/data/repo/work" write-tree)" != "$5" ]; then
+      git -C "$FAKE/data/repo/work" reset -q
+      exit 1
+    fi
     git -C "$FAKE/data/repo/work" -c user.name=chad -c user.email=chad@localhost commit -qm "$3"
     echo "chad apply" >>"$FAKE/calls"
     ;;

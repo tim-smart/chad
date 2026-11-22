@@ -253,7 +253,11 @@ export class ModelUnchanged extends Schema.TaggedError<ModelUnchanged>(
 
 /** What `chad apply`, `check`, `revert`, `safe`, `plugin reload`, `plugin purge`, `timezone` and `secret set` and `rm` ask the daemon for. */
 export const RepoRequest = Schema.Union([
-  Schema.TaggedStruct("Apply", { message: Schema.String }),
+  /** `expect` is the tree the apply must publish, or it publishes nothing. */
+  Schema.TaggedStruct("Apply", {
+    message: Schema.String,
+    expect: Schema.UndefinedOr(Schema.String),
+  }),
   Schema.TaggedStruct("Check", {}),
   Schema.TaggedStruct("Revert", { commit: Schema.UndefinedOr(Schema.String) }),
   Schema.TaggedStruct("Safe", {

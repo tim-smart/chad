@@ -518,7 +518,17 @@ took a screenshot. After `podman restart` of Chromium the extension came back wi
 passing `/extension` alone, the pairing went through as before and `/version` answered nginx's 404. chad's daemon
 ran there without a chat connection: an apply of the `mcp.json` the installer writes printed `MCP server browse:
 connected, 26 tools`, and an MCP client named as clanka names chad's opened `example.com`, read it, took a screenshot
-and closed the tab through `browse mcp`. No model turn was run. The installer
+and closed the tab through `browse mcp`. No model turn was run.
+
+The installer itself was then run against those containers, with chad's image built from the branch and a stand-in
+`docker` that sends `docker compose exec` to podman, since Compose does not run under podman there. On a new volume
+it installed browse before the seed's apply, and that apply printed `MCP server browse: connected, 26 tools` with no
+restart. The volume was then made into one an earlier install had seeded, with an applied file of the owner's at
+`chad.json.new`. A run killed just before its `chad apply --expect` left its files moved in and nothing applied. With
+one of them undone and a draft skill of the owner's added, the next run applied nothing and left the draft as it was.
+With the draft gone, the run after that applied the tree the first run had worked out, `chad.json.new` included as it
+was, and `chad status` showed browse connected. `chad apply --expect` with a draft written after the tree was taken
+exited 1 and published nothing. The installer
 itself was not run there: its paths on a new volume and on a volume from before browse were run against the stand-ins
 of [`test/unit/deploy.test.ts`](../test/unit/deploy.test.ts).
 
