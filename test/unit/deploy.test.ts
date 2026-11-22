@@ -158,6 +158,51 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
   ])
 })
 
+it("a rerun on a volume seeded before browse takes out the stale-tabs entry it seeded, keeps one the owner changed, and applies nothing once there is nothing to change", () => {
+  const { fake, git, install, calls } = server()
+  writeFileSync(join(fake, "tailnet"), "100.64.0.7\n")
+  expect(install([]).status).toBe(0)
+  const applies = () => calls().filter((call) => call === "chad apply")
+  const work = join(fake, "data/repo/work/chad.json")
+  const asphodel = JSON.parse(readFileSync(work, "utf8")).plugins.asphodel
+  const withStaleTabs = (staleTabs: unknown) => {
+    writeFileSync(
+      work,
+      JSON.stringify(
+        { plugins: { asphodel, "stale-tabs": staleTabs } },
+        null,
+        2,
+      ) + "\n",
+    )
+    git("commit", "-qam", "chad.json")
+  }
+
+  // The entry an earlier install seeded, pointing at the DevTools port the deploy no longer opens.
+  withStaleTabs({
+    enabled: true,
+    settings: { url: "http://172.30.72.10:9223" },
+  })
+  expect(install([]).status).toBe(0)
+  expect(JSON.parse(git("show", "HEAD:chad.json")).plugins).toEqual({
+    asphodel,
+  })
+  expect(applies()).toHaveLength(2)
+  expect(install([]).status).toBe(0)
+  expect(applies()).toHaveLength(2)
+
+  // One the owner changed is theirs.
+  withStaleTabs({
+    enabled: true,
+    settings: { url: "http://172.30.72.10:9223", maxAge: "12 hours" },
+  })
+  const owners = readFileSync(work, "utf8")
+  const rerun = install([])
+  expect(rerun.status).toBe(0)
+  expect(readFileSync(work, "utf8")).toBe(owners)
+  expect(git("status", "--porcelain")).toBe("")
+  expect(applies()).toHaveLength(2)
+})
+
 it("a key that does not join the server starts no container", () => {
   const { fake, install, calls } = server()
   const key = { TS_AUTHKEY: "tskey-auth-test" }
