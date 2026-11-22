@@ -18,7 +18,7 @@
 set -euo pipefail
 
 # What says a chad volume was given asphodel and the browser. It is on the volume, so it goes where the volume goes:
-# a new volume has none, and a restored one has its own.
+# a new volume has none, and a restored one has its own. use_browse() writes it once what it gives the repo is applied.
 marker=/data/home/.deploy-seeded
 # What says use_browse() is moving the files of a change into chad's repo and has not applied them yet. It holds the
 # applied tree the change was worked out from and the tree it makes, so a run that was cut is finished by the next.
@@ -30,15 +30,12 @@ browse_swap=/data/home/.deploy-browse-swap
 # the owner for up to ten minutes, as a handoff does, so they get a little longer than that.
 browse_server='{"command":"browse","args":["mcp"],"callTimeout":660000}'
 browse_mcp_added=/data/home/.deploy-browse-mcp
-browse_mcp="{
-  \"mcpServers\": {
-    \"browse\": $browse_server
-  }
-}"
 # The stale-tabs entry and the `browser` skills that earlier versions of this script seeded, when chad drove Chromium
 # through DevTools with agent-browser. use_browse() takes out what is still exactly as seeded, and leaves alone what
 # the owner changed.
 old_stale_tabs='{"enabled":true,"settings":{"url":"http://172.30.72.10:9223"}}'
+# The sha256 of nothing: what a `browser` skill the applied tree lacks hashes to.
+empty_sum=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 old_browser_skills="
 5155aba737eca7d385376999833ba5a2a2dc2f9094c6eefb129b1cf4df49495e
 5c2d7d3bd71c491c132471ce05c33d00c0de2fba874580f05a0df300e65f110e
@@ -162,13 +159,13 @@ install() {
   part install_browse "browse was not installed on chad's volume."
 
   if ! in_chad test -e "$marker" </dev/null; then
-    step "Giving chad asphodel's token and the browser"
-    part seed "chad was not given all of asphodel and the browser."
+    step "Giving chad asphodel's token"
+    part seed "chad was not given asphodel's token."
   fi
 
-  # Every run, so a volume seeded before chad used browse is moved onto it.
-  step "Moving chad's repo onto browse"
-  part use_browse "chad's repo was not moved onto browse."
+  # Every run, so a new volume is given asphodel and browse, and one seeded before chad used browse is moved onto it.
+  step "Giving chad's repo asphodel and browse"
+  part use_browse "chad's repo was not given asphodel and browse."
 
   # The desktop and asphodel's dashboard are bound to the server's loopback. This puts each on the tailnet over
   # HTTPS, which the desktop's page needs to show video, and on no public address. The dashboard goes on before
@@ -289,58 +286,16 @@ healthy() {
   return 1
 }
 
-# What a chad volume is given, once: asphodel's token in the secret store, the asphodel plugin turned on, browse's
-# MCP server and the `browser` skill. Each part is skipped when the volume already has it, so a run that was cut is finished by the next,
-# and what the owner changed is left alone. The marker is written last.
+# asphodel's token in chad's secret store, which a new volume is given once. What the repo is given is
+# use_browse()'s, so it is published the way an upgrade is.
 seed() {
-  local token listed json pending wrote=no
-  local new=/data/home/.deploy-seed.new
+  local token listed
   token=$(sed -n 's/^ASPHODEL_TOKEN=//p' .env)
-
   listed=$(in_chad chad secret list </dev/null)
   if ! grep -q '^ASPHODEL_TOKEN\b' <<<"$listed"; then
     printf %s "$token" |
       in_chad chad secret set ASPHODEL_TOKEN --note "asphodel's bearer token, from deploy/install.sh"
   fi
-
-  # chad.json on a new volume holds no plugin. One that holds anything else is the owner's. A file is written beside
-  # the repo and moved in, so a write that is cut leaves no half of a file.
-  json=$(in_chad cat /data/repo/work/chad.json </dev/null)
-  if [ "$(tr -d ' \n\t' <<<"$json")" = '{"plugins":{}}' ]; then
-    in_chad sh -c "cat > $new && mv $new /data/repo/work/chad.json" <<'EOF'
-{
-  "plugins": {
-    "asphodel": {
-      "enabled": true,
-      "settings": {
-        "url": "http://asphodel:7720",
-        "token": "${ASPHODEL_TOKEN}"
-      }
-    }
-  }
-}
-EOF
-    wrote=yes
-  fi
-
-  if ! in_chad test -e /data/repo/work/mcp.json </dev/null; then
-    in_chad sh -c "cat > $new && mv $new /data/repo/work/mcp.json" <<<"$browse_mcp"
-    wrote=yes
-  fi
-
-  if ! in_chad test -s /data/repo/work/skills/browser/SKILL.md </dev/null; then
-    in_chad sh -c "mkdir -p /data/repo/work/skills/browser && cat > $new &&
-      mv $new /data/repo/work/skills/browser/SKILL.md" <browser/SKILL.md
-    wrote=yes
-  fi
-
-  # An apply is due for what this run wrote, and for what an earlier run wrote and was cut before applying.
-  pending=$(in_chad git -C /data/repo/work status --porcelain -- chad.json mcp.json skills/browser </dev/null)
-  if [ "$wrote" = yes ] || [ -n "$pending" ]; then
-    in_chad chad apply -m "Turn asphodel on and add browse and the browser skill" </dev/null
-  fi
-
-  in_chad touch "$marker" </dev/null
 }
 
 # browse on chad's volume, with its relay open to the Chromium container. It comes before anything applies mcp.json,
@@ -358,9 +313,10 @@ install_browse() {
   fi
 }
 
-# Moves a volume onto browse: its MCP server added to mcp.json once, and what an earlier seed gave chad for
-# agent-browser taken out where it is still as seeded. It runs on every install and changes only what is not so
-# already.
+# Gives chad's repo what the deploy needs, and moves a volume seeded before browse onto it. A new volume, one with no
+# marker, is given the asphodel plugin in a chad.json that holds no plugin and the `browser` skill when it has none.
+# Every volume gets browse's MCP server in mcp.json once, and what an earlier seed gave chad for agent-browser taken
+# out where it is still as seeded. It runs on every install and changes only what is not so already.
 #
 # Every change is worked out from the applied tree, not from work/, and becomes one tree: the applied tree with the
 # changed files in it, whose files git holds from then on. The marker names the applied tree it started from and that
@@ -368,13 +324,18 @@ install_browse() {
 # published with it. A run that was cut is finished by the next, from git's copy of the files.
 use_browse() {
   local work=/data/repo/work
-  local applied files="" stale sum mcp base expected state
+  local applied files="" stale sum mcp base expected state seeding=no message
+  message="Browse with browse in place of agent-browser"
+  if ! in_chad test -e "$marker" </dev/null; then
+    seeding=yes
+    message="Turn asphodel on and add browse and the browser skill"
+  fi
 
   applied=$(in_chad git -C "$work" rev-parse 'applied^{tree}' </dev/null)
   if in_chad test -e "$browse_pending" </dev/null; then
     read -r base expected < <(in_chad cat "$browse_pending" </dev/null)
     if [ "$base" = "$applied" ]; then
-      finish_browse "$base" "$expected"
+      finish_browse "$base" "$expected" "$message"
       return 0
     fi
     # Something was applied since, so what it worked out is out of date. It starts over from what is applied now, once
@@ -390,15 +351,18 @@ use_browse() {
   # Not local, so the trap still has it when the subshell this runs in exits.
   tmp=$(in_chad mktemp -d /data/home/.deploy-browse.XXXXXX </dev/null)
   trap 'in_chad rm -rf "$tmp" </dev/null' EXIT
-  in_chad sh -c "cd $work && git show $applied:chad.json > $tmp/applied-chad.json &&
+  # A file the applied tree lacks is left out, and a chad.json it lacks stays missing, which chad reads as no settings.
+  in_chad sh -c "cd $work &&
+    { git show $applied:chad.json > $tmp/applied-chad.json 2>/dev/null || rm -f $tmp/applied-chad.json; } &&
     { git show $applied:mcp.json > $tmp/applied-mcp.json 2>/dev/null || rm -f $tmp/applied-mcp.json; }" </dev/null
 
-  # The seeded stale-tabs entry points at Chromium's DevTools, which the deploy no longer opens, and browse closes the
-  # idle tabs it opened. An entry the owner changed is theirs: it stays, and is reported when it points there too.
+  # A new volume's chad.json holds no plugin, and is given asphodel. One that holds anything else is the owner's. The
+  # seeded stale-tabs entry points at Chromium's DevTools, which the deploy no longer opens, and browse closes the idle
+  # tabs it opened. An entry the owner changed is theirs: it stays, and is reported when it points there too.
   stale=$(
-    in_chad node - "$tmp/applied-chad.json" "$tmp/chad.json" "$old_stale_tabs" <<'EOF'
+    in_chad node - "$tmp/applied-chad.json" "$tmp/chad.json" "$old_stale_tabs" "$seeding" <<'EOF'
 const fs = require("node:fs")
-const [file, staged, seeded] = process.argv.slice(2)
+const [file, staged, seeded, seeding] = process.argv.slice(2)
 let json
 try {
   json = JSON.parse(fs.readFileSync(file, "utf8"))
@@ -406,7 +370,14 @@ try {
   process.exit(0)
 }
 const entry = JSON.stringify(json?.plugins?.["stale-tabs"] ?? null)
-if (entry === seeded) {
+if (seeding === "yes" && JSON.stringify(json) === '{"plugins":{}}') {
+  json.plugins.asphodel = {
+    enabled: true,
+    settings: { url: "http://asphodel:7720", token: "${ASPHODEL_TOKEN}" },
+  }
+  fs.writeFileSync(staged, JSON.stringify(json, null, 2) + "\n", { flag: "wx" })
+  console.log("seeded")
+} else if (entry === seeded) {
   delete json.plugins["stale-tabs"]
   fs.writeFileSync(staged, JSON.stringify(json, null, 2) + "\n", { flag: "wx" })
   console.log("seeded")
@@ -423,9 +394,10 @@ EOF
     echo "opened. Take the entry out of chad.json, or point its url at a Chromium of your own."
   fi
 
-  # A skill the owner changed is theirs too.
+  # A new volume is given the skill when it has none. A skill the owner changed is theirs too.
   sum=$(in_chad sh -c "git -C $work show $applied:skills/browser/SKILL.md 2>/dev/null | sha256sum" </dev/null)
-  if grep -qx "${sum%% *}" <<<"$old_browser_skills"; then
+  if grep -qx "${sum%% *}" <<<"$old_browser_skills" ||
+    { [ "$seeding" = yes ] && [ "${sum%% *}" = "$empty_sum" ]; }; then
     in_chad sh -c "mkdir -p $tmp/skills/browser && cat > $tmp/skills/browser/SKILL.md" <browser/SKILL.md
     files="$files skills/browser/SKILL.md"
   elif in_chad sh -c "git -C $work show $applied:skills/browser/SKILL.md 2>/dev/null | grep -q agent-browser" \
@@ -473,6 +445,9 @@ EOF
   fi
 
   if [ -z "$files" ]; then
+    if [ "$seeding" = yes ]; then
+      in_chad touch "$marker" </dev/null
+    fi
     return 0
   fi
   # The applied tree with the staged files in it, through an index of its own so work/'s is untouched.
@@ -489,7 +464,7 @@ EOF
       git write-tree' sh "$applied" "$tmp" $files </dev/null
   )
   in_chad sh -c "echo $applied $expected > $tmp/pending && mv $tmp/pending $browse_pending" </dev/null
-  finish_browse "$applied" "$expected"
+  finish_browse "$applied" "$expected" "$message"
 }
 
 # The shell the scripts that move files into work/ start with. A file in the swap directory is one this script was
@@ -537,16 +512,17 @@ settle_browse_swap() {
 }
 
 not_applied() {
-  echo "chad's repo has changes that are not applied, so the move to browse was not applied: an apply would publish"
-  echo "them with it. Apply or undo yours, and run this script again."
+  echo "chad's repo has changes that are not applied, so what this script gives it for asphodel and browse was not"
+  echo "applied: an apply would publish them with it. Apply or undo yours, and run this script again."
 }
 
-# Puts what `expected` changes from `base` into work/ and applies it. work/ may differ from `base` only where
+# Puts what `expected` changes from `base` into work/ and applies it, with `message`, and writes the marker when the
+# volume had none. work/ may differ from `base` only where
 # `expected` does, and there only by holding what `expected` holds, which is what a run that was cut moved in already.
 # Anything else is the owner's: then it applies nothing, and says so. Files it moved in before it met the owner's stay,
 # as a cut run's do, and the next run finishes from them.
 finish_browse() {
-  local base=$1 expected=$2 state changed
+  local base=$1 expected=$2 message=$3 state changed
   # Each output is taken on its own, so a script that fails fails the run.
   state=$(settle_browse_swap "$base" "$expected")
   if [ "$state" = clear ]; then
@@ -589,11 +565,12 @@ finish_browse() {
     not_applied
     return 0
   fi
-  in_chad chad apply -m "Browse with browse in place of agent-browser" --expect "$expected" </dev/null
+  in_chad chad apply -m "$message" --expect "$expected" </dev/null
   changed=$(in_chad git -C /data/repo/work diff-tree -r --name-only "$base" "$expected" </dev/null)
   if grep -qx mcp.json <<<"$changed"; then
     in_chad touch "$browse_mcp_added" </dev/null
   fi
+  in_chad touch "$marker" </dev/null
   in_chad rm -f "$browse_pending" </dev/null
 }
 

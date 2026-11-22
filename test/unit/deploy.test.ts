@@ -102,7 +102,17 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
   expect(install([]).status).not.toBe(0)
   expect(existsSync(marker)).toBe(false)
 
+  // A draft of the owner's that came in after the cut is not published with what the seed gives the repo, and is
+  // left as it is.
   rmSync(join(fake, "fail-apply"))
+  const draft = join(fake, "data/repo/work/draft.md")
+  writeFileSync(draft, "the owner's draft\n")
+  expect(install([]).status).toBe(0)
+  expect(readFileSync(draft, "utf8")).toBe("the owner's draft\n")
+  expect(git("ls-tree", "-r", "--name-only", "HEAD")).not.toContain("draft.md")
+  expect(existsSync(marker)).toBe(false)
+
+  rmSync(draft)
   expect(install([]).status).toBe(0)
   expect(existsSync(marker)).toBe(true)
   expect(existsSync(join(fake, "opt/compose.yaml"))).toBe(true)
@@ -126,6 +136,7 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
     "browse set hostname 0.0.0.0",
     "browse pair --list",
     "browse pair --wait-seconds 600",
+    "browse pair --list",
   ])
   expect(readFileSync(join(fake, "secrets"), "utf8")).toBe("ASPHODEL_TOKEN\n")
   expect(calls().filter((call) => call.startsWith("ufw "))).toEqual([])
@@ -157,9 +168,11 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
       networks("asphodel").includes(network),
     ),
   ).toEqual([])
-  expect(
-    calls().filter((call) => /^tailscale (serve|funnel)\b/.test(call)),
-  ).toEqual([
+  expect([
+    ...new Set(
+      calls().filter((call) => /^tailscale (serve|funnel)\b/.test(call)),
+    ),
+  ]).toEqual([
     "tailscale serve --bg --https=8443 http://127.0.0.1:3000",
     "tailscale serve --bg --https=9443 http://127.0.0.1:7720",
   ])
@@ -296,6 +309,21 @@ it("an upgrade from before browse is applied once as the tree it worked out, kee
   expect(read("mcp.json")).toBe(withoutBrowse)
   expect(git("status", "--porcelain")).toBe("")
   expect(applies()).toHaveLength(2)
+
+  // A volume from before browse whose applied tree has no chad.json, which chad reads as no settings, is given browse
+  // and still has none.
+  rmSync(join(fake, "data/home/.deploy-browse-mcp"))
+  git("rm", "-q", "chad.json")
+  git("commit", "-qm", "no chad.json")
+  expect(install([]).status).toBe(0)
+  expect(existsSync(join(work, "chad.json"))).toBe(false)
+  expect(git("ls-tree", "--name-only", "applied").split("\n")).not.toContain(
+    "chad.json",
+  )
+  expect(
+    JSON.parse(git("show", "applied:mcp.json")).mcpServers.browse,
+  ).toMatchObject({ command: "browse", args: ["mcp"] })
+  expect(applies()).toHaveLength(3)
   // It runs the installer ten times, each a few dozen processes, so its time limit, like a daemon
   // scenario's, only bounds a hang.
 }, 20_000)

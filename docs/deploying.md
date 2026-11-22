@@ -390,8 +390,10 @@ in chad's repo stay as they are.
 
 The installer gives a chad volume asphodel and the browser once, and then marks the volume with the file
 `/data/home/.deploy-seeded`. A volume with the mark is left alone. A new volume has none, and neither has one whose
-first run was cut short, so the next run finishes those. The installer exits non-zero when chad does not come up or
-when any part of that fails. Run it again until it prints "Done". Since the mark keeps a later run from changing
+first run was cut short, so the next run finishes those. What it gives chad's repo is applied the way an upgrade
+is, with `chad apply --expect`, so a change of yours in `work/` that is not applied is never published with it: the
+installer applies nothing then, and says so. The installer exits non-zero when chad does not come up or when any part
+of that fails. Run it again until it prints "Done". Since the mark keeps a later run from changing
 `chad.json`, a plugin the installer turns on after your volume was seeded stays off until you turn it on. browse is
 the exception: every run checks that it is installed and paired, and moves a server from before browse onto it, as
 "Servers from before browse" says.
