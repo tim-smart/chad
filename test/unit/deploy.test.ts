@@ -110,10 +110,16 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
   expect(calls().filter((call) => call === "chad apply")).toHaveLength(1)
   const seeded = JSON.parse(git("show", "HEAD:chad.json"))
   expect(seeded.plugins.asphodel.settings.url).toBe("http://asphodel:7720")
-  expect(seeded.plugins["stale-tabs"]).toMatchObject({ enabled: true })
-  expect(git("ls-tree", "-r", "--name-only", "HEAD")).toContain(
-    "skills/browser/SKILL.md",
+  expect(seeded.plugins["stale-tabs"]).toBeUndefined()
+  expect(git("show", "HEAD:skills/browser/SKILL.md")).toBe(
+    readFileSync(join(root, "deploy/browser/SKILL.md"), "utf8"),
   )
+  // browse is installed, its relay opened to Chromium's container, and the extension paired.
+  expect(calls().filter((call) => call.startsWith("browse "))).toEqual([
+    "browse set hostname 0.0.0.0",
+    "browse pair --list",
+    "browse pair --wait-seconds 600",
+  ])
   expect(readFileSync(join(fake, "secrets"), "utf8")).toBe("ASPHODEL_TOKEN\n")
   expect(calls().filter((call) => call.startsWith("ufw "))).toEqual([])
 

@@ -20,6 +20,19 @@ set -euo pipefail
 # What says a chad volume was given asphodel and the browser. It is on the volume, so it goes where the volume goes:
 # a new volume has none, and a restored one has its own.
 marker=/data/home/.deploy-seeded
+# What says use_browse() changed chad's repo and has not applied it yet, so a run that was cut is applied by the next.
+browse_pending=/data/home/.deploy-browse-pending
+# The stale-tabs entry and the `browser` skills that earlier versions of this script seeded, when chad drove Chromium
+# through DevTools with agent-browser. use_browse() takes out what is still exactly as seeded, and leaves alone what
+# the owner changed.
+old_stale_tabs='{"enabled":true,"settings":{"url":"http://172.30.72.10:9223"}}'
+old_browser_skills="
+5155aba737eca7d385376999833ba5a2a2dc2f9094c6eefb129b1cf4df49495e
+5c2d7d3bd71c491c132471ce05c33d00c0de2fba874580f05a0df300e65f110e
+5a68d355cf678df986644305e69a21ffad8fd63e4d9217ae58d582c960377422
+587df3db77c53edd732537e8da46ba2e12c1b3b2598a47a77b2ffa29ddb2142f
+f66d1c8ef0a7b1f2558396ae55f96da57c7917a4050101b1a29cb3cdafa40581
+"
 
 main() {
   if [ "$(id -u)" != 0 ]; then
@@ -149,6 +162,20 @@ install() {
     fi
   fi
 
+  # Every run, so a volume seeded before chad used browse is moved onto it, and a new one gets it too.
+  step "Giving chad browse"
+  set +e
+  (
+    set -e
+    use_browse
+  )
+  local browsed=$?
+  set -e
+  if [ "$browsed" != 0 ]; then
+    echo "install.sh: chad was not given browse. Run this script again to finish." >&2
+    exit 1
+  fi
+
   # The desktop and asphodel's dashboard are bound to the server's loopback. This puts each on the tailnet over
   # HTTPS, which the desktop's page needs to show video, and on no public address. The dashboard goes on before
   # asphodel is set up, so its first-run setup is done there too. That setup takes no token, so anyone your tailnet's
@@ -156,6 +183,8 @@ install() {
   step "Putting the browser's desktop and asphodel's dashboard on your tailnet"
   on_tailnet_https "the browser's desktop" 8443 3000 / "$hostname"
   on_tailnet_https "asphodel's dashboard" 9443 7720 /dashboard "$hostname"
+
+  pair "$dir"
 
   step "Done"
   docker compose ps
@@ -248,9 +277,9 @@ healthy() {
   return 1
 }
 
-# What a chad volume is given, once: asphodel's token in the secret store, the asphodel and stale-tabs plugins turned
-# on, the `browser` skill and agent-browser. Each part is skipped when the volume already has it, so a run that was
-# cut is finished by the next, and what the owner changed is left alone. The marker is written last.
+# What a chad volume is given, once: asphodel's token in the secret store, the asphodel plugin turned on and the
+# `browser` skill. Each part is skipped when the volume already has it, so a run that was cut is finished by the next,
+# and what the owner changed is left alone. The marker is written last.
 seed() {
   local token listed json pending wrote=no
   local new=/data/home/.deploy-seed.new
@@ -275,12 +304,6 @@ seed() {
         "url": "http://asphodel:7720",
         "token": "${ASPHODEL_TOKEN}"
       }
-    },
-    "stale-tabs": {
-      "enabled": true,
-      "settings": {
-        "url": "http://172.30.72.10:9223"
-      }
     }
   }
 }
@@ -297,14 +320,91 @@ EOF
   # An apply is due for what this run wrote, and for what an earlier run wrote and was cut before applying.
   pending=$(in_chad git -C /data/repo/work status --porcelain -- chad.json skills/browser </dev/null)
   if [ "$wrote" = yes ] || [ -n "$pending" ]; then
-    in_chad chad apply -m "Turn asphodel and stale-tabs on and add the browser skill" </dev/null
-  fi
-
-  if ! in_chad sh -c 'command -v agent-browser' >/dev/null </dev/null; then
-    in_chad npm install -g --no-audit --no-fund agent-browser </dev/null
+    in_chad chad apply -m "Turn asphodel on and add the browser skill" </dev/null
   fi
 
   in_chad touch "$marker" </dev/null
+}
+
+# browse on chad's volume with its relay open to the Chromium container, and what an earlier seed gave chad for
+# agent-browser taken out where it is still as seeded. It runs on every install and changes only what is not so
+# already. agent-browser stays on the volume, since a skill of the owner's may still run it.
+use_browse() {
+  local work=/data/repo/work
+  local skill=$work/skills/browser/SKILL.md new=/data/home/.deploy-seed.new
+  local stale sum
+
+  if ! in_chad sh -c 'command -v browse' >/dev/null </dev/null; then
+    in_chad npm install -g --no-audit --no-fund @opencode/browse </dev/null
+  fi
+  # The extension reaches the relay from the Chromium container, so the relay listens beyond chad's loopback. Setting
+  # this restarts a relay that runs, so it is set only when it is not so already. What it prints is for a browser on
+  # another computer, with an address the extension here does not use, so it is not shown.
+  if ! in_chad grep -qs '"hostname": *"0.0.0.0"' /data/home/.config/browse/config.json </dev/null; then
+    in_chad browse set hostname 0.0.0.0 >/dev/null </dev/null
+  fi
+
+  # The seeded stale-tabs entry points at Chromium's DevTools, which the deploy no longer opens, and browse closes the
+  # idle tabs it opened. An entry the owner changed is theirs: it stays, and is reported when it points there too.
+  stale=$(
+    in_chad node - "$work/chad.json" "$browse_pending" "$old_stale_tabs" <<'EOF'
+const fs = require("node:fs")
+const [file, pending, seeded] = process.argv.slice(2)
+let json
+try {
+  json = JSON.parse(fs.readFileSync(file, "utf8"))
+} catch {
+  process.exit(0)
+}
+const entry = JSON.stringify(json?.plugins?.["stale-tabs"] ?? null)
+if (entry === seeded) {
+  delete json.plugins["stale-tabs"]
+  fs.writeFileSync(pending, "")
+  fs.writeFileSync(`${file}.new`, JSON.stringify(json, null, 2) + "\n")
+  fs.renameSync(`${file}.new`, file)
+} else if (entry.includes("172.30.72.10:9223") && json.plugins["stale-tabs"].enabled === true) {
+  console.log("changed")
+}
+EOF
+  )
+  if [ "$stale" = changed ]; then
+    echo "chad.json has a stale-tabs entry that is not the one this script added, so it was left as it is. It points"
+    echo "at Chromium's DevTools, which this deploy no longer opens, so it closes no tab: browse closes the idle tabs it"
+    echo "opened. Take the entry out of chad.json, or point its url at a Chromium of your own."
+  fi
+
+  # A skill the owner changed is theirs too.
+  sum=$(in_chad sh -c "if [ -f $skill ]; then sha256sum < $skill; fi" </dev/null)
+  if [ -n "$sum" ] && grep -qx "${sum%% *}" <<<"$old_browser_skills"; then
+    in_chad touch "$browse_pending" </dev/null
+    in_chad sh -c "cat > $new && mv $new $skill" <browser/SKILL.md
+  elif in_chad grep -qs agent-browser "$skill" </dev/null; then
+    echo "work/skills/browser/SKILL.md is not the one this script added, so it was left as it is. It still says to use"
+    echo "agent-browser, which no longer reaches Chromium. $PWD/browser/SKILL.md is the one for browse."
+  fi
+
+  if in_chad test -e "$browse_pending" </dev/null; then
+    in_chad chad apply -m "Browse with browse in place of agent-browser" </dev/null
+    in_chad rm -f "$browse_pending" </dev/null
+  fi
+}
+
+# The browse extension in Chromium has to be paired with the relay in chad's container once, by hand: the relay prints
+# a code and the owner enters it on the desktop. chad cannot use the browser until then, but everything else works,
+# so a pairing that does not happen does not fail the install.
+pair() {
+  local dir=$1 listed
+  listed=$(in_chad browse pair --list </dev/null || true)
+  if grep -q '^  profile ' <<<"$listed"; then
+    return 0
+  fi
+  step "Pairing chad with the browser"
+  echo "Open the browser's desktop, at port 8443 of this server on your tailnet, and do what the lines below say in its"
+  echo "Chromium. The Extensions menu is the puzzle piece next to the address bar, and Options is under the three dots"
+  echo "beside browse. Chromium adds browse a few seconds after it starts."
+  if ! in_chad browse pair --wait-seconds 600 </dev/null; then
+    echo "chad is not paired with the browser. To pair later: cd $dir && docker compose exec chad browse pair"
+  fi
 }
 
 main "$@"

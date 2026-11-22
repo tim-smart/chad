@@ -16,8 +16,9 @@ containers:
 - `asphodel`, from `ghcr.io/tim-smart/asphodel:latest`. The installer makes its token, gives it to chad's secret
   store and turns chad's `asphodel` plugin on.
 - `chromium`, from `lscr.io/linuxserver/chromium`: Chromium on a desktop that a web page shows. chad drives it with
-  `agent-browser`, and you watch and use the same browser from your own. The installer puts `agent-browser` on chad's
-  volume and gives chad a `browser` skill, so chad can open pages, fill forms and take screenshots.
+  [browse](https://github.com/anomalyco/browse), and you watch and use the same browser from your own. The installer
+  puts `browse` on chad's volume and gives chad a `browser` skill, and Chromium installs browse's extension itself, so
+  chad can open pages, fill forms and take screenshots once you have paired the two.
 
 Tailscale runs on the server itself and not in a container, so you reach the server over SSH whatever state the
 containers are in.
@@ -84,6 +85,7 @@ The server is kept private in four ways:
    The installer prints a link. Open it and sign in to Tailscale, and the server joins your tailnet as `chad`. Only
    then does it start the containers. It waits ten minutes for you, and starts nothing if the server has not joined.
    At the end it puts the browser's desktop and asphodel's dashboard on your tailnet and prints their addresses.
+   Then it prints a pairing code for the browser and waits ten minutes for you to enter it: see "The browser".
 
 3. On the "Machines" page of the Tailscale admin console, open the menu of the machine `chad` and choose "Disable
    key expiry". Without that the server drops off your tailnet when its key expires, after 180 days by default.
@@ -176,10 +178,11 @@ token, so memory starts with chad's next message. `chad status` shows the plugin
 
 ## The browser
 
-chad drives Chromium with `agent-browser`, which the installer put on chad's volume. Compose sets
-`AGENT_BROWSER_CDP` in chad's container, and every command a session runs has it, so `agent-browser` attaches to
-this Chromium with no flag and no connect step. The `browser` skill, which the installer added to chad's repo as
-`work/skills/browser/SKILL.md`, tells the model how. Ask chad to open a page to try it.
+chad drives Chromium with `browse`, which the installer put on chad's volume. It has two parts. Its relay runs in
+chad's container, started by the first `browse` command a session runs, and the browse extension in Chromium connects
+to it and does what it asks. Chromium installs the extension from the Chrome Web Store when it starts, because
+`compose.yaml` gives it a policy that says to, and the Web Store keeps it up to date. The `browser` skill, which the
+installer added to chad's repo as `work/skills/browser/SKILL.md`, tells the model how to use it.
 
 To watch a page, or to sign in to a site by hand, open the desktop from a computer on your tailnet:
 
@@ -188,10 +191,30 @@ https://chad.<your tailnet's name>.ts.net:8443/
 ```
 
 The installer prints the address in full, and `tailscale serve status` on the server prints it again. The page shows
-the one Chromium there is. A tab chad opens appears in it as chad works, a tab you open is one chad can use, and a
-site you sign in to is signed in for chad.
+the one Chromium there is. A tab chad opens appears in it as chad works, a tab you open is one chad can use once you
+lend it with the browse button on the toolbar, and a site you sign in to is signed in for chad.
 
 If the installer said the desktop is not on the tailnet, see "Troubleshooting".
+
+### Pairing
+
+chad cannot use the browser until the extension is paired with the relay, which you do once, on the desktop. The
+installer does it as its last step: it prints a code and waits ten minutes. Open the desktop, click the puzzle piece
+next to Chromium's address bar, then the three dots beside browse, then Options. Click "Pair with a code", enter the
+code and click Connect. The installer says when it is paired.
+
+If the wait ran out, or you need a new pairing later, run this in `/opt/chad` for a fresh code:
+
+```sh
+docker compose exec chad browse pair
+```
+
+The pairing is kept on chad's volume and in Chromium's profile, so it outlives restarts and updates. When one side
+is replaced without the other, as when chad is restored on a new server or Chromium's volume is gone, the two no
+longer match: pair again. `docker compose exec chad browse
+status` says whether the extension is connected and what to do when it is not.
+
+### What to know
 
 - The desktop has no password. Anyone your tailnet's access rules let reach port 8443 of the server uses the browser
   and every site it is signed in to. On a tailnet of your own that is you. `tailscale serve --https=8443 off` on the
@@ -199,48 +222,39 @@ If the installer said the desktop is not on the tailnet, see "Troubleshooting".
 - Chromium keeps its profile on a volume, so a site chad signed in to stays signed in across restarts. There is one
   profile, and every session shares it. Chromium writes cookies to the disk a little after they are set, so a sign-in
   made just before a restart can be lost.
-- Closing Chromium's window does not leave chad without a browser. It starts again in a moment.
-- Tabs that have gone stale are closed: see "Stale tabs" below.
+- Closing Chromium's window does not leave chad without a browser. It starts again in a moment, and the extension
+  connects again within half a minute.
+- chad's tabs sit in their own collapsed tab group. A tab chad has not used for 10 minutes is closed. Your own tabs are
+  never closed. When a page needs you, such as a captcha or a code sent to you, chad asks you to do that step on the
+  desktop.
 - Chromium and the desktop run in their own container as an ordinary user that cannot become root. Chromium has no
   sandbox of its own, because a container cannot give it one without more privileges. The desktop's menu has a
   terminal, which is a shell in that container.
-- A file Chromium downloads stays on its volume, and it cannot upload a file from chad's.
-- Chromium's DevTools port, which `agent-browser` uses, is open to chad's container and to nothing else. Chromium
-  shares no network with asphodel, so neither the desktop nor a page it opens reaches asphodel.
+- chad can upload a file from its volume to a page, up to 50 MB at a time. A file Chromium downloads stays on
+  Chromium's volume.
+- The extension reaches the relay through the desktop's nginx, which listens on Chromium's own loopback and passes
+  the connection on to chad's container over the Compose network. From outside chad's container the relay answers
+  only the extension's connection, and obeys only a browser that paired with it. The connection is not encrypted, and
+  it never leaves the server. Chromium shares no network with asphodel, so neither the desktop nor a page it opens
+  reaches asphodel.
+- browse updates itself on chad's volume about once an hour. To hold it at one version, set
+  `OPENCODE_BROWSER_AUTO_UPDATE: "off"` in chad's `environment` in `compose.yaml`.
 
-### Stale tabs
+### Servers from before browse
 
-The bundled plugin `stale-tabs` closes the tabs in this Chromium that have sat on one address for an hour. Every five
-minutes it lists the open tabs through Chromium's DevTools port and notes when each tab's address last changed. A tab
-whose address has not changed for longer than an hour is closed, whoever opened it: Chromium does not record whether
-chad or you opened a tab, so the age of its address is all the plugin can go by. It leaves one tab open, because
-Compose starts Chromium again when its last window closes. A tab it has asked Chromium to close never counts as that
-one, until Chromium lists it gone. While Chromium is down the plugin does nothing, and it carries on when Chromium is
-back.
+Earlier versions of this deploy drove Chromium through its DevTools port with `agent-browser`, and turned on the
+bundled `stale-tabs` plugin to close tabs that sat on one address for an hour. The deploy no longer opens that port.
+The next run of the installer moves such a server onto browse:
 
-Before each close the plugin lists the tabs again, and closes the tab only if it is still on the same address and
-another tab stays open. That is a check and not a lock: if you close that other tab at the same moment, both can go,
-and Chromium starts again with no tab of yours. Sites stay signed in, since the profile is on its volume.
-
-A tab that stays on one address while you use it, such as a dashboard you keep open or a long form on one page, is
-closed too once it has sat an hour. To keep a page past that, open it again, or set a longer `maxAge`.
-
-The installer turns the plugin on for a new volume. On a volume the installer seeded before the plugin existed, it is
-off, and `chad status` shows `plugin: stale-tabs, off`. To turn it on, add this under `plugins` in
-`/data/repo/work/chad.json` in chad's container:
-
-```json
-"stale-tabs": {
-  "enabled": true,
-  "settings": {
-    "url": "http://172.30.72.10:9223"
-  }
-}
-```
-
-Then run `docker compose exec chad chad apply -m "Turn stale-tabs on"` in `/opt/chad`. `url` is Chromium's DevTools
-address, which is the address `AGENT_BROWSER_CDP` holds in `compose.yaml`. `maxAge` sets how long a tab may sit on
-one address, as in `"maxAge": "24 hours"`, and is 1 hour when it is left out.
+- It installs browse and pairs it, as above. `agent-browser` stays on the volume, unused.
+- It takes the `stale-tabs` entry out of `chad.json` if it is still the one the installer added. An entry you changed,
+  such as one with a `maxAge`, is yours and stays as it is. When it still points at
+  `http://172.30.72.10:9223`, the installer says so: it closes nothing now, so take it out, or point it at a Chromium
+  of your own.
+- It replaces `work/skills/browser/SKILL.md` with the one for browse if it is still one the installer added. A skill
+  you changed stays as it is, and the installer says so when it still names `agent-browser`. `/opt/chad/browser/SKILL.md`
+  is the new one to merge yours with.
+- It applies what it changed with `chad apply`, once.
 
 ## What is kept, and backups
 
@@ -275,13 +289,14 @@ on the server has succeeded, so a backup that fails, or a connection that drops,
 directory is new each time, so what is in it was all taken together: asphodel's settings belong to the store beside
 them, and a `secrets.toml` from an earlier day is never mistaken for today's.
 
-- `chad.tar` holds the Discord token, the model login, every saved secret and `agent-browser`.
+- `chad.tar` holds the Discord token, the model login, every saved secret, and `browse` with its side of the pairing.
 - `asphodel.db` holds asphodel's store and nothing else. `asphodel.toml` is the settings its setup wrote. Without it a
   new asphodel waits for setup and does not open a restored store.
 - `secrets.toml` holds the LLM's API key, when you gave setup one. When there is none the last line fails with
   `No such file` and the directory has no `secrets.toml`. A ChatGPT login is in none of the files, so on a new server
   you log in again.
-- Nothing holds Chromium's profile, so after a restore chad signs in to its sites again.
+- Nothing holds Chromium's profile, so after a restore on a new server chad signs in to its sites again, and you pair
+  the browser again, as "Pairing" says.
 
 The restores below read one backup's directory, copied to the server as `/root/backup`:
 
@@ -369,8 +384,9 @@ The installer gives a chad volume asphodel and the browser once, and then marks 
 `/data/home/.deploy-seeded`. A volume with the mark is left alone. A new volume has none, and neither has one whose
 first run was cut short, so the next run finishes those. The installer exits non-zero when chad does not come up or
 when any part of that fails. Run it again until it prints "Done". Since the mark keeps a later run from changing
-`chad.json`, a plugin the installer turns on after your volume was seeded stays off until you turn it on, as "Stale
-tabs" says for `stale-tabs`.
+`chad.json`, a plugin the installer turns on after your volume was seeded stays off until you turn it on. browse is
+the exception: every run checks that it is installed and paired, and moves a server from before browse onto it, as
+"Servers from before browse" says.
 
 To hold chad at one image, add a line such as `CHAD_IMAGE=ghcr.io/tim-smart/chad:sha-4d3d587` to `/opt/chad/.env`.
 

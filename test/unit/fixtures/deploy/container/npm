@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-printf '#!/bin/sh\n' >"$FAKE/container/agent-browser" && chmod +x "$FAKE/container/agent-browser"
+cp "$FAKE/browse" "$FAKE/container/browse"
