@@ -243,29 +243,6 @@ status` says whether the extension is connected and what to do when it is not.
 - browse updates itself on chad's volume about once an hour. To hold it at one version, set
   `OPENCODE_BROWSER_AUTO_UPDATE: "off"` in chad's `environment` in `compose.yaml`.
 
-### Servers from before browse
-
-Earlier versions of this deploy drove Chromium through its DevTools port with `agent-browser`, and turned on the
-bundled `stale-tabs` plugin to close tabs that sat on one address for an hour. The deploy no longer opens that port,
-and chad no longer has that plugin: browse closes the idle tabs it opened. A volume that still has a `stale-tabs`
-entry in `chad.json` starts and applies as before. If your repo provides a plugin named `stale-tabs`, keep its
-settings. Otherwise chad ignores the entry and you can remove it. The next run of the installer moves such a server
-onto browse:
-
-- It installs browse and pairs it, as above, and adds browse's MCP server to `mcp.json`, next to any servers of
-  yours. It adds it once: if you take it out later, it stays out. `agent-browser` stays on the volume, unused.
-- It takes the `stale-tabs` entry out of `chad.json` if it is still the one the installer added. An entry you changed,
-  such as one with a `maxAge`, is yours and stays as it is, and the installer says so. If your repo provides a
-  plugin named `stale-tabs`, keep its settings. Otherwise chad ignores the entry and you can remove it.
-- It replaces `work/skills/browser/SKILL.md` with the one for browse if it is still one the installer added. A skill
-  you changed stays as it is, and the installer says so when it still names `agent-browser`. `/opt/chad/browser/SKILL.md`
-  is the new one to merge yours with.
-- It works out what it changes from what is applied, and applies it once, with `chad apply --expect`, which publishes
-  that tree or nothing. While `work/` holds changes of yours that are not applied, it moves nothing in and applies
-  nothing, and says so: apply or undo yours and run it again. A run that was cut part way is finished by the next.
-  A file you save just as it moves one in, or that a cut run took out of `work/`, is put back. If it cannot be, it
-  is kept under `/data/home/.deploy-browse-saved/` in chad's container, and the installer says where.
-
 ## What is kept, and backups
 
 Everything lives in three Docker volumes on the Droplet's own disk, under `/var/lib/docker/volumes`:
@@ -397,8 +374,7 @@ is, with `chad apply --expect`, so a change of yours in `work/` that is not appl
 installer applies nothing then, and says so. The installer exits non-zero when chad does not come up or when any part
 of that fails. Run it again until it prints "Done". Since the mark keeps a later run from changing
 `chad.json`, a plugin the installer turns on after your volume was seeded stays off until you turn it on. browse is
-the exception: every run checks that it is installed and paired, and moves a server from before browse onto it, as
-"Servers from before browse" says.
+the exception: every run checks that it is installed, in `mcp.json` and paired.
 
 To hold chad at one image, add a line such as `CHAD_IMAGE=ghcr.io/tim-smart/chad:sha-4d3d587` to `/opt/chad/.env`.
 

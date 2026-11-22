@@ -356,10 +356,9 @@ use_browse() {
     { git show $applied:chad.json > $tmp/applied-chad.json 2>/dev/null || rm -f $tmp/applied-chad.json; } &&
     { git show $applied:mcp.json > $tmp/applied-mcp.json 2>/dev/null || rm -f $tmp/applied-mcp.json; }" </dev/null
 
-  # A new volume's chad.json holds no plugin, and is given asphodel. One that holds anything else is the owner's. chad
-  # no longer has the stale-tabs plugin, which the seed once turned on: browse closes the idle tabs it opened. chad
-  # passes over an entry for it, and the seeded one is taken out. An entry the owner changed is theirs: it stays, and
-  # is reported.
+  # A new volume's chad.json holds no plugin, and is given asphodel. One that holds anything else is the owner's. The
+  # stale-tabs entry an earlier seed added is taken out: chad no longer bundles that plugin. An entry the owner changed
+  # is theirs, and stays.
   stale=$(
     in_chad node - "$tmp/applied-chad.json" "$tmp/chad.json" "$old_stale_tabs" "$seeding" <<'EOF'
 const fs = require("node:fs")
@@ -382,17 +381,11 @@ if (seeding === "yes" && JSON.stringify(json) === '{"plugins":{}}') {
   delete json.plugins["stale-tabs"]
   fs.writeFileSync(staged, JSON.stringify(json, null, 2) + "\n", { flag: "wx" })
   console.log("seeded")
-} else if (entry !== "null") {
-  console.log("changed")
 }
 EOF
   )
   if [ "$stale" = seeded ]; then
     files="$files chad.json"
-  elif [ "$stale" = changed ]; then
-    echo "chad.json has a stale-tabs entry that is not the one this script added, so it was left as it is. chad no"
-    echo "longer bundles that plugin: browse closes the idle tabs it opened. If your repo provides a plugin named"
-    echo "stale-tabs, keep its settings. Otherwise chad ignores the entry and you can remove it."
   fi
 
   # A new volume is given the skill when it has none. A skill the owner changed is theirs too.
@@ -401,10 +394,6 @@ EOF
     { [ "$seeding" = yes ] && [ "${sum%% *}" = "$empty_sum" ]; }; then
     in_chad sh -c "mkdir -p $tmp/skills/browser && cat > $tmp/skills/browser/SKILL.md" <browser/SKILL.md
     files="$files skills/browser/SKILL.md"
-  elif in_chad sh -c "git -C $work show $applied:skills/browser/SKILL.md 2>/dev/null | grep -q agent-browser" \
-    </dev/null; then
-    echo "work/skills/browser/SKILL.md is not the one this script added, so it was left as it is. It still says to use"
-    echo "agent-browser, which no longer reaches Chromium. $PWD/browser/SKILL.md is the one for browse."
   fi
 
   # browse's MCP server, added once. A server of the owner's named browse is theirs, and one they take out later stays
