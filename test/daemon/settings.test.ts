@@ -167,7 +167,8 @@ test("a bundled plugin's settings expand from the secret store and process env, 
     expect(output.stdout + output.stderr).not.toContain("envhost")
   }
 
-  // A change elsewhere leaves the plugin running, and settings that differ only in key order are the same.
+  // A change elsewhere leaves the plugin running, and settings that differ only in key order are the same. An entry
+  // for the retired stale-tabs plugin, as a volume from before may hold, is passed over.
   write(work, {
     "persona.md": "Be brief.\n",
     "chad.json": chadJson({
@@ -177,6 +178,10 @@ test("a bundled plugin's settings expand from the secret store and process env, 
           token: "${PROBE_TOKEN}",
           url: "http://${PROBE_HOST}:${PROBE_PORT:-7720}",
         },
+      },
+      "stale-tabs": {
+        enabled: true,
+        settings: { url: "http://172.30.72.10:9223", maxAge: "12 hours" },
       },
     }),
   })

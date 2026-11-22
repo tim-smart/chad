@@ -76,7 +76,8 @@ const parse = (
 
 /**
  * The checks an apply and `chad check` make on the file, which is `undefined` when it is missing. `known` is every
- * plugin name, bundled or in the repo. The result is the file and every error, none when it passed.
+ * plugin name, bundled or in the repo. An entry for a retired bundled plugin that `known` lacks is passed over. The
+ * result is the file and every error, none when it passed.
  */
 export const validate = (
   text: string | undefined,
@@ -101,6 +102,7 @@ export const validate = (
   }
   const entries: Record<string, Entry> = {}
   for (const [name, entry] of Object.entries(plugins)) {
+    if (!known.has(name) && BundledNames.retired.includes(name)) continue
     if (!known.has(name)) errors.push(Messages.settingsUnknownPlugin(name))
     if (!Predicate.isObject(entry)) {
       errors.push(Messages.settingsEntryNotObject(name))
@@ -127,7 +129,8 @@ export const validate = (
  * which is the read of safe mode and of the file an apply already checked. A file that cannot be parsed counts as empty. An unknown
  * key, an entry that names no plugin, a `plugins` that is not an object, an entry that is not an object or whose
  * `enabled` is not a boolean, and a `settings` that is not an object are each ignored, and the rest of the file is
- * used. `ignored` lists each one by its path in the file.
+ * used. `ignored` lists each one by its path in the file. An entry for a retired bundled plugin that `known` lacks is
+ * passed over without being listed.
  */
 export const lenient = (
   text: string | undefined,
@@ -165,6 +168,13 @@ export const lenient = (
   const entries: Record<string, Entry> = {}
   for (const [name, entry] of Object.entries(plugins)) {
     const path = `plugins.${name}`
+    if (
+      known !== undefined &&
+      !known.has(name) &&
+      BundledNames.retired.includes(name)
+    ) {
+      continue
+    }
     if (
       (known !== undefined && !known.has(name)) ||
       !Predicate.isObject(entry) ||

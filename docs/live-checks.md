@@ -528,7 +528,14 @@ restart. The volume was then made into one an earlier install had seeded, with a
 one of them undone and a draft skill of the owner's added, the next run applied nothing and left the draft as it was.
 With the draft gone, the run after that applied the tree the first run had worked out, `chad.json.new` included as it
 was, and `chad status` showed browse connected. `chad apply --expect` with a draft written after the tree was taken
-exited 1 and published nothing. The installer
+exited 1 and published nothing.
+
+Once the bundled `stale-tabs` plugin was taken out of chad, a volume was given an applied `chad.json` with a
+`stale-tabs` entry of the owner's, turned on and with a `maxAge`, and browse in `mcp.json`, by
+`ghcr.io/tim-smart/chad:main`, which still had the plugin. chad's image from the branch then started on that volume:
+`chad status` listed no `stale-tabs` plugin and no problem, and browse connected with 26 tools. An apply with the entry
+still there succeeded, and an MCP client named as clanka names chad's opened a page in the paired Chromium, read it
+and took a screenshot through `browse mcp`. The installer
 itself was not run there: its paths on a new volume and on a volume from before browse were run against the stand-ins
 of [`test/unit/deploy.test.ts`](../test/unit/deploy.test.ts).
 

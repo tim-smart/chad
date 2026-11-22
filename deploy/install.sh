@@ -356,9 +356,10 @@ use_browse() {
     { git show $applied:chad.json > $tmp/applied-chad.json 2>/dev/null || rm -f $tmp/applied-chad.json; } &&
     { git show $applied:mcp.json > $tmp/applied-mcp.json 2>/dev/null || rm -f $tmp/applied-mcp.json; }" </dev/null
 
-  # A new volume's chad.json holds no plugin, and is given asphodel. One that holds anything else is the owner's. The
-  # seeded stale-tabs entry points at Chromium's DevTools, which the deploy no longer opens, and browse closes the idle
-  # tabs it opened. An entry the owner changed is theirs: it stays, and is reported when it points there too.
+  # A new volume's chad.json holds no plugin, and is given asphodel. One that holds anything else is the owner's. chad
+  # no longer has the stale-tabs plugin, which the seed once turned on: browse closes the idle tabs it opened. chad
+  # passes over an entry for it, and the seeded one is taken out. An entry the owner changed is theirs: it stays, and
+  # is reported.
   stale=$(
     in_chad node - "$tmp/applied-chad.json" "$tmp/chad.json" "$old_stale_tabs" "$seeding" <<'EOF'
 const fs = require("node:fs")
@@ -381,7 +382,7 @@ if (seeding === "yes" && JSON.stringify(json) === '{"plugins":{}}') {
   delete json.plugins["stale-tabs"]
   fs.writeFileSync(staged, JSON.stringify(json, null, 2) + "\n", { flag: "wx" })
   console.log("seeded")
-} else if (entry.includes("172.30.72.10:9223") && json.plugins["stale-tabs"].enabled === true) {
+} else if (entry !== "null") {
   console.log("changed")
 }
 EOF
@@ -389,9 +390,9 @@ EOF
   if [ "$stale" = seeded ]; then
     files="$files chad.json"
   elif [ "$stale" = changed ]; then
-    echo "chad.json has a stale-tabs entry that is not the one this script added, so it was left as it is. It points"
-    echo "at Chromium's DevTools, which this deploy no longer opens, so it closes no tab: browse closes the idle tabs it"
-    echo "opened. Take the entry out of chad.json, or point its url at a Chromium of your own."
+    echo "chad.json has a stale-tabs entry that is not the one this script added, so it was left as it is. chad no"
+    echo "longer has that plugin and passes over the entry: browse closes the idle tabs it opened. Take it out when you"
+    echo "like."
   fi
 
   # A new volume is given the skill when it has none. A skill the owner changed is theirs too.

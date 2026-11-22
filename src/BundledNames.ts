@@ -9,7 +9,6 @@ export const plugins = [
   "asphodel",
   "request-secret",
   "request-mcp-login",
-  "stale-tabs",
 ] as const
 
 export type Plugin = (typeof plugins)[number]
@@ -19,4 +18,11 @@ export type Plugin = (typeof plugins)[number]
  * service next to chad that a chad on its own does not have. Safe mode reads no settings,
  * so it never loads one of these.
  */
-export const offByDefault: ReadonlyArray<Plugin> = ["asphodel", "stale-tabs"]
+export const offByDefault: ReadonlyArray<Plugin> = ["asphodel"]
+
+/**
+ * Bundled plugins chad no longer has. A volume from before may still name one in `chad.json`, so an entry for one is
+ * passed over, at a boot and by a check, as if it were not there, unless a plugin in the repo has the name. `stale-tabs`
+ * closed the idle tabs of the Compose deploy's Chromium through DevTools, which browse does itself now.
+ */
+export const retired: ReadonlyArray<string> = ["stale-tabs"]
