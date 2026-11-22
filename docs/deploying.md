@@ -247,14 +247,16 @@ status` says whether the extension is connected and what to do when it is not.
 
 Earlier versions of this deploy drove Chromium through its DevTools port with `agent-browser`, and turned on the
 bundled `stale-tabs` plugin to close tabs that sat on one address for an hour. The deploy no longer opens that port,
-and chad no longer has that plugin: browse closes the idle tabs it opened. chad passes over a `stale-tabs` entry in
-`chad.json`, at a boot and in a check or an apply, so a volume that still has one starts and applies as before. The
-next run of the installer moves such a server onto browse:
+and chad no longer has that plugin: browse closes the idle tabs it opened. A volume that still has a `stale-tabs`
+entry in `chad.json` starts and applies as before. If your repo provides a plugin named `stale-tabs`, keep its
+settings. Otherwise chad ignores the entry and you can remove it. The next run of the installer moves such a server
+onto browse:
 
 - It installs browse and pairs it, as above, and adds browse's MCP server to `mcp.json`, next to any servers of
   yours. It adds it once: if you take it out later, it stays out. `agent-browser` stays on the volume, unused.
 - It takes the `stale-tabs` entry out of `chad.json` if it is still the one the installer added. An entry you changed,
-  such as one with a `maxAge`, is yours and stays as it is, and the installer says so. Take it out when you like.
+  such as one with a `maxAge`, is yours and stays as it is, and the installer says so. If your repo provides a
+  plugin named `stale-tabs`, keep its settings. Otherwise chad ignores the entry and you can remove it.
 - It replaces `work/skills/browser/SKILL.md` with the one for browse if it is still one the installer added. A skill
   you changed stays as it is, and the installer says so when it still names `agent-browser`. `/opt/chad/browser/SKILL.md`
   is the new one to merge yours with.

@@ -391,8 +391,8 @@ EOF
     files="$files chad.json"
   elif [ "$stale" = changed ]; then
     echo "chad.json has a stale-tabs entry that is not the one this script added, so it was left as it is. chad no"
-    echo "longer has that plugin and passes over the entry: browse closes the idle tabs it opened. Take it out when you"
-    echo "like."
+    echo "longer bundles that plugin: browse closes the idle tabs it opened. If your repo provides a plugin named"
+    echo "stale-tabs, keep its settings. Otherwise chad ignores the entry and you can remove it."
   fi
 
   # A new volume is given the skill when it has none. A skill the owner changed is theirs too.
