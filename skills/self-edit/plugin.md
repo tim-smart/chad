@@ -1,29 +1,29 @@
-Before you write a plugin, read `/data/repo/node_modules/effect/AGENTS.md`. It is how Effect is written in the version chad ships. Its examples are under `/data/repo/node_modules/effect/ai-docs/src/`, and the ones a plugin needs are these:
+Before writing a plugin, read `/data/repo/node_modules/effect/AGENTS.md`. It documents how Effect is written in the version chad ships. Its examples live under `/data/repo/node_modules/effect/ai-docs/src/`, and the ones most relevant to plugins are:
 
 - `/data/repo/node_modules/effect/ai-docs/src/01_effect/03_services/`
 - `/data/repo/node_modules/effect/ai-docs/src/01_effect/05_resources/`
 - `/data/repo/node_modules/effect/ai-docs/src/50_http-client/10_basics.ts`
 - `/data/repo/node_modules/effect/ai-docs/src/71_ai/20_tools.ts`
 
-Trust these files and the `.d.ts` files over what you remember about Effect.
+Trust those files and the `.d.ts` files over your memory of Effect.
 
-Three things in the examples do not apply to a plugin:
+Three parts of the Effect examples don't apply to chad plugins:
 
-- chad provides `HttpClient`, so do not provide your own.
-- chad runs the plugin, so there is no `runMain` or `Layer.launch`.
-- You can import only chad's direct dependencies, Node's built-in modules and the npm packages `work/package.json` names.
+- chad already provides `HttpClient`, so don't provide your own.
+- chad runs the plugin lifecycle, so don't use `runMain` or `Layer.launch`.
+- You can only import chad's direct dependencies, Node's built-in modules, and npm packages listed in `work/package.json`.
 
 Read in this order:
 
-1. `/data/repo/node_modules/effect/AGENTS.md`, for how to write Effect.
-2. `/data/repo/node_modules/chad/dist/Plugin.d.ts`, `/data/repo/node_modules/chad/dist/Session.d.ts` and `/data/repo/node_modules/chad/dist/Turns.d.ts`, for the plugin API. Their doc comments say what each call does.
-3. One bundled plugin as a worked example: `/data/repo/examples/cron/`, `/data/repo/examples/send-file.ts` or `/data/repo/examples/send-message.ts`. These are the plugins chad ships, at the version that is running. For a plugin that calls an HTTP service, `/data/repo/examples/asphodel/` decodes the service's answers with `Schema` and keeps going when the service is down.
+1. `/data/repo/node_modules/effect/AGENTS.md` for Effect patterns.
+2. `/data/repo/node_modules/chad/dist/Plugin.d.ts`, `/data/repo/node_modules/chad/dist/Session.d.ts`, and `/data/repo/node_modules/chad/dist/Turns.d.ts` for the plugin API (their doc comments explain each function).
+3. A bundled plugin as a worked example: `/data/repo/examples/cron/`, `/data/repo/examples/send-file.ts`, or `/data/repo/examples/send-message.ts`. For calling an HTTP service with `Schema` decoding and graceful handling when the service is down, see `/data/repo/examples/asphodel/`.
 
-Plugins compile against the effect and chad packages under `/data/repo/node_modules`. Their `package.json` files give the versions, and so does `chad status`. This is Effect 4. Names you remember from Effect 3, such as imports from `@effect/platform` where this version has `effect/http`, are the most common cause of type errors.
+Plugins compile against the `effect` and `chad` packages in `/data/repo/node_modules`. Check their `package.json` files or `chad status` for exact versions. This is Effect 4, so Effect 3 names (like importing from `@effect/platform` instead of `effect/http`) are the most common source of type errors.
 
-A plugin is one TypeScript file, `plugins/<name>.ts`, or a directory with `plugins/<name>/index.ts` and the local files it imports. Its name is the file or directory name. Its default export is a Layer made with `Plugin.make`.
+A plugin is either a single file (`plugins/<name>.ts`) or a directory with `plugins/<name>/index.ts` and local modules it imports. Its name comes from the filename or directory name, and its default export is a `Layer` created with `Plugin.make`.
 
-## The shape
+## Minimal example
 
 ```ts
 // plugins/notes.ts
@@ -39,7 +39,7 @@ class NotesError extends Schema.TaggedError<NotesError>()("NotesError", {
   message: Schema.String,
 }) {}
 
-// The plugin's own service. Built once per load and shared by everything below.
+// Plugin service, built once per load and shared across contributions.
 class Api extends Context.Service<
   Api,
   {
@@ -90,79 +90,79 @@ const NotesTools = Plugin.toolkit(Notes).pipe(
 export default Plugin.make(NotesTools)
 ```
 
-- Every contribution function returns a Layer. Give it what it needs with `Layer.provide`, then hand every Layer to `Plugin.make`.
-- chad supplies `PluginContext`, `Turns`, `Chat`, `HttpClient`, `FileSystem`, `Path` and `DateTime.CurrentTimeZone`. Anything else is yours to provide before `Plugin.make`, which fails to compile and names what is missing.
-- Two contributions that provide the same Layer share one instance of it.
+- Each contribution helper returns a `Layer`. Provide its dependencies with `Layer.provide`, then pass all contribution layers to `Plugin.make`.
+- chad automatically supplies `PluginContext`, `Turns`, `Chat`, `HttpClient`, `FileSystem`, `Path`, and `DateTime.CurrentTimeZone`. You must provide anything else before passing the layer to `Plugin.make`, or TypeScript will fail and name the missing service.
+- Multiple contributions that provide the same `Layer` share a single instance of it.
 
-## What the loader asks
+## Loader constraints
 
-- No top-level await.
-- `import.meta` is empty, so a plugin cannot find files next to itself.
-- A plugin can import chad's direct dependencies, Node's built-in modules and the npm packages `work/package.json` names, and nothing else. chad's dependencies are the `dependencies` in chad's `package.json` under `/data/repo/node_modules/`. From chad itself the importable modules are `chad`, `chad/Plugin`, `chad/Session` and `chad/Turns`. Only `chad`, `effect` and Node's built-in modules are promised to stay importable. The other dependencies resolve today and can be gone in a later version.
-- A fiber that runs for the plugin's whole life is started with `Plugin.background(effect)`. A fiber forked while the Layer builds runs next to the previous version's for a moment after an apply.
+- No top-level `await`.
+- `import.meta` is empty, so plugins can't read files relative to their own path.
+- Plugins can only import chad's direct dependencies (see `dependencies` in chad's `package.json` under `/data/repo/node_modules/`), Node built-ins, and packages in `work/package.json`. From chad itself, import from `chad`, `chad/Plugin`, `chad/Session`, or `chad/Turns`. Only `chad`, `effect`, and Node built-ins are guaranteed to remain importable across upgrades; chad's other dependencies may change in future versions.
+- Use `Plugin.background(effect)` for fibers that should live as long as the plugin. Forking directly during `Layer` construction can leave the old and new fibers running briefly side by side during an apply.
 
 ## npm packages
 
-- Every plugin shares one manifest, `work/package.json`, and its lockfile, `work/package-lock.json`. There is no manifest for each plugin. The manifest has `"type": "module"`, or the check fails.
-- To add a package, run `npm install --package-lock-only --ignore-scripts <name>` in `work/`. It writes both files and installs nothing. To remove one, run `npm uninstall --package-lock-only <name>`. Then `chad check` and `chad apply` as for any change. Both files are committed with the code, so a revert takes a package back with the plugin that needs it.
-- chad installs exactly what the lockfile says, with install scripts off, and bundles each package into the plugin that imports it. A `node_modules` you make under `work/` is never loaded and never committed. Never run `npm install` without `--package-lock-only` there.
-- A package that ships no types fails the type-check with TS7016. Add its types too, as `npm install --package-lock-only --ignore-scripts --save-dev @types/<name>`, or write a `declare module` file under `plugins/`.
-- An apply whose lockfile changed downloads the packages, so it needs the network and can take a minute. One whose lockfile did not change installs nothing.
-- `chad`, `effect` and chad's other direct dependencies always come from chad, whatever the lockfile says, so a package that uses effect gets the same effect your plugin does. A package that needs a version of one of them that chad's does not satisfy fails the check, which names the package, and so does one that asks for one of them by a URL or a path. An npm alias with one of their names on either side fails too, as `fx` for `npm:effect@...` or `semver` for `npm:another-package@...`. An alias of a package to its own name, as `effect` for `npm:effect@^4.0.0`, is checked by its range like any other. Pick another version of it or drop it.
-- The check lists the packages an apply adds, removes and changes. A failed install fails the check with npm's error, and the plugins that are loaded stay as they are.
-- A package can be a command line tool in place of an import. Its commands are on PATH once the change is applied, and a revert that takes the package out takes them off PATH. A tool that needs its install script does not work. "Command line tools" in `SKILL.md` says more.
-- These do not work: a native addon (a `.node` file), a package that needs its install script, a package that reads files next to itself, because the bundle is one file in memory and `import.meta` is empty, and a package with top-level await.
+- All plugins share a single `work/package.json` and `work/package-lock.json` (there are no per-plugin manifests). `package.json` must have `"type": "module"` or `chad check` fails.
+- Add a package with `npm install --package-lock-only --ignore-scripts <name>` in `work/`, and remove one with `npm uninstall --package-lock-only <name>`. Then run `chad check` and `chad apply`. Both files are committed with your code, so reverting a plugin also reverts its dependencies.
+- chad installs strictly from the lockfile with install scripts disabled and bundles imported packages into each plugin. Any `node_modules` created inside `work/` is ignored and never committed, so never run `npm install` without `--package-lock-only` there.
+- Packages without TypeScript types fail type-checking with `TS7016`. Install their types with `npm install --package-lock-only --ignore-scripts --save-dev @types/<name>`, or add a `declare module` file under `plugins/`.
+- Applying a changed lockfile downloads packages over the network and can take a minute. If the lockfile didn't change, nothing is installed.
+- `chad`, `effect`, and chad's other direct dependencies always resolve to chad's own copies regardless of the lockfile, so packages using Effect share the same Effect instance as your plugin. If a package requires an incompatible version of one of those dependencies, or specifies it via a URL or path, `chad check` fails and names the package. npm aliases using any of those names on either side also fail (for example `fx` -> `npm:effect@...` or `semver` -> `npm:another-package@...`), except self-aliases like `effect` -> `npm:effect@^4.0.0`, which are range-checked normally. Pick a compatible version or drop the package.
+- `chad check` lists packages that an apply will add, remove, or change. If installation fails, the check fails with npm's error and currently loaded plugins stay untouched.
+- A package can also provide CLI tools instead of imports. Its binaries are added to `PATH` on apply and removed on revert (provided it doesn't require install scripts). See "Command line tools" in `SKILL.md`.
+- Unsupported packages: native addons (`.node` files), packages that rely on install scripts, packages that read sibling files from disk (plugins are bundled in memory with an empty `import.meta`), and packages using top-level `await`.
 
 ## Tools
 
-- Tool names are shared with every other plugin and with your built-in tools. A taken name fails the load, and the error names who holds it.
-- The description is all the model knows about the tool. Say what it does and when to call it. `chad check` reports a description that still starts with "Replace me", and `chad apply` refuses it.
-- A tool learns its session and turn by listing `Session.CurrentSession` in its `dependencies`.
-- A tool cannot tell you from one of your sub-agents.
-- After an apply that changes the plugin's code or its settings, a turn that is still running cannot call its tools until the turn ends.
-- A tool call still running 30 seconds into a swap is interrupted and may have partly run. Keep tools with side effects short or safe to repeat.
+- Tool names share a global namespace across all plugins and built-in tools. Name collisions fail plugin load and report who already owns the name.
+- A tool's `description` is all the model sees, so explain what it does and when to call it. `chad check` warns on descriptions still starting with `"Replace me"`, and `chad apply` refuses them.
+- To access the current session and turn inside a tool, add `Session.CurrentSession` to its `dependencies`.
+- Tools can't distinguish whether they were called by you or by a sub-agent.
+- After an apply that changes a plugin's code or settings, any currently running turn can't call that plugin's tools until the turn ends.
+- Any tool call still running 30 seconds into a swap is interrupted and may have partly run. Keep side-effecting tools short or idempotent.
 
 ## Prompt chunks
 
-- A chunk is sent in every turn of every session, so it is for state every turn needs. Fixed text on how to use the plugin's tools goes in the tools' descriptions, and longer reference in a skill.
-- `Plugin.prompt(render)` is rendered before every turn, inside 2 seconds. An empty string means no chunk. A render that fails leaves the session with the text it last saw.
-- If a chunk has to stay the same for a whole session, keep the text in the store and return what you kept, as `/data/repo/examples/asphodel/` does.
-- A chunk that changes during a session reaches it as an update message.
+- Prompt chunks are sent on every turn of every session, so reserve them for dynamic state every turn needs. Put tool usage instructions in tool descriptions and longer reference docs in a skill.
+- `Plugin.prompt(render)` runs before every turn with a 2-second timeout. Returning an empty string omits the chunk. If rendering fails, the session keeps the previous text.
+- If a chunk needs to stay stable for an entire session, cache it in the plugin store and return the stored value (see `/data/repo/examples/asphodel/`).
+- If a chunk changes mid-session, chad delivers it as an update message.
 
 ## Hooks
 
-- `Plugin.beforeTurn` runs on the reply path, inside 5 seconds. A string it returns is added to the turn as context.
-- `turn.prompt` is what chad sends the model. The owner's words are `turn.origin.message.text`, and only when `turn.origin._tag === "Message"`.
-- `turn.resumed` is true for a turn picked up after a restart. `beforeTurn` runs again for it.
-- `Plugin.afterTurn` runs after the answer is posted, inside 30 seconds, one at a time per plugin. A turn that ends as chad is killed never reaches it.
-- `Plugin.onSession` gets `Reset` and `Compacted`, inside 10 seconds. More events may be added, so match with a default.
-- A hook that fails or runs past its budget is logged and skipped, and the turn carries on. After three failures in a row of the same hook, chad tells the owner once.
-- Nothing held in memory is sure to last from a tool call or `beforeTurn` to `afterTurn`, because an apply can swap the plugin in between. What must last goes in the store.
+- `Plugin.beforeTurn` runs on the reply path with a 5-second timeout. If it returns a string, that string is injected into the turn as context.
+- `turn.prompt` is what chad sends to the model. The owner's raw message text is `turn.origin.message.text`, available only when `turn.origin._tag === "Message"`.
+- `turn.resumed` is `true` when resuming a turn after a restart; `beforeTurn` runs again for resumed turns.
+- `Plugin.afterTurn` runs after the reply is posted with a 30-second timeout, serialized one at a time per plugin. Turns interrupted by chad being killed never reach `afterTurn`.
+- `Plugin.onSession` receives `Reset` and `Compacted` events with a 10-second timeout. Handle unknown events with a default branch in case more events are added later.
+- Hooks that fail or exceed their timeout are logged and skipped without blocking the turn. After three consecutive failures of the same hook, chad notifies the owner once.
+- In-memory state isn't guaranteed to survive between a tool call or `beforeTurn` and `afterTurn`, because an apply can swap the plugin in between. Keep anything durable in the store.
 
 ## State
 
-- `PluginContext.store` is a `KeyValueStore` only this plugin can see, kept in the database.
-- It has no expiry. Prune your own keys.
-- Queued hooks run on the new version after a reload, so the new version reads keys the old one wrote. Decode stored values with a schema that accepts the old shape.
-- `chad db query` reads the database from outside.
+- `PluginContext.store` is a database-backed `KeyValueStore` private to this plugin.
+- Keys don't expire automatically, so prune old keys yourself.
+- Queued hooks run against the new plugin version after a reload, so the new code may read keys written by the old version. Decode stored values with a schema that remains compatible with older shapes.
+- You can inspect the database from the CLI with `chad db query`.
 
 ## Settings
 
-- `Config.String("url")` reads `plugins.<name>.settings.url` from `chad.json` and nothing else. There is no fallback to the environment.
-- A secret is `Config.Redacted("token")`, written as `"${NAME}"` in `chad.json`.
-- Give a setting a default where one makes sense, so the plugin loads with an empty `chad.json`.
-- List the settings in the comment block at the top of the file. `chad check` prints the keys the plugin read and warns about keys in the file it did not read.
-- A change to a setting reloads the plugin, so a running turn loses the plugin's tools until its next turn.
+- `Config.String("url")` reads `plugins.<name>.settings.url` from `chad.json` and never falls back to environment variables.
+- Read secrets with `Config.Redacted("token")` and reference them as `"${NAME}"` in `chad.json`.
+- Give settings sensible defaults when possible so the plugin loads cleanly with an empty `chad.json`.
+- Document all settings in the header comment at the top of the plugin file. `chad check` prints the keys the plugin read and warns about unused keys in `chad.json`.
+- Changing a setting reloads the plugin, so active turns lose its tools until their next turn.
 
 ## Starting turns
 
-- `Turns.start({ thread, prompt, label })` runs a turn in that thread's session and posts the answer there.
-- The prompt has to say what started the turn and that nobody is there to answer questions, whether the turn comes from `Turns.start`, `Turns.queue` or `Turns.schedule`. The agent reads that line to know it must not apply changes unasked.
-- A tool starts a turn with `Turns.queue(options)`, which returns once the request is saved and does not wait for the outcome. `Turns.start` called from a tool for the thread of its own turn fails at once, and the error names `Turns.queue`.
-- A background fiber that waits on `Turns.start` loses the outcome at a reload. Read the outcome in `afterTurn` or from the store.
-- `Turns.schedule`, `cancel` and `scheduled` are timers that survive a restart.
-- A plugin-started turn whose answer is exactly `[SILENT]` posts nothing.
-- To post without the agent, use `Chat`.
+- `Turns.start({ thread, prompt, label })` runs a turn in that thread's session and posts the reply there.
+- Whether using `Turns.start`, `Turns.queue`, or `Turns.schedule`, the prompt must state what triggered the turn and that nobody is around to answer questions. That tells the agent not to apply changes unasked.
+- Inside a tool, use `Turns.queue(options)`, which returns as soon as the request is saved without waiting for completion. Calling `Turns.start` from a tool targeting its own turn's thread fails immediately and tells you to use `Turns.queue`.
+- A background fiber waiting on `Turns.start` loses the result if the plugin reloads. Read outcomes in `afterTurn` or from the store instead.
+- `Turns.schedule`, `cancel`, and `scheduled` manage timers that survive restarts.
+- If a plugin-started turn replies with exactly `[SILENT]`, nothing is posted.
+- To post a message without invoking the agent, use `Chat`.
 
 ## Buttons
 
@@ -173,7 +173,7 @@ import { ChatInteraction } from "effect/chat"
 
 const Approve = ChatInteraction.button("deploy-approve", {
   label: "Approve",
-  value: Schema.String, // a key into the store, not the state
+  value: Schema.String, // a store key, not the full state
 })
 const Group = ChatInteraction.group(Approve)
 
@@ -181,7 +181,7 @@ const Buttons = Plugin.interactions(
   Group,
   Effect.gen(function* () {
     const turns = yield* Turns.Turns
-    // `Group.of` types the handlers. Returned bare from `Effect.gen`, `click` is an implicit `any`.
+    // `Group.of` types the handlers; returning a plain object from `Effect.gen` leaves `click` as implicit `any`.
     return Group.of({
       "deploy-approve": (click) =>
         turns
@@ -195,73 +195,73 @@ const Buttons = Plugin.interactions(
   }),
 )
 
-// Posted with Chat, from a tool or a background fiber:
+// Posted via Chat from a tool or background fiber:
 // chat.post(thread, { markdown: "Deploy 42 is ready.", actions: [Approve.of("42")] })
 ```
 
-- `Plugin.interactions(group, handlers)` registers the handlers of buttons, selects and forms (`ChatInteraction.modal`). It takes what `group.toLayer` takes. Slash commands do not compile.
-- The plugin posts its buttons itself, with `Chat`, as a message's `actions`.
-- A handler runs only for a click from an owner of the connection. Anyone else's click is answered and the handler is not called.
-- Ids are shared with chad's own buttons and every other plugin's. A taken id fails the load, and the error names who holds it.
-- A button outlives the version that posted it, and a restart. A click goes by its id to the version loaded when it arrives, so treat an id and its value schema as a stored format. A value that no longer decodes is answered and the handler is not called.
-- Keep a key in the value and the state in the store. Discord gives the id and the encoded value about 100 characters together.
-- A click on a button whose plugin is not loaded, is off or is held out by safe mode does nothing. A click while chad boots, or while the plugin is being reloaded or applied, waits for the new version and runs on it. Remove buttons that are done with: `chat.edit(thread, messageId, { markdown, actions: [] })`.
-- Answer inside 3 seconds. Queue a turn or fork into the plugin's scope for slow work, and answer first. A late click keeps running but a form it opens is dropped, and a late submit is interrupted.
-- A handler that fails is logged as an error under the plugin's name and the click is answered.
+- `Plugin.interactions(group, handlers)` registers handlers for buttons, selects, and modals (`ChatInteraction.modal`), accepting the same arguments as `group.toLayer`. Slash commands don't compile.
+- Post buttons yourself using `Chat` via the message's `actions` field.
+- Handlers only run for clicks from an owner of the connection. Clicks from anyone else are acknowledged without invoking the handler.
+- Interaction IDs share a global namespace with chad's built-in buttons and all other plugins. Collisions fail plugin load and name the existing owner.
+- Buttons outlive the plugin version that posted them and survive restarts. Clicks route by ID to whichever version is loaded when clicked, so treat IDs and value schemas as persistent formats. If a value fails to decode, the click is acknowledged and the handler isn't called.
+- Store only a lookup key in `value` and keep the actual state in the store. Discord limits the combined ID and encoded value to roughly 100 characters.
+- Clicking a button whose plugin isn't loaded, is disabled, or is excluded by safe mode does nothing. Clicks arriving during boot, reload, or apply wait for the new version and run against it. Clear finished buttons with `chat.edit(thread, messageId, { markdown, actions: [] })`.
+- Respond within 3 seconds. For slow work, queue a turn or fork into the plugin's scope and acknowledge immediately. A late click keeps running, but any modal it tries to open is dropped and a late modal submit is interrupted.
+- Failing handlers are logged as errors under the plugin's name and the click is acknowledged.
 
-## The owner
+## Owners
 
-- `PluginContext.owners` holds the owner ids as `<platform>:<id>`.
+- `PluginContext.owners` holds the owner IDs formatted as `<platform>:<id>`.
 
 ## Reviewing a plugin
 
-Every change to a plugin's code gets a review by a sub-agent before you apply it. A change to its settings in `chad.json` alone does not. You wrote the code, so a second reader with none of your context finds what you no longer see.
+Every change to plugin code must be reviewed by a sub-agent before you apply it (changes to `chad.json` settings alone don't need one). A fresh reader without your context catches mistakes you overlook.
 
-- Start the review once `chad check` passes, so the sub-agent reads the code as Prettier left it and spends nothing on type errors.
-- Get the report before you apply, in the same turn. A sub-agent you wait on is the simplest way. One started in the background has to be awaited before the apply too, and the next turn cannot start while it runs.
-- The sub-agent reads and reports. It edits no file and runs no command that changes chad: no `chad apply`, `chad revert` or `chad plugin purge`.
+- Run the review after `chad check` passes, so the sub-agent sees Prettier-formatted code and doesn't waste time on type errors.
+- Wait for the review report before applying, in the same turn. A foreground sub-agent is simplest; if you start one in the background, await it before applying (the next turn can't start while it's running anyway).
+- The sub-agent only reads and reports. It must not edit files or run commands that change chad (`chad apply`, `chad revert`, `chad plugin purge`).
 
-The sub-agent has none of your context, so its prompt names everything. Fill in this one:
+Because the sub-agent starts with no context, give it everything it needs using this prompt template:
 
 ```text
-Review the chad plugin <name> for Effect best practices and for the rules chad sets for plugins.
-Do not edit any file. Do not run chad apply, chad revert or any command that changes chad.
+Review the chad plugin <name> for Effect best practices and chad's plugin rules.
+Do not edit any file. Do not run chad apply, chad revert, or any command that changes chad.
 
 The plugin: <every file of the plugin under /data/repo/work/plugins/>
 What it does: <one or two sentences>
-What changed: <the whole plugin if it is new, or what this change touched>
+What changed: <the whole plugin if new, or what this change touched>
 
 Read these in full first:
-- /data/repo/node_modules/effect/AGENTS.md, the rules for Effect code. Its examples are under /data/repo/node_modules/effect/ai-docs/src/.
-- /opt/chad/skills/self-edit/plugin.md, the rules for a chad plugin.
-- /data/repo/node_modules/chad/dist/Plugin.d.ts, the plugin API.
-Trust these files and the .d.ts files under /data/repo/node_modules over what you remember about Effect.
+- /data/repo/node_modules/effect/AGENTS.md (rules for Effect code; examples are under /data/repo/node_modules/effect/ai-docs/src/)
+- /opt/chad/skills/self-edit/plugin.md (rules for chad plugins)
+- /data/repo/node_modules/chad/dist/Plugin.d.ts (the plugin API)
+Trust these files and the .d.ts files under /data/repo/node_modules over your memory of Effect.
 
-The list below names where to look. It is not a source of rules. A finding has to cite one of the three files above or describe a concrete bug. Report misuse those sources rule out or that breaks at runtime, not a pattern the code does not need. Look at least at:
-1. A reusable function written with a generator uses Effect.fn("name"), with the name it is bound to, or Effect.fnUntraced, and does not only wrap and return an Effect.gen. A function that returns an Effect without a generator, such as Effect.sync(...), is fine. Nothing calls .pipe on an Effect.fn; extra behaviour goes in as its later arguments.
-2. A custom error is a Schema.TaggedError class, raised with return yield*. Nothing throws, nothing drops an error without a reason, and nothing turns a failure a caller could handle into a defect. Every failure a tool can have is in its failure schema.
-3. Code that relies on the shape of data from outside (HTTP answers, files, stored values, model output) decodes it with Schema first, and does not parse it by hand or cast it with as. Runtime type checks use Predicate, not hand-written helpers.
-4. Shared behaviour is a Context.Service with a static layer built by Layer.effect and returned with .of. Layers are given what they need with Layer.provide, and nothing builds the same service twice.
-5. Resources are released: Effect.acquireRelease or a scope for what is opened, Plugin.background for a fiber that lives as long as the plugin. No unscoped fork while a Layer builds.
-6. Effect's modules in place of their plain JavaScript versions: HttpClient, not fetch; FileSystem, not node:fs; DateTime and Clock, not Date; Effect.sleep and Schedule, not setTimeout; no async functions or Promises where an Effect does.
-7. Effect 4 names only. An import from @effect/platform or another Effect 3 name is a finding, checked against the .d.ts files.
-8. Settings are read with Config, a secret with Config.Redacted. A setting has a default where one makes sense, and the comment at the top of the file lists every setting.
-9. The rules of plugin.md: a tool's description says what it does and when to call it; a tool with side effects is short or safe to repeat; what must last goes in the store, decoded with a schema that accepts the old shape, and old keys are pruned; hooks fit their time budgets; a prompt chunk holds state every turn needs, not fixed text on how to use the tools; a prompt for a turn the plugin starts says what started it and that nobody is there to answer questions.
-Report anything else you see that is a bug, too.
+The checklist below shows where to look, not extra rules. Every finding must cite one of the three files above or describe a concrete bug. Only report violations of those sources or real runtime bugs, not patterns the code doesn't need. Check at least:
+1. Reusable generator functions use Effect.fn("name") (matching the bound name) or Effect.fnUntraced instead of wrapping Effect.gen. Plain functions returning an Effect without a generator (like Effect.sync(...)) are fine. Don't call .pipe on Effect.fn; pass extra steps as trailing arguments.
+2. Custom errors are Schema.TaggedError classes raised with return yield*. Nothing throws, drops errors without reason, or turns recoverable failures into defects. Every tool failure is in its failure schema.
+3. External data (HTTP responses, files, stored values, model output) is decoded with Schema instead of hand-parsed or cast with as. Runtime type checks use Predicate, not ad-hoc helpers.
+4. Shared behavior uses Context.Service with a static layer built via Layer.effect and returned with .of. Dependencies are provided with Layer.provide, and no service is constructed twice.
+5. Resources are properly released (Effect.acquireRelease or a scope for opened resources; Plugin.background for plugin-lived fibers). No unscoped forks during Layer construction.
+6. Effect modules are used instead of plain JS equivalents: HttpClient over fetch, FileSystem over node:fs, DateTime and Clock over Date, Effect.sleep and Schedule over setTimeout, and no async/Promise where Effect fits.
+7. Effect 4 APIs only. Any Effect 3 import (such as @effect/platform) is a finding, verified against the .d.ts files.
+8. Settings use Config, secrets use Config.Redacted, defaults are provided where sensible, and the top-of-file comment lists every setting.
+9. plugin.md rules: tool descriptions explain what the tool does and when to call it; side-effecting tools are short or idempotent; durable state lives in the store with backward-compatible decoding and key pruning; hooks stay within time budgets; prompt chunks hold dynamic per-turn state rather than static tool docs; plugin-started turn prompts state what started them and that nobody is around to answer questions.
+Report any other bugs you find as well.
 
-Report each finding on its own, as:
+Format each finding on its own as:
 - where: file:line
-- rule: what it breaks, and the file and section that state the rule (this list is not one), or "bug" with what goes wrong
-- fix: the change that resolves it, concrete enough to make without asking
-Do not report formatting, which Prettier owns. If you find nothing, say "no findings".
+- rule: what it breaks plus the file and section stating the rule (not this checklist), or "bug" with what goes wrong
+- fix: a concrete change that resolves it without follow-up questions
+Skip formatting issues (Prettier owns formatting). If there are no issues, say "no findings".
 ```
 
-What you do with the report:
+Handling the review report:
 
-- Judge each finding against the code and the source it cites. A finding is valid when the code breaks a rule stated in `/data/repo/node_modules/effect/AGENTS.md`, in this file outside the review prompt, or in the `.d.ts` files, or when it is a bug. The list in the prompt is where the reviewer looks, not a rule of its own.
-- Fix every valid finding, small ones included. Do not leave one for later.
-- Drop a finding only when it is wrong: it misreads the code, cites only the list in the prompt or a rule no source has, or asks for what this file rules out, such as a `runMain` or an `HttpClient` of your own. Keep one line on why for your answer.
-- Then `chad check` again. When a fix did more than change the lines a finding named, such as new code or a moved responsibility, a new sub-agent reviews the plugin with the same prompt.
-- A valid finding you cannot resolve keeps the plugin a draft. Tell the owner what is open and why.
-- Apply only once every valid finding is fixed. In your answer, say that the review ran, what you fixed and what you dropped and why.
-- In a turn with nobody there to answer questions the review runs the same way. Whether you then apply follows the rule for such turns in the self-edit skill.
+- Verify each finding against the code and its cited source. A finding is valid if it breaks a rule in `/data/repo/node_modules/effect/AGENTS.md`, in this file (outside the review prompt), or in the `.d.ts` files, or if it's a real bug. The prompt's checklist is just a guide, not a rule source.
+- Fix every valid finding, including small ones. Don't defer them.
+- Drop a finding only if it's wrong (misreads the code, cites only the checklist or an invented rule, or asks for something this file forbids like `runMain` or a custom `HttpClient`). Keep a one-line explanation of why you dropped it for your reply.
+- Re-run `chad check`. If a fix went beyond the lines a finding pointed to (such as adding new code or shifting responsibilities), run a fresh sub-agent review with the same prompt.
+- If a valid finding can't be resolved, leave the plugin as a draft and tell the owner what's still open and why.
+- Apply only once all valid findings are fixed. In your reply, note that the review ran, what you fixed, and what you dropped (with reasons).
+- In unattended turns (nobody around to answer questions), run the review the same way, and follow the unattended-turn rule in `SKILL.md` for whether to apply.

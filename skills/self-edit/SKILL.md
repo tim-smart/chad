@@ -1,116 +1,114 @@
 ---
 name: self-edit
-description: Read before changing chad itself. Covers adding or fixing a plugin (a tool, a prompt chunk, a hook, a background job), a skill, an MCP server, a plugin setting, a secret or the persona, and undoing a change that went wrong.
+description: Read before changing chad itself. Covers adding or fixing a plugin (tool, prompt chunk, hook, background job), skill, MCP server, plugin setting, secret, or persona, and reverting a bad change.
 ---
 
 # Changing chad
 
-Your plugins, skills, MCP servers, settings and persona are files in one git repo on the data volume. You change yourself by editing those files and applying them with the `chad` CLI. Nothing you edit takes effect until an apply: until then an edit is a draft.
+Your plugins, skills, MCP servers, settings, and persona all live in one git repo on the data volume. Edit files there and apply them with the `chad` CLI. Nothing takes effect until you apply it; until then it's just a draft.
 
-## Where things are
+## Directory layout
 
 ```text
-/data/repo/work/              the checkout you edit
+/data/repo/work/              the working checkout you edit
   plugins/<name>.ts           a plugin (or plugins/<name>/index.ts)
   skills/<name>/SKILL.md      a skill
   mcp.json                    MCP servers
-  chad.json                   plugin settings and on/off switches
-  package.json                the npm packages plugins import and the tools you keep, with package-lock.json
+  chad.json                   plugin settings and enable/disable flags
+  package.json                npm packages for plugins and CLI tools, with package-lock.json
   persona.md                  who you are for the owner
-/data/repo/live               what is loaded now. Never edit it.
-/data/repo/node_modules/      chad, effect and chad's other packages, with their declarations and docs
-/data/repo/examples/          the source of the plugins chad ships, to read as examples
-/data/logs/chad.log           the daemon's log
+/data/repo/live               the currently applied tree (never edit this)
+/data/repo/node_modules/      chad, effect, and chad's other packages, with types and docs
+/data/repo/examples/          source of chad's bundled plugins, for reference
+/data/logs/chad.log           the daemon log
 /data/home                    $HOME
-/mnt/<name>                   a directory the owner mounted
+/mnt/<name>                   directories mounted by the owner
 ```
 
-- Your skills go in `work/skills/` and nowhere else. Never create a `.agents/skills` or `.kiro/skills` directory in the repo, and do not put skills in dot-directories under `$HOME`. A skill in one of those two directories in the repo is announced to you with no apply, so no check ran on it and no revert covers it. `chad check` and `chad apply` refuse both directories.
-- Never write an `AGENTS.md` in the repo. One under `work/` reaches you with no apply, and `chad check` and `chad apply` refuse it. "Where what you know goes" below says where to put what it would hold.
-- A directory under `/mnt` is outside the repo. It has no commits and no revert.
-- `/data/repo/examples/` is the source of the bundled plugins for the version that is running. Read it, do not edit it, and do not copy a bundled plugin into `work/plugins/` under its own name. Do not put anything at `/data/repo/examples` or `/data/repo/node_modules`, and leave the packages chad installs under `/data/repo/` alone.
+- Put skills in `work/skills/` and nowhere else. Never create `.agents/skills` or `.kiro/skills` in the repo, and don't put skills in dot-directories under `$HOME`. Skills placed in those repo directories get picked up without an apply, bypassing checks and reverts, so `chad check` and `chad apply` refuse both.
+- Never add an `AGENTS.md` to the repo. One under `work/` gets loaded without an apply, so `chad check` and `chad apply` refuse it. See "Where knowledge belongs" below for where to put that content instead.
+- Directories under `/mnt` live outside the repo and have no commits or revert history.
+- `/data/repo/examples/` contains the source of the bundled plugins for the running version of chad. Read it for reference, never edit it, and don't copy a bundled plugin into `work/plugins/` under the same name. Leave `/data/repo/examples`, `/data/repo/node_modules`, and chad's own packages under `/data/repo/` untouched.
 
-## Where what you know goes
+## Where knowledge belongs
 
-`persona.md` and every prompt chunk are sent whole in every turn of every session. A skill puts only its description there, and the rest is read when a task needs it.
+`persona.md` and every prompt chunk are sent in full on every turn of every session. A skill only puts its description into the prompt and is read on demand when a task needs it.
 
-- The prompt is for what every turn needs: who you are for the owner, your tone, a rule that covers everything you do.
-- Anything only some tasks need is a skill: how a tool or a service works, a procedure, a project's conventions, account details.
-- When the owner mounts a directory, write a skill whose description names its path under `/mnt` and what it holds, then apply.
-- When the owner asks you to remember or always know something and names no place, write a skill. Say so in your answer, with one line on why.
-- When the owner names the persona or the prompt and the content is reference material, say once that a skill would be read on demand, and ask which they want. Then do what they pick.
+- **System prompt (`persona.md`)**: things every turn needs, like who you are for the owner, your tone, and global rules.
+- **Skill**: anything only some tasks need, like how a tool or service works, a procedure, project conventions, or account details.
+- When the owner mounts a directory, write a skill whose description names its path under `/mnt` and what it contains, then apply.
+- When the owner asks you to remember something without naming a place, write a skill and mention in your reply that you did, with a quick note on why.
+- When the owner asks to put reference material into the persona or prompt, mention once that a skill would load on demand instead, ask which they prefer, and follow their choice.
 
-## The loop
+## Workflow
 
-1. Edit files under `/data/repo/work`. `chad plugin new <name>` and `chad skill new <name>` write a starting file and do nothing else.
-2. `chad check`. It runs everything an apply runs and commits nothing. Fix what it reports and run it again.
-3. If the change adds or edits plugin code, a sub-agent reviews it before you apply, as the review section at the end of `plugin.md` says. Fix every valid finding and run `chad check` again. A plugin is not finished while a valid finding is open, and you do not apply it.
-4. `chad apply -m "<why>"`.
-5. `chad status` shows what is loaded, what was skipped and why, and the chad and effect versions.
+1. Edit files under `/data/repo/work`. `chad plugin new <name>` and `chad skill new <name>` scaffold a starter file and nothing else.
+2. Run `chad check`. It runs every check that `chad apply` runs without committing anything. Fix whatever it reports and re-run until clean.
+3. If you added or edited plugin code, have a sub-agent review it before applying (see "Reviewing a plugin" at the end of `plugin.md`). Fix every valid finding and re-run `chad check`. Don't apply a plugin while a valid finding is still open.
+4. Run `chad apply -m "<why>"`.
+5. Check `chad status` to see what loaded, what was skipped and why, and the installed chad and effect versions.
 
-## Rules that are easy to get wrong
+## Important rules and gotchas
 
-- `chad check` and `chad apply` first format every `.ts` file under `work/plugins/` with Prettier, in place, and name the files they rewrote. The style is chad's own (no semicolons) unless a Prettier config in `work/`, such as `.prettierrc.json`, says otherwise. Read a file again before you edit it after a check. A file that does not parse is left as it is and the type-check reports it.
-
-- An apply takes the whole of `work/`, drafts from another session included. Read the list of changed files that `chad check` prints. If a file there is not yours, stop and tell the owner.
-- `chad apply -m "<why>" --expect <tree>` applies only when what it takes of `work/` is that git tree, and otherwise applies nothing and exits 1. A script that worked out the tree it means to publish uses it, so a draft that came in meanwhile is not published with it.
-- A change reaches a session on its next turn. In the turn that applied it you keep the tools you had. A tool whose plugin's code or settings you changed fails with "<tool> was changed by an apply. The new version is in your next turn." until the turn ends, in every session.
-- An apply that changes a plugin's code or its settings affects other sessions. Their running turns lose that plugin's tools until they end, and a call still running 30 seconds into the swap is interrupted and may have partly run. The apply output names the affected sessions. Say so in your answer.
-- An apply resets the branch in `work/` to the applied commit, so commits you make there do not last. Use git in `work/` to read history or bring one file back (`git checkout <commit> -- plugins/x.ts`), then apply.
-- A secret never goes in a file in the repo. It is saved with `chad secret set NAME`, which reads the value from stdin, and `chad.json` or `mcp.json` names it as `${NAME}`. The `credentials` skill says who saves it and how.
-- A script you write never prompts at a terminal for something the owner has to supply, such as a code or the address a browser ended on. It takes the value as an argument or on stdin from the script that calls it. That script gets a one-off value with `requestOnce`. A value that stays valid is a secret: the owner saves it through `requestSecret`, which gives back no value, and the command gets it by name from `chad secret run`. Asking the owner to run a command in a shell on the server is the last resort, for when no tool covers it. The `credentials` skill has a recipe for a sign-in that ends on an address.
-- In a scheduled run, or any turn whose prompt says nobody is there to answer questions, do not apply, revert, purge or change safe mode unless the prompt tells you to. Leave the change as a draft and say so in the answer.
+- `chad check` and `chad apply` format every `.ts` file under `work/plugins/` in place with Prettier and list any files they rewrote. Formatting uses chad's style (no semicolons) unless a Prettier config in `work/` (like `.prettierrc.json`) overrides it. Re-read a file before editing it again after running a check. Files that don't parse are left untouched and reported by the type-checker.
+- `chad apply` publishes the entire `work/` tree, including drafts from other sessions. Check the changed-file list printed by `chad check`; if you see files that aren't yours, stop and tell the owner.
+- `chad apply -m "<why>" --expect <tree>` only applies if `work/` matches that git tree, otherwise it does nothing and exits 1. Scripts that computed the expected tree use this to avoid accidentally publishing concurrent drafts.
+- Applied changes take effect on the next turn. For the rest of the current turn, you keep your old tools. Calling a tool whose plugin code or settings just changed fails in every active session with: `"<tool> was changed by an apply. The new version is in your next turn."`
+- Applying changes to a plugin's code or settings affects other active sessions too. Their running turns lose that plugin's tools until the turn finishes, and any call still running 30 seconds into the swap is interrupted and may have partly run. The apply output lists affected sessions; mention them in your reply.
+- `chad apply` resets the branch in `work/` to the applied commit, so manual git commits in `work/` won't stick. You can still use git in `work/` to inspect history or restore a single file (`git checkout <commit> -- plugins/x.ts`), then apply.
+- Never put a secret in a repo file. Store it with `chad secret set NAME` (which reads from stdin) and reference it as `${NAME}` in `chad.json` or `mcp.json`. See the `credentials` skill for who saves secrets and how.
+- Scripts you write must never prompt on a terminal for owner input (like an OTP code or an OAuth callback URL). Pass the value as an argument or on stdin from the calling script instead. Get one-off values with `requestOnce`, and lasting secrets with `requestSecret` plus `chad secret run`. Asking the owner to run a shell command on the server is a last resort when no tool covers it. The `credentials` skill has a full example for OAuth callback sign-ins.
+- In a scheduled run, or any turn whose prompt says nobody is around to answer questions, don't apply, revert, purge, or toggle safe mode unless the prompt explicitly asks you to. Leave changes as a draft and report that in your reply.
 
 ## Testing a change
 
-- Apply, say what you changed, and test in the next turn.
-- While your turn has a background sub-agent running, the next turn cannot start. A message the owner sends then is steered into that turn and runs on the old Agent, so the new version is not there yet. The refusal says so: "The new version is in your next turn, which cannot start while this turn has a sub-agent running."
-- With no owner around, schedule a one-off cron job that runs the test. Its prompt has to stand on its own: what to call, with what, and what counts as a pass. It runs as a new turn that has only the history.
-- If the cron plugin is off, report what you changed and stop. Do not look for another way to start a turn.
+- Apply, summarize what you changed, and test in the next turn.
+- While a background sub-agent is running in your turn, the next turn can't start. Any message the owner sends gets steered into the current turn on the old agent, so the new version won't be active yet. Calling a changed tool then fails with: `"The new version is in your next turn, which cannot start while this turn has a sub-agent running."`
+- When no owner is around, schedule a one-off cron job to run the test. Its prompt must be self-contained (what to call, with what arguments, and what counts as a pass), since it runs as a new turn with only the history.
+- If the cron plugin is disabled, report what you changed and stop. Don't try to trigger a new turn another way.
 
 ## Exit codes
 
-- 0: done.
-- 1: it ran and failed. The output says what and where, with `work/` paths.
+- 0: success.
+- 1: command ran and failed. The output explains what went wrong using `work/` paths.
 - 2: bad usage.
-- 3: an owner command. Ask the owner to run it. Do not work around it.
-- 4: the command needs the daemon and it is missing or did not answer. Run `chad status` and `chad logs`, then tell the owner.
+- 3: owner-only command. Ask the owner to run it; don't work around it.
+- 4: the daemon is required but isn't running or didn't respond. Run `chad status` and `chad logs`, then tell the owner.
 
 ## Plugins
 
-Before you write one, **YOU MUST READ IN FULL** `/data/repo/node_modules/effect/AGENTS.md` and then `plugin.md` next to this file. Start from `chad plugin new <name>`. Working plugins to read are in `/data/repo/examples/`.
+Before writing a plugin, **READ IN FULL** `/data/repo/node_modules/effect/AGENTS.md` and `plugin.md` next to this file. Start from `chad plugin new <name>`, and use `/data/repo/examples/` as working examples.
 
-`/data/repo/node_modules/effect/AGENTS.md` MUST BE FOLLOWED when writing effect
-plugins.
+Follow `/data/repo/node_modules/effect/AGENTS.md` strictly when writing Effect plugins.
 
-A plugin is done only when `chad check` passes and a sub-agent's review has no valid finding left. The review section at the end of `plugin.md` says how to run the review and what to do with what it finds.
+A plugin isn't done until `chad check` passes and a sub-agent review has no open valid findings. See "Reviewing a plugin" in `plugin.md` for the review prompt and rules.
 
-- A repo plugin cannot take a bundled plugin's name, and `chad plugin new` refuses a taken or bundled name.
-- A plugin can use npm packages, which `work/package.json` names. Add one with `npm install --package-lock-only --ignore-scripts <name>` in `work/`, never a plain `npm install`. `plugin.md` says what an install does and which packages do not work.
-- `chad plugin reload <name>` rebuilds one plugin whose code did not change, for example after a service it talks to came back. It builds the new version first and keeps the old one if the build fails.
-- Deleting a plugin's file unloads it and keeps its data and timers. `chad plugin purge <name>` drops them for good. It works only once the deletion is applied, and refuses a plugin still in the applied repo, including one that is off. A bundled plugin cannot be deleted, so it can be purged while it is turned off and not while it is on.
+- Repo plugins can't reuse a bundled plugin's name, and `chad plugin new` rejects taken or bundled names.
+- Plugins can use npm packages listed in `work/package.json`. Add them with `npm install --package-lock-only --ignore-scripts <name>` in `work/`, never plain `npm install`. See `plugin.md` for how installation works and which packages aren't supported.
+- `chad plugin reload <name>` rebuilds a plugin whose code hasn't changed (for example, after an upstream service comes back online). It builds the new instance first and keeps the old one if the build fails.
+- Deleting a plugin's file unloads it while keeping its stored data and timers. `chad plugin purge <name>` permanently deletes that data and those timers. It only works after the deletion is applied, and refuses any plugin still in the applied repo (even if disabled). Bundled plugins can't be deleted, so they can be purged while disabled, not while enabled.
 
 ## Skills
 
-A skill is `skills/<name>/SKILL.md` with `name` and `description` in its front matter. The name has to match the directory. The description is all a session sees until it reads the skill, so write it as the situation in which to read the skill. Put longer material in files next to it and name them in the skill.
+A skill is `skills/<name>/SKILL.md` with `name` and `description` in its YAML front matter. `name` must match the directory name. Because `description` is all a session sees before opening the skill, write it as the trigger condition for when to read the skill. Put longer reference material in sibling files and link to them from `SKILL.md`.
 
-- A check or an apply fails on a skill with no front matter, a missing or empty `name` or `description`, a name that differs from its directory, or two skills in the repo with one name.
-- A skill with a bundled skill's name replaces the bundled one, and that includes this skill. Do not copy this skill to change it. Write the owner's conventions as a separate skill.
-- The repo started with the skills `images`, `pdfs`, `documents`, `video` and `dev-tools`, copied from `/opt/chad/starter-skills`. They are repo skills like any other: change them to fit the owner, and add what you learn about a tool. A later image does not update them. To bring one back, or to add one to a repo made before they existed, run `mkdir -p /data/repo/work/skills` and then `mkdir /data/repo/work/skills/<name> && cp -R /opt/chad/starter-skills/<name>/. /data/repo/work/skills/<name>/`. The second `mkdir` fails when a skill of that name is there, so the copy never replaces one. Then apply.
+- `chad check` and `chad apply` fail if a skill is missing front matter, has a missing or empty `name` or `description`, has a `name` that doesn't match its directory, or collides with another repo skill's name.
+- A repo skill with the same name as a bundled skill replaces the bundled one, including `self-edit`. Don't copy this skill to customize it; put the owner's conventions in a separate skill instead.
+- New repos come seeded with `images`, `pdfs`, `documents`, `video`, and `dev-tools` from `/opt/chad/starter-skills`. They're normal repo skills that you can edit for the owner, and future image updates won't overwrite them. To restore one or add one to an older repo, run `mkdir -p /data/repo/work/skills` followed by `mkdir /data/repo/work/skills/<name> && cp -R /opt/chad/starter-skills/<name>/. /data/repo/work/skills/<name>/`, then apply. The second `mkdir` fails if the skill already exists, so it won't clobber an existing one.
 
 ## Command line tools
 
-- The image has the usual development tools, `nvim` among them. For documents and images it has `pandoc`, `typst`, poppler's commands such as `pdftotext` and `pdftoppm`, `qpdf`, ImageMagick's `magick`, `rsvg-convert`, `pngquant`, `jpegoptim` and `gifsicle`. pandoc makes a PDF with `--pdf-engine=typst`. For video and audio it has `ffmpeg` and `ffprobe`. `yt-dlp` is not in the image: the `video` skill says how to install and use it, and a repo without that skill can read it at `/opt/chad/starter-skills/video/SKILL.md`. Run `command -v` on a tool before you install it.
-- A package in `work/package.json` can be a command line tool. Once the change is applied, its commands are on PATH and run by name in every session's next command. A revert that takes the package out takes its commands off PATH. Neither needs a restart.
-- This is the way to add a tool the owner wants kept: it is committed, checked and reverted with the rest of the repo. Add it as any package, `npm install --package-lock-only --ignore-scripts --save-exact <name>@<version>` in `work/`, then `chad check` and `chad apply`.
-- Install scripts never run, so a tool that needs its install script does not work. A tool that ships its binary as an optional dependency for each platform does.
-- These commands come last on PATH, after what you install with `npm install -g`, `uv tool install` or into `~/.local/bin`, so none of them can replace one of the image's tools or one of yours. A command of chad's own packages, such as `tsc` or `semver`, is not there.
-- A stdio server in `mcp.json` can run one of these commands by name, added in the same apply as its package.
-- Safe mode installs nothing when it starts. The commands of the applied tree stay on PATH while its install is on disk, and are missing after a safe-mode start that found it gone, until safe mode goes off.
+- The container image includes standard dev tools (including `nvim`), document and image tools (`pandoc`, `typst`, poppler tools like `pdftotext` and `pdftoppm`, `qpdf`, ImageMagick's `magick`, `rsvg-convert`, `pngquant`, `jpegoptim`, `gifsicle`), and video/audio tools (`ffmpeg`, `ffprobe`). `pandoc` generates PDFs with `--pdf-engine=typst`. `yt-dlp` isn't preinstalled; see the `video` skill (or `/opt/chad/starter-skills/video/SKILL.md`) for installing and using it. Check with `command -v` before installing anything.
+- Packages in `work/package.json` can provide CLI binaries. Once applied, their commands are added to `PATH` for every session's next command, and reverting the package removes them from `PATH`, with no restart needed.
+- This is the best way to install a tool the owner wants to keep, since it's committed, checked, and reverted with the repo. Add it with `npm install --package-lock-only --ignore-scripts --save-exact <name>@<version>` in `work/`, then run `chad check` and `chad apply`.
+- Install scripts never run, so packages that rely on postinstall scripts won't work. Packages that ship prebuilt binaries via platform-specific optional dependencies do work.
+- Repo-installed binaries sit at the end of `PATH` (after `npm install -g`, `uv tool install`, and `~/.local/bin`), so they can't shadow image tools or user-installed tools. Binaries from chad's own dependencies (like `tsc` or `semver`) aren't exposed here.
+- A stdio MCP server in `mcp.json` can run one of these binaries by name in the same apply that adds its package.
+- Safe mode skips package installation on startup. Applied repo binaries stay on `PATH` if already installed on disk, but will be missing after a safe-mode start on a clean install directory until safe mode is turned off.
 
 ## MCP servers
 
-Edit `mcp.json` and apply. There is no command that adds one.
+Edit `mcp.json` and apply. There is no CLI command to add a server.
 
 ```json
 {
@@ -131,18 +129,18 @@ Edit `mcp.json` and apply. There is no command that adds one.
 }
 ```
 
-- stdio servers run with `npx`, `uvx` or `node`, which are in the image. The image has `python3` with no packages and no pip, no apt and no sudo. What you install with `npm install -g`, `uv tool install` or into `~/.local/bin` stays on the volume and sits last on PATH, so it cannot replace the image's own tools. A command of a package in `work/package.json` works too, by name.
-- `chad check` reads `mcp.json`, checks that every `${NAME}` resolves and prints which servers an apply would add, remove or change. It connects nothing. A malformed `mcp.json` fails the apply.
-- A server that cannot connect does not fail the apply. The apply prints each server's status and tool count.
-- Any MCP restart interrupts the MCP calls that are running, and a stdio server loses what it held in memory. An apply that changes `mcp.json` or `package-lock.json`, `chad mcp restart` and a change to a secret that `mcp.json` names all restart every server. A call that was running fails with "mcp.<server>.<tool> was interrupted by an MCP restart. It may have run in part or in full."
-- A call made during a restart fails at once with "MCP servers are restarting. This call was not sent." Nothing ran, so call again when the servers are back.
-- After a restart a tool's parameters may have changed. When a call fails validation, check it against the tool's current declaration.
-- An HTTP server that takes a key signs in with a header. Write the token in `headers` as `${NAME}`.
-- `chad mcp restart` rebuilds every MCP server. It does not reconnect one. Run it when a server dropped. Nothing restarts one by itself.
+- stdio servers can use `npx`, `uvx`, or `node`, all of which are in the image. The image has `python3` without packages or `pip`, and has no `apt` or `sudo`. Tools installed via `npm install -g`, `uv tool install`, or `~/.local/bin` persist on the volume and sit at the end of `PATH`, so they can't shadow image tools. Binaries from `work/package.json` also work by name.
+- `chad check` validates `mcp.json`, confirms every `${NAME}` secret resolves, and prints which servers an apply would add, remove, or change, without connecting to them. A malformed `mcp.json` fails the apply.
+- A server that fails to connect doesn't fail the apply. Apply prints each server's status and tool count.
+- Restarting MCP servers interrupts all in-flight MCP calls, and stdio servers lose any in-memory state. An apply that changes `mcp.json` or `package-lock.json`, running `chad mcp restart`, or updating a secret referenced in `mcp.json` restarts every server. Interrupted calls fail with: `"mcp.<server>.<tool> was interrupted by an MCP restart. It may have run in part or in full."`
+- Calls made during a restart fail immediately with: `"MCP servers are restarting. This call was not sent."` Nothing ran, so retry once the servers are back.
+- A server's tool schemas can change after a restart. If a call fails validation, re-check the tool's current declaration.
+- HTTP servers that take an API key authenticate via `headers`, using `${NAME}` for the secret.
+- `chad mcp restart` rebuilds all MCP servers (it can't restart just one). Run it if a server drops, since chad doesn't auto-reconnect them.
 
 ### OAuth
 
-An HTTP server that signs in with OAuth needs an `oauth` key. Without the key chad sends no OAuth request, and a server that answers 401 is listed as unavailable with an error that says to add it.
+HTTP servers that use OAuth require an `oauth` block. Without it, chad won't initiate OAuth, and a server returning 401 is shown as unavailable with an error telling you to add `oauth`.
 
 ```json
 {
@@ -161,23 +159,23 @@ An HTTP server that signs in with OAuth needs an `oauth` key. Without the key ch
 }
 ```
 
-- `"oauth": {}` is enough for a server whose authorization server registers clients by itself. chad registers on the first sign-in and keeps the client it is given.
-- `clientId` names a client the owner registered with the server. chad then uses that client and never registers one. With `clientSecret` it is a confidential client, and `clientSecret` needs `clientId`. Keep the secret in the secret store and write it as `${NAME}`.
-- `redirectUrl` is sent as the redirect URI exactly as written, so it has to match what the client was registered with. The default is `http://localhost/oauth/callback`. Nothing listens at either: the owner copies the address the browser ends on.
-- `scopes` are the scopes chad asks for. Without it chad asks for what the server names.
-- Only an HTTP server takes `oauth`. Every string in it takes `${NAME}`.
-- A server with no usable sign-in is listed as "needs login": in what an apply and `chad mcp restart` print, in `chad status`, and in your prompt. Nothing starts a sign-in by itself, at a boot, an apply, a restart or a secret change, and the other servers connect as usual.
-- Only the owner signs in. You cannot, and no command you run does. Call `await requestMcpLogin({ server: "linear" })`, which posts a button in the thread, and end your turn. The owner presses it, opens the link chad posts, approves, and puts the address the browser ended on into a form. Where that tool is not there, ask the owner to run `chad mcp login linear` in a shell on the server. `chad mcp logout linear` drops the tokens and the registered client, and ends a sign-in that is under way. When it cannot write the volume it says so and chad stays signed in.
-- A link too long for a message is not posted. chad then tells the owner in the thread to run `chad mcp login <name>`, which prints the link.
-- Never ask the owner to paste that address or a token as a chat message. The address carries the code of the sign-in.
-- A sign-in the authorization server refuses fails with the OAuth error code it gave, such as `invalid_grant`. chad repeats nothing else of the answer, which may quote the code or the client secret.
-- A sign-in that finished, and a sign-out, restart every MCP server, as a secret change does. Calls in flight are interrupted.
-- chad refreshes the token by itself and keeps the new one across restarts. When the server refuses the refresh, or still answers 401 to the token a refresh gave, a call fails with "MCP server "<name>" needs the owner to sign in", and the server shows as "needs login". Ask the owner to sign in again. Do not retry the call.
-- A changed `url` or `oauth` block makes the server need a new sign-in. The old tokens are not sent to it.
+- `"oauth": {}` is enough when the server supports dynamic client registration. chad registers on first sign-in and saves the client it receives.
+- `clientId` specifies a pre-registered client, in which case chad uses it and skips registration. Adding `clientSecret` makes it a confidential client (requires `clientId`). Store the secret in the secret store and reference it as `${NAME}`.
+- `redirectUrl` is sent verbatim as the redirect URI, so it must match the registered client's redirect URI. It defaults to `http://localhost/oauth/callback`. Nothing listens at either URL; the owner copies the final URL from their browser's address bar.
+- `scopes` sets the requested OAuth scopes. If omitted, chad requests whatever the server advertises.
+- Only HTTP servers support `oauth`. Every string inside `oauth` supports `${NAME}` secret expansion.
+- A server without a valid login shows as `needs login` in apply output, `chad mcp restart`, `chad status`, and your prompt. chad never starts a login automatically on boot, apply, restart, or secret change, and other servers continue connecting normally.
+- Only the owner can sign in. Call `await requestMcpLogin({ server: "linear" })` to post a sign-in button in the thread, then end your turn. The owner clicks it, opens the link, approves access, and pastes the final browser URL into a form. If `requestMcpLogin` isn't available, ask the owner to run `chad mcp login linear` on the server. `chad mcp logout linear` clears stored tokens and any registered client, and cancels an in-progress sign-in (if writing to the volume fails, it says so and keeps the login).
+- If the authorization URL is too long for a chat message, chad doesn't post it and tells the owner to run `chad mcp login <name>` on the server to print it.
+- Never ask the owner to paste the callback URL or a token into chat; the URL contains the authorization code.
+- If the authorization server rejects the sign-in, chad reports only the OAuth error code (such as `invalid_grant`) and hides the rest of the response in case it echoes the code or client secret.
+- Completing a sign-in or signing out restarts all MCP servers, interrupting any in-flight calls.
+- chad refreshes OAuth tokens automatically and persists them across restarts. If a refresh is rejected or a refreshed token still gets 401, calls fail with `MCP server "<name>" needs the owner to sign in` and the server shows as `needs login`. Ask the owner to sign in again instead of retrying.
+- Changing `url` or the `oauth` block invalidates the previous sign-in so old tokens are never sent to the updated config.
 
 ## Settings and secrets
 
-`chad.json` holds each plugin's settings and its on/off switch.
+`chad.json` stores each plugin's settings and enable/disable flag.
 
 ```json
 {
@@ -191,42 +189,42 @@ An HTTP server that signs in with OAuth needs an `oauth` key. Without the key ch
 }
 ```
 
-- `"enabled": false` turns a plugin off and keeps its data and timers, which are held. This works for bundled plugins too. Turning a plugin back on fires each overdue held timer once, and the apply says how many.
-- The bundled plugin `asphodel`, chad's long-term memory, is off until its entry says `"enabled": true`. Its `settings` are the asphodel daemon's `url` and `"token": "${ASPHODEL_TOKEN}"`, with the token saved as the secret `ASPHODEL_TOKEN`.
-- An unknown key or an entry that names no plugin fails the apply.
-- An empty string reads as missing. A `${NAME}` found nowhere fails the plugin's load with an error that names it.
-- `${NAME:-default}` gives a default. To write a literal `${X}`, write `${CHAD_DOLLAR:-$}{X}`.
-- `chad check` and `chad apply` list the keys each plugin read and warn about keys in the file it did not read.
-- `chad status` lists the settings each loaded plugin read and where each came from. It is the only place a bundled plugin's settings are listed.
-- `chad secret list` lists the stored names. There is no way to read a value back. Changing a secret reloads what names it. If a plugin fails to load with the new value, it keeps its old instance, the command exits 1 and the secret stays stored. `chad status` marks it as running with the previous secret.
-- For a password or a token that a tool signs in with, read the `credentials` skill.
+- Setting `"enabled": false` disables a plugin while preserving its stored data and pausing its timers (this works for bundled plugins too). Re-enabling it fires each overdue paused timer once and reports how many fired.
+- The bundled `asphodel` plugin (chad's long-term memory) is disabled by default until you set `"enabled": true`. Its `settings` take the daemon's `url` and `"token": "${ASPHODEL_TOKEN}"`, with the token stored as `ASPHODEL_TOKEN`.
+- Unknown keys or entries referencing a nonexistent plugin fail the apply.
+- Empty strings are treated as missing. An unresolved `${NAME}` fails the plugin's load with an error naming it.
+- Use `${NAME:-default}` for a fallback value. To write a literal `${X}`, use `${CHAD_DOLLAR:-$}{X}`.
+- `chad check` and `chad apply` print which setting keys each plugin read and warn about unused keys in `chad.json`.
+- `chad status` shows the settings each loaded plugin read and where each value came from. It's the only place bundled plugin settings are listed.
+- `chad secret list` lists stored secret names (values can't be read back). Updating a secret reloads anything that references it. If a plugin fails to load with the new value, chad keeps the previous instance running, exits 1, keeps the new secret stored, and flags the plugin in `chad status` as running with the previous secret.
+- For passwords or tokens used by tools to sign in, read the `credentials` skill.
 
-## The persona
+## Persona
 
-`persona.md` is who you are for the owner. It is plain Markdown and goes into your system prompt.
+`persona.md` defines who you are for the owner. It's plain Markdown included in your system prompt.
 
-- Edit it only when the owner asks you to. "Where what you know goes" says what belongs in it and what belongs in a skill.
+Only edit it when the owner asks. See "Where knowledge belongs" for what belongs here versus in a skill.
 
-## Undoing
+## Undoing changes
 
-- `chad log` lists the applies. `chad revert` goes back one, `chad revert <commit>` further. A revert covers the whole repo and saves what was in `work/` to a git ref it prints.
-- To undo one file, restore it with git in `work/` and apply.
+- `chad log` lists previous applies. `chad revert` rolls back one apply, and `chad revert <commit>` rolls back to a specific commit. Reverts cover the entire repo and save anything currently in `work/` to a git ref that chad prints.
+- To revert a single file, restore it with git in `work/` and apply.
 
 ## Safe mode
 
-- In safe mode nothing from the repo is loaded. An apply still runs every check and commits, and its change loads when safe mode goes off (`chad safe off` or `/safe off`). Turning a bundled plugin on or off in `chad.json` takes effect at once.
-- Turn safe mode off only when the owner asked you to fix the problem and your fix is applied.
+- In safe mode, nothing from the repo is loaded. `chad apply` still runs all checks and commits changes, which then load once safe mode is turned off (`chad safe off` or `/safe off`). Toggling a bundled plugin in `chad.json` still takes effect immediately.
+- Only turn safe mode off when the owner asked you to fix the problem and your fix is applied.
 - Never turn safe mode on unless the owner asks.
 
-## When something fails
+## Troubleshooting
 
-To find out why a turn, a hook or a plugin failed, read the `diagnose` skill. It reads the log with `chad logs` and the `turns` table with `chad db query`.
+To investigate why a turn, hook, or plugin failed, read the `diagnose` skill (which uses `chad logs` and `chad db query`).
 
-Most errors from a check or an apply say what to fix. These do not:
+Most check and apply errors explain what to fix. Here are the less obvious ones:
 
-| What you see                                       | What it means                                                                                                                                                                                  |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Plugin.make` does not compile and names a service | A contribution still needs one of your own Layers. Add `Layer.provide(YourService.layer)` to it.                                                                                               |
-| A setting is missing, and it is in `chad.json`     | Its value is an empty string, which reads as missing.                                                                                                                                          |
-| The apply worked and the tool is not there         | It arrives next turn.                                                                                                                                                                          |
-| A hook does nothing                                | A hook that fails or runs past its budget is logged and skipped. Read its entries with `chad logs --plugin <name>`. After three failures in a row of the same hook, chad tells the owner once. |
+| Symptom                                            | Cause and fix                                                                                                                                                          |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Plugin.make` fails to compile and names a service | A contribution still needs one of your own layers. Provide it with `Layer.provide(YourService.layer)`.                                                                 |
+| A setting is reported missing even though it's set | Its value is an empty string, which chad treats as missing.                                                                                                            |
+| Apply succeeded, but the new tool isn't available  | New tools arrive on the next turn.                                                                                                                                     |
+| A hook does nothing                                | Failing or timed-out hooks are logged and skipped. Check `chad logs --plugin <name>`. After three consecutive failures of the same hook, chad notifies the owner once. |
