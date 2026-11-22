@@ -484,8 +484,8 @@ EOF
 
 # Puts what `expected` changes from `base` into work/ and applies it. work/ may differ from `base` only where
 # `expected` does, and there only by holding what `expected` holds, which is what a run that was cut moved in already.
-# Anything else is the owner's: then it moves nothing in and applies nothing, and says so. A file is moved in only
-# over the applied one.
+# Anything else is the owner's: then it applies nothing, and says so. A file is moved in only over the applied one.
+# Files it moved in before it met the owner's stay, as a cut run's do, and the next run finishes from them.
 finish_browse() {
   local base=$1 expected=$2 ready changed
   ready=$(
@@ -504,15 +504,40 @@ finish_browse() {
         case $ours in *" $path "*) ;; *) echo owner; exit 0 ;; esac
         [ "$(blob "$draft" "$path")" = "$(blob "$expected" "$path")" ] || { echo owner; exit 0; }
       done
+      # A file goes in only in place of the applied one, judged by what it actually displaced: a check before the move
+      # would leave the owner a moment to save the file in between. A path the applied tree lacks is linked in, which
+      # fails when the path is there. One the applied tree has is swapped with the new file in one rename, so the file
+      # that comes out is the one that was there. When that is not the applied one it belongs to the owner, and it is
+      # swapped back. What that brings out is the file of this script, unless the owner saved again in between, and
+      # then it is kept.
       for path in $ours; do
-        [ "$(blob "$draft" "$path")" != "$(blob "$expected" "$path")" ] || continue
-        mkdir -p "$(dirname "$path")"
-        git cat-file blob "$(blob "$expected" "$path")" > "$dir/file"
-        [ "$(git hash-object "$path" 2>/dev/null || true)" = "$(blob "$base" "$path")" ] || { echo owner; exit 0; }
-        mv "$dir/file" "$path"
+        want=$(blob "$expected" "$path")
+        had=$(blob "$base" "$path")
+        [ "$(blob "$draft" "$path")" != "$want" ] || continue
+        new=$dir/new/$path
+        mkdir -p "$(dirname "$path")" "$(dirname "$new")"
+        git cat-file blob "$want" > "$new"
+        if [ -z "$had" ]; then
+          ln "$new" "$path" 2>/dev/null || { echo owner; exit 0; }
+        else
+          mv --exchange "$new" "$path"
+          if [ "$(git hash-object "$new")" != "$had" ]; then
+            mv --exchange "$new" "$path"
+            if [ "$(git hash-object "$new")" != "$want" ]; then
+              saved=/data/home/.deploy-browse-saved/$path.$(date +%s)
+              mkdir -p "$(dirname "$saved")"
+              mv "$new" "$saved"
+              echo "saved $saved"
+            fi
+            echo owner
+            exit 0
+          fi
+        fi
       done
       echo ready' sh "$base" "$expected" </dev/null
   )
+  grep "^saved " <<<"$ready" | sed "s|^saved |An edit of yours that came in as this script moved a file in is kept at |" || true
+  ready=$(tail -n 1 <<<"$ready")
   if [ "$ready" != ready ]; then
     echo "chad's repo has changes that are not applied, so the move to browse was not applied: an apply would publish"
     echo "them with it. Apply or undo yours, and run this script again."

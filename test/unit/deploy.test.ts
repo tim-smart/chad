@@ -217,6 +217,20 @@ it("an upgrade from before browse is applied once as the tree it worked out, kee
   expect(existsSync(mcpAdded)).toBe(false)
   git("checkout", "--", "mcp.json")
 
+  // A save of the owner's to mcp.json that comes in as the installer swaps its own in is put back, and the change it
+  // conflicts with is not published.
+  const saved = JSON.stringify({ mcpServers: { files, mine: files } }) + "\n"
+  writeFileSync(
+    join(fake, "before-mv"),
+    `[ "\${@: -1}" = mcp.json ] && printf %s '${saved}' > '${work}/mcp.json'\n`,
+  )
+  expect(install([]).status).toBe(0)
+  expect(existsSync(join(fake, "before-mv"))).toBe(false)
+  expect(read("mcp.json")).toBe(saved)
+  expect(git("rev-parse", "applied").trim()).toBe(before)
+  expect(existsSync(mcpAdded)).toBe(false)
+  git("checkout", "--", "mcp.json")
+
   // An edit of the owner's that comes in as the apply snapshots work/ is not published with it.
   writeFileSync(
     join(fake, "before-apply"),

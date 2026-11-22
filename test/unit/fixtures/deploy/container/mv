@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# mv, with what runs just before a move into work/: a save of the owner's that comes in then. The hook is given mv's
+# arguments, and is gone once it exits 0.
+if [ -e "$FAKE/before-mv" ] && bash "$FAKE/before-mv" "$@"; then
+  rm "$FAKE/before-mv"
+fi
+PATH=${PATH#"$FAKE/container:"} exec mv "$@"
