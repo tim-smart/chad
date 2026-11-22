@@ -514,7 +514,11 @@ On 2026-11-22 the browse setup was run under podman, with `ghcr.io/tim-smart/cha
 config. Chromium installed the extension from the Web Store on its first start. `browse` was installed on chad's
 volume with npm, and `browse set hostname 0.0.0.0` started the relay. `browse pair` in chad's container paired with
 the extension through the nginx on Chromium's loopback, and chad's container then opened `example.com`, read it and
-took a screenshot. After `podman restart` of Chromium the extension came back without a new pairing. The installer
+took a screenshot. After `podman restart` of Chromium the extension came back without a new pairing. With nginx
+passing `/extension` alone, the pairing went through as before and `/version` answered nginx's 404. chad's daemon
+ran there without a chat connection: an apply of the `mcp.json` the installer writes printed `MCP server browse:
+connected, 26 tools`, and an MCP client named as clanka names chad's opened `example.com`, read it, took a screenshot
+and closed the tab through `browse mcp`. No model turn was run. The installer
 itself was not run there: its paths on a new volume and on a volume from before browse were run against the stand-ins
 of [`test/unit/deploy.test.ts`](../test/unit/deploy.test.ts).
 

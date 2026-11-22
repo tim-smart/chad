@@ -17,8 +17,9 @@ containers:
   store and turns chad's `asphodel` plugin on.
 - `chromium`, from `lscr.io/linuxserver/chromium`: Chromium on a desktop that a web page shows. chad drives it with
   [browse](https://github.com/anomalyco/browse), and you watch and use the same browser from your own. The installer
-  puts `browse` on chad's volume and gives chad a `browser` skill, and Chromium installs browse's extension itself, so
-  chad can open pages, fill forms and take screenshots once you have paired the two.
+  puts `browse` on chad's volume, adds its MCP server to chad's `mcp.json` and gives chad a `browser` skill, and
+  Chromium installs browse's extension itself, so chad can open pages, fill forms and take screenshots once you have
+  paired the two.
 
 Tailscale runs on the server itself and not in a container, so you reach the server over SSH whatever state the
 containers are in.
@@ -179,10 +180,12 @@ token, so memory starts with chad's next message. `chad status` shows the plugin
 ## The browser
 
 chad drives Chromium with `browse`, which the installer put on chad's volume. It has two parts. Its relay runs in
-chad's container, started by the first `browse` command a session runs, and the browse extension in Chromium connects
-to it and does what it asks. Chromium installs the extension from the Chrome Web Store when it starts, because
-`compose.yaml` gives it a policy that says to, and the Web Store keeps it up to date. The `browser` skill, which the
-installer added to chad's repo as `work/skills/browser/SKILL.md`, tells the model how to use it.
+chad's container, and the browse extension in Chromium connects to it and does what it asks. chad calls it through
+browse's MCP server, which the installer added to `work/mcp.json` as `browse`, so the model has its tools as
+`mcp.browse.*`, and `chad status` lists it under `mcp`. Chromium installs the extension from the Chrome Web Store
+when it starts, because `compose.yaml` gives it a policy that says to, and the Web Store keeps it up to date. The
+`browser` skill, which the installer added to chad's repo as `work/skills/browser/SKILL.md`, tells the model how to
+use it.
 
 To watch a page, or to sign in to a site by hand, open the desktop from a computer on your tailnet:
 
@@ -233,8 +236,8 @@ status` says whether the extension is connected and what to do when it is not.
 - chad can upload a file from its volume to a page, up to 50 MB at a time. A file Chromium downloads stays on
   Chromium's volume.
 - The extension reaches the relay through the desktop's nginx, which listens on Chromium's own loopback and passes
-  the connection on to chad's container over the Compose network. From outside chad's container the relay answers
-  only the extension's connection, and obeys only a browser that paired with it. The connection is not encrypted, and
+  the extension's connection, and nothing else, on to chad's container over the Compose network. The relay obeys
+  only a browser that paired with it. The connection is not encrypted, and
   it never leaves the server. Chromium shares no network with asphodel, so neither the desktop nor a page it opens
   reaches asphodel.
 - browse updates itself on chad's volume about once an hour. To hold it at one version, set
@@ -246,7 +249,8 @@ Earlier versions of this deploy drove Chromium through its DevTools port with `a
 bundled `stale-tabs` plugin to close tabs that sat on one address for an hour. The deploy no longer opens that port.
 The next run of the installer moves such a server onto browse:
 
-- It installs browse and pairs it, as above. `agent-browser` stays on the volume, unused.
+- It installs browse and pairs it, as above, and adds browse's MCP server to `mcp.json`, next to any servers of
+  yours. It adds it once: if you take it out later, it stays out. `agent-browser` stays on the volume, unused.
 - It takes the `stale-tabs` entry out of `chad.json` if it is still the one the installer added. An entry you changed,
   such as one with a `maxAge`, is yours and stays as it is. When it still points at
   `http://172.30.72.10:9223`, the installer says so: it closes nothing now, so take it out, or point it at a Chromium
@@ -254,7 +258,8 @@ The next run of the installer moves such a server onto browse:
 - It replaces `work/skills/browser/SKILL.md` with the one for browse if it is still one the installer added. A skill
   you changed stays as it is, and the installer says so when it still names `agent-browser`. `/opt/chad/browser/SKILL.md`
   is the new one to merge yours with.
-- It applies what it changed with `chad apply`, once.
+- It applies what it changed with `chad apply`, once. An apply publishes everything in `work/`, so while `work/`
+  holds changes of yours that are not applied, it changes nothing and says so. Apply or undo yours and run it again.
 
 ## What is kept, and backups
 

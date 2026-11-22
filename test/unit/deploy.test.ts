@@ -72,7 +72,7 @@ const server = () => {
       "user.email=chad@localhost",
       ...args,
     ])
-  git("init", "-q")
+  git("init", "-q", "-b", "applied")
   git("add", "-A")
   git("commit", "-qm", "First commit")
   return {
@@ -114,6 +114,9 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
   expect(git("show", "HEAD:skills/browser/SKILL.md")).toBe(
     readFileSync(join(root, "deploy/browser/SKILL.md"), "utf8"),
   )
+  expect(
+    JSON.parse(git("show", "HEAD:mcp.json")).mcpServers.browse,
+  ).toMatchObject({ command: "browse", args: ["mcp"] })
   // browse is installed, its relay opened to Chromium's container, and the extension paired.
   expect(calls().filter((call) => call.startsWith("browse "))).toEqual([
     "browse set hostname 0.0.0.0",
@@ -158,47 +161,90 @@ it("an install whose seed fails part way fails, and the next run finishes it, pu
   ])
 })
 
-it("a rerun on a volume seeded before browse takes out the stale-tabs entry it seeded, keeps one the owner changed, and applies nothing once there is nothing to change", () => {
+it("a rerun on a volume seeded before browse moves it to browse with one apply, keeps the owner's files, and never publishes a draft, after a cut apply too", () => {
   const { fake, git, install, calls } = server()
   writeFileSync(join(fake, "tailnet"), "100.64.0.7\n")
   expect(install([]).status).toBe(0)
   const applies = () => calls().filter((call) => call === "chad apply")
-  const work = join(fake, "data/repo/work/chad.json")
-  const asphodel = JSON.parse(readFileSync(work, "utf8")).plugins.asphodel
+  const work = join(fake, "data/repo/work")
+  const published = (path: string) =>
+    git("ls-tree", "-r", "--name-only", "applied").split("\n").includes(path)
+  const asphodel = JSON.parse(readFileSync(join(work, "chad.json"), "utf8"))
+    .plugins.asphodel
   const withStaleTabs = (staleTabs: unknown) => {
     writeFileSync(
-      work,
+      join(work, "chad.json"),
       JSON.stringify(
         { plugins: { asphodel, "stale-tabs": staleTabs } },
         null,
         2,
       ) + "\n",
     )
-    git("commit", "-qam", "chad.json")
+    git("add", "-A")
+    git("commit", "-qm", "chad.json")
   }
 
-  // The entry an earlier install seeded, pointing at the DevTools port the deploy no longer opens.
+  // The entry an earlier install seeded, from before mcp.json named browse, next to the owner's own MCP server and an
+  // applied file of theirs at the name the installer once staged its rewrite under.
+  const files = { command: "npx", args: ["-y", "files-server"] }
+  writeFileSync(
+    join(work, "mcp.json"),
+    JSON.stringify({ mcpServers: { files } }) + "\n",
+  )
+  rmSync(join(fake, "data/home/.deploy-browse-mcp"))
+  writeFileSync(join(work, "chad.json.new"), "the owner's\n")
   withStaleTabs({
     enabled: true,
     settings: { url: "http://172.30.72.10:9223" },
   })
+
+  // An apply publishes all of work/, so with a draft of the owner's there the installer changes and applies nothing.
+  const draft = join(work, "skills/mine/SKILL.md")
+  mkdirSync(dirname(draft), { recursive: true })
+  writeFileSync(draft, "a draft\n")
+  const seeded = readFileSync(join(work, "chad.json"), "utf8")
   expect(install([]).status).toBe(0)
-  expect(JSON.parse(git("show", "HEAD:chad.json")).plugins).toEqual({
+  expect(readFileSync(join(work, "chad.json"), "utf8")).toBe(seeded)
+  expect(applies()).toHaveLength(1)
+  expect(published("skills/mine/SKILL.md")).toBe(false)
+
+  // Without the draft, an apply that fails leaves the change unapplied, and a draft made before the retry is not
+  // published with it.
+  rmSync(dirname(draft), { recursive: true })
+  writeFileSync(join(fake, "fail-apply"), "")
+  expect(install([]).status).not.toBe(0)
+  rmSync(join(fake, "fail-apply"))
+  mkdirSync(dirname(draft), { recursive: true })
+  writeFileSync(draft, "a draft\n")
+  expect(install([]).status).toBe(0)
+  expect(applies()).toHaveLength(1)
+  expect(published("skills/mine/SKILL.md")).toBe(false)
+  expect(readFileSync(draft, "utf8")).toBe("a draft\n")
+
+  // Once the draft is gone the retry applies, once, and the owner's file is as it was.
+  rmSync(dirname(draft), { recursive: true })
+  expect(install([]).status).toBe(0)
+  expect(applies()).toHaveLength(2)
+  expect(JSON.parse(git("show", "applied:chad.json")).plugins).toEqual({
     asphodel,
   })
-  expect(applies()).toHaveLength(2)
+  expect(git("show", "applied:chad.json.new")).toBe("the owner's\n")
+  expect(JSON.parse(git("show", "applied:mcp.json")).mcpServers).toEqual({
+    files,
+    browse: { command: "browse", args: ["mcp"], callTimeout: 660000 },
+  })
+  expect(git("status", "--porcelain")).toBe("")
   expect(install([]).status).toBe(0)
   expect(applies()).toHaveLength(2)
 
-  // One the owner changed is theirs.
+  // A stale-tabs entry the owner changed is theirs.
   withStaleTabs({
     enabled: true,
     settings: { url: "http://172.30.72.10:9223", maxAge: "12 hours" },
   })
-  const owners = readFileSync(work, "utf8")
-  const rerun = install([])
-  expect(rerun.status).toBe(0)
-  expect(readFileSync(work, "utf8")).toBe(owners)
+  const owners = readFileSync(join(work, "chad.json"), "utf8")
+  expect(install([]).status).toBe(0)
+  expect(readFileSync(join(work, "chad.json"), "utf8")).toBe(owners)
   expect(git("status", "--porcelain")).toBe("")
   expect(applies()).toHaveLength(2)
 })

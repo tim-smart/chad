@@ -19,9 +19,12 @@ services:
     # A stop waits up to 60 seconds for a turn to finish.
     stop_grace_period: 90s
     environment:
-      # browse's relay runs in this container, started by the first `browse` command a session runs, and takes these
-      # from it. Uploads may read chad's files, which browse copies into the browser, up to 50 MB a call.
+      # browse's relay runs in this container, started by its MCP server or by the first `browse` command, and takes
+      # these from it. Uploads may read chad's files, which browse copies into the browser, up to 50 MB a call.
       OPENCODE_BROWSER_FILE_ROOTS: /data
+      # chad calls MCP tools from code, as OpenCode does, so it gets browse's tools one by one, in place of the single
+      # `execute` tool browse gives other clients.
+      OPENCODE_BROWSER_TOOLS: plain
     volumes:
       - chad-data:/data
     networks:
@@ -119,13 +122,17 @@ configs:
       }
   # The extension connects to browse's relay at 127.0.0.1:19988 unless it is told otherwise. The image's nginx, which
   # serves the desktop, listens there on this container's loopback and passes the connection on to the relay in chad's
-  # container, so the extension needs no address. The relay answers only the extension's link from outside its own
-  # container, and only for a browser that paired with it. No port of the host leads to it.
+  # container, so the extension needs no address. It passes the extension's link and nothing else, so no update of the
+  # relay can open more of it to Chromium. The relay obeys only a browser that paired with it. No port of the host
+  # leads to it.
   browse-relay:
     content: |
       server {
         listen 127.0.0.1:19988;
         location / {
+          return 404;
+        }
+        location = /extension {
           proxy_pass http://172.30.72.20:19988;
           proxy_http_version 1.1;
           proxy_set_header Upgrade $$http_upgrade;
