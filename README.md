@@ -34,7 +34,7 @@ If chad still paints itself into a corner, `chad revert` rolls back to any earli
 
 chad answers its owners and no one else. Each chat connection keeps an allowlist of Discord user IDs ([`docs/owners.md`](./docs/owners.md)); messages and button clicks from anyone else are silently ignored, and the messages are never stored.
 
-It also doesn't ask for passwords in chat. When it needs a credential, it posts a button that opens a Discord form. API keys go straight to the secret store and MCP sign-in tokens are kept by chad, neither passing through the model, while one-off codes reach only the script that asked for them and are masked in logs. A password you paste into a message anyway stays in the history like any other message, so change it. [`skills/credentials/SKILL.md`](./skills/credentials/SKILL.md) covers each kind.
+It also doesn't ask for passwords in chat. When it needs a key or a one-off code, it posts a button that opens a Discord form, and for an MCP server it posts a sign-in link. API keys go straight to the secret store and MCP sign-in tokens are kept by chad, neither passing through the model. A one-off code reaches only the script that asked for it, and chad masks that exact value in logs and script output. A password you paste into a message anyway stays in the history like any other message, so change it. [`skills/credentials/SKILL.md`](./skills/credentials/SKILL.md) covers each kind.
 
 ## In the box
 
@@ -50,8 +50,9 @@ In DMs, just message chad. In server channels, an `@mention` opens an auto-title
 
 1. [Create a Droplet](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3) (Ubuntu 24.04, 2 vCPUs, 4 GB memory). Select your SSH key and paste [`deploy/cloud-init.yaml`](./deploy/cloud-init.yaml) under "Startup scripts".
 2. Run `ssh root@<the Droplet's IP address>`, then `cloud-init status --wait` so the first boot has finished, then `bash /opt/chad/install.sh`, and sign in to Tailscale at the link it prints.
-3. Run `ssh root@chad`, then `bash /opt/chad/install.sh lockdown` to close every public port except 41641/udp, which Tailscale uses.
-4. In `/opt/chad`, run `docker compose exec chad chad setup` to connect Discord and log chad in to its model.
+3. In the Tailscale admin console, open **Machines**, find `chad`, and choose **Disable key expiry**. Otherwise the server drops off your tailnet when its key expires, after 180 days by default, and lockdown has already closed public SSH.
+4. Run `ssh root@chad`, then `bash /opt/chad/install.sh lockdown` to close every public port except 41641/udp, which Tailscale uses.
+5. In `/opt/chad`, run `docker compose exec chad chad setup` to connect Discord and log chad in to its model.
 
 The guide covers each step in full, including asphodel setup, the browser, backups, and updating. The same installer runs on any Ubuntu 24.04 or Debian server.
 
