@@ -43,7 +43,7 @@ If chad still manages to paint itself into a corner at runtime, `chad revert` ro
 
 chad answers its owners and no one else. Each chat connection keeps an allowlist of Discord user IDs ([`docs/owners.md`](./docs/owners.md)); messages and button clicks from anyone else are silently ignored, and the messages are never stored.
 
-It also doesn't ask for passwords in chat. When chad needs a credential, `requestSecret`, `requestOnce`, and `requestMcpLogin` post a button that opens a Discord form instead. A key saved through `requestSecret` goes straight to the secret store and never passes through the model, and an MCP server's OAuth sign-in is kept on the volume the same way. A one-off code from `requestOnce` goes to the script that asked for it and is saved nowhere, and chad masks that exact value in logs and script output. A password you paste into a message anyway is in the history like any other message, so change it.
+It also doesn't ask for passwords in chat. When chad needs a credential, `requestSecret` and `requestOnce` post a button that opens a Discord form instead. `requestMcpLogin` takes two clicks: its button posts the sign-in link, and a second button under the link opens the form for the address your browser ends on. A key saved through `requestSecret` goes straight to the secret store and never passes through the model, and an MCP server's OAuth sign-in is kept on the volume the same way. A one-off code from `requestOnce` goes to the script that asked for it and is saved nowhere, and chad masks that exact value in logs and script output. A password you paste into a message anyway is in the history like any other message, so change it.
 
 ## In the box
 
@@ -58,11 +58,11 @@ In DMs, just message chad. In server channels, an `@mention` opens an auto-title
 
 ## Deploy to a cloud server
 
-[`docs/deploying.md`](./docs/deploying.md) puts chad on one DigitalOcean Droplet with `asphodel` for long-term memory and a live Chromium instance via the `browse` MCP. After lockdown, every public port is closed and Tailscale is the only way in.
+[`docs/deploying.md`](./docs/deploying.md) puts chad on one DigitalOcean Droplet with `asphodel` for long-term memory and a live Chromium instance via the `browse` MCP. After lockdown, Tailscale is the only way in.
 
 1. [Create a Droplet](https://cloud.digitalocean.com/droplets/new?image=ubuntu-24-04-x64&size=s-2vcpu-4gb&region=nyc3) (Ubuntu 24.04, 2 vCPUs, 4 GB memory). Select your SSH key and paste [`deploy/cloud-init.yaml`](./deploy/cloud-init.yaml) under "Startup scripts".
-2. Run `ssh root@<the Droplet's IP address>`, then `bash /opt/chad/install.sh`, and sign in to Tailscale at the link it prints.
-3. Run `ssh root@chad`, then `bash /opt/chad/install.sh lockdown` to close the public ports.
+2. Run `ssh root@<the Droplet's IP address>`, then `cloud-init status --wait` so the first boot has finished, then `bash /opt/chad/install.sh`, and sign in to Tailscale at the link it prints.
+3. Run `ssh root@chad`, then `bash /opt/chad/install.sh lockdown`. The firewall then refuses every incoming connection that does not come over Tailscale, SSH included. One port stays open on purpose: 41641/udp, which is Tailscale's own.
 4. In `/opt/chad`, run `docker compose exec chad chad setup` to connect Discord and log chad in to its model.
 
 The guide covers each step in full, including asphodel setup, the browser, backups, and updating. The same installer runs on any Ubuntu 24.04 or Debian server.
