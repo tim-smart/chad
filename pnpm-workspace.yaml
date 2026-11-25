@@ -40,3 +40,4 @@ ignoredOptionalDependencies:
 
 minimumReleaseAgeExclude:
   - clanka@0.29.0
+  - dfx@1.1.2
