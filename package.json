@@ -51,7 +51,7 @@
     "@effect/sql-sqlite-node": "catalog:",
     "@modelcontextprotocol/sdk": "1.32.2",
     "clanka": "0.29.0",
-    "dfx": "1.1.1",
+    "dfx": "1.1.2",
     "effect": "catalog:",
     "esbuild": "0.28.2",
     "prettier": "3.10.1",

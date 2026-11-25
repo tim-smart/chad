@@ -199,7 +199,7 @@ importers:
         version: file:vendor/effect-ai-openai-compat.tgz(effect@file:vendor/effect.tgz)
       '@effect/chat-discord':
         specifier: 'catalog:'
-        version: file:vendor/effect-chat-discord.tgz(dfx@1.1.1(effect@file:vendor/effect.tgz))(effect@file:vendor/effect.tgz)
+        version: file:vendor/effect-chat-discord.tgz(dfx@1.1.2(effect@file:vendor/effect.tgz))(effect@file:vendor/effect.tgz)
       '@effect/platform-node':
         specifier: 'catalog:'
         version: file:vendor/effect-platform-node.tgz(effect@file:vendor/effect.tgz)(redis@6.3.1(@opentelemetry/api@1.10.0))
@@ -213,8 +213,8 @@ importers:
         specifier: 0.29.0
         version: 0.29.0(@anthropic-ai/sdk@1.8.0(zod@4.6.7))(@effect/ai-openai-compat@file:vendor/effect-ai-openai-compat.tgz(effect@file:vendor/effect.tgz))(@effect/ai-openai@file:vendor/effect-ai-openai.tgz(effect@file:vendor/effect.tgz))(@effect/platform-node@file:vendor/effect-platform-node.tgz(effect@file:vendor/effect.tgz)(redis@6.3.1(@opentelemetry/api@1.10.0)))(effect@file:vendor/effect.tgz)(zod@4.6.7)
       dfx:
-        specifier: 1.1.1
-        version: 1.1.1(effect@file:vendor/effect.tgz)
+        specifier: 1.1.2
+        version: 1.1.2(effect@file:vendor/effect.tgz)
       effect:
         specifier: file:vendor/effect.tgz
         version: file:vendor/effect.tgz
@@ -1329,9 +1329,9 @@ packages:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
 
-  dfx@1.1.1:
-    resolution: {integrity: sha512-g22vKD6+WtOX6a6PoUjZoryJGp3Ut//ve6jjvEFQ8ONB0zNRkDGdf4IVitNmzZcW8G9Ewsr1FR47A98UWWbmIA==}
-    version: 1.1.1
+  dfx@1.1.2:
+    resolution: {integrity: sha512-Wb9NxAVsh+Kf9AjlNs/wdU9T+nQnilEawXwovQ90Pwjmrz8/5BGIkLMDtdY83O+JDLojcf6Igbcsv7VK59exCw==}
+    version: 1.1.2
     peerDependencies:
       effect: ^4.0.0
 
@@ -2089,9 +2089,9 @@ snapshots:
     dependencies:
       effect: file:vendor/effect.tgz
 
-  '@effect/chat-discord@file:vendor/effect-chat-discord.tgz(dfx@1.1.1(effect@file:vendor/effect.tgz))(effect@file:vendor/effect.tgz)':
+  '@effect/chat-discord@file:vendor/effect-chat-discord.tgz(dfx@1.1.2(effect@file:vendor/effect.tgz))(effect@file:vendor/effect.tgz)':
     dependencies:
-      dfx: 1.1.1(effect@file:vendor/effect.tgz)
+      dfx: 1.1.2(effect@file:vendor/effect.tgz)
       effect: file:vendor/effect.tgz
 
   '@effect/platform-node-shared@file:vendor/effect-platform-node-shared.tgz(effect@file:vendor/effect.tgz)':
@@ -2808,7 +2808,7 @@ snapshots:
 
   detect-libc@2.1.2: {}
 
-  dfx@1.1.1(effect@file:vendor/effect.tgz):
+  dfx@1.1.2(effect@file:vendor/effect.tgz):
     dependencies:
       discord-api-types: 0.38.59
       effect: file:vendor/effect.tgz
