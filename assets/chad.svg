@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 480" width="200" height="240" role="img" aria-label="chad: a black-and-white portrait of a bearded, square-jawed man in three-quarter view with a slight grin">
+  <defs>
+    <radialGradient id="halo" cx="46%" cy="36%" r="58%">
+      <stop offset="0" stop-color="#5a5a57"/>
+      <stop offset="1" stop-color="#0a0a0a"/>
+    </radialGradient>
+    <clipPath id="tile"><rect width="400" height="480" rx="36"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="400" height="480" fill="url(#halo)"/>
+
+    <!-- neck + shoulders, lit -->
+    <path d="M108 236 C104 300 100 342 58 378 C34 398 4 410 -10 432 L-10 490 L410 490 L410 448 C374 424 326 412 302 398 C286 386 284 360 284 330 Z" fill="#f1f1eb"/>
+    <!-- trapezius half tone -->
+    <path d="M106 290 C102 340 82 366 52 386 C28 402 4 414 -10 432 L-10 490 L112 490 C122 430 120 356 106 290 Z" fill="#d2d2cc"/>
+    <!-- throat and far shoulder in shadow -->
+    <path d="M196 352 C214 372 232 410 244 452 L250 490 L410 490 L410 448 C374 424 326 412 302 398 C286 386 284 360 284 330 Z" fill="#474744"/>
+    <path d="M290 392 C316 408 362 422 410 448 L410 490 L300 490 C292 456 288 424 290 392 Z" fill="#2b2b29"/>
+    <!-- sternomastoid edge -->
+    <path d="M140 286 C150 300 160 314 172 326 C160 322 148 312 138 300 Z" fill="#8d8d88"/>
+    <!-- collarbones -->
+    <path d="M150 474 C176 462 204 460 230 466" stroke="#8d8d88" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M262 468 C290 456 320 456 344 464" stroke="#0c0c0c" stroke-width="5" fill="none" stroke-linecap="round"/>
+
+    <!-- face, lit -->
+    <path d="M135 110 C180 80 270 80 300 118 C304 135 305 150 303 162 C301 170 296 176 294 184 C292 194 297 204 299 216 C300 234 294 254 290 270 C288 290 288 312 284 330 C278 350 262 358 244 360 L206 358 C186 350 162 322 148 300 C142 288 140 262 140 240 Z" fill="#f1f1eb"/>
+    <!-- temple half tone -->
+    <path d="M150 196 C150 160 160 132 184 112 C172 140 168 172 172 204 C164 204 156 202 150 196 Z" fill="#d2d2cc"/>
+    <!-- under the cheekbone -->
+    <path d="M152 214 C176 222 204 232 228 250 C212 256 196 252 184 244 C170 236 158 226 152 214 Z" fill="#8d8d88"/>
+
+    <!-- far side of face -->
+    <path d="M284 106 C292 110 298 114 302 122 C305 144 305 154 303 162 C301 170 296 176 294 184 C292 194 297 204 299 216 C300 234 294 254 290 262 L266 256 C274 240 272 204 264 170 C262 146 268 122 284 106 Z" fill="#2b2b29"/>
+
+    <!-- beard -->
+    <path d="M148 190 C152 212 164 232 186 248 C200 258 214 260 228 256 C240 252 250 252 258 256 L290 256 C293 264 294 272 291 280 C288 298 288 314 284 330 C278 350 262 358 244 360 L206 358 C186 350 162 322 148 300 C142 288 140 262 140 240 L140 196 Z" fill="#0c0c0c"/>
+    <!-- jaw plane catching light -->
+    <path d="M150 292 C164 318 186 342 208 352 L244 354 C258 352 270 344 278 330" stroke="#5f5f5b" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- ear -->
+    <path d="M146 196 C130 184 120 200 124 224 C128 244 138 258 148 252 C152 236 152 214 146 196 Z" fill="#d2d2cc"/>
+    <path d="M142 206 C132 204 130 218 134 232" stroke="#2b2b29" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+    <!-- near eye: heavy brow, narrowed lid -->
+    <path d="M176 176 C198 170 232 170 256 176 C257 188 252 198 242 201 C222 205 200 203 186 197 C180 190 177 183 176 176 Z" fill="#8d8d88"/>
+    <path d="M190 191 C204 183 228 183 242 191 C228 198 204 198 190 191 Z" fill="#f1f1eb"/>
+    <circle cx="221" cy="190" r="6" fill="#0c0c0c"/>
+    <path d="M186 191 C202 180 230 180 246 191" stroke="#0c0c0c" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M162 172 C176 158 204 152 232 156 C244 158 254 162 260 170 C240 166 196 164 162 172 Z" fill="#0c0c0c" stroke="#0c0c0c" stroke-width="3" stroke-linejoin="round"/>
+    <!-- far eye -->
+    <path d="M272 187 C278 183 286 183 292 187 C286 191 278 191 272 187 Z" fill="#8d8d88"/>
+    <circle cx="283" cy="187" r="3.2" fill="#0c0c0c"/>
+    <path d="M268 168 C278 160 292 158 303 162 C292 164 280 166 268 168 Z" fill="#0c0c0c" stroke="#0c0c0c" stroke-width="4" stroke-linejoin="round"/>
+
+    <!-- nose -->
+    <path d="M256 172 C264 194 278 218 290 240 C292 248 286 254 276 254 C268 256 258 254 250 248 C254 222 254 198 250 176 Z" fill="#f1f1eb"/>
+    <path d="M250 248 C258 254 268 256 276 254 C286 254 292 248 290 242 C284 248 266 250 250 244 Z" fill="#0c0c0c"/>
+
+    <!-- mouth: closed smirk, near corner pulled up -->
+    <path d="M214 284 C232 280 262 280 282 286 C262 290 236 290 214 284 Z" fill="#6a6a66"/>
+    <path d="M216 286 C236 292 262 292 282 286 C276 302 238 304 216 286 Z" fill="#b4b4ae"/>
+    <path d="M204 276 C208 282 212 284 218 286 C238 291 262 291 284 285" stroke="#0c0c0c" stroke-width="4.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M198 270 C196 278 200 286 206 290" stroke="#5f5f5b" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+    <!-- hair -->
+    <path d="M150 198 C150 160 164 128 192 112 C220 100 266 100 302 126 C306 92 280 52 214 42 C150 36 100 70 92 130 C88 180 96 226 112 250 C122 262 132 258 134 244 C128 226 126 204 134 194 C140 190 146 192 150 198 Z" fill="#0c0c0c"/>
+    <path d="M126 104 C152 68 204 56 256 70 M112 140 C128 100 170 78 220 78 M108 176 C112 150 124 128 142 114" stroke="#5a5a57" stroke-width="5" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>
