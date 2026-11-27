@@ -14,9 +14,10 @@ import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { ChatThread } from "effect/chat"
 import { Config, Duration, Effect, Layer, Redacted } from "effect"
-import { expect, test } from "vitest"
+import { expect, test, vi } from "vitest"
 import * as Format from "../../dist/daemon/Format.js"
 import * as Once from "../../dist/daemon/Once.js"
+import * as McpFile from "../../dist/McpFile.js"
 import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
 import requestSecret from "../../dist/plugins/request-secret/index.js"
@@ -1127,7 +1128,7 @@ test("a Stop while requestOnce waits ends the wait, and the request says so and 
   expect(await fakes.model.calls()).toHaveLength(1)
 })
 
-test("fillSecret puts a stored secret into a browse field without the script holding it, and the value browse and the page echo back is masked in every result, a later turn's included, and is nowhere on the volume but the store, in the chat or in what the model is sent", async () => {
+test("fillSecret puts a stored secret into a browse field without the script holding it, and the value browse and the page echo back is masked in every result, a failed fill's error and a later turn's included, and with debug logging on is in neither log sink, browse's stderr included, nor anywhere on the volume but the store, in the chat or in what the model is sent", async () => {
   // A quote and an apostrophe, which a JSON result and a single-quoted command line spell another way.
   const value = `hunter2-"fill'9c4e7b1d`
   const spellings = [
@@ -1136,8 +1137,10 @@ test("fillSecret puts a stored secret into a browse field without the script hol
     value.replaceAll("'", "'\\''"),
   ]
   const masked = Once.secretMask("EXAMPLE_PASSWORD")
+  const stdout = vi.spyOn(process.stdout, "write")
   const running = await scenario({
     plugins: [{ name: "request-secret", plugin: requestSecret }],
+    env: { CHAD_LOG_LEVEL: "debug" },
   })
   await running.logged("boot.ready")
   expect(
@@ -1173,6 +1176,8 @@ test("fillSecret puts a stored secret into a browse field without the script hol
         `console.log("filled " + JSON.stringify(filled))`,
         `console.log(await mcp.browse.snapshot({ tab: 1 }))`,
         `console.log(await run("echo " + JSON.stringify(await mcp.browse.snapshot({ tab: 1 }))))`,
+        // browse fails with the value in its error.
+        `await fillSecret({ name: "EXAMPLE_PASSWORD", tab: 1, ref: "gone" }).catch((error) => console.log("failed " + error))`,
       ].join("\n"),
     ),
     { text: "Signed in." },
@@ -1189,6 +1194,18 @@ test("fillSecret puts a stored secret into a browse field without the script hol
     `filled ${JSON.stringify(`{"tab":1,"ref":"e7","value":"${masked}"}`)}`,
   )
   expect(first).toContain(`textbox e7: ${masked}`)
+  // The MCP layer masks what its servers say before the session does.
+  expect(first).toContain(`no element gone to fill with ${McpFile.hiddenValue}`)
+  // browse's stderr, which clanka logs at debug on the MCP layer's fiber, reached the log masked.
+  await eventually(
+    () => running.log(),
+    (lines) =>
+      lines.filter(
+        (line) =>
+          line.annotations["server"] === "browse" &&
+          JSON.stringify(line).includes(McpFile.hiddenValue),
+      ).length === 2,
+  )
   await eventually(
     () => posted(running, thread),
     (lines) => lines.includes("Signed in."),
@@ -1201,7 +1218,10 @@ test("fillSecret puts a stored secret into a browse field without the script hol
   const chat = JSON.stringify(await Effect.runPromise(running.chat.calls))
   const model = JSON.stringify(await fakes.model.calls())
   const log = JSON.stringify(running.log())
+  const printed = stdout.mock.calls.map(([chunk]) => String(chunk)).join("")
+  expect(printed).toContain(McpFile.hiddenValue)
   for (const secret of spellings) {
+    expect(printed).not.toContain(secret)
     expect(
       files(running.data).filter(
         (path) =>

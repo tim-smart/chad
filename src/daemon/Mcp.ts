@@ -154,6 +154,8 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
   readonly home: string
   /** The sign-ins of the servers with an `oauth` key. */
   readonly oauth: McpOAuth.McpOAuth
+  /** Values no line of the layer may carry, such as the secrets `fillSecret` passed to a server (`Once.ts`). */
+  readonly hidden?: () => Iterable<string>
 }) {
   const { oauth } = options
   const context = yield* Effect.context<R>()
@@ -203,6 +205,7 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
     // The layer's own scrubber, which everything this layer's servers say goes through, however late it is said.
     const scrub = McpFile.scrubber(resolved.values(), () => [
       ...oauth.hidden(),
+      ...(options.hidden?.() ?? []),
       ...[...targets.values()].flatMap(({ oauth, passed }) => [
         oauth.clientSecret ?? "",
         ...passed,

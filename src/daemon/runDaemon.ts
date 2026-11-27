@@ -463,6 +463,8 @@ const boot = Effect.fnUntraced(function* (
       data: volume.data,
       timeout: inputs.timings.mcpLogin,
     }),
+    // A server's stderr is logged at debug on the layer's own fiber, so a value browse says back there is masked here.
+    hidden: once.filled,
   })
   if (safe === "off" && Option.isSome(applied)) {
     mcp.set(yield* Mcp.atBoot(applied.value.directory, notices))

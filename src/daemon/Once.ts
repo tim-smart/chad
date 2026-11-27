@@ -30,6 +30,11 @@ export interface Daemon extends Store {
    * included, for as long as the daemon runs. A `forget` keeps it.
    */
   readonly hide: (session: string, name: string, value: string) => void
+  /**
+   * Every spelling of every secret any session filled, which the MCP layer's own log lines mask, since a server's
+   * stderr is logged on no session's fiber.
+   */
+  readonly filled: () => ReadonlyArray<string>
   /** A text with each value the session was given replaced by the mask. */
   readonly scrub: (session: string, text: string) => string
   /**
@@ -235,6 +240,7 @@ export const make = (deadline: Duration.Duration): Daemon => {
         [value, quoted(value), JSON.stringify(value).slice(1, -1)],
         secretMask(name),
       ),
+    filled: () => [...hidden.values()].flatMap((masks) => [...masks.keys()]),
     holds: (session) =>
       (given.get(session)?.size ?? 0) + (hidden.get(session)?.size ?? 0) > 0,
     forget: (session) => {

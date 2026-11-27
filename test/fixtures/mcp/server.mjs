@@ -5,8 +5,9 @@
 //   --stubborn     it ignores its standard input closing and SIGTERM
 //   --exit         it exits at once, as a server that cannot start
 // A tool call named quit answers, then the server exits, as one that drops after it connected.
-// The tools: echo and fill give their arguments back, as browse's fill does for a field that is not a password,
-// snapshot those of the last fill, as a page shows what a field holds, token the sha256 of TOKEN with CHAD_SESSION, cwd
+// The tools: echo and fill give their arguments back, as browse's fill does for a field that is not a password, and
+// fill also writes them to stderr, as a server's diagnostic may, and fails on the ref gone with the value in its error,
+// snapshot gives those of the last fill, as a page shows what a field holds, token the sha256 of TOKEN with CHAD_SESSION, cwd
 // its working directory, hang never answers, and any other gives its own name.
 import { createHash } from "node:crypto"
 import { existsSync, writeFileSync } from "node:fs"
@@ -75,7 +76,18 @@ const answer = (request) => {
         writeFileSync(join(mark, "hang"), String(process.pid))
       return
     }
-    if (name === "fill") filled = args ?? {}
+    if (name === "fill") {
+      process.stderr.write(`fill ${JSON.stringify(args ?? {})}\n`)
+      if (args?.ref === "gone")
+        return send({
+          id,
+          result: {
+            ...text(`no element gone to fill with ${args.value}`),
+            isError: true,
+          },
+        })
+      filled = args ?? {}
+    }
     if (name === "echo" || name === "fill")
       return send({ id, result: text(JSON.stringify(args ?? {})) })
     if (name === "snapshot")
