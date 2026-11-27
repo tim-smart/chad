@@ -200,13 +200,15 @@ export const make = (deadline: Duration.Duration): Daemon => {
   const filled = new Set<string>()
   /** Each session's masks, sorted once per change, since every log line and output chunk of the session reads them. */
   const cache = new Map<string, Masks>()
+  /** The masks of a session that holds none, which is not cached, so such a session's id is not kept. */
+  const none: Masks = []
   const valuesOf = (session: string): Masks => {
     let masks = cache.get(session)
     if (masks === undefined) {
-      masks = sorted([
-        ...(hidden.get(session) ?? []),
-        ...(given.get(session) ?? []),
-      ])
+      const fills = hidden.get(session)
+      const once = given.get(session)
+      if (fills === undefined && once === undefined) return none
+      masks = sorted([...(fills ?? []), ...(once ?? [])])
       cache.set(session, masks)
     }
     return masks

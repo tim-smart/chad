@@ -82,7 +82,7 @@ await fillSecret({ name: "EXAMPLE_PASSWORD", tab, ref: "e7" })
 await mcp.browse.click({ tab, ref: "e9" })
 ```
 
-From then on, for the rest of the session, chad replaces the value with `[secret EXAMPLE_PASSWORD]` in script output, tool results and logs, including a snapshot that shows the field's value. As with one-off values, the mask only catches the exact value, so never read the field back to transform or save it.
+From then on, for the rest of the session or until chad restarts, chad replaces the value with `[secret EXAMPLE_PASSWORD]` in script output, tool results and logs, including a snapshot that shows the field's value. A restart clears the mask but not the page, so after one, don't read a field you filled before it. As with one-off values, the mask only catches the exact value, so never read the field back to transform or save it.
 
 ## Asking for a one-off value
 
