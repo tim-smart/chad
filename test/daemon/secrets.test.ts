@@ -1194,17 +1194,18 @@ test("fillSecret puts a stored secret into a browse field without the script hol
     `filled ${JSON.stringify(`{"tab":1,"ref":"e7","value":"${masked}"}`)}`,
   )
   expect(first).toContain(`textbox e7: ${masked}`)
-  // The MCP layer masks what its servers say before the session does.
-  expect(first).toContain(`no element gone to fill with ${McpFile.hiddenValue}`)
-  // browse's stderr, which clanka logs at debug on the MCP layer's fiber, reached the log masked.
+  // A failed fill's error is masked by the session that filled, as its results are.
+  expect(first).toContain(`no element gone to fill with ${masked}`)
+  // browse's stderr, which clanka logs at debug on the MCP layer's own fiber, reached the log masked.
+  const diagnostic = `fill {"tab":1,"ref":"gone","value":"${McpFile.hiddenValue}"}`
   await eventually(
     () => running.log(),
     (lines) =>
-      lines.filter(
+      lines.some(
         (line) =>
           line.annotations["server"] === "browse" &&
-          JSON.stringify(line).includes(McpFile.hiddenValue),
-      ).length === 2,
+          [line.message].flat().includes(diagnostic),
+      ),
   )
   await eventually(
     () => posted(running, thread),
@@ -1219,7 +1220,9 @@ test("fillSecret puts a stored secret into a browse field without the script hol
   const model = JSON.stringify(await fakes.model.calls())
   const log = JSON.stringify(running.log())
   const printed = stdout.mock.calls.map(([chunk]) => String(chunk)).join("")
-  expect(printed).toContain(McpFile.hiddenValue)
+  expect(printed).toContain(
+    `message=${JSON.stringify(diagnostic)} server=browse`,
+  )
   for (const secret of spellings) {
     expect(printed).not.toContain(secret)
     expect(

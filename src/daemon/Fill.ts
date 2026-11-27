@@ -2,8 +2,8 @@
 // the `browse` MCP server's `fill` itself, so the value goes from the store to the page and nowhere else. The value is
 // masked before the call, so whatever browse or the page says back, a text field's value echoed in a result or an
 // error included, reaches the script, the history and the log with `[secret NAME]` in its place (`Once.ts`). What
-// browse writes to its stderr, which clanka logs at debug on no session's fiber, is masked by the MCP layer's own
-// scrubber, which is given every filled value (`Mcp.ts`).
+// browse writes to its stderr, which clanka logs at debug on no session's fiber, is masked by the scrubber of the MCP
+// layer's log lines, which is given every filled value (`Mcp.ts`).
 //
 // Nothing checks which site the tab is on: the model picks the tab, as it does for every other fill.
 import type * as McpServers from "clanka/McpServers"
