@@ -2,8 +2,16 @@
 // hands the value to the tool that waits, which returns it to the calling script. The daemon makes the store
 // (src/daemon/Once.ts) and gives it only to the bundled plugins, so a plugin from the repo reads none and its
 // `requestOnce` says it cannot take a value. No request outlives the tool call that opened it, and none is written
-// anywhere. The daemon masks the value in the session's log lines and script output.
+// anywhere. The daemon masks the value in the session's log lines and script output. The store also fills a stored
+// secret into a page for `fillSecret`, so a plugin from the repo cannot do that either (src/daemon/Fill.ts).
 import { Context, type Duration, type Effect } from "effect"
+
+/** The field a secret goes into, as browse's `fill` names one. */
+export interface Target {
+  readonly tab: string | number
+  readonly ref?: string | undefined
+  readonly selector?: string | undefined
+}
 
 export interface Store {
   /** How long a request waits for the owner's form. */
@@ -28,6 +36,15 @@ export interface Store {
    * request waits, and the value goes nowhere.
    */
   readonly submit: (id: string, thread: string, value: string) => boolean
+  /**
+   * Fills the field with the stored secret `name` for a session, and gives what browse's `fill` returned, with the
+   * value masked. From the fill on, the session's output masks the value.
+   */
+  readonly fill: (
+    session: string,
+    name: string,
+    target: Target,
+  ) => Effect.Effect<unknown, string>
 }
 
 /** The daemon's store, or nothing in a plugin the daemon gives none. */

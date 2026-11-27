@@ -154,6 +154,8 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
   readonly home: string
   /** The sign-ins of the servers with an `oauth` key. */
   readonly oauth: McpOAuth.McpOAuth
+  /** Values no line the layer logs may carry, such as the secrets `fillSecret` passed to a server (`Once.ts`). */
+  readonly hidden: () => Iterable<string>
 }) {
   const { oauth } = options
   const context = yield* Effect.context<R>()
@@ -201,12 +203,19 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
     // Every server connects again, so what an earlier layer was refused says nothing of this one.
     oauth.reset()
     // The layer's own scrubber, which everything this layer's servers say goes through, however late it is said.
-    const scrub = McpFile.scrubber(resolved.values(), () => [
+    const configured = () => [
       ...oauth.hidden(),
       ...[...targets.values()].flatMap(({ oauth, passed }) => [
         oauth.clientSecret ?? "",
         ...passed,
       ]),
+    ]
+    const scrub = McpFile.scrubber(resolved.values(), configured)
+    // What the layer logs on its own fibers, a server's stderr included, belongs to no session, so it also hides what
+    // every session filled. A call's error and result go to one session, which masks its own fills.
+    const logged = McpFile.scrubber(resolved.values(), () => [
+      ...configured(),
+      ...options.hidden(),
     ])
     const built: Built = {
       services: undefined as never,
@@ -227,7 +236,7 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
             : oauth.provider(target)
         }),
         scope,
-      ).pipe(Effect.provideService(Logger.Scrub, scrub)),
+      ).pipe(Effect.provideService(Logger.Scrub, logged)),
       McpServers.McpServers,
     )
     const next: Built = Object.assign(built, { services })

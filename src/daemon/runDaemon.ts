@@ -59,6 +59,7 @@ import * as Mcp from "./Mcp.ts"
 import * as McpOAuth from "./McpOAuth.ts"
 import * as Model from "./Model.ts"
 import * as Notices from "./Notices.ts"
+import * as Fill from "./Fill.ts"
 import * as Once from "./Once.ts"
 import * as Persona from "./Persona.ts"
 import * as Skills from "../Skills.ts"
@@ -462,6 +463,8 @@ const boot = Effect.fnUntraced(function* (
       data: volume.data,
       timeout: inputs.timings.mcpLogin,
     }),
+    // A server's stderr is logged at debug on the layer's own fiber, so a value browse says back there is masked here.
+    hidden: once.filled,
   })
   if (safe === "off" && Option.isSome(applied)) {
     mcp.set(yield* Mcp.atBoot(applied.value.directory, notices))
@@ -849,7 +852,10 @@ const boot = Effect.fnUntraced(function* (
         ),
     timezone,
     timings: inputs.timings,
-    once,
+    once: {
+      ...once,
+      fill: Fill.make({ data: volume.data, fs, once, servers: mcp.servers }),
+    },
     stopping: () => state.stopping,
     notices,
     // The trial `Agent.makeWith` of an apply, on an executor of its own, since clanka dies when two tools share a name.

@@ -37,8 +37,7 @@ import * as Contributions from "./Contributions.ts"
 import * as Loader from "./Loader.ts"
 import * as Logger from "./Logger.ts"
 import type * as Notices from "./Notices.ts"
-import { Once } from "../plugins/request-secret/Once.ts"
-import type * as OnceStore from "./Once.ts"
+import { Once, type Store } from "../plugins/request-secret/Once.ts"
 
 /**
  * The plugins of the daemon. Each one is built once, in a scope of its own, with the
@@ -348,8 +347,8 @@ export const make = Effect.fnUntraced(function* (options: {
   /** The owner's timezone, which a plugin reads as `DateTime.CurrentTimeZone` and gets at load. */
   readonly timezone: () => string
   readonly timings: Timings
-  /** The daemon's `requestOnce` requests, which only a bundled plugin is given (`Once.ts`). */
-  readonly once?: OnceStore.Daemon
+  /** The daemon's `requestOnce` requests and `fillSecret` fills, which only a bundled plugin is given (`Once.ts`). */
+  readonly once?: Store
   /** When the stop began, in milliseconds since the epoch, or nothing before a stop. */
   readonly stopping: () => number | undefined
   readonly notices: Notices.Notices["Service"]
@@ -779,7 +778,7 @@ export const make = Effect.fnUntraced(function* (options: {
             DateTime.CurrentTimeZone,
             DateTime.zoneMakeNamedUnsafe(options.timezone()),
           ),
-          // A plugin from the repo has a bundle, and is not given the `requestOnce` requests.
+          // A plugin from the repo has a bundle, and is not given the `requestOnce` requests or the filler.
           Context.make(
             Once,
             entry.bundle === undefined ? options.once : undefined,
