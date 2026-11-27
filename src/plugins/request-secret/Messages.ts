@@ -64,3 +64,13 @@ export const onceStopped = (name: string) =>
 /** How `requestOnce` fails when the owner entered nothing in time. */
 export const onceTimedOut = (name: string, minutes: number) =>
   `The owner entered no value for ${name} within ${minutes} minute${minutes === 1 ? "" : "s"}, so the request expired. If whatever needs it still waits for the value, tell the owner and ask again; otherwise start over from the step that issued it.`
+
+export const fillDescription =
+  "Fill a browser form field with a stored secret, such as a password, by name. chad passes the value to mcp.browse.fill itself, so your script never sees it. Give the tab and the field's ref from a snapshot, or a selector. Returns what fill returns, with the value masked as [secret NAME]. If the secret isn't stored, ask for it with requestSecret."
+
+/** `fillSecret` called where the daemon gives it no filler. */
+export const fillUnavailable = "chad cannot fill a secret here."
+
+/** `fillSecret` called with neither a ref nor a selector. */
+export const fillNoField =
+  "fillSecret needs the field: pass its ref from a snapshot, or a selector."

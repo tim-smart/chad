@@ -2,11 +2,14 @@
 // owner opens a form for a value. `requestSecret` returns at once, and chad saves what the form submits in the secret
 // store, so the value never passes through the tool, the script that called it or the model. `requestOnce` waits in
 // the turn for the form and returns the value itself, which nothing saves in the store (`src/daemon/Once.ts`).
+// `fillSecret` posts nothing: the daemon puts a stored secret into a page's field through browse, so the script that
+// calls it never holds the value (`src/daemon/Fill.ts`).
 import { Duration, Effect, Layer, Option, Schema } from "effect"
 import { Tool, Toolkit } from "effect/ai"
 import { Chat, ChatThread } from "effect/chat"
 import * as Plugin from "../../Plugin.ts"
 import { CurrentSession } from "../../Session.ts"
+import { Fill } from "./Fill.ts"
 import { Name, OnceButton, SecretButton, secretRequest } from "./Form.ts"
 import * as Messages from "./Messages.ts"
 import { Once } from "./Once.ts"
@@ -32,6 +35,18 @@ const tools = Toolkit.make(
     failure: Schema.String,
     dependencies: [CurrentSession],
   }),
+  Tool.make("fillSecret", {
+    description: Messages.fillDescription,
+    parameters: Schema.Struct({
+      name: Schema.String,
+      tab: Schema.Union([Schema.String, Schema.Number]),
+      ref: Schema.optionalKey(Schema.String),
+      selector: Schema.optionalKey(Schema.String),
+    }),
+    success: Schema.Unknown,
+    failure: Schema.String,
+    dependencies: [CurrentSession],
+  }),
 )
 
 const isName = Schema.is(Name)
@@ -41,6 +56,7 @@ const handlers = tools.toLayer(
     const chat = yield* Chat.Chat
     // The daemon gives its store only to the bundled plugins.
     const once = yield* Once
+    const filler = yield* Fill
     return tools.of({
       requestSecret: Effect.fnUntraced(function* ({ name, reason }) {
         if (!isName(name) || name === Messages.reserved) {
@@ -112,6 +128,19 @@ const handlers = tools.toLayer(
             ),
           )
         }).pipe(Effect.ensuring(Effect.sync(() => once.close(request.id))))
+      }),
+      fillSecret: Effect.fnUntraced(function* ({ name, ...target }) {
+        if (!isName(name) || name === Messages.reserved) {
+          return yield* Effect.fail(Messages.nameInvalid(name, "a secret"))
+        }
+        if (filler === undefined) {
+          return yield* Effect.fail(Messages.fillUnavailable)
+        }
+        if (target.ref === undefined && target.selector === undefined) {
+          return yield* Effect.fail(Messages.fillNoField)
+        }
+        const { session } = yield* CurrentSession
+        return yield* filler.fill(session.id, name, target)
       }),
     })
   }),

@@ -15,7 +15,7 @@ Pick the right mechanism before you start:
 
 ## Keep secrets out of logs and history
 
-Never print a credential. Script output and command lines can end up in session history, logs, chat status messages, and backups. Stored secrets aren't masked in output, and one-off values only have limited masking (described below).
+Never print a credential. Script output and command lines can end up in session history, logs, chat status messages, and backups. Stored secrets aren't masked in output unless `fillSecret` put them into a page, and one-off values only have limited masking (described below).
 
 No `chad secret` command prints a stored value back. Don't try to extract one by dumping the environment (`chad secret run -- printenv` or `env`), reading a password field or saved password through a tool, or opening `secrets/secrets.json` or `secrets/mcp-oauth.json` on the data volume.
 
@@ -47,6 +47,8 @@ Ask for any missing secret before starting work that needs it. Saving a secret r
 
 `chad secret list` shows stored names, notes, and dates. Read the username from the note when a command needs it. Pass secrets by name through `chad secret run` so only the child command sees the value. Delete a secret with `chad secret rm NAME`.
 
+To type a stored password into a web page, use `fillSecret` (next section), not `chad secret run`.
+
 ```sh
 # A token in an environment variable that the tool reads itself
 chad secret run --env GH_TOKEN=GITHUB_TOKEN -- gh repo list
@@ -67,6 +69,20 @@ chad secret run --env TOKEN=WEATHER_TOKEN -- curl -H "Authorization: Bearer $TOK
 In that version, the outer shell expands `$TOKEN` before chad sets it.
 
 You can pass `--env VAR=NAME` multiple times, but `--stdin NAME` only once. Once the child command starts, chad returns its exit code. Exit 125 means chad itself failed (for example, the secret name isn't stored), 126 means the command couldn't execute, and 127 means the command wasn't found.
+
+## Filling a stored secret into a web page
+
+`fillSecret({ name, tab, ref })` types the stored secret `name` into a field of a `browse` tab. Pass the field's `ref` from a snapshot, or a `selector`. chad reads the value from the store and passes it to `mcp.browse.fill` itself, so your script never holds it. Take a snapshot first and check that the tab is on the site named in the secret's note: nothing else checks it.
+
+```js
+const { tab } = await mcp.browse.navigate({ url: "https://example.com/login" })
+console.log(await mcp.browse.snapshot({ tab }))
+await mcp.browse.fill({ tab, ref: "e5", value: "owner@example.com" })
+await fillSecret({ name: "EXAMPLE_PASSWORD", tab, ref: "e7" })
+await mcp.browse.click({ tab, ref: "e9" })
+```
+
+From then on, for the rest of the session, chad replaces the value with `[secret EXAMPLE_PASSWORD]` in script output, tool results and logs, including a snapshot that shows the field's value. As with one-off values, the mask only catches the exact value, so never read the field back to transform or save it.
 
 ## Asking for a one-off value
 

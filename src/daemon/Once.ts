@@ -10,6 +10,9 @@
 // on after an OAuth approval, also masks each of its query and fragment parameters' values, as they are written in the
 // address and decoded, so the `code` a script pulls out of it stays masked. Each of these is also masked as a command
 // line spells it in single quotes.
+//
+// A stored secret that `fillSecret` put into a page is masked the same way, as `[secret NAME]`, for as long as the
+// session lives in this daemon and not only for the turn, since the page keeps the value after the turn ends.
 import { randomUUID } from "node:crypto"
 import { Deferred, type Duration, Exit } from "effect"
 import type { Store } from "../plugins/request-secret/Once.ts"
@@ -17,8 +20,16 @@ import type { Store } from "../plugins/request-secret/Once.ts"
 /** What a value is replaced with in a session's log lines and script output. */
 export const mask = "[one-off value]"
 
+/** What a stored secret's value is replaced with once `fillSecret` handed it to a page. */
+export const secretMask = (name: string) => `[secret ${name}]`
+
 /** The store, with what the daemon redacts a session's output by. */
 export interface Daemon extends Store {
+  /**
+   * Masks a stored secret's value in the session's output from now on, its single-quoted and JSON-escaped spellings
+   * included, for as long as the daemon runs. A `forget` keeps it.
+   */
+  readonly hide: (session: string, name: string, value: string) => void
   /** A text with each value the session was given replaced by the mask. */
   readonly scrub: (session: string, text: string) => string
   /**
@@ -33,9 +44,9 @@ export interface Daemon extends Store {
     /** A whole text, such as an error's, with every value this redactor masks replaced. */
     readonly scrub: (text: string) => string
   }
-  /** Whether the session was given a value, so its output has something to mask. */
+  /** Whether the session was given a value or filled a secret, so its output has something to mask. */
   readonly holds: (session: string) => boolean
-  /** Forgets the values a session was given. The end of each of its turns calls this. */
+  /** Forgets the one-off values a session was given. The end of each of its turns calls this. */
   readonly forget: (session: string) => void
 }
 
@@ -99,15 +110,21 @@ interface Pending {
   value: string | undefined
 }
 
+/** The values to mask, each with its mask, the longest value first. */
+type Masks = ReadonlyArray<readonly [value: string, mask: string]>
+
+const sorted = (masks: Iterable<readonly [string, string]>): Masks =>
+  [...new Map(masks)].sort(([a], [b]) => b.length - a.length)
+
 /**
- * A text with each value replaced by the mask. It reads from the start and masks the longest value that begins at each
+ * A text with each value replaced by its mask. It reads from the start and masks the longest value that begins at each
  * place, so one value inside another, such as an address's code, is masked with the whole. Unless `final`, it stops at
  * the first place where a value longer than any that matches there could still be completed by text yet to come, and
  * gives the text from there as `rest`, unmasked, to be read again with what follows.
  */
 const scan = (
   text: string,
-  values: ReadonlyArray<string>,
+  values: Masks,
   final: boolean,
 ): { readonly out: string; readonly rest: string } => {
   let out = ""
@@ -115,13 +132,14 @@ const scan = (
   let at = 0
   while (at < text.length) {
     const left = text.length - at
-    let matched = 0
+    let matched: readonly [string, string] | undefined
     let open = false
     // The values are the longest first, so the first that matches or may still match decides.
-    for (const value of values) {
+    for (const entry of values) {
+      const value = entry[0]
       if (value.length <= left) {
         if (text.startsWith(value, at)) {
-          matched = value.length
+          matched = entry
           break
         }
       } else if (
@@ -134,12 +152,12 @@ const scan = (
       }
     }
     if (open) return { out: out + text.slice(from, at), rest: text.slice(at) }
-    if (matched === 0) {
+    if (matched === undefined) {
       at++
       continue
     }
-    out += text.slice(from, at) + mask
-    at += matched
+    out += text.slice(from, at) + matched[1]
+    at += matched[0].length
     from = at
   }
   return { out: out + text.slice(from), rest: "" }
@@ -150,18 +168,30 @@ export const scrubValues = (
   text: string,
   values: ReadonlyArray<string>,
 ): string => {
-  const sorted = [...new Set(values)]
-    .filter(Boolean)
-    .sort((a, b) => b.length - a.length)
-  return sorted.length === 0 ? text : scan(text, sorted, true).out
+  const masks = sorted(
+    values.filter(Boolean).map((value) => [value, mask] as const),
+  )
+  return masks.length === 0 ? text : scan(text, masks, true).out
 }
 
 export const make = (deadline: Duration.Duration): Daemon => {
   const pending = new Map<string, Pending>()
-  /** The values each session was given, the longest first. */
-  const given = new Map<string, Array<string>>()
-  const valuesOf = (session: string): ReadonlyArray<string> =>
-    given.get(session) ?? []
+  /** The one-off values each session was given, by value, which the end of a turn forgets. */
+  const given = new Map<string, Map<string, string>>()
+  /** The stored secrets each session filled into a page, by value, which nothing forgets. */
+  const hidden = new Map<string, Map<string, string>>()
+  const add = (
+    into: Map<string, Map<string, string>>,
+    session: string,
+    values: Iterable<string>,
+    masked: string,
+  ) => {
+    const masks = into.get(session) ?? new Map<string, string>()
+    for (const value of values) if (value !== "") masks.set(value, masked)
+    into.set(session, masks)
+  }
+  const valuesOf = (session: string): Masks =>
+    sorted([...(hidden.get(session) ?? []), ...(given.get(session) ?? [])])
   return {
     deadline,
     open: (thread, session) => {
@@ -188,21 +218,25 @@ export const make = (deadline: Duration.Duration): Daemon => {
       )
         return false
       // The value is masked from here on, before the script that asked can print it.
-      if (value !== "") {
-        const values = given.get(request.session) ?? []
-        for (const part of [value, ...parts(value)]) {
-          for (const masked of new Set([part, quoted(part)])) {
-            if (!values.includes(masked)) values.push(masked)
-          }
-        }
-        values.sort((a, b) => b.length - a.length)
-        given.set(request.session, values)
-      }
+      add(
+        given,
+        request.session,
+        [value, ...parts(value)].flatMap((part) => [part, quoted(part)]),
+        mask,
+      )
       request.value = value
       Deferred.doneUnsafe(request.submitted, Exit.succeed(value))
       return true
     },
-    holds: (session) => (given.get(session)?.length ?? 0) > 0,
+    hide: (session, name, value) =>
+      add(
+        hidden,
+        session,
+        [value, quoted(value), JSON.stringify(value).slice(1, -1)],
+        secretMask(name),
+      ),
+    holds: (session) =>
+      (given.get(session)?.size ?? 0) + (hidden.get(session)?.size ?? 0) > 0,
     forget: (session) => {
       given.delete(session)
     },
@@ -213,13 +247,12 @@ export const make = (deadline: Duration.Duration): Daemon => {
     redactor: (session) => {
       let rest = ""
       /** Every value the session held while this stream ran, the longest first. */
-      let values: ReadonlyArray<string> = valuesOf(session)
+      let values: Masks = valuesOf(session)
       const seen = () => {
         const now = valuesOf(session)
-        if (now.every((value) => values.includes(value))) return values
-        values = [...new Set([...values, ...now])].sort(
-          (a, b) => b.length - a.length,
-        )
+        if (now.every(([value]) => values.some(([held]) => held === value)))
+          return values
+        values = sorted([...now, ...values])
         return values
       }
       return {

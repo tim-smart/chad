@@ -1357,6 +1357,17 @@ export const secretPrompt = (name: string) => `Value of ${name}`
 export const secretMissing = (command: "rm" | "run", name: string) =>
   `chad secret ${command}: no secret named ${name}`
 
+/** `fillSecret` named a secret the store does not hold, or holds empty. */
+export const fillMissing = (name: string) =>
+  `fillSecret: no secret named ${name} is stored. Ask the owner to save it with requestSecret, then end your turn.`
+
+/** `fillSecret` when the MCP layer has no `browse.fill`, so nothing was filled. */
+export const fillNoBrowse =
+  "fillSecret: the browse MCP server is not connected, so nothing was filled. Check `mcp` in `chad status` and read the browser skill."
+
+/** `fillSecret` when the store cannot be read. */
+export const fillStoreBroken = (problem: string) => `fillSecret: ${problem}`
+
 /** A store that cannot be read or holds no store. It never carries what the file holds, which may be a value. */
 export const secretStoreBroken = (command: string, problem: string) =>
   `chad secret ${command}: ${problem}`

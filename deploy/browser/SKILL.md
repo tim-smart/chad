@@ -29,7 +29,7 @@ Take a snapshot before acting and another one after. Element refs go stale as so
 - The owner can view and use this Chromium on a desktop in their own browser. When a page needs a person (a sign-in, a captcha, or a verification code), open the tab with `keepOpen: true` and ask the owner in your reply to complete that step on the desktop. If the owner says they're already at the desktop, call `handoff` with `tab` and a `message` to show a card on the tab and wait up to 10 minutes for them to click Continue. Never solve a captcha yourself.
 - Screenshots come back as images attached to your next message. Pass `path` if you also want to save the file in your container.
 - `upload` can attach files from `/data` (up to 50 MB) to a page's file input. Files downloaded in Chromium stay in its container where you can't read them, so fetch the URL directly with `curl` instead.
-- For passwords and one-off codes like OTPs, use `requestSecret` and `requestOnce`. Read the `credentials` skill before signing in to a site.
+- For passwords, fill the field with `fillSecret({ name, tab, ref })` so the value never passes through your script. For one-off codes like OTPs, pass what `requestOnce` returns to `fill`. Read the `credentials` skill before signing in to a site.
 
 ## Troubleshooting
 

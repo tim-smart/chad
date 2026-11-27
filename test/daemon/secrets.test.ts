@@ -1,7 +1,7 @@
 // The secret store as the owner, the agent and a plugin reach it: `chad secret set`, `list`, `rm` and `run` with and
 // without the daemon, the form an owner fills when the agent asks for a secret, the reload of the plugins whose settings
 // name a secret, and the check that no command prints a stored value. And `requestOnce`, which asks the owner for a value
-// that only the calling script gets.
+// that only the calling script gets, and `fillSecret`, which puts a stored secret into a page that no script reads.
 import {
   existsSync,
   mkdirSync,
@@ -11,6 +11,7 @@ import {
   writeFileSync,
 } from "node:fs"
 import { join } from "node:path"
+import { fileURLToPath } from "node:url"
 import type { ChatThread } from "effect/chat"
 import { Config, Duration, Effect, Layer, Redacted } from "effect"
 import { expect, test } from "vitest"
@@ -20,7 +21,7 @@ import * as Messages from "../../dist/Messages.js"
 import * as Plugin from "../../dist/Plugin.js"
 import requestSecret from "../../dist/plugins/request-secret/index.js"
 import * as SecretMessages from "../../dist/plugins/request-secret/Messages.js"
-import { applied } from "../support/applied.ts"
+import { applied, write } from "../support/applied.ts"
 import * as Cli from "../support/cli.ts"
 import { fresh, owner, scenario, type Scenario } from "../support/driver.ts"
 import { results, runs } from "../support/model.ts"
@@ -1124,4 +1125,92 @@ test("a Stop while requestOnce waits ends the wait, and the request says so and 
     ),
   ).toMatchObject({ _tag: "Failure", failure: { _tag: "NoSuchElement" } })
   expect(await fakes.model.calls()).toHaveLength(1)
+})
+
+test("fillSecret puts a stored secret into a browse field without the script holding it, and the value browse and the page echo back is masked in every result, a later turn's included, and is nowhere on the volume but the store, in the chat or in what the model is sent", async () => {
+  // A quote and an apostrophe, which a JSON result and a single-quoted command line spell another way.
+  const value = `hunter2-"fill'9c4e7b1d`
+  const spellings = [
+    value,
+    JSON.stringify(value).slice(1, -1),
+    value.replaceAll("'", "'\\''"),
+  ]
+  const masked = Once.secretMask("EXAMPLE_PASSWORD")
+  const running = await scenario({
+    plugins: [{ name: "request-secret", plugin: requestSecret }],
+  })
+  await running.logged("boot.ready")
+  expect(
+    (
+      await running.chad(
+        ["secret", "set", "EXAMPLE_PASSWORD", "--note", "example.com tim"],
+        {},
+        value + "\n",
+      )
+    ).code,
+  ).toBe(0)
+  const server = fileURLToPath(
+    new URL("../fixtures/mcp/server.mjs", import.meta.url),
+  )
+  write(join(running.data, "repo/work"), {
+    "mcp.json":
+      JSON.stringify({
+        mcpServers: {
+          browse: {
+            command: process.execPath,
+            args: [server, "--tools", "fill,snapshot"],
+          },
+        },
+      }) + "\n",
+  })
+  expect((await running.chad(["apply", "-m", "Add browse"])).code).toBe(0)
+
+  const { fakes } = running
+  await fakes.model.script([
+    runs(
+      [
+        `const filled = await fillSecret({ name: "EXAMPLE_PASSWORD", tab: 1, ref: "e7" })`,
+        `console.log("filled " + JSON.stringify(filled))`,
+        `console.log(await mcp.browse.snapshot({ tab: 1 }))`,
+        `console.log(await run("echo " + JSON.stringify(await mcp.browse.snapshot({ tab: 1 }))))`,
+      ].join("\n"),
+    ),
+    { text: "Signed in." },
+    // A later turn reads the page again, after the turn that filled it ended.
+    runs(
+      `console.log("later " + JSON.stringify(await mcp.browse.snapshot({ tab: 1 })))`,
+    ),
+    { text: "Still signed in." },
+  ])
+  const thread = await fakes.chat.makeThread("direct")
+  await says(running, thread, "sign in to example.com")
+  const first = results((await fakes.model.received(2))[1]).at(-1) ?? ""
+  expect(first).toContain(
+    `filled ${JSON.stringify(`{"tab":1,"ref":"e7","value":"${masked}"}`)}`,
+  )
+  expect(first).toContain(`textbox e7: ${masked}`)
+  await eventually(
+    () => posted(running, thread),
+    (lines) => lines.includes("Signed in."),
+  )
+  await says(running, thread, "check the page again")
+  const later = results((await fakes.model.received(4))[3]).at(-1) ?? ""
+  expect(later).toContain(`later "textbox e7: ${masked}"`)
+
+  await running.stop()
+  const chat = JSON.stringify(await Effect.runPromise(running.chat.calls))
+  const model = JSON.stringify(await fakes.model.calls())
+  const log = JSON.stringify(running.log())
+  for (const secret of spellings) {
+    expect(
+      files(running.data).filter(
+        (path) =>
+          path !== join("secrets", "secrets.json") &&
+          readFileSync(join(running.data, path), "utf8").includes(secret),
+      ),
+    ).toEqual([])
+    expect(chat).not.toContain(secret)
+    expect(model).not.toContain(secret)
+    expect(log).not.toContain(secret)
+  }
 })

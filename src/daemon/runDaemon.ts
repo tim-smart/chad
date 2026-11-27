@@ -59,6 +59,7 @@ import * as Mcp from "./Mcp.ts"
 import * as McpOAuth from "./McpOAuth.ts"
 import * as Model from "./Model.ts"
 import * as Notices from "./Notices.ts"
+import * as Fill from "./Fill.ts"
 import * as Once from "./Once.ts"
 import * as Persona from "./Persona.ts"
 import * as Skills from "../Skills.ts"
@@ -850,6 +851,7 @@ const boot = Effect.fnUntraced(function* (
     timezone,
     timings: inputs.timings,
     once,
+    fill: Fill.make({ data: volume.data, fs, once, servers: mcp.servers }),
     stopping: () => state.stopping,
     notices,
     // The trial `Agent.makeWith` of an apply, on an executor of its own, since clanka dies when two tools share a name.
