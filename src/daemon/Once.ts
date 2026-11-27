@@ -24,17 +24,17 @@ export const mask = "[one-off value]"
 export const secretMask = (name: string) => `[secret ${name}]`
 
 /** The store, with what the daemon redacts a session's output by. */
-export interface Daemon extends Store {
+export interface Daemon extends Omit<Store, "fill"> {
   /**
    * Masks a stored secret's value in the session's output from now on, its single-quoted and JSON-escaped spellings
    * included, for as long as the daemon runs. A `forget` keeps it.
    */
   readonly hide: (session: string, name: string, value: string) => void
   /**
-   * Every spelling of every secret any session filled, which the MCP layer's own log lines mask, since a server's
-   * stderr is logged on no session's fiber.
+   * Every secret any session filled, as it is and single-quoted, which the MCP layer's own log lines mask, since a
+   * server's stderr is logged on no session's fiber. The MCP scrubber adds the JSON and URL spellings itself.
    */
-  readonly filled: () => ReadonlyArray<string>
+  readonly filled: () => Iterable<string>
   /** A text with each value the session was given replaced by the mask. */
   readonly scrub: (session: string, text: string) => string
   /**
@@ -194,9 +194,23 @@ export const make = (deadline: Duration.Duration): Daemon => {
     const masks = into.get(session) ?? new Map<string, string>()
     for (const value of values) if (value !== "") masks.set(value, masked)
     into.set(session, masks)
+    cache.delete(session)
   }
-  const valuesOf = (session: string): Masks =>
-    sorted([...(hidden.get(session) ?? []), ...(given.get(session) ?? [])])
+  /** Every secret any session filled, for the MCP layer's log lines. */
+  const filled = new Set<string>()
+  /** Each session's masks, sorted once per change, since every log line and output chunk of the session reads them. */
+  const cache = new Map<string, Masks>()
+  const valuesOf = (session: string): Masks => {
+    let masks = cache.get(session)
+    if (masks === undefined) {
+      masks = sorted([
+        ...(hidden.get(session) ?? []),
+        ...(given.get(session) ?? []),
+      ])
+      cache.set(session, masks)
+    }
+    return masks
+  }
   return {
     deadline,
     open: (thread, session) => {
@@ -233,18 +247,20 @@ export const make = (deadline: Duration.Duration): Daemon => {
       Deferred.doneUnsafe(request.submitted, Exit.succeed(value))
       return true
     },
-    hide: (session, name, value) =>
+    hide: (session, name, value) => {
       add(
         hidden,
         session,
         [value, quoted(value), JSON.stringify(value).slice(1, -1)],
         secretMask(name),
-      ),
-    filled: () => [...hidden.values()].flatMap((masks) => [...masks.keys()]),
+      )
+      filled.add(value).add(quoted(value))
+    },
+    filled: () => filled,
     holds: (session) =>
       (given.get(session)?.size ?? 0) + (hidden.get(session)?.size ?? 0) > 0,
     forget: (session) => {
-      given.delete(session)
+      if (given.delete(session)) cache.delete(session)
     },
     scrub: (session, text) => {
       const values = valuesOf(session)
@@ -254,10 +270,12 @@ export const make = (deadline: Duration.Duration): Daemon => {
       let rest = ""
       /** Every value the session held while this stream ran, the longest first. */
       let values: Masks = valuesOf(session)
+      /** The session's masks as last read, so an unchanged list costs one comparison. */
+      let last = values
       const seen = () => {
         const now = valuesOf(session)
-        if (now.every(([value]) => values.some(([held]) => held === value)))
-          return values
+        if (now === last) return values
+        last = now
         values = sorted([...now, ...values])
         return values
       }

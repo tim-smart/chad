@@ -7,11 +7,11 @@
 //
 // Nothing checks which site the tab is on: the model picks the tab, as it does for every other fill.
 import type * as McpServers from "clanka/McpServers"
-import { Effect, FileSystem } from "effect"
+import { Effect, type FileSystem, Option } from "effect"
 import * as Messages from "../Messages.ts"
-import type { Filler } from "../plugins/request-secret/Fill.ts"
-import * as Secrets from "../Secrets.ts"
+import type { Store } from "../plugins/request-secret/Once.ts"
 import type * as Once from "./Once.ts"
+import * as PluginSettings from "./PluginSettings.ts"
 
 /** The MCP tool a secret goes through, as clanka keys it. */
 const key = "browse.fill"
@@ -38,15 +38,19 @@ export const make = (options: {
   readonly fs: FileSystem.FileSystem
   readonly once: Once.Daemon
   readonly servers: McpServers.McpServers["Service"]
-}): Filler => ({
-  fill: Effect.fnUntraced(function* (session, name, target) {
-    const store = yield* Secrets.read(options.data).pipe(
-      Effect.provideService(FileSystem.FileSystem, options.fs),
+}): Store["fill"] =>
+  Effect.fnUntraced(function* (session, name, target) {
+    // No environment, so only the store is read.
+    const stored = yield* PluginSettings.lookup(
+      options.data,
+      {},
+      options.fs,
+    )(name).pipe(
       Effect.mapError((error) => Messages.fillStoreBroken(error.message)),
     )
-    const value = Object.hasOwn(store, name) ? store[name]?.value : undefined
-    if (value === undefined || value === "")
+    if (Option.isNone(stored))
       return yield* Effect.fail(Messages.fillMissing(name))
+    const { value } = stored.value
     const handler = options.servers.handlers(() => Effect.void)[key]
     if (handler === undefined) return yield* Effect.fail(Messages.fillNoBrowse)
     // Masked from here on, before browse can say it back.
@@ -56,5 +60,4 @@ export const make = (options: {
       Effect.map((result) => scrubDeep(result, scrub)),
       Effect.mapError(scrub),
     )
-  }),
-})
+  })

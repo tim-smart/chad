@@ -9,7 +9,6 @@ import { Tool, Toolkit } from "effect/ai"
 import { Chat, ChatThread } from "effect/chat"
 import * as Plugin from "../../Plugin.ts"
 import { CurrentSession } from "../../Session.ts"
-import { Fill } from "./Fill.ts"
 import { Name, OnceButton, SecretButton, secretRequest } from "./Form.ts"
 import * as Messages from "./Messages.ts"
 import { Once } from "./Once.ts"
@@ -51,17 +50,19 @@ const tools = Toolkit.make(
 
 const isName = Schema.is(Name)
 
+const checkName = (name: string, what: "a secret" | "a request") =>
+  !isName(name) || name === Messages.reserved
+    ? Effect.fail(Messages.nameInvalid(name, what))
+    : Effect.void
+
 const handlers = tools.toLayer(
   Effect.gen(function* () {
     const chat = yield* Chat.Chat
     // The daemon gives its store only to the bundled plugins.
     const once = yield* Once
-    const filler = yield* Fill
     return tools.of({
       requestSecret: Effect.fnUntraced(function* ({ name, reason }) {
-        if (!isName(name) || name === Messages.reserved) {
-          return yield* Effect.fail(Messages.nameInvalid(name, "a secret"))
-        }
+        yield* checkName(name, "a secret")
         const { session } = yield* CurrentSession
         yield* chat
           .post(session.thread, {
@@ -76,9 +77,7 @@ const handlers = tools.toLayer(
         return Messages.secretPosted(name)
       }),
       requestOnce: Effect.fnUntraced(function* ({ name, reason }) {
-        if (!isName(name) || name === Messages.reserved) {
-          return yield* Effect.fail(Messages.nameInvalid(name, "a request"))
-        }
+        yield* checkName(name, "a request")
         if (once === undefined) {
           return yield* Effect.fail(Messages.onceUnavailable("store"))
         }
@@ -130,17 +129,15 @@ const handlers = tools.toLayer(
         }).pipe(Effect.ensuring(Effect.sync(() => once.close(request.id))))
       }),
       fillSecret: Effect.fnUntraced(function* ({ name, ...target }) {
-        if (!isName(name) || name === Messages.reserved) {
-          return yield* Effect.fail(Messages.nameInvalid(name, "a secret"))
-        }
-        if (filler === undefined) {
+        yield* checkName(name, "a secret")
+        if (once === undefined) {
           return yield* Effect.fail(Messages.fillUnavailable)
         }
         if (target.ref === undefined && target.selector === undefined) {
           return yield* Effect.fail(Messages.fillNoField)
         }
         const { session } = yield* CurrentSession
-        return yield* filler.fill(session.id, name, target)
+        return yield* once.fill(session.id, name, target)
       }),
     })
   }),

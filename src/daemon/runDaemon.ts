@@ -852,8 +852,10 @@ const boot = Effect.fnUntraced(function* (
         ),
     timezone,
     timings: inputs.timings,
-    once,
-    fill: Fill.make({ data: volume.data, fs, once, servers: mcp.servers }),
+    once: {
+      ...once,
+      fill: Fill.make({ data: volume.data, fs, once, servers: mcp.servers }),
+    },
     stopping: () => state.stopping,
     notices,
     // The trial `Agent.makeWith` of an apply, on an executor of its own, since clanka dies when two tools share a name.

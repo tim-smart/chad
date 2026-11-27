@@ -37,9 +37,7 @@ import * as Contributions from "./Contributions.ts"
 import * as Loader from "./Loader.ts"
 import * as Logger from "./Logger.ts"
 import type * as Notices from "./Notices.ts"
-import { Fill, type Filler } from "../plugins/request-secret/Fill.ts"
-import { Once } from "../plugins/request-secret/Once.ts"
-import type * as OnceStore from "./Once.ts"
+import { Once, type Store } from "../plugins/request-secret/Once.ts"
 
 /**
  * The plugins of the daemon. Each one is built once, in a scope of its own, with the
@@ -349,10 +347,8 @@ export const make = Effect.fnUntraced(function* (options: {
   /** The owner's timezone, which a plugin reads as `DateTime.CurrentTimeZone` and gets at load. */
   readonly timezone: () => string
   readonly timings: Timings
-  /** The daemon's `requestOnce` requests, which only a bundled plugin is given (`Once.ts`). */
-  readonly once?: OnceStore.Daemon
-  /** What puts a stored secret into a page for `fillSecret`, which only a bundled plugin is given (`Fill.ts`). */
-  readonly fill?: Filler
+  /** The daemon's `requestOnce` requests and `fillSecret` fills, which only a bundled plugin is given (`Once.ts`). */
+  readonly once?: Store
   /** When the stop began, in milliseconds since the epoch, or nothing before a stop. */
   readonly stopping: () => number | undefined
   readonly notices: Notices.Notices["Service"]
@@ -786,10 +782,6 @@ export const make = Effect.fnUntraced(function* (options: {
           Context.make(
             Once,
             entry.bundle === undefined ? options.once : undefined,
-          ),
-          Context.make(
-            Fill,
-            entry.bundle === undefined ? options.fill : undefined,
           ),
         )
         // The daemon owns the deadline of the build. A `Turns` call the build waits on never returns, and the deadline

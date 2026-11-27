@@ -155,7 +155,7 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
   /** The sign-ins of the servers with an `oauth` key. */
   readonly oauth: McpOAuth.McpOAuth
   /** Values no line the layer logs may carry, such as the secrets `fillSecret` passed to a server (`Once.ts`). */
-  readonly hidden?: () => Iterable<string>
+  readonly hidden: () => Iterable<string>
 }) {
   const { oauth } = options
   const context = yield* Effect.context<R>()
@@ -215,7 +215,7 @@ export const make = Effect.fnUntraced(function* <E, R>(options: {
     // every session filled. A call's error and result go to one session, which masks its own fills.
     const logged = McpFile.scrubber(resolved.values(), () => [
       ...configured(),
-      ...(options.hidden?.() ?? []),
+      ...options.hidden(),
     ])
     const built: Built = {
       services: undefined as never,
